@@ -125,6 +125,13 @@
     return coarse || hasTouch;
   }
 
+  function showFloatingToast(msg) {
+    var pill = $('interact-pill');
+    if (!pill) return;
+    pill.textContent = msg;
+    pill.classList.remove('hidden');
+  }
+
   function renderSwatches() {
     var hatWrap = $('hat-swatches');
     var bodyWrap = $('body-swatches');
@@ -503,43 +510,110 @@
       knob.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
       var nx = dx / maxR;
       var ny = dy / maxR;
-      if (Math.hypot(nx, ny) < 0.14) { nx = 0; ny = 0; }
+      var mag = Math.hypot(nx, ny);
+      if (mag < 0.12) { nx = 0; ny = 0; }
       window.setCampusJoystick(nx, ny);
     }
 
+    function resetStick() {
+      activeId = null;
+      knob.style.transform = 'translate(0px, 0px)';
+      window.setCampusJoystick(0, 0);
+    }
+
     zone.addEventListener('touchstart', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
       var t = e.changedTouches[0];
+      if (!t) return;
       activeId = t.identifier;
       updateStick(t.clientX, t.clientY);
-    }, { passive: true });
+    }, { passive: false });
 
-    zone.addEventListener('touchmove', function (e) {
+    window.addEventListener('touchmove', function (e) {
+      if (activeId === null) return;
       for (var i = 0; i < e.changedTouches.length; i++) {
         if (e.changedTouches[i].identifier === activeId) {
           updateStick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+          break;
         }
       }
     }, { passive: true });
 
     function endStick(e) {
+      if (activeId === null) return;
       for (var i = 0; i < e.changedTouches.length; i++) {
         if (e.changedTouches[i].identifier === activeId) {
-          activeId = null;
-          knob.style.transform = 'translate(0px, 0px)';
-          window.setCampusJoystick(0, 0);
+          resetStick();
+          break;
         }
       }
     }
-    zone.addEventListener('touchend', endStick, { passive: true });
-    zone.addEventListener('touchcancel', endStick, { passive: true });
+    window.addEventListener('touchend', endStick, { passive: true });
+    window.addEventListener('touchcancel', endStick, { passive: true });
+    window.addEventListener('blur', resetStick);
 
-    if ($('btn-mobile-jump')) $('btn-mobile-jump').onclick = function () { window.triggerCampusJump(); };
+    var sprintBtn = $('btn-mobile-sprint');
+    var sprintLatched = false;
+    var sprintTouchStartAt = 0;
+    function syncSprintState(active) {
+      sprintBtn.classList.toggle('sprint-active', !!active);
+      if (window.setCampusSprint) window.setCampusSprint(!!active);
+    }
+    if (sprintBtn) {
+      sprintBtn.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        sprintTouchStartAt = performance.now();
+        syncSprintState(true);
+      }, { passive: false });
+      var endSprint = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var heldMs = performance.now() - sprintTouchStartAt;
+        if (heldMs < 240) {
+          sprintLatched = !sprintLatched;
+          syncSprintState(sprintLatched);
+        } else {
+          sprintLatched = false;
+          syncSprintState(false);
+        }
+      };
+      sprintBtn.addEventListener('touchend', endSprint, { passive: false });
+      sprintBtn.addEventListener('touchcancel', endSprint, { passive: false });
+      sprintBtn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        sprintLatched = !sprintLatched;
+        syncSprintState(sprintLatched);
+      });
+    }
+
+    var jumpBtn = $('btn-mobile-jump');
+    if (jumpBtn) {
+      jumpBtn.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.setCampusJumpHeld) window.setCampusJumpHeld(true);
+        window.triggerCampusJump();
+      }, { passive: false });
+      var endJump = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.setCampusJumpHeld) window.setCampusJumpHeld(false);
+      };
+      jumpBtn.addEventListener('touchend', endJump, { passive: false });
+      jumpBtn.addEventListener('touchcancel', endJump, { passive: false });
+      jumpBtn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        window.triggerCampusJump();
+      });
+    }
   }
 
   function updateFpsUi(fps) {
     inFpsState = fps;
     $('btn-toggle-fps').textContent = fps ? '🌍 Vista Aérea' : '🎥 1ª Pessoa';
-    $('crosshair').style.display = fps && !isTouch() ? 'block' : 'none';
+    $('crosshair').style.display = fps ? 'block' : 'none';
     if (fps && isTouch()) {
       $('mobile-joystick-zone').style.display = 'block';
       $('mobile-actions').style.display = 'flex';
@@ -576,25 +650,13 @@
       onNearScreen: function () {
         $('prof-toolbar').classList.add('hidden');
       },
-      onHoldChange: function (label) {
-        var actBtn = $('btn-mobile-act');
-        if (actBtn) actBtn.textContent = label ? '⬇️' : '✋';
-      },
+      onHoldChange: function () {},
       onFpsChange: updateFpsUi,
       onHoverPrompt: function (txt) {
         var pill = $('interact-pill');
         var isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
         if (isCoarse) {
           pill.classList.add('hidden');
-          var actBtn = $('btn-mobile-act');
-          if (actBtn && txt) {
-            if (txt.indexOf('escrever') >= 0) actBtn.textContent = '✏️';
-            else if (txt.indexOf('apagar') >= 0) actBtn.textContent = '🧽';
-            else if (txt.indexOf('sentar') >= 0) actBtn.textContent = '🪑';
-            else if (txt.indexOf('luz') >= 0) actBtn.textContent = '💡';
-            else if (txt.indexOf('Soltar') >= 0) actBtn.textContent = '⬇️';
-            else actBtn.textContent = '✋';
-          }
           return;
         }
         if (txt && currentUser) {
@@ -638,11 +700,6 @@
     });
 
     $('btn-toggle-fps').onclick = function () { window.setCampusFpsMode(!inFpsState); };
-    var actBtn = $('btn-mobile-act');
-    if (actBtn) {
-      actBtn.addEventListener('touchstart', function (e) { e.preventDefault(); if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true); }, { passive: false });
-      actBtn.addEventListener('touchend', function (e) { e.preventDefault(); if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(false); }, { passive: false });
-    }
     $('btn-logout').onclick = logoutCampus;
     $('btn-open-lessons').onclick = function () { renderLessonsModal(); $('lesson-modal').classList.remove('hidden'); };
     $('btn-close-lessons').onclick = function () { $('lesson-modal').classList.add('hidden'); };
@@ -656,34 +713,53 @@
       try { await apiPost('api/multiplayer.php?action=reset_world', {}, true); } catch (e) { /* silent */ }
     };
 
-    $('chat-form').addEventListener('submit', function (e) {
-      e.preventDefault();
+    function submitChatMessage() {
       var inp = $('chat-input');
+      if (!inp) return;
       var txt = inp.value.trim();
       if (txt) {
         pendingChatMsg = txt.slice(0, 140);
         inp.value = '';
+        syncMultiplayer();
       }
       inp.blur();
+    }
+
+    $('chat-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      submitChatMessage();
+    });
+
+    $('chat-input').addEventListener('focus', function () {
+      if (window.clearCampusKeys) window.clearCampusKeys();
     });
 
     $('chat-input').addEventListener('keydown', function (e) {
+      e.stopPropagation();
       if (e.key === 'Escape') {
         e.preventDefault();
         this.blur();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        submitChatMessage();
       }
     });
 
     window.addEventListener('keydown', function (e) {
-      if (e.code !== 'KeyT' || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.code !== 'KeyE' && e.code !== 'KeyT' && e.code !== 'Enter') return;
       var active = document.activeElement;
       if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
-      var loginEl = $('login-overlay');
-      if (loginEl && !loginEl.classList.contains('hidden')) return;
+      var lobbyEl = $('campus-lobby');
+      if (lobbyEl && !lobbyEl.classList.contains('hidden')) return;
+      var lessonEl = $('lesson-modal');
+      if (lessonEl && !lessonEl.classList.contains('hidden')) return;
+      var rankEl = $('ranking-modal');
+      if (rankEl && !rankEl.classList.contains('hidden')) return;
       var inp = $('chat-input');
       if (!inp) return;
       e.preventDefault();
-      if (document.pointerLockElement) document.exitPointerLock();
+      if (window.clearCampusKeys) window.clearCampusKeys();
       inp.focus();
       setTimeout(function () { if (document.activeElement !== inp) inp.focus(); }, 15);
     });

@@ -76,7 +76,6 @@
   var fpsLeftArmGroup = null;
   var fpsSleeveMat = null;
   var snapClosePot = null;
-  var labDoorPivot = null, labDoorOpen = false, labDoorAngle = 0;
   var localAvatar = null;
   var armSwingPhase = 0;
   var armReach = 0;
@@ -2046,9 +2045,10 @@
     placementRing.scale.set(pulse, pulse, 1);
   }
 
-  function findPlacementTarget() {
+  function findPlacementTarget(customNdc) {
     snapClosePot = null;
-    raycaster.setFromCamera(inFps ? new THREE.Vector2(0, 0) : pointerNdc, camera);
+    var rayNdc = customNdc || (inFps ? new THREE.Vector2(0, 0) : pointerNdc);
+    raycaster.setFromCamera(rayNdc, camera);
     var dir = raycaster.ray.direction;
     var origin = raycaster.ray.origin;
     var bestPt = null;
@@ -2589,10 +2589,11 @@
     }
   }
 
-  function updateHoverRay() {
+  function updateHoverRay(customNdc) {
     hoveredPickable = null;
     hoveredMushroom = null;
-    hoveredDoor = false;
+    hoveredDoorObj = null;
+    hoveredBlindObj = null;
     hoveredScreen = false;
     hoveredScreenBtn = null;
     hoveredBoardHit = null;
@@ -2617,7 +2618,8 @@
       if (callbacks.onNearScreen) callbacks.onNearScreen(nearScreenState);
     }
 
-    raycaster.setFromCamera(inFps ? new THREE.Vector2(0, 0) : pointerNdc, camera);
+    var rayNdc = customNdc || (inFps ? new THREE.Vector2(0, 0) : pointerNdc);
+    raycaster.setFromCamera(rayNdc, camera);
 
     if (heldItem) {
       var toolCol = getHeldBoardToolColor();
@@ -2632,7 +2634,7 @@
           return;
         }
       }
-      var pt = findPlacementTarget();
+      var pt = findPlacementTarget(rayNdc);
       placementValid = !isPlacementBlocked(pt);
       placementGhost.position.copy(pt);
       updatePlacementGhostVisual(heldItem, placementValid, heldRotY);
@@ -2721,11 +2723,11 @@
         prompt = '📺 Abrir Módulos da Universidade';
       }
     }
-    if (!prompt && labDoorPivot) {
-      var doorHits = raycaster.intersectObject(labDoorPivot, true);
-      if (doorHits.length > 0 && doorHits[0].distance < 4.5) {
-        hoveredDoor = true;
-        prompt = labDoorOpen ? '🚪 Fechar Porta do Lab' : '🚪 Abrir Porta do Lab';
+    if (!prompt && doorHitMeshes.length) {
+      var doorHits = raycaster.intersectObjects(doorHitMeshes, false);
+      if (doorHits.length > 0 && doorHits[0].distance < 5.0) {
+        hoveredDoorObj = doorHits[0].object.userData.doorObj;
+        prompt = '🚪 ' + (hoveredDoorObj.open ? 'Fechar ' : 'Abrir ') + hoveredDoorObj.label;
       }
     }
     if (!prompt) {
@@ -2758,6 +2760,13 @@
           }
           break;
         }
+      }
+    }
+    if (!prompt && blindHitMeshes.length) {
+      var blHits = raycaster.intersectObjects(blindHitMeshes, false);
+      if (blHits.length > 0 && blHits[0].distance < 5.5) {
+        hoveredBlindObj = blHits[0].object.userData.blindObj;
+        prompt = hoveredBlindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana';
       }
     }
     if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
@@ -2795,12 +2804,25 @@
     window.addEventListener('keydown', function (e) {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
       keys[e.code] = true;
-      if (e.code === 'Space' && inFps && onGround) {
-        playerVelY = 6.2;
-        onGround = false;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        window.triggerCampusJump();
       }
     });
     window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+
+    function clearAllInputKeys() {
+      Object.keys(keys).forEach(function (k) { keys[k] = false; });
+      isPrimaryDown = false;
+      jumpHeld = false;
+      flushCurrentStroke();
+    }
+    window.addEventListener('blur', clearAllInputKeys);
+    document.addEventListener('pointerlockchange', function () {
+      if (document.pointerLockElement !== renderer.domElement) {
+        clearAllInputKeys();
+      }
+    });
 
     renderer.domElement.addEventListener('mousemove', function (e) {
       if (inFps && document.pointerLockElement === renderer.domElement) {
@@ -2837,7 +2859,7 @@
       }
     }, { passive: false });
 
-    var touchLookId = null, lastTX = 0, lastTY = 0, touchMoved = false;
+    var touchLookId = null, lastTX = 0, lastTY = 0, touchMoved = false, touchDrawingBoard = false;
     function setNdcFromTouch(t) {
       var rect = renderer.domElement.getBoundingClientRect();
       pointerNdc.x = ((t.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2847,10 +2869,22 @@
     renderer.domElement.addEventListener('touchstart', function (e) {
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
-        if (touchLookId === null && t.clientX > window.innerWidth * 0.25) {
+        if (touchLookId === null) {
           touchLookId = t.identifier;
           lastTX = t.clientX; lastTY = t.clientY;
           touchMoved = false;
+          touchDrawingBoard = false;
+          if (inFps && !lobbyTourActive && heldItem && getHeldBoardToolColor() && chalkboardMeshes.length) {
+            setNdcFromTouch(t);
+            raycaster.setFromCamera(pointerNdc, camera);
+            var bHits = raycaster.intersectObjects(chalkboardMeshes, false);
+            if (bHits.length > 0 && bHits[0].distance < 3.8 && bHits[0].uv) {
+              touchDrawingBoard = true;
+              isPrimaryDown = true;
+              hoveredBoardHit = bHits[0];
+              hoveredBoardIndex = bHits[0].object.userData.boardIndex || 0;
+            }
+          }
         }
       }
     }, { passive: true });
@@ -2861,33 +2895,49 @@
         var t = e.changedTouches[i];
         if (t.identifier === touchLookId) {
           var dx = t.clientX - lastTX, dy = t.clientY - lastTY;
-          if (Math.hypot(dx, dy) > 5) touchMoved = true;
-          playerYaw -= dx * 0.0045;
-          playerPitch = Math.max(-1.35, Math.min(1.35, playerPitch - dy * 0.0045));
+          if (Math.hypot(dx, dy) > 6) touchMoved = true;
+          if (touchDrawingBoard) {
+            setNdcFromTouch(t);
+            raycaster.setFromCamera(pointerNdc, camera);
+            var bHits = raycaster.intersectObjects(chalkboardMeshes, false);
+            if (bHits.length > 0 && bHits[0].distance < 3.8 && bHits[0].uv) {
+              hoveredBoardHit = bHits[0];
+              hoveredBoardIndex = bHits[0].object.userData.boardIndex || 0;
+            }
+          } else {
+            playerYaw -= dx * 0.0045;
+            playerPitch = Math.max(-1.35, Math.min(1.35, playerPitch - dy * 0.0045));
+          }
           lastTX = t.clientX; lastTY = t.clientY;
         }
       }
     }, { passive: true });
 
-    renderer.domElement.addEventListener('touchend', function (e) {
+    function resetTouchLook(e) {
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         if (t.identifier === touchLookId) {
-          if (!touchMoved && !lobbyTourActive) {
+          if (touchDrawingBoard) {
+            isPrimaryDown = false;
+            flushCurrentStroke();
+            touchDrawingBoard = false;
+          } else if (!touchMoved && !lobbyTourActive) {
             setNdcFromTouch(t);
-            raycaster.setFromCamera(pointerNdc, camera);
-            updateHoverRay();
+            updateHoverRay(pointerNdc);
             // Se tocou no vazio, tenta tambem na mira central (crosshair) para facilitar no celular
-            if (!hoveredPickable && !hoveredMushroom && !hoveredDoor && !hoveredSeat && !hoveredSwitch && !hoveredRankBtn && !hoveredCinema) {
+            var hasTarget = hoveredPickable || hoveredMushroom || hoveredDoorObj || hoveredBlindObj || hoveredSeat || hoveredSwitch || hoveredHoodSwitch || hoveredRankBtn || hoveredCinema || hoveredScreen || hoveredScreenBtn;
+            if (!hasTarget) {
               pointerNdc.set(0, 0);
-              updateHoverRay();
+              updateHoverRay(pointerNdc);
             }
             handlePrimaryAction();
           }
           touchLookId = null;
         }
       }
-    }, { passive: true });
+    }
+    renderer.domElement.addEventListener('touchend', resetTouchLook, { passive: true });
+    renderer.domElement.addEventListener('touchcancel', resetTouchLook, { passive: true });
 
     window.addEventListener('resize', function () {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -2911,10 +2961,40 @@
       }
     });
 
-    if (labDoorPivot) {
-      var targetAngle = labDoorOpen ? -Math.PI * 0.48 : 0;
-      labDoorAngle += (targetAngle - labDoorAngle) * Math.min(1, dt * 8);
-      labDoorPivot.rotation.y = labDoorAngle;
+    for (var di = 0; di < campusDoors.length; di++) {
+      var d = campusDoors[di];
+      var targetAngle = d.open ? -d.dir * Math.PI * 0.48 : 0;
+      d.angle += (targetAngle - d.angle) * Math.min(1, dt * 8);
+      d.pivot.rotation.y = d.angle;
+    }
+
+    for (var bi = 0; bi < windowBlinds.length; bi++) {
+      var b = windowBlinds[bi];
+      var targetProg = b.open ? 0.0 : 1.0; // 1.0 = persiana abaixada cobrindo o vidro, 0.0 = recolhida no topo
+      if (Math.abs(b.progress - targetProg) > 0.001) {
+        b.progress += (targetProg - b.progress) * Math.min(1, dt * 7.5);
+        var p = b.progress;
+        var count = b.slats.length;
+        var activeSpan = (b.dropH - 0.14) * p;
+        for (var si = 0; si < count; si++) {
+          var frac = (si + 0.5) / count;
+          var stackedY = -0.05 - si * 0.007;
+          var fullY = -0.07 - frac * (b.dropH - 0.12);
+          b.slats[si].position.y = stackedY + (fullY - stackedY) * p;
+          // Lâminas inclinam enquanto abrem/fecham, simulando o giro da vareta da persiana
+          b.slats[si].rotation.z = b.dir * (0.28 * p + (1 - p) * 1.15);
+        }
+        var bottomY = -0.09 - count * 0.007 - activeSpan;
+        b.bottomRail.position.y = bottomY;
+        var tapeLen = Math.max(0.08, -bottomY);
+        for (var ti = 0; ti < b.tapes.length; ti++) {
+          b.tapes[ti].scale.y = tapeLen / b.dropH;
+          b.tapes[ti].position.y = -tapeLen / 2;
+        }
+        if (b.cordKnob) {
+          b.cordKnob.position.y = -b.dropH * 0.42 - (1 - p) * (b.dropH * 0.35);
+        }
+      }
     }
 
     if (lobbyTourActive) {
@@ -2926,13 +3006,14 @@
       var targetVX = 0, targetVZ = 0;
       if (mag > 0.08) {
         if (seatedSeat) seatedSeat = null; // levanta automaticamente ao andar!
-        var joyMag = Math.hypot(joyX, joyY);
-        var maxSpeed = keys['ShiftLeft'] ? 7.5 : (joyMag > 0.08 ? (2.0 + Math.min(1, joyMag) * 5.8) : 4.6);
+        var isSprinting = !!(keys['ShiftLeft'] || keys['ShiftRight'] || mobileSprint);
+        var maxSpeed = isSprinting ? 7.5 : 4.6;
+        var throttle = Math.min(1, mag);
         moveX /= mag; moveZ /= mag;
         var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
         var rightX = Math.cos(playerYaw), rightZ = -Math.sin(playerYaw);
-        targetVX = (fwdX * moveZ + rightX * moveX) * maxSpeed;
-        targetVZ = (fwdZ * moveZ + rightZ * moveX) * maxSpeed;
+        targetVX = (fwdX * moveZ + rightX * moveX) * maxSpeed * throttle;
+        targetVZ = (fwdZ * moveZ + rightZ * moveX) * maxSpeed * throttle;
       }
       // Aceleracao e desaceleracao suaves (inercia natural ao andar e parar)
       var accelFactor = 1 - Math.exp(-(mag > 0.08 ? 9.5 : 7.5) * dt);
@@ -2953,6 +3034,18 @@
         playerPos.y = groundY;
         playerVelY = 0;
         onGround = true;
+        lastGroundedAt = now;
+      } else {
+        onGround = false;
+      }
+      // Pulo responsivo: Coyote Time (150ms), Jump Buffer (150ms) e segurar Espaco/Pulo
+      var wantsJump = (now <= jumpBufferUntil) || keys['Space'] || jumpHeld;
+      if (wantsJump && (onGround || (now - lastGroundedAt < 150 && playerVelY <= 0))) {
+        if (seatedSeat) seatedSeat = null;
+        playerVelY = 6.2;
+        onGround = false;
+        lastGroundedAt = 0;
+        jumpBufferUntil = 0;
       }
       var bobY = 0;
       if (onGround && speedNow > 0.25) {
@@ -3556,10 +3649,37 @@
   };
 
   window.triggerCampusJump = function () {
-    if (inFps && onGround) {
+    if (!inFps) return;
+    if (seatedSeat) {
+      seatedSeat = null;
       playerVelY = 6.2;
       onGround = false;
+      return;
     }
+    var now = performance.now();
+    jumpBufferUntil = now + 150;
+    if (onGround || (now - lastGroundedAt < 150 && playerVelY <= 0)) {
+      playerVelY = 6.2;
+      onGround = false;
+      lastGroundedAt = 0;
+      jumpBufferUntil = 0;
+    }
+  };
+
+  window.setCampusJumpHeld = function (held) {
+    jumpHeld = !!held;
+    if (jumpHeld) window.triggerCampusJump();
+  };
+
+  window.setCampusSprint = function (active) {
+    mobileSprint = !!active;
+  };
+
+  window.clearCampusKeys = function () {
+    Object.keys(keys).forEach(function (k) { keys[k] = false; });
+    isPrimaryDown = false;
+    jumpHeld = false;
+    flushCurrentStroke();
   };
 
   window.rotateCampusHeldItem = function (deltaRad) {

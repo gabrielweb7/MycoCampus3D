@@ -2,6 +2,20 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.5.7] — 2026-11-15
+### Added & Improved
+- **Fachadas de Vidro Fechadas + Portas em Todas as Salas + Persianas Horizontais 3D Animadas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Todas as 4 salas térreas (`Porta do Laboratório`, `Porta da Sala Oeste`, `Porta de Substratos` e `Porta da Estufa`) agora possuem portas de vidro temperado completas com batentes de alumínio, bandeira superior de vidro (`transom`), puxador duplo cromado, animação suave e colisão real quando fechadas.
+  - Adicionadas **Persianas Horizontais 3D (`createVenetianBlind`)** em todos os vidros laterais de cada sala (1º e 2º andares), cobrindo todo o vidro com 22 lâminas de alumínio prateado, trilho superior, fitas verticais, barra inferior, vareta acrílica e cordão com pendente branco.
+  - Clicar ou tocar em qualquer persiana (`🪟 Abrir Persiana` / `🪟 Fechar Persiana`) anima suavemente a subida/descida e a inclinação das lâminas.
+  - Corrigido o sombreamento escuro nas fachadas de vidro (`noShadow: true` nos painéis de vidro) e instaladas 4 luminárias fluorescentes de teto no 1º e no 2º andar de todos os blocos.
+- **Controles Mobile (Botão de Correr `🏃` + Botão de Pular `⬆️` + Toque na Tela para Ações) ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Removido o auto-sprint do joystick no celular; adicionado botão dedicado de **Correr (`🏃`)** ao lado direito acima do botão de **Pular (`⬆️`)**, suportando tanto segurar para correr quanto toque rápido para ativar/desativar corrida (`sprint-active`).
+  - Corrigido o multi-touch (`touchstart`/`touchend` independente com `preventDefault` + `stopPropagation`) para permitir **correr com o joystick e pular ao mesmo tempo** sem conflito de toque, além de *Coyote Time* (150ms) e *Jump Buffer* (150ms).
+  - Tocar na tela interage diretamente com objetos, portas, persianas, interruptores, cadeiras e lousa (no ponto do toque ou na mira central).
+- **Atalho `E` / `T` / `Enter` para Chat no PC ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Apertar `E`, `T` ou `Enter` foca imediatamente no `#chat-input` para digitar e zera as teclas de movimento (`clearCampusKeys()`); apertar `Enter` envia a mensagem na hora e devolve o foco ao jogo sem perder o Pointer Lock.
+
 ## [v0.5.6] — 2026-11-15
 ### Added & Improved
 - **Panelas de Pressão 20L Profissionais com Tampa Removível ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
