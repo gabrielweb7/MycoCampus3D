@@ -2,6 +2,10 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.5.2] — 2026-11-14
+### Fixed
+- **Posicionamento preciso seguindo a mira/mouse ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Substituída a amostragem grosseira por interseção exata raio × plano em mesas/bandejas/bancadas, passo fino no piso e liberação de superfícies de apoio perto de paredes/cantos.
+
 ## [v0.5.1] — 2026-11-14
 ### Fixed
 - **Chuva e Neve não entram mais nos prédios ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Partículas de chuva e neve agora colidem com `roofZones` (telhados das alas, auditório e dormitórios) e são recicladas no céu antes de atravessar qualquer teto.

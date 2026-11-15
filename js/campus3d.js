@@ -1605,43 +1605,61 @@
 
   function findPlacementTarget() {
     raycaster.setFromCamera(inFps ? new THREE.Vector2(0, 0) : pointerNdc, camera);
-    var dir = raycaster.ray.direction.clone();
-    var origin = raycaster.ray.origin.clone();
+    var dir = raycaster.ray.direction;
+    var origin = raycaster.ray.origin;
     var bestPt = null;
-    for (var t = 0.6; t <= 4.5; t += 0.25) {
-      var p = origin.clone().addScaledVector(dir, t);
+    var bestT = Infinity;
+
+    // 1. Intersecao exata Raio x Plano para mesas, bancadas e bandejas de lousa
+    if (dir.y < -0.02) {
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
-        if (p.x >= s.minX && p.x <= s.maxX && p.z >= s.minZ && p.z <= s.maxZ && Math.abs(p.y - s.topY) < 0.35) {
-          bestPt = new THREE.Vector3(p.x, s.topY, p.z);
-          break;
+        var tPlane = (s.topY - origin.y) / dir.y;
+        if (tPlane >= 0.35 && tPlane <= 5.0 && tPlane < bestT) {
+          var hx = origin.x + dir.x * tPlane;
+          var hz = origin.z + dir.z * tPlane;
+          if (hx >= s.minX && hx <= s.maxX && hz >= s.minZ && hz <= s.maxZ) {
+            bestT = tPlane;
+            bestPt = new THREE.Vector3(hx, s.topY, hz);
+          }
         }
       }
-      if (bestPt) break;
-      var gh = getGroundHeight(p.x, p.z, playerPos.y);
-      if (p.y <= gh + 0.15) {
-        bestPt = new THREE.Vector3(p.x, gh, p.z);
-        break;
+    }
+    if (bestPt) return bestPt;
+
+    // 2. Intersecao fina com piso / terreno / escadas ao longo da mira
+    for (var t = 0.45; t <= 5.0; t += 0.08) {
+      var px = origin.x + dir.x * t;
+      var py = origin.y + dir.y * t;
+      var pz = origin.z + dir.z * t;
+      var gh = getGroundHeight(px, pz, playerPos.y);
+      if (py <= gh + 0.04) {
+        return new THREE.Vector3(px, gh, pz);
       }
     }
-    if (!bestPt) {
-      var fwd = new THREE.Vector3(-Math.sin(playerYaw), 0, -Math.cos(playerYaw));
-      var fx = playerPos.x + fwd.x * 1.4;
-      var fz = playerPos.z + fwd.z * 1.4;
-      bestPt = new THREE.Vector3(fx, getGroundHeight(fx, fz, playerPos.y), fz);
-    }
-    return bestPt;
+
+    // 3. Fallback suave seguindo a direcao exata do mouse/mira (mesmo olhando para parede/canto)
+    var hLen = Math.hypot(dir.x, dir.z) || 1;
+    var fx = playerPos.x + (dir.x / hLen) * 1.8;
+    var fz = playerPos.z + (dir.z / hLen) * 1.8;
+    return new THREE.Vector3(fx, getGroundHeight(fx, fz, playerPos.y), fz);
   }
 
   function isPlacementBlocked(pt) {
+    for (var i = 0; i < supportSurfaces.length; i++) {
+      var s = supportSurfaces[i];
+      if (pt.x >= s.minX && pt.x <= s.maxX && pt.z >= s.minZ && pt.z <= s.maxZ && Math.abs(pt.y - s.topY) < 0.08) {
+        return false; // superficies de apoio (mesas, bandejas) sempre permitem soltar
+      }
+    }
     if (pt.y > 3.2) return false;
-    for (var i = 0; i < wallSegments.length; i++) {
-      var w = wallSegments[i];
+    for (var wIdx = 0; wIdx < wallSegments.length; wIdx++) {
+      var w = wallSegments[wIdx];
       var vx = w.x2 - w.x1, vz = w.z2 - w.z1;
       var len2 = vx * vx + vz * vz;
       var t = Math.max(0, Math.min(1, ((pt.x - w.x1) * vx + (pt.z - w.z1) * vz) / len2));
       var dist = Math.hypot(pt.x - (w.x1 + t * vx), pt.z - (w.z1 + t * vz));
-      if (dist < 0.35) return true;
+      if (dist < 0.25) return true;
     }
     return false;
   }
