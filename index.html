@@ -149,10 +149,11 @@
       margin-left: -5px;
       margin-top: -5px;
       border-radius: 9999px;
-      border: 2px solid rgba(255, 255, 255, 0.85);
-      background: rgba(16, 185, 129, 0.45);
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      background: rgba(16, 185, 129, 0.55);
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.45);
       pointer-events: none;
-      z-index: 15;
+      z-index: 25;
       display: none;
     }
     #fps-hint {
@@ -163,6 +164,13 @@
       pointer-events: none;
     }
     @media (pointer: coarse), (max-width: 768px) {
+      #crosshair {
+        width: 12px;
+        height: 12px;
+        margin-left: -6px;
+        margin-top: -6px;
+        border-width: 2px;
+      }
       #chat-form {
         max-width: min(220px, calc(100vw - 240px)) !important;
         bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
@@ -299,7 +307,7 @@
       <div id="lobby-stats" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
         Conectando ao servidor da Universidade...
       </div>
-      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.6.0</span> • Alquimistas Mágicos</div>
+      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.6.1</span> • Alquimistas Mágicos</div>
     </div>
   </div>
 
@@ -384,11 +392,11 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.6.0';</script>
+  <script>window.MYCO_VERSION = '0.6.1';</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="js/campus3d.js?v=0.6.0"></script>
-  <script src="js/campus-app.js?v=0.6.0"></script>
+  <script src="js/campus3d.js?v=0.6.1"></script>
+  <script src="js/campus-app.js?v=0.6.1"></script>
 </body>
 </html>
 

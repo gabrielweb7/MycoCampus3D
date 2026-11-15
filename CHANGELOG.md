@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.1] — 2026-11-15
+### Improved
+- **Mira central (`#crosshair`) reforçada no celular ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
+  - Aumentada a visibilidade da bolinha central (`12px`, `z-index: 25`, sombra sutil e borda branca/verde) também na versão mobile/touch para facilitar mirar em objetos, portas, interruptores e lousas.
+
 ## [v0.6.0] — 2026-11-15
 ### Fixed & Improved
 - **Visão em 1ª Pessoa ao olhar para baixo ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
