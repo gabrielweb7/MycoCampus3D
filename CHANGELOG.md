@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.5.8] — 2026-11-15
+### Fixed
+- **Panela de Pressão 20L + Tampa encaixada e sincronizada ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Corrigido `registerPickable` que não retornava o objeto registrado (`entry`), o que deixava `potItem` e `lidItem` como `undefined` e fazia a tampa cair para dentro da panela e impedir de abrir/fechar.
+  - Agora a panela inicia com a tampa devidamente fechada por cima (`py + 0.36`), permite abrir/retirar apenas a tampa, carregar a panela fechada com a tampa junto, encaixar de volta (`Fechar tampa na Panela de Pressão`) e sincronizar corretamente o estado aberto/fechado no multiplayer.
+
 ## [v0.5.7] — 2026-11-15
 ### Added & Improved
 - **Fachadas de Vidro Fechadas + Portas em Todas as Salas + Persianas Horizontais 3D Animadas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

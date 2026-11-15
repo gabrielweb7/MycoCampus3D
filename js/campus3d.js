@@ -1348,11 +1348,13 @@
     mesh.position.set(x, y, z);
     mesh.rotation.y = ry || 0;
     scene.add(mesh);
-    pickableItems.push({
+    var entry = {
       id: id, label: label, mesh: mesh,
       homePos: new THREE.Vector3(x, y, z), homeRy: ry || 0,
       radius: radius || 0.25, height: height || 0.4, isMoved: false, movedAt: 0
-    });
+    };
+    pickableItems.push(entry);
+    return entry;
   }
 
   function buildCampusWingsAndEquipment() {
@@ -3867,10 +3869,15 @@
       if (saved) {
         item.mesh.position.set(saved.x, saved.y, saved.z);
         item.mesh.rotation.y = saved.ry || 0;
+        if (item.mesh.userData.potItem) {
+          var potPos = item.mesh.userData.potItem.mesh.position;
+          item.mesh.userData.isAttached = Math.hypot(saved.x - potPos.x, saved.z - potPos.z) < 0.20;
+        }
         if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       } else if (item.isMoved) {
         item.mesh.position.copy(item.homePos);
         item.mesh.rotation.y = item.homeRy;
+        if (item.mesh.userData.potItem) item.mesh.userData.isAttached = true;
         if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
         item.isMoved = false;
       }
