@@ -489,7 +489,7 @@
     return blend * hills + mtn;
   }
 
-  function getGroundHeight(x, z, refY) {
+  function getGroundHeight(x, z, refY, ignoreSurf) {
     var h = terrainHeight(x, z);
     var curY = refY !== undefined ? refY : playerPos.y;
 
@@ -517,6 +517,8 @@
     // Superfícies de apoio e tampos de mesas caminháveis (mesas inox, bancadas, estufas, carteiras, etc.)
     for (var u = 0; u < supportSurfaces.length; u++) {
       var ss = supportSurfaces[u];
+      if (ignoreSurf && ss === ignoreSurf) continue;
+      if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
       var sW = ss.maxX - ss.minX;
       var sD = ss.maxZ - ss.minZ;
       if (sW < 0.35 || sD < 0.35) continue; // ignora pequenos pratos ou suportes minúsculos
@@ -548,7 +550,7 @@
   }
 
   function getItemGroundHeight(x, z, refY, ignoreSurf, maxTopY) {
-    var gh = getGroundHeight(x, z, refY !== undefined ? refY : 3.0);
+    var gh = getGroundHeight(x, z, refY !== undefined ? refY : 3.0, ignoreSurf);
     var ss = getSupportSurfaceAt(x, z, 0.08, ignoreSurf, maxTopY);
     if (ss && ss.topY > gh) {
       return ss.topY;
