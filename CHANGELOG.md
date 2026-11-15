@@ -52,6 +52,12 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Substituído `new THREE.CapsuleGeometry` (inexistente no Three.js `r128`, que causava `TypeError: THREE.CapsuleGeometry is not a constructor` em `makeLiquidJar800` e interrompia o `boot()` antes do `tryResumeSession()`) por `new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10)`.
   - Adicionado suporte em `tryResumeSession()` para autenticar automaticamente e limpar imediatamente a URL (`history.replaceState`) caso o formulário tenha sido submetido via GET (`?campus_name=...&campus_pin=...`).
 
+## [v0.6.10] - 2026-11-15
+### Corrigido
+- **Carteiras escolares em `supportMeshes`**: permite apoiar itens nas carteiras do 2º andar sem atravessar para o chão.
+- **Limite da Panela de Pressão (máx. 4 itens)**: impede sobrepor mais de 4 recipientes dentro da panela ao mesmo tempo.
+- **Inoculação com seringa**: evita inocular acidentalmente placas de Petri vazias sem ágar (`petri_bare_`).
+
 ## [v0.6.9] - 2026-11-15
 ### Corrigido
 - **Bug raiz de itens caindo no chão após soltar na mesa**: `consumeCampusMovedItems()` não grava mais no servidor a posição temporária da mão enquanto o item está sendo carregado no ar — apenas quando é efetivamente solto no mundo, eliminando o retorno de posições antigas no meio do salão que faziam o item cair no chão.

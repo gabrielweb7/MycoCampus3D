@@ -168,6 +168,122 @@
     return mat;
   }
 
+  // ---------------- Sistema de Áudio Procedural (Web Audio API - Zero dependências externas) ----------------
+  var audioCtx = null;
+  function getAudioContext() {
+    if (!audioCtx) {
+      try {
+        var AudioCtor = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtor) audioCtx = new AudioCtor();
+      } catch (e) { /* ignore */ }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(function () {});
+    }
+    return audioCtx;
+  }
+
+  function playHarvestSound() {
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    try {
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } catch (e) { /* silent */ }
+  }
+
+  function playSwitchSound() {
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    try {
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1400, now);
+      osc.frequency.exponentialRampToValueAtTime(360, now + 0.04);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.045);
+    } catch (e) { /* silent */ }
+  }
+
+  function playDoorSound() {
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    try {
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.linearRampToValueAtTime(110, now + 0.15);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } catch (e) { /* silent */ }
+  }
+
+  function playSpraySound() {
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    try {
+      var now = ctx.currentTime;
+      var bufferSize = Math.floor(ctx.sampleRate * 0.12);
+      var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      var data = buffer.getChannelData(0);
+      for (var i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.035));
+      }
+      var noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      var filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 3400;
+      var gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.22, now);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      noise.start(now);
+    } catch (e) { /* silent */ }
+  }
+
+  function playPickupSound() {
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    try {
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(460, now + 0.07);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch (e) { /* silent */ }
+  }
+
   // Multiplayer
   var remoteAvatars = {};
 
@@ -1136,11 +1252,14 @@
         minZ: deskZ - 1.02, maxZ: deskZ + 1.02,
         minY: yFloor2, maxY: yFloor2 + 0.9
       });
-      supportSurfaces.push({
+      var deskSurf = {
         minX: deskX - 0.50, maxX: deskX + 0.50,
         minZ: deskZ - 0.94, maxZ: deskZ + 0.94,
         topY: yFloor2 + 0.745
-      });
+      };
+      supportSurfaces.push(deskSurf);
+      deskTop.userData.supportSurface = deskSurf;
+      supportMeshes.push(deskTop);
 
       // 2 Cadeiras escolares ergonomicas azuis & brancas clicaveis atras de cada mesa
       [-0.5, 0.5].forEach(function (chDz) {
@@ -1957,7 +2076,6 @@
       bg.userData.dynamicSurface = bSurf;
       bg.userData.updateBounds = updateItemBounds;
       bg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(bSurf, it); };
-      bg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(bSurf, it); };
 
       var bState = { on: false, coilMat: coilMat, ledMat: ledMat, surface: bSurf };
       knob.userData.burnerSwitch = bState;
@@ -2227,7 +2345,6 @@
       sg.userData.tableDims = { w: 0.32, h: 0.082, d: 0.38, surfOffset: 0 };
       sg.userData.dynamicSurface = scSurf;
       sg.userData.updateBounds = updateItemBounds;
-      sg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(scSurf, it); };
       sg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(scSurf, it); };
 
       var scaleObj = {
@@ -4341,7 +4458,7 @@
     for (var i = 0; i < ids.length; i++) {
       var av = remoteAvatars[ids[i]];
       if (!av || !av.targetPos) continue;
-      if (Math.hypot(av.targetPos.x - seat.x, av.targetPos.z - seat.z) < 0.48 && Math.abs(av.targetPos.y - seat.y) < 0.85) {
+      if (av.seated && Math.hypot(av.targetPos.x - seat.x, av.targetPos.z - seat.z) < 0.48 && Math.abs(av.targetPos.y - seat.y) < 0.85) {
         return true;
       }
     }
@@ -4418,7 +4535,7 @@
       if (!heldItem.mesh.userData.twoHanded && !heldItem.mesh.userData.isSyringe && !heldItem.mesh.userData.isAlcoholSpray) {
         for (var ci = 0; ci < cookerPots.length; ci++) {
           var cp = cookerPots[ci];
-          if (cp.lidItem.isAttached) continue;
+          if (cp.lidItem.isAttached || cp.contents.length >= 4) continue;
           var cpHits = raycaster.intersectObject(cp.potItem.mesh, true);
           if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
             hoveredPotInsert = cp;
@@ -4448,7 +4565,7 @@
                 if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Despejar ' + sc.volMl + 'ml em ' + cand.label);
                 return;
               }
-            } else if (sc.volMl > 0 && (cand.id.indexOf('spawn_') === 0 || cand.id.indexOf('petri_') === 0)) {
+            } else if (sc.volMl > 0 && (cand.id.indexOf('spawn_') === 0 || (cand.id.indexOf('petri_') === 0 && cand.id.indexOf('petri_bare_') !== 0))) {
               hoveredSyringeTarget = { item: cand, mode: 'inject' };
               placementGhost.visible = false;
               if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Inocular ' + sc.volMl + 'ml em ' + cand.label);
@@ -4722,7 +4839,7 @@
 
     renderer.domElement.addEventListener('mousedown', function (e) {
       if (e.button !== 0 || lobbyTourActive) return;
-      if (isTouchDevice() || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) || (performance.now() - lastTouchEndAt < 700)) {
+      if ((e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) || (performance.now() - lastTouchEndAt < 700)) {
         return;
       }
       if (inFps && document.pointerLockElement !== renderer.domElement) {
@@ -5770,7 +5887,7 @@
   };
 
   window.rotateCampusHeldItem = function (deltaRad) {
-    if (heldItem) heldRotY += deltaRad;
+    if (heldItem) heldRotY += (typeof deltaRad === 'number' ? deltaRad : Math.PI / 4);
   };
 
   window.setCampusJoystick = function (dx, dy) {
@@ -6179,9 +6296,6 @@
     rankingTex.needsUpdate = true;
   }
 
-  window.rotateCampusHeldItem = function () {
-    if (heldItem) heldRotY += Math.PI / 4;
-  };
 
   window.setCampusMobilePrimary = function (down) {
     if (lobbyTourActive) return;
