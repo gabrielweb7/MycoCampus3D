@@ -988,29 +988,45 @@
       solidColliders.push({ minX: rx - 0.22, maxX: rx + 0.22, minZ: -18.55, maxZ: -11.45, minY: 0, maxY: 5.0 });
     });
 
-    // Passarela / Ponte Elevada no nivel exato y=3.80 dividida em Esquerda e Direita (sem sobrepor o ultimo degrau nem as lajes dos blocos!)
-    addWalkableSlab(-12.6, yTop, -15.7375, 16.8, 0.34, 5.525, 0x475569, { roughness: 0.6 });
-    addWalkableSlab(12.6, yTop, -15.7375, 16.8, 0.34, 5.525, 0x475569, { roughness: 0.6 });
-    // Patamar superior alinhado exatamente atras de z=-18.5 (zero z-fighting!)
-    addWalkableSlab(0, yTop, -19.05, 8.4, 0.34, 1.1, 0x475569, { roughness: 0.6 });
+    // Patamar Superior atras do topo da escada (z = -22.5 .. -18.5, livre dos degraus e conectado ao Relogio e as duas alas!)
+    addWalkableSlab(0, yTop, -20.5, 5.6, 0.34, 4.0, 0x475569, { roughness: 0.6 });
+    addWalkableSlab(-12.0, yTop, -20.5, 18.4, 0.34, 4.0, 0x475569, { roughness: 0.6 });
+    addWalkableSlab(12.0, yTop, -20.5, 18.4, 0.34, 4.0, 0x475569, { roughness: 0.6 });
 
-    // Pilares estruturais sustentando a passarela
-    [-12.5, -6.5, 6.5, 12.5].forEach(function (px) {
-      [-13.2, -18.0].forEach(function (pz) {
-        var col = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, yTop - 0.34, 14), steelMat);
-        col.position.set(px, (yTop - 0.34) / 2, pz);
-        col.castShadow = true; col.receiveShadow = true;
-        scene.add(col);
-      });
+    // Pontes laterais ligando o Patamar (-18.5) direto as portas do 2o andar (-12.975) dos dois lados (x = +-19)
+    [-19, 19].forEach(function (ax) {
+      addWalkableSlab(ax, yTop, -15.7375, 4.4, 0.34, 5.525, 0x475569, { roughness: 0.6 });
+      addSolidWall(ax - 2.12, -18.5, ax - 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+      addSolidWall(ax + 2.12, -18.5, ax + 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
     });
 
-    // Guarda-corpo de vidro + corrimao metalico na borda sul da passarela
+    // Pilares estruturais sustentando o patamar superior e as pontes laterais
+    [-19, -11, 11, 19].forEach(function (px) {
+      var col = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, yTop - 0.34, 14), steelMat);
+      col.position.set(px, (yTop - 0.34) / 2, -20.5);
+      col.castShadow = true; col.receiveShadow = true;
+      scene.add(col);
+    });
+    [-19, 19].forEach(function (px) {
+      var colS = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, yTop - 0.34, 14), steelMat);
+      colS.position.set(px, (yTop - 0.34) / 2, -15.5);
+      colS.castShadow = true; colS.receiveShadow = true;
+      scene.add(colS);
+    });
+
+    // Guarda-corpo de vidro + corrimao metalico no patamar superior (sem bloquear a saida da escada nem a Ponte Norte)
     [-1, 1].forEach(function (side) {
-      addSolidWall(side * 4.2, -12.85, side * 14.0, -12.85, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
-      var rail1 = new THREE.Mesh(new THREE.BoxGeometry(9.8, 0.06, 0.1), railMetalMat);
-      rail1.position.set(side * 9.1, yTop + 1.03, -12.85);
-      scene.add(rail1);
-      addSolidWall(side * 20.6, -12.85, side * 24.0, -12.85, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+      addSolidWall(side * 4.25, -18.55, side * 16.85, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+      var railS = new THREE.Mesh(new THREE.BoxGeometry(12.6, 0.06, 0.1), railMetalMat);
+      railS.position.set(side * 10.55, yTop + 1.03, -18.55);
+      scene.add(railS);
+
+      addSolidWall(side * 2.8, -22.45, side * 21.15, -22.45, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+      var railN = new THREE.Mesh(new THREE.BoxGeometry(18.35, 0.06, 0.1), railMetalMat);
+      railN.position.set(side * 11.975, yTop + 1.03, -22.45);
+      scene.add(railN);
+
+      addSolidWall(side * 21.15, -22.45, side * 21.15, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
     });
 
     // Pontes ligando Bloco Norte <-> Bloco Sul no 2o andar (x = +-19, z = -1.025 .. 2.025, y = 3.80, encontro exato sem z-fighting)
@@ -1023,10 +1039,10 @@
     // Terraco Norte (y = 3.80, x: -24..24, z: -29.5 .. -42.0) — separado da passarela por um Lago Norte organico
     addWalkableSlab(0, yTop, -35.75, 48.0, 3.80, 12.5, 0x94a3b8, { roughness: 0.8 });
 
-    // Ponte Norte sobre o lago ligando a Passarela (-18.5) ate o Terraco da Torre do Relogio (-29.5)
-    addWalkableSlab(0, yTop, -24.0, 5.6, 0.36, 11.0, 0x64748b, { roughness: 0.65 });
+    // Ponte Norte sobre o lago ligando o Patamar (-22.5) ate o Terraco da Torre do Relogio (-29.5)
+    addWalkableSlab(0, yTop, -26.0, 5.6, 0.34, 7.0, 0x64748b, { roughness: 0.65 });
     [-2.75, 2.75].forEach(function (bx) {
-      addSolidWall(bx, -29.5, bx, -18.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45 });
+      addSolidWall(bx, -29.5, bx, -22.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45 });
     });
 
     // Lago Norte organico com borda de pedras dos dois lados da Ponte Norte
