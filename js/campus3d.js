@@ -6051,6 +6051,7 @@
   // Vetores e Cores pré-alocados para ZERO Garbage Collection no loop de renderizacao
   var _tmpHandLocal = new THREE.Vector3();
   var _tmpHandPos = new THREE.Vector3();
+  var _tmpMuzzlePos = new THREE.Vector3();
   var _tmpAvatarYAxis = new THREE.Vector3(0, 1, 0);
   var _tmpAvatarHandOffset = new THREE.Vector3();
 

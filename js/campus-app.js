@@ -1189,14 +1189,18 @@
 
   function updateFpsUi(fps) {
     inFpsState = fps;
-    $('btn-toggle-fps').textContent = fps ? '🌍 Vista Aérea' : '🎥 1ª Pessoa';
-    $('crosshair').style.display = fps ? 'block' : 'none';
+    var btnFps = $('btn-toggle-fps');
+    if (btnFps) btnFps.textContent = fps ? '🌍 Vista Aérea' : '🎥 1ª Pessoa';
+    var crosshair = $('crosshair');
+    if (crosshair) crosshair.style.display = fps ? 'block' : 'none';
+    var joyZone = $('mobile-joystick-zone');
+    var mobActs = $('mobile-actions');
     if (fps && isTouch()) {
-      $('mobile-joystick-zone').style.display = 'block';
-      $('mobile-actions').style.display = 'flex';
+      if (joyZone) joyZone.style.display = 'block';
+      if (mobActs) mobActs.style.display = 'flex';
     } else {
-      $('mobile-joystick-zone').style.display = 'none';
-      $('mobile-actions').style.display = 'none';
+      if (joyZone) joyZone.style.display = 'none';
+      if (mobActs) mobActs.style.display = 'none';
     }
   }
 
