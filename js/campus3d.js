@@ -1500,22 +1500,19 @@
     var hepaMat = new THREE.MeshStandardMaterial({ map: hepaTex, emissive: 0xe0f2fe, emissiveIntensity: 0.35, roughness: 0.6 });
     var hepa = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.94, 2.16), hepaMat);
     hepa.position.set(-0.41, 0.54, 0);
-    var hoodTop = makeBox(1.1, 0.06, 2.34, 0x0f172a, { roughness: 0.4 });
+    var hoodTop = makeBox(1.10, 0.06, 2.34, 0x0f172a, { roughness: 0.4 });
     hoodTop.position.set(0.10, 1.08, 0);
-    var hoodGlassL = makeBox(1.05, 1.02, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
-    hoodGlassL.position.set(0.10, 0.54, -1.15);
-    var hoodGlassR = makeBox(1.05, 1.02, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
-    hoodGlassR.position.set(0.10, 0.54, 1.15);
-    var wireRack = makeBox(0.95, 0.025, 2.0, 0x111827, { metalness: 0.7, roughness: 0.35 });
-    wireRack.position.set(0.15, 0.015, 0);
-    var lampBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 14), new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 }));
-    lampBody.position.set(0.35, 0.08, -0.75);
-    var flameMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.9 });
-    var lampFlame = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.11, 10), flameMat);
-    lampFlame.position.set(0.35, 0.20, -0.75);
-    var scalpelHandle = makeBox(0.24, 0.014, 0.024, 0xd1d5db, { metalness: 0.85, roughness: 0.2 });
-    scalpelHandle.position.set(0.38, 0.03, 0.25);
-    scalpelHandle.rotation.y = 0.35;
+    var hoodGlassL = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
+    hoodGlassL.position.set(0.115, 0.545, -1.15);
+    var hoodGlassR = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
+    hoodGlassR.position.set(0.115, 0.545, 1.15);
+    // Base fechada em aco inox sem frestas no chao (encaixa perfeitamente em bancadas e mesas)
+    var hoodBase = makeBox(1.39, 0.04, 2.34, 0xcbd5e1, { metalness: 0.72, roughness: 0.28 });
+    hoodBase.position.set(-0.045, 0.02, 0);
+    var hoodWorkMat = makeBox(1.03, 0.008, 2.24, 0x334155, { metalness: 0.55, roughness: 0.35 });
+    hoodWorkMat.position.set(0.115, 0.042, 0);
+    var hoodFrontLip = makeBox(0.03, 0.045, 2.34, 0x0f172a, { metalness: 0.5, roughness: 0.4 });
+    hoodFrontLip.position.set(0.64, 0.0225, 0);
 
     // Botao Power + LED no canto superior direito do Fluxo Laminar
     var hoodSwitchBox = makeBox(0.06, 0.14, 0.10, 0x1e293b, { noShadow: true });
@@ -1538,18 +1535,18 @@
     var airAttr = new THREE.BufferAttribute(airPos, 3);
     airGeo.setAttribute('position', airAttr);
     var airPoints = new THREE.Points(airGeo, new THREE.PointsMaterial({ color: 0xbae6fd, size: 0.045, transparent: true, opacity: 0.72 }));
-    hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, wireRack, lampBody, lampFlame, scalpelHandle, hoodSwitchBox, hoodBtnMesh, hoodLed, airPoints);
+    hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLed, airPoints);
 
     hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat: hepaMat, ledMat: hoodLedMat };
     hoodBtnMesh.userData.hoodSwitch = hoodAirData;
     hoodSwitchBox.userData.hoodSwitch = hoodAirData;
     hoodSwitchMeshes.push(hoodBtnMesh, hoodSwitchBox);
 
-    var hoodSurf = { minX: -19.1, maxX: -17.8, minZ: -9.25, maxZ: -7.15, topY: 1.07 };
+    var hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.085 };
     supportSurfaces.push(hoodSurf);
     hoodGroup.userData.twoHanded = true;
     hoodGroup.userData.isHood = true;
-    hoodGroup.userData.tableDims = { w: 1.4, h: 0.03, d: 2.3, surfOffset: 0 };
+    hoodGroup.userData.tableDims = { w: 1.39, h: 0.045, d: 2.34, surfOffset: 0.045 };
     hoodGroup.userData.dynamicSurface = hoodSurf;
     hoodGroup.userData.updateBounds = updateItemBounds;
     hoodGroup.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(hoodSurf, item); };
@@ -2435,7 +2432,9 @@
 
   function buildCuteAvatar(data) {
     var g = new THREE.Group();
-    var bodyMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(data.body_color || '#4f46e5'), roughness: 0.6 });
+    var bodyMat = data.isLocal
+      ? new THREE.MeshStandardMaterial({ color: new THREE.Color(data.body_color || '#4f46e5'), roughness: 0.6, transparent: true, opacity: 0.35, depthWrite: false })
+      : new THREE.MeshStandardMaterial({ color: new THREE.Color(data.body_color || '#4f46e5'), roughness: 0.6 });
     var skinMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.65 });
     var hatMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(data.hat_color || '#d9534f'), roughness: 0.45 });
 
@@ -2604,6 +2603,36 @@
 
   // ---------------- Interacoes & Tour ----------------
 
+  function setMeshGhostOpacity(root, active) {
+    if (!root) return;
+    root.traverse(function (ch) {
+      if (!ch.isMesh || !ch.material) return;
+      var mats = Array.isArray(ch.material) ? ch.material : [ch.material];
+      mats.forEach(function (m) {
+        if (active) {
+          if (!m.userData._origHeld) {
+            m.userData._origHeld = { transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite };
+          }
+          m.transparent = true;
+          m.opacity = 0.14;
+          m.depthWrite = false;
+        } else if (m.userData._origHeld) {
+          m.transparent = m.userData._origHeld.transparent;
+          m.opacity = m.userData._origHeld.opacity;
+          m.depthWrite = m.userData._origHeld.depthWrite;
+        }
+      });
+    });
+  }
+
+  function setHeldTwoHandedGhost(item, active) {
+    if (!item || !item.mesh || !item.mesh.userData.twoHanded) return;
+    setMeshGhostOpacity(item.mesh, active);
+    if (item.mesh.userData.lidItem && item.mesh.userData.lidItem.mesh.userData.isAttached) {
+      setMeshGhostOpacity(item.mesh.userData.lidItem.mesh, active);
+    }
+  }
+
   function handlePrimaryAction() {
     if (heldItem) {
       // Se estiver perto da lousa com giz ou apagador, o clique desenha/apaga em vez de soltar
@@ -2638,6 +2667,7 @@
         }
         recentlyDropped[heldItem.id] = performance.now() + 1500;
         if (heldItem.mesh.userData.updateBounds) heldItem.mesh.userData.updateBounds(heldItem);
+        setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
         placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
@@ -2739,6 +2769,7 @@
       }
       heldItem = hoveredPickable;
       heldRotY = heldItem.mesh.rotation.y;
+      setHeldTwoHandedGhost(heldItem, true);
       if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
     }
   }
@@ -3281,7 +3312,9 @@
           localAvatar.leftLeg.rotation.x *= 0.8;
           localAvatar.rightLeg.rotation.x *= 0.8;
         }
-        localAvatar.rightArm.visible = false; // usa o braco 1a pessoa detalhado
+        localAvatar.headGroup.visible = false; // nunca tampa a visao em 1a pessoa ao olhar para baixo
+        localAvatar.leftArm.visible = false;
+        localAvatar.rightArm.visible = false; // usa os bracos 1a pessoa detalhados
       }
     } else {
       if (fpsArmGroup) fpsArmGroup.visible = false;
@@ -3890,6 +3923,7 @@
   };
 
   window.resetCampusWorldObjects = function () {
+    setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
     pendingMovedItems = {};
     pickableItems.forEach(function (item) {

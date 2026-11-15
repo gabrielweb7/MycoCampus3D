@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.0] — 2026-11-15
+### Fixed & Improved
+- **Visão em 1ª Pessoa ao olhar para baixo ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Ocultado `localAvatar.headGroup` (cabeça, chapéu e bolinhas/"orelhas") e os braços de 3ª pessoa na visão em 1ª pessoa, mantendo o tronco/pernas locais semitranslúcidos (`opacity: 0.35`) para não atrapalhar a visão ao olhar para o chão ou bancadas.
+- **Capela de Fluxo Laminar fechada e encaixada ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Substituída a grade solta por uma **base fechada em aço inox** (`hoodBase` + `hoodWorkMat` + `hoodFrontLip`) sem frestas aparecendo o chão, encaixando perfeitamente em mesas e bancadas fixas.
+  - Removidos a lamparina/vela e o bisturi fixos do interior da capela.
+- **Objetos grandes quase invisíveis enquanto segura ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Ao carregar equipamentos/móveis grandes (`twoHanded`, como Fluxo Laminar, Mesas de Inox e Panelas de Pressão), o item nas mãos fica translúcido (`opacity: 0.14`) para não tampar a visão e facilitar alinhar o fantasma verde no local desejado. Objetos pequenos continuam opacos normalmente.
+
 ## [v0.5.9] — 2026-11-15
 ### Added
 - **Iluminação e Interruptor 3D em Todas as Salas (1º e 2º Andares) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
