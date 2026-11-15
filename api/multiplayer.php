@@ -212,6 +212,7 @@ if ($action === 'sync') {
 
     mc_json([
         'ok' => true,
+        'app_version' => trim((string)@file_get_contents(__DIR__ . '/../VERSION')),
         'online_count' => count($players) + 1,
         'players' => $players,
         'objects' => $objects,

@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.5.4] — 2026-11-14
+### Added
+- **Luminárias Fluorescentes & Interruptor 3D nas Salas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Removida a placa bege do teto e adicionadas 4 luminárias fluorescentes reais por sala + `PointLight` quente/agradável (1º e 2º andares) + interruptor 3D clicável ao lado da porta com LED indicador para ligar/desligar a iluminação.
+- **Reitoria caminhável & Auto-Update para todos online**: Removido o telão da frente da ala esquerda da Reitoria e abertas portas caminháveis com salas internas nas duas alas; adicionado `app_version` em [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php) e recarregamento automático em [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js) quando uma nova versão é publicada.
+
+### Fixed
+- **Ranking 3D na Torre**: Corrigida a chave `data.leaders` em [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js) e atualização automática a cada 20s para o painel exibir as posições e XP ao vivo.
+
 ## [v0.5.3] — 2026-11-14
 ### Improved
 - **Escadaria Monumental & Passarela Arquitetônica ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Degraus com piso de pedra clara, focinho antiderrapante metálico, guarda-corpo inclinado em vidro temperado com postes e corrimão metálico escovado, pilares cilíndricos sob a passarela e remoção completa do z-fighting no patamar superior.

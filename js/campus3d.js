@@ -101,6 +101,8 @@
   var seatMeshes = [];
   var hoveredSeat = null;
   var seatedSeat = null;
+  var lightSwitchMeshes = [];
+  var hoveredSwitch = null;
   var terrainSnowMat = null;
   var roofZones = []; // { minX, maxX, minZ, maxZ, roofY } para impedir chuva/neve dentro dos predios
 
@@ -719,10 +721,45 @@
       scene.add(mullion);
     }
 
-    // Mobiliario iluminado do 2o andar
-    var roomGlow = makeBox(w - 2.2, 0.08, d - 2.4, 0xfef9c3, { emissive: 0xfde68a, emissiveIntensity: 0.5, noShadow: true });
-    roomGlow.position.set(cx, yFloor2 + h2 - 0.15, cz);
-    scene.add(roomGlow);
+    // Iluminacao realista de sala de aula: 4 luminarias fluorescentes + PointLight + Interruptor clicavel na porta!
+    var tubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 1.25, roughness: 0.25 });
+    var fixMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 });
+    [-2.0, 2.0].forEach(function (lx) {
+      [-2.8, 2.8].forEach(function (lz) {
+        var trayL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 1.65), fixMat);
+        trayL.position.set(cx + lx, yFloor2 + h2 - 0.04, cz + lz);
+        scene.add(trayL);
+        [-0.1, 0.1].forEach(function (tx) {
+          var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 1.5, 8), tubeMat);
+          tube.rotation.x = Math.PI / 2;
+          tube.position.set(cx + lx + tx, yFloor2 + h2 - 0.08, cz + lz);
+          scene.add(tube);
+        });
+      });
+    });
+    var roomLight = new THREE.PointLight(0xfffbeb, 1.05, 19, 1.5);
+    roomLight.position.set(cx, yFloor2 + h2 - 0.35, cz);
+    scene.add(roomLight);
+    var groundLight = new THREE.PointLight(0xfef3c7, 0.7, 16, 1.6);
+    groundLight.position.set(cx, yFloor1 + h1 - 0.4, cz);
+    scene.add(groundLight);
+
+    // Interruptor 3D ao lado da porta do 2o andar
+    var swGroup = new THREE.Group();
+    swGroup.position.set(cx - dir * 1.45, yFloor2 + 1.32, zN + 0.17);
+    var swPlate = makeBox(0.18, 0.28, 0.03, 0xf8fafc, { roughness: 0.3 });
+    var swRocker = makeBox(0.08, 0.12, 0.04, 0xe2e8f0, { roughness: 0.4 });
+    swRocker.position.z = 0.02;
+    swRocker.rotation.x = -0.22;
+    var swLedMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+    var swLed = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.015, 0.02), swLedMat);
+    swLed.position.set(0, 0.09, 0.025);
+    swGroup.add(swPlate, swRocker, swLed);
+    var swData = { on: true, light: roomLight, gLight: groundLight, tubeMat: tubeMat, ledMat: swLedMat, rocker: swRocker };
+    swPlate.userData.lightSwitch = swData;
+    swRocker.userData.lightSwitch = swData;
+    lightSwitchMeshes.push(swPlate, swRocker);
+    scene.add(swGroup);
     for (var dtRow = -1; dtRow <= 1; dtRow++) {
       var deskZ = cz + dtRow * 3.0;
       var desk = makeBox(1.1, 0.72, 2.0, 0xd97706, { roughness: 0.65 });
@@ -1003,21 +1040,29 @@
   function buildClockTowerAndAuditorium() {
     var baseY = 3.80;
 
-    // Alas laterais simetricas da Reitoria (recuadas para z = -37)
+    // Alas laterais simetricas da Reitoria caminhaveis com porta aberta (z = -40.2..-33.8)
     [-9.5, 9.5].forEach(function (ax) {
-      var wing = makeBox(11.0, 6.2, 6.4, brickMat(3, 2));
-      wing.position.set(ax, baseY + 3.1, -37.0);
-      scene.add(wing);
-      var trim = makeBox(11.4, 0.45, 6.8, 0x64748b);
-      trim.position.set(ax, baseY + 6.3, -37.0);
-      scene.add(trim);
-      var winFrame = makeBox(8.7, 4.8, 0.14, 0x0f172a);
-      winFrame.position.set(ax, baseY + 3.1, -33.72);
-      scene.add(winFrame);
-      var win = makeBox(8.3, 4.4, 0.16, 0x7dd3fc, { transparent: true, opacity: 0.55, roughness: 0.15 });
-      win.position.set(ax, baseY + 3.1, -33.68);
-      scene.add(win);
-      solidColliders.push({ minX: ax - 5.6, maxX: ax + 5.6, minZ: -40.3, maxZ: -33.7, minY: baseY, maxY: baseY + 7 });
+      addWalkableSlab(ax, baseY, -37.0, 11.0, 0.2, 6.4, 0x334155);
+      var rRoof = makeBox(11.4, 0.45, 6.8, 0x64748b);
+      rRoof.position.set(ax, baseY + 6.3, -37.0);
+      registerSnowable(rRoof.material);
+      roofZones.push({ minX: ax - 5.7, maxX: ax + 5.7, minZ: -40.4, maxZ: -33.6, roofY: baseY + 6.5 });
+      scene.add(rRoof);
+
+      addSolidWall(ax - 5.5, -40.2, ax + 5.5, -40.2, baseY, 6.1, 0.28, brickMat(3, 2)); // Fundo
+      addSolidWall(ax - 5.5, -40.2, ax - 5.5, -33.8, baseY, 6.1, 0.28, brickMat(2, 2)); // Esq
+      addSolidWall(ax + 5.5, -40.2, ax + 5.5, -33.8, baseY, 6.1, 0.28, brickMat(2, 2)); // Dir
+      // Fachada frontal (z = -33.8) com porta aberta de 2.4m no centro e janelas laterais
+      addSolidWall(ax - 5.5, -33.8, ax - 1.2, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
+      addSolidWall(ax + 1.2, -33.8, ax + 5.5, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
+      var doorHeader = makeBox(2.5, 3.1, 0.28, brickMat(1, 1));
+      doorHeader.position.set(ax, baseY + 4.55, -33.8);
+      var rLight = new THREE.PointLight(0xfffbeb, 0.85, 14, 1.5);
+      rLight.position.set(ax, baseY + 5.4, -37.0);
+      var rDesk = makeBox(2.6, 0.78, 1.1, 0x92400e, { roughness: 0.65 });
+      rDesk.position.set(ax, baseY + 0.39, -38.2);
+      scene.add(doorHeader, rLight, rDesk);
+      solidColliders.push({ minX: ax - 1.35, maxX: ax + 1.35, minZ: -38.8, maxZ: -37.6, minY: baseY, maxY: baseY + 1.0 });
     });
 
     // Torre Central do Relogio
@@ -1079,26 +1124,13 @@
     createBanner(-4.6, baseY + 4.0, -33.6, 0, '#1d4ed8', '🎓');
     createBanner(4.6, baseY + 4.0, -33.6, 0, '#4338ca', '🍄');
 
-    // Telao Principal no Terraco (ao lado esquerdo da entrada da Torre do Relogio)
+    // Telao Externo na parede do Bloco Oeste (como na foto de referencia!)
     auditoriumCanvas = document.createElement('canvas');
     auditoriumCanvas.width = 1024;
     auditoriumCanvas.height = 576;
     auditoriumCtx = auditoriumCanvas.getContext('2d');
     auditoriumTex = new THREE.CanvasTexture(auditoriumCanvas);
 
-    var frameMain = makeBox(6.6, 3.8, 0.25, 0x0f172a, { roughness: 0.4 });
-    frameMain.position.set(-9.5, baseY + 2.4, -33.3);
-    scene.add(frameMain);
-
-    var screenMain = new THREE.Mesh(
-      new THREE.PlaneGeometry(6.1, 3.4),
-      new THREE.MeshBasicMaterial({ map: auditoriumTex })
-    );
-    screenMain.position.set(-9.5, baseY + 2.4, -33.14);
-    scene.add(screenMain);
-    auditoriumScreenMeshes.push(screenMain);
-
-    // Segundo Telao Externo na parede do Bloco Oeste (como na foto de referencia!)
     var frameWest = makeBox(0.24, 2.6, 4.2, 0x0f172a, { roughness: 0.4 });
     frameWest.position.set(-13.75, 4.8, 0.5);
     scene.add(frameWest);
@@ -1151,7 +1183,6 @@
       scene.add(group);
     }
 
-    addScreenButtons3D(-9.5, baseY + 0.25, -33.08, 0);
     addScreenButtons3D(-13.52, 3.25, 0.5, Math.PI / 2);
 
     updateCampusAuditoriumSlide(
@@ -2155,6 +2186,15 @@
       playerVelX = 0; playerVelZ = 0; playerVelY = 0;
       return;
     }
+    if (hoveredSwitch) {
+      hoveredSwitch.on = !hoveredSwitch.on;
+      hoveredSwitch.light.intensity = hoveredSwitch.on ? 1.05 : 0;
+      hoveredSwitch.gLight.intensity = hoveredSwitch.on ? 0.7 : 0;
+      hoveredSwitch.tubeMat.emissiveIntensity = hoveredSwitch.on ? 1.25 : 0.04;
+      hoveredSwitch.ledMat.color.setHex(hoveredSwitch.on ? 0x22c55e : 0xef4444);
+      hoveredSwitch.rocker.rotation.x = hoveredSwitch.on ? -0.22 : 0.22;
+      return;
+    }
     if (hoveredScreenBtn) {
       if (hoveredScreenBtn.action === 'prev' && callbacks.onScreenNav) callbacks.onScreenNav(-1);
       else if (hoveredScreenBtn.action === 'next' && callbacks.onScreenNav) callbacks.onScreenNav(1);
@@ -2186,6 +2226,7 @@
     hoveredCinema = false;
     hoveredRankBtn = null;
     hoveredSeat = null;
+    hoveredSwitch = null;
     var prompt = '';
 
     // Verifica proximidade dos teloes para exibir opcoes contextuais
@@ -2242,6 +2283,16 @@
       if (cHits.length > 0 && cHits[0].distance < 22) {
         hoveredCinema = true;
         prompt = cinemaPlaying ? '⏸️ Clique na tela para pausar o vídeo' : '▶️ Clique na tela para reproduzir o vídeo';
+        if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
+        return;
+      }
+    }
+
+    if (lightSwitchMeshes.length) {
+      var swHits = raycaster.intersectObjects(lightSwitchMeshes, false);
+      if (swHits.length > 0 && swHits[0].distance < 4.0) {
+        hoveredSwitch = swHits[0].object.userData.lightSwitch;
+        prompt = hoveredSwitch.on ? '💡 Clique para desligar a luz' : '💡 Clique para ligar a luz';
         if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
         return;
       }
@@ -3044,7 +3095,7 @@
         ctx.fillText(isProf ? 'PROF.' : 'ALUNO', 105, y + 32);
         ctx.fillStyle = '#f8fafc';
         ctx.font = 'bold 24px system-ui, sans-serif';
-        var nm = String(row.display_name || 'Explorador').slice(0, 16);
+        var nm = String(row.display_name || row.name || 'Explorador').slice(0, 16);
         ctx.fillText(nm, 105, y + 66);
 
         // XP

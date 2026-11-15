@@ -269,8 +269,8 @@
       } else {
         $('lobby-stats').textContent = data.error || 'Aguardando configuração do MySQL.';
       }
-      if (data.ok && Array.isArray(data.leaderboard) && window.updateCampusRanking) {
-        window.updateCampusRanking(data.leaderboard);
+      if (data.ok && Array.isArray(data.leaders) && window.updateCampusRanking) {
+        window.updateCampusRanking(data.leaders);
       }
     } catch (err) {
       $('lobby-stats').textContent = 'Servidor offline no momento. Tente novamente em instantes.';
@@ -449,6 +449,12 @@
       }, true);
       if (data.ok) {
         syncFailures = 0;
+        if (data.app_version && window.MYCO_VERSION && data.app_version !== window.MYCO_VERSION && !window._reloadingVersion) {
+          window._reloadingVersion = true;
+          showFloatingToast('🔄 Nova versão v' + data.app_version + ' disponível! Atualizando...');
+          setTimeout(function () { window.location.reload(); }, 1500);
+          return;
+        }
         $('hud-online').textContent = String(data.online_count || 1);
         window.updateCampusPlayers(data.players || []);
         window.applyCampusWorldObjects(data.objects || {});
@@ -549,6 +555,7 @@
     renderSwatches();
     setupMobileJoystick();
     loadLobbyStats();
+    setInterval(loadLobbyStats, 20000);
     var verEl = $('app-version');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
     if (window.location.search.indexOf('preview=1') !== -1) {
