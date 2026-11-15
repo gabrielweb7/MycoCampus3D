@@ -1223,14 +1223,10 @@
           });
         });
       });
-      var fLight;
-      if (isTouchDevice()) {
-        fLight = { intensity: 1.05 };
-      } else {
-        fLight = new THREE.PointLight(0xfffbeb, 1.1, 22, 1.45);
-        fLight.position.set(cx, ceilY - 0.30, cz);
-        scene.add(fLight);
-      }
+      // Iluminação real e vibrante em todas as plataformas (Desktop, Android e iPhone)
+      var fLight = new THREE.PointLight(0xfffbeb, 1.45, 28, 1.25);
+      fLight.position.set(cx, ceilY - 0.30, cz);
+      scene.add(fLight);
 
       var swGroup = new THREE.Group();
       swGroup.position.set(swX, swY, swZ);
@@ -2003,7 +1999,11 @@
     airPoints.userData.ignoreRay = true;
     hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLedBezel, hoodLed, airPoints);
 
-    hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat: hepaMat, ledMat: hoodLedMat };
+    var hoodLight = new THREE.PointLight(0xe0f2fe, 0.95, 4.0, 1.8);
+    hoodLight.position.set(-18.5, 1.82, -8.2);
+    scene.add(hoodLight);
+
+    hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat: hepaMat, ledMat: hoodLedMat, workLight: hoodLight };
     hoodBtnMesh.userData.hoodSwitch = hoodAirData;
     hoodSwitchBox.userData.hoodSwitch = hoodAirData;
     hoodSwitchMeshes.push(hoodBtnMesh, hoodSwitchBox);
@@ -3109,9 +3109,12 @@
     var rack = makeBox(1.6, 0.72, 4.0, 0x1e293b);
     rack.position.set(21.0, 0.14 + 0.36, 8.0);
     scene.add(rack);
-    var ledBar = makeBox(0.28, 0.08, 3.6, 0xfef08a, { emissive: 0xfacc15, emissiveIntensity: 0.9 });
+    var ledBar = makeBox(0.28, 0.08, 3.6, 0xfef08a, { emissive: 0xfacc15, emissiveIntensity: 1.1 });
     ledBar.position.set(21.0, 2.55, 8.0);
     scene.add(ledBar);
+    var estufaLight = new THREE.PointLight(0xfef08a, 1.25, 14, 1.35);
+    estufaLight.position.set(21.0, 2.45, 8.0);
+    scene.add(estufaLight);
     solidColliders.push({ minX: 20.15, maxX: 21.85, minZ: 5.95, maxZ: 10.05, minY: 0.14, maxY: 0.86, surfaceTopY: 0.86 });
     var estufaSurf = { minX: 20.25, maxX: 21.75, minZ: 6.05, maxZ: 9.95, topY: 0.86 };
     supportSurfaces.push(estufaSurf);
@@ -4948,6 +4951,7 @@
         return;
       }
       if (hoveredSprayTarget && heldItem.mesh.userData.isAlcoholSpray) {
+        if (window.MycoAudio) window.MycoAudio.playSpray();
         var nowMs = performance.now();
         if (hoveredSprayTarget === 'hood') {
           hoodSanitizedUntil = nowMs + 90000;
@@ -5041,17 +5045,23 @@
       }
       return;
     }
+    if (hoveredGreenhouseSlot) {
+      interactGreenhouseSlot(hoveredGreenhouseSlot);
+      return;
+    }
     if (hoveredMushroom && hoveredMushroom.active) {
       hoveredMushroom.active = false;
       hoveredMushroom.group.visible = false;
       hoveredMushroom.respawnAt = performance.now() + 20000;
       queueWorldStateChange(hoveredMushroom.id, 0);
+      if (window.MycoAudio) window.MycoAudio.playHarvest();
       if (callbacks.onHarvestMushroom) callbacks.onHarvestMushroom(hoveredMushroom.id);
       return;
     }
     if (hoveredDoorObj) {
       hoveredDoorObj.open = !hoveredDoorObj.open;
       queueWorldStateChange(hoveredDoorObj.id, hoveredDoorObj.open ? 1 : 0);
+      if (window.MycoAudio) window.MycoAudio.playDoor(hoveredDoorObj.open);
       return;
     }
     if (hoveredBlindObj) {
@@ -5111,11 +5121,25 @@
     }
     if (hoveredSwitch) {
       hoveredSwitch.on = !hoveredSwitch.on;
-      hoveredSwitch.light.intensity = hoveredSwitch.on ? 1.05 : 0;
-      if (hoveredSwitch.gLight) hoveredSwitch.gLight.intensity = hoveredSwitch.on ? 0.7 : 0;
-      hoveredSwitch.tubeMat.emissiveIntensity = hoveredSwitch.on ? 1.25 : 0.04;
-      hoveredSwitch.ledMat.color.setHex(hoveredSwitch.on ? 0x22c55e : 0xef4444);
-      hoveredSwitch.rocker.rotation.x = hoveredSwitch.on ? -0.22 : 0.22;
+      if (hoveredSwitch.light) {
+        hoveredSwitch.light.visible = hoveredSwitch.on;
+        hoveredSwitch.light.intensity = hoveredSwitch.on ? 1.45 : 0;
+      }
+      if (hoveredSwitch.gLight) {
+        hoveredSwitch.gLight.visible = hoveredSwitch.on;
+        hoveredSwitch.gLight.intensity = hoveredSwitch.on ? 0.9 : 0;
+      }
+      if (hoveredSwitch.tubeMat) {
+        hoveredSwitch.tubeMat.emissive.setHex(hoveredSwitch.on ? 0xfffbeb : 0x1e293b);
+        hoveredSwitch.tubeMat.emissiveIntensity = hoveredSwitch.on ? 1.35 : 0.02;
+      }
+      if (hoveredSwitch.ledMat) {
+        hoveredSwitch.ledMat.color.setHex(hoveredSwitch.on ? 0x22c55e : 0xef4444);
+      }
+      if (hoveredSwitch.rocker) {
+        hoveredSwitch.rocker.rotation.x = hoveredSwitch.on ? -0.22 : 0.22;
+      }
+      playSwitchSound();
       queueWorldStateChange(hoveredSwitch.id, hoveredSwitch.on ? 1 : 0);
       return;
     }
@@ -5136,8 +5160,13 @@
     if (hoveredHoodSwitch) {
       hoveredHoodSwitch.on = !hoveredHoodSwitch.on;
       hoveredHoodSwitch.points.visible = hoveredHoodSwitch.on;
-      hoveredHoodSwitch.hepaMat.emissiveIntensity = hoveredHoodSwitch.on ? 0.35 : 0.04;
+      hoveredHoodSwitch.hepaMat.emissiveIntensity = hoveredHoodSwitch.on ? 0.45 : 0.04;
       hoveredHoodSwitch.ledMat.color.setHex(hoveredHoodSwitch.on ? 0x22c55e : 0xef4444);
+      if (hoveredHoodSwitch.workLight) {
+        hoveredHoodSwitch.workLight.visible = hoveredHoodSwitch.on;
+        hoveredHoodSwitch.workLight.intensity = hoveredHoodSwitch.on ? 0.95 : 0;
+      }
+      playSwitchSound();
       queueWorldStateChange('hood_lab', hoveredHoodSwitch.on ? 1 : 0);
       return;
     }
@@ -5531,6 +5560,24 @@
         prompt = hoveredBlindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana';
       }
     }
+    hoveredGreenhouseSlot = null;
+    if (!prompt && greenhouseHitMeshes.length > 0) {
+      var ghHits = raycaster.intersectObjects(greenhouseHitMeshes, true);
+      if (ghHits.length > 0 && ghHits[0].distance < 4.8) {
+        var hSlot = ghHits[0].object.userData.greenhouseSlot;
+        if (hSlot) {
+          hoveredGreenhouseSlot = hSlot;
+          var isHoldingSpray = heldItem && (heldItem.id.indexOf('alcohol_spray') !== -1 || heldItem.id.indexOf('spray') !== -1);
+          if (hSlot.stage === 3) {
+            prompt = '🍄 Colher ' + hSlot.name + ' (+50 XP e +2 Cogumelos)';
+          } else if (isHoldingSpray) {
+            prompt = '💦 Borrifar e Hidratar ' + hSlot.name + ' (' + Math.round(hSlot.humidity) + '% UR)';
+          } else {
+            prompt = '🌱 ' + hSlot.name + ' (' + Math.round(hSlot.humidity) + '% UR • ' + (hSlot.stage === 0 ? 'Micélio' : (hSlot.stage === 1 ? 'Primórdios' : 'Crescendo')) + ')';
+          }
+        }
+      }
+    }
     if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
   }
 
@@ -5833,6 +5880,10 @@
         lastGroundedAt = now;
       } else {
         onGround = false;
+      }
+      if (inFps && isWalking && onGround && window.MycoAudio) {
+        var sType = getSurfaceTypeAt(playerPos.x, playerPos.y, playerPos.z);
+        window.MycoAudio.playFootstep(sType);
       }
       // Pulo responsivo: Coyote Time (150ms), Jump Buffer (150ms) e segurar Espaco/Pulo
       var wantsJump = (now <= jumpBufferUntil) || keys['Space'] || jumpHeld;
@@ -6184,6 +6235,7 @@
       }
     }
     if (cookerPots.length) {
+      var anyPotSteaming = false;
       for (var bni = 0; bni < burnerDevices.length; bni++) {
         var bnd = burnerDevices[bni];
         bnd.heat = bnd.on ? Math.min(1, (bnd.heat || 0) + dt * 0.55) : Math.max(0, (bnd.heat || 0) - dt * 0.25);
@@ -6207,6 +6259,7 @@
           cp.temp = Math.min(121, cp.temp + dt * 16);
           cp.psi = Math.max(0, ((cp.temp - 100) / 21) * 15);
           if (cp.psi >= 14.2) {
+            anyPotSteaming = true;
             cp.steamPoints.visible = true;
             var sa = cp.steamAttr.array;
             for (var si = 0; si < sa.length; si += 3) {
@@ -6245,6 +6298,9 @@
           if (!cp.lidItem.isAttached) cp.progress = 0;
         }
       }
+      if (window.MycoAudio) {
+        window.MycoAudio.setSteam(anyPotSteaming);
+      }
     }
     if (spawnGrowItems.length) {
       for (var sgi = 0; sgi < spawnGrowItems.length; sgi++) {
@@ -6277,6 +6333,32 @@
     drawCinemaVideoFrame(dt);
     updateDynamicEnvironment(dt);
     dropUnsupportedItems();
+
+    // Ciclo de cultivo e umidade da Estufa
+    for (var gi = 0; gi < greenhouseSlots.length; gi++) {
+      var gSlot = greenhouseSlots[gi];
+      gSlot.humidity = Math.max(20, gSlot.humidity - dt * 0.12);
+      if (gSlot.humidity >= 60 && gSlot.stage < 3) {
+        gSlot.growth += dt * (gSlot.humidity / 100) * 1.6;
+        if (gSlot.growth >= 100) {
+          gSlot.stage++;
+          gSlot.growth = 0;
+          updateGreenhouseSlotMesh(gSlot);
+          queueWorldStateChange('greenhouse_slot_' + gSlot.id + '_stage', gSlot.stage);
+        }
+      }
+    }
+    stepGreenhouseParticles(dt);
+    stepConfetti(dt);
+
+    if (localEmoteTimer > 0) {
+      localEmoteTimer -= dt;
+      if (isWalking || localEmoteTimer <= 0) {
+        localEmote = '';
+        localEmoteTimer = 0;
+      }
+    }
+
     stepMultiplayerAvatars(dt);
     renderer.render(scene, camera);
   }
@@ -6534,7 +6616,7 @@
       envSun.intensity = Math.max(0.28, sunY * 0.95 + 0.48) * cloudDim;
     }
     if (envHemi) {
-      envHemi.intensity = Math.max(0.35, sunY * 0.45 + 0.55);
+      envHemi.intensity = Math.max(isTouchDevice() ? 0.65 : 0.48, sunY * 0.45 + 0.65);
     }
 
     // Nuvens dinamicas: quantidade, cor e velocidade conforme o clima
@@ -6717,7 +6799,8 @@
     renderer.shadowMap.type = touch ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     if (THREE.ACESFilmicToneMapping) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.05;
+      // Exposição aprimorada para telas de smartphones (Android e iPhone) e monitores
+      renderer.toneMappingExposure = touch ? 1.25 : 1.15;
     }
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
@@ -6729,7 +6812,8 @@
     controls.maxDistance = 65;
     controls.target.set(0, 4.5, -14);
 
-    var hemi = new THREE.HemisphereLight(0xe0f2fe, 0x3f6212, 0.85);
+    // Iluminação ambiente límpida com rebatimento suave (sem tom escuro/esverdeado nos cantos)
+    var hemi = new THREE.HemisphereLight(0xe0f2fe, 0x475569, touch ? 1.05 : 0.92);
     scene.add(hemi);
     envHemi = hemi;
     var sun = new THREE.DirectionalLight(0xfffbeb, 1.15);
@@ -6758,6 +6842,8 @@
     localAvatar.group.visible = false;
     createPlacementGhost();
     createThermoLaserFx();
+    initConfettiSystem();
+    initGreenhouseParticlePools();
     bindControls();
     animate();
   };
@@ -7027,11 +7113,24 @@
       var wantLightOn = Number(stateMap[sw.id]) !== 0;
       if (sw.on !== wantLightOn) {
         sw.on = wantLightOn;
-        sw.light.intensity = sw.on ? 1.05 : 0;
-        if (sw.gLight) sw.gLight.intensity = sw.on ? 0.7 : 0;
-        sw.tubeMat.emissiveIntensity = sw.on ? 1.25 : 0.04;
-        sw.ledMat.color.setHex(sw.on ? 0x22c55e : 0xef4444);
-        sw.rocker.rotation.x = sw.on ? -0.22 : 0.22;
+        if (sw.light) {
+          sw.light.visible = sw.on;
+          sw.light.intensity = sw.on ? 1.45 : 0;
+        }
+        if (sw.gLight) {
+          sw.gLight.visible = sw.on;
+          sw.gLight.intensity = sw.on ? 0.9 : 0;
+        }
+        if (sw.tubeMat) {
+          sw.tubeMat.emissive.setHex(sw.on ? 0xfffbeb : 0x1e293b);
+          sw.tubeMat.emissiveIntensity = sw.on ? 1.35 : 0.02;
+        }
+        if (sw.ledMat) {
+          sw.ledMat.color.setHex(sw.on ? 0x22c55e : 0xef4444);
+        }
+        if (sw.rocker) {
+          sw.rocker.rotation.x = sw.on ? -0.22 : 0.22;
+        }
       }
     }
 
@@ -7042,8 +7141,12 @@
         if (hoodAirData.on !== wantHoodOn) {
           hoodAirData.on = wantHoodOn;
           hoodAirData.points.visible = hoodAirData.on;
-          hoodAirData.hepaMat.emissiveIntensity = hoodAirData.on ? 0.35 : 0.04;
+          hoodAirData.hepaMat.emissiveIntensity = hoodAirData.on ? 0.45 : 0.04;
           hoodAirData.ledMat.color.setHex(hoodAirData.on ? 0x22c55e : 0xef4444);
+          if (hoodAirData.workLight) {
+            hoodAirData.workLight.visible = hoodAirData.on;
+            hoodAirData.workLight.intensity = hoodAirData.on ? 0.95 : 0;
+          }
         }
       }
     }
@@ -7111,6 +7214,27 @@
       } else if (remSec === 0 && !wm.active) {
         wm.active = true;
         wm.group.visible = true;
+      }
+    }
+
+    // 7. Bancada de Cultivo da Estufa (greenhouse_slot_0..3)
+    for (var gi = 0; gi < greenhouseSlots.length; gi++) {
+      var slot = greenhouseSlots[gi];
+      var kStage = 'greenhouse_slot_' + slot.id + '_stage';
+      var kHum = 'greenhouse_slot_' + slot.id + '_humidity';
+      if (stateMap[kStage] !== undefined && pendingStateChanges[kStage] === undefined && !(recentlyChangedState[kStage] > now)) {
+        var newStage = parseInt(stateMap[kStage], 10);
+        if (slot.stage !== newStage) {
+          slot.stage = newStage;
+          updateGreenhouseSlotMesh(slot);
+        }
+      }
+      if (stateMap[kHum] !== undefined && pendingStateChanges[kHum] === undefined && !(recentlyChangedState[kHum] > now)) {
+        var newHum = parseFloat(stateMap[kHum]);
+        if (Math.abs(slot.humidity - newHum) > 5) {
+          slot.humidity = newHum;
+          updateGreenhouseSlotMesh(slot);
+        }
       }
     }
   };
