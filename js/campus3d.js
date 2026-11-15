@@ -2841,6 +2841,7 @@
     var lakeShallowMat = new THREE.MeshStandardMaterial({ color: 0x0c4a6e, roughness: 0.92 });
     var lakeMidMat = new THREE.MeshStandardMaterial({ color: 0x082f49, roughness: 0.95 });
     var lakeDeepMat = new THREE.MeshStandardMaterial({ color: 0x021724, roughness: 0.98 });
+    var lakeBedMat = lakeDeepMat;
     var lakeStoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.88 });
     [-6.5, 6.5].forEach(function (lx) {
       var bed1 = new THREE.Mesh(new THREE.CircleGeometry(7.55, 36), lakeShallowMat);
@@ -2897,7 +2898,7 @@
         if (pi % 2 === 0) {
           var segZ = zStart + (pi + 1) * stepZ;
           var segY = deckYAt(segZ);
-          walkableSlabs.push({
+          walkableFloors.push({
             minX: -bridgeW / 2 + 0.12, maxX: bridgeW / 2 - 0.12,
             minZ: pz - stepZ * 0.6, maxZ: pz + stepZ * 1.6,
             topY: segY
