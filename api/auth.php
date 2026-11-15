@@ -115,11 +115,12 @@ if ($action === 'login' || $action === 'register_or_login') {
 }
 
 if ($action === 'logout') {
-    $token = (string)($body['token'] ?? '');
+    $token = (string)($body['token'] ?? $_COOKIE['mc_token'] ?? '');
     if (preg_match('/^[a-f0-9]{64}$/', $token)) {
         $del = $pdo->prepare('DELETE FROM mc_auth_tokens WHERE token_hash = ?');
         $del->execute([hash('sha256', $token)]);
     }
+    mc_clear_auth_cookie();
     mc_json(['ok' => true]);
 }
 

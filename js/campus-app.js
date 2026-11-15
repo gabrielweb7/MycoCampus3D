@@ -174,7 +174,7 @@
     var data = Object.assign({}, payload || {});
     if (withAuth && currentUser) {
       data.user_id = currentUser.id;
-      data.token = authToken;
+      if (authToken) data.token = authToken;
     }
     var res = await fetch(url, {
       method: 'POST',
@@ -187,6 +187,54 @@
       handleSessionExpired(json.error);
     }
     return json;
+  }
+
+  function enterCampus(user, token) {
+    currentUser = user;
+    if (token) authToken = token;
+    $('input-pin').value = '';
+    $('input-prof-key').value = '';
+    updateUserHud();
+    $('campus-lobby').classList.add('hidden');
+    $('campus-hud').classList.remove('hidden');
+    window.setCampusFpsMode(true);
+    setTimeout(function () { $('fps-hint').classList.add('faded'); }, 4000);
+    if (syncTimer) clearInterval(syncTimer);
+    syncMultiplayer();
+    syncTimer = setInterval(syncMultiplayer, SYNC_INTERVAL_MS);
+  }
+
+  async function tryResumeSession() {
+    try {
+      var res = await fetch('api/auth.php?action=me', { credentials: 'same-origin', cache: 'no-store' });
+      if (!res.ok) return;
+      var data = await res.json();
+      if (data.ok && data.user) {
+        enterCampus(data.user, '');
+      }
+    } catch (e) { /* segue no lobby */ }
+  }
+
+  async function logoutCampus() {
+    if (syncTimer) clearInterval(syncTimer);
+    syncTimer = null;
+    var lastName = currentUser ? currentUser.display_name : '';
+    try {
+      await apiPost('api/multiplayer.php?action=leave', { session_id: sessionId }, true);
+      await apiPost('api/auth.php?action=logout', {}, true);
+    } catch (e) { /* silent */ }
+    currentUser = null;
+    authToken = '';
+    window.updateCampusPlayers([]);
+    window.setCampusFpsMode(false);
+    $('campus-hud').classList.add('hidden');
+    $('lesson-modal').classList.add('hidden');
+    $('ranking-modal').classList.add('hidden');
+    $('campus-lobby').classList.remove('hidden');
+    if (lastName) $('input-name').value = lastName;
+    var btn = $('btn-enter-campus');
+    btn.disabled = false;
+    btn.textContent = '🚀 Entrar no Campus 3D';
   }
 
   function handleSessionExpired(msg) {
@@ -540,18 +588,7 @@
           btn.textContent = '🚀 Entrar no Campus 3D';
           return;
         }
-        currentUser = data.user;
-        authToken = data.token || '';
-        $('input-pin').value = '';
-        $('input-prof-key').value = '';
-        updateUserHud();
-        $('campus-lobby').classList.add('hidden');
-        $('campus-hud').classList.remove('hidden');
-        window.setCampusFpsMode(true);
-        setTimeout(function () { $('fps-hint').classList.add('faded'); }, 4000);
-        if (syncTimer) clearInterval(syncTimer);
-        syncMultiplayer();
-        syncTimer = setInterval(syncMultiplayer, SYNC_INTERVAL_MS);
+        enterCampus(data.user, data.token || '');
       } catch (err) {
         errBox.textContent = 'Falha ao conectar com o servidor. Tente novamente em instantes.';
         errBox.classList.remove('hidden');
@@ -561,6 +598,7 @@
     });
 
     $('btn-toggle-fps').onclick = function () { window.setCampusFpsMode(!inFpsState); };
+    $('btn-logout').onclick = logoutCampus;
     $('btn-open-lessons').onclick = function () { renderLessonsModal(); $('lesson-modal').classList.remove('hidden'); };
     $('btn-close-lessons').onclick = function () { $('lesson-modal').classList.add('hidden'); };
     $('btn-open-ranking').onclick = openRankingModal;
@@ -585,16 +623,16 @@
     });
 
     function sendLeave() {
-      if (currentUser && authToken && navigator.sendBeacon) {
-        navigator.sendBeacon('api/multiplayer.php?action=leave', JSON.stringify({
-          session_id: sessionId,
-          user_id: currentUser.id,
-          token: authToken
-        }));
+      if (currentUser && navigator.sendBeacon) {
+        var body = { session_id: sessionId, user_id: currentUser.id };
+        if (authToken) body.token = authToken;
+        navigator.sendBeacon('api/multiplayer.php?action=leave', JSON.stringify(body));
       }
     }
     window.addEventListener('pagehide', sendLeave);
     window.addEventListener('beforeunload', sendLeave);
+
+    tryResumeSession();
   }
 
   document.addEventListener('DOMContentLoaded', boot);

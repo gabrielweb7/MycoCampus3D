@@ -125,28 +125,60 @@ function mc_db_or_fail(): PDO {
     }
 }
 
+function mc_is_https(): bool {
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+}
+
+function mc_set_auth_cookie(string $token): void {
+    setcookie('mc_token', $token, [
+        'expires' => time() + (86400 * MC_TOKEN_TTL_DAYS),
+        'path' => '/',
+        'secure' => mc_is_https(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+}
+
+function mc_clear_auth_cookie(): void {
+    setcookie('mc_token', '', [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'secure' => mc_is_https(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+}
+
 /** Gera token de sessao (retorna o token puro; salva apenas o hash). */
 function mc_issue_token(PDO $pdo, int $userId): string {
     $pdo->exec('DELETE FROM mc_auth_tokens WHERE last_used < (NOW() - INTERVAL ' . MC_TOKEN_TTL_DAYS . ' DAY)');
     $token = bin2hex(random_bytes(32));
     $ins = $pdo->prepare('INSERT INTO mc_auth_tokens (token_hash, user_id) VALUES (?, ?)');
     $ins->execute([hash('sha256', $token), $userId]);
+    mc_set_auth_cookie($token);
     return $token;
 }
 
-/** Valida user_id + token do corpo da requisicao. Retorna a linha do usuario ou encerra com 401. */
+/** Valida token (JSON ou cookie HttpOnly). Retorna a linha do usuario ou encerra com 401. */
 function mc_require_user(PDO $pdo): array {
     $body = mc_body();
     $userId = (int)($body['user_id'] ?? 0);
-    $token = (string)($body['token'] ?? '');
-    if ($userId <= 0 || !preg_match('/^[a-f0-9]{64}$/', $token)) {
+    $token = (string)($body['token'] ?? $_COOKIE['mc_token'] ?? '');
+    if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
         mc_json(['ok' => false, 'error' => 'Sessao invalida. Entre novamente.', 'auth' => false], 401);
     }
     $hash = hash('sha256', $token);
-    $st = $pdo->prepare('SELECT u.* FROM mc_auth_tokens t JOIN mc_users u ON u.id = t.user_id WHERE t.token_hash = ? AND u.id = ? LIMIT 1');
-    $st->execute([$hash, $userId]);
+    if ($userId > 0) {
+        $st = $pdo->prepare('SELECT u.* FROM mc_auth_tokens t JOIN mc_users u ON u.id = t.user_id WHERE t.token_hash = ? AND u.id = ? LIMIT 1');
+        $st->execute([$hash, $userId]);
+    } else {
+        $st = $pdo->prepare('SELECT u.* FROM mc_auth_tokens t JOIN mc_users u ON u.id = t.user_id WHERE t.token_hash = ? LIMIT 1');
+        $st->execute([$hash]);
+    }
     $user = $st->fetch();
     if (!$user) {
+        mc_clear_auth_cookie();
         mc_json(['ok' => false, 'error' => 'Sessao expirada. Entre novamente.', 'auth' => false], 401);
     }
     $touch = $pdo->prepare('UPDATE mc_auth_tokens SET last_used = NOW() WHERE token_hash = ? AND last_used < (NOW() - INTERVAL 60 SECOND)');
