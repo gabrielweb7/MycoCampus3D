@@ -15,6 +15,7 @@ const MP_ITEMS = [
     'petri_clean', 'petri_contam', 'spawn_jar', 'liquid_culture',
     'substrate_bag', 'fruiting_block',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
+    'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',
     'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser',
     'chalk_white_1', 'chalk_green_1', 'chalk_yellow_1', 'board_eraser_1',
     'chalk_white_2', 'chalk_green_2', 'chalk_yellow_2', 'board_eraser_2',

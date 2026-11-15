@@ -117,6 +117,9 @@
   var seatedSeat = null;
   var lightSwitchMeshes = [];
   var hoveredSwitch = null;
+  var hoodSwitchMeshes = [];
+  var hoveredHoodSwitch = null;
+  var hoodAirData = null;
   var terrainSnowMat = null;
   var roofZones = []; // { minX, maxX, minZ, maxZ, roofY } para impedir chuva/neve dentro dos predios
 
@@ -1356,21 +1359,58 @@
   function buildCampusWingsAndEquipment() {
     // ALA OESTE (Esquerda) — 2 blocos de 2 andares (x: -24..-14)
     // Bloco Oeste-Norte (z: -12.8..-1.2): LABORATORIO DE FLUXO LAMINAR & AUTOCLAVE + 2o andar acessivel
-    buildCampusBuildingWing({ cx: -19, cz: -7, width: 10, depth: 11.6, faceDir: 1, hasDoor: true, style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 0 });
+    buildCampusBuildingWing({ cx: -19, cz: -7, width: 10, depth: 11.6, faceDir: 1, doorLabel: 'Porta do Laboratório', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 0 });
     // Bloco Oeste-Sul (z: 2.2..13.8): Salas de Aula (1o e 2o andares acessiveis)
-    buildCampusBuildingWing({ cx: -19, cz: 8, width: 10, depth: 11.6, faceDir: 1, hasDoor: false, style: 'brick', connectNorth2F: true, boardIndex: 1 });
+    buildCampusBuildingWing({ cx: -19, cz: 8, width: 10, depth: 11.6, faceDir: 1, doorLabel: 'Porta da Sala Oeste', style: 'brick', connectNorth2F: true, boardIndex: 1 });
 
     createBanner(-13.85, 5.1, -11.6, Math.PI / 2, '#6d28d9', '🔬');
     createBanner(-13.85, 5.1, -2.4, Math.PI / 2, '#1d4ed8', '🧬');
     createBanner(-13.85, 5.1, 12.6, Math.PI / 2, '#991b1b', '📚');
 
     // Equipamentos do Lab dentro do Bloco Oeste-Norte (x: -24..-14, z: -12.8..-1.2)
-    function addStainlessTable(tx, floorY, tz, tw, th, td) {
+    function updateItemBounds(item) {
+      if (!item || !item.mesh) return;
+      var px = item.mesh.position.x, py = item.mesh.position.y, pz = item.mesh.position.z;
+      var surf = item.mesh.userData.dynamicSurface;
+      var col = item.mesh.userData.dynamicCollider;
+      var dims = item.mesh.userData.tableDims;
+      if (dims) {
+        var rotSwap = Math.abs(Math.sin(item.mesh.rotation.y)) > 0.707;
+        var hw = (rotSwap ? dims.d : dims.w) / 2;
+        var hd = (rotSwap ? dims.w : dims.d) / 2;
+        if (surf) {
+          surf.minX = px - hw + 0.05; surf.maxX = px + hw - 0.05;
+          surf.minZ = pz - hd + 0.05; surf.maxZ = pz + hd - 0.05;
+          surf.topY = py + dims.h + (dims.surfOffset || 0);
+        }
+        if (col) {
+          col.minX = px - hw - 0.05; col.maxX = px + hw + 0.05;
+          col.minZ = pz - hd - 0.05; col.maxZ = pz + hd + 0.05;
+          col.minY = py; col.maxY = py + dims.h + 0.4;
+        }
+      }
+    }
+
+    function isSurfaceOccupied(surf, ignoreItem) {
+      if (!surf) return false;
+      for (var i = 0; i < pickableItems.length; i++) {
+        var o = pickableItems[i];
+        if (o === ignoreItem) continue;
+        var p = o.mesh.position;
+        if (p.x >= surf.minX - 0.08 && p.x <= surf.maxX + 0.08 &&
+            p.z >= surf.minZ - 0.08 && p.z <= surf.maxZ + 0.08 &&
+            p.y >= surf.topY - 0.12 && p.y <= surf.topY + 0.55) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function addMovableStainlessTable(id, label, tx, floorY, tz, tw, th, td) {
       var inoxMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.22 });
       var legMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.9, roughness: 0.15 });
       var footMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
       var tg = new THREE.Group();
-      tg.position.set(tx, floorY, tz);
       var top = new THREE.Mesh(new THREE.BoxGeometry(tw, 0.055, td), inoxMat);
       top.position.y = th - 0.0275; top.castShadow = true; top.receiveShadow = true;
       var shelf = new THREE.Mesh(new THREE.BoxGeometry(tw - 0.08, 0.035, td - 0.08), inoxMat);
@@ -1384,15 +1424,26 @@
         foot.position.set(lp[0], 0.015, lp[1]);
         tg.add(leg, foot);
       });
-      scene.add(tg);
+      var surf = { minX: tx - tw / 2 + 0.05, maxX: tx + tw / 2 - 0.05, minZ: tz - td / 2 + 0.05, maxZ: tz + td / 2 - 0.05, topY: floorY + th };
+      var col = { minX: tx - tw / 2 - 0.05, maxX: tx + tw / 2 + 0.05, minZ: tz - td / 2 - 0.05, maxZ: tz + td / 2 + 0.05, minY: floorY, maxY: floorY + th + 0.4 };
+      supportSurfaces.push(surf);
+      solidColliders.push(col);
+      tg.userData.twoHanded = true;
+      tg.userData.isTable = true;
+      tg.userData.tableDims = { w: tw, h: th, d: td, surfOffset: 0 };
+      tg.userData.dynamicSurface = surf;
+      tg.userData.dynamicCollider = col;
+      tg.userData.updateBounds = updateItemBounds;
+      tg.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(surf, item); };
+      registerPickable(id, label, tg, tx, floorY, tz, 0, Math.max(tw, td) * 0.5, th);
     }
 
-    // Fluxo Laminar Horizontal realista: mesa de inox + gabinete + Filtro HEPA plissado + grade + lamparina + bisturi
-    addStainlessTable(-22.2, 0.14, -9.8, 1.5, 0.90, 2.4);
+    // Fluxo Laminar Horizontal realista (movivel se vazio + botao de ligar/desligar + ar esteril!)
+    addMovableStainlessTable('table_hood_lab', 'Mesa Inox (Fluxo Laminar)', -22.2, 0.14, -9.8, 1.5, 0.90, 2.4);
+
+    var hoodGroup = new THREE.Group();
     var hoodBackBox = makeBox(0.32, 1.08, 2.34, 0x0f172a, { roughness: 0.45, metalness: 0.4 });
-    hoodBackBox.position.set(-22.78, 0.14 + 1.44, -9.8);
-    scene.add(hoodBackBox);
-    // Textura procedural da tela/colmeia do Filtro HEPA
+    hoodBackBox.position.set(-0.58, 0.54, 0);
     var hepaCanvas = document.createElement('canvas');
     hepaCanvas.width = 256; hepaCanvas.height = 128;
     var hctx = hepaCanvas.getContext('2d');
@@ -1407,34 +1458,63 @@
     var hepaTex = new THREE.CanvasTexture(hepaCanvas);
     hepaTex.wrapS = hepaTex.wrapT = THREE.RepeatWrapping;
     hepaTex.repeat.set(3, 2);
-    var hepa = new THREE.Mesh(
-      new THREE.BoxGeometry(0.06, 0.94, 2.16),
-      new THREE.MeshStandardMaterial({ map: hepaTex, emissive: 0xe0f2fe, emissiveIntensity: 0.25, roughness: 0.6 })
-    );
-    hepa.position.set(-22.61, 0.14 + 1.44, -9.8);
-    scene.add(hepa);
-    // Paredes laterais de vidro/acrilico e teto do fluxo laminar
+    var hepaMat = new THREE.MeshStandardMaterial({ map: hepaTex, emissive: 0xe0f2fe, emissiveIntensity: 0.35, roughness: 0.6 });
+    var hepa = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.94, 2.16), hepaMat);
+    hepa.position.set(-0.41, 0.54, 0);
     var hoodTop = makeBox(1.1, 0.06, 2.34, 0x0f172a, { roughness: 0.4 });
-    hoodTop.position.set(-22.1, 0.14 + 1.98, -9.8);
+    hoodTop.position.set(0.10, 1.08, 0);
     var hoodGlassL = makeBox(1.05, 1.02, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
-    hoodGlassL.position.set(-22.1, 0.14 + 1.44, -10.95);
+    hoodGlassL.position.set(0.10, 0.54, -1.15);
     var hoodGlassR = makeBox(1.05, 1.02, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
-    hoodGlassR.position.set(-22.1, 0.14 + 1.44, -8.65);
-    scene.add(hoodTop, hoodGlassL, hoodGlassR);
-    // Grade preta de trabalho + Lamparina a alcool com chama + Bisturi
+    hoodGlassR.position.set(0.10, 0.54, 1.15);
     var wireRack = makeBox(0.95, 0.025, 2.0, 0x111827, { metalness: 0.7, roughness: 0.35 });
-    wireRack.position.set(-22.05, 1.05, -9.8);
+    wireRack.position.set(0.15, 0.015, 0);
     var lampBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 14), new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 }));
-    lampBody.position.set(-21.85, 1.12, -10.55);
+    lampBody.position.set(0.35, 0.08, -0.75);
     var flameMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.9 });
     var lampFlame = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.11, 10), flameMat);
-    lampFlame.position.set(-21.85, 1.24, -10.55);
+    lampFlame.position.set(0.35, 0.20, -0.75);
     var scalpelHandle = makeBox(0.24, 0.014, 0.024, 0xd1d5db, { metalness: 0.85, roughness: 0.2 });
-    scalpelHandle.position.set(-21.82, 1.07, -9.55);
+    scalpelHandle.position.set(0.38, 0.03, 0.25);
     scalpelHandle.rotation.y = 0.35;
-    scene.add(wireRack, lampBody, lampFlame, scalpelHandle);
-    solidColliders.push({ minX: -23.0, maxX: -21.4, minZ: -11.1, maxZ: -8.5, minY: 0.14, maxY: 2.3 });
-    supportSurfaces.push({ minX: -22.9, maxX: -21.5, minZ: -10.9, maxZ: -8.7, topY: 1.06 });
+
+    // Botao Power + LED no canto superior direito do Fluxo Laminar
+    var hoodSwitchBox = makeBox(0.06, 0.14, 0.10, 0x1e293b, { noShadow: true });
+    hoodSwitchBox.position.set(0.62, 1.05, 1.13);
+    var hoodBtnMesh = makeBox(0.03, 0.06, 0.06, 0x38bdf8, { noShadow: true });
+    hoodBtnMesh.position.set(0.65, 1.03, 1.13);
+    var hoodLedMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+    var hoodLed = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), hoodLedMat);
+    hoodLed.position.set(0.65, 1.09, 1.13);
+
+    // Corrente de ar esteril horizontal (particulas saindo do filtro HEPA)
+    var airCount = 56;
+    var airPos = new Float32Array(airCount * 3);
+    for (var ai = 0; ai < airCount; ai++) {
+      airPos[ai * 3] = -0.36 + Math.random() * 1.15;
+      airPos[ai * 3 + 1] = 0.10 + Math.random() * 0.85;
+      airPos[ai * 3 + 2] = (Math.random() - 0.5) * 2.0;
+    }
+    var airGeo = new THREE.BufferGeometry();
+    var airAttr = new THREE.BufferAttribute(airPos, 3);
+    airGeo.setAttribute('position', airAttr);
+    var airPoints = new THREE.Points(airGeo, new THREE.PointsMaterial({ color: 0xbae6fd, size: 0.045, transparent: true, opacity: 0.72 }));
+    hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, wireRack, lampBody, lampFlame, scalpelHandle, hoodSwitchBox, hoodBtnMesh, hoodLed, airPoints);
+
+    hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat: hepaMat, ledMat: hoodLedMat };
+    hoodBtnMesh.userData.hoodSwitch = hoodAirData;
+    hoodSwitchBox.userData.hoodSwitch = hoodAirData;
+    hoodSwitchMeshes.push(hoodBtnMesh, hoodSwitchBox);
+
+    var hoodSurf = { minX: -22.8, maxX: -21.5, minZ: -10.85, maxZ: -8.75, topY: 1.07 };
+    supportSurfaces.push(hoodSurf);
+    hoodGroup.userData.twoHanded = true;
+    hoodGroup.userData.isHood = true;
+    hoodGroup.userData.tableDims = { w: 1.4, h: 0.03, d: 2.3, surfOffset: 0 };
+    hoodGroup.userData.dynamicSurface = hoodSurf;
+    hoodGroup.userData.updateBounds = updateItemBounds;
+    hoodGroup.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(hoodSurf, item); };
+    registerPickable('laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -22.2, 1.04, -9.8, 0, 0.85, 1.1);
 
     function createPressureCookerPair(potId, lidId, labelSuffix, px, py, pz) {
       var steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20 });
@@ -1488,14 +1568,10 @@
       potGroup.userData.lidItem = lidItem;
     }
 
-    addStainlessTable(-22.2, 0.14, -4.4, 1.5, 0.85, 2.4);
-    solidColliders.push({ minX: -23.0, maxX: -21.4, minZ: -5.65, maxZ: -3.15, minY: 0.14, maxY: 1.5 });
-    supportSurfaces.push({ minX: -22.9, maxX: -21.5, minZ: -5.5, maxZ: -3.3, topY: 0.99 });
+    addMovableStainlessTable('table_cooker_lab', 'Mesa Inox (Autoclave/Spawn)', -22.2, 0.14, -4.4, 1.5, 0.85, 2.4);
     createPressureCookerPair('pressure_cooker_lab', 'pressure_lid_lab', 'Lab', -22.2, 0.99, -3.9);
 
-    addStainlessTable(-16.8, 0.14, -4.2, 2.2, 0.79, 1.0);
-    supportSurfaces.push({ minX: -17.85, maxX: -15.75, minZ: -4.68, maxZ: -3.72, topY: 0.93 });
-    solidColliders.push({ minX: -17.9, maxX: -15.7, minZ: -4.7, maxZ: -3.7, minY: 0.14, maxY: 1.8 });
+    addMovableStainlessTable('table_lc_lab', 'Mesa Inox (Cultura Líquida)', -16.8, 0.14, -4.2, 2.2, 0.79, 1.0);
 
     // Itens pegaveis do Lab
     var petri1 = new THREE.Group();
@@ -1523,9 +1599,9 @@
 
     // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
     // Bloco Leste-Norte (z: -12.8..-1.2): SUBSTRATOS & PASTEURIZACAO + 2o andar acessivel
-    buildCampusBuildingWing({ cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, openFront: true, style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 2 });
+    buildCampusBuildingWing({ cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta de Substratos', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 2 });
     // Bloco Leste-Sul (z: 2.2..13.8): ESTUFA DE FRUTIFICACAO + 2o andar acessivel
-    buildCampusBuildingWing({ cx: 19, cz: 8, width: 10, depth: 11.6, faceDir: -1, openFront: true, style: 'wood', connectNorth2F: true, boardIndex: 3 });
+    buildCampusBuildingWing({ cx: 19, cz: 8, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta da Estufa', style: 'wood', connectNorth2F: true, boardIndex: 3 });
 
     createBanner(13.85, 5.1, -11.6, -Math.PI / 2, '#0284c7', '🧪');
     createBanner(13.85, 5.1, 3.6, -Math.PI / 2, '#15803d', '🍄');
@@ -1536,9 +1612,7 @@
     scene.add(drum);
     solidColliders.push({ minX: 20.7, maxX: 22.3, minZ: -10.8, maxZ: -9.2, minY: 0.14, maxY: 1.6 });
 
-    addStainlessTable(21.2, 0.14, -5.2, 1.5, 0.82, 3.2);
-    solidColliders.push({ minX: 20.4, maxX: 22.0, minZ: -6.85, maxZ: -3.55, minY: 0.14, maxY: 1.1 });
-    supportSurfaces.push({ minX: 20.5, maxX: 21.9, minZ: -6.75, maxZ: -3.65, topY: 0.96 });
+    addMovableStainlessTable('table_sub_east', 'Mesa Inox (Substratos)', 21.2, 0.14, -5.2, 1.5, 0.82, 3.2);
 
     var subBag = new THREE.Group();
     var bagMesh = makeBox(0.38, 0.44, 0.28, 0xd6d3d1, { roughness: 0.85 });
@@ -1812,8 +1886,11 @@
         pos.z = cz + (dz / dist) * minD;
       }
     }
-    if (!labDoorOpen && pos.y < 3.4 && pos.z > -8.0 && pos.z < -6.0 && Math.abs(pos.x - (-14.0)) < radius + 0.18) {
-      pos.x = pos.x >= -14.0 ? -14.0 + radius + 0.18 : -14.0 - radius - 0.18;
+    for (var dIdx = 0; dIdx < campusDoors.length; dIdx++) {
+      var dr = campusDoors[dIdx];
+      if (!dr.open && pos.y < 3.4 && pos.z > dr.minZ - 0.1 && pos.z < dr.maxZ + 0.1 && Math.abs(pos.x - dr.frontX) < radius + 0.18) {
+        pos.x = pos.x >= dr.frontX ? dr.frontX + radius + 0.18 : dr.frontX - radius - 0.18;
+      }
     }
     for (var j = 0; j < solidColliders.length; j++) {
       var c = solidColliders[j];
@@ -2058,10 +2135,11 @@
         item.movedAt = now;
         return;
       }
+      var isReturnable = item.id.indexOf('chalk_') === 0 || item.id.indexOf('board_eraser') === 0;
       var distHome = item.mesh.position.distanceTo(item.homePos);
-      if (distHome > 0.35) {
+      if (isReturnable && distHome > 2.5) {
         if (!item.movedAt) item.movedAt = now;
-        if (now - item.movedAt > 45000 || item.mesh.position.y < -5) {
+        if (now - item.movedAt > 45000) {
           item.mesh.position.copy(item.homePos);
           item.mesh.rotation.y = item.homeRy;
           item.isMoved = false;
@@ -2073,6 +2151,12 @@
         }
       } else {
         item.movedAt = 0;
+      }
+      if (item.mesh.position.y < -5) {
+        item.mesh.position.copy(item.homePos);
+        item.mesh.rotation.y = item.homeRy;
+        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+        return;
       }
       var supportedY = getGroundHeight(item.mesh.position.x, item.mesh.position.z, item.mesh.position.y);
       for (var i = 0; i < supportSurfaces.length; i++) {
@@ -2399,6 +2483,7 @@
           recentlyDropped[attLid.id] = performance.now() + 1500;
         }
         recentlyDropped[heldItem.id] = performance.now() + 1500;
+        if (heldItem.mesh.userData.updateBounds) heldItem.mesh.userData.updateBounds(heldItem);
         heldItem = null;
         placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
@@ -2412,8 +2497,12 @@
       if (callbacks.onHarvestMushroom) callbacks.onHarvestMushroom(hoveredMushroom.id);
       return;
     }
-    if (hoveredDoor) {
-      labDoorOpen = !labDoorOpen;
+    if (hoveredDoorObj) {
+      hoveredDoorObj.open = !hoveredDoorObj.open;
+      return;
+    }
+    if (hoveredBlindObj) {
+      hoveredBlindObj.open = !hoveredBlindObj.open;
       return;
     }
     if (hoveredCinema) {
@@ -2480,7 +2569,17 @@
       if (callbacks.onOpenLessons) callbacks.onOpenLessons();
       return;
     }
+    if (hoveredHoodSwitch) {
+      hoveredHoodSwitch.on = !hoveredHoodSwitch.on;
+      hoveredHoodSwitch.points.visible = hoveredHoodSwitch.on;
+      hoveredHoodSwitch.hepaMat.emissiveIntensity = hoveredHoodSwitch.on ? 0.35 : 0.04;
+      hoveredHoodSwitch.ledMat.color.setHex(hoveredHoodSwitch.on ? 0x22c55e : 0xef4444);
+      return;
+    }
     if (hoveredPickable) {
+      if (hoveredPickable.mesh.userData.isBlockedPickup && hoveredPickable.mesh.userData.isBlockedPickup(hoveredPickable)) {
+        return;
+      }
       if (hoveredPickable.mesh.userData.potItem && hoveredPickable.mesh.userData.isAttached) {
         hoveredPickable.mesh.userData.isAttached = false;
       }
@@ -2502,6 +2601,7 @@
     hoveredRankBtn = null;
     hoveredSeat = null;
     hoveredSwitch = null;
+    hoveredHoodSwitch = null;
     var prompt = '';
 
     // Verifica proximidade dos teloes para exibir opcoes contextuais
@@ -2575,6 +2675,16 @@
       }
     }
 
+    if (hoodSwitchMeshes.length) {
+      var hsHits = raycaster.intersectObjects(hoodSwitchMeshes, false);
+      if (hsHits.length > 0 && hsHits[0].distance < 4.0) {
+        hoveredHoodSwitch = hsHits[0].object.userData.hoodSwitch;
+        prompt = hoveredHoodSwitch.on ? '💨 Desligar Fluxo Laminar' : '💨 Ligar Fluxo Laminar';
+        if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
+        return;
+      }
+    }
+
     if (lightSwitchMeshes.length) {
       var swHits = raycaster.intersectObjects(lightSwitchMeshes, false);
       if (swHits.length > 0 && swHits[0].distance < 4.0) {
@@ -2637,7 +2747,9 @@
         var hits = raycaster.intersectObject(item.mesh, true);
         if (hits.length > 0 && hits[0].distance < 4.5) {
           hoveredPickable = item;
-          if (item.mesh.userData.potItem && item.mesh.userData.isAttached) {
+          if (item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) {
+            prompt = item.mesh.userData.isHood ? '⚠️ Tire os itens de dentro do Fluxo Laminar' : '⚠️ Tire os objetos de cima da mesa';
+          } else if (item.mesh.userData.potItem && item.mesh.userData.isAttached) {
             prompt = '🍲 Abrir tampa da Panela de Pressão';
           } else if (item.mesh.userData.twoHanded) {
             prompt = '🙌 Pegar ' + item.label + ' (2 mãos)';
@@ -2961,6 +3073,18 @@
       } else if (currentStroke) {
         flushCurrentStroke();
       }
+    }
+    if (hoodAirData && hoodAirData.on && hoodAirData.attr) {
+      var aArr = hoodAirData.attr.array;
+      for (var ai = 0; ai < aArr.length; ai += 3) {
+        aArr[ai] += dt * 1.45;
+        if (aArr[ai] > 0.78) {
+          aArr[ai] = -0.36;
+          aArr[ai + 1] = 0.10 + Math.random() * 0.85;
+          aArr[ai + 2] = (Math.random() - 0.5) * 2.0;
+        }
+      }
+      hoodAirData.attr.needsUpdate = true;
     }
     drawCinemaVideoFrame(dt);
     updateDynamicEnvironment(dt);
@@ -3476,9 +3600,11 @@
       if (saved) {
         item.mesh.position.set(saved.x, saved.y, saved.z);
         item.mesh.rotation.y = saved.ry || 0;
+        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       } else if (item.isMoved) {
         item.mesh.position.copy(item.homePos);
         item.mesh.rotation.y = item.homeRy;
+        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
         item.isMoved = false;
       }
     });
