@@ -1279,12 +1279,13 @@
       var redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.35 });
 
       var potGroup = new THREE.Group();
-      var potBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.23, 0.36, 22), steelMat);
+      var potWallMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20, side: THREE.DoubleSide });
+      var potBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.23, 0.36, 22, 1, true), potWallMat);
       potBody.position.y = 0.18; potBody.castShadow = true;
       var potBase = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.03, 22), darkMat);
       potBase.position.y = 0.015;
-      var potInner = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.215, 0.33, 20), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 }));
-      potInner.position.y = 0.195;
+      var potBottomIn = new THREE.Mesh(new THREE.CircleGeometry(0.22, 22), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.75, roughness: 0.35 }));
+      potBottomIn.rotation.x = -Math.PI / 2; potBottomIn.position.y = 0.034;
       var potRim = new THREE.Mesh(new THREE.TorusGeometry(0.242, 0.018, 10, 24), steelMat);
       potRim.rotation.x = Math.PI / 2; potRim.position.y = 0.36;
       [-1, 1].forEach(function (side) {
@@ -1292,7 +1293,7 @@
         hdl.position.set(side * 0.275, 0.29, 0);
         potGroup.add(hdl);
       });
-      potGroup.add(potBody, potBase, potInner, potRim);
+      potGroup.add(potBody, potBase, potBottomIn, potRim);
       potGroup.userData.twoHanded = true;
       var potItem = registerPickable(potId, 'Panela de Pressão 20L (' + labelSuffix + ')', potGroup, px, py, pz, 0, 0.30, 0.42);
 
@@ -2729,16 +2730,16 @@
         armReach += ((drawingNow ? 1 : 0) - armReach) * Math.min(1, dt * 14);
         if (speedNow > 0.2) armSwingPhase += dt * 7;
         fpsArmGroup.position.set(
-          (isTwoHanded ? 0.28 : 0.32) - armReach * 0.08,
-          -0.28 + Math.sin(armSwingPhase) * 0.014 + armReach * 0.06,
-          (isTwoHanded ? -0.45 : -0.42) - armReach * 0.16
+          (isTwoHanded ? 0.27 : 0.32) - armReach * 0.08,
+          (isTwoHanded ? -0.34 : -0.28) + Math.sin(armSwingPhase) * 0.014 + armReach * 0.06,
+          (isTwoHanded ? -0.56 : -0.42) - armReach * 0.16
         );
         fpsArmGroup.rotation.set(0.18 + armReach * 0.35, (isTwoHanded ? 0.12 : -0.14) + armReach * 0.1, 0.05);
       }
       if (fpsLeftArmGroup) {
         fpsLeftArmGroup.visible = isTwoHanded;
         if (isTwoHanded) {
-          fpsLeftArmGroup.position.set(-0.28, -0.28 + Math.sin(armSwingPhase) * 0.014, -0.45);
+          fpsLeftArmGroup.position.set(-0.27, -0.34 + Math.sin(armSwingPhase) * 0.014, -0.56);
           fpsLeftArmGroup.rotation.set(0.18, -0.12, -0.05);
         }
       }
@@ -2747,7 +2748,7 @@
         var reachZ = fpsArmGroup ? armReach * 0.16 : 0;
         var reachY = fpsArmGroup ? armReach * 0.06 : 0;
         var handLocal = isTwoHanded
-          ? new THREE.Vector3(0, -0.28, -0.56)
+          ? new THREE.Vector3(0, -0.48, -0.78)
           : new THREE.Vector3(0.30, -0.22 + reachY, -0.58 - reachZ);
         var handPos = handLocal.applyEuler(camera.rotation).add(camera.position);
         heldItem.mesh.position.copy(handPos);
