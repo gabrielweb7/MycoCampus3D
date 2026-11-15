@@ -2053,34 +2053,135 @@
 
     function makeElectricBurner(id, px, py, pz) {
       var bg = new THREE.Group();
-      var body = makeBox(0.54, 0.075, 0.58, 0x1e293b, { metalness: 0.45, roughness: 0.4 });
-      body.position.y = 0.0375;
-      var coilMat = new THREE.MeshStandardMaterial({ color: 0x334155, emissive: 0xef4444, emissiveIntensity: 0.04, roughness: 0.4 });
-      var coil = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.014, 22), coilMat);
-      coil.position.set(0, 0.082, -0.02);
-      var knob = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.026, 0.024, 14), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 }));
-      knob.rotation.x = Math.PI / 2;
-      knob.position.set(-0.14, 0.038, 0.295);
+      // Pés de borracha antiderrapantes
+      var footGeo = new THREE.CylinderGeometry(0.022, 0.026, 0.012, 10);
+      var footMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.9 });
+      [[-0.22, -0.24], [0.22, -0.24], [-0.22, 0.24], [0.22, 0.24]].forEach(function (fp) {
+        var ft = new THREE.Mesh(footGeo, footMat);
+        ft.position.set(fp[0], 0.006, fp[1]);
+        bg.add(ft);
+      });
+
+      // Corpo esmaltado preto brilhante
+      var body = makeBox(0.54, 0.068, 0.58, 0x0f172a, { metalness: 0.55, roughness: 0.22 });
+      body.position.y = 0.044;
+      bg.add(body);
+
+      // Bandeja refletora de inox rebaixada
+      var reflectorMat = new THREE.MeshStandardMaterial({
+        color: 0xdbeafe,
+        emissive: 0xff4500,
+        emissiveIntensity: 0,
+        metalness: 0.88,
+        roughness: 0.2
+      });
+      var reflector = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.185, 0.012, 28), reflectorMat);
+      reflector.position.set(0, 0.077, -0.02);
+      bg.add(reflector);
+
+      // Suporte em cruz sob a resistência espiral
+      var crossMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 });
+      var cross1 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.008, 0.014), crossMat);
+      cross1.position.set(0, 0.081, -0.02);
+      var cross2 = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.008, 0.38), crossMat);
+      cross2.position.set(0, 0.081, -0.02);
+      bg.add(cross1, cross2);
+
+      // Resistência espiral 3D (anéis concêntricos que ficam vermelho-incandescentes)
+      var coilMat = new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        emissive: 0xff2a00,
+        emissiveIntensity: 0.0,
+        metalness: 0.55,
+        roughness: 0.35
+      });
+      var coilGroup = new THREE.Group();
+      coilGroup.position.set(0, 0.084, -0.02);
+      [0.165, 0.112, 0.060].forEach(function (r) {
+        var ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 10, 28), coilMat);
+        ring.rotation.x = Math.PI / 2;
+        coilGroup.add(ring);
+      });
+      bg.add(coilGroup);
+
+      // Superfície invisível de apoio/raycast exatamente na altura da resistência
+      var coilHit = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.205, 0.205, 0.012, 22),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      coilHit.position.set(0, 0.082, -0.02);
+      bg.add(coilHit);
+
+      // Botão termostato giratório preto com marcador branco (frente direita)
+      var knobGroup = new THREE.Group();
+      knobGroup.position.set(0.14, 0.044, 0.296);
+      var knobBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.032, 0.035, 0.028, 16),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.2 })
+      );
+      knobBase.rotation.x = Math.PI / 2;
+      var knobPointer = new THREE.Mesh(
+        new THREE.BoxGeometry(0.007, 0.024, 0.006),
+        new THREE.MeshBasicMaterial({ color: 0xf8fafc })
+      );
+      knobPointer.position.set(0, 0.012, 0.014);
+      knobGroup.add(knobBase, knobPointer);
+      bg.add(knobGroup);
+
+      // LED piloto com aro metálico (frente esquerda: vermelho desligado / verde ligado)
+      var ledBezel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.018, 0.018, 0.008, 14),
+        new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 })
+      );
+      ledBezel.rotation.x = Math.PI / 2;
+      ledBezel.position.set(-0.14, 0.044, 0.292);
       var ledMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-      var led = new THREE.Mesh(new THREE.SphereGeometry(0.015, 10, 10), ledMat);
-      led.position.set(0.14, 0.042, 0.298);
-      bg.add(body, coil, knob, led);
+      var led = new THREE.Mesh(new THREE.SphereGeometry(0.013, 12, 12), ledMat);
+      led.position.set(-0.14, 0.044, 0.296);
+      bg.add(ledBezel, led);
+
+      // Adesivo triangular de alerta "Quente" na frente direita
+      var warn = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.026, 0.026, 0.002, 3),
+        new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+      );
+      warn.rotation.y = Math.PI;
+      warn.position.set(0.21, 0.079, 0.21);
+      bg.add(warn);
+
+      // Cabo de força traseiro
+      var cord = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.009, 0.009, 0.16, 8),
+        new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.8 })
+      );
+      cord.rotation.x = Math.PI / 2;
+      cord.position.set(0.12, 0.032, -0.35);
+      bg.add(cord);
 
       var bSurf = { minX: px - 0.26, maxX: px + 0.26, minZ: pz - 0.28, maxZ: pz + 0.24, topY: py + 0.088 };
       supportSurfaces.push(bSurf);
       body.userData.supportSurface = bSurf;
-      coil.userData.supportSurface = bSurf;
-      supportMeshes.push(body, coil);
+      coilHit.userData.supportSurface = bSurf;
+      supportMeshes.push(body, coilHit);
       bg.userData.isBurner = true;
       bg.userData.tableDims = { w: 0.54, h: 0.088, d: 0.58, surfOffset: 0 };
       bg.userData.dynamicSurface = bSurf;
       bg.userData.updateBounds = updateItemBounds;
       bg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(bSurf, it); };
 
-      var bState = { on: false, coilMat: coilMat, ledMat: ledMat, surface: bSurf };
-      knob.userData.burnerSwitch = bState;
+      var bState = {
+        on: false,
+        heat: 0,
+        coilMat: coilMat,
+        reflectorMat: reflectorMat,
+        ledMat: ledMat,
+        knobGroup: knobGroup,
+        surface: bSurf
+      };
+      knobBase.userData.burnerSwitch = bState;
+      knobPointer.userData.burnerSwitch = bState;
       body.userData.burnerSwitch = bState;
-      burnerSwitchMeshes.push(knob);
+      burnerSwitchMeshes.push(knobBase, knobPointer);
       burnerDevices.push(bState);
       return registerPickable(id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12);
     }
@@ -3950,19 +4051,23 @@
     headGroup.add(head, hat);
 
     var isProf = data.role === 'professor' || data.role === 'admin';
+    var isMaster = data.role === 'admin';
+    var isMod = data.role === 'moderator';
     var auraGroup = null;
     var auraOrbs = [];
     if (isProf) {
       auraGroup = new THREE.Group();
+      var ringColor = isMaster ? 0xf59e0b : 0x34d399;
+      var innerColor = isMaster ? 0xec4899 : 0xfbbf24;
       var outerRing = new THREE.Mesh(
         new THREE.RingGeometry(0.46, 0.56, 36),
-        new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.45, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+        new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
       );
       outerRing.rotation.x = -Math.PI / 2;
       outerRing.position.y = 0.025;
       var innerRing = new THREE.Mesh(
         new THREE.RingGeometry(0.32, 0.38, 36),
-        new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.50, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+        new THREE.MeshBasicMaterial({ color: innerColor, transparent: true, opacity: 0.50, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
       );
       innerRing.rotation.x = -Math.PI / 2;
       innerRing.position.y = 0.032;
@@ -3970,7 +4075,7 @@
       var orbGeo = new THREE.SphereGeometry(0.026, 8, 8);
       for (var oi = 0; oi < 8; oi++) {
         var oMat = new THREE.MeshBasicMaterial({
-          color: oi % 2 === 0 ? 0x34d399 : 0xfbbf24,
+          color: oi % 2 === 0 ? ringColor : innerColor,
           transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending, depthWrite: false
         });
         var orb = new THREE.Mesh(orbGeo, oMat);
@@ -3982,7 +4087,19 @@
     g.add(headGroup);
     g.scale.set(1.38, 1.38, 1.38);
 
-    var labelSprite = data.isLocal ? null : makeTextSprite((isProf ? '👨‍🏫 ' : '') + (data.name || 'Aluno'), isProf ? '#fbbf24' : '#ffffff');
+    var rolePrefix = '';
+    var labelColor = '#ffffff';
+    if (isMaster) {
+      rolePrefix = '👑 ';
+      labelColor = '#fbbf24';
+    } else if (data.role === 'professor') {
+      rolePrefix = '👨‍🏫 ';
+      labelColor = '#fcd34d';
+    } else if (isMod) {
+      rolePrefix = '🛡️ ';
+      labelColor = '#93c5fd';
+    }
+    var labelSprite = data.isLocal ? null : makeTextSprite(rolePrefix + (data.name || 'Aluno'), labelColor);
     if (labelSprite) {
       labelSprite.position.set(0, 1.92, 0);
       labelSprite.scale.set(1.45, 0.36, 1);
@@ -4002,7 +4119,7 @@
       auraGroup: auraGroup, auraOrbs: auraOrbs,
       bodyMat: bodyMat, hatMat: hatMat,
       faceCtx: faceCtx, faceTex: faceTex, lastMood: 'happy', lastBlink: false, blinkTimer: 2 + Math.random() * 3,
-      labelSprite: labelSprite, chatSprite: chatSprite, lastChat: '',
+      labelSprite: labelSprite, chatSprite: chatSprite, lastChat: '', role: data.role || 'student',
       targetPos: new THREE.Vector3(data.x || 0, data.y || 0, data.z || 0),
       targetYaw: normalizeAngle(data.yaw || 0),
       targetPitch: data.pitch || 0,
@@ -4026,6 +4143,14 @@
       av.walking = !!p.walking;
       av.seated = !!p.seated;
       av.holding = p.holding || '';
+      if (av.role !== p.role) {
+        av.role = p.role;
+        var rPfx = p.role === 'admin' ? '👑 ' : (p.role === 'professor' ? '👨‍🏫 ' : (p.role === 'moderator' ? '🛡️ ' : ''));
+        var rCol = p.role === 'admin' ? '#fbbf24' : (p.role === 'professor' ? '#fcd34d' : (p.role === 'moderator' ? '#93c5fd' : '#ffffff'));
+        if (av.labelSprite) {
+          updateTextSprite(av.labelSprite, rPfx + (p.name || 'Aluno'), rCol);
+        }
+      }
       if (heldItem && av.holding === heldItem.id) {
         setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
@@ -4428,7 +4553,9 @@
     if (hoveredBurnerSwitch) {
       hoveredBurnerSwitch.on = !hoveredBurnerSwitch.on;
       hoveredBurnerSwitch.ledMat.color.setHex(hoveredBurnerSwitch.on ? 0x22c55e : 0xef4444);
-      hoveredBurnerSwitch.coilMat.emissiveIntensity = hoveredBurnerSwitch.on ? 1.15 : 0.04;
+      if (hoveredBurnerSwitch.knobGroup) {
+        hoveredBurnerSwitch.knobGroup.rotation.z = hoveredBurnerSwitch.on ? -1.45 : 0;
+      }
       queueWorldStateChange('burner_lab', hoveredBurnerSwitch.on ? 1 : 0);
       return;
     }
@@ -4896,12 +5023,15 @@
     }, { passive: true });
 
     renderer.domElement.addEventListener('touchmove', function (e) {
-      if (!inFps) return;
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         if (t.identifier === touchLookId) {
           var dx = t.clientX - lastTX, dy = t.clientY - lastTY;
           if (Math.hypot(dx, dy) > 6) touchMoved = true;
+          if (!inFps) {
+            lastTX = t.clientX; lastTY = t.clientY;
+            continue;
+          }
           if (touchDrawingBoard) {
             setNdcFromTouch(t);
             raycaster.setFromCamera(pointerNdc, camera);
@@ -5173,7 +5303,7 @@
     }
 
     if (!lobbyTourActive) {
-      if (!isTouchDevice() || isPrimaryDown || (heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 260)) {
+      if (!touchDrawingBoard && (!isTouchDevice() || isPrimaryDown || (heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 260))) {
         lastMobileHoverAt = now;
         updateHoverRay();
       }
@@ -5265,6 +5395,15 @@
       }
     }
     if (cookerPots.length) {
+      for (var bni = 0; bni < burnerDevices.length; bni++) {
+        var bnd = burnerDevices[bni];
+        bnd.heat = bnd.on ? Math.min(1, (bnd.heat || 0) + dt * 0.55) : Math.max(0, (bnd.heat || 0) - dt * 0.25);
+        var h = bnd.heat;
+        var pulse = h > 0.2 ? Math.sin(clock.elapsedTime * 5.0) * 0.08 * h : 0;
+        bnd.coilMat.emissiveIntensity = h * 2.2 + pulse;
+        bnd.coilMat.color.setRGB(0.39 + h * 0.55, 0.45 - h * 0.30, 0.55 - h * 0.48);
+        if (bnd.reflectorMat) bnd.reflectorMat.emissiveIntensity = h * 0.28;
+      }
       for (var cpi = 0; cpi < cookerPots.length; cpi++) {
         var cp = cookerPots[cpi];
         var potP = cp.potItem.mesh.position;
@@ -6138,7 +6277,7 @@
         if (bn0.on !== wantBurnerOn) {
           bn0.on = wantBurnerOn;
           bn0.ledMat.color.setHex(bn0.on ? 0x22c55e : 0xef4444);
-          bn0.coilMat.emissiveIntensity = bn0.on ? 1.15 : 0.04;
+          if (bn0.knobGroup) bn0.knobGroup.rotation.z = bn0.on ? -1.45 : 0;
         }
       }
     }
@@ -6317,6 +6456,23 @@
   window.setCampusCinemaLessons = function (list) {
     cinemaLessons = Array.isArray(list) ? list : [];
     cinemaDirty = true;
+  };
+
+  window.teleportCampusPlayer = function (x, y, z, yaw) {
+    if (typeof x !== 'number' || typeof z !== 'number') return;
+    if (seatedSeat) seatedSeat = null;
+    velY = 0;
+    var targetY = (typeof y === 'number' && !isNaN(y)) ? y : getGroundHeight(x, z, playerPos.y);
+    playerPos.set(x, targetY, z);
+    if (typeof yaw === 'number' && !isNaN(yaw)) {
+      playerYaw = yaw;
+      orbitControls.target.set(x, targetY + 1.2, z);
+    }
+    playSwitchSound();
+  };
+
+  window.getCampusPlayerPos = function () {
+    return { x: playerPos.x, y: playerPos.y, z: playerPos.z, yaw: playerYaw };
   };
 
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;

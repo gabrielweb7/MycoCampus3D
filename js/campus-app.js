@@ -191,19 +191,31 @@
     $('hud-mushrooms').textContent = String(currentUser.mushrooms_harvested || 0);
     $('hud-modules').textContent = String((currentUser.completed_modules || []).length);
 
-    var isProf = currentUser.role === 'professor' || currentUser.role === 'admin';
-    var badge = $('hud-role-badge');
-    badge.textContent = isProf ? '👨‍🏫 Prof.' : '🎓 Aluno';
-    badge.className = isProf
-      ? 'px-2 py-0.5 rounded-full font-bold bg-amber-500/25 text-amber-300 border border-amber-400/40'
-      : 'px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+    var isMaster = currentUser.role === 'admin' && currentUser.username === 'gabrieldaluz';
+    var isProf = currentUser.role === 'professor' || isMaster;
+    var isMod = currentUser.role === 'moderator';
 
-    if (isProf) {
-      // Toolbar do telao fica oculta ate o professor se aproximar de um telao (HUD contextual)
-      $('prof-toolbar').classList.add('hidden');
+    var badge = $('hud-role-badge');
+    if (isMaster) {
+      badge.textContent = '👑 Master Admin';
+      badge.className = 'px-2 py-0.5 rounded-full font-bold bg-amber-500/30 text-amber-300 border border-amber-400/50 shadow-sm';
+    } else if (currentUser.role === 'professor') {
+      badge.textContent = '👨‍🏫 Professor';
+      badge.className = 'px-2 py-0.5 rounded-full font-bold bg-amber-500/25 text-amber-300 border border-amber-400/40';
+    } else if (isMod) {
+      badge.textContent = '🛡️ Moderador';
+      badge.className = 'px-2 py-0.5 rounded-full font-bold bg-sky-500/25 text-sky-300 border border-sky-400/40';
     } else {
-      $('prof-toolbar').classList.add('hidden');
+      badge.textContent = '🎓 Aluno';
+      badge.className = 'px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
     }
+
+    var rLab = $('btn-reset-lab');
+    if (rLab) rLab.classList.toggle('hidden', !isProf);
+    var pBar = $('prof-toolbar');
+    if (pBar) pBar.classList.toggle('hidden', !isProf);
+    var btnAdmin = $('btn-open-admin');
+    if (btnAdmin) btnAdmin.classList.toggle('hidden', !isMaster);
   }
 
   async function apiPost(url, payload, withAuth) {
@@ -276,7 +288,7 @@
     var params = new URLSearchParams(window.location.search);
     var urlName = (params.get('campus_name') || '').trim();
     var urlPin = params.get('campus_pin') || '';
-    if (urlName || urlPin) {
+    if (urlName || urlPin || params.has('_v')) {
       try {
         window.history.replaceState({}, document.title, window.location.pathname);
       } catch (e) { /* ignore */ }
@@ -321,6 +333,8 @@
     $('campus-hud').classList.add('hidden');
     $('lesson-modal').classList.add('hidden');
     $('ranking-modal').classList.add('hidden');
+    var adminEl = $('admin-modal');
+    if (adminEl) adminEl.classList.add('hidden');
     $('campus-lobby').classList.remove('hidden');
     if (lastName) $('input-name').value = lastName;
     var btn = $('btn-enter-campus');
@@ -338,6 +352,8 @@
     $('campus-hud').classList.add('hidden');
     $('lesson-modal').classList.add('hidden');
     $('ranking-modal').classList.add('hidden');
+    var adminEl = $('admin-modal');
+    if (adminEl) adminEl.classList.add('hidden');
     $('campus-lobby').classList.remove('hidden');
     var btn = $('btn-enter-campus');
     btn.disabled = false;
@@ -366,10 +382,10 @@
     }
   }
 
-  async function harvestMushroom() {
+  async function harvestMushroom(mushId) {
     if (!currentUser) return;
     try {
-      var data = await apiPost('api/auth.php?action=harvest', {}, true);
+      var data = await apiPost('api/auth.php?action=harvest', { mushroom_id: mushId || '' }, true);
       if (data.ok && data.user) {
         currentUser = data.user;
         updateUserHud();
@@ -377,10 +393,10 @@
     } catch (e) { /* silent */ }
   }
 
-  async function completeModule(slug) {
+  async function completeModule(slug, answerText) {
     if (!currentUser) return;
     try {
-      var data = await apiPost('api/auth.php?action=complete_module', { module: slug }, true);
+      var data = await apiPost('api/auth.php?action=complete_module', { module: slug, answer: answerText || '' }, true);
       if (data.ok && data.user) {
         currentUser = data.user;
         updateUserHud();
@@ -452,7 +468,7 @@
             feedback.className = 'text-xs font-bold text-emerald-300 pt-1';
             feedback.textContent = isDone ? '✅ Correto! Módulo já concluído.' : '🎉 Correto! +50 XP salvos no seu perfil!';
             if (!isDone) {
-              completeModule(lesson.slug).then(renderLessonsModal);
+              completeModule(lesson.slug, opt.text).then(renderLessonsModal);
             }
           } else {
             feedback.className = 'text-xs font-bold text-rose-300 pt-1';
@@ -547,13 +563,40 @@
         board_since: boardLastId,
         board_strokes: strokes
       }, true);
+      if (data && data.kicked) {
+        if (syncTimer) clearInterval(syncTimer);
+        syncTimer = null;
+        alert(data.error || 'Você foi desconectado pelo Administrador.');
+        window.location.reload();
+        return;
+      }
       if (data.ok) {
         syncFailures = 0;
+        if (data.force_teleport && window.teleportCampusPlayer) {
+          window.teleportCampusPlayer(
+            data.force_teleport.x,
+            data.force_teleport.y,
+            data.force_teleport.z,
+            data.force_teleport.yaw
+          );
+          showFloatingToast('🧲 Você foi teletransportado pelo Administrador Master!');
+        }
         if (data.app_version && window.MYCO_VERSION && data.app_version !== window.MYCO_VERSION && !window._reloadingVersion) {
-          window._reloadingVersion = true;
-          showFloatingToast('🔄 Nova versão v' + data.app_version + ' disponível! Atualizando...');
-          setTimeout(function () { window.location.reload(); }, 1500);
-          return;
+          var lastReloadInfo = '';
+          try { lastReloadInfo = sessionStorage.getItem('myco_reload_guard') || ''; } catch (e) {}
+          var parts = lastReloadInfo.split('|');
+          var guardedVer = parts[0];
+          var guardedAt = Number(parts[1] || 0);
+          if (guardedVer !== data.app_version || (Date.now() - guardedAt) > 30000) {
+            window._reloadingVersion = true;
+            try { sessionStorage.setItem('myco_reload_guard', data.app_version + '|' + Date.now()); } catch (e) {}
+            showFloatingToast('🔄 Nova versão v' + data.app_version + ' disponível! Atualizando...');
+            setTimeout(function () {
+              var base = window.location.pathname || '/';
+              window.location.replace(base + '?_v=' + encodeURIComponent(data.app_version));
+            }, 1500);
+            return;
+          }
         }
         $('hud-online').textContent = String(data.online_count || 1);
         window.applyCampusWorldObjects(data.objects || {});
@@ -629,7 +672,6 @@
     zone.addEventListener('touchstart', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      if (isTouch() && !isFullscreenActive()) requestCampusFullscreen();
       var t = e.changedTouches[0];
       if (!t) return;
       activeId = t.identifier;
@@ -757,8 +799,8 @@
     }
 
     window.initCampus3D('campus-canvas-wrap', {
-      onHarvestMushroom: function () {
-        harvestMushroom();
+      onHarvestMushroom: function (mushId) {
+        harvestMushroom(mushId);
       },
       onOpenLessons: function () {
         renderLessonsModal();
@@ -772,8 +814,10 @@
       onWorldAction: function () {
         syncMultiplayer();
       },
-      onNearScreen: function () {
-        $('prof-toolbar').classList.add('hidden');
+      onNearScreen: function (near) {
+        var isProf = currentUser && (currentUser.role === 'professor' || currentUser.role === 'admin');
+        var tb = $('prof-toolbar');
+        if (tb) tb.classList.toggle('hidden', !isProf || !near);
       },
       onHoldChange: function (label) {
         var rotBtn = $('btn-mobile-rotate');
@@ -832,7 +876,7 @@
     function onFirstGameGesture(e) {
       if (!currentUser) return;
       if (e && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.id === 'btn-fullscreen')) return;
-      if (!autoFsTriggered || (isTouch() && !isFullscreenActive())) {
+      if (!autoFsTriggered) {
         autoFsTriggered = true;
         requestCampusFullscreen();
       }

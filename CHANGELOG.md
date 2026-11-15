@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.11] — 2026-11-15
+### Fixed & Improved
+- **Correção do Loop Infinito de Reload (`window.MYCO_VERSION`) ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Sincronizado `window.MYCO_VERSION` e cache-busters (`?v=0.6.11`) em `index.html`, evitando recarregamentos automáticos em loop após login/sync, e adicionada trava anti-loop via `sessionStorage` + reload com `?_v=` cache-busting.
+- **Jogabilidade Touch Mobile/Tablet ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
+  - Corrigido desenho na lousa por toque (`touchDrawingBoard`) para não ser sobrescrito pelo raycast da mira central em `animate()`.
+  - Corrigido arraste de câmera na Vista Aérea (`!inFps`) para marcar `touchMoved = true` e não disparar interação acidental ao soltar o dedo.
+  - Ajustado `touch-action: none` nos botões mobile, posicionamento do `#fps-hint` no celular e removida reabertura forçada de fullscreen a cada toque no joystick.
+- **Fogareiro Elétrico Realista ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Novo visual com pés antiderrapantes, corpo preto esmaltado, bandeja refletora de inox, suporte em cruz, resistência espiral 3D concêntrica, botão termostato giratório, LED piloto verde/vermelho com aro metálico, adesivo de alerta e aquecimento/resfriamento progressivo com brilho vermelho-incandescente.
+
 ## [v0.6.8] — 2026-11-15
 ### Fixed
 - **Correção da Ponte Arqueada do Lago (`walkableFloors`) e Cache Busting ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
