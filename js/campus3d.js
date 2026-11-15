@@ -1213,7 +1213,7 @@
     // Iluminacao realista em TODAS as salas (1o e 2o andares): 4 luminarias + PointLight + Interruptor por sala!
     var fixMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 });
     function createFloorLighting(floorY, floorH, swX, swY, swZ, swRotY) {
-      var fTubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 1.25, roughness: 0.25 });
+      var fTubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 0.85, roughness: 0.35 });
       var ceilY = floorY < 1.0 ? 3.51 : (floorY + floorH - 0.04);
       [-2.0, 2.0].forEach(function (lx) {
         [-2.8, 2.8].forEach(function (lz) {
@@ -1228,8 +1228,8 @@
           });
         });
       });
-      // Iluminação real e vibrante em todas as plataformas (Desktop, Android e iPhone)
-      var fLight = new THREE.PointLight(0xfffbeb, 1.45, 28, 1.25);
+      // Iluminação acolhedora e equilibrada (sem estourar branco no PC)
+      var fLight = new THREE.PointLight(0xfffbeb, isTouchDevice() ? 1.15 : 0.82, 22, 1.55);
       fLight.position.set(cx, ceilY - 0.30, cz);
       scene.add(fLight);
 
@@ -4292,35 +4292,108 @@
     return new THREE.Vector3(fx, getGroundHeight(fx, fz, playerPos.y), fz);
   }
 
+  var placementBlockedReason = '';
   function isPlacementBlocked(pt) {
+    placementBlockedReason = '';
+    if (!heldItem || !heldItem.mesh) return false;
     if (snapClosePot || snapPetriStack) return false;
-    // Impede colocar objetos grandes (Fluxo Laminar, Mesas, Agitador) em cima de outros itens ja existentes!
-    if (heldItem && heldItem.mesh && heldItem.mesh.userData.tableDims) {
+
+    // Altura e limites verticais do item sendo segurado
+    var heldH = heldItem.height || (heldItem.mesh.userData.tableDims ? heldItem.mesh.userData.tableDims.h : 0.32);
+    var heldMinY = pt.y;
+    var heldMaxY = pt.y + heldH;
+
+    // Dimensões horizontais do item segurado
+    var heldIsBox = !!(heldItem.mesh.userData.tableDims);
+    var heldHw = 0, heldHd = 0, heldRad = 0;
+    if (heldIsBox) {
       var dims = heldItem.mesh.userData.tableDims;
-      var c = Math.abs(Math.cos(heldRotY)), s = Math.abs(Math.sin(heldRotY));
-      var hw = (dims.w * c + dims.d * s) * 0.5;
-      var hd = (dims.w * s + dims.d * c) * 0.5;
-      var hTop = heldItem.mesh.userData.isHood ? 1.1 : (dims.h || 0.85);
-      for (var k = 0; k < pickableItems.length; k++) {
-        var other = pickableItems[k];
-        if (other === heldItem || other === heldItem.lidItem) continue;
-        if (other.mesh.userData.isTable && heldItem.mesh.userData.isHood) continue;
-        if (other.mesh.userData.isTable && heldItem.mesh.userData.isStirrer) continue;
-        if (other.mesh.userData.isTable && heldItem.mesh.userData.isBurner) continue;
-        if (other.mesh.position.y >= pt.y - 0.12 && other.mesh.position.y <= pt.y + hTop) {
-          var rad = (other.radius || 0.18) * 0.45;
-          if (Math.abs(other.mesh.position.x - pt.x) < hw + rad && Math.abs(other.mesh.position.z - pt.z) < hd + rad) {
+      var cRot = Math.abs(Math.cos(heldRotY)), sRot = Math.abs(Math.sin(heldRotY));
+      heldHw = (dims.w * cRot + dims.d * sRot) * 0.5;
+      heldHd = (dims.w * sRot + dims.d * cRot) * 0.5;
+      heldRad = Math.max(heldHw, heldHd);
+    } else {
+      heldRad = heldItem.radius || 0.16;
+      heldHw = heldRad;
+      heldHd = heldRad;
+    }
+
+    // 1. CHECAGEM DE COLISÃO COM TODOS OS ITENS EXISTENTES NO MUNDO
+    // Impede colocar qualquer item por dentro de outro item!
+    for (var k = 0; k < pickableItems.length; k++) {
+      var other = pickableItems[k];
+      if (!other || !other.mesh) continue;
+      if (other === heldItem) continue;
+      if (heldItem.lidItem && other === heldItem.lidItem) continue;
+      if (heldItem.potItem && other === heldItem.potItem) continue;
+      if (other.isAttached && other.potItem) continue; // Tampa acoplada na panela é coberta pelo corpo da panela
+      if (isHeldByRemote(other.id)) continue; // Item sendo carregado no ar por outro jogador
+
+      var oPos = other.mesh.position;
+      var otherH = other.height || (other.mesh.userData.tableDims ? other.mesh.userData.tableDims.h : 0.32);
+      var otherMinY = oPos.y;
+      var otherMaxY = oPos.y + otherH;
+
+      // Se o 'other' for um suporte/mesa/equipamento com superfície dinâmica no topo
+      if (other.mesh.userData.dynamicSurface) {
+        var dynSurf = other.mesh.userData.dynamicSurface;
+        // O jogador está colocando o item EM CIMA da superfície deste equipamento/mesa?
+        if (pt.y >= dynSurf.topY - 0.04) {
+          // Impedir colocar uma mesa em cima de outra mesa ou capela
+          if (other.mesh.userData.isTable && (heldItem.mesh.userData.isTable || heldItem.mesh.userData.isHood)) {
+            placementBlockedReason = '🚫 Não é permitido sobrepor mesas/capelas';
             return true;
           }
+          if (other.mesh.userData.isHood && heldItem.mesh.userData.isTable) {
+            placementBlockedReason = '🚫 Não cabe aqui';
+            return true;
+          }
+          // Está apoiado sobre a superfície: o suporte em si não bloqueia
+          // (mas qualquer outro objeto já em cima desse suporte será checado nas próximas iterações!)
+          continue;
+        }
+      }
+
+      // Verificação de sobreposição vertical:
+      // Se não há interseção na faixa de altura (ex: prateleira superior vs inferior, ou chão vs mesa alta)
+      if (heldMinY >= otherMaxY - 0.02 || heldMaxY <= otherMinY + 0.02) {
+        continue;
+      }
+
+      // Verificação de sobreposição horizontal (X e Z):
+      if (!heldIsBox && !other.mesh.userData.tableDims) {
+        // Dois objetos radiais/cilíndricos (vidros, potes, béqueres, bags, seringas, etc.)
+        var oRad = other.radius || 0.16;
+        var minDist = (heldRad + oRad) * 0.94; // Permite toque encostado mas bloqueia penetração
+        var dx = pt.x - oPos.x;
+        var dz = pt.z - oPos.z;
+        if (dx * dx + dz * dz < minDist * minDist) {
+          placementBlockedReason = '🚫 Espaço ocupado por outro objeto';
+          return true; // BLOQUEADO: Tentando colocar item por dentro de outro item!
+        }
+      } else {
+        // Pelo menos um dos objetos é retangular/caixa (mesas, fogareiro, balança, capela)
+        var oHw, oHd;
+        if (other.mesh.userData.tableDims) {
+          var od = other.mesh.userData.tableDims;
+          var oc = Math.abs(Math.cos(other.mesh.rotation.y)), os = Math.abs(Math.sin(other.mesh.rotation.y));
+          oHw = (od.w * oc + od.d * os) * 0.5;
+          oHd = (od.w * os + od.d * oc) * 0.5;
+        } else {
+          var oR = other.radius || 0.16;
+          oHw = oR * 0.90;
+          oHd = oR * 0.90;
+        }
+        var cW = (heldHw + oHw) * 0.93;
+        var cD = (heldHd + oHd) * 0.93;
+        if (Math.abs(pt.x - oPos.x) < cW && Math.abs(pt.z - oPos.z) < cD) {
+          placementBlockedReason = '🚫 Espaço ocupado por outro objeto';
+          return true; // BLOQUEADO: Colisão de caixa com objeto!
         }
       }
     }
-    for (var i = 0; i < supportSurfaces.length; i++) {
-      var s = supportSurfaces[i];
-      if (pt.x >= s.minX && pt.x <= s.maxX && pt.z >= s.minZ && pt.z <= s.maxZ && Math.abs(pt.y - s.topY) < 0.08) {
-        return false; // superficies de apoio (mesas, bandejas) sempre permitem soltar
-      }
-    }
+
+    // 2. CHECAGEM DE COLISÃO COM PAREDES
     if (pt.y > 3.2) return false;
     for (var wIdx = 0; wIdx < wallSegments.length; wIdx++) {
       var w = wallSegments[wIdx];
@@ -4328,8 +4401,13 @@
       var len2 = vx * vx + vz * vz;
       var t = Math.max(0, Math.min(1, ((pt.x - w.x1) * vx + (pt.z - w.z1) * vz) / len2));
       var dist = Math.hypot(pt.x - (w.x1 + t * vx), pt.z - (w.z1 + t * vz));
-      if (dist < 0.25) return true;
+      var minWallDist = Math.max(0.16, heldRad * 0.82);
+      if (dist < minWallDist) {
+        placementBlockedReason = '🚫 Muito próximo da parede';
+        return true;
+      }
     }
+
     return false;
   }
 
@@ -5075,6 +5153,11 @@
         return;
       }
       if (placementValid && placementGhost) {
+        if (isPlacementBlocked(placementGhost.position)) {
+          placementValid = false;
+          updatePlacementGhostVisual(heldItem, false, heldRotY);
+          return;
+        }
         heldItem.mesh.position.copy(placementGhost.position);
         heldItem.mesh.rotation.set(0, heldRotY, 0);
         heldItem.isMoved = true;
@@ -5194,15 +5277,15 @@
       hoveredSwitch.on = !hoveredSwitch.on;
       if (hoveredSwitch.light) {
         hoveredSwitch.light.visible = hoveredSwitch.on;
-        hoveredSwitch.light.intensity = hoveredSwitch.on ? 1.45 : 0;
+        hoveredSwitch.light.intensity = hoveredSwitch.on ? (isTouchDevice() ? 1.15 : 0.82) : 0;
       }
       if (hoveredSwitch.gLight) {
         hoveredSwitch.gLight.visible = hoveredSwitch.on;
-        hoveredSwitch.gLight.intensity = hoveredSwitch.on ? 0.9 : 0;
+        hoveredSwitch.gLight.intensity = hoveredSwitch.on ? 0.65 : 0;
       }
       if (hoveredSwitch.tubeMat) {
         hoveredSwitch.tubeMat.emissive.setHex(hoveredSwitch.on ? 0xfffbeb : 0x1e293b);
-        hoveredSwitch.tubeMat.emissiveIntensity = hoveredSwitch.on ? 1.35 : 0.02;
+        hoveredSwitch.tubeMat.emissiveIntensity = hoveredSwitch.on ? 0.85 : 0.02;
       }
       if (hoveredSwitch.ledMat) {
         hoveredSwitch.ledMat.color.setHex(hoveredSwitch.on ? 0x22c55e : 0xef4444);
@@ -5426,7 +5509,7 @@
       if (snapClosePot) {
         prompt = '🍲 Fechar tampa na Panela de Pressão';
       } else {
-        prompt = placementValid ? 'Soltar: ' + heldItem.label : '🚫 Local bloqueado (não cabe aqui)';
+        prompt = placementValid ? 'Soltar: ' + heldItem.label : (placementBlockedReason || '🚫 Local bloqueado (espaço ocupado)');
       }
       if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
       return;
@@ -6684,10 +6767,10 @@
       else if (sunY > -0.15) envSun.color.copy(_cSunSet);
       else envSun.color.copy(_cSunNight);
       var cloudDim = weatherMode === 'rain' ? 0.52 : (weatherMode === 'overcast' ? 0.72 : (weatherMode === 'partly' ? 0.88 : 1));
-      envSun.intensity = Math.max(0.28, sunY * 0.95 + 0.48) * cloudDim;
+      envSun.intensity = (isTouchDevice() ? Math.max(0.28, sunY * 0.75 + 0.35) : Math.max(0.20, sunY * 0.60 + 0.32)) * cloudDim;
     }
     if (envHemi) {
-      envHemi.intensity = Math.max(isTouchDevice() ? 0.65 : 0.48, sunY * 0.45 + 0.65);
+      envHemi.intensity = isTouchDevice() ? Math.max(0.55, sunY * 0.35 + 0.55) : Math.max(0.30, sunY * 0.30 + 0.42);
     }
 
     // Nuvens dinamicas: quantidade, cor e velocidade conforme o clima
@@ -6870,8 +6953,8 @@
     renderer.shadowMap.type = touch ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     if (THREE.ACESFilmicToneMapping) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      // Exposição aprimorada para telas de smartphones (Android e iPhone) e monitores
-      renderer.toneMappingExposure = touch ? 1.25 : 1.15;
+      // Exposição equilibrada: suave e confortável no PC (0.95), nítida no Mobile (1.08)
+      renderer.toneMappingExposure = touch ? 1.08 : 0.95;
     }
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
@@ -6883,11 +6966,11 @@
     controls.maxDistance = 65;
     controls.target.set(0, 4.5, -14);
 
-    // Iluminação ambiente límpida com rebatimento suave (sem tom escuro/esverdeado nos cantos)
-    var hemi = new THREE.HemisphereLight(0xe0f2fe, 0x475569, touch ? 1.05 : 0.92);
+    // Iluminação ambiente suave com rebatimento neutro (sem estouro de branco e sem tom escuro)
+    var hemi = new THREE.HemisphereLight(0xe0f2fe, 0x334155, touch ? 0.90 : 0.72);
     scene.add(hemi);
     envHemi = hemi;
-    var sun = new THREE.DirectionalLight(0xfffbeb, 1.15);
+    var sun = new THREE.DirectionalLight(0xfffbeb, touch ? 1.05 : 0.95);
     sun.position.set(45, 65, 38);
     sun.castShadow = !touch;
     var shSize = touch ? 768 : 1536;
@@ -7205,15 +7288,15 @@
         sw.on = wantLightOn;
         if (sw.light) {
           sw.light.visible = sw.on;
-          sw.light.intensity = sw.on ? 1.45 : 0;
+          sw.light.intensity = sw.on ? (isTouchDevice() ? 1.15 : 0.82) : 0;
         }
         if (sw.gLight) {
           sw.gLight.visible = sw.on;
-          sw.gLight.intensity = sw.on ? 0.9 : 0;
+          sw.gLight.intensity = sw.on ? 0.65 : 0;
         }
         if (sw.tubeMat) {
           sw.tubeMat.emissive.setHex(sw.on ? 0xfffbeb : 0x1e293b);
-          sw.tubeMat.emissiveIntensity = sw.on ? 1.35 : 0.02;
+          sw.tubeMat.emissiveIntensity = sw.on ? 0.85 : 0.02;
         }
         if (sw.ledMat) {
           sw.ledMat.color.setHex(sw.on ? 0x22c55e : 0xef4444);
