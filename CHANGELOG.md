@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.8.1] — 2026-11-15
+### Mobile Controls & Continuous Action/Drawing
+- **Sensibilidade Aumentada & Controle de Câmera em Toda a Tela ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Sensibilidade do movimento de câmera no touch aumentada de `0.0045` para `0.0080` (1.8x mais ágil e natural para a mão direita).
+  - O toque para girar a câmera agora funciona em qualquer parte da tela do celular/tablet (com filtro inteligente que exclui apenas a bolinha do joystick de andar e os botões de ação).
+- **Novo Botão Mobile de Ação e Pintura Contínua (`#btn-mobile-action`) ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Adicionado o botão de ação principal móvel com ícone dinâmico inteligente (`✏️` giz, `🧽` apagador, `💦` borrifador, `💉` seringa, `📦` soltar item, `🍄` colher, `🪑` sentar, `🚪` porta, `⚡` energia, `✋` pegar/interagir).
+  - Permite segurar o botão com um dedo e mover a visão com a mão direita: na lousa, desenha/pinta continuamente por onde a mira passar até soltar o botão.
+
 ## [v0.8.0] — 2026-11-15
 ### Refactoring, Security, Performance & Master Admin
 - **Correção Crítica da Tela Preta (`touchDrawingBoard`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

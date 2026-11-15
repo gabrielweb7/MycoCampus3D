@@ -3525,6 +3525,11 @@
   var placementGhostHasLid = false;
   var placementGhostLastValid = null;
 
+  var _cGhostGreenTint = new THREE.Color(0x22c55e); // Verde vivo esmeralda
+  var _cGhostGreenEmi  = new THREE.Color(0x10b981); // Brilho verde neon
+  var _cGhostRedTint   = new THREE.Color(0xef4444); // Vermelho vibrante
+  var _cGhostRedEmi    = new THREE.Color(0xdc2626); // Brilho vermelho neon
+
   function createPlacementGhost() {
     placementGhost = new THREE.Group();
     placementRing = new THREE.Mesh(
@@ -3564,7 +3569,7 @@
           m.userData._baseColor = m.color ? m.color.clone() : new THREE.Color(0xffffff);
           m.transparent = true;
           var origOp = origM.transparent ? origM.opacity : 1.0;
-          m.opacity = origM.transparent ? Math.max(0.24, origOp * 0.82) : 0.68;
+          m.opacity = origM.transparent ? Math.max(0.38, origOp * 0.90) : 0.76;
           m.depthWrite = false;
           matList.push(m);
           return m;
@@ -3609,24 +3614,35 @@
     var col = isValid ? 0x10b981 : 0xef4444;
     placementRing.material.color.setHex(col);
     placementDot.material.color.setHex(col);
+
+    var tintCol = isValid ? _cGhostGreenTint : _cGhostRedTint;
+    var emiCol = isValid ? _cGhostGreenEmi : _cGhostRedEmi;
+    var tintRatio = isValid ? 0.74 : 0.82; // Efeito verde/vermelho bem evidente e vivo
+    var pulse = 0.52 + Math.sin(clock.elapsedTime * 6.0) * 0.16;
+
     if (placementGhostLastValid !== isValid) {
       placementGhostLastValid = isValid;
-      var tintCol = new THREE.Color(isValid ? 0x34d399 : 0xf87171);
-      var emiCol = new THREE.Color(isValid ? 0x059669 : 0xdc2626);
       for (var i = 0; i < placementHoloMats.length; i++) {
         var m = placementHoloMats[i];
         if (m.color && m.userData._baseColor) {
-          m.color.copy(m.userData._baseColor).lerp(tintCol, 0.28);
+          m.color.copy(m.userData._baseColor).lerp(tintCol, tintRatio);
         }
         if (m.emissive) {
           m.emissive.copy(emiCol);
-          m.emissiveIntensity = 0.26;
         }
       }
     }
+
+    // Pulso holográfico suave e contínuo no brilho
+    for (var j = 0; j < placementHoloMats.length; j++) {
+      if (placementHoloMats[j].emissive) {
+        placementHoloMats[j].emissiveIntensity = pulse;
+      }
+    }
+
     placementHoloWrap.rotation.y = rotY;
-    var pulse = 1 + Math.sin(clock.elapsedTime * 5) * 0.04;
-    placementRing.scale.set(pulse, pulse, 1);
+    var ringPulse = 1 + Math.sin(clock.elapsedTime * 6.0) * 0.06;
+    placementRing.scale.set(ringPulse, ringPulse, 1);
   }
 
   function findPlacementTarget(customNdc) {
@@ -4712,7 +4728,7 @@
       if (snapClosePot) {
         prompt = '🍲 Fechar tampa na Panela de Pressão';
       } else {
-        prompt = placementValid ? 'Soltar: ' + heldItem.label : 'Local bloqueado';
+        prompt = placementValid ? 'Soltar: ' + heldItem.label : '🚫 Local bloqueado (não cabe aqui)';
       }
       if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
       return;
@@ -5002,51 +5018,45 @@
       pointerNdc.y = -((t.clientY - rect.top) / rect.height) * 2 + 1;
     }
 
-    renderer.domElement.addEventListener('touchstart', function (e) {
-      if (e.target !== renderer.domElement) return;
+    function isUiTouch(el) {
+      if (!el || !el.closest) return false;
+      return !!(
+        el.closest('#mobile-joystick-zone') ||
+        el.closest('#mobile-actions') ||
+        el.closest('.touch-btn') ||
+        el.closest('button') ||
+        el.closest('input') ||
+        el.closest('textarea') ||
+        el.closest('form') ||
+        el.closest('#lesson-modal') ||
+        el.closest('#ranking-modal') ||
+        el.closest('#admin-modal') ||
+        el.closest('#campus-lobby')
+      );
+    }
+
+    window.addEventListener('touchstart', function (e) {
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
+        if (isUiTouch(t.target)) continue;
         if (touchLookId === null) {
           touchLookId = t.identifier;
           lastTX = t.clientX; lastTY = t.clientY;
           touchMoved = false;
-          touchDrawingBoard = false;
-          if (inFps && !lobbyTourActive && heldItem && getHeldBoardToolColor() && chalkboardMeshes.length) {
-            setNdcFromTouch(t);
-            raycaster.setFromCamera(pointerNdc, camera);
-            var bHits = raycaster.intersectObjects(chalkboardMeshes, false);
-            if (bHits.length > 0 && bHits[0].distance < 3.8 && bHits[0].uv) {
-              touchDrawingBoard = true;
-              isPrimaryDown = true;
-              hoveredBoardHit = bHits[0];
-              hoveredBoardIndex = bHits[0].object.userData.boardIndex || 0;
-            }
-          }
         }
       }
     }, { passive: true });
 
-    renderer.domElement.addEventListener('touchmove', function (e) {
+    window.addEventListener('touchmove', function (e) {
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         if (t.identifier === touchLookId) {
           var dx = t.clientX - lastTX, dy = t.clientY - lastTY;
-          if (Math.hypot(dx, dy) > 6) touchMoved = true;
-          if (!inFps) {
-            lastTX = t.clientX; lastTY = t.clientY;
-            continue;
-          }
-          if (touchDrawingBoard) {
-            setNdcFromTouch(t);
-            raycaster.setFromCamera(pointerNdc, camera);
-            var bHits = raycaster.intersectObjects(chalkboardMeshes, false);
-            if (bHits.length > 0 && bHits[0].distance < 3.8 && bHits[0].uv) {
-              hoveredBoardHit = bHits[0];
-              hoveredBoardIndex = bHits[0].object.userData.boardIndex || 0;
-            }
-          } else {
-            playerYaw -= dx * 0.0045;
-            playerPitch = Math.max(-1.35, Math.min(1.35, playerPitch - dy * 0.0045));
+          if (Math.hypot(dx, dy) > 4) touchMoved = true;
+          if (inFps) {
+            // Sensibilidade ágil e fluida para o dedão da mão direita (0.0080)
+            playerYaw -= dx * 0.0080;
+            playerPitch = Math.max(-1.35, Math.min(1.35, playerPitch - dy * 0.0080));
           }
           lastTX = t.clientX; lastTY = t.clientY;
         }
@@ -5058,11 +5068,7 @@
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         if (t.identifier === touchLookId) {
-          if (touchDrawingBoard) {
-            isPrimaryDown = false;
-            flushCurrentStroke();
-            touchDrawingBoard = false;
-          } else if (!touchMoved && !lobbyTourActive) {
+          if (!touchMoved && !lobbyTourActive) {
             var nowT = performance.now();
             if (nowT - lastTouchActionAt > 180) {
               lastTouchActionAt = nowT;
@@ -5084,8 +5090,8 @@
         }
       }
     }
-    renderer.domElement.addEventListener('touchend', resetTouchLook, { passive: true });
-    renderer.domElement.addEventListener('touchcancel', resetTouchLook, { passive: true });
+    window.addEventListener('touchend', resetTouchLook, { passive: true });
+    window.addEventListener('touchcancel', resetTouchLook, { passive: true });
 
     window.addEventListener('resize', function () {
       camera.aspect = window.innerWidth / window.innerHeight;

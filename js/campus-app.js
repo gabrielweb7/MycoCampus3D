@@ -948,6 +948,35 @@
         window.triggerCampusJump();
       });
     }
+
+    var actionBtn = $('btn-mobile-action');
+    if (actionBtn) {
+      actionBtn.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        actionBtn.classList.add('action-active');
+        if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true);
+      }, { passive: false });
+      var endAction = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        actionBtn.classList.remove('action-active');
+        if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(false);
+      };
+      actionBtn.addEventListener('touchend', endAction, { passive: false });
+      actionBtn.addEventListener('touchcancel', endAction, { passive: false });
+      actionBtn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        actionBtn.classList.add('action-active');
+        if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true);
+      });
+      window.addEventListener('mouseup', function () {
+        if (actionBtn.classList.contains('action-active')) {
+          actionBtn.classList.remove('action-active');
+          if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(false);
+        }
+      });
+    }
   }
 
   function updateFpsUi(fps) {
@@ -1000,19 +1029,53 @@
       onHoldChange: function (label) {
         var rotBtn = $('btn-mobile-rotate');
         if (rotBtn) rotBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
+        var actBtn = $('btn-mobile-action');
+        if (actBtn) {
+          if (label && (label.indexOf('Giz') !== -1 || label.indexOf('chalk') !== -1)) {
+            actBtn.textContent = '✏️';
+            actBtn.title = 'Desenhar na Lousa (segure para pintar)';
+          } else if (label && (label.indexOf('Apagador') !== -1 || label.indexOf('eraser') !== -1)) {
+            actBtn.textContent = '🧽';
+            actBtn.title = 'Apagar Lousa (segure)';
+          } else if (label && (label.indexOf('Álcool') !== -1 || label.indexOf('Spray') !== -1)) {
+            actBtn.textContent = '💦';
+            actBtn.title = 'Borrifar Álcool';
+          } else if (label && (label.indexOf('Seringa') !== -1 || label.indexOf('syringe') !== -1)) {
+            actBtn.textContent = '💉';
+            actBtn.title = 'Inocular / Usar Seringa';
+          } else if (label) {
+            actBtn.textContent = '📦';
+            actBtn.title = 'Soltar ' + label;
+          } else {
+            actBtn.textContent = '✋';
+            actBtn.title = 'Interagir';
+          }
+        }
       },
       onFpsChange: updateFpsUi,
       onHoverPrompt: function (txt) {
         var pill = $('interact-pill');
         if (getDeviceProfile() === 'phone') {
           pill.classList.add('hidden');
-          return;
-        }
-        if (txt && currentUser) {
+        } else if (txt && currentUser) {
           pill.textContent = txt;
           pill.classList.remove('hidden');
-        } else {
+        } else if (pill) {
           pill.classList.add('hidden');
+        }
+        var actBtn = $('btn-mobile-action');
+        if (actBtn && (!window.getCampusPlayerPose || !window.getCampusPlayerPose().holding_item)) {
+          if (txt) {
+            actBtn.title = txt;
+            if (txt.indexOf('Colher') !== -1) actBtn.textContent = '🍄';
+            else if (txt.indexOf('Sentar') !== -1) actBtn.textContent = '🪑';
+            else if (txt.indexOf('Abrir') !== -1 || txt.indexOf('Fechar') !== -1) actBtn.textContent = '🚪';
+            else if (txt.indexOf('Ligar') !== -1 || txt.indexOf('Desligar') !== -1) actBtn.textContent = '⚡';
+            else actBtn.textContent = '✋';
+          } else {
+            actBtn.textContent = '✋';
+            actBtn.title = 'Interagir';
+          }
         }
       }
     });
