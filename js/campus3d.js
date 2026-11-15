@@ -1820,8 +1820,11 @@
     var hoodBtnMesh = makeBox(0.03, 0.06, 0.06, 0x38bdf8, { noShadow: true });
     hoodBtnMesh.position.set(0.65, 1.03, 1.13);
     var hoodLedMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
-    var hoodLed = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), hoodLedMat);
-    hoodLed.position.set(0.65, 1.09, 1.13);
+    var hoodLedBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.012, 14), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }));
+    hoodLedBezel.rotation.z = Math.PI / 2;
+    hoodLedBezel.position.set(0.648, 1.095, 1.13);
+    var hoodLed = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 10), hoodLedMat);
+    hoodLed.position.set(0.656, 1.095, 1.13);
 
     // Corrente de ar esteril horizontal (particulas saindo do filtro HEPA)
     var airCount = 56;
@@ -1836,14 +1839,14 @@
     airGeo.setAttribute('position', airAttr);
     var airPoints = new THREE.Points(airGeo, new THREE.PointsMaterial({ color: 0xbae6fd, size: 0.045, transparent: true, opacity: 0.72 }));
     airPoints.userData.ignoreRay = true;
-    hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLed, airPoints);
+    hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLedBezel, hoodLed, airPoints);
 
     hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat: hepaMat, ledMat: hoodLedMat };
     hoodBtnMesh.userData.hoodSwitch = hoodAirData;
     hoodSwitchBox.userData.hoodSwitch = hoodAirData;
     hoodSwitchMeshes.push(hoodBtnMesh, hoodSwitchBox);
 
-    var hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.065 };
+    var hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.065, isHood: true };
     supportSurfaces.push(hoodSurf);
     hoodBase.userData.supportSurface = hoodSurf;
     hoodWorkMat.userData.supportSurface = hoodSurf;
@@ -1939,8 +1942,8 @@
       knob.rotation.x = Math.PI / 2;
       knob.position.set(-0.14, 0.038, 0.295);
       var ledMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-      var led = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 8), ledMat);
-      led.position.set(0.14, 0.042, 0.295);
+      var led = new THREE.Mesh(new THREE.SphereGeometry(0.015, 10, 10), ledMat);
+      led.position.set(0.14, 0.042, 0.298);
       bg.add(body, coil, knob, led);
 
       var bSurf = { minX: px - 0.26, maxX: px + 0.26, minZ: pz - 0.28, maxZ: pz + 0.24, topY: py + 0.088 };
@@ -2440,9 +2443,12 @@
       var knob1 = makeRotaryKnob(-0.075);
       var knob2 = makeRotaryKnob(0.075);
       var ledMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-      var powerLed = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 8), ledMat);
-      powerLed.position.set(0, 0.056, 0.132);
-      sg.add(body, plate, plateRim, frontPanel, knob1, knob2, powerLed);
+      var ledBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.008, 12), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }));
+      ledBezel.rotation.x = Math.PI / 2 - 1.15;
+      ledBezel.position.set(0, 0.052, 0.139);
+      var powerLed = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 10), ledMat);
+      powerLed.position.set(0, 0.056, 0.145);
+      sg.add(body, plate, plateRim, frontPanel, knob1, knob2, ledBezel, powerLed);
 
       var stirSurf = { minX: px - 0.13, maxX: px + 0.13, minZ: pz - 0.16, maxZ: pz + 0.08, topY: py + 0.098 };
       supportSurfaces.push(stirSurf);
@@ -3618,7 +3624,10 @@
           }
         }
       }
-      if (item.mesh.position.y > supportedY + 0.015) {
+      if (item.mesh.position.y < supportedY - 0.005 && !item.mesh.userData.isTable && !item.mesh.userData.isHood) {
+        item.mesh.position.y = supportedY;
+        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+      } else if (item.mesh.position.y > supportedY + 0.015) {
         anyFalling = true;
         recentlyDropped[item.id] = now + 1500;
         item.mesh.position.y = Math.max(supportedY, item.mesh.position.y - 0.18);
@@ -4605,11 +4614,11 @@
         var hits = raycaster.intersectObject(item.mesh, true).filter(function (h) { return !h.object.userData.ignoreRay; });
         if (hits.length > 0 && hits[0].distance < 4.5) {
           var dHit = hits[0].distance;
-          if (item.mesh.userData.tableDims) {
+          if (item.mesh.userData.isTable || item.mesh.userData.isHood) {
             if (!(item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) && dHit < bestLargeDist) {
               bestLargeDist = dHit; bestLarge = item;
             }
-          } else if (dHit < bestSmallDist) {
+          } else if (!(item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) && dHit < bestSmallDist) {
             bestSmallDist = dHit; bestSmall = item;
           }
         }

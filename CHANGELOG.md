@@ -52,6 +52,13 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Substituído `new THREE.CapsuleGeometry` (inexistente no Three.js `r128`, que causava `TypeError: THREE.CapsuleGeometry is not a constructor` em `makeLiquidJar800` e interrompia o `boot()` antes do `tryResumeSession()`) por `new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10)`.
   - Adicionado suporte em `tryResumeSession()` para autenticar automaticamente e limpar imediatamente a URL (`history.replaceState`) caso o formulário tenha sido submetido via GET (`?campus_name=...&campus_pin=...`).
 
+## [v0.6.8] - 2026-11-15
+### Corrigido
+- **Item preso dentro da Capela de Fluxo Laminar**: itens/equipamentos de bancada (como a Balança Digital) posicionados sob a base da capela agora sobem automaticamente para o tampo de trabalho (`topY`) e equipamentos de bancada têm prioridade de mira sobre a capela/mesa.
+
+### Melhorado
+- **LEDs indicadores (Verde = Ligado / Vermelho = Desligado) em todos os equipamentos**: reposicionado e destacado o LED de energia no painel frontal do Agitador Magnético (`IKA • MYCO-MAG SH-2`), ampliado o LED da Capela de Fluxo Laminar com moldura e reforçado o LED do Fogareiro Elétrico.
+
 ## [v0.6.7] - 2026-11-15
 ### Melhorado
 - **Nova Ponte de Madeira Arqueada**: ponte caminhável sobre o Lago em 8 com tábuas individuais seguindo o arco, estacas submersas na água, guarda-corpo com treliças em X, escoras diagonais externas e calçada conectando os dois lados do lago.
