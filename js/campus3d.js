@@ -76,6 +76,7 @@
   var fpsLeftArmGroup = null;
   var fpsSleeveMat = null;
   var snapClosePot = null;
+  var labDoorPivot = null, labDoorOpen = false, labDoorAngle = 0;
   var localAvatar = null;
   var armSwingPhase = 0;
   var armReach = 0;
@@ -658,6 +659,92 @@
 
   // ---------------- Modulo Geometrico de Predio Universitario (2 Andares) ----------------
 
+  function createVenetianBlind(xPos, topY, zCenter, blindW, dropH, dir, roomCenterZ) {
+    var root = new THREE.Group();
+    root.position.set(xPos, topY, zCenter);
+
+    var headMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.72, roughness: 0.26 });
+    var slatMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.54, roughness: 0.30, side: THREE.DoubleSide });
+    var tapeMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.65 });
+
+    // Trilho superior metalico (headrail)
+    var headrail = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.10, blindW), headMat);
+    headrail.position.set(0, -0.05, 0);
+    root.add(headrail);
+
+    // 22 laminas horizontais de aluminio cobrindo todo o vidro
+    var numSlats = 22;
+    var slatGeo = new THREE.BoxGeometry(0.165, 0.012, blindW - 0.04);
+    var slats = [];
+    for (var s = 0; s < numSlats; s++) {
+      var slat = new THREE.Mesh(slatGeo, slatMat);
+      slat.position.set(0, -0.11 - ((s + 0.5) / numSlats) * (dropH - 0.14), 0);
+      slat.rotation.z = dir * 1.15;
+      root.add(slat);
+      slats.push(slat);
+    }
+
+    // Fitas/cordoes verticais (3 colunas ao longo da largura)
+    var tapes = [];
+    var tapeGeo = new THREE.BoxGeometry(0.012, dropH, 0.022);
+    [-blindW * 0.34, 0, blindW * 0.34].forEach(function (tz) {
+      [-0.048, 0.048].forEach(function (tx) {
+        var tp = new THREE.Mesh(tapeGeo, tapeMat);
+        tp.position.set(tx, -0.08 - dropH * 0.48, tz);
+        root.add(tp);
+        tapes.push(tp);
+      });
+    });
+
+    // Barra inferior (bottom rail)
+    var bottomRail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.055, blindW - 0.02), headMat);
+    bottomRail.position.set(0, -dropH, 0);
+    root.add(bottomRail);
+
+    // Varao acrilico giratorio + cordao lateral com pendulo branco (fiel a foto!)
+    var sideSign = zCenter < roomCenterZ ? 1 : -1;
+    var ctrlZ = sideSign * (blindW * 0.41);
+    var wand = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.013, 0.013, dropH * 0.66, 8),
+      new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.72, roughness: 0.15 })
+    );
+    wand.position.set(-dir * 0.068, -dropH * 0.36, ctrlZ - sideSign * 0.14);
+    var cordLine = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.006, 0.006, dropH * 0.52, 6),
+      new THREE.MeshBasicMaterial({ color: 0xf1f5f9 })
+    );
+    cordLine.position.set(-dir * 0.068, -dropH * 0.28, ctrlZ);
+    var cordKnob = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.018, 0.024, 0.075, 10),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+    );
+    cordKnob.position.set(-dir * 0.068, -dropH * 0.54, ctrlZ);
+    root.add(wand, cordLine, cordKnob);
+
+    var blindObj = {
+      slats: slats,
+      bottomRail: bottomRail,
+      tapes: tapes,
+      cordKnob: cordKnob,
+      open: false,
+      progress: 1.0,
+      dropH: dropH,
+      dir: dir
+    };
+
+    // Hitbox clicavel cobrindo toda a area da persiana/vidro
+    var hitMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.32, dropH, blindW),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    hitMesh.position.set(0, -dropH / 2, 0);
+    hitMesh.userData.blindObj = blindObj;
+    root.add(hitMesh);
+    blindHitMeshes.push(hitMesh);
+    windowBlinds.push(blindObj);
+    scene.add(root);
+  }
+
   function buildCampusBuildingWing(opts) {
     // opts: { cx, cz, width, depth, faceDir (+1=-X->+X, -1=+X->-X), hasDoor, style ('brick'|'wood'), connectNorth2F, connectSouth2F }
     var w = opts.width || 10.0;
@@ -726,27 +813,32 @@
       addSolidWall(backX, zS, frontX, zS, yFloor2, h2, 0.28, brickMat(2.5, 1.2));
     }
 
-    // Fachada de vidro do 2o andar (sempre solida para nao cair pela janela!)
-    addSolidWall(frontX, zN, frontX, zS, yFloor2, h2 - 0.1, 0.14, glassMat);
+    // Fachada de vidro do 2o andar (sempre solida para nao cair pela janela, sem projetar sombra preta!)
+    addSolidWall(frontX, zN, frontX, zS, yFloor2, h2 - 0.1, 0.14, glassMat, { noShadow: true });
     for (var m = -2; m <= 2; m++) {
-      var mullion = makeBox(0.18, h2 - 0.4, 0.1, 0x0f172a);
-      mullion.position.set(frontX, yFloor2 + h2 / 2, cz + m * (d / 5));
+      var mullion = makeBox(0.18, h2 - 0.1, 0.12, 0x0f172a);
+      mullion.position.set(frontX, yFloor2 + (h2 - 0.1) / 2, cz + m * (d / 5));
       scene.add(mullion);
     }
+    // Persianas horizontais clicaveis nos 2 lados de vidro do 2o andar
+    createVenetianBlind(frontX - dir * 0.11, yFloor2 + h2 - 0.14, cz - d * 0.24, d * 0.45, h2 - 0.26, dir, cz);
+    createVenetianBlind(frontX - dir * 0.11, yFloor2 + h2 - 0.14, cz + d * 0.24, d * 0.45, h2 - 0.26, dir, cz);
 
-    // Iluminacao realista de sala de aula: 4 luminarias fluorescentes + PointLight + Interruptor clicavel na porta!
+    // Iluminacao realista de sala de aula (1o e 2o andares): 4 luminarias fluorescentes por andar + PointLight + Interruptor!
     var tubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 1.25, roughness: 0.25 });
     var fixMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 });
-    [-2.0, 2.0].forEach(function (lx) {
-      [-2.8, 2.8].forEach(function (lz) {
-        var trayL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 1.65), fixMat);
-        trayL.position.set(cx + lx, yFloor2 + h2 - 0.04, cz + lz);
-        scene.add(trayL);
-        [-0.1, 0.1].forEach(function (tx) {
-          var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 1.5, 8), tubeMat);
-          tube.rotation.x = Math.PI / 2;
-          tube.position.set(cx + lx + tx, yFloor2 + h2 - 0.08, cz + lz);
-          scene.add(tube);
+    [yFloor1 + h1 - 0.04, yFloor2 + h2 - 0.04].forEach(function (ceilY) {
+      [-2.0, 2.0].forEach(function (lx) {
+        [-2.8, 2.8].forEach(function (lz) {
+          var trayL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 1.65), fixMat);
+          trayL.position.set(cx + lx, ceilY, cz + lz);
+          scene.add(trayL);
+          [-0.1, 0.1].forEach(function (tx) {
+            var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 1.5, 8), tubeMat);
+            tube.rotation.x = Math.PI / 2;
+            tube.position.set(cx + lx + tx, ceilY - 0.04, cz + lz);
+            scene.add(tube);
+          });
         });
       });
     });
@@ -880,23 +972,72 @@
     eraser.add(eWood, eFelt);
     registerPickable('board_eraser' + bSuffix, 'Apagador da Lousa', eraser, trayX, trayY + 0.04, cz + 0.95, 0, 0.2, 0.14);
 
-    // Fachada do 1o andar (terreo)
-    if (opts.hasDoor) {
-      addSolidWall(frontX, zN, frontX, cz - 0.95, yFloor1, h1, 0.16, glassMat);
-      addSolidWall(frontX, cz + 0.95, frontX, zS, yFloor1, h1, 0.16, glassMat);
-      labDoorPivot = new THREE.Group();
-      labDoorPivot.position.set(frontX, yFloor1, cz - 0.95);
-      var doorGlass = makeBox(0.1, 2.75, 1.85, 0x0f766e, { transparent: true, opacity: 0.65, roughness: 0.2 });
-      doorGlass.position.set(0, 1.38, 0.92);
-      var doorHandle = makeBox(0.18, 0.22, 0.08, 0xfbbf24, { metalness: 0.75 });
-      doorHandle.position.set(dir * 0.08, 1.1, 1.6);
-      labDoorPivot.add(doorGlass, doorHandle);
-      scene.add(labDoorPivot);
-    } else if (!opts.openFront) {
-      // Salas com entrada central aberta de 2.4m no terreo para o jogador entrar!
-      addSolidWall(frontX, zN, frontX, cz - 1.2, yFloor1, h1, 0.16, glassMat);
-      addSolidWall(frontX, cz + 1.2, frontX, zS, yFloor1, h1, 0.16, glassMat);
-    }
+    // Fachada do 1o andar (terreo): totalmente fechadinha com Vidro + Esquadrias + Persianas + Porta Central Articulada com Batente e Bandeira Superior!
+    var doorHalfW = 0.96;
+    var doorH = 2.75;
+    addSolidWall(frontX, zN, frontX, cz - doorHalfW, yFloor1, h1, 0.14, glassMat, { noShadow: true });
+    addSolidWall(frontX, cz + doorHalfW, frontX, zS, yFloor1, h1, 0.14, glassMat, { noShadow: true });
+
+    // Bandeira de vidro acima da porta (fecha o vao entre yFloor1 + doorH e o teto yFloor1 + h1!)
+    var transomH = h1 - doorH;
+    var transomGlass = makeBox(0.12, transomH, doorHalfW * 2, glassMat, { noShadow: true });
+    transomGlass.position.set(frontX, yFloor1 + doorH + transomH / 2, cz);
+    scene.add(transomGlass);
+
+    // Batentes verticais da porta, travessa superior e esquadrias das janelas
+    var frameMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.35 });
+    [-doorHalfW, doorHalfW].forEach(function (dz) {
+      var jamb = new THREE.Mesh(new THREE.BoxGeometry(0.20, h1, 0.14), frameMat);
+      jamb.position.set(frontX, yFloor1 + h1 / 2, cz + dz);
+      scene.add(jamb);
+    });
+    var transomBar = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, doorHalfW * 2 + 0.14), frameMat);
+    transomBar.position.set(frontX, yFloor1 + doorH, cz);
+    var topFacadeBar = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.10, d - 0.3), frameMat);
+    topFacadeBar.position.set(frontX, yFloor1 + h1 - 0.05, cz);
+    scene.add(transomBar, topFacadeBar);
+
+    // Persianas horizontais clicaveis cobrindo todo o vidro de cada lado da porta (Esquerda e Direita)
+    var sideWinW = (d / 2) - doorHalfW - 0.26;
+    var sideCenterOffset = doorHalfW + 0.04 + sideWinW / 2;
+    createVenetianBlind(frontX - dir * 0.11, yFloor1 + h1 - 0.08, cz - sideCenterOffset, sideWinW, h1 - 0.16, dir, cz);
+    createVenetianBlind(frontX - dir * 0.11, yFloor1 + h1 - 0.08, cz + sideCenterOffset, sideWinW, h1 - 0.16, dir, cz);
+
+    // Folha da porta articulada com moldura metalica e macaneta dupla
+    var doorPivot = new THREE.Group();
+    doorPivot.position.set(frontX, yFloor1, cz - doorHalfW + 0.04);
+    var leafW = (doorHalfW - 0.04) * 2;
+    var doorGlass = makeBox(0.08, doorH - 0.04, leafW, 0x0f766e, { transparent: true, opacity: 0.65, roughness: 0.2, noShadow: true });
+    doorGlass.position.set(0, doorH / 2, leafW / 2);
+    var stL = new THREE.Mesh(new THREE.BoxGeometry(0.11, doorH, 0.08), frameMat);
+    stL.position.set(0, doorH / 2, 0.04);
+    var stR = new THREE.Mesh(new THREE.BoxGeometry(0.11, doorH, 0.08), frameMat);
+    stR.position.set(0, doorH / 2, leafW - 0.04);
+    var rlT = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.08, leafW), frameMat);
+    rlT.position.set(0, doorH - 0.04, leafW / 2);
+    var rlB = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.10, leafW), frameMat);
+    rlB.position.set(0, 0.05, leafW / 2);
+    var doorHandle = makeBox(0.22, 0.24, 0.06, 0xfbbf24, { metalness: 0.8, roughness: 0.2, noShadow: true });
+    doorHandle.position.set(0, 1.12, leafW - 0.18);
+    doorPivot.add(doorGlass, stL, stR, rlT, rlB, doorHandle);
+    scene.add(doorPivot);
+
+    var doorObj = {
+      pivot: doorPivot,
+      open: false,
+      angle: 0,
+      frontX: frontX,
+      minZ: cz - doorHalfW,
+      maxZ: cz + doorHalfW,
+      dir: dir,
+      label: opts.doorLabel || 'Porta da Sala'
+    };
+    doorGlass.userData.doorObj = doorObj;
+    stL.userData.doorObj = doorObj;
+    stR.userData.doorObj = doorObj;
+    doorHandle.userData.doorObj = doorObj;
+    doorHitMeshes.push(doorGlass, stL, stR, doorHandle);
+    campusDoors.push(doorObj);
   }
 
   // ---------------- Escadaria, Passarela Elevada & Torre do Relogio ----------------
