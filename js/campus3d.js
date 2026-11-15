@@ -7133,7 +7133,7 @@
           heldItem.mesh.rotation.set(0, heldRotY, 0);
         }
 
-        // Animação da Seringa furando o septo de borracha vermelha
+        // Animação da Seringa furando o septo de borracha vermelha (agulha apontada para baixo)
         if (heldItem.mesh.userData.isSyringe) {
           var activeSyrItem = (hoveredSyringeTarget && hoveredSyringeTarget.item && hoveredSyringeTarget.item.mesh.userData.liquidCtrl)
             ? hoveredSyringeTarget.item
@@ -7143,16 +7143,31 @@
           syringePunctureProgress += ((isPuncturing ? 1 : 0) - syringePunctureProgress) * Math.min(1, dt * 10);
           if (syringePunctureProgress > 0.01 && lastSyringeTargetItem) {
             var sTgt = lastSyringeTargetItem;
+            // Septo vermelho na tampa do frasco
             _tmpSyrPort.set(0.036, 0.290, 0).applyEuler(sTgt.mesh.rotation).add(sTgt.mesh.position);
-            _tmpSyrHand.copy(_tmpSyrPort).add(_tmpSyrOff.set(0.04, 0.12, 0.05));
+            // Gira em Z (-1.48 rad) para que a agulha fique apontada para baixo dentro do septo
+            var tgtRotX = 0.08 * syringePunctureProgress;
+            var tgtRotY = playerYaw * (1 - syringePunctureProgress) + (sTgt.mesh.rotation.y + Math.PI * 0.5) * syringePunctureProgress;
+            var tgtRotZ = -1.48 * syringePunctureProgress;
+            heldItem.mesh.rotation.set(tgtRotX, tgtRotY, tgtRotZ);
+
+            // Calcula a posição exata para a ponta da agulha (local 0.12, 0.022, 0) encaixar no septo
+            _tmpSyrOff.set(0.12, 0.022, 0).applyEuler(heldItem.mesh.rotation);
+            _tmpSyrHand.copy(_tmpSyrPort).sub(_tmpSyrOff);
+            _tmpSyrHand.y -= 0.018 * syringePunctureProgress; // agulha penetra levemente no septo
             _tmpHandPos.lerp(_tmpSyrHand, syringePunctureProgress);
             heldItem.mesh.position.copy(_tmpHandPos);
-            heldItem.mesh.rotation.set(0.78, sTgt.mesh.rotation.y + Math.PI, 0);
 
             if (fpsArmGroup) {
-              armReach += (1.45 - armReach) * Math.min(1, dt * 12);
-              fpsArmGroup.position.set(0.18, -0.20, -0.62);
-              fpsArmGroup.rotation.set(0.52, -0.05, 0.08);
+              // Traz a mão direita até o corpo da seringa para não parecer flutuando no ar
+              _tmpSyrOff.set(0.02, 0.04, 0).applyEuler(heldItem.mesh.rotation).add(_tmpHandPos);
+              camera.worldToLocal(_tmpSyrHand.copy(_tmpSyrOff));
+              fpsArmGroup.position.lerp(_tmpSyrHand.add(_tmpSyrOff.set(0.06, -0.05, 0.16)), syringePunctureProgress);
+              fpsArmGroup.rotation.set(
+                0.18 + 0.42 * syringePunctureProgress,
+                -0.14 + 0.10 * syringePunctureProgress,
+                0.05
+              );
             }
           } else if (syringePunctureProgress <= 0.01) {
             syringePunctureProgress = 0;
