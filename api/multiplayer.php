@@ -102,7 +102,7 @@ if ($action === 'set_slide') {
 }
 
 function mp_is_valid_state_key(string $k): bool {
-    if (in_array($k, ['hood_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson', 'auditorium_slide'], true)) {
+    if (in_array($k, ['hood_lab', 'stir_lab', 'burner_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson', 'auditorium_slide'], true)) {
         return true;
     }
     if (preg_match('/^(door_[0-3]|light_[0-7])$/', $k)) return true;
@@ -141,7 +141,7 @@ if ($action === 'sync') {
     $pitch = $savedPose ? mp_num($savedPose['pitch'] ?? 0, 2.0) : mp_num($body['pitch'] ?? 0, 2.0);
     $holding = $savedPose ? (string)($savedPose['holding'] ?? '') : (string)($body['holding_item'] ?? '');
     $holding = in_array($holding, MP_ITEMS, true) ? $holding : '';
-    $seated = !empty($body['seated']);
+    $seated = $savedPose ? !empty($savedPose['seated']) : !empty($body['seated']);
     $walking = $seated ? 2 : (!empty($body['walking']) ? 1 : 0);
     $inFps = !empty($body['in_fps']) ? 1 : 0;
 
@@ -153,6 +153,7 @@ if ($action === 'sync') {
             'yaw' => round($yaw, 3),
             'pitch' => round($pitch, 3),
             'holding' => $holding,
+            'seated' => $seated ? 1 : 0,
         ]);
         $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)')
             ->execute([$poseKey, $poseJson]);

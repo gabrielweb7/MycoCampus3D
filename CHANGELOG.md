@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.6] — 2026-11-15
+### Fixed & Improved
+- **Anatomia e Postura Perfeita ao Sentar em Cadeiras, Bancos e Auditório ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Pivô das pernas (`leftLeg`, `rightLeg`) ajustado para a articulação do quadril e pivô dos braços (`leftArm`, `rightArm`) ajustado para a articulação do ombro.
+  - Quando sentado (`av.seated`), as coxas ficam 100% apoiadas sobre o assento da cadeira/banco (`y_local = 0.34`, `0.469 m` acima do piso, sem jamais atravessar ou ficar embaixo do assento azul), o tronco apoia certinho no assento e no encosto, e os braços apontam para a frente (`+0.42 rad`) sobre a carteira/colo em vez de inclinarem para trás.
+  - Persistência do estado `seated` em `upose_<userId>` no MySQL para manter o jogador sentado mesmo após atualizar a página (`F5`), além de fileiras clicáveis para sentar no Auditório do Student Center.
+- **Correções Extras de Auditoria ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Corrigida ordem de argumentos de `beaker_1l_03` e `beaker_1l_04` na estante Oeste do Depósito.
+  - Sincronização multiplayer e persistência MySQL adicionadas para o Agitador Magnético (`stir_lab`) e o Fogareiro Elétrico (`burner_lab`).
+
 ## [v0.6.5] — 2026-11-15
 ### Added & Improved
 - **Nova Sala "📦 DEPÓSITO" com Estantes Industriais Porta-Pallet Azuis e Laranjas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
