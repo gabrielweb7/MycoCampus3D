@@ -15,6 +15,9 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Intervalo de `multiplayer.php?action=sync` elevado de 350ms para 750ms em primeiro plano (e 1500ms em segundo plano), reduzindo requisições HTTP em mais de 55% e limpando a aba Network do DevTools, mantendo a interpolação suave de avatares.
 - **Remoção Permanente dos Botões Rápidos e Controle do Telão ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [game.css](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/css/game.css))**:
   - Elementos `#hud-quick-actions` e `#prof-toolbar` esvaziados no HTML e ocultados com regras estritas de CSS (`display: none !important; visibility: hidden !important; pointer-events: none !important; opacity: 0 !important; width: 0 !important; height: 0 !important;`), garantindo que nunca mais surjam na interface do jogo.
+- **100% Self-Hosted & Independência de CDN ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), `js/vendor/`)**:
+  - Bibliotecas externas (`three.min.js` e `OrbitControls.js` r128) agora baixadas e hospedadas diretamente no projeto em `js/vendor/`.
+  - Eliminada qualquer dependência de CDNs externos (cdnjs e jsdelivr), tornando o jogo imune a instabilidades externas, bloqueios de DNS, lentidão de operadoras e permitindo carregamento mais veloz via HTTP/2 na mesma origem.
 
 ## [v0.9.4] — 2026-11-15
 ### 🛠️ Otimização do Termômetro Laser, Eliminação de Congelamento & Estabilização do Fogareiro
