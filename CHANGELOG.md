@@ -12,6 +12,7 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
 - **Telão Interativo do Auditório & Mesas de Apoio ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
   - Tela do Auditório agora exibe menu interativo com todos os 6 Módulos/Aulas clicáveis, botão `⬅️ MENU`, botão `⏻ DESLIGAR` (tela preta/cinza escuro com LED standby) e religamento ao clicar em qualquer ponto da tela.
   - Todas as 12 carteiras das salas de aula (2º andar) e as 2 mesas da Reitoria registradas em `supportSurfaces` para apoiar giz, apagador e objetos do laboratório.
+  - Removido o telão de slide externo flutuante da passagem oeste (`screenWest` + `◀ AULAS ▶`).
 
 ### Fixed
 - **Escadaria Central ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Corrigido o sinal da inclinação (`slopeAng`) das longarinas, painéis de vidro e corrimãos laterais nos dois lados da escadaria para acompanhar perfeitamente os degraus.
