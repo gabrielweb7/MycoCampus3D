@@ -6912,9 +6912,7 @@
         } else if (snowboardActive) {
           fpsLeftArmGroup.position.set(-0.42, -0.22, -0.34);
           fpsLeftArmGroup.rotation.set(0.10, 0.45, 0.25);
-        }
-      }
-        if (isTwoHanded) {
+        } else if (isTwoHanded) {
           fpsLeftArmGroup.position.set(-0.27, -0.34 + Math.sin(armSwingPhase) * 0.014, -0.56);
           fpsLeftArmGroup.rotation.set(0.18, -0.12, -0.05);
         }
