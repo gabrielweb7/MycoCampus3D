@@ -41,3 +41,4 @@ function mc_db() {
     }
     return $pdo;
 }
+

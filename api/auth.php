@@ -170,3 +170,4 @@ if ($action === 'leaderboard') {
 }
 
 mc_json(['ok' => false, 'error' => 'Acao desconhecida.'], 400);
+

@@ -16,3 +16,4 @@ Universidade e simulador 3D multiplayer interativo para ensino de cultivo de cog
 2. Copie `api/config.example.php` para `api/config.php` no servidor e preencha `DB_NAME`, `DB_USER`, `DB_PASS` e `PROFESSOR_KEY`.
    > `api/config.php` está no `.gitignore` e nunca sobe para o GitHub.
 3. Importe `database/schema.sql` no phpMyAdmin (ou deixe o `api/db.php` criar as tabelas automaticamente no primeiro acesso).
+

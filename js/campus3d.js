@@ -1222,3 +1222,4 @@
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;
   window.updateCampusPlayers = updateCampusPlayers;
 })();
+

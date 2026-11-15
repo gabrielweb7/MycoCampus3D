@@ -167,3 +167,4 @@ if ($action === 'sync') {
 }
 
 mp_json(['ok' => false, 'error' => 'Acao desconhecida.'], 400);
+
