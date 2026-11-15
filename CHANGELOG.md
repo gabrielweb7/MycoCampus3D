@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.8] — 2026-11-15
+### Fixed
+- **Correção da Ponte Arqueada do Lago (`walkableFloors`) e Cache Busting ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
+  - Corrigida referência de `walkableSlabs.push` para `walkableFloors.push` e `lakeBedMat` em `buildArchedWoodBridge()` / `buildOuterCampus()`, e atualizado o cache-buster para `?v=0.6.8` para garantir que nenhum navegador utilize versão em cache anterior.
+
 ## [v0.6.7] — 2026-11-15
 ### Added, Fixed & Improved
 - **Tela Cheia Automática (Auto-Fullscreen) no Mobile e Desktop ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
