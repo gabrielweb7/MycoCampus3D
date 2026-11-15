@@ -11,7 +11,12 @@ const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
 const MP_SLIDE_COUNT = 5;
 const MP_WORLD_LIMIT = 100.0;
-const MP_ITEMS = ['petri_clean', 'petri_contam', 'spawn_jar', 'liquid_culture', 'substrate_bag', 'fruiting_block'];
+const MP_ITEMS = [
+    'petri_clean', 'petri_contam', 'spawn_jar', 'liquid_culture',
+    'substrate_bag', 'fruiting_block',
+    'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser'
+];
+const MP_STROKE_COLORS = ['#f8fafc', '#4ade80', '#facc15', 'erase'];
 
 /** session_id interno ligado ao usuario: impede que alguem sobrescreva a sessao de outro jogador. */
 function mp_session_key(int $userId, string $clientSid): string {
@@ -163,12 +168,52 @@ if ($action === 'sync') {
         if ($st['state_key'] === 'auditorium_presenter') $state['auditorium_presenter'] = (string)$st['state_val'];
     }
 
+    // Salva novos tracos da lousa enviados pelo jogador
+    if (!empty($body['board_strokes']) && is_array($body['board_strokes'])) {
+        $stIns = $pdo->prepare('INSERT INTO mc_board_strokes (stroke_json) VALUES (?)');
+        foreach (array_slice($body['board_strokes'], 0, 20) as $st) {
+            if (!is_array($st)) continue;
+            $col = (string)($st['c'] ?? '');
+            if (!in_array($col, MP_STROKE_COLORS, true)) continue;
+            if (empty($st['pts']) || !is_array($st['pts'])) continue;
+            $pts = [];
+            foreach (array_slice($st['pts'], 0, 80) as $pt) {
+                if (!is_array($pt) || count($pt) < 2) continue;
+                $pts[] = [round(max(0, min(512, (float)$pt[0])), 1), round(max(0, min(256, (float)$pt[1])), 1)];
+            }
+            if (count($pts) >= 1) {
+                $stIns->execute([json_encode(['c' => $col, 'pts' => $pts])]);
+            }
+        }
+        // Mantem no maximo os ultimos 500 tracos para a tabela nao crescer infinito
+        $maxId = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes')->fetchColumn();
+        if ($maxId > 500) {
+            $delOld = $pdo->prepare('DELETE FROM mc_board_strokes WHERE id <= ?');
+            $delOld->execute([$maxId - 500]);
+        }
+    }
+
+    $boardSince = max(0, (int)($body['board_since'] ?? 0));
+    $bStmt = $pdo->prepare('SELECT id, stroke_json FROM mc_board_strokes WHERE id > ? ORDER BY id ASC LIMIT 200');
+    $bStmt->execute([$boardSince]);
+    $boardStrokes = [];
+    $lastBoardId = $boardSince;
+    foreach ($bStmt->fetchAll() as $row) {
+        $dec = json_decode((string)$row['stroke_json'], true);
+        if (is_array($dec)) {
+            $boardStrokes[] = $dec;
+        }
+        $lastBoardId = (int)$row['id'];
+    }
+
     mc_json([
         'ok' => true,
         'online_count' => count($players) + 1,
         'players' => $players,
         'objects' => $objects,
         'world_state' => $state,
+        'board_strokes' => $boardStrokes,
+        'board_last_id' => $lastBoardId,
     ]);
 }
 

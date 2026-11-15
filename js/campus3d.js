@@ -65,6 +65,21 @@
   var pendingMovedItems = {};
   var recentlyDropped = {};
 
+  // Braco 1a pessoa & Lousa Interativa
+  var fpsArmGroup = null;
+  var fpsSleeveMat = null;
+  var armSwingPhase = 0;
+  var armReach = 0;
+  var chalkboardMesh = null;
+  var chalkboardCanvas = null;
+  var chalkboardCtx = null;
+  var chalkboardTex = null;
+  var hoveredBoardHit = null;
+  var isPrimaryDown = false;
+  var lastDrawPt = null;
+  var currentStroke = null;
+  var pendingBoardStrokes = [];
+
   // Multiplayer
   var remoteAvatars = {};
 
@@ -668,6 +683,66 @@
     board.position.set(backX + dir * 0.22, yFloor2 + 1.75, cz);
     scene.add(board);
 
+    if (opts.interactiveBoard) {
+      // Lousa interativa desenhavel no 2o andar (Bloco Oeste-Norte)
+      chalkboardCanvas = document.createElement('canvas');
+      chalkboardCanvas.width = 512;
+      chalkboardCanvas.height = 256;
+      chalkboardCtx = chalkboardCanvas.getContext('2d');
+      chalkboardCtx.fillStyle = '#14532d';
+      chalkboardCtx.fillRect(0, 0, 512, 256);
+      chalkboardCtx.fillStyle = 'rgba(255,255,255,0.28)';
+      chalkboardCtx.font = 'bold 16px system-ui, sans-serif';
+      chalkboardCtx.fillText('Lousa Interativa • Pegue um giz ou apagador abaixo', 16, 26);
+      chalkboardTex = new THREE.CanvasTexture(chalkboardCanvas);
+
+      chalkboardMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.4, 1.2),
+        new THREE.MeshBasicMaterial({ map: chalkboardTex })
+      );
+      chalkboardMesh.position.set(backX + dir * 0.28, yFloor2 + 1.75, cz);
+      chalkboardMesh.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+      scene.add(chalkboardMesh);
+
+      // Bandeja de giz & apagador
+      var trayX = backX + dir * 0.42;
+      var trayY = yFloor2 + 0.98;
+      var tray = makeBox(0.38, 0.08, 3.2, 0x78350f, { roughness: 0.7 });
+      tray.position.set(trayX, trayY, cz);
+      scene.add(tray);
+      supportSurfaces.push({
+        minX: trayX - 0.22, maxX: trayX + 0.22,
+        minZ: cz - 1.65, maxZ: cz + 1.65,
+        topY: trayY + 0.04
+      });
+
+      var chalkDefs = [
+        { id: 'chalk_white', label: 'Giz Branco', color: 0xf8fafc, dz: -0.9 },
+        { id: 'chalk_green', label: 'Giz Verde', color: 0x4ade80, dz: -0.3 },
+        { id: 'chalk_yellow', label: 'Giz Amarelo', color: 0xfacc15, dz: 0.3 }
+      ];
+      chalkDefs.forEach(function (cd) {
+        var cg = new THREE.Group();
+        var stick = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.025, 0.025, 0.18, 10),
+          new THREE.MeshStandardMaterial({ color: cd.color, roughness: 0.9 })
+        );
+        stick.rotation.x = Math.PI / 2;
+        stick.position.y = 0.03;
+        cg.add(stick);
+        registerPickable(cd.id, cd.label, cg, trayX, trayY + 0.04, cz + cd.dz, 0, 0.15, 0.12);
+      });
+
+      // Apagador largo de madeira + feltro
+      var eraser = new THREE.Group();
+      var eWood = makeBox(0.12, 0.06, 0.28, 0x92400e, { roughness: 0.75 });
+      eWood.position.y = 0.05;
+      var eFelt = makeBox(0.12, 0.03, 0.28, 0x1e293b, { roughness: 0.95 });
+      eFelt.position.y = 0.015;
+      eraser.add(eWood, eFelt);
+      registerPickable('board_eraser', 'Apagador da Lousa', eraser, trayX, trayY + 0.04, cz + 0.95, 0, 0.2, 0.14);
+    }
+
     // Fachada do 1o andar (terreo)
     if (opts.hasDoor) {
       addSolidWall(frontX, zN, frontX, cz - 0.95, yFloor1, h1, 0.16, glassMat);
@@ -961,7 +1036,7 @@
   function buildCampusWingsAndEquipment() {
     // ALA OESTE (Esquerda) — 2 blocos de 2 andares (x: -24..-14)
     // Bloco Oeste-Norte (z: -12.8..-1.2): LABORATORIO DE FLUXO LAMINAR & AUTOCLAVE + 2o andar acessivel
-    buildCampusBuildingWing({ cx: -19, cz: -7, width: 10, depth: 11.6, faceDir: 1, hasDoor: true, style: 'brick', connectNorth2F: true, connectSouth2F: true });
+    buildCampusBuildingWing({ cx: -19, cz: -7, width: 10, depth: 11.6, faceDir: 1, hasDoor: true, style: 'brick', connectNorth2F: true, connectSouth2F: true, interactiveBoard: true });
     // Bloco Oeste-Sul (z: 2.2..13.8): Salas de Aula (1o e 2o andares acessiveis)
     buildCampusBuildingWing({ cx: -19, cz: 8, width: 10, depth: 11.6, faceDir: 1, hasDoor: false, style: 'brick', connectNorth2F: true });
 
@@ -1116,6 +1191,68 @@
     pos.z = Math.max(-95, Math.min(95, pos.z));
   }
 
+  function buildFirstPersonArm() {
+    fpsArmGroup = new THREE.Group();
+    fpsSleeveMat = new THREE.MeshStandardMaterial({ color: 0x4f46e5, roughness: 0.6 });
+    var skinMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.65 });
+    var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.36), fpsSleeveMat);
+    sleeve.position.set(0, 0, 0.18);
+    var hand = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.13), skinMat);
+    hand.position.set(0, 0.01, -0.04);
+    fpsArmGroup.add(sleeve, hand);
+    fpsArmGroup.position.set(0.32, -0.28, -0.42);
+    fpsArmGroup.rotation.set(0.18, -0.14, 0.05);
+    fpsArmGroup.visible = false;
+    camera.add(fpsArmGroup);
+    scene.add(camera);
+  }
+
+  function drawBoardSegment(ctx, color, p0, p1) {
+    if (!ctx) return;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (color === 'erase') {
+      ctx.strokeStyle = '#14532d';
+      ctx.lineWidth = 38;
+    } else {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4.5;
+    }
+    ctx.beginPath();
+    ctx.moveTo(p0[0], p0[1]);
+    ctx.lineTo(p1[0], p1[1]);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function applyStrokeToBoard(st) {
+    if (!chalkboardCtx || !chalkboardTex || !st || !st.pts || !st.pts.length) return;
+    var pts = st.pts;
+    for (var i = 0; i < pts.length; i++) {
+      var p0 = i === 0 ? pts[0] : pts[i - 1];
+      drawBoardSegment(chalkboardCtx, st.c, p0, pts[i]);
+    }
+    chalkboardTex.needsUpdate = true;
+  }
+
+  function getHeldBoardToolColor() {
+    if (!heldItem) return null;
+    if (heldItem.id === 'chalk_white') return '#f8fafc';
+    if (heldItem.id === 'chalk_green') return '#4ade80';
+    if (heldItem.id === 'chalk_yellow') return '#facc15';
+    if (heldItem.id === 'board_eraser') return 'erase';
+    return null;
+  }
+
+  function flushCurrentStroke() {
+    if (currentStroke && currentStroke.pts.length > 0) {
+      pendingBoardStrokes.push(currentStroke);
+    }
+    currentStroke = null;
+    lastDrawPt = null;
+  }
+
   function createPlacementGhost() {
     var geo = new THREE.CylinderGeometry(0.28, 0.28, 0.14, 18);
     var mat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.45, depthWrite: false });
@@ -1263,7 +1400,11 @@
     rightLeg.position.set(0.1, 0.19, 0);
     var torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.52, 0.26), bodyMat);
     torso.position.set(0, 0.64, 0); torso.castShadow = true;
-    g.add(leftLeg, rightLeg, torso);
+    var leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.44, 0.13), bodyMat);
+    leftArm.position.set(-0.29, 0.66, 0); leftArm.castShadow = true;
+    var rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.44, 0.13), bodyMat);
+    rightArm.position.set(0.29, 0.66, 0); rightArm.castShadow = true;
+    g.add(leftLeg, rightLeg, torso, leftArm, rightArm);
 
     var headGroup = new THREE.Group();
     headGroup.position.set(0, 1.05, 0);
@@ -1294,7 +1435,7 @@
 
     scene.add(g);
     return {
-      group: g, leftLeg: leftLeg, rightLeg: rightLeg, headGroup: headGroup,
+      group: g, leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm, headGroup: headGroup,
       labelSprite: labelSprite, chatSprite: chatSprite, lastChat: '',
       targetPos: new THREE.Vector3(data.x || 0, data.y || 0, data.z || 0),
       targetYaw: normalizeAngle(data.yaw || 0),
@@ -1360,9 +1501,13 @@
         av.walkPhase += dt * 10;
         av.leftLeg.rotation.x = Math.sin(av.walkPhase) * 0.55;
         av.rightLeg.rotation.x = -Math.sin(av.walkPhase) * 0.55;
+        av.leftArm.rotation.x = -Math.sin(av.walkPhase) * 0.45;
+        av.rightArm.rotation.x = av.holding ? -0.9 : Math.sin(av.walkPhase) * 0.45;
       } else {
         av.leftLeg.rotation.x *= 0.8;
         av.rightLeg.rotation.x *= 0.8;
+        av.leftArm.rotation.x *= 0.8;
+        av.rightArm.rotation.x = av.holding ? -0.85 : av.rightArm.rotation.x * 0.8;
       }
     });
   }
@@ -1371,6 +1516,10 @@
 
   function handlePrimaryAction() {
     if (heldItem) {
+      // Se estiver perto da lousa com giz ou apagador, o clique desenha/apaga em vez de soltar
+      if (hoveredBoardHit && getHeldBoardToolColor()) {
+        return;
+      }
       if (placementValid && placementGhost) {
         heldItem.mesh.position.copy(placementGhost.position);
         heldItem.mesh.rotation.y = heldRotY;
@@ -1427,6 +1576,7 @@
     hoveredDoor = false;
     hoveredScreen = false;
     hoveredScreenBtn = null;
+    hoveredBoardHit = null;
     var prompt = '';
 
     // Verifica proximidade dos teloes para exibir opcoes contextuais
@@ -1445,6 +1595,17 @@
     raycaster.setFromCamera(inFps ? new THREE.Vector2(0, 0) : pointerNdc, camera);
 
     if (heldItem) {
+      var toolCol = getHeldBoardToolColor();
+      if (toolCol && chalkboardMesh) {
+        var bHits = raycaster.intersectObject(chalkboardMesh, false);
+        if (bHits.length > 0 && bHits[0].distance < 3.8 && bHits[0].uv) {
+          hoveredBoardHit = bHits[0];
+          if (placementGhost) placementGhost.visible = false;
+          prompt = toolCol === 'erase' ? '🧽 Segure o clique para apagar a lousa' : '✏️ Segure o clique para escrever na lousa';
+          if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
+          return;
+        }
+      }
       var pt = findPlacementTarget();
       placementValid = !isPlacementBlocked(pt);
       placementGhost.position.copy(pt);
@@ -1562,7 +1723,15 @@
         renderer.domElement.requestPointerLock();
         return;
       }
+      isPrimaryDown = true;
       handlePrimaryAction();
+    });
+
+    window.addEventListener('mouseup', function (e) {
+      if (e.button === 0) {
+        isPrimaryDown = false;
+        flushCurrentStroke();
+      }
     });
 
     renderer.domElement.addEventListener('wheel', function (e) {
@@ -1690,17 +1859,62 @@
       camera.rotation.x = playerPitch;
       camera.rotation.z = 0;
 
+      // Braço direito em 1a pessoa + item segurado na mao
+      if (fpsArmGroup) {
+        fpsArmGroup.visible = true;
+        var drawingNow = !!(isPrimaryDown && hoveredBoardHit && getHeldBoardToolColor());
+        armReach += ((drawingNow ? 1 : 0) - armReach) * Math.min(1, dt * 14);
+        if (speedNow > 0.2) armSwingPhase += dt * 7;
+        fpsArmGroup.position.set(
+          0.32 - armReach * 0.08,
+          -0.28 + Math.sin(armSwingPhase) * 0.014 + armReach * 0.06,
+          -0.42 - armReach * 0.16
+        );
+        fpsArmGroup.rotation.set(0.18 + armReach * 0.35, -0.14 + armReach * 0.1, 0.05);
+      }
+
       if (heldItem) {
-        var handPos = new THREE.Vector3(0.32, -0.26, -0.68).applyEuler(camera.rotation).add(camera.position);
+        var reachZ = fpsArmGroup ? armReach * 0.16 : 0;
+        var reachY = fpsArmGroup ? armReach * 0.06 : 0;
+        var handPos = new THREE.Vector3(0.30, -0.22 + reachY, -0.58 - reachZ).applyEuler(camera.rotation).add(camera.position);
         heldItem.mesh.position.copy(handPos);
         heldItem.mesh.rotation.y = heldRotY;
       }
     } else {
+      if (fpsArmGroup) fpsArmGroup.visible = false;
       isWalking = false;
       controls.update();
     }
 
-    if (!lobbyTourActive) updateHoverRay();
+    if (!lobbyTourActive) {
+      updateHoverRay();
+      // Desenho ou apagamento continuo na lousa enquanto segura o clique perto dela
+      var toolColor = getHeldBoardToolColor();
+      if (isPrimaryDown && hoveredBoardHit && toolColor && chalkboardCtx && chalkboardTex) {
+        var px = Math.round(hoveredBoardHit.uv.x * 512 * 10) / 10;
+        var py = Math.round((1 - hoveredBoardHit.uv.y) * 256 * 10) / 10;
+        var curPt = [px, py];
+        if (!currentStroke || currentStroke.c !== toolColor) {
+          flushCurrentStroke();
+          currentStroke = { c: toolColor, pts: [curPt] };
+          drawBoardSegment(chalkboardCtx, toolColor, curPt, curPt);
+          chalkboardTex.needsUpdate = true;
+          lastDrawPt = curPt;
+        } else if (!lastDrawPt || Math.hypot(curPt[0] - lastDrawPt[0], curPt[1] - lastDrawPt[1]) >= 2.5) {
+          drawBoardSegment(chalkboardCtx, toolColor, lastDrawPt || curPt, curPt);
+          chalkboardTex.needsUpdate = true;
+          currentStroke.pts.push(curPt);
+          lastDrawPt = curPt;
+          if (currentStroke.pts.length >= 60) {
+            flushCurrentStroke();
+            currentStroke = { c: toolColor, pts: [curPt] };
+            lastDrawPt = curPt;
+          }
+        }
+      } else if (currentStroke) {
+        flushCurrentStroke();
+      }
+    }
     dropUnsupportedItems();
     stepMultiplayerAvatars(dt);
     renderer.render(scene, camera);
@@ -1771,6 +1985,7 @@
     buildStaircaseAndBridge();
     buildClockTowerAndAuditorium();
     buildCampusWingsAndEquipment();
+    buildFirstPersonArm();
     createPlacementGhost();
     bindControls();
     animate();
@@ -1786,6 +2001,8 @@
       camera.rotation.order = 'YXZ';
       camera.rotation.z = 0;
       playerPos.y = getGroundHeight(playerPos.x, playerPos.z, playerPos.y);
+    } else if (fpsArmGroup) {
+      fpsArmGroup.visible = false;
     }
     if (callbacks.onFpsChange) callbacks.onFpsChange(inFps);
   };
@@ -1852,6 +2069,22 @@
       item.isMoved = false;
     });
     if (callbacks.onHoldChange) callbacks.onHoldChange(null);
+  };
+
+  window.consumeCampusBoardStrokes = function () {
+    var out = pendingBoardStrokes.slice();
+    pendingBoardStrokes = [];
+    return out;
+  };
+
+  window.applyCampusBoardStrokes = function (strokes) {
+    (strokes || []).forEach(applyStrokeToBoard);
+  };
+
+  window.setCampusPlayerColors = function (hatHex, bodyHex) {
+    if (fpsSleeveMat && bodyHex) {
+      fpsSleeveMat.color.set(bodyHex);
+    }
   };
 
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;

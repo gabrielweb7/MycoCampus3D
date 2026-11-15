@@ -102,6 +102,7 @@
   var currentSlideIdx = 0;
   var currentPresenter = '';
   var pendingChatMsg = '';
+  var boardLastId = 0;
   var syncTimer = null;
   var syncInFlight = false;
   var syncFailures = 0;
@@ -193,6 +194,7 @@
   function enterCampus(user, token) {
     currentUser = user;
     if (token) authToken = token;
+    if (window.setCampusPlayerColors) window.setCampusPlayerColors(user.hat_color, user.body_color);
     $('input-pin').value = '';
     updateUserHud();
     $('campus-lobby').classList.add('hidden');
@@ -422,6 +424,7 @@
     syncInFlight = true;
     var pose = window.getCampusPlayerPose();
     var moved = window.consumeCampusMovedItems();
+    var strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
     var chatToSend = pendingChatMsg;
     pendingChatMsg = '';
 
@@ -437,13 +440,21 @@
         walking: pose.walking,
         in_fps: pose.in_fps,
         chat_msg: chatToSend,
-        moved_items: moved
+        moved_items: moved,
+        board_since: boardLastId,
+        board_strokes: strokes
       }, true);
       if (data.ok) {
         syncFailures = 0;
         $('hud-online').textContent = String(data.online_count || 1);
         window.updateCampusPlayers(data.players || []);
         window.applyCampusWorldObjects(data.objects || {});
+        if (typeof data.board_last_id === 'number' && data.board_last_id > boardLastId) {
+          boardLastId = data.board_last_id;
+        }
+        if (data.board_strokes && data.board_strokes.length && window.applyCampusBoardStrokes) {
+          window.applyCampusBoardStrokes(data.board_strokes);
+        }
         if (data.world_state && typeof data.world_state.auditorium_slide === 'number') {
           if (data.world_state.auditorium_slide !== currentSlideIdx ||
               (data.world_state.auditorium_presenter || '') !== currentPresenter) {
