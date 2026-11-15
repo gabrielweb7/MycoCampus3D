@@ -14,7 +14,10 @@ const MP_WORLD_LIMIT = 220.0;
 const MP_ITEMS = [
     'petri_clean', 'petri_contam', 'spawn_jar', 'liquid_culture',
     'substrate_bag', 'fruiting_block',
-    'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser'
+    'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser',
+    'chalk_white_1', 'chalk_green_1', 'chalk_yellow_1', 'board_eraser_1',
+    'chalk_white_2', 'chalk_green_2', 'chalk_yellow_2', 'board_eraser_2',
+    'chalk_white_3', 'chalk_green_3', 'chalk_yellow_3', 'board_eraser_3'
 ];
 const MP_STROKE_COLORS = ['#f8fafc', '#4ade80', '#facc15', 'erase'];
 
@@ -182,7 +185,8 @@ if ($action === 'sync') {
                 $pts[] = [round(max(0, min(512, (float)$pt[0])), 1), round(max(0, min(256, (float)$pt[1])), 1)];
             }
             if (count($pts) >= 1) {
-                $stIns->execute([json_encode(['c' => $col, 'pts' => $pts])]);
+                $boardIdx = max(0, min(3, (int)($st['b'] ?? 0)));
+                $stIns->execute([json_encode(['b' => $boardIdx, 'c' => $col, 'pts' => $pts])]);
             }
         }
         // Mantem no maximo os ultimos 500 tracos para a tabela nao crescer infinito
