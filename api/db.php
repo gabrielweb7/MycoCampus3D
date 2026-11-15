@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 4;
+const MC_SCHEMA_VERSION = 5;
 const MC_TOKEN_TTL_DAYS = 30;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -101,6 +101,20 @@ function mc_migrate(PDO $pdo): void {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
             $pdo->exec("ALTER TABLE mc_sessions ADD INDEX idx_sessions_user (user_id)");
+        } catch (Throwable $e) {}
+
+        // v4 -> v5: Cosméticos (chapéus) e Emotes Multiplayer
+        try {
+            $pdo->exec("ALTER TABLE mc_users ADD COLUMN unlocked_hats TEXT NULL");
+        } catch (Throwable $e) {}
+        try {
+            $pdo->exec("ALTER TABLE mc_users ADD COLUMN current_hat VARCHAR(32) NOT NULL DEFAULT 'default'");
+        } catch (Throwable $e) {}
+        try {
+            $pdo->exec("ALTER TABLE mc_sessions ADD COLUMN current_hat VARCHAR(32) NOT NULL DEFAULT 'default'");
+        } catch (Throwable $e) {}
+        try {
+            $pdo->exec("ALTER TABLE mc_sessions ADD COLUMN emote VARCHAR(16) NOT NULL DEFAULT ''");
         } catch (Throwable $e) {}
 
         try {

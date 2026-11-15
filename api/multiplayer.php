@@ -16,6 +16,7 @@ $mpBaseItems = [
     'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
     'heat_sealer', 'liquid_culture', 'magnetic_stirrer',
     'precision_scale', 'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03', 'burner_lab',
+    'infrared_thermometer',
     'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
     'substrate_bag', 'fruiting_block',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
@@ -114,6 +115,7 @@ function mp_is_valid_state_key(string $k): bool {
     if (preg_match('/^(door_[0-3]|light_[0-7])$/', $k)) return true;
     if (preg_match('/^blind_([0-9]|1[0-5])$/', $k)) return true;
     if (preg_match('/^wild_([0-9]|[12][0-9]|3[01])$/', $k)) return true;
+    if (preg_match('/^greenhouse_slot_[0-3]_(humidity|stage)$/', $k)) return true;
     return false;
 }
 
@@ -193,14 +195,28 @@ if ($action === 'sync') {
     $chatMsg = trim((string)($body['chat_msg'] ?? ''));
     $chatMsg = $chatMsg !== '' ? mb_substr($chatMsg, 0, 140, 'UTF-8') : null;
 
+    $currentHat = (string)($body['current_hat'] ?? ($user['current_hat'] ?? 'default'));
+    $validHats = ['default', 'golden_shroom', 'wizard_hood', 'grad_cap', 'flower_crown', 'beret'];
+    if (!in_array($currentHat, $validHats, true)) {
+        $currentHat = 'default';
+    }
+
+    $emote = (string)($body['emote'] ?? '');
+    $validEmotes = ['wave', 'dance', 'cheer', 'meditate'];
+    if (!in_array($emote, $validEmotes, true)) {
+        $emote = '';
+    }
+
     $params = [
         $sessionKey, $userId, (string)$user['display_name'], (string)$user['role'],
         mc_clean_hex($user['hat_color'], '#dc2626'), mc_clean_hex($user['body_color'], '#4f46e5'),
+        $currentHat, $emote,
         $x, $y, $z, $yaw, $pitch, $holding, $walking, $inFps,
     ];
-    $baseCols = 'session_id, user_id, display_name, role, hat_color, body_color, x, y, z, yaw, pitch, holding_item, walking, in_fps';
+    $baseCols = 'session_id, user_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps';
     $baseUpd = 'user_id=VALUES(user_id), display_name=VALUES(display_name), role=VALUES(role),
                 hat_color=VALUES(hat_color), body_color=VALUES(body_color),
+                current_hat=VALUES(current_hat), emote=VALUES(emote),
                 x=VALUES(x), y=VALUES(y), z=VALUES(z), yaw=VALUES(yaw), pitch=VALUES(pitch),
                 holding_item=VALUES(holding_item), walking=VALUES(walking), in_fps=VALUES(in_fps), last_seen=NOW()';
 
@@ -230,7 +246,7 @@ if ($action === 'sync') {
         }
     }
 
-    $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, x, y, z, yaw, pitch, holding_item, walking, in_fps,
+    $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps,
             IF(chat_at IS NOT NULL AND chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), chat_msg, NULL) AS chat_msg
         FROM mc_sessions WHERE session_id != ? ORDER BY session_id ASC LIMIT 60');
     $pStmt->execute([$sessionKey]);
@@ -242,6 +258,8 @@ if ($action === 'sync') {
             'role' => (string)$p['role'],
             'hat_color' => mc_clean_hex($p['hat_color'], '#dc2626'),
             'body_color' => mc_clean_hex($p['body_color'], '#4f46e5'),
+            'current_hat' => (string)($p['current_hat'] ?? 'default'),
+            'emote' => (string)($p['emote'] ?? ''),
             'x' => (float)$p['x'],
             'y' => (float)$p['y'],
             'z' => (float)$p['z'],

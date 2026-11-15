@@ -951,30 +951,77 @@
 
     var actionBtn = $('btn-mobile-action');
     if (actionBtn) {
+      var actionTouchId = null;
+      var lastActionX = 0;
+      var lastActionY = 0;
+
       actionBtn.addEventListener('touchstart', function (e) {
         e.preventDefault();
         e.stopPropagation();
+        var t = e.changedTouches[0];
+        if (!t) return;
+        actionTouchId = t.identifier;
+        lastActionX = t.clientX;
+        lastActionY = t.clientY;
         actionBtn.classList.add('action-active');
         if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true);
       }, { passive: false });
+
+      window.addEventListener('touchmove', function (e) {
+        if (actionTouchId === null) return;
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          var t = e.changedTouches[i];
+          if (t.identifier === actionTouchId) {
+            var dx = t.clientX - lastActionX;
+            var dy = t.clientY - lastActionY;
+            lastActionX = t.clientX;
+            lastActionY = t.clientY;
+            if (window.rotateCampusCamera) {
+              window.rotateCampusCamera(dx, dy);
+            }
+            break;
+          }
+        }
+      }, { passive: true });
+
       var endAction = function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        actionBtn.classList.remove('action-active');
-        if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(false);
+        if (actionTouchId === null) return;
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === actionTouchId) {
+            actionTouchId = null;
+            actionBtn.classList.remove('action-active');
+            if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(false);
+            break;
+          }
+        }
       };
-      actionBtn.addEventListener('touchend', endAction, { passive: false });
-      actionBtn.addEventListener('touchcancel', endAction, { passive: false });
+      window.addEventListener('touchend', endAction, { passive: true });
+      window.addEventListener('touchcancel', endAction, { passive: true });
+
+      // Suporte para mouse (testes em emulador desktop)
       actionBtn.addEventListener('mousedown', function (e) {
         e.preventDefault();
         actionBtn.classList.add('action-active');
         if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true);
-      });
-      window.addEventListener('mouseup', function () {
-        if (actionBtn.classList.contains('action-active')) {
+        var lastMX = e.clientX;
+        var lastMY = e.clientY;
+        function onMouseMove(ev) {
+          var dx = ev.clientX - lastMX;
+          var dy = ev.clientY - lastMY;
+          lastMX = ev.clientX;
+          lastMY = ev.clientY;
+          if (window.rotateCampusCamera) {
+            window.rotateCampusCamera(dx, dy);
+          }
+        }
+        function onMouseUp() {
           actionBtn.classList.remove('action-active');
           if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(false);
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
         }
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
       });
     }
   }
@@ -1032,23 +1079,17 @@
         var actBtn = $('btn-mobile-action');
         if (actBtn) {
           if (label && (label.indexOf('Giz') !== -1 || label.indexOf('chalk') !== -1)) {
+            actBtn.style.display = isTouch() ? 'flex' : 'none';
             actBtn.textContent = '✏️';
-            actBtn.title = 'Desenhar na Lousa (segure para pintar)';
+            actBtn.title = 'Desenhar na Lousa (segure e arraste o dedo para pintar)';
           } else if (label && (label.indexOf('Apagador') !== -1 || label.indexOf('eraser') !== -1)) {
+            actBtn.style.display = isTouch() ? 'flex' : 'none';
             actBtn.textContent = '🧽';
-            actBtn.title = 'Apagar Lousa (segure)';
-          } else if (label && (label.indexOf('Álcool') !== -1 || label.indexOf('Spray') !== -1)) {
-            actBtn.textContent = '💦';
-            actBtn.title = 'Borrifar Álcool';
-          } else if (label && (label.indexOf('Seringa') !== -1 || label.indexOf('syringe') !== -1)) {
-            actBtn.textContent = '💉';
-            actBtn.title = 'Inocular / Usar Seringa';
-          } else if (label) {
-            actBtn.textContent = '📦';
-            actBtn.title = 'Soltar ' + label;
+            actBtn.title = 'Apagar Lousa (segure e arraste o dedo para apagar)';
           } else {
-            actBtn.textContent = '✋';
-            actBtn.title = 'Interagir';
+            // No celular, não exibimos o botão de mão genérico (✋).
+            // Ações no mundo (pegar, abrir portas, colher, sentar ou soltar itens) são feitas tocando diretamente na tela.
+            actBtn.style.display = 'none';
           }
         }
       },
@@ -1065,17 +1106,7 @@
         }
         var actBtn = $('btn-mobile-action');
         if (actBtn && (!window.getCampusPlayerPose || !window.getCampusPlayerPose().holding_item)) {
-          if (txt) {
-            actBtn.title = txt;
-            if (txt.indexOf('Colher') !== -1) actBtn.textContent = '🍄';
-            else if (txt.indexOf('Sentar') !== -1) actBtn.textContent = '🪑';
-            else if (txt.indexOf('Abrir') !== -1 || txt.indexOf('Fechar') !== -1) actBtn.textContent = '🚪';
-            else if (txt.indexOf('Ligar') !== -1 || txt.indexOf('Desligar') !== -1) actBtn.textContent = '⚡';
-            else actBtn.textContent = '✋';
-          } else {
-            actBtn.textContent = '✋';
-            actBtn.title = 'Interagir';
-          }
+          actBtn.style.display = 'none';
         }
       }
     });

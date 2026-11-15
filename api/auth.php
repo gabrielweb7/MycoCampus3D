@@ -22,6 +22,57 @@ const MC_LOGIN_MAX_FAILS = 12;
 const MC_LOGIN_LOCK_MINUTES = 1;
 const MC_ADMIN_USERNAMES = ['gabrieldaluz'];
 
+const MC_COSMETIC_HATS = [
+    'default' => [
+        'id' => 'default',
+        'name' => 'Cogumelo Vermelho Clássico',
+        'desc' => 'O clássico Amanita com pintas brancas.',
+        'req_xp' => 0,
+        'req_mushrooms' => 0,
+        'icon' => '🍄',
+    ],
+    'golden_shroom' => [
+        'id' => 'golden_shroom',
+        'name' => 'Cogumelo Dourado Radiante',
+        'desc' => 'Dourado brilhante com esferas cintilantes.',
+        'req_xp' => 200,
+        'req_mushrooms' => 5,
+        'icon' => '👑',
+    ],
+    'wizard_hood' => [
+        'id' => 'wizard_hood',
+        'name' => 'Capuz de Alquimista',
+        'desc' => 'Cone pontudo com runas de micologia.',
+        'req_xp' => 350,
+        'req_mushrooms' => 10,
+        'icon' => '🧙‍♂️',
+    ],
+    'grad_cap' => [
+        'id' => 'grad_cap',
+        'name' => 'Capelo Universitário',
+        'desc' => 'Chapéu acadêmico de formatura com borla dourada.',
+        'req_xp' => 500,
+        'req_mushrooms' => 15,
+        'icon' => '🎓',
+    ],
+    'flower_crown' => [
+        'id' => 'flower_crown',
+        'name' => 'Coroa de Flores Silvestres',
+        'desc' => 'Grinalda botânica com pétalas da floresta.',
+        'req_xp' => 150,
+        'req_mushrooms' => 3,
+        'icon' => '🌸',
+    ],
+    'beret' => [
+        'id' => 'beret',
+        'name' => 'Boina de Pesquisador',
+        'desc' => 'Estilo elegante de cientista micologista.',
+        'req_xp' => 100,
+        'req_mushrooms' => 2,
+        'icon' => '🎨',
+    ],
+];
+
 function mc_clean_username(string $raw): string {
     $s = mb_strtolower(trim($raw), 'UTF-8');
     $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
@@ -37,6 +88,21 @@ function mc_format_user(array $row): array {
             $modules = array_values(array_unique(array_map('strval', $decoded)));
         }
     }
+    $unlockedHats = ['default'];
+    if (!empty($row['unlocked_hats'])) {
+        $decHats = json_decode((string)$row['unlocked_hats'], true);
+        if (is_array($decHats)) {
+            foreach ($decHats as $h) {
+                if (is_string($h) && isset(MC_COSMETIC_HATS[$h]) && !in_array($h, $unlockedHats, true)) {
+                    $unlockedHats[] = $h;
+                }
+            }
+        }
+    }
+    $currentHat = (string)($row['current_hat'] ?? 'default');
+    if (!isset(MC_COSMETIC_HATS[$currentHat])) {
+        $currentHat = 'default';
+    }
     return [
         'id' => (int)$row['id'],
         'username' => (string)$row['username'],
@@ -47,6 +113,8 @@ function mc_format_user(array $row): array {
         'xp' => (int)$row['xp'],
         'mushrooms_harvested' => (int)$row['mushrooms_harvested'],
         'completed_modules' => $modules,
+        'unlocked_hats' => $unlockedHats,
+        'current_hat' => $currentHat,
     ];
 }
 
@@ -162,6 +230,68 @@ if ($action === 'harvest') {
     mc_json(['ok' => true, 'awarded' => $awarded, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
+if ($action === 'harvest_greenhouse') {
+    $user = mc_require_user($pdo);
+    // Colheita de bloco frutificado na estufa: concede 50 XP e 2 cogumelos colhidos
+    $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + 50, mushrooms_harvested = mushrooms_harvested + 2, last_harvest_at = NOW(3), last_seen = NOW()
+        WHERE id = ? AND (last_harvest_at IS NULL OR last_harvest_at < (NOW(3) - INTERVAL ? MICROSECOND))');
+    $upd->execute([(int)$user['id'], MC_HARVEST_COOLDOWN_MS * 1000]);
+    $awarded = $upd->rowCount() > 0;
+    mc_json(['ok' => true, 'awarded' => $awarded, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+}
+
+if ($action === 'cosmetics_catalog') {
+    $user = mc_require_user($pdo);
+    mc_json(['ok' => true, 'catalog' => array_values(MC_COSMETIC_HATS), 'user' => mc_format_user($user)]);
+}
+
+if ($action === 'buy_cosmetic') {
+    $user = mc_require_user($pdo);
+    $hatId = (string)($body['hat_id'] ?? '');
+    if (!isset(MC_COSMETIC_HATS[$hatId])) {
+        mc_json(['ok' => false, 'error' => 'Chapéu cosmético não encontrado.'], 404);
+    }
+    $hatDef = MC_COSMETIC_HATS[$hatId];
+    if ((int)$user['xp'] < $hatDef['req_xp']) {
+        mc_json(['ok' => false, 'error' => 'XP insuficiente para desbloquear este chapéu (Requer ' . $hatDef['req_xp'] . ' XP).'], 400);
+    }
+    if ((int)$user['mushrooms_harvested'] < $hatDef['req_mushrooms']) {
+        mc_json(['ok' => false, 'error' => 'Cogumelos colhidos insuficientes (Requer ' . $hatDef['req_mushrooms'] . ' cogumelos).'], 400);
+    }
+
+    $pdo->beginTransaction();
+    $st = $pdo->prepare('SELECT unlocked_hats FROM mc_users WHERE id = ? FOR UPDATE');
+    $st->execute([(int)$user['id']]);
+    $unlocked = json_decode((string)($st->fetchColumn() ?: '["default"]'), true);
+    if (!is_array($unlocked)) $unlocked = ['default'];
+    if (!in_array($hatId, $unlocked, true)) {
+        $unlocked[] = $hatId;
+        $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, current_hat = ?, last_seen = NOW() WHERE id = ?');
+        $upd->execute([json_encode(array_values($unlocked)), $hatId, (int)$user['id']]);
+        $updSes = $pdo->prepare('UPDATE mc_sessions SET current_hat = ? WHERE user_id = ?');
+        $updSes->execute([$hatId, (int)$user['id']]);
+    }
+    $pdo->commit();
+    mc_json(['ok' => true, 'unlocked' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+}
+
+if ($action === 'equip_cosmetic') {
+    $user = mc_require_user($pdo);
+    $hatId = (string)($body['hat_id'] ?? 'default');
+    if (!isset(MC_COSMETIC_HATS[$hatId])) {
+        mc_json(['ok' => false, 'error' => 'Chapéu não encontrado.'], 404);
+    }
+    $fmt = mc_format_user($user);
+    if (!in_array($hatId, $fmt['unlocked_hats'], true)) {
+        mc_json(['ok' => false, 'error' => 'Você ainda não desbloqueou este chapéu.'], 403);
+    }
+    $upd = $pdo->prepare('UPDATE mc_users SET current_hat = ?, last_seen = NOW() WHERE id = ?');
+    $upd->execute([$hatId, (int)$user['id']]);
+    $updSes = $pdo->prepare('UPDATE mc_sessions SET current_hat = ? WHERE user_id = ?');
+    $updSes->execute([$hatId, (int)$user['id']]);
+    mc_json(['ok' => true, 'current_hat' => $hatId, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+}
+
 if ($action === 'complete_module') {
     $user = mc_require_user($pdo);
     $slug = (string)($body['module'] ?? '');
@@ -189,7 +319,7 @@ if ($action === 'complete_module') {
 }
 
 if ($action === 'leaderboard') {
-    $topStmt = $pdo->query('SELECT id, username, display_name, role, hat_color, body_color, xp, mushrooms_harvested, completed_modules FROM mc_users ORDER BY xp DESC, mushrooms_harvested DESC, id ASC LIMIT 15');
+    $topStmt = $pdo->query('SELECT id, username, display_name, role, hat_color, body_color, unlocked_hats, current_hat, xp, mushrooms_harvested, completed_modules FROM mc_users ORDER BY xp DESC, mushrooms_harvested DESC, id ASC LIMIT 15');
     $leaders = [];
     foreach ($topStmt->fetchAll() as $row) {
         $u = mc_format_user($row);
@@ -220,6 +350,7 @@ if ($action === 'admin_list_users') {
     }
     $st = $pdo->query('
         SELECT u.id, u.username, u.display_name, u.role, u.hat_color, u.body_color,
+               u.unlocked_hats, u.current_hat,
                u.xp, u.mushrooms_harvested, u.completed_modules, u.created_at, u.last_seen,
                (s.session_id IS NOT NULL) AS is_online, s.x, s.y, s.z
         FROM mc_users u

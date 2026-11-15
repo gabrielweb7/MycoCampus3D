@@ -72,6 +72,18 @@
   var pendingMovedItems = {};
   var recentlyDropped = {};
 
+  // Termômetro Infravermelho Laser & Animação Seringa
+  var thermoLaserLine = null;
+  var thermoLaserDot = null;
+  var thermoCanvas = null;
+  var thermoCtx = null;
+  var thermoTex = null;
+  var thermoCurrentTemp = 24.0;
+  var thermoTargetTemp = 24.0;
+  var thermoTargetLabel = '';
+  var syringePumping = null; // { target, fromVol, toVol, duration, elapsed, startJarVol }
+  var syringePunctureProgress = 0;
+
   // Braco 1a pessoa, Corpo local & Lousas Interativas
   var fpsArmGroup = null;
   var fpsLeftArmGroup = null;
@@ -486,6 +498,19 @@
       if (x >= fl.minX && x <= fl.maxX && z >= fl.minZ && z <= fl.maxZ) {
         if (curY >= fl.topY - 1.1) {
           h = Math.max(h, fl.topY);
+        }
+      }
+    }
+
+    // Superfícies de apoio e tampos de mesas caminháveis (mesas inox, bancadas, estufas, carteiras, etc.)
+    for (var u = 0; u < supportSurfaces.length; u++) {
+      var ss = supportSurfaces[u];
+      var sW = ss.maxX - ss.minX;
+      var sD = ss.maxZ - ss.minZ;
+      if (sW < 0.35 || sD < 0.35) continue; // ignora pequenos pratos ou suportes minúsculos
+      if (x >= ss.minX - 0.08 && x <= ss.maxX + 0.08 && z >= ss.minZ - 0.08 && z <= ss.maxZ + 0.08) {
+        if (curY >= ss.topY - 0.40) {
+          h = Math.max(h, ss.topY);
         }
       }
     }
@@ -1251,7 +1276,7 @@
       solidColliders.push({
         minX: deskX - 0.56, maxX: deskX + 0.56,
         minZ: deskZ - 1.02, maxZ: deskZ + 1.02,
-        minY: yFloor2, maxY: yFloor2 + 0.9
+        minY: yFloor2, maxY: yFloor2 + 0.745, surfaceTopY: yFloor2 + 0.745
       });
       var deskSurf = {
         minX: deskX - 0.50, maxX: deskX + 0.50,
@@ -1803,7 +1828,7 @@
         if (col) {
           col.minX = px - hw - 0.05; col.maxX = px + hw + 0.05;
           col.minZ = pz - hd - 0.05; col.maxZ = pz + hd + 0.05;
-          col.minY = py; col.maxY = py + dims.h + 0.4;
+          col.minY = py; col.maxY = py + dims.h; col.surfaceTopY = py + dims.h;
         }
       }
     }
@@ -1842,7 +1867,7 @@
         tg.add(leg, foot);
       });
       var surf = { minX: tx - tw / 2 + 0.02, maxX: tx + tw / 2 - 0.02, minZ: tz - td / 2 + 0.02, maxZ: tz + td / 2 - 0.02, topY: floorY + th };
-      var col = { minX: tx - tw / 2 - 0.05, maxX: tx + tw / 2 + 0.05, minZ: tz - td / 2 - 0.05, maxZ: tz + td / 2 + 0.05, minY: floorY, maxY: floorY + th + 0.4 };
+      var col = { minX: tx - tw / 2 - 0.05, maxX: tx + tw / 2 + 0.05, minZ: tz - td / 2 - 0.05, maxZ: tz + td / 2 + 0.05, minY: floorY, maxY: floorY + th, surfaceTopY: floorY + th };
       supportSurfaces.push(surf);
       top.userData.supportSurface = surf;
       supportMeshes.push(top);
@@ -1866,7 +1891,7 @@
       var top = makeBox(bw + 0.04, 0.06, bd + 0.04, 0x94a3b8, { roughness: 0.35, metalness: 0.25 });
       top.position.set(bx, 0.14 + 0.85, bz);
       scene.add(trim, cab, top);
-      solidColliders.push({ minX: bx - bw / 2 - 0.05, maxX: bx + bw / 2 + 0.05, minZ: bz - bd / 2 - 0.05, maxZ: bz + bd / 2 + 0.05, minY: 0.14, maxY: 1.3 });
+      solidColliders.push({ minX: bx - bw / 2 - 0.05, maxX: bx + bw / 2 + 0.05, minZ: bz - bd / 2 - 0.05, maxZ: bz + bd / 2 + 0.05, minY: 0.14, maxY: 1.02, surfaceTopY: 1.02 });
       var benchSurf = { minX: bx - bw / 2, maxX: bx + bw / 2, minZ: bz - bd / 2, maxZ: bz + bd / 2, topY: 1.02 };
       supportSurfaces.push(benchSurf);
       top.userData.supportSurface = benchSurf;
@@ -2181,7 +2206,6 @@
       };
       knobBase.userData.burnerSwitch = bState;
       knobPointer.userData.burnerSwitch = bState;
-      body.userData.burnerSwitch = bState;
       burnerSwitchMeshes.push(knobBase, knobPointer);
       burnerDevices.push(bState);
       return registerPickable(id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12);
@@ -2692,18 +2716,19 @@
     function updateSyringeVolume(item, newVol) {
       if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
       var sc = item.mesh.userData.syrCtrl;
-      var clamped = Math.max(0, Math.min(10, Math.round(newVol)));
+      var clamped = Math.max(0, Math.min(10, Number(newVol) || 0));
       sc.volMl = clamped;
       var frac = clamped / 10;
-      if (clamped <= 0) {
+      if (clamped <= 0.05) {
         sc.liqMesh.visible = false;
       } else {
         sc.liqMesh.visible = true;
-        sc.liqMesh.scale.y = frac;
+        sc.liqMesh.scale.y = Math.max(0.02, frac);
         sc.liqMesh.position.y = 0.085 + (0.09 * frac) * 0.5;
       }
       sc.plunger.position.y = 0.095 + 0.09 * frac;
-      item.label = clamped > 0 ? 'Seringa 10ml (' + clamped + 'ml CL)' : 'Seringa 10ml (Vazia)';
+      var dispVal = Math.round(clamped * 10) / 10;
+      item.label = clamped > 0.1 ? 'Seringa 10ml (' + (dispVal % 1 === 0 ? dispVal.toFixed(0) : dispVal.toFixed(1)) + 'ml CL)' : 'Seringa 10ml (Vazia)';
     }
 
     function makeSyringe10ml(id, px, py, pz) {
@@ -2744,12 +2769,79 @@
       return item;
     }
 
+    function makeInfraredThermometer(id, px, py, pz) {
+      if (!thermoTex) initThermoDisplay();
+      var tg = new THREE.Group();
+      var yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35, metalness: 0.05 });
+      var darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.55, metalness: 0.15 });
+      var redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 });
+
+      // Cabeça do termômetro (carenagem amarela industrial)
+      var head = makeBox(0.062, 0.084, 0.145, yellowMat);
+      head.position.set(0, 0.155, 0);
+
+      // Friso superior protetor preto
+      var topCap = makeBox(0.054, 0.012, 0.11, darkMat);
+      topCap.position.set(0, 0.202, -0.01);
+
+      // Focinho frontal preto com lente óptica e furo emissor do feixe laser
+      var snout = makeBox(0.054, 0.076, 0.024, darkMat);
+      snout.position.set(0, 0.155, -0.082);
+      var lens = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.006, 14), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 }));
+      lens.rotation.x = Math.PI / 2;
+      lens.position.set(0, 0.145, -0.096);
+      var laserDiode = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.008, 10), new THREE.MeshBasicMaterial({ color: 0xdc2626 }));
+      laserDiode.rotation.x = Math.PI / 2;
+      laserDiode.position.set(0, 0.178, -0.096);
+
+      // Moldura traseira preta com display LCD voltado para trás
+      var backBezel = makeBox(0.058, 0.078, 0.016, darkMat);
+      backBezel.position.set(0, 0.155, 0.076);
+      var screenMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.046, 0.046),
+        new THREE.MeshBasicMaterial({ map: thermoTex })
+      );
+      screenMesh.position.set(0, 0.160, 0.086);
+      screenMesh.rotation.y = Math.PI; // voltado para trás em direção ao olhar do jogador!
+
+      // Botões amarelos de controle abaixo da tela LCD
+      [-0.015, 0, 0.015].forEach(function (bx) {
+        var btn = makeBox(0.009, 0.009, 0.004, yellowMat);
+        btn.position.set(bx, 0.128, 0.086);
+        tg.add(btn);
+      });
+
+      // Cabo ergonômico com empunhadura texturizada preta e ranhuras
+      var handle = new THREE.Group();
+      handle.position.set(0, 0.085, 0.015);
+      handle.rotation.x = -0.16;
+      var gripCore = makeBox(0.046, 0.135, 0.052, yellowMat);
+      var gripRubberF = makeBox(0.048, 0.125, 0.016, darkMat);
+      gripRubberF.position.set(0, 0, -0.022);
+      var gripRubberB = makeBox(0.048, 0.125, 0.016, darkMat);
+      gripRubberB.position.set(0, 0, 0.022);
+      handle.add(gripCore, gripRubberF, gripRubberB);
+
+      // Gatilho vermelho ergonômico
+      var trigger = makeBox(0.014, 0.032, 0.018, redMat);
+      trigger.position.set(0, 0.105, -0.022);
+
+      // Adesivo lateral amarelo com aviso de radiação laser
+      var sticker = makeBox(0.065, 0.026, 0.055, new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+      sticker.position.set(0, 0.165, 0);
+
+      tg.add(head, topCap, snout, lens, laserDiode, backBezel, screenMesh, handle, trigger, sticker);
+      tg.userData.isThermometer = true;
+      return registerPickable(id, 'Termômetro Laser Infravermelho', tg, px, py, pz, 0, 0.18, 0.22);
+    }
+
     makeMagneticStirrer('magnetic_stirrer', -20.95, 0.91, -10.55);
     makeLiquidJar800('liquid_culture', -20.95, 1.015, -10.59, 350);
     makeBeaker1L('beaker_1l_a', -20.42, 0.91, -10.55, 0);
     makeBeaker1L('beaker_1l_b', -20.08, 0.91, -10.55, 500);
     makeSyringe10ml('syringe_10ml_a', -19.72, 0.91, -10.42);
     makeSyringe10ml('syringe_10ml_b', -19.72, 0.91, -10.72);
+    makeInfraredThermometer('infrared_thermometer', -20.0, 0.91, -10.2);
 
     // Estantes Industriais Porta-Pallet (Azul Royal + Laranja) fixas no DEPOSITO (Bloco Oeste-Sul: x: -24..-14, z: 2.2..13.8)
     function addStoragePortaPalletRack(rx, rz, totalLen, depth, rotY) {
@@ -3004,7 +3096,7 @@
     var ledBar = makeBox(0.28, 0.08, 3.6, 0xfef08a, { emissive: 0xfacc15, emissiveIntensity: 0.9 });
     ledBar.position.set(21.0, 2.55, 8.0);
     scene.add(ledBar);
-    solidColliders.push({ minX: 20.15, maxX: 21.85, minZ: 5.95, maxZ: 10.05, minY: 0.14, maxY: 1.0 });
+    solidColliders.push({ minX: 20.15, maxX: 21.85, minZ: 5.95, maxZ: 10.05, minY: 0.14, maxY: 0.86, surfaceTopY: 0.86 });
     var estufaSurf = { minX: 20.25, maxX: 21.75, minZ: 6.05, maxZ: 9.95, topY: 0.86 };
     supportSurfaces.push(estufaSurf);
     rack.userData.supportSurface = estufaSurf;
@@ -3393,8 +3485,10 @@
       var dDesk = makeBox(1.8, 0.75, 0.9, 0xd97706, { roughness: 0.65 });
       dDesk.position.set(dx + 3.5, 0.52, dz + 2.5);
       scene.add(dHeader, awning, bed, dDesk);
-      solidColliders.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, minY: 0, maxY: 1.0 });
-      solidColliders.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, minY: 0, maxY: 1.0 });
+      solidColliders.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, minY: 0, maxY: 0.69, surfaceTopY: 0.69 });
+      solidColliders.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, minY: 0, maxY: 0.89, surfaceTopY: 0.89 });
+      supportSurfaces.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, topY: 0.69 });
+      supportSurfaces.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, topY: 0.89 });
     });
   }
 
@@ -3426,7 +3520,8 @@
     }
     for (var j = 0; j < solidColliders.length; j++) {
       var c = solidColliders[j];
-      if (pos.y > c.maxY - 0.15 || pos.y + 1.5 < c.minY) continue;
+      var surfY = (c.surfaceTopY !== undefined) ? c.surfaceTopY : c.maxY;
+      if (pos.y >= surfY - 0.08 || pos.y + 1.5 < c.minY) continue;
       var nearX = Math.max(c.minX, Math.min(pos.x, c.maxX));
       var nearZ = Math.max(c.minZ, Math.min(pos.z, c.maxZ));
       var cdx = pos.x - nearX, cdz = pos.z - nearZ;
@@ -3555,6 +3650,69 @@
     scene.add(placementGhost);
   }
 
+  function initThermoDisplay() {
+    thermoCanvas = document.createElement('canvas');
+    thermoCanvas.width = 128;
+    thermoCanvas.height = 128;
+    thermoCtx = thermoCanvas.getContext('2d');
+    thermoTex = new THREE.CanvasTexture(thermoCanvas);
+    drawThermoScreen(24.0, 'HOLD');
+  }
+
+  function drawThermoScreen(tempVal, modeStr) {
+    if (!thermoCtx || !thermoTex) return;
+    var ctx = thermoCtx;
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.strokeStyle = '#15803d';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(4, 4, 120, 120);
+
+    ctx.fillStyle = '#064e3b';
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(modeStr || 'SCAN', 10, 22);
+
+    ctx.textAlign = 'right';
+    ctx.fillText('⚡ 🔋', 118, 22);
+
+    ctx.font = 'bold 30px monospace';
+    ctx.textAlign = 'center';
+    var tStr = (typeof tempVal === 'number' ? tempVal.toFixed(1) : '24.0') + '°C';
+    ctx.fillText(tStr, 64, 68);
+
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText('ε=0.95  MAX 380°', 64, 98);
+    ctx.font = '9px monospace';
+    ctx.fillText('INFRARED TEMP', 64, 114);
+
+    thermoTex.needsUpdate = true;
+  }
+
+  function createThermoLaserFx() {
+    var lineGeo = new THREE.BufferGeometry();
+    var linePos = new Float32Array(6);
+    lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+    thermoLaserLine = new THREE.Line(
+      lineGeo,
+      new THREE.LineBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.88, linewidth: 2, depthWrite: false })
+    );
+    thermoLaserLine.visible = false;
+    scene.add(thermoLaserLine);
+
+    var dotGeo = new THREE.CircleGeometry(0.016, 16);
+    var dotMat = new THREE.MeshBasicMaterial({
+      color: 0xff1133,
+      transparent: true,
+      opacity: 0.95,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    thermoLaserDot = new THREE.Mesh(dotGeo, dotMat);
+    thermoLaserDot.visible = false;
+    scene.add(thermoLaserDot);
+  }
+
   function prepareGhostCloneMesh(rootGroup, matList) {
     rootGroup.traverse(function (ch) {
       if (ch.isPoints) {
@@ -3657,14 +3815,18 @@
 
     // 0. Se estiver segurando uma Tampa de Panela e mirar na Panela aberta (ou na boca dela), encaixa para fechar!
     if (heldItem && heldItem.potItem) {
-      var targetPot = heldItem.potItem;
-      var potCenter = new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
-      var camDist = origin.distanceTo(potCenter);
-      var potHits = raycaster.intersectObject(targetPot.mesh, true);
-      if ((potHits.length > 0 && potHits[0].distance < 4.5) || (camDist < 4.5 && raycaster.ray.distanceSqToPoint(potCenter) < 0.18)) {
-        snapClosePot = targetPot;
-        heldRotY = targetPot.mesh.rotation.y;
-        return new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.36, targetPot.mesh.position.z);
+      for (var cpi = 0; cpi < cookerPots.length; cpi++) {
+        var cp = cookerPots[cpi];
+        var targetPot = cp.potItem;
+        if (targetPot.lidItem && targetPot.lidItem.isAttached && targetPot.lidItem !== heldItem) continue;
+        var potCenter = new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
+        var camDist = origin.distanceTo(potCenter);
+        var potHits = raycaster.intersectObject(targetPot.mesh, true);
+        if ((potHits.length > 0 && potHits[0].distance < 4.5) || (camDist < 4.5 && raycaster.ray.distanceSqToPoint(potCenter) < 0.25)) {
+          snapClosePot = targetPot;
+          heldRotY = targetPot.mesh.rotation.y;
+          return new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.36, targetPot.mesh.position.z);
+        }
       }
     }
 
@@ -3770,6 +3932,7 @@
         if (other === heldItem || other === heldItem.lidItem) continue;
         if (other.mesh.userData.isTable && heldItem.mesh.userData.isHood) continue;
         if (other.mesh.userData.isTable && heldItem.mesh.userData.isStirrer) continue;
+        if (other.mesh.userData.isTable && heldItem.mesh.userData.isBurner) continue;
         if (other.mesh.position.y >= pt.y - 0.12 && other.mesh.position.y <= pt.y + hTop) {
           var rad = (other.radius || 0.18) * 0.45;
           if (Math.abs(other.mesh.position.x - pt.x) < hw + rad && Math.abs(other.mesh.position.z - pt.z) < hd + rad) {
@@ -4333,8 +4496,22 @@
   function handlePrimaryAction() {
     if (heldItem) {
       if (performance.now() - lastPickupAt < 140) return;
-      // Se estiver perto da lousa com giz ou apagador, o clique desenha/apaga em vez de soltar
+      // Se estiver perto da lousa com giz ou apagador, o clique desenha/apaga no ponto em vez de soltar
       if (hoveredBoardHit && getHeldBoardToolColor()) {
+        var boardToolCol = getHeldBoardToolColor();
+        var brd = chalkboards[hoveredBoardIndex];
+        if (boardToolCol && brd && hoveredBoardHit.uv) {
+          var tapPx = Math.round(hoveredBoardHit.uv.x * 512 * 10) / 10;
+          var tapPy = Math.round((1 - hoveredBoardHit.uv.y) * 256 * 10) / 10;
+          var tapPt = [tapPx, tapPy];
+          drawBoardSegment(brd.ctx, boardToolCol, tapPt, tapPt);
+          brd.tex.needsUpdate = true;
+          pendingBoardStrokes.push({
+            b: hoveredBoardIndex,
+            c: boardToolCol,
+            pts: [tapPt, [tapPt[0] + 0.1, tapPt[1]]]
+          });
+        }
         return;
       }
       if (hoveredPotInsert && heldItem && !heldItem.mesh.userData.twoHanded) {
@@ -4387,44 +4564,39 @@
       if (hoveredSyringeTarget && heldItem.mesh.userData.isSyringe) {
         var syrCtrl = heldItem.mesh.userData.syrCtrl;
         var tgt = hoveredSyringeTarget;
-        if (tgt.mode === 'draw' && tgt.item.mesh.userData.liquidCtrl) {
-          var lq = tgt.item.mesh.userData.liquidCtrl;
-          var take = Math.min(10 - syrCtrl.volMl, lq.volMl);
-          if (take > 0) {
-            if (tgt.item.setVolume) tgt.item.setVolume(lq.volMl - take);
-            if (heldItem.setVolume) heldItem.setVolume(syrCtrl.volMl + take);
-            if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
-          }
-        } else if (tgt.mode === 'inject' && syrCtrl.volMl > 0) {
-          if (tgt.item.mesh.userData.liquidCtrl) {
-            var lq2 = tgt.item.mesh.userData.liquidCtrl;
-            var give = Math.min(syrCtrl.volMl, lq2.maxMl - lq2.volMl);
-            if (give > 0) {
-              if (tgt.item.setVolume) tgt.item.setVolume(lq2.volMl + give);
-              if (heldItem.setVolume) heldItem.setVolume(syrCtrl.volMl - give);
-              if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
-            }
-          } else {
-            if (tgt.item.spawnCtrl) {
-              var scItem = tgt.item.spawnCtrl;
-              scItem.inoculated = true;
-              var nowT = performance.now();
-              var cleanEnv = (hoodAirData && hoodAirData.on) && (nowT < hoodSanitizedUntil || (tgt.item.sanitizedUntil && nowT < tgt.item.sanitizedUntil));
-              if (!cleanEnv && Math.random() < 0.25) scItem.contaminated = true;
-              scItem.updateVisual();
-            }
-            if (heldItem.setVolume) heldItem.setVolume(0);
-            if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
-          }
+        if (syringePumping) {
+          return; // Já está bombeando (aguarda concluir os 2s)
         }
+        var fromVol = syrCtrl.volMl;
+        var toVol;
+        if (tgt.mode === 'draw') {
+          toVol = 10;
+        } else {
+          toVol = 0;
+        }
+        if (fromVol >= 9.9) toVol = 0;
+        else if (fromVol <= 0.1) toVol = 10;
+        else toVol = (fromVol >= 5 ? 0 : 10);
+
+        syringePumping = {
+          target: tgt,
+          fromVol: fromVol,
+          toVol: toVol,
+          duration: 2.0,
+          elapsed: 0,
+          startJarVol: (tgt.item && tgt.item.mesh && tgt.item.mesh.userData.liquidCtrl) ? tgt.item.mesh.userData.liquidCtrl.volMl : 0
+        };
         return;
       }
       if (placementValid && placementGhost) {
         heldItem.mesh.position.copy(placementGhost.position);
         heldItem.mesh.rotation.set(0, heldRotY, 0);
         heldItem.isMoved = true;
-        if (heldItem.potItem && snapClosePot === heldItem.potItem) {
+        if (heldItem.potItem && snapClosePot) {
           heldItem.isAttached = true;
+          heldItem.potItem = snapClosePot;
+          snapClosePot.lidItem = heldItem;
+          heldItem.mesh.position.set(snapClosePot.mesh.position.x, snapClosePot.mesh.position.y + 0.36, snapClosePot.mesh.position.z);
           heldItem.mesh.rotation.copy(snapClosePot.mesh.rotation);
           snapClosePot = null;
         }
@@ -4583,7 +4755,15 @@
         return;
       }
       if (hoveredPickable.potItem && hoveredPickable.isAttached) {
-        hoveredPickable.isAttached = false;
+        var lidIt = hoveredPickable;
+        lidIt.isAttached = false;
+        heldItem = lidIt;
+        lastPickupAt = performance.now();
+        heldRotY = heldItem.mesh.rotation.y;
+        setHeldTwoHandedGhost(heldItem, false);
+        if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
+        notifyWorldAction();
+        return;
       }
       for (var cpIdx = 0; cpIdx < cookerPots.length; cpIdx++) {
         var idxInPot = cookerPots[cpIdx].contents.indexOf(hoveredPickable);
@@ -4700,21 +4880,28 @@
           if (sHits.length > 0 && sHits[0].distance < 3.5) {
             if (cand.mesh.userData.liquidCtrl) {
               var lc = cand.mesh.userData.liquidCtrl;
-              if (sc.volMl < 10 && lc.volMl > 0) {
+              if (syringePumping) {
+                hoveredSyringeTarget = { item: cand, mode: syringePumping.toVol > syringePumping.fromVol ? 'draw' : 'inject' };
+                placementGhost.visible = false;
+                var pPct = Math.round((syringePumping.elapsed / syringePumping.duration) * 100);
+                if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('⏳ ' + (syringePumping.toVol > syringePumping.fromVol ? 'Aspirando Micélio' : 'Injetando de volta') + ' (' + pPct + '%)...');
+                return;
+              }
+              if (sc.volMl < 9.9 && lc.volMl > 0) {
                 hoveredSyringeTarget = { item: cand, mode: 'draw' };
                 placementGhost.visible = false;
-                if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Aspirar ' + Math.min(10 - sc.volMl, lc.volMl) + 'ml de ' + cand.label);
+                if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Furando Septo • Clique para aspirar cultura líquida (2s)');
                 return;
-              } else if (sc.volMl > 0 && lc.volMl < lc.maxMl) {
+              } else if (sc.volMl > 0.1) {
                 hoveredSyringeTarget = { item: cand, mode: 'inject' };
                 placementGhost.visible = false;
-                if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Despejar ' + sc.volMl + 'ml em ' + cand.label);
+                if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Seringa cheia (' + Math.round(sc.volMl) + 'ml) • Clique para esvaziar de volta (2s)');
                 return;
               }
             } else if (sc.volMl > 0 && (cand.id.indexOf('spawn_') === 0 || (cand.id.indexOf('petri_') === 0 && cand.id.indexOf('petri_bare_') !== 0))) {
               hoveredSyringeTarget = { item: cand, mode: 'inject' };
               placementGhost.visible = false;
-              if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Inocular ' + sc.volMl + 'ml em ' + cand.label);
+              if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Inocular ' + Math.round(sc.volMl) + 'ml em ' + cand.label + ' (2s)');
               return;
             }
           }
@@ -4870,25 +5057,44 @@
     if (!prompt) {
       var bestSmall = null, bestSmallDist = Infinity;
       var bestLarge = null, bestLargeDist = Infinity;
+      var bestBlocked = null, bestBlockedDist = Infinity;
       for (var i = 0; i < pickableItems.length; i++) {
         var item = pickableItems[i];
+        if (item === heldItem || (heldItem && item === heldItem.lidItem)) continue;
         if (isHeldByRemote(item.id)) continue;
         var idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
         if (inFps && (idx * idx + idz * idz > 26)) continue;
         var hits = raycaster.intersectObject(item.mesh, true).filter(function (h) { return !h.object.userData.ignoreRay; });
         if (hits.length > 0 && hits[0].distance < 4.5) {
           var dHit = hits[0].distance;
+          // Se mirar na parte superior da panela de pressão com tampa acoplada, prioriza a tampa!
+          if (item.lidItem && item.lidItem.isAttached && hits[0].point.y >= item.mesh.position.y + 0.26) {
+            item = item.lidItem;
+          }
+          if (item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) {
+            if (dHit < bestBlockedDist) {
+              bestBlockedDist = dHit;
+              bestBlocked = item;
+            }
+            continue;
+          }
           if (item.mesh.userData.isTable || item.mesh.userData.isHood) {
-            if (!(item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) && dHit < bestLargeDist) {
+            if (dHit < bestLargeDist) {
               bestLargeDist = dHit; bestLarge = item;
             }
-          } else if (!(item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) && dHit < bestSmallDist) {
+          } else if (dHit < bestSmallDist) {
             bestSmallDist = dHit; bestSmall = item;
           }
         }
       }
       hoveredPickable = bestSmall || bestLarge;
-      if (hoveredPickable) {
+      if (!hoveredPickable && bestBlocked && bestBlockedDist < 3.8) {
+        if (bestBlocked.mesh.userData.isBurner) {
+          prompt = '🚫 Retire a panela de cima antes de mover o Fogareiro';
+        } else {
+          prompt = '🚫 Retire os objetos de cima antes de mover ' + bestBlocked.label;
+        }
+      } else if (hoveredPickable) {
         var potStatus = null;
         for (var cpi = 0; cpi < cookerPots.length; cpi++) {
           if (cookerPots[cpi].potItem === hoveredPickable || cookerPots[cpi].lidItem === hoveredPickable) {
@@ -4896,10 +5102,10 @@
           }
         }
         if (hoveredPickable.potItem && hoveredPickable.isAttached) {
-          if (potStatus && potStatus.progress >= 100) prompt = '🍲 Abrir tampa (✅ Esterilizado 100%)';
+          if (potStatus && potStatus.progress >= 100) prompt = '🍲 Retirar Tampa (✅ Esterilizado 100%)';
           else if (potStatus && potStatus.psi >= 14) prompt = '🔥 Esterilizando: ' + Math.round(potStatus.temp) + '°C • ' + Math.round(potStatus.psi) + ' PSI (' + Math.floor(potStatus.progress) + '%)';
           else if (potStatus && potStatus.temp > 32) prompt = '🔥 Aquecendo: ' + Math.round(potStatus.temp) + '°C • ' + potStatus.psi.toFixed(1) + ' PSI';
-          else prompt = '🍲 Abrir tampa da Panela de Pressão';
+          else prompt = '🍲 Retirar Tampa da Panela de Pressão';
         } else if (hoveredPickable.mesh.userData.twoHanded) {
           prompt = '🙌 Pegar ' + hoveredPickable.label + ' (2 mãos)';
         } else {
@@ -5078,7 +5284,8 @@
               var hasTarget = hoveredPickable || hoveredMushroom || hoveredDoorObj || hoveredBlindObj ||
                 hoveredSeat || hoveredSwitch || hoveredHoodSwitch || hoveredStirSwitch ||
                 hoveredSyringeTarget || hoveredScaleTare || hoveredBurnerSwitch || hoveredPotInsert ||
-                hoveredSprayTarget || hoveredRankBtn || hoveredCinema || hoveredScreen || hoveredScreenBtn;
+                hoveredSprayTarget || hoveredRankBtn || hoveredCinema || hoveredScreen || hoveredScreenBtn ||
+                (hoveredBoardHit && getHeldBoardToolColor());
               if (!hasTarget) {
                 pointerNdc.set(0, 0);
                 updateHoverRay(pointerNdc);
@@ -5280,13 +5487,149 @@
         } else if (heldItem.id.indexOf('board_eraser') === 0) {
           heldItem.mesh.rotation.order = 'YXZ';
           heldItem.mesh.rotation.set(playerPitch + Math.PI / 2, playerYaw, 0);
+        } else if (heldItem.mesh.userData.isThermometer) {
+          _tmpHandLocal.set(0.24, -0.22 + reachY, -0.46 - reachZ);
+          _tmpHandPos.copy(_tmpHandLocal).applyEuler(camera.rotation).add(camera.position);
+          heldItem.mesh.position.copy(_tmpHandPos);
+          heldItem.mesh.rotation.order = 'YXZ';
+          heldItem.mesh.rotation.set(playerPitch, playerYaw, 0);
+
+          // Feixe laser e leitura de temperatura em tempo real
+          var muzzlePos = new THREE.Vector3(0, 0.155, -0.09).applyEuler(heldItem.mesh.rotation).add(heldItem.mesh.position);
+          raycaster.setFromCamera(inFps ? _vZero2 : pointerNdc, camera);
+          var allLaserHits = raycaster.intersectObjects(scene.children, true).filter(function (h) {
+            return !h.object.userData.ignoreRay &&
+                   h.object !== heldItem.mesh &&
+                   h.object !== thermoLaserLine &&
+                   h.object !== thermoLaserDot &&
+                   !heldItem.mesh.children.includes(h.object);
+          });
+          if (allLaserHits.length > 0 && allLaserHits[0].distance < 35.0) {
+            var lHit = allLaserHits[0];
+            var lArr = thermoLaserLine.geometry.attributes.position.array;
+            lArr[0] = muzzlePos.x; lArr[1] = muzzlePos.y; lArr[2] = muzzlePos.z;
+            lArr[3] = lHit.point.x; lArr[4] = lHit.point.y; lArr[5] = lHit.point.z;
+            thermoLaserLine.geometry.attributes.position.needsUpdate = true;
+            thermoLaserLine.visible = true;
+
+            var lNorm = lHit.face ? lHit.face.normal.clone().transformDirection(lHit.object.matrixWorld) : new THREE.Vector3(0, 1, 0);
+            thermoLaserDot.position.copy(lHit.point).addScaledVector(lNorm, 0.005);
+            thermoLaserDot.lookAt(lHit.point.clone().add(lNorm));
+            thermoLaserDot.visible = true;
+
+            // Simulação física de temperatura por material / objeto
+            var sTemp = 23.4;
+            var sLbl = 'Ambiente';
+            var hObj = lHit.object;
+
+            var isBurnerHit = false;
+            for (var bi = 0; bi < burnerDevices.length; bi++) {
+              var bd = burnerDevices[bi];
+              if (hObj.userData.burnerSwitch || hObj.userData.supportSurface === bd.surface ||
+                  (lHit.point.x >= bd.surface.minX && lHit.point.x <= bd.surface.maxX &&
+                   lHit.point.z >= bd.surface.minZ && lHit.point.z <= bd.surface.maxZ &&
+                   Math.abs(lHit.point.y - bd.surface.topY) < 0.15)) {
+                sTemp = 24.0 + (bd.heat || 0) * 215.0;
+                sLbl = (bd.heat > 0.15) ? 'Fogareiro Incandescente (' + Math.round(sTemp) + '°C)' : 'Fogareiro Elétrico';
+                isBurnerHit = true; break;
+              }
+            }
+            if (!isBurnerHit) {
+              for (var cpi = 0; cpi < cookerPots.length; cpi++) {
+                var cp = cookerPots[cpi];
+                if (hObj === cp.potItem.mesh || hObj === cp.lidItem.mesh ||
+                    hObj.parent === cp.potItem.mesh || hObj.parent === cp.lidItem.mesh ||
+                    cp.contents.some(function (it) { return it.mesh === hObj || it.mesh.children.includes(hObj); })) {
+                  sTemp = cp.temp || 24.5;
+                  sLbl = cp.psi >= 14 ? 'Panela Esterilizando (' + Math.round(cp.psi) + ' PSI)' : (cp.temp > 35 ? 'Panela Aquecendo' : 'Panela de Pressão');
+                  break;
+                }
+              }
+            }
+            if (!isBurnerHit && sLbl === 'Ambiente') {
+              if (hObj.userData.stirSwitch || hObj.parent && hObj.parent.userData.stirSwitch) {
+                sTemp = (stirrerDevices[0] && stirrerDevices[0].on) ? 33.5 : 23.8;
+                sLbl = 'Agitador Magnético';
+              } else if (hObj.userData.liquidCtrl || hObj.parent && hObj.parent.userData.liquidCtrl) {
+                sTemp = 24.4 + Math.sin(clock.elapsedTime * 2.0) * 0.2;
+                sLbl = 'Cultura Líquida (Inoculação)';
+              } else if (lHit.point.x > 18 && lHit.point.z > 5 && lHit.point.z < 11) {
+                sTemp = 20.8 + Math.cos(clock.elapsedTime * 1.5) * 0.3;
+                sLbl = 'Câmara de Frutificação (Estufa)';
+              } else if (hObj.userData.remotePlayer) {
+                sTemp = 36.8;
+                sLbl = 'Jogador (Temperatura Corporal)';
+              } else {
+                sTemp = 23.2 + Math.sin(lHit.point.x * 0.5 + lHit.point.z * 0.3) * 0.4;
+                sLbl = 'Ambiente / ' + (lHit.point.y > 0.6 ? 'Bancada' : 'Piso');
+              }
+            }
+            thermoTargetTemp = sTemp;
+            thermoTargetLabel = sLbl;
+          } else {
+            thermoLaserLine.visible = false;
+            thermoLaserDot.visible = false;
+            thermoTargetTemp = 23.5;
+            thermoTargetLabel = 'Ar Ambiente';
+          }
+          thermoCurrentTemp += (thermoTargetTemp - thermoCurrentTemp) * Math.min(1, dt * 14);
+          drawThermoScreen(thermoCurrentTemp, 'SCAN');
         } else {
           heldItem.mesh.rotation.set(0, heldRotY, 0);
         }
+
+        // Animação da Seringa furando o septo de borracha vermelha
+        if (heldItem.mesh.userData.isSyringe) {
+          var isPuncturing = !!(hoveredSyringeTarget && hoveredSyringeTarget.item && hoveredSyringeTarget.item.mesh.userData.liquidCtrl);
+          syringePunctureProgress += ((isPuncturing ? 1 : 0) - syringePunctureProgress) * Math.min(1, dt * 10);
+          if (syringePunctureProgress > 0.01) {
+            var sTgt = hoveredSyringeTarget.item;
+            var portLocal = new THREE.Vector3(0.036, 0.290, 0);
+            var portWorld = portLocal.applyEuler(sTgt.mesh.rotation).add(sTgt.mesh.position);
+            var piercedHandPos = portWorld.clone().add(new THREE.Vector3(0.04, 0.12, 0.05));
+            _tmpHandPos.lerp(piercedHandPos, syringePunctureProgress);
+            heldItem.mesh.position.copy(_tmpHandPos);
+            heldItem.mesh.rotation.set(0.78, sTgt.mesh.rotation.y + Math.PI, 0);
+
+            if (fpsArmGroup) {
+              armReach += (1.45 - armReach) * Math.min(1, dt * 12);
+              fpsArmGroup.position.set(0.18, -0.20, -0.62);
+              fpsArmGroup.rotation.set(0.52, -0.05, 0.08);
+            }
+          }
+        }
+
         if (heldItem.lidItem && heldItem.lidItem.isAttached) {
           var lidObj = heldItem.lidItem.mesh;
           lidObj.position.set(_tmpHandPos.x, _tmpHandPos.y + 0.36, _tmpHandPos.z);
           lidObj.rotation.copy(heldItem.mesh.rotation);
+        }
+      } else {
+        if (thermoLaserLine && thermoLaserLine.visible) thermoLaserLine.visible = false;
+        if (thermoLaserDot && thermoLaserDot.visible) thermoLaserDot.visible = false;
+      }
+
+      // Processo de bombeamento contínuo da seringa de 2 segundos (0% a 100%)
+      if (syringePumping && heldItem && heldItem.mesh.userData.isSyringe) {
+        syringePumping.elapsed += dt;
+        var pRatio = Math.min(1, syringePumping.elapsed / syringePumping.duration);
+        var pSmooth = pRatio * pRatio * (3 - 2 * pRatio); // ease-in-out suave
+        var curVol = THREE.MathUtils.lerp(syringePumping.fromVol, syringePumping.toVol, pSmooth);
+        updateSyringeVolume(heldItem, curVol);
+        if (syringePumping.target.item && syringePumping.target.item.mesh.userData.liquidCtrl) {
+          var dHeld = curVol - syringePumping.fromVol;
+          var newJVol = Math.max(0, syringePumping.startJarVol - dHeld);
+          updateContainerVolume(syringePumping.target.item, newJVol);
+        }
+        if (pRatio >= 1.0) {
+          updateSyringeVolume(heldItem, syringePumping.toVol);
+          if (syringePumping.target.item && syringePumping.target.item.mesh.userData.liquidCtrl) {
+            var finalD = syringePumping.toVol - syringePumping.fromVol;
+            updateContainerVolume(syringePumping.target.item, Math.max(0, syringePumping.startJarVol - finalD));
+          }
+          if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
+          notifyWorldAction();
+          syringePumping = null;
         }
       }
       if (localAvatar) {
@@ -6003,6 +6346,7 @@
     localAvatar = buildCuteAvatar({ isLocal: true, hat_color: '#d9534f', body_color: '#4f46e5' });
     localAvatar.group.visible = false;
     createPlacementGhost();
+    createThermoLaserFx();
     bindControls();
     animate();
   };
@@ -6467,6 +6811,14 @@
     rankingTex.needsUpdate = true;
   }
 
+
+  window.rotateCampusCamera = function (dx, dy) {
+    if (lobbyTourActive) return;
+    if (inFps) {
+      playerYaw -= dx * 0.0080;
+      playerPitch = Math.max(-1.35, Math.min(1.35, playerPitch - dy * 0.0080));
+    }
+  };
 
   window.setCampusMobilePrimary = function (down) {
     if (lobbyTourActive) return;

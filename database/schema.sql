@@ -1,4 +1,4 @@
--- MycoCampus3D - Schema MySQL (schema_version 4)
+-- MycoCampus3D - Schema MySQL (schema_version 5)
 -- Criado/migrado automaticamente por api/db.php no primeiro acesso.
 
 CREATE TABLE IF NOT EXISTS mc_meta (
@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS mc_users (
     pin_hash VARCHAR(255) NOT NULL,
     hat_color VARCHAR(7) NOT NULL DEFAULT '#dc2626',
     body_color VARCHAR(7) NOT NULL DEFAULT '#4f46e5',
+    unlocked_hats TEXT NULL,
+    current_hat VARCHAR(32) NOT NULL DEFAULT 'default',
     xp INT NOT NULL DEFAULT 0,
     mushrooms_harvested INT NOT NULL DEFAULT 0,
     completed_modules TEXT NULL,
@@ -39,6 +41,8 @@ CREATE TABLE IF NOT EXISTS mc_sessions (
     role ENUM('student', 'professor', 'admin') NOT NULL DEFAULT 'student',
     hat_color VARCHAR(7) NOT NULL DEFAULT '#dc2626',
     body_color VARCHAR(7) NOT NULL DEFAULT '#4f46e5',
+    current_hat VARCHAR(32) NOT NULL DEFAULT 'default',
+    emote VARCHAR(16) NOT NULL DEFAULT '',
     x DOUBLE NOT NULL DEFAULT 0,
     y DOUBLE NOT NULL DEFAULT 0,
     z DOUBLE NOT NULL DEFAULT 10.5,
