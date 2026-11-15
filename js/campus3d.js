@@ -1942,6 +1942,7 @@
       bg.userData.dynamicSurface = bSurf;
       bg.userData.updateBounds = updateItemBounds;
       bg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(bSurf, it); };
+      bg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(bSurf, it); };
 
       var bState = { on: false, coilMat: coilMat, ledMat: ledMat, surface: bSurf };
       knob.userData.burnerSwitch = bState;
@@ -2211,6 +2212,7 @@
       sg.userData.tableDims = { w: 0.32, h: 0.082, d: 0.38, surfOffset: 0 };
       sg.userData.dynamicSurface = scSurf;
       sg.userData.updateBounds = updateItemBounds;
+      sg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(scSurf, it); };
       sg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(scSurf, it); };
 
       var scaleObj = {
@@ -2766,7 +2768,10 @@
     ledBar.position.set(21.0, 2.55, 8.0);
     scene.add(ledBar);
     solidColliders.push({ minX: 20.15, maxX: 21.85, minZ: 5.95, maxZ: 10.05, minY: 0.14, maxY: 1.0 });
-    supportSurfaces.push({ minX: 20.25, maxX: 21.75, minZ: 6.05, maxZ: 9.95, topY: 0.86 });
+    var estufaSurf = { minX: 20.25, maxX: 21.75, minZ: 6.05, maxZ: 9.95, topY: 0.86 };
+    supportSurfaces.push(estufaSurf);
+    rack.userData.supportSurface = estufaSurf;
+    supportMeshes.push(rack);
 
     var mushBlock = new THREE.Group();
     var subBlock = makeBox(0.38, 0.28, 0.28, 0xf5f5f4);
@@ -3429,6 +3434,17 @@
         item.movedAt = now;
         return;
       }
+      for (var cpi = 0; cpi < cookerPots.length; cpi++) {
+        var cpRef = cookerPots[cpi];
+        var slotIdx = cpRef.contents.indexOf(item);
+        if (slotIdx !== -1) {
+          var potP = cpRef.potItem.mesh.position;
+          var ox = (slotIdx % 2 === 0 ? -0.06 : 0.06);
+          var oz = (slotIdx < 2 ? -0.05 : 0.05);
+          item.mesh.position.set(potP.x + ox, potP.y + 0.045, potP.z + oz);
+          return;
+        }
+      }
       if (item.mesh.position.y < -5) {
         item.mesh.position.copy(item.homePos);
         item.mesh.rotation.y = item.homeRy;
@@ -3715,7 +3731,7 @@
 
     scene.add(g);
     return {
-      group: g, leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm, headGroup: headGroup,
+      group: g, torso: torso, leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm, headGroup: headGroup,
       auraGroup: auraGroup, auraOrbs: auraOrbs,
       bodyMat: bodyMat, hatMat: hatMat,
       faceCtx: faceCtx, faceTex: faceTex, lastMood: 'happy', lastBlink: false, blinkTimer: 2 + Math.random() * 3,
@@ -3826,26 +3842,38 @@
       }
       var twoH = !!(heldObj && heldObj.mesh.userData.twoHanded);
       if (av.seated) {
-        av.leftLeg.rotation.x = -1.35;
-        av.rightLeg.rotation.x = -1.35;
-        av.leftLeg.position.set(-0.1, 0.30, -0.14);
-        av.rightLeg.position.set(0.1, 0.30, -0.14);
-        av.leftArm.rotation.x = twoH ? -0.95 : -0.35;
-        av.rightArm.rotation.x = av.holding ? -0.95 : -0.35;
+        if (av.torso) av.torso.position.set(0, 0.60, 0);
+        av.headGroup.position.set(0, 1.01, 0);
+        av.leftLeg.position.set(-0.11, 0.41, 0);
+        av.rightLeg.position.set(0.11, 0.41, 0);
+        av.leftLeg.rotation.x = Math.PI / 2;
+        av.rightLeg.rotation.x = Math.PI / 2;
+        av.leftArm.position.set(-0.28, 0.78, 0);
+        av.rightArm.position.set(0.28, 0.78, 0);
+        av.leftArm.rotation.x = twoH ? 1.05 : 0.42;
+        av.rightArm.rotation.x = av.holding ? 1.05 : 0.42;
+        if (av.labelSprite) av.labelSprite.position.y = 1.84;
+        if (av.chatSprite) av.chatSprite.position.y = 2.20;
       } else {
-        av.leftLeg.position.set(-0.1, 0.19, 0);
-        av.rightLeg.position.set(0.1, 0.19, 0);
+        if (av.torso) av.torso.position.set(0, 0.64, 0);
+        av.headGroup.position.set(0, 1.05, 0);
+        av.leftLeg.position.set(-0.10, 0.38, 0);
+        av.rightLeg.position.set(0.10, 0.38, 0);
+        av.leftArm.position.set(-0.28, 0.82, 0);
+        av.rightArm.position.set(0.28, 0.82, 0);
+        if (av.labelSprite) av.labelSprite.position.y = 1.92;
+        if (av.chatSprite) av.chatSprite.position.y = 2.28;
         if (av.walking) {
           av.walkPhase += dt * 10;
           av.leftLeg.rotation.x = Math.sin(av.walkPhase) * 0.55;
           av.rightLeg.rotation.x = -Math.sin(av.walkPhase) * 0.55;
-          av.leftArm.rotation.x = twoH ? -0.95 : -Math.sin(av.walkPhase) * 0.45;
-          av.rightArm.rotation.x = av.holding ? -0.95 : Math.sin(av.walkPhase) * 0.45;
+          av.leftArm.rotation.x = twoH ? 1.05 : -Math.sin(av.walkPhase) * 0.45;
+          av.rightArm.rotation.x = av.holding ? 1.05 : Math.sin(av.walkPhase) * 0.45;
         } else {
           av.leftLeg.rotation.x *= 0.8;
           av.rightLeg.rotation.x *= 0.8;
-          av.leftArm.rotation.x = twoH ? -0.9 : av.leftArm.rotation.x * 0.8;
-          av.rightArm.rotation.x = av.holding ? -0.9 : av.rightArm.rotation.x * 0.8;
+          av.leftArm.rotation.x = twoH ? 1.0 : av.leftArm.rotation.x * 0.8;
+          av.rightArm.rotation.x = av.holding ? 1.0 : av.rightArm.rotation.x * 0.8;
         }
       }
       animateAvatarExpression(av, dt, av.holding, av.lastChat);
@@ -4112,6 +4140,7 @@
     if (hoveredStirSwitch) {
       hoveredStirSwitch.on = !hoveredStirSwitch.on;
       hoveredStirSwitch.ledMat.color.setHex(hoveredStirSwitch.on ? 0x22c55e : 0xef4444);
+      queueWorldStateChange('stir_lab', hoveredStirSwitch.on ? 1 : 0);
       return;
     }
     if (hoveredScaleTare) {
@@ -4123,6 +4152,7 @@
       hoveredBurnerSwitch.on = !hoveredBurnerSwitch.on;
       hoveredBurnerSwitch.ledMat.color.setHex(hoveredBurnerSwitch.on ? 0x22c55e : 0xef4444);
       hoveredBurnerSwitch.coilMat.emissiveIntensity = hoveredBurnerSwitch.on ? 1.15 : 0.04;
+      queueWorldStateChange('burner_lab', hoveredBurnerSwitch.on ? 1 : 0);
       return;
     }
     if (hoveredPickable) {
@@ -4794,19 +4824,31 @@
         localAvatar.group.visible = true;
         animateAvatarAura(localAvatar, clock.elapsedTime);
         // Desloca 0.14m para tras para enxergar as proprias pernas ao olhar para baixo e projetar sombra inteira!
+        var backOff = seatedSeat ? 0.02 : 0.14;
         localAvatar.group.position.set(
-          playerPos.x + Math.sin(playerYaw) * 0.14,
+          playerPos.x + Math.sin(playerYaw) * backOff,
           playerPos.y,
-          playerPos.z + Math.cos(playerYaw) * 0.14
+          playerPos.z + Math.cos(playerYaw) * backOff
         );
         localAvatar.group.rotation.y = playerYaw;
-        if (isWalking) {
-          localAvatar.walkPhase += dt * 10;
-          localAvatar.leftLeg.rotation.x = Math.sin(localAvatar.walkPhase) * 0.55;
-          localAvatar.rightLeg.rotation.x = -Math.sin(localAvatar.walkPhase) * 0.55;
+        if (seatedSeat) {
+          if (localAvatar.torso) localAvatar.torso.position.set(0, 0.60, 0);
+          localAvatar.leftLeg.position.set(-0.11, 0.41, 0);
+          localAvatar.rightLeg.position.set(0.11, 0.41, 0);
+          localAvatar.leftLeg.rotation.x = Math.PI / 2;
+          localAvatar.rightLeg.rotation.x = Math.PI / 2;
         } else {
-          localAvatar.leftLeg.rotation.x *= 0.8;
-          localAvatar.rightLeg.rotation.x *= 0.8;
+          if (localAvatar.torso) localAvatar.torso.position.set(0, 0.64, 0);
+          localAvatar.leftLeg.position.set(-0.10, 0.38, 0);
+          localAvatar.rightLeg.position.set(0.10, 0.38, 0);
+          if (isWalking) {
+            localAvatar.walkPhase += dt * 10;
+            localAvatar.leftLeg.rotation.x = Math.sin(localAvatar.walkPhase) * 0.55;
+            localAvatar.rightLeg.rotation.x = -Math.sin(localAvatar.walkPhase) * 0.55;
+          } else {
+            localAvatar.leftLeg.rotation.x *= 0.8;
+            localAvatar.rightLeg.rotation.x *= 0.8;
+          }
         }
         localAvatar.headGroup.visible = false; // nunca tampa a visao em 1a pessoa ao olhar para baixo
         localAvatar.leftArm.visible = false;
@@ -5747,7 +5789,7 @@
       }
     }
 
-    // 4. Capela de Fluxo Laminar (hood_lab)
+    // 4. Capela de Fluxo Laminar (hood_lab), Agitador Magnetico (stir_lab) e Fogareiro (burner_lab)
     if (hoodAirData && stateMap.hood_lab !== undefined) {
       if (pendingStateChanges.hood_lab === undefined && !(recentlyChangedState.hood_lab > now)) {
         var wantHoodOn = Number(stateMap.hood_lab) !== 0;
@@ -5756,6 +5798,27 @@
           hoodAirData.points.visible = hoodAirData.on;
           hoodAirData.hepaMat.emissiveIntensity = hoodAirData.on ? 0.35 : 0.04;
           hoodAirData.ledMat.color.setHex(hoodAirData.on ? 0x22c55e : 0xef4444);
+        }
+      }
+    }
+    if (stirrerDevices.length && stateMap.stir_lab !== undefined) {
+      if (pendingStateChanges.stir_lab === undefined && !(recentlyChangedState.stir_lab > now)) {
+        var wantStirOn = Number(stateMap.stir_lab) === 1;
+        var st0 = stirrerDevices[0];
+        if (st0.on !== wantStirOn) {
+          st0.on = wantStirOn;
+          st0.ledMat.color.setHex(st0.on ? 0x22c55e : 0xef4444);
+        }
+      }
+    }
+    if (burnerDevices.length && stateMap.burner_lab !== undefined) {
+      if (pendingStateChanges.burner_lab === undefined && !(recentlyChangedState.burner_lab > now)) {
+        var wantBurnerOn = Number(stateMap.burner_lab) === 1;
+        var bn0 = burnerDevices[0];
+        if (bn0.on !== wantBurnerOn) {
+          bn0.on = wantBurnerOn;
+          bn0.ledMat.color.setHex(bn0.on ? 0x22c55e : 0xef4444);
+          bn0.coilMat.emissiveIntensity = bn0.on ? 1.15 : 0.04;
         }
       }
     }
