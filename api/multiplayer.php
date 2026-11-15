@@ -15,6 +15,7 @@ const MP_ITEMS = [
     'petri_clean', 'petri_contam', 'petri_empty', 'pda_bottle',
     'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
     'heat_sealer', 'liquid_culture', 'magnetic_stirrer',
+    'precision_scale', 'alcohol_spray', 'burner_lab',
     'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b',
     'substrate_bag', 'fruiting_block',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',

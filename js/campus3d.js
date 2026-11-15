@@ -558,21 +558,101 @@
   }
 
   function createBench(x, z, rotY) {
+    if (!createBench._woodMat) {
+      var wc = document.createElement('canvas');
+      wc.width = 512; wc.height = 128;
+      var wctx = wc.getContext('2d');
+      var grad = wctx.createLinearGradient(0, 0, 0, 128);
+      grad.addColorStop(0, '#9a5b25');
+      grad.addColorStop(0.5, '#b06d32');
+      grad.addColorStop(1, '#854d1e');
+      wctx.fillStyle = grad;
+      wctx.fillRect(0, 0, 512, 128);
+      for (var i = 0; i < 42; i++) {
+        wctx.strokeStyle = i % 3 === 0 ? 'rgba(69, 26, 3, 0.28)' : 'rgba(120, 53, 15, 0.20)';
+        wctx.lineWidth = 1 + (i % 3);
+        wctx.beginPath();
+        var baseY = (i / 42) * 128;
+        wctx.moveTo(0, baseY);
+        for (var wx = 32; wx <= 512; wx += 32) {
+          wctx.lineTo(wx, baseY + Math.sin(wx * 0.025 + i * 0.7) * 5);
+        }
+        wctx.stroke();
+      }
+      var wTex = new THREE.CanvasTexture(wc);
+      wTex.wrapS = wTex.wrapT = THREE.RepeatWrapping;
+      createBench._woodMat = new THREE.MeshStandardMaterial({ map: wTex, roughness: 0.38, metalness: 0.06 });
+      createBench._frameMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.30, metalness: 0.78 });
+    }
+
+    var woodM = createBench._woodMat;
+    var frameM = createBench._frameMat;
     var g = new THREE.Group();
     g.position.set(x, 0, z);
     g.rotation.y = rotY;
-    var seat = makeBox(1.8, 0.08, 0.5, 0x92400e, { roughness: 0.7 });
-    seat.position.y = 0.45;
-    var back = makeBox(1.8, 0.42, 0.08, 0x92400e, { roughness: 0.7 });
-    back.position.set(0, 0.72, -0.22);
-    back.rotation.x = -0.15;
-    var legL = makeBox(0.1, 0.45, 0.45, 0x1e293b);
-    legL.position.set(-0.75, 0.225, 0);
-    var legR = makeBox(0.1, 0.45, 0.45, 0x1e293b);
-    legR.position.set(0.75, 0.225, 0);
-    g.add(seat, back, legL, legR);
+
+    // Estrutura tubular preta nas duas extremidades (fiel a foto de referencia!)
+    [-0.88, 0.88].forEach(function (sx) {
+      // Perna dianteira e traseira em tubo quadrado preto + sapatas
+      var frontLeg = makeBox(0.046, 0.43, 0.046, frameM);
+      frontLeg.position.set(sx, 0.215, 0.235);
+      var rearLeg = makeBox(0.046, 0.43, 0.046, frameM);
+      rearLeg.position.set(sx, 0.215, -0.225);
+      var footF = makeBox(0.054, 0.014, 0.054, frameM, { noShadow: true });
+      footF.position.set(sx, 0.007, 0.235);
+      var footR = makeBox(0.054, 0.014, 0.054, frameM, { noShadow: true });
+      footR.position.set(sx, 0.007, -0.225);
+      // Travessa lateral horizontal do assento
+      var sideBar = makeBox(0.046, 0.046, 0.506, frameM);
+      sideBar.position.set(sx, 0.422, 0.005);
+      // Coluna inclinada do encosto
+      var backPost = makeBox(0.046, 0.51, 0.046, frameM);
+      backPost.position.set(sx, 0.655, -0.268);
+      backPost.rotation.x = -0.20;
+      g.add(frontLeg, rearLeg, footF, footR, sideBar, backPost);
+    });
+
+    // Longarinas horizontais pretas sob o assento + travessa central
+    var frontRail = makeBox(1.806, 0.040, 0.042, frameM);
+    frontRail.position.set(0, 0.422, 0.235);
+    var rearRail = makeBox(1.806, 0.040, 0.042, frameM);
+    rearRail.position.set(0, 0.422, -0.225);
+    var midBrace = makeBox(0.040, 0.036, 0.48, frameM, { noShadow: true });
+    midBrace.position.set(0, 0.418, 0.005);
+    g.add(frontRail, rearRail, midBrace);
+
+    // 2 ripas largas de madeira envernizada no assento (com fresta central)
+    var seatPlankF = makeBox(1.714, 0.034, 0.195, woodM);
+    seatPlankF.position.set(0, 0.442, 0.115);
+    var seatPlankR = makeBox(1.714, 0.034, 0.195, woodM);
+    seatPlankR.position.set(0, 0.442, -0.105);
+
+    // 2 ripas largas de madeira envernizada no encosto inclinado
+    var backPlankLow = makeBox(1.714, 0.156, 0.032, woodM);
+    backPlankLow.position.set(0, 0.585, -0.248);
+    backPlankLow.rotation.x = -0.20;
+    var backPlankHigh = makeBox(1.714, 0.156, 0.032, woodM);
+    backPlankHigh.position.set(0, 0.782, -0.288);
+    backPlankHigh.rotation.x = -0.20;
+
+    g.add(seatPlankF, seatPlankR, backPlankLow, backPlankHigh);
+
+    // Permite sentar no banco da praca (2 lugares: esquerda e direita)
+    var sitYaw = rotY + Math.PI;
+    [-0.44, 0.44].forEach(function (offsetX) {
+      var worldX = x + Math.cos(rotY) * offsetX;
+      var worldZ = z - Math.sin(rotY) * offsetX;
+      var seatHit = new THREE.Mesh(
+        new THREE.BoxGeometry(0.88, 0.55, 0.56),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+      );
+      seatHit.position.set(offsetX, 0.56, -0.02);
+      seatHit.userData.seatInfo = { x: worldX, y: 0.02, z: worldZ, yaw: sitYaw };
+      g.add(seatHit);
+      seatMeshes.push(seatHit);
+    });
+
     scene.add(g);
-    solidColliders.push({ minX: x - 0.85, maxX: x + 0.85, minZ: z - 0.5, maxZ: z + 0.5, minY: 0, maxY: 1.0 });
   }
 
   function createUmbrellaTable(x, z) {
@@ -2601,8 +2681,10 @@
   var placementRing = null;
   var placementDot = null;
   var placementHoloWrap = null;
-  var placementHoloMat = null;
+  var placementHoloMats = [];
   var placementGhostItemId = null;
+  var placementGhostHasLid = false;
+  var placementGhostLastValid = null;
 
   function createPlacementGhost() {
     placementGhost = new THREE.Group();
@@ -2622,7 +2704,6 @@
     placementDot.position.y = 0.009;
     placementGhost.add(placementDot);
 
-    placementHoloMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.44, depthWrite: false });
     placementHoloWrap = new THREE.Group();
     placementGhost.add(placementHoloWrap);
 
@@ -2630,30 +2711,80 @@
     scene.add(placementGhost);
   }
 
+  function prepareGhostCloneMesh(rootGroup, matList) {
+    rootGroup.traverse(function (ch) {
+      if (ch.isPoints) {
+        ch.visible = false;
+        return;
+      }
+      if (ch.isMesh && ch.material) {
+        ch.castShadow = false;
+        ch.receiveShadow = false;
+        var cloneOneMat = function (origM) {
+          var m = origM.clone();
+          m.userData._baseColor = m.color ? m.color.clone() : new THREE.Color(0xffffff);
+          m.transparent = true;
+          var origOp = origM.transparent ? origM.opacity : 1.0;
+          m.opacity = origM.transparent ? Math.max(0.24, origOp * 0.82) : 0.68;
+          m.depthWrite = false;
+          matList.push(m);
+          return m;
+        };
+        if (Array.isArray(ch.material)) {
+          ch.material = ch.material.map(cloneOneMat);
+        } else {
+          ch.material = cloneOneMat(ch.material);
+        }
+      }
+    });
+  }
+
   function updatePlacementGhostVisual(item, isValid, rotY) {
     if (!placementGhost || !item) return;
-    if (placementGhostItemId !== item.id) {
+    var hasLid = !!(item.lidItem && item.lidItem.isAttached);
+    if (placementGhostItemId !== item.id || placementGhostHasLid !== hasLid) {
       while (placementHoloWrap.children.length > 0) {
         placementHoloWrap.remove(placementHoloWrap.children[0]);
       }
+      placementHoloMats = [];
       var clone = item.mesh.clone(true);
       clone.position.set(0, 0, 0);
       clone.rotation.set(0, 0, 0);
       clone.visible = true;
-      clone.traverse(function (ch) {
-        if (ch.isMesh) {
-          ch.material = placementHoloMat;
-          ch.castShadow = false;
-          ch.receiveShadow = false;
-        }
-      });
+      prepareGhostCloneMesh(clone, placementHoloMats);
       placementHoloWrap.add(clone);
+
+      if (hasLid && item.lidItem && item.lidItem.mesh) {
+        var lidClone = item.lidItem.mesh.clone(true);
+        lidClone.position.set(0, 0.36, 0);
+        lidClone.rotation.set(0, 0, 0);
+        lidClone.visible = true;
+        prepareGhostCloneMesh(lidClone, placementHoloMats);
+        placementHoloWrap.add(lidClone);
+      }
+
       placementGhostItemId = item.id;
+      placementGhostHasLid = hasLid;
+      placementGhostLastValid = null;
     }
     var col = isValid ? 0x10b981 : 0xef4444;
     placementRing.material.color.setHex(col);
     placementDot.material.color.setHex(col);
-    placementHoloMat.color.setHex(col);
+    if (placementGhostLastValid !== isValid) {
+      placementGhostLastValid = isValid;
+      var tintCol = new THREE.Color(isValid ? 0x34d399 : 0xf87171);
+      var emiCol = new THREE.Color(isValid ? 0x059669 : 0xdc2626);
+      for (var i = 0; i < placementHoloMats.length; i++) {
+        var m = placementHoloMats[i];
+        if (m.color && m.userData._baseColor) {
+          m.color.copy(m.userData._baseColor).lerp(tintCol, 0.28);
+        }
+        if (m.emissive) {
+          m.emissive.copy(emiCol);
+          m.emissiveIntensity = 0.26;
+        }
+      }
+    }
     placementHoloWrap.rotation.y = rotY;
     var pulse = 1 + Math.sin(clock.elapsedTime * 5) * 0.04;
     placementRing.scale.set(pulse, pulse, 1);
@@ -3161,9 +3292,15 @@
 
   function setHeldTwoHandedGhost(item, active) {
     if (!item || !item.mesh || !item.mesh.userData.twoHanded) return;
-    setMeshGhostOpacity(item.mesh, active);
-    if (item.lidItem && item.lidItem.isAttached) {
-      setMeshGhostOpacity(item.lidItem.mesh, active);
+    // Objetos grandes (2 maos: Fluxo Laminar, Mesas Inox, Panelas de Pressao) ficam 100% invisiveis nas maos,
+    // mostrando apenas o fantasma texturizado verde/vermelho no local onde sera solto!
+    item.mesh.visible = !active;
+    if (item.lidItem) {
+      if (active && item.lidItem.isAttached) {
+        item.lidItem.mesh.visible = false;
+      } else if (!active) {
+        item.lidItem.mesh.visible = true;
+      }
     }
   }
 
@@ -4574,13 +4711,13 @@
         z: heldItem.mesh.position.z,
         ry: heldRotY
       };
-      if (heldItem.mesh.userData.lidItem && heldItem.mesh.userData.lidItem.mesh.userData.isAttached) {
-        var attLid = heldItem.mesh.userData.lidItem;
+      if (heldItem.lidItem && heldItem.lidItem.isAttached) {
+        var attLid = heldItem.lidItem;
         pendingMovedItems[attLid.id] = {
           id: attLid.id,
-          x: attLid.mesh.position.x,
-          y: attLid.mesh.position.y,
-          z: attLid.mesh.position.z,
+          x: heldItem.mesh.position.x,
+          y: heldItem.mesh.position.y + 0.36,
+          z: heldItem.mesh.position.z,
           ry: heldRotY
         };
       }
@@ -4617,16 +4754,27 @@
         item.isMoved = false;
       }
     });
-    // 2o passo: atualiza os demais itens e tampas de panela sem jamais causar salto/queda em loop
+    // 2o passo: atualiza os demais itens e tampas de panela sem jamais causar salto/queda em loop ou desacoplar tampa em movimento
     pickableItems.forEach(function (item) {
       if (item.mesh.userData.updateBounds) return;
       if (heldItem === item || isHeldByRemote(item.id)) return;
       if (pendingMovedItems[item.id] || recentlyDropped[item.id] > now) return;
+      if (item.potItem && item.isAttached) {
+        var pRef = item.potItem;
+        if (heldItem === pRef || isHeldByRemote(pRef.id) || pendingMovedItems[pRef.id] || recentlyDropped[pRef.id] > now) {
+          return;
+        }
+      }
       var saved = objectsMap[item.id];
       if (saved) {
         if (item.potItem) {
           var pot = item.potItem;
-          var attached = Math.hypot(saved.x - pot.mesh.position.x, saved.z - pot.mesh.position.z) < 0.22;
+          var potSaved = objectsMap[pot.id];
+          var refX = potSaved ? potSaved.x : pot.mesh.position.x;
+          var refY = potSaved ? potSaved.y : pot.mesh.position.y;
+          var refZ = potSaved ? potSaved.z : pot.mesh.position.z;
+          var attached = Math.hypot(saved.x - refX, saved.z - refZ) < 0.28 &&
+                         Math.abs(saved.y - (refY + 0.36)) < 0.28;
           item.isAttached = attached;
           if (attached) {
             item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);

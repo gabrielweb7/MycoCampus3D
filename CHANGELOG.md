@@ -2,6 +2,18 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.4] — 2026-11-15
+### Added, Fixed & Improved
+- **Novos Bancos da Praça (`createBench`) Fiéis à Foto + Assentos Clicáveis ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Estrutura metálica tubular preta (`#111827`) nas extremidades e longarinas com 2 ripas largas espaçadas de madeira envernizada (com textura de veios naturais) no assento e 2 ripas espaçadas no encosto inclinado.
+  - Todos os bancos da praça agora possuem 2 lugares clicáveis (`🪑 Clique para sentar`) para sentar sozinho ou lado a lado no multiplayer.
+- **Fantasma de Posicionamento (`placementGhost`) Texturizado + Objetos Grandes 100% Invisíveis nas Mãos ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - O fantasma de posicionamento agora preserva as **texturas reais, rótulos e detalhes** do objeto segurado (`prepareGhostCloneMesh`), aplicando uma iluminação translúcida **verde leve (`#34d399`)** quando válido ou **vermelho leve (`#f87171`)** quando bloqueado.
+  - Ao carregar objetos grandes de 2 mãos (`twoHanded`: Fluxo Laminar, Mesas de Inox e Panelas de Pressão), o objeto nas mãos fica **100% invisível (`visible = false`)**, exibindo apenas os braços e o fantasma texturizado no local onde será colocado.
+- **Correção Definitiva da Panela de Pressão + Tampa Acoplada ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - O fantasma de posicionamento agora inclui a **tampa acoplada** em cima da panela quando ela está fechada (`placementGhostHasLid`).
+  - Corrigidos `consumeCampusMovedItems` e `applyCampusWorldObjects` para enviar a posição da tampa acoplada junto com a panela e jamais desacoplar ou puxar a tampa de volta para a mesa durante o transporte.
+
 ## [v0.6.3] — 2026-11-15
 ### Fixed
 - **Correção do Auto-Login e Inicialização do Motor 3D ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
