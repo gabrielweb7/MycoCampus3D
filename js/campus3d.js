@@ -2812,70 +2812,74 @@
       return registerPickable(id, 'Termômetro Laser Infravermelho', tg, px, py, pz, 0, 0.18, 0.22);
     }
 
+    function makeRoundedRectShape(w, d, r) {
+      var s = new THREE.Shape();
+      var hw = w / 2, hd = d / 2;
+      s.moveTo(-hw + r, -hd);
+      s.lineTo(hw - r, -hd);
+      s.quadraticCurveTo(hw, -hd, hw, -hd + r);
+      s.lineTo(hw, hd - r);
+      s.quadraticCurveTo(hw, hd, hw - r, hd);
+      s.lineTo(-hw + r, hd);
+      s.quadraticCurveTo(-hw, hd, -hw, hd - r);
+      s.lineTo(-hw, -hd + r);
+      s.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
+      return s;
+    }
+
     function makeLabTray(id, label, px, py, pz) {
       var tg = new THREE.Group();
-      var steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.18 });
-      var innerSteelMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.82, roughness: 0.25 });
-      var padMat = new THREE.MeshStandardMaterial({ color: 0x5eead4, roughness: 0.65, metalness: 0.05 });
+      var steelMat = new THREE.MeshStandardMaterial({
+        color: 0xf1f5f9, metalness: 0.90, roughness: 0.14,
+        emissive: 0x334155, emissiveIntensity: 0.12
+      });
+      var innerSteelMat = new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0, metalness: 0.85, roughness: 0.22,
+        emissive: 0x1e293b, emissiveIntensity: 0.08
+      });
 
-      // Fundo interno plano da bandeja (onde ficam seringas, bisturi, placas)
-      var floorPlate = makeBox(0.36, 0.006, 0.24, innerSteelMat);
-      floorPlate.position.y = 0.005;
+      // Base arredondada em aco inox prata
+      var baseShape = makeRoundedRectShape(0.38, 0.26, 0.032);
+      var baseGeo = new THREE.ExtrudeGeometry(baseShape, { depth: 0.006, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2 });
+      baseGeo.rotateX(-Math.PI / 2);
+      var floorPlate = new THREE.Mesh(baseGeo, innerSteelMat);
+      floorPlate.position.y = 0.002;
       floorPlate.castShadow = true;
       floorPlate.receiveShadow = true;
 
-      // 4 paredes internas levemente inclinadas (estilo bandeja cirurgica inox)
-      var wallF = makeBox(0.38, 0.026, 0.008, steelMat);
-      wallF.position.set(0, 0.015, 0.126);
-      wallF.rotation.x = 0.22;
-      var wallB = makeBox(0.38, 0.026, 0.008, steelMat);
-      wallB.position.set(0, 0.015, -0.126);
-      wallB.rotation.x = -0.22;
-      var wallL = makeBox(0.008, 0.026, 0.26, steelMat);
-      wallL.position.set(-0.186, 0.015, 0);
-      wallL.rotation.z = -0.22;
-      var wallR = makeBox(0.008, 0.026, 0.26, steelMat);
-      wallR.position.set(0.186, 0.015, 0);
-      wallR.rotation.z = 0.22;
+      // Borda/parede curva continua em aco inox polido (com furo interno)
+      var outerWall = makeRoundedRectShape(0.40, 0.28, 0.036);
+      var innerHole = makeRoundedRectShape(0.36, 0.24, 0.026);
+      outerWall.holes.push(innerHole);
+      var wallGeo = new THREE.ExtrudeGeometry(outerWall, { depth: 0.018, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2 });
+      wallGeo.rotateX(-Math.PI / 2);
+      var wallMesh = new THREE.Mesh(wallGeo, steelMat);
+      wallMesh.position.y = 0.006;
+      wallMesh.castShadow = true;
+      wallMesh.receiveShadow = true;
 
-      // Aba superior (borda arredondada) nos 4 lados
-      var lipF = makeBox(0.42, 0.005, 0.022, steelMat);
-      lipF.position.set(0, 0.028, 0.139);
-      var lipB = makeBox(0.42, 0.005, 0.022, steelMat);
-      lipB.position.set(0, 0.028, -0.139);
-      var lipL = makeBox(0.022, 0.005, 0.26, steelMat);
-      lipL.position.set(-0.199, 0.028, 0);
-      var lipR = makeBox(0.022, 0.005, 0.26, steelMat);
-      lipR.position.set(0.199, 0.028, 0);
+      // Aba superior espelhada (estilo bandeja cirurgica)
+      var lipShape = makeRoundedRectShape(0.43, 0.31, 0.040);
+      var lipHole = makeRoundedRectShape(0.37, 0.25, 0.028);
+      lipShape.holes.push(lipHole);
+      var lipGeo = new THREE.ExtrudeGeometry(lipShape, { depth: 0.003, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.0015, bevelSegments: 2 });
+      lipGeo.rotateX(-Math.PI / 2);
+      var lipMesh = new THREE.Mesh(lipGeo, steelMat);
+      lipMesh.position.y = 0.024;
+      lipMesh.castShadow = true;
 
-      // Cantos arredondados fofinhos + pezinhos de silicone menta
-      var cornerCoords = [[-0.199, -0.139], [0.199, -0.139], [-0.199, 0.139], [0.199, 0.139]];
-      for (var ci = 0; ci < cornerCoords.length; ci++) {
-        var cc = cornerCoords[ci];
-        var cCap = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.005, 12), steelMat);
-        cCap.position.set(cc[0], 0.028, cc[1]);
-        var foot = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.004, 10), padMat);
-        foot.position.set(cc[0] * 0.85, 0.002, cc[1] * 0.82);
-        tg.add(cCap, foot);
-      }
+      tg.add(floorPlate, wallMesh, lipMesh);
 
-      // Plaquinha fofa frontal "MYCO 304"
-      var badge = makeBox(0.07, 0.004, 0.014, padMat);
-      badge.position.set(0, 0.031, 0.139);
-
-      tg.add(floorPlate, wallF, wallB, wallL, wallR, lipF, lipB, lipL, badge);
-
-      var traySurf = { minX: px - 0.175, maxX: px + 0.175, minZ: pz - 0.115, maxZ: pz + 0.115, topY: py + 0.008 };
+      var traySurf = { minX: px - 0.175, maxX: px + 0.175, minZ: pz - 0.115, maxZ: pz + 0.115, topY: py + 0.009 };
       supportSurfaces.push(traySurf);
       floorPlate.userData.supportSurface = traySurf;
       supportMeshes.push(floorPlate);
 
       tg.userData.isTray = true;
-      tg.userData.tableDims = { w: 0.35, h: 0.008, d: 0.23, surfOffset: 0 };
+      tg.userData.tableDims = { w: 0.36, h: 0.009, d: 0.24, surfOffset: 0 };
       tg.userData.dynamicSurface = traySurf;
       tg.userData.updateBounds = updateItemBounds;
-      tg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(traySurf, it); };
-      return registerPickable(id, label, tg, px, py, pz, 0, 0.22, 0.04);
+      return registerPickable(id, label, tg, px, py, pz, 0, 0.22, 0.03);
     }
 
     makeMagneticStirrer('magnetic_stirrer', -20.95, 0.91, -10.55);
@@ -5270,7 +5274,26 @@
         }
       }
       if (heldItem && av.holding === heldItem.id) {
-        setHeldTwoHandedGhost(heldItem, false);
+        if (heldItem.trayContents && heldItem.trayContents.length) {
+      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
+      heldItem.trayContents.forEach(function (tc) {
+        var ci = tc.item;
+        if (!ci || !ci.mesh) return;
+        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
+        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
+        var wy = pt.y + tc.ly;
+        ci.mesh.position.set(wx, wy, wz);
+        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
+        ci.isMoved = true;
+        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
+        pendingMovedItems[ci.id] = {
+          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
+        };
+        recentlyDropped[ci.id] = dropTs;
+      });
+      heldItem.trayContents = null;
+    }
+    setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
         if (placementGhost) placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
@@ -5579,15 +5602,8 @@
     var rayNdc = inFps ? new THREE.Vector2(0, 0) : pointerNdc;
     var pt = findPlacementTarget(rayNdc);
     if (isPlacementBlocked(pt)) {
-      var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
-      var altX = playerPos.x + fwdX * 0.85;
-      var altZ = playerPos.z + fwdZ * 0.85;
-      var altPt = new THREE.Vector3(altX, getItemGroundHeight(altX, altZ, playerPos.y), altZ);
-      if (isPlacementBlocked(altPt)) {
-        if (callbacks.onToast) callbacks.onToast('🚫 Sem espaço livre aqui para soltar o item!');
-        return;
-      }
-      pt = altPt;
+      if (callbacks.onToast) callbacks.onToast(placementBlockedReason || '🚫 Sem espaço livre aqui para soltar o item!');
+      return;
     }
     var dropTs = performance.now() + 15000;
     heldItem.mesh.position.copy(pt);
@@ -5622,6 +5638,25 @@
         });
         break;
       }
+    }
+    if (heldItem.trayContents && heldItem.trayContents.length) {
+      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
+      heldItem.trayContents.forEach(function (tc) {
+        var ci = tc.item;
+        if (!ci || !ci.mesh) return;
+        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
+        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
+        var wy = pt.y + tc.ly;
+        ci.mesh.position.set(wx, wy, wz);
+        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
+        ci.isMoved = true;
+        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
+        pendingMovedItems[ci.id] = {
+          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
+        };
+        recentlyDropped[ci.id] = dropTs;
+      });
+      heldItem.trayContents = null;
     }
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
@@ -5796,7 +5831,26 @@
         }
         recentlyDropped[heldItem.id] = performance.now() + 15000;
         if (heldItem.mesh.userData.updateBounds) heldItem.mesh.userData.updateBounds(heldItem);
-        setHeldTwoHandedGhost(heldItem, false);
+        if (heldItem.trayContents && heldItem.trayContents.length) {
+      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
+      heldItem.trayContents.forEach(function (tc) {
+        var ci = tc.item;
+        if (!ci || !ci.mesh) return;
+        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
+        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
+        var wy = pt.y + tc.ly;
+        ci.mesh.position.set(wx, wy, wz);
+        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
+        ci.isMoved = true;
+        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
+        pendingMovedItems[ci.id] = {
+          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
+        };
+        recentlyDropped[ci.id] = dropTs;
+      });
+      heldItem.trayContents = null;
+    }
+    setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
         placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
@@ -5958,7 +6012,26 @@
         heldItem = lidIt;
         lastPickupAt = performance.now();
         heldRotY = heldItem.mesh.rotation.y;
-        setHeldTwoHandedGhost(heldItem, false);
+        if (heldItem.trayContents && heldItem.trayContents.length) {
+      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
+      heldItem.trayContents.forEach(function (tc) {
+        var ci = tc.item;
+        if (!ci || !ci.mesh) return;
+        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
+        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
+        var wy = pt.y + tc.ly;
+        ci.mesh.position.set(wx, wy, wz);
+        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
+        ci.isMoved = true;
+        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
+        pendingMovedItems[ci.id] = {
+          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
+        };
+        recentlyDropped[ci.id] = dropTs;
+      });
+      heldItem.trayContents = null;
+    }
+    setHeldTwoHandedGhost(heldItem, false);
         if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
         notifyWorldAction();
         return;
@@ -5978,6 +6051,34 @@
       for (var cpIdx = 0; cpIdx < cookerPots.length; cpIdx++) {
         var idxInPot = cookerPots[cpIdx].contents.indexOf(hoveredPickable);
         if (idxInPot !== -1) cookerPots[cpIdx].contents.splice(idxInPot, 1);
+      }
+      // Se pegar uma bandeja inox, carrega junto todos os itens que estiverem dentro dela!
+      hoveredPickable.trayContents = null;
+      if (hoveredPickable.mesh && hoveredPickable.mesh.userData.isTray && hoveredPickable.mesh.userData.dynamicSurface) {
+        var tSurf = hoveredPickable.mesh.userData.dynamicSurface;
+        var tPos = hoveredPickable.mesh.position;
+        var tRy = hoveredPickable.mesh.rotation.y;
+        var cT = Math.cos(-tRy), sT = Math.sin(-tRy);
+        var carried = [];
+        for (var ti = 0; ti < pickableItems.length; ti++) {
+          var cand = pickableItems[ti];
+          if (!cand || cand === hoveredPickable || !cand.mesh || isHeldByRemote(cand.id)) continue;
+          if (cand.mesh.userData.isTable || cand.mesh.userData.isHood || cand.mesh.userData.isTray) continue;
+          var cp = cand.mesh.position;
+          if (cp.x >= tSurf.minX - 0.04 && cp.x <= tSurf.maxX + 0.04 &&
+            cp.z >= tSurf.minZ - 0.04 && cp.z <= tSurf.maxZ + 0.04 &&
+            cp.y >= tSurf.topY - 0.04 && cp.y <= tSurf.topY + 0.35) {
+            var dx = cp.x - tPos.x, dz = cp.z - tPos.z;
+            carried.push({
+              item: cand,
+              lx: dx * cT + dz * sT,
+              ly: cp.y - tPos.y,
+              lz: -dx * sT + dz * cT,
+              lry: cand.mesh.rotation.y - tRy
+            });
+          }
+        }
+        if (carried.length) hoveredPickable.trayContents = carried;
       }
       heldItem = hoveredPickable;
       lastPickupAt = performance.now();
@@ -7202,6 +7303,22 @@
           }
         } else {
           heldItem.mesh.rotation.set(0, heldRotY, 0);
+        }
+
+        if (heldItem.trayContents && heldItem.trayContents.length) {
+          var hRy = heldItem.mesh.rotation.y;
+          var ch = Math.cos(hRy), sh = Math.sin(hRy);
+          var hp = heldItem.mesh.position;
+          for (var tci = 0; tci < heldItem.trayContents.length; tci++) {
+            var tc = heldItem.trayContents[tci];
+            if (!tc.item || !tc.item.mesh) continue;
+            tc.item.mesh.position.set(
+              hp.x + tc.lx * ch + tc.lz * sh,
+              hp.y + tc.ly,
+              hp.z - tc.lx * sh + tc.lz * ch
+            );
+            tc.item.mesh.rotation.set(0, hRy + tc.lry, 0);
+          }
         }
 
         // Animação da Seringa furando o septo de borracha vermelha (agulha apontada para baixo)
@@ -8685,6 +8802,25 @@
 
   window.resetCampusWorldObjects = function () {
     syringePumping = null;
+    if (heldItem.trayContents && heldItem.trayContents.length) {
+      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
+      heldItem.trayContents.forEach(function (tc) {
+        var ci = tc.item;
+        if (!ci || !ci.mesh) return;
+        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
+        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
+        var wy = pt.y + tc.ly;
+        ci.mesh.position.set(wx, wy, wz);
+        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
+        ci.isMoved = true;
+        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
+        pendingMovedItems[ci.id] = {
+          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
+        };
+        recentlyDropped[ci.id] = dropTs;
+      });
+      heldItem.trayContents = null;
+    }
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
     pendingMovedItems = {};
@@ -8721,6 +8857,25 @@
     syringePumping = null;
     syringePunctureProgress = 0;
     lastSyringeTargetItem = null;
+    if (heldItem.trayContents && heldItem.trayContents.length) {
+      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
+      heldItem.trayContents.forEach(function (tc) {
+        var ci = tc.item;
+        if (!ci || !ci.mesh) return;
+        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
+        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
+        var wy = pt.y + tc.ly;
+        ci.mesh.position.set(wx, wy, wz);
+        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
+        ci.isMoved = true;
+        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
+        pendingMovedItems[ci.id] = {
+          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
+        };
+        recentlyDropped[ci.id] = dropTs;
+      });
+      heldItem.trayContents = null;
+    }
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
     thermoLaserOn = false;
