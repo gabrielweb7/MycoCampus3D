@@ -1,4 +1,4 @@
--- MycoCampus3D - Schema MySQL (schema_version 2)
+-- MycoCampus3D - Schema MySQL (schema_version 4)
 -- Criado/migrado automaticamente por api/db.php no primeiro acesso.
 
 CREATE TABLE IF NOT EXISTS mc_meta (
@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS mc_sessions (
     chat_msg VARCHAR(140) NULL,
     chat_at DATETIME NULL,
     last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_sessions_seen (last_seen)
+    INDEX idx_sessions_seen (last_seen),
+    INDEX idx_sessions_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS mc_world_objects (
@@ -66,6 +67,21 @@ CREATE TABLE IF NOT EXISTS mc_world_state (
     state_key VARCHAR(40) PRIMARY KEY,
     state_val VARCHAR(255) NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_user_poses (
+    user_id INT PRIMARY KEY,
+    pose_json TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_admin_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    target_user_id INT NOT NULL,
+    action_type VARCHAR(32) NOT NULL,
+    payload TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_admin_target (target_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS mc_board_strokes (

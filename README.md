@@ -1,55 +1,126 @@
-# 🍄 MycoCampus3D
+# 🍄 MycoCampus3D — Universidade Virtual 3D do Cultivo de Cogumelos
 
-**Universidade Virtual 3D Multiplayer do Cultivo de Cogumelos** — aprenda e ensine micologia aplicada na prática (Fluxo Laminar, Esterilização vs Pasteurização, Grãos/Spawn/CL, Contaminações e Frutificação) dentro de um campus 3D interativo no navegador.
-
----
-
-## ✨ Principais Recursos
-
-- **100% Fullscreen (`100vw × 100dvh`) com Tour Cinemático no Lobby**: câmera sobrevoando a Praça Central, o Laboratório, o Auditório, as Estufas, o Galpão de Substratos e o Lago Alpino antes mesmo de entrar.
-- **Campus Amplo (`220m × 220m`) com 4 Alas Universitárias + Trilhas**:
-  - **Praça Central**: monumento de cogumelo gigante, luminárias e plaquinhas direcionais 3D.
-  - **Ala Oeste — Laboratório de Fluxo Laminar & Autoclave**: porta articulada, cabine HEPA, autoclave, estante e itens pegáveis/empilháveis com fantasma verde/vermelho (placas de Petri saudável e com Tricoderma, pote de spawn, cultura líquida).
-  - **Ala Leste — Auditório Principal**: telão 3D interativo sincronizado ao vivo pelo Professor (`👨‍🏫`) para todos os alunos conectados.
-  - **Ala Norte — Galpão de Substratos & Pasteurização**: tambor de pasteurização, bancada bulk e saco de substrato pegável.
-  - **Ala Sul — Estufas de Frutificação & Secagem**: estufa iluminada por LED grow com bloco em frutificação.
-  - **Trilha da Floresta & Lago Alpino**: píer de madeira e **20 cogumelos silvestres colhíveis** (`+25 XP` com respawn a cada 20s).
-- **Controles Separados por Dispositivo**:
-  - **PC**: `WASD` + `Espaço` (pular) + trava de mouse + clique esquerdo (pegar/soltar/colher/abrir porta/abrir aulas) + scroll do mouse (girar item).
-  - **Celulares & Tablets (Android, iPhone, iPad)**: joystick analógico estilo Minecraft, botões de **Pular (`⬆️`)** e **Girar (`⟲` / `⟳`)**, arrastar para olhar e toque para interagir, respeitando `env(safe-area-inset-*)`.
-- **Persistência Total em MySQL (zero `localStorage` para perfil/progresso)**:
-  - Login/cadastro por Nome + PIN (`password_hash`) e chave opcional `PROFESSOR_KEY` para professores/admins.
-  - XP, cogumelos colhidos, módulos concluídos, ranking da universidade, objetos movidos e slide ao vivo do auditório salvos no MySQL.
-  - Chat rápido com balões de fala 3D sobre os avatares chibi.
+O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo real executado 100% no navegador (PC, tablets e smartphones). O objetivo do projeto é ensinar e simular micologia aplicada e cultivo prático de cogumelos (técnicas assépticas em fluxo laminar, esterilização na autoclave/panela de pressão, inoculação de grãos e cultura líquida, identificação e combate de contaminações e frutificação em estufa).
 
 ---
 
-## 📁 Estrutura do Projeto
+## 🏗️ 1. Arquitetura Técnica & Stack
 
-- `index.html` — Lobby glassmorphism responsivo, HUD, controles mobile e modais de aulas/ranking.
-- `js/campus3d.js` — Motor 3D (Three.js r128), mundo `220×220`, colisões, física de itens, avatares multiplayer e tour do lobby.
-- `js/campus-app.js` — Autenticação MySQL, sincronização multiplayer (`150ms`), 5 módulos práticos de micologia e joystick mobile.
-- `api/db.php` — Conexão PDO MySQL com criação automática das tabelas de `database/schema.sql`.
-- `api/auth.php` — Cadastro/login, registro de XP/módulos e ranking da universidade.
-- `api/multiplayer.php` — Sincronização de jogadores, chat, objetos do lab e slide ao vivo do auditório.
-- `api/config.example.php` — Modelo de configuração (copie para `api/config.php` no servidor).
-- `database/schema.sql` — Estrutura das tabelas `mc_users`, `mc_sessions`, `mc_world_objects` e `mc_world_state`.
-- `.cpanel.yml` — Configuração de deploy no cPanel / HostGator.
+- **Motor 3D (Front-end):** [Three.js r128](https://threejs.org/) puro, sem dependências de frameworks pesados (React/Vue/Angular), garantindo inicialização rápida e compatibilidade universal WebGL.
+- **Renderização & Shaders:** Gráficos procedurais, materiais PBR (`MeshStandardMaterial`), sombras dinâmicas, `InstancedMesh` para centenas de árvores e vegetação, ciclo de dia/noite em tempo real (40 minutos virtuais sincronizados com o Relógio da Torre) e 5 variações climáticas sincronizadas (Ensolarado, Parcialmente Nublado, Nublado, Chuva e Neve).
+- **Interface & HUD:** Glassmorphism responsivo com Tailwind CSS (v2 pré-compilado), suporte a Safe Area Inset (`env(safe-area-inset-*)`), joystick analógico virtual para mobile e modo Fullscreen automático.
+- **Back-end:** PHP 8.x nativo com PDO MySQL, arquitetura orientada a APIs RESTful leves com JSON, headers anti-cache e segurança nos cookies (`HttpOnly`, `SameSite=Lax`).
+- **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`schema_version 4`) e cache de flag local para evitar sobrecarga no servidor.
+- **Sincronização Multiplayer:** Polling HTTP POST assíncrono a cada 200ms por cliente ativo (reduzido automaticamente para 1200ms quando a aba fica em segundo plano para economizar bateria e CPU).
 
 ---
 
-## 🚀 Deploy na HostGator (cPanel)
+## 📁 2. Estrutura do Repositório
 
-1. No **cPanel -> Git™ Version Control**, clone este repositório (`https://github.com/gabrielweb7/MycoCampus3D.git`) na pasta do seu subdomínio (ex.: `/home2/SEU_USUARIO/mycocampus3d.alquimistasmagicos.com.br`).
-2. No **cPanel -> Bancos de dados MySQL**, crie o banco de dados, o usuário e conceda **Todos os privilégios**.
-3. No **Gerenciador de Arquivos**, dentro da pasta `api/`, crie o arquivo **`config.php`** (copiando de `api/config.example.php`) com suas credenciais:
-   ```php
-   <?php
-   define('DB_HOST', 'localhost');
-   define('DB_NAME', 'seu_banco');
-   define('DB_USER', 'seu_usuario');
-   define('DB_PASS', 'sua_senha');
-   define('PROFESSOR_KEY', 'sua-chave-secreta-de-professor');
-   ```
-   > **Dica:** use aspas simples `'...'` se a senha contiver `$`. O arquivo `api/config.php` é ignorado pelo `.gitignore` para nunca expor senhas no Git.
-4. Acesse o site no navegador — na primeira requisição as tabelas MySQL são criadas automaticamente e o campus já fica pronto para jogar!
+```text
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais
+├── VERSION                    # Versão semântica atual do projeto (ex.: 0.8.0)
+├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
+├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
+├── .cpanel.yml                # Script de deploy automatizado no cPanel / HostGator
+├── .htaccess                  # Regras Apache (compressão gzip, segurança e MIME types)
+│
+├── api/                       # Back-end em PHP
+│   ├── config.php             # Credenciais do MySQL e PROFESSOR_KEY (ignorado pelo git)
+│   ├── config.example.php     # Template seguro para criação do config.php
+│   ├── db.php                 # Conexão PDO, migrações cacheadas e autenticação por token
+│   ├── auth.php               # Login/registro, XP, módulos, ranking e painel Master Admin
+│   └── multiplayer.php        # Sincronização de avatares, itens, lousas, chat e estados
+│
+├── database/
+│   └── schema.sql             # Definição DDL de todas as tabelas MySQL (schema_version 4)
+│
+├── js/
+│   ├── campus3d.js            # Motor 3D, mapa, avatares, física, sons e namespace MycoCampus
+│   └── campus-app.js          # Lógica da aplicação, HUD, módulos de aula, polling e Admin UI
+│
+├── css/
+│   ├── game.css               # Estilos complementares do jogo e animações
+│   └── tailwind.min.css       # Tailwind CSS pré-compilado
+│
+├── assets/                    # Favicons, ícones PWA e imagem OpenGraph
+└── data/                      # Flags de cache de migração (ex.: .migrated_v4)
+```
+
+---
+
+## 🗄️ 3. Esquema do Banco de Dados (MySQL)
+
+| Tabela | Finalidade |
+| :--- | :--- |
+| `mc_meta` | Armazena configurações globais e o `schema_version` atual. |
+| `mc_users` | Cadastro persistente: nome, hash da senha (PIN), cargo, cores do avatar, XP, cogumelos colhidos e módulos concluídos. |
+| `mc_auth_tokens` | Tokens de sessão SHA-256 com validade de 30 dias para login persistente. |
+| `mc_sessions` | Estado volátil dos jogadores online (posição $X,Y,Z$, rotação, item segurado, caminhada, chat em balão). |
+| `mc_user_poses` | Posição e rotação salvas da última sessão do jogador para retorno contínuo. |
+| `mc_world_objects` | Posições em tempo real de equipamentos e itens móveis do laboratório. |
+| `mc_world_state` | Estados globais do mundo (portas, persianas, interruptores, fluxo laminar, cinema e slide do auditório). |
+| `mc_admin_events` | Fila de ações pendentes disparadas pelo Master Admin (teletransporte forçado e desconexão de usuários). |
+| `mc_board_strokes` | Histórico compartilhado de traços vetoriais das 4 lousas interativas. |
+
+---
+
+## 👥 4. Cargos e Controle de Acesso (RBAC)
+
+1. **Aluno (`student`):**
+   - Papel padrão ao cadastrar sem chave especial.
+   - Pode explorar todo o campus, colher cogumelos na floresta (+25 XP), interagir com itens do laboratório, desenhar na lousa, sentar em carteiras/bancos e concluir os 5 módulos de aula (+50 XP cada).
+2. **Professor (`professor`):**
+   - Atribuído ao fornecer a `PROFESSOR_KEY` correta no login/cadastro ou ao ser promovido por um Admin.
+   - Recursos exclusivos:
+     - Projetar slides no Telão Principal do Auditório.
+     - Resetar o Laboratório (`♻️ Lab`) voltando todos os frascos e ferramentas ao ponto inicial.
+     - Tag dourada no HUD (`👨‍🏫 Professor`).
+3. **Master Admin (`admin`):**
+   - Exclusivo do proprietário do projeto (`gabrieldaluz`) ou promovido diretamente.
+   - Recursos exclusivos:
+     - Acesso ao **Painel Master Admin (`👑 Admin`)** no HUD.
+     - Visualização de todos os jogadores cadastrados e status online em tempo real.
+     - Puxar qualquer jogador até a posição do Admin (`🧲 Puxar`).
+     - Teletransportar o Admin até o jogador (`🚀 Ir até`).
+     - Promover alunos a professores ou rebaixar professores (`👨‍🏫 Promover` / `🎓 Rebaixar`).
+     - Desconectar imediatamente qualquer jogador infrator (`🚫 Desconectar`).
+
+---
+
+## 🌐 5. Endpoints da API
+
+### `api/auth.php`
+- `action=login` ou `register_or_login`: Autentica ou cria novo usuário via `display_name`, `pin`, `hat_color`, `body_color` e opcional `professor_key`.
+- `action=logout`: Revoga o token atual e limpa os cookies.
+- `action=me`: Valida a sessão atual e retorna os dados do usuário conectado.
+- `action=harvest`: Valida e pontua colheita de cogumelo com cooldown anti-spam.
+- `action=complete_module`: Conclui módulo prático com validação das respostas no servidor.
+- `action=leaderboard`: Retorna os 15 melhores jogadores e estatísticas gerais da universidade.
+- `action=admin_list_users`: *(Admin)* Lista todos os usuários, XP, módulos e status online.
+- `action=admin_set_role`: *(Admin)* Altera o cargo de um usuário (`student`, `professor`, `admin`).
+- `action=admin_teleport`: *(Admin)* Enfileira teletransporte forçado para um jogador.
+- `action=admin_kick`: *(Admin)* Desconecta um jogador ativo.
+
+### `api/multiplayer.php`
+- `action=sync`: Ponto central de sincronização em tempo real (envia pose local, itens movidos, traços da lousa e recebe os outros jogadores, objetos e estado do mundo).
+- `action=leave`: Notifica a saída do jogador via `navigator.sendBeacon`.
+- `action=reset_world`: *(Professor/Admin)* Limpa `mc_world_objects`, restaurando posições originais.
+- `action=set_slide`: *(Professor/Admin)* Altera o slide do telão do auditório para todos.
+
+---
+
+## ⚡ 6. Boas Práticas & Diretrizes para IAs e Desenvolvedores
+
+Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite os seguintes princípios:
+
+1. **Zero Garbage Collection nos Loops de Renderização:**
+   - Nunca use `new THREE.Vector3()`, `new THREE.Color()` ou `new THREE.Matrix4()` dentro de `animate()` ou funções chamadas a cada quadro (como `updateDynamicEnvironment`). Use sempre variáveis pré-alocadas (`_tmpHandPos`, etc.).
+2. **Proteção do Banco de Dados:**
+   - O jogo faz polling a cada 200ms por jogador. **Nunca** coloque queries pesadas de `information_schema`, `ALTER TABLE` ou varreduras de tabelas inteiras no fluxo de `sync`. Use índices e cache de arquivos em `data/`.
+3. **Persistência Exclusiva no MySQL:**
+   - Nunca utilize `localStorage` para XP, nível ou progresso do jogador. Todo o estado canônico reside no MySQL e é verificado pelo servidor.
+4. **Respeito aos Dispositivos Móveis:**
+   - Todas as novidades devem ser testadas em telas de toque (joystick, área útil com safe-area, rotação e eventos passivos).
+5. **Namespace Limpo:**
+   - Prefira expor novas capacidades no objeto `window.MycoCampus` para manter a arquitetura desacoplada e profissional.

@@ -2,6 +2,31 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.8.0] — 2026-11-15
+### Refactoring, Security, Performance & Master Admin
+- **Correção Crítica da Tela Preta (`touchDrawingBoard`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Corrigido o escopo da variável `touchDrawingBoard`, que estava restrita ao interior de `bindControls()`, provocando `ReferenceError` a cada frame dentro do loop `animate()` e impedindo a renderização do mundo 3D.
+- **Limpeza de Interface (HUD Clean) ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Removidos definitivamente da tela a barra de ações rápidas (`#hud-quick-actions` com botões de Aulas, Ranking, Lab, Vista Aérea e Sair) e o painel de slides do telão (`#prof-toolbar`), mantendo a tela 100% imersiva e limpa.
+  - Intervalo de sincronização multiplayer calibrado para 350ms para evitar sobrecarga de requisições no servidor e no navegador.
+- **Blindagem do Banco de Dados & Eliminação de Carga no MySQL ([db.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/db.php), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Eliminada a verificação repetitiva de `information_schema.TABLES` e migrações a cada 200ms por jogador. Agora a migração é protegida por arquivo de flag em `data/.migrated_v4`, reduzindo drasticamente o consumo de CPU em servidores compartilhados (cPanel).
+  - Isolamento de poses na nova tabela `mc_user_poses`: removida a gravação contínua de `upose_*` em `mc_world_state`. A tabela `mc_world_state` agora armazena estritamente o estado do mundo e permanece sempre leve.
+  - Limpeza de sessões inativas (`mc_sessions`) probabilística (1 em cada 20 requisições), eliminando locks destrutivos de tabela a cada tick.
+- **Painel Master Admin Funcional ([auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Implementadas as rotas de backend `admin_list_users`, `admin_set_role`, `admin_teleport` e `admin_kick` com fila de eventos em `mc_admin_events`.
+  - Conectada a interface `#admin-modal` no front-end: busca em tempo real, visualização de jogadores online/offline, botão de puxar (`🧲 Puxar`), ir até o jogador (`🚀 Ir até`), promover/rebaixar (`👨‍🏫 Promover Prof.` / `🎓 Rebaixar Aluno`) e desconectar (`🚫 Desconectar`).
+  - Corrigido o cargo do dono `gabrieldaluz` para `admin`, garantindo o desbloqueio do botão Master Admin.
+  - Implementada a validação de `PROFESSOR_KEY` no login/cadastro para atribuição segura de cargo de professor.
+- **Segurança & RBAC (Role-Based Access Control) ([multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php))**:
+  - Bloqueadas as ações de `reset_world` e `set_slide` para alunos comuns: apenas professores e administradores podem reiniciar equipamentos ou mudar slides do telão.
+  - Adicionada validação de respostas no servidor ao completar módulos de aula (`MC_MODULE_ANSWERS`), impedindo trapaça de XP via requisições forjadas.
+- **Otimização de Renderização & Zero GC Churn ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Pré-alocados vetores e cores Three.js no loop principal (`animate()` e `updateDynamicEnvironment()`), eliminando centenas de alocações de `Vector3` e `Color` por segundo e acabando com micro-stutters do Garbage Collector.
+  - Throttling inteligente por `visibilitychange`: quando a aba do navegador fica em segundo plano, o polling multiplayer é reduzido para 1200ms para economizar bateria e tráfego, voltando a 200ms imediatamente ao reativar a aba.
+  - Corrigidos bugs latentes de `playerVelY` e referência a `controls.target` em `teleportCampusPlayer`.
+  - Exposto namespace modular `window.MycoCampus` para escalabilidade da arquitetura do motor 3D.
+
 ## [v0.7.0] — 2026-11-15
 ### Milestone Release & Performance
 - **Consolidação de Recursos e Bump de Versão (`v0.7.0`)**:

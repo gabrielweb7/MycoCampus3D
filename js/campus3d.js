@@ -89,6 +89,7 @@
   var lastDrawPt = null;
   var currentStroke = null;
   var pendingBoardStrokes = [];
+  var touchDrawingBoard = false;
 
   // Painel 3D do Ranking na Torre do Relogio
   var rankingCanvas = null;
@@ -178,7 +179,7 @@
       } catch (e) { /* ignore */ }
     }
     if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(function () {});
+      audioCtx.resume().catch(function () { });
     }
     return audioCtx;
   }
@@ -4218,11 +4219,13 @@
         heldObj = findPickable(av.holding);
         if (heldObj && heldObj !== heldItem) {
           var isTwo = !!heldObj.mesh.userData.twoHanded;
-          var handOffset = isTwo
-            ? new THREE.Vector3(0, 0.72, -0.62)
-            : new THREE.Vector3(0.36, 0.88, -0.38);
-          handOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), av.group.rotation.y);
-          heldObj.mesh.position.copy(av.group.position).add(handOffset);
+          if (isTwo) {
+            _tmpAvatarHandOffset.set(0, 0.72, -0.62);
+          } else {
+            _tmpAvatarHandOffset.set(0.36, 0.88, -0.38);
+          }
+          _tmpAvatarHandOffset.applyAxisAngle(_tmpAvatarYAxis, av.group.rotation.y);
+          heldObj.mesh.position.copy(av.group.position).add(_tmpAvatarHandOffset);
           heldObj.mesh.rotation.y = av.group.rotation.y;
           if (heldObj.mesh.userData.updateBounds) heldObj.mesh.userData.updateBounds(heldObj);
           if (heldObj.lidItem && heldObj.lidItem.isAttached) {
@@ -4991,7 +4994,8 @@
       }
     }, { passive: false });
 
-    var touchLookId = null, lastTX = 0, lastTY = 0, touchMoved = false, touchDrawingBoard = false;
+    var touchLookId = null, lastTX = 0, lastTY = 0, touchMoved = false;
+    touchDrawingBoard = false;
     function setNdcFromTouch(t) {
       var rect = renderer.domElement.getBoundingClientRect();
       pointerNdc.x = ((t.clientX - rect.left) / rect.width) * 2 - 1;
@@ -5089,6 +5093,29 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
   }
+
+  // Vetores e Cores pré-alocados para ZERO Garbage Collection no loop de renderizacao
+  var _tmpHandLocal = new THREE.Vector3();
+  var _tmpHandPos = new THREE.Vector3();
+  var _tmpAvatarYAxis = new THREE.Vector3(0, 1, 0);
+  var _tmpAvatarHandOffset = new THREE.Vector3();
+
+  var _cSkyDay = new THREE.Color(0x60a5fa);
+  var _cSkySunset = new THREE.Color(0xf97316);
+  var _cSkyNight = new THREE.Color(0x0b132b);
+  var _cSkyWork = new THREE.Color();
+  var _cPartly = new THREE.Color(0x93c5fd);
+  var _cOvercast = new THREE.Color(0x94a3b8);
+  var _cRain = new THREE.Color(0x475569);
+  var _cSnow = new THREE.Color(0xcbd5e1);
+  var _cSunDay = new THREE.Color(0xfffbeb);
+  var _cSunSet = new THREE.Color(0xfb923c);
+  var _cSunNight = new THREE.Color(0x93c5fd);
+  var _cCloudRain = new THREE.Color(0x64748b);
+  var _cCloudOvercast = new THREE.Color(0xcbd5e1);
+  var _cCloudWhite = new THREE.Color(0xffffff);
+  var _cSunSunsetGlow = new THREE.Color(0xfdba74);
+  var _cSnowWhite = new THREE.Color(0xf1f5f9);
 
   var lastMobileHoverAt = 0;
   function animate() {
@@ -5234,11 +5261,13 @@
       if (heldItem) {
         var reachZ = fpsArmGroup ? armReach * 0.16 : 0;
         var reachY = fpsArmGroup ? armReach * 0.06 : 0;
-        var handLocal = isTwoHanded
-          ? new THREE.Vector3(0, -0.48, -0.78)
-          : new THREE.Vector3(0.30, -0.22 + reachY, -0.58 - reachZ);
-        var handPos = handLocal.applyEuler(camera.rotation).add(camera.position);
-        heldItem.mesh.position.copy(handPos);
+        if (isTwoHanded) {
+          _tmpHandLocal.set(0, -0.48, -0.78);
+        } else {
+          _tmpHandLocal.set(0.30, -0.22 + reachY, -0.58 - reachZ);
+        }
+        _tmpHandPos.copy(_tmpHandLocal).applyEuler(camera.rotation).add(camera.position);
+        heldItem.mesh.position.copy(_tmpHandPos);
         if (heldItem.id.indexOf('chalk_') === 0) {
           heldItem.mesh.rotation.order = 'YXZ';
           heldItem.mesh.rotation.set(playerPitch + 0.35, playerYaw, 0);
@@ -5250,7 +5279,7 @@
         }
         if (heldItem.lidItem && heldItem.lidItem.isAttached) {
           var lidObj = heldItem.lidItem.mesh;
-          lidObj.position.set(handPos.x, handPos.y + 0.36, handPos.z);
+          lidObj.position.set(_tmpHandPos.x, _tmpHandPos.y + 0.36, _tmpHandPos.z);
           lidObj.rotation.copy(heldItem.mesh.rotation);
         }
       }
@@ -5699,21 +5728,18 @@
     var targetSnow = weatherMode === 'snow' ? 1 : 0;
     snowMix += (targetSnow - snowMix) * Math.min(1, dt * 0.25);
 
-    // Cores do ceu conforme Nascer do Sol, Dia, Por do Sol, Noite e Clima
-    var skyDay = new THREE.Color(0x60a5fa);
-    var skySunset = new THREE.Color(0xf97316);
-    var skyNight = new THREE.Color(0x0b132b);
-    var skyCol = skyDay.clone();
+    // Cores do ceu conforme Nascer do Sol, Dia, Por do Sol, Noite e Clima (zero alocacao)
+    var skyCol = _cSkyWork.copy(_cSkyDay);
     if (sunY < 0.24 && sunY > -0.18) {
       var sT = 1 - Math.abs(sunY - 0.03) / 0.21;
-      skyCol.lerp(skySunset, Math.max(0, Math.min(1, sT)));
+      skyCol.lerp(_cSkySunset, Math.max(0, Math.min(1, sT)));
     } else if (sunY <= -0.18) {
-      skyCol.lerp(skyNight, Math.min(1, (-sunY - 0.18) / 0.25));
+      skyCol.lerp(_cSkyNight, Math.min(1, (-sunY - 0.18) / 0.25));
     }
-    if (weatherMode === 'partly') skyCol.lerp(new THREE.Color(0x93c5fd), 0.2);
-    if (weatherMode === 'overcast') skyCol.lerp(new THREE.Color(0x94a3b8), 0.45);
-    if (weatherMode === 'rain') skyCol.lerp(new THREE.Color(0x475569), 0.65);
-    if (weatherMode === 'snow') skyCol.lerp(new THREE.Color(0xcbd5e1), 0.5);
+    if (weatherMode === 'partly') skyCol.lerp(_cPartly, 0.2);
+    if (weatherMode === 'overcast') skyCol.lerp(_cOvercast, 0.45);
+    if (weatherMode === 'rain') skyCol.lerp(_cRain, 0.65);
+    if (weatherMode === 'snow') skyCol.lerp(_cSnow, 0.5);
     scene.background.copy(skyCol);
     if (scene.fog) scene.fog.color.copy(skyCol);
 
@@ -5741,12 +5767,9 @@
 
     if (envSun) {
       envSun.position.set(sunX * 75, Math.max(8, sunY * 75 + 12), 38);
-      var sunDay = new THREE.Color(0xfffbeb);
-      var sunSet = new THREE.Color(0xfb923c);
-      var sunNight = new THREE.Color(0x93c5fd);
-      if (sunY > 0.22) envSun.color.copy(sunDay);
-      else if (sunY > -0.15) envSun.color.copy(sunSet);
-      else envSun.color.copy(sunNight);
+      if (sunY > 0.22) envSun.color.copy(_cSunDay);
+      else if (sunY > -0.15) envSun.color.copy(_cSunSet);
+      else envSun.color.copy(_cSunNight);
       var cloudDim = weatherMode === 'rain' ? 0.52 : (weatherMode === 'overcast' ? 0.72 : (weatherMode === 'partly' ? 0.88 : 1));
       envSun.intensity = Math.max(0.28, sunY * 0.95 + 0.48) * cloudDim;
     }
@@ -5758,9 +5781,13 @@
     var targetClouds = weatherMode === 'clear' ? 8 : (weatherMode === 'partly' ? 15 : (weatherMode === 'snow' ? 20 : 24));
     var cloudSpeed = weatherMode === 'rain' ? 2.6 : (weatherMode === 'overcast' ? 1.8 : 1.0);
     if (envCloudMat) {
-      var cCol = weatherMode === 'rain' ? new THREE.Color(0x64748b) : (weatherMode === 'overcast' ? new THREE.Color(0xcbd5e1) : new THREE.Color(0xffffff));
-      if (sunY < 0.22 && sunY > -0.15 && weatherMode !== 'rain') cCol.lerp(new THREE.Color(0xfdba74), 0.35);
-      envCloudMat.color.copy(cCol);
+      var cCol = weatherMode === 'rain' ? _cCloudRain : (weatherMode === 'overcast' ? _cCloudOvercast : _cCloudWhite);
+      if (sunY < 0.22 && sunY > -0.15 && weatherMode !== 'rain') {
+        _cSkyWork.copy(cCol).lerp(_cSunSunsetGlow, 0.35);
+        envCloudMat.color.copy(_cSkyWork);
+      } else {
+        envCloudMat.color.copy(cCol);
+      }
     }
     for (var ci = 0; ci < envClouds.length; ci++) {
       envClouds[ci].visible = ci < targetClouds;
@@ -5775,9 +5802,8 @@
     }
     if (Math.abs(snowMix - (updateDynamicEnvironment._lastSnowMix || -1)) > 0.005) {
       updateDynamicEnvironment._lastSnowMix = snowMix;
-      var snowWhite = new THREE.Color(0xf1f5f9);
       for (var si = 0; si < snowableEntries.length; si++) {
-        snowableEntries[si].mat.color.copy(snowableEntries[si].base).lerp(snowWhite, snowMix * 0.85);
+        snowableEntries[si].mat.color.copy(snowableEntries[si].base).lerp(_cSnowWhite, snowMix * 0.85);
       }
     }
 
@@ -6461,12 +6487,12 @@
   window.teleportCampusPlayer = function (x, y, z, yaw) {
     if (typeof x !== 'number' || typeof z !== 'number') return;
     if (seatedSeat) seatedSeat = null;
-    velY = 0;
+    playerVelY = 0;
     var targetY = (typeof y === 'number' && !isNaN(y)) ? y : getGroundHeight(x, z, playerPos.y);
     playerPos.set(x, targetY, z);
     if (typeof yaw === 'number' && !isNaN(yaw)) {
       playerYaw = yaw;
-      orbitControls.target.set(x, targetY + 1.2, z);
+      if (controls && controls.target) controls.target.set(x, targetY + 1.2, z);
     }
     playSwitchSound();
   };
@@ -6477,4 +6503,14 @@
 
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;
   window.updateCampusPlayers = updateCampusPlayers;
+
+  // Namespace unificado MycoCampus para arquitetura limpa e escalabilidade
+  window.MycoCampus = window.MycoCampus || {};
+  window.MycoCampus.teleportPlayer = window.teleportCampusPlayer;
+  window.MycoCampus.getPlayerPos = window.getCampusPlayerPos;
+  window.MycoCampus.updateRanking = window.updateCampusRanking;
+  window.MycoCampus.updateSlide = updateCampusAuditoriumSlide;
+  window.MycoCampus.updatePlayers = updateCampusPlayers;
+  window.MycoCampus.setColors = window.setCampusPlayerColors;
+  window.MycoCampus.setFpsMode = window.setCampusFpsMode;
 })();

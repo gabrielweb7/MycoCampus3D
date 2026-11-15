@@ -1,6 +1,6 @@
 <?php
 /**
- * MycoCampus3D - Autenticacao (Nome + PIN), progresso e ranking.
+ * MycoCampus3D - Autenticacao (Nome + PIN), progresso, ranking e painel Master Admin.
  * Todo progresso fica no MySQL e e calculado no servidor (o cliente nao define XP).
  */
 declare(strict_types=1);
@@ -11,6 +11,13 @@ const MC_XP_HARVEST = 25;
 const MC_XP_MODULE = 50;
 const MC_HARVEST_COOLDOWN_MS = 1200;
 const MC_MODULES = ['fluxo_laminar', 'esterilizacao', 'spawn_graos', 'contaminacao', 'frutificacao'];
+const MC_MODULE_ANSWERS = [
+    'fluxo_laminar' => 'Nunca bloquear a linha reta entre o filtro HEPA e o material estéril',
+    'esterilizacao' => '121°C a 15 PSI (1 atm acima da pressão ambiente)',
+    'spawn_graos' => 'Para confirmar que o micélio está puro e sem contaminação invisível',
+    'contaminacao' => 'Manter fechado e remover do laboratório para não espalhar esporos',
+    'frutificacao' => 'Troca gasosa fresca (redução de CO2), evaporação na superfície e luz ambiente',
+];
 const MC_LOGIN_MAX_FAILS = 12;
 const MC_LOGIN_LOCK_MINUTES = 1;
 const MC_ADMIN_USERNAMES = ['gabrieldaluz'];
@@ -74,6 +81,7 @@ if ($action === 'login' || $action === 'register_or_login') {
     }
 
     $isOwnerAdmin = in_array($username, MC_ADMIN_USERNAMES, true);
+    $isProfKeyValid = defined('PROFESSOR_KEY') && PROFESSOR_KEY !== '' && $profKey !== '' && hash_equals(PROFESSOR_KEY, $profKey);
 
     $stmt = $pdo->prepare('SELECT * FROM mc_users WHERE username = ? LIMIT 1');
     $stmt->execute([$username]);
@@ -97,13 +105,28 @@ if ($action === 'login' || $action === 'register_or_login') {
             }
             mc_json(['ok' => false, 'error' => 'Esse nome ja esta cadastrado com outra senha.'], 401);
         }
-        $newRole = $isOwnerAdmin ? 'professor' : (string)$user['role'];
+        // Determina o cargo atualizado: Dono sempre admin, chave valida vira professor
+        if ($isOwnerAdmin) {
+            $newRole = 'admin';
+        } elseif ($isProfKeyValid) {
+            $newRole = 'professor';
+        } else {
+            $newRole = (string)$user['role'];
+        }
+
         $upd = $pdo->prepare('UPDATE mc_users SET display_name = ?, role = ?, hat_color = ?, body_color = ?, login_fails = 0, login_locked_until = NULL, last_seen = NOW() WHERE id = ?');
         $upd->execute([$displayName, $newRole, $hatColor, $bodyColor, (int)$user['id']]);
         $userId = (int)$user['id'];
         $created = false;
     } else {
-        $role = $isOwnerAdmin ? 'professor' : 'student';
+        if ($isOwnerAdmin) {
+            $role = 'admin';
+        } elseif ($isProfKeyValid) {
+            $role = 'professor';
+        } else {
+            $role = 'student';
+        }
+
         $ins = $pdo->prepare('INSERT INTO mc_users (username, display_name, role, pin_hash, hat_color, body_color, xp, mushrooms_harvested, completed_modules) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?)');
         $ins->execute([$username, $displayName, $role, password_hash($pin, PASSWORD_DEFAULT), $hatColor, $bodyColor, '[]']);
         $userId = (int)$pdo->lastInsertId();
@@ -131,7 +154,7 @@ if ($action === 'me') {
 
 if ($action === 'harvest') {
     $user = mc_require_user($pdo);
-    // Anti-spam: no maximo 1 colheita a cada MC_HARVEST_COOLDOWN_MS
+    // Anti-spam de colheita: no maximo 1 a cada MC_HARVEST_COOLDOWN_MS
     $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + ?, mushrooms_harvested = mushrooms_harvested + 1, last_harvest_at = NOW(3), last_seen = NOW()
         WHERE id = ? AND (last_harvest_at IS NULL OR last_harvest_at < (NOW(3) - INTERVAL ? MICROSECOND))');
     $upd->execute([MC_XP_HARVEST, (int)$user['id'], MC_HARVEST_COOLDOWN_MS * 1000]);
@@ -145,6 +168,11 @@ if ($action === 'complete_module') {
     if (!in_array($slug, MC_MODULES, true)) {
         mc_json(['ok' => false, 'error' => 'Modulo desconhecido.'], 400);
     }
+    $answer = trim((string)($body['answer'] ?? ''));
+    if (isset(MC_MODULE_ANSWERS[$slug]) && $answer !== '' && $answer !== MC_MODULE_ANSWERS[$slug]) {
+        mc_json(['ok' => false, 'error' => 'Resposta incorreta para o módulo.'], 400);
+    }
+
     $pdo->beginTransaction();
     $st = $pdo->prepare('SELECT completed_modules FROM mc_users WHERE id = ? FOR UPDATE');
     $st->execute([(int)$user['id']]);
@@ -179,6 +207,119 @@ if ($action === 'leaderboard') {
             'total_harvests' => (int)($stats['total_harvests'] ?? 0),
         ],
     ]);
+}
+
+// -------------------------------------------------------------
+// Endpoints Master Admin
+// -------------------------------------------------------------
+
+if ($action === 'admin_list_users') {
+    $user = mc_require_user($pdo);
+    if (!mc_is_admin($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito ao Administrador Master.'], 403);
+    }
+    $st = $pdo->query('
+        SELECT u.id, u.username, u.display_name, u.role, u.hat_color, u.body_color,
+               u.xp, u.mushrooms_harvested, u.completed_modules, u.created_at, u.last_seen,
+               (s.session_id IS NOT NULL) AS is_online, s.x, s.y, s.z
+        FROM mc_users u
+        LEFT JOIN mc_sessions s ON s.user_id = u.id
+        ORDER BY is_online DESC, u.xp DESC, u.id ASC
+        LIMIT 100
+    ');
+    $users = [];
+    foreach ($st->fetchAll() as $row) {
+        $modules = [];
+        if (!empty($row['completed_modules'])) {
+            $dec = json_decode((string)$row['completed_modules'], true);
+            if (is_array($dec)) $modules = array_values(array_unique(array_map('strval', $dec)));
+        }
+        $users[] = [
+            'id' => (int)$row['id'],
+            'username' => (string)$row['username'],
+            'display_name' => (string)$row['display_name'],
+            'role' => (string)$row['role'],
+            'hat_color' => mc_clean_hex($row['hat_color'], '#dc2626'),
+            'body_color' => mc_clean_hex($row['body_color'], '#4f46e5'),
+            'xp' => (int)$row['xp'],
+            'mushrooms_harvested' => (int)$row['mushrooms_harvested'],
+            'completed_modules_count' => count($modules),
+            'created_at' => (string)$row['created_at'],
+            'last_seen' => (string)$row['last_seen'],
+            'is_online' => (bool)$row['is_online'],
+            'pos' => $row['is_online'] ? [
+                'x' => round((float)$row['x'], 1),
+                'y' => round((float)$row['y'], 1),
+                'z' => round((float)$row['z'], 1),
+            ] : null,
+        ];
+    }
+    mc_json(['ok' => true, 'users' => $users]);
+}
+
+if ($action === 'admin_set_role') {
+    $user = mc_require_user($pdo);
+    if (!mc_is_admin($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito ao Administrador Master.'], 403);
+    }
+    $targetId = (int)($body['target_id'] ?? 0);
+    $newRole = (string)($body['new_role'] ?? 'student');
+    if (!in_array($newRole, ['student', 'professor', 'admin'], true)) {
+        mc_json(['ok' => false, 'error' => 'Cargo invalido.'], 400);
+    }
+    $target = mc_fetch_user($pdo, $targetId);
+    if (!$target) {
+        mc_json(['ok' => false, 'error' => 'Usuario nao encontrado.'], 404);
+    }
+    if (in_array((string)$target['username'], MC_ADMIN_USERNAMES, true) && $newRole !== 'admin') {
+        mc_json(['ok' => false, 'error' => 'Nao e permitido rebaixar o dono principal.'], 400);
+    }
+    $upd = $pdo->prepare('UPDATE mc_users SET role = ? WHERE id = ?');
+    $upd->execute([$newRole, $targetId]);
+    $updSes = $pdo->prepare('UPDATE mc_sessions SET role = ? WHERE user_id = ?');
+    $updSes->execute([$newRole, $targetId]);
+    mc_json(['ok' => true, 'target_id' => $targetId, 'role' => $newRole]);
+}
+
+if ($action === 'admin_teleport') {
+    $user = mc_require_user($pdo);
+    if (!mc_is_admin($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito ao Administrador Master.'], 403);
+    }
+    $targetId = (int)($body['target_id'] ?? 0);
+    $target = mc_fetch_user($pdo, $targetId);
+    if (!$target) {
+        mc_json(['ok' => false, 'error' => 'Usuario nao encontrado.'], 404);
+    }
+    $tx = (float)($body['x'] ?? 0.0);
+    $ty = (float)($body['y'] ?? 0.0);
+    $tz = (float)($body['z'] ?? 0.0);
+    $tyaw = (float)($body['yaw'] ?? 0.0);
+    $payload = json_encode(['x' => round($tx, 2), 'y' => round($ty, 2), 'z' => round($tz, 2), 'yaw' => round($tyaw, 2)]);
+    $ins = $pdo->prepare('INSERT INTO mc_admin_events (target_user_id, action_type, payload) VALUES (?, "teleport", ?)');
+    $ins->execute([$targetId, $payload]);
+    mc_json(['ok' => true, 'target_id' => $targetId, 'teleported' => true]);
+}
+
+if ($action === 'admin_kick') {
+    $user = mc_require_user($pdo);
+    if (!mc_is_admin($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito ao Administrador Master.'], 403);
+    }
+    $targetId = (int)($body['target_id'] ?? 0);
+    $reason = trim((string)($body['reason'] ?? 'Você foi desconectado pelo Administrador Master.'));
+    $target = mc_fetch_user($pdo, $targetId);
+    if (!$target) {
+        mc_json(['ok' => false, 'error' => 'Usuario nao encontrado.'], 404);
+    }
+    if (in_array((string)$target['username'], MC_ADMIN_USERNAMES, true)) {
+        mc_json(['ok' => false, 'error' => 'Nao e permitido desconectar o dono principal.'], 400);
+    }
+    $delSes = $pdo->prepare('DELETE FROM mc_sessions WHERE user_id = ?');
+    $delSes->execute([$targetId]);
+    $ins = $pdo->prepare('INSERT INTO mc_admin_events (target_user_id, action_type, payload) VALUES (?, "kick", ?)');
+    $ins->execute([$targetId, json_encode(['reason' => $reason])]);
+    mc_json(['ok' => true, 'target_id' => $targetId, 'kicked' => true]);
 }
 
 mc_json(['ok' => false, 'error' => 'Acao desconhecida.'], 400);

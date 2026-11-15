@@ -87,13 +87,19 @@ if ($action === 'leave') {
 }
 
 if ($action === 'reset_world') {
-    mc_require_user($pdo);
+    $user = mc_require_user($pdo);
+    if (!mc_is_professor($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
+    }
     $pdo->exec('DELETE FROM mc_world_objects');
     mc_json(['ok' => true]);
 }
 
 if ($action === 'set_slide') {
     $user = mc_require_user($pdo);
+    if (!mc_is_professor($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
+    }
     $slideIndex = max(0, min(MP_SLIDE_COUNT - 1, (int)($body['slide_index'] ?? 0)));
     $upsert = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');
     $upsert->execute(['auditorium_slide', (string)$slideIndex]);
@@ -116,15 +122,40 @@ if ($action === 'sync') {
     $userId = (int)$user['id'];
     $sessionKey = mp_session_key($userId, mp_client_sid($body));
     $initSync = !empty($body['init_sync']);
-    $poseKey = 'upose_' . $userId;
 
-    // Limpa jogadores inativos
-    $pdo->exec('DELETE FROM mc_sessions WHERE last_seen < (NOW() - INTERVAL ' . MP_SESSION_TIMEOUT_S . ' SECOND)');
+    // 1. Processa eventos pendentes do Master Admin (kick ou teleport)
+    $forceTeleport = null;
+    $evStmt = $pdo->prepare('SELECT id, action_type, payload FROM mc_admin_events WHERE target_user_id = ? ORDER BY id ASC');
+    $evStmt->execute([$userId]);
+    $adminEvents = $evStmt->fetchAll();
+    if (!empty($adminEvents)) {
+        $delEv = $pdo->prepare('DELETE FROM mc_admin_events WHERE target_user_id = ?');
+        $delEv->execute([$userId]);
+        foreach ($adminEvents as $ev) {
+            if ($ev['action_type'] === 'kick') {
+                $dec = json_decode((string)$ev['payload'], true);
+                mc_json([
+                    'ok' => true,
+                    'kicked' => true,
+                    'error' => is_array($dec) ? ($dec['reason'] ?? 'Você foi desconectado pelo Administrador.') : 'Desconectado.'
+                ]);
+            }
+            if ($ev['action_type'] === 'teleport') {
+                $forceTeleport = json_decode((string)$ev['payload'], true);
+            }
+        }
+    }
 
+    // 2. Limpeza probabilistica de sessoes inativas (1 em cada 20 polls) para poupar I/O
+    if (mt_rand(1, 20) === 1) {
+        $pdo->exec('DELETE FROM mc_sessions WHERE last_seen < (NOW() - INTERVAL ' . MP_SESSION_TIMEOUT_S . ' SECOND)');
+    }
+
+    // 3. Pose persistente isolada em mc_user_poses (nunca polui mc_world_state)
     $savedPose = null;
     if ($initSync) {
-        $ps = $pdo->prepare('SELECT state_val FROM mc_world_state WHERE state_key = ? LIMIT 1');
-        $ps->execute([$poseKey]);
+        $ps = $pdo->prepare('SELECT pose_json FROM mc_user_poses WHERE user_id = ? LIMIT 1');
+        $ps->execute([$userId]);
         $rawPose = $ps->fetchColumn();
         if (is_string($rawPose) && $rawPose !== '') {
             $decPose = json_decode($rawPose, true);
@@ -155,9 +186,10 @@ if ($action === 'sync') {
             'holding' => $holding,
             'seated' => $seated ? 1 : 0,
         ]);
-        $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)')
-            ->execute([$poseKey, $poseJson]);
+        $pdo->prepare('INSERT INTO mc_user_poses (user_id, pose_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE pose_json = VALUES(pose_json)')
+            ->execute([$userId, $poseJson]);
     }
+
     $chatMsg = trim((string)($body['chat_msg'] ?? ''));
     $chatMsg = $chatMsg !== '' ? mb_substr($chatMsg, 0, 140, 'UTF-8') : null;
 
@@ -296,7 +328,7 @@ if ($action === 'sync') {
     }
 
     $boardSince = max(0, (int)($body['board_since'] ?? 0));
-    $bStmt = $pdo->prepare('SELECT id, stroke_json FROM mc_board_strokes WHERE id > ? ORDER BY id ASC LIMIT 500');
+    $bStmt = $pdo->prepare('SELECT id, stroke_json FROM mc_board_strokes WHERE id > ? ORDER BY id ASC LIMIT 2500');
     $bStmt->execute([$boardSince]);
     $boardStrokes = [];
     $lastBoardId = $boardSince;
@@ -313,6 +345,7 @@ if ($action === 'sync') {
         'app_version' => trim((string)@file_get_contents(__DIR__ . '/../VERSION')),
         'online_count' => count($players) + 1,
         'saved_pose' => $savedPose,
+        'force_teleport' => $forceTeleport,
         'players' => $players,
         'objects' => $objects,
         'world_state' => $state,

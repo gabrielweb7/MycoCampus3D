@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 3;
+const MC_SCHEMA_VERSION = 4;
 const MC_TOKEN_TTL_DAYS = 30;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -45,61 +45,75 @@ function mc_clean_hex($raw, string $fallback): string {
     return preg_match('/^#[0-9a-fA-F]{6}$/', $raw) ? strtolower($raw) : $fallback;
 }
 
-function mc_table_exists(PDO $pdo, string $table): bool {
-    $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?');
-    $st->execute([$table]);
-    return (int)$st->fetchColumn() > 0;
-}
-
-function mc_column_exists(PDO $pdo, string $table, string $column): bool {
-    $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
-    $st->execute([$table, $column]);
-    return (int)$st->fetchColumn() > 0;
-}
-
 function mc_run_schema_file(PDO $pdo): void {
     $schemaFile = __DIR__ . '/../database/schema.sql';
+    if (!file_exists($schemaFile)) return;
     $sql = (string)file_get_contents($schemaFile);
     $sql = preg_replace('/^\s*--.*$/m', '', $sql);
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $stmt) {
-        if ($stmt !== '') $pdo->exec($stmt);
+        if ($stmt !== '') {
+            try { $pdo->exec($stmt); } catch (Throwable $e) {}
+        }
     }
 }
 
+/**
+ * Executa migracoes do schema se necessario.
+ * Usa arquivo de flag em data/.migrated_vX para NUNCA consultar information_schema
+ * nem mc_meta repetidamente durante o polling de 200ms.
+ */
 function mc_migrate(PDO $pdo): void {
+    $flagFile = __DIR__ . '/../data/.migrated_v' . MC_SCHEMA_VERSION;
+    if (file_exists($flagFile)) {
+        return;
+    }
+
     $version = 0;
-    if (mc_table_exists($pdo, 'mc_meta')) {
-        $version = (int)($pdo->query("SELECT meta_val FROM mc_meta WHERE meta_key = 'schema_version'")->fetchColumn() ?: 0);
+    try {
+        $st = $pdo->query("SELECT meta_val FROM mc_meta WHERE meta_key = 'schema_version'");
+        $version = (int)($st ? $st->fetchColumn() : 0);
+    } catch (Throwable $e) {
+        $version = 0;
     }
-    if ($version >= MC_SCHEMA_VERSION) return;
 
-    // v0/v1 -> v2: corrige tipos do schema inicial (cores/itens como INT, last_seen sem default...)
-    if (mc_table_exists($pdo, 'mc_users')) {
-        $pdo->exec("ALTER TABLE mc_users
-            MODIFY username VARCHAR(48) NOT NULL,
-            MODIFY display_name VARCHAR(64) NOT NULL,
-            MODIFY hat_color VARCHAR(7) NOT NULL DEFAULT '#dc2626',
-            MODIFY body_color VARCHAR(7) NOT NULL DEFAULT '#4f46e5'");
-        $pdo->exec("UPDATE mc_users SET hat_color = '#dc2626' WHERE hat_color NOT REGEXP '^#[0-9a-fA-F]{6}$'");
-        $pdo->exec("UPDATE mc_users SET body_color = '#4f46e5' WHERE body_color NOT REGEXP '^#[0-9a-fA-F]{6}$'");
-        if (!mc_column_exists($pdo, 'mc_users', 'last_harvest_at')) {
-            $pdo->exec('ALTER TABLE mc_users ADD COLUMN last_harvest_at DATETIME(3) NULL AFTER completed_modules');
-        }
-        if (!mc_column_exists($pdo, 'mc_users', 'login_fails')) {
-            $pdo->exec('ALTER TABLE mc_users ADD COLUMN login_fails INT NOT NULL DEFAULT 0 AFTER last_harvest_at');
-        }
-        if (!mc_column_exists($pdo, 'mc_users', 'login_locked_until')) {
-            $pdo->exec('ALTER TABLE mc_users ADD COLUMN login_locked_until DATETIME NULL AFTER login_fails');
-        }
+    if ($version < MC_SCHEMA_VERSION) {
+        mc_run_schema_file($pdo);
+
+        // v3 -> v4: Isolamento de poses em mc_user_poses e limpeza de mc_world_state
+        try {
+            $pdo->exec("DELETE FROM mc_world_state WHERE state_key LIKE 'upose_%'");
+        } catch (Throwable $e) {}
+
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS mc_user_poses (
+                user_id INT PRIMARY KEY,
+                pose_json TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS mc_admin_events (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                target_user_id INT NOT NULL,
+                action_type VARCHAR(32) NOT NULL,
+                payload TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_admin_target (target_user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            $pdo->exec("ALTER TABLE mc_sessions ADD INDEX idx_sessions_user (user_id)");
+        } catch (Throwable $e) {}
+
+        try {
+            $up = $pdo->prepare("INSERT INTO mc_meta (meta_key, meta_val) VALUES ('schema_version', ?) ON DUPLICATE KEY UPDATE meta_val = VALUES(meta_val)");
+            $up->execute([(string)MC_SCHEMA_VERSION]);
+        } catch (Throwable $e) {}
     }
-    // Tabelas efemeras (posicoes online e objetos do lab): recriadas com os tipos corretos
-    $pdo->exec('DROP TABLE IF EXISTS mc_sessions');
-    $pdo->exec('DROP TABLE IF EXISTS mc_world_objects');
 
-    mc_run_schema_file($pdo);
-
-    $up = $pdo->prepare("INSERT INTO mc_meta (meta_key, meta_val) VALUES ('schema_version', ?) ON DUPLICATE KEY UPDATE meta_val = VALUES(meta_val)");
-    $up->execute([(string)MC_SCHEMA_VERSION]);
+    $dataDir = __DIR__ . '/../data';
+    if (!is_dir($dataDir)) {
+        @mkdir($dataDir, 0755, true);
+    }
+    @touch($flagFile);
 }
 
 function mc_db(): PDO {
@@ -184,6 +198,10 @@ function mc_require_user(PDO $pdo): array {
     $touch = $pdo->prepare('UPDATE mc_auth_tokens SET last_used = NOW() WHERE token_hash = ? AND last_used < (NOW() - INTERVAL 60 SECOND)');
     $touch->execute([$hash]);
     return $user;
+}
+
+function mc_is_admin(array $user): bool {
+    return ((string)$user['role']) === 'admin';
 }
 
 function mc_is_professor(array $user): bool {
