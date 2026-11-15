@@ -602,6 +602,19 @@
     window.addEventListener('touchcancel', endStick, { passive: true });
     window.addEventListener('blur', resetStick);
 
+    var rotBtn = $('btn-mobile-rotate');
+    if (rotBtn) {
+      rotBtn.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.rotateCampusHeldItem) window.rotateCampusHeldItem();
+      }, { passive: false });
+      rotBtn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        if (window.rotateCampusHeldItem) window.rotateCampusHeldItem();
+      });
+    }
+
     var sprintBtn = $('btn-mobile-sprint');
     var sprintLatched = false;
     var sprintTouchStartAt = 0;
@@ -702,7 +715,10 @@
       onNearScreen: function () {
         $('prof-toolbar').classList.add('hidden');
       },
-      onHoldChange: function () {},
+      onHoldChange: function (label) {
+        var rotBtn = $('btn-mobile-rotate');
+        if (rotBtn) rotBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
+      },
       onFpsChange: updateFpsUi,
       onHoverPrompt: function (txt) {
         var pill = $('interact-pill');

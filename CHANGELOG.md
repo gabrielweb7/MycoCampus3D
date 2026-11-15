@@ -26,6 +26,16 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Substituído `new THREE.CapsuleGeometry` (inexistente no Three.js `r128`, que causava `TypeError: THREE.CapsuleGeometry is not a constructor` em `makeLiquidJar800` e interrompia o `boot()` antes do `tryResumeSession()`) por `new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10)`.
   - Adicionado suporte em `tryResumeSession()` para autenticar automaticamente e limpar imediatamente a URL (`history.replaceState`) caso o formulário tenha sido submetido via GET (`?campus_name=...&campus_pin=...`).
 
+## [v0.6.5] - 2026-11-15
+### Corrigido
+- **Bug no Mobile ao pegar/soltar itens**: corrigido disparo duplo de `touchend` + `mousedown` sintético que fazia o item voltar para o chão imediatamente após ser pego; adicionado cooldown anti-duplo-toque e suporte completo de alvos no toque fora do centro.
+- **Bug ao colocar itens em estantes multi-nível e mesas**: implementado raycast direto nas malhas das prateleiras, bancadas e mesas (`supportMeshes`), evitando que itens colocados na prateleira de baixo saltem para a prateleira de cima ou caiam no chão.
+- **Seringas 10 ml deitadas**: seringas agora ficam apoiadas horizontalmente deitadas sobre mesas e prateleiras.
+
+### Melhorado & Otimizado (Mobile)
+- **Performance mobile**: `BasicShadowMap` (768px), `pixelRatio` limitado a `0.9`, câmera `far: 240`, sombras desligadas em itens pequenos do estoque no celular e throttle no raycast de hover (`75ms`).
+- **Botão Girar (`🔄`) no Mobile**: botão contextual para rotacionar itens segurados no celular.
+
 ## [v0.6.4] - 2026-11-15
 ### Adicionado
 - **Esterilização funcional na panela de pressão**: fogão elétrico de bancada (`burner_lab`), inserção de vidros, bags e garrafas na panela destampada, ciclo de autoclave a 121 °C / 15 PSI com vapor, chiado do pino e progresso 0–100%.

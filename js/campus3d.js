@@ -16,6 +16,7 @@
   var walkableFloors = [];   // { minX, maxX, minZ, maxZ, topY }
   var stairsList = [];       // { minX, maxX, zStart, zEnd, yStart, yEnd }
   var supportSurfaces = [];  // { minX, maxX, minZ, maxZ, topY }
+  var supportMeshes = [];    // meshes de tampos/prateleiras para raycast direto em estantes multinivel
   var pickableItems = [];    // { id, label, mesh, homePos, homeRy, radius, height, isMoved }
   var wildMushrooms = [];    // { id, group, capMesh, active, respawnAt }
 
@@ -1156,7 +1157,7 @@
         backPad.castShadow = true;
         cg.add(seatPad, backPad);
         var sitYaw = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
-        seatPad.userData.seatInfo = { x: chairX, y: yFloor2 + 0.08, z: chairZ, yaw: sitYaw };
+        seatPad.userData.seatInfo = { x: chairX, y: yFloor2, z: chairZ, yaw: sitYaw };
         backPad.userData.seatInfo = seatPad.userData.seatInfo;
         seatMeshes.push(seatPad, backPad);
         scene.add(cg);
@@ -1627,6 +1628,9 @@
   function registerPickable(id, label, mesh, x, y, z, ry, radius, height) {
     mesh.position.set(x, y, z);
     mesh.rotation.y = ry || 0;
+    if (isTouchDevice() && !mesh.userData.twoHanded) {
+      mesh.traverse(function (ch) { if (ch.isMesh) ch.castShadow = false; });
+    }
     scene.add(mesh);
     var entry = {
       id: id, label: label, mesh: mesh,
@@ -1708,6 +1712,8 @@
       var surf = { minX: tx - tw / 2 + 0.05, maxX: tx + tw / 2 - 0.05, minZ: tz - td / 2 + 0.05, maxZ: tz + td / 2 - 0.05, topY: floorY + th };
       var col = { minX: tx - tw / 2 - 0.05, maxX: tx + tw / 2 + 0.05, minZ: tz - td / 2 - 0.05, maxZ: tz + td / 2 + 0.05, minY: floorY, maxY: floorY + th + 0.4 };
       supportSurfaces.push(surf);
+      top.userData.supportSurface = surf;
+      supportMeshes.push(top);
       solidColliders.push(col);
       tg.userData.twoHanded = true;
       tg.userData.isTable = true;
@@ -1729,7 +1735,10 @@
       top.position.set(bx, 0.14 + 0.85, bz);
       scene.add(trim, cab, top);
       solidColliders.push({ minX: bx - bw / 2 - 0.05, maxX: bx + bw / 2 + 0.05, minZ: bz - bd / 2 - 0.05, maxZ: bz + bd / 2 + 0.05, minY: 0.14, maxY: 1.3 });
-      supportSurfaces.push({ minX: bx - bw / 2, maxX: bx + bw / 2, minZ: bz - bd / 2, maxZ: bz + bd / 2, topY: 1.02 });
+      var benchSurf = { minX: bx - bw / 2, maxX: bx + bw / 2, minZ: bz - bd / 2, maxZ: bz + bd / 2, topY: 1.02 };
+      supportSurfaces.push(benchSurf);
+      top.userData.supportSurface = benchSurf;
+      supportMeshes.push(top);
     }
     addWallLabBench(-23.15, -7.0, 1.2, 10.6); // Parede Oeste inteira
     addWallLabBench(-18.5, -12.0, 8.1, 1.1);  // Parede Norte inteira
@@ -1741,7 +1750,10 @@
       var sh = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.04, 0.68), rackMat);
       sh.position.set(rackX, 0.14 + sy, rackZ);
       scene.add(sh);
-      supportSurfaces.push({ minX: rackX - 1.55, maxX: rackX + 1.55, minZ: rackZ - 0.3, maxZ: rackZ + 0.3, topY: 0.14 + sy + 0.02 });
+      var shSurf = { minX: rackX - 1.55, maxX: rackX + 1.55, minZ: rackZ - 0.3, maxZ: rackZ + 0.3, topY: 0.14 + sy + 0.02 };
+      supportSurfaces.push(shSurf);
+      sh.userData.supportSurface = shSurf;
+      supportMeshes.push(sh);
     });
     [-1.56, 1.56].forEach(function (pxOff) {
       [-0.31, 0.31].forEach(function (pzOff) {
@@ -1822,6 +1834,9 @@
 
     var hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.065 };
     supportSurfaces.push(hoodSurf);
+    hoodBase.userData.supportSurface = hoodSurf;
+    hoodWorkMat.userData.supportSurface = hoodSurf;
+    supportMeshes.push(hoodBase, hoodWorkMat);
     hoodGroup.userData.twoHanded = true;
     hoodGroup.userData.isHood = true;
     hoodGroup.userData.tableDims = { w: 1.39, h: 0.045, d: 2.34, surfOffset: 0 };
@@ -1919,6 +1934,9 @@
 
       var bSurf = { minX: px - 0.26, maxX: px + 0.26, minZ: pz - 0.28, maxZ: pz + 0.24, topY: py + 0.088 };
       supportSurfaces.push(bSurf);
+      body.userData.supportSurface = bSurf;
+      coil.userData.supportSurface = bSurf;
+      supportMeshes.push(body, coil);
       bg.userData.isBurner = true;
       bg.userData.tableDims = { w: 0.54, h: 0.088, d: 0.58, surfOffset: 0 };
       bg.userData.dynamicSurface = bSurf;
@@ -2187,6 +2205,8 @@
       var sx = -23.1, sy = 1.02, sz = -9.6;
       var scSurf = { minX: sx - 0.15, maxX: sx + 0.15, minZ: sz - 0.18, maxZ: sz + 0.10, topY: sy + 0.082 };
       supportSurfaces.push(scSurf);
+      pan.userData.supportSurface = scSurf;
+      supportMeshes.push(pan);
       sg.userData.isScale = true;
       sg.userData.tableDims = { w: 0.32, h: 0.082, d: 0.38, surfOffset: 0 };
       sg.userData.dynamicSurface = scSurf;
@@ -2413,6 +2433,8 @@
 
       var stirSurf = { minX: px - 0.13, maxX: px + 0.13, minZ: pz - 0.16, maxZ: pz + 0.08, topY: py + 0.098 };
       supportSurfaces.push(stirSurf);
+      plate.userData.supportSurface = stirSurf;
+      supportMeshes.push(plate);
       sg.userData.isStirrer = true;
       sg.userData.tableDims = { w: 0.30, h: 0.098, d: 0.34, surfOffset: 0 };
       sg.userData.dynamicSurface = stirSurf;
@@ -2470,10 +2492,14 @@
       hub.position.y = 0.068;
       var needle = new THREE.Mesh(new THREE.CylinderGeometry(0.0016, 0.001, 0.058, 8), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 }));
       needle.position.y = 0.030;
-      sg.add(liqMesh, plunger, barrel, flange, hub, needle);
+      var layWrap = new THREE.Group();
+      layWrap.add(liqMesh, plunger, barrel, flange, hub, needle);
+      layWrap.rotation.z = Math.PI / 2;
+      layWrap.position.set(0.12, 0.022, 0);
+      sg.add(layWrap);
       sg.userData.isSyringe = true;
       sg.userData.syrCtrl = { volMl: 0, liqMesh: liqMesh, plunger: plunger };
-      var item = registerPickable(id, 'Seringa 10ml (Vazia)', sg, px, py, pz, 0, 0.08, 0.24);
+      var item = registerPickable(id, 'Seringa 10ml (Vazia)', sg, px, py, pz, 0, 0.14, 0.06);
       item.setVolume = function (v) { updateSyringeVolume(item, v); };
       updateSyringeVolume(item, 0);
       return item;
@@ -2530,24 +2556,33 @@
         });
       });
 
-      // 3 Niveis de prateleiras/longarinas laranjas vazias + par de longarinas laranjas no topo (2.24m)
+      var rotSwap = Math.abs(Math.sin(rotY || 0)) > 0.707;
+      var worldHalfX = rotSwap ? halfD : halfL;
+      var worldHalfZ = rotSwap ? halfL : halfD;
       var shelfLevels = [0.28, 0.96, 1.64];
       shelfLevels.forEach(function (sy) {
-        // Longarinas frontal e traseira laranjas
+        var rSurf = {
+          minX: rx - worldHalfX + 0.04, maxX: rx + worldHalfX - 0.04,
+          minZ: rz - worldHalfZ + 0.04, maxZ: rz + worldHalfZ - 0.04,
+          topY: floorY + sy + 0.038
+        };
+        supportSurfaces.push(rSurf);
         [-halfD + 0.04, halfD - 0.04].forEach(function (bz) {
           var beam = makeBox(totalLen - 0.04, 0.072, 0.042, orangeMat);
           beam.position.set(0, sy, bz);
+          beam.userData.supportSurface = rSurf;
+          supportMeshes.push(beam);
           rg.add(beam);
-          // Conectores laranjas abracando as 3 colunas azuis
           colPositions.forEach(function (cx) {
             var bracket = makeBox(0.082, 0.12, 0.082, orangeMat, { noShadow: true });
             bracket.position.set(cx, sy, bz);
             rg.add(bracket);
           });
         });
-        // Bandeja metalica laranja lisa (pronta para apoiar qualquer objeto do jogo!)
         var tray = makeBox(totalLen - 0.10, 0.032, depth - 0.08, orangeMat);
         tray.position.set(0, sy + 0.022, 0);
+        tray.userData.supportSurface = rSurf;
+        supportMeshes.push(tray);
         rg.add(tray);
       });
 
@@ -2565,21 +2600,10 @@
 
       scene.add(rg);
 
-      // Calcula bounding box no mundo para colisao e superficies de apoio em todas as 3 prateleiras
-      var rotSwap = Math.abs(Math.sin(rotY || 0)) > 0.707;
-      var worldHalfX = rotSwap ? halfD : halfL;
-      var worldHalfZ = rotSwap ? halfL : halfD;
       solidColliders.push({
         minX: rx - worldHalfX, maxX: rx + worldHalfX,
         minZ: rz - worldHalfZ, maxZ: rz + worldHalfZ,
         minY: floorY, maxY: floorY + rackH
-      });
-      shelfLevels.forEach(function (sy) {
-        supportSurfaces.push({
-          minX: rx - worldHalfX + 0.04, maxX: rx + worldHalfX - 0.04,
-          minZ: rz - worldHalfZ + 0.04, maxZ: rz + worldHalfZ - 0.04,
-          topY: floorY + sy + 0.038
-        });
       });
     }
 
@@ -2710,8 +2734,8 @@
     for (var pfi = 0; pfi < 3; pfi++) {
       makeTapeRoll('parafilm_' + pad2(pfi + 1), 'parafilm', -23.05, 1.798, 7.1 + pfi * 0.45);
     }
-    makeBeaker1L('beaker_1l_03', 0, -23.05, 1.798, 9.2);
-    makeBeaker1L('beaker_1l_04', 0, -23.05, 1.798, 9.9);
+    makeBeaker1L('beaker_1l_03', -23.05, 1.798, 9.2, 0);
+    makeBeaker1L('beaker_1l_04', -23.05, 1.798, 9.9, 0);
 
     // 3. ESTANTE SUL (x: -22.0..-17.6, z = 12.95)
     // Nivel 2 (y = 1.118): 20 Seringas 10ml Estereis
@@ -2941,7 +2965,7 @@
     cinemaBeam.rotation.x = Math.PI / 2 - 0.19;
     scene.add(projBody, projLens, cinemaBeam);
 
-    // 3 fileiras de poltronas do Auditorio
+    // 3 fileiras de poltronas do Auditorio (clicaveis para sentar e assistir!)
     [-14.5, -12.2, -9.9].forEach(function (rz, rIdx) {
       var rowBench = makeBox(11.0, 0.45, 0.85, 0x991b1b, { roughness: 0.7 });
       rowBench.position.set(48, 0.38 + rIdx * 0.18, rz);
@@ -2949,6 +2973,16 @@
       rowBack.position.set(48, 0.78 + rIdx * 0.18, rz + 0.36);
       scene.add(rowBench, rowBack);
       solidColliders.push({ minX: 42.4, maxX: 53.6, minZ: rz - 0.45, maxZ: rz + 0.45, minY: 0, maxY: 1.4 });
+      [-4.4, -2.2, 0, 2.2, 4.4].forEach(function (sx) {
+        var audSeatHit = new THREE.Mesh(
+          new THREE.BoxGeometry(2.0, 0.65, 0.85),
+          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+        );
+        audSeatHit.position.set(48 + sx, 0.52 + rIdx * 0.18, rz);
+        audSeatHit.userData.seatInfo = { x: 48 + sx, y: 0.14 + rIdx * 0.18, z: rz - 0.04, yaw: 0 };
+        scene.add(audSeatHit);
+        seatMeshes.push(audSeatHit);
+      });
     });
 
     // Quadra poliesportiva livre (sem guarda-sois)
@@ -3290,7 +3324,22 @@
       }
     }
 
-    // 1. Intersecao exata Raio x Plano para mesas, bancadas e bandejas de lousa
+    // 1. Raycast direto nas meshes de prateleiras, bancadas e mesas (evita atravessar prateleiras de cima!)
+    if (supportMeshes.length) {
+      var sHits = raycaster.intersectObjects(supportMeshes, false);
+      for (var si = 0; si < sHits.length; si++) {
+        var sh = sHits[si];
+        if (sh.distance < 0.15 || sh.distance > 5.5) continue;
+        var sSurf = sh.object.userData.supportSurface;
+        if (!sSurf) continue;
+        if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === sSurf) continue;
+        var cx = Math.max(sSurf.minX + 0.02, Math.min(sSurf.maxX - 0.02, sh.point.x));
+        var cz = Math.max(sSurf.minZ + 0.02, Math.min(sSurf.maxZ - 0.02, sh.point.z));
+        return new THREE.Vector3(cx, sSurf.topY, cz);
+      }
+    }
+
+    // 1b. Fallback plano matematico para superficies sem mesh associada
     if (dir.y < -0.005) {
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
@@ -3570,16 +3619,20 @@
     var skinMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.65 });
     var hatMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(data.hat_color || '#d9534f'), roughness: 0.45 });
 
-    var leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.38, 0.14), bodyMat);
-    leftLeg.position.set(-0.1, 0.19, 0); leftLeg.castShadow = true;
-    var rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.38, 0.14), bodyMat);
-    rightLeg.position.set(0.1, 0.19, 0); rightLeg.castShadow = true;
+    var legGeo = new THREE.BoxGeometry(0.14, 0.38, 0.14);
+    legGeo.translate(0, -0.19, 0); // Pivo na articulacao do quadril (topo da perna)
+    var leftLeg = new THREE.Mesh(legGeo, bodyMat);
+    leftLeg.position.set(-0.10, 0.38, 0); leftLeg.castShadow = true;
+    var rightLeg = new THREE.Mesh(legGeo, bodyMat);
+    rightLeg.position.set(0.10, 0.38, 0); rightLeg.castShadow = true;
     var torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.52, 0.26), bodyMat);
     torso.position.set(0, 0.64, 0); torso.castShadow = true;
-    var leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.44, 0.13), bodyMat);
-    leftArm.position.set(-0.29, 0.66, 0); leftArm.castShadow = true;
-    var rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.44, 0.13), bodyMat);
-    rightArm.position.set(0.29, 0.66, 0); rightArm.castShadow = true;
+    var armGeo = new THREE.BoxGeometry(0.13, 0.44, 0.13);
+    armGeo.translate(0, -0.16, 0); // Pivo na articulacao do ombro (topo do braco)
+    var leftArm = new THREE.Mesh(armGeo, bodyMat);
+    leftArm.position.set(-0.28, 0.82, 0); leftArm.castShadow = true;
+    var rightArm = new THREE.Mesh(armGeo, bodyMat);
+    rightArm.position.set(0.28, 0.82, 0); rightArm.castShadow = true;
     g.add(leftLeg, rightLeg, torso, leftArm, rightArm);
 
     var headGroup = new THREE.Group();
@@ -4446,9 +4499,15 @@
       }
     });
 
+    var lastTouchEndAt = 0;
+    var lastTouchActionAt = 0;
+
     renderer.domElement.addEventListener('mousedown', function (e) {
       if (e.button !== 0 || lobbyTourActive) return;
-      if (inFps && !isTouchDevice() && document.pointerLockElement !== renderer.domElement) {
+      if (isTouchDevice() || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) || (performance.now() - lastTouchEndAt < 700)) {
+        return;
+      }
+      if (inFps && document.pointerLockElement !== renderer.domElement) {
         renderer.domElement.requestPointerLock();
         return;
       }
@@ -4478,6 +4537,7 @@
     }
 
     renderer.domElement.addEventListener('touchstart', function (e) {
+      if (e.target !== renderer.domElement) return;
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         if (touchLookId === null) {
@@ -4525,6 +4585,7 @@
     }, { passive: true });
 
     function resetTouchLook(e) {
+      lastTouchEndAt = performance.now();
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         if (t.identifier === touchLookId) {
@@ -4533,15 +4594,22 @@
             flushCurrentStroke();
             touchDrawingBoard = false;
           } else if (!touchMoved && !lobbyTourActive) {
-            setNdcFromTouch(t);
-            updateHoverRay(pointerNdc);
-            // Se tocou no vazio, tenta tambem na mira central (crosshair) para facilitar no celular
-            var hasTarget = hoveredPickable || hoveredMushroom || hoveredDoorObj || hoveredBlindObj || hoveredSeat || hoveredSwitch || hoveredHoodSwitch || hoveredRankBtn || hoveredCinema || hoveredScreen || hoveredScreenBtn;
-            if (!hasTarget) {
-              pointerNdc.set(0, 0);
+            var nowT = performance.now();
+            if (nowT - lastTouchActionAt > 180) {
+              lastTouchActionAt = nowT;
+              setNdcFromTouch(t);
               updateHoverRay(pointerNdc);
+              // Se tocou no vazio, tenta tambem na mira central (crosshair) para facilitar no celular
+              var hasTarget = hoveredPickable || hoveredMushroom || hoveredDoorObj || hoveredBlindObj ||
+                hoveredSeat || hoveredSwitch || hoveredHoodSwitch || hoveredStirSwitch ||
+                hoveredSyringeTarget || hoveredScaleTare || hoveredBurnerSwitch || hoveredPotInsert ||
+                hoveredSprayTarget || hoveredRankBtn || hoveredCinema || hoveredScreen || hoveredScreenBtn;
+              if (!hasTarget) {
+                pointerNdc.set(0, 0);
+                updateHoverRay(pointerNdc);
+              }
+              handlePrimaryAction();
             }
-            handlePrimaryAction();
           }
           touchLookId = null;
         }
@@ -4557,6 +4625,7 @@
     });
   }
 
+  var lastMobileHoverAt = 0;
   function animate() {
     requestAnimationFrame(animate);
     var dt = Math.min(0.05, clock.getDelta());
@@ -4752,7 +4821,10 @@
     }
 
     if (!lobbyTourActive) {
-      updateHoverRay();
+      if (!isTouchDevice() || isPrimaryDown || (now - lastMobileHoverAt > 75)) {
+        lastMobileHoverAt = now;
+        updateHoverRay();
+      }
       // Desenho ou apagamento continuo na lousa enquanto segura o clique perto dela
       var toolColor = getHeldBoardToolColor();
       var activeBoard = chalkboards[hoveredBoardIndex];
@@ -5352,15 +5424,15 @@
     weatherPoints.frustumCulled = false;
     scene.add(weatherPoints);
 
-    camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 440);
+    var touch = isTouchDevice();
+    camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, touch ? 240 : 440);
     camera.position.set(-14, 16, 26);
 
-    var touch = isTouchDevice();
     renderer = new THREE.WebGLRenderer({ antialias: !touch, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.0 : 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 0.9 : 1.5));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = touch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = touch ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     if (THREE.ACESFilmicToneMapping) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.05;
@@ -5381,7 +5453,7 @@
     var sun = new THREE.DirectionalLight(0xfffbeb, 1.15);
     sun.position.set(45, 65, 38);
     sun.castShadow = true;
-    var shSize = isTouchDevice() ? 1024 : 1536;
+    var shSize = touch ? 768 : 1536;
     sun.shadow.mapSize.set(shSize, shSize);
     sun.shadow.camera.left = -85;
     sun.shadow.camera.right = 85;
@@ -5840,6 +5912,10 @@
     }
     rankingTex.needsUpdate = true;
   }
+
+  window.rotateCampusHeldItem = function () {
+    if (heldItem) heldRotY += Math.PI / 4;
+  };
 
   window.setCampusMobilePrimary = function (down) {
     if (lobbyTourActive) return;
