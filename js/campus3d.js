@@ -96,8 +96,13 @@
   var cinemaTex = null;
   var cinemaBeam = null;
   var cinemaPlaying = true;
+  var cinemaPower = true;
+  var cinemaLessonIdx = -1; // -1 = menu principal com todos os modulos/aulas
+  var cinemaLessons = [];
+  var cinemaDirty = true;
   var cinemaTime = 0;
   var hoveredCinema = false;
+  var hoveredCinemaUv = null;
   var seatMeshes = [];
   var hoveredSeat = null;
   var seatedSeat = null;
@@ -737,16 +742,13 @@
         });
       });
     });
-    var roomLight = new THREE.PointLight(0xfffbeb, 1.05, 19, 1.5);
+    var roomLight = new THREE.PointLight(0xfffbeb, 1.1, 20, 1.45);
     roomLight.position.set(cx, yFloor2 + h2 - 0.35, cz);
     scene.add(roomLight);
-    var groundLight = new THREE.PointLight(0xfef3c7, 0.7, 16, 1.6);
-    groundLight.position.set(cx, yFloor1 + h1 - 0.4, cz);
-    scene.add(groundLight);
 
-    // Interruptor 3D ao lado da porta do 2o andar
+    // Interruptor 3D ao lado da porta do 2o andar (fixado na parede de tijolos, fora do vao de 3.2m)
     var swGroup = new THREE.Group();
-    swGroup.position.set(cx - dir * 1.45, yFloor2 + 1.32, zN + 0.17);
+    swGroup.position.set(cx - dir * 2.15, yFloor2 + 1.32, zN + 0.155);
     var swPlate = makeBox(0.18, 0.28, 0.03, 0xf8fafc, { roughness: 0.3 });
     var swRocker = makeBox(0.08, 0.12, 0.04, 0xe2e8f0, { roughness: 0.4 });
     swRocker.position.z = 0.02;
@@ -755,7 +757,7 @@
     var swLed = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.015, 0.02), swLedMat);
     swLed.position.set(0, 0.09, 0.025);
     swGroup.add(swPlate, swRocker, swLed);
-    var swData = { on: true, light: roomLight, gLight: groundLight, tubeMat: tubeMat, ledMat: swLedMat, rocker: swRocker };
+    var swData = { on: true, light: roomLight, gLight: null, tubeMat: tubeMat, ledMat: swLedMat, rocker: swRocker };
     swPlate.userData.lightSwitch = swData;
     swRocker.userData.lightSwitch = swData;
     lightSwitchMeshes.push(swPlate, swRocker);
@@ -769,6 +771,11 @@
         minX: cx + dir * 1.1 - 0.6, maxX: cx + dir * 1.1 + 0.6,
         minZ: deskZ - 1.05, maxZ: deskZ + 1.05,
         minY: yFloor2, maxY: yFloor2 + 0.9
+      });
+      supportSurfaces.push({
+        minX: cx + dir * 1.1 - 0.52, maxX: cx + dir * 1.1 + 0.52,
+        minZ: deskZ - 0.96, maxZ: deskZ + 0.96,
+        topY: yFloor2 + 0.72
       });
 
       // 2 Cadeiras ergonomicas clicaveis atras de cada mesa (voltadas para a lousa)
@@ -960,14 +967,14 @@
     [-4.25, 4.25].forEach(function (rx) {
       var stringer = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.42, slopeLen + 0.3), steelMat);
       stringer.position.set(rx, yTop / 2 - 0.08, -15.0);
-      stringer.rotation.x = -slopeAng;
+      stringer.rotation.x = slopeAng;
       stringer.castShadow = true;
       var glassPanel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.88, slopeLen), stairGlassMat);
       glassPanel.position.set(rx, yTop / 2 + 0.52, -15.0);
-      glassPanel.rotation.x = -slopeAng;
+      glassPanel.rotation.x = slopeAng;
       var handrail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, slopeLen + 0.2, 12), railMetalMat);
       handrail.position.set(rx, yTop / 2 + 1.0, -15.0);
-      handrail.rotation.x = Math.PI / 2 - slopeAng;
+      handrail.rotation.x = Math.PI / 2 + slopeAng;
       scene.add(stringer, glassPanel, handrail);
 
       for (var pIdx = 0; pIdx <= 3; pIdx++) {
@@ -979,11 +986,11 @@
       solidColliders.push({ minX: rx - 0.22, maxX: rx + 0.22, minZ: -18.55, maxZ: -11.45, minY: 0, maxY: 5.0 });
     });
 
-    // Passarela / Ponte Elevada no nivel exato y=3.80 dividida em Esquerda e Direita (sem sobrepor o ultimo degrau!)
-    addWalkableSlab(-12.6, yTop, -15.65, 16.8, 0.34, 5.7, 0x475569, { roughness: 0.6 });
-    addWalkableSlab(12.6, yTop, -15.65, 16.8, 0.34, 5.7, 0x475569, { roughness: 0.6 });
+    // Passarela / Ponte Elevada no nivel exato y=3.80 dividida em Esquerda e Direita (sem sobrepor o ultimo degrau nem as lajes dos blocos!)
+    addWalkableSlab(-12.6, yTop, -15.7375, 16.8, 0.34, 5.525, 0x475569, { roughness: 0.6 });
+    addWalkableSlab(12.6, yTop, -15.7375, 16.8, 0.34, 5.525, 0x475569, { roughness: 0.6 });
     // Patamar superior alinhado exatamente atras de z=-18.5 (zero z-fighting!)
-    addWalkableSlab(0, yTop, -19.05, 8.6, 0.34, 1.1, 0x475569, { roughness: 0.6 });
+    addWalkableSlab(0, yTop, -19.05, 8.4, 0.34, 1.1, 0x475569, { roughness: 0.6 });
 
     // Pilares estruturais sustentando a passarela
     [-12.5, -6.5, 6.5, 12.5].forEach(function (px) {
@@ -1004,18 +1011,18 @@
       addSolidWall(side * 20.6, -12.85, side * 24.0, -12.85, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
     });
 
-    // Pontes ligando Bloco Norte <-> Bloco Sul no 2o andar (x = +-19, z = -1.2 .. 2.2, y = 3.80)
+    // Pontes ligando Bloco Norte <-> Bloco Sul no 2o andar (x = +-19, z = -1.025 .. 2.025, y = 3.80, encontro exato sem z-fighting)
     [-19, 19].forEach(function (ax) {
-      addWalkableSlab(ax, yTop, 0.5, 4.4, 0.28, 3.6, 0x475569, { roughness: 0.6 });
-      addSolidWall(ax - 2.1, -1.2, ax - 2.1, 2.2, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
-      addSolidWall(ax + 2.1, -1.2, ax + 2.1, 2.2, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+      addWalkableSlab(ax, yTop, 0.5, 4.4, 0.28, 3.05, 0x475569, { roughness: 0.6 });
+      addSolidWall(ax - 2.1, -1.025, ax - 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+      addSolidWall(ax + 2.1, -1.025, ax + 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
     });
 
     // Terraco Norte (y = 3.80, x: -24..24, z: -29.5 .. -42.0) — separado da passarela por um Lago Norte organico
     addWalkableSlab(0, yTop, -35.75, 48.0, 3.80, 12.5, 0x94a3b8, { roughness: 0.8 });
 
     // Ponte Norte sobre o lago ligando a Passarela (-18.5) ate o Terraco da Torre do Relogio (-29.5)
-    addWalkableSlab(0, yTop, -24.0, 5.6, 0.36, 11.2, 0x64748b, { roughness: 0.65 });
+    addWalkableSlab(0, yTop, -24.0, 5.6, 0.36, 11.0, 0x64748b, { roughness: 0.65 });
     [-2.75, 2.75].forEach(function (bx) {
       addSolidWall(bx, -29.5, bx, -18.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45 });
     });
@@ -1057,12 +1064,11 @@
       addSolidWall(ax + 1.2, -33.8, ax + 5.5, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
       var doorHeader = makeBox(2.5, 3.1, 0.28, brickMat(1, 1));
       doorHeader.position.set(ax, baseY + 4.55, -33.8);
-      var rLight = new THREE.PointLight(0xfffbeb, 0.85, 14, 1.5);
-      rLight.position.set(ax, baseY + 5.4, -37.0);
       var rDesk = makeBox(2.6, 0.78, 1.1, 0x92400e, { roughness: 0.65 });
       rDesk.position.set(ax, baseY + 0.39, -38.2);
-      scene.add(doorHeader, rLight, rDesk);
+      scene.add(doorHeader, rDesk);
       solidColliders.push({ minX: ax - 1.35, maxX: ax + 1.35, minZ: -38.8, maxZ: -37.6, minY: baseY, maxY: baseY + 1.0 });
+      supportSurfaces.push({ minX: ax - 1.25, maxX: ax + 1.25, minZ: -38.7, maxZ: -37.7, topY: baseY + 0.78 });
     });
 
     // Torre Central do Relogio
@@ -1505,7 +1511,7 @@
 
     // Tela gigante do Projetor na parede Norte (z = -19.65)
     cinemaCanvas = document.createElement('canvas');
-    cinemaCanvas.width = 512; cinemaCanvas.height = 256;
+    cinemaCanvas.width = 768; cinemaCanvas.height = 384;
     cinemaCtx = cinemaCanvas.getContext('2d');
     cinemaTex = new THREE.CanvasTexture(cinemaCanvas);
     var cinemaFrame = makeBox(11.6, 5.4, 0.18, 0x0f172a);
@@ -2168,8 +2174,30 @@
       return;
     }
     if (hoveredCinema) {
-      cinemaPlaying = !cinemaPlaying;
-      if (cinemaBeam) cinemaBeam.visible = cinemaPlaying;
+      var hit = getCinemaHitTarget(hoveredCinemaUv);
+      if (hit.type === 'power_on') {
+        cinemaPower = true;
+        cinemaDirty = true;
+        if (cinemaBeam) cinemaBeam.visible = (cinemaLessonIdx === -1 || cinemaPlaying);
+      } else if (hit.type === 'power_off') {
+        cinemaPower = false;
+        cinemaDirty = true;
+        if (cinemaBeam) cinemaBeam.visible = false;
+      } else if (hit.type === 'menu') {
+        cinemaLessonIdx = -1;
+        cinemaDirty = true;
+        if (cinemaBeam) cinemaBeam.visible = true;
+      } else if (hit.type === 'lesson') {
+        cinemaLessonIdx = hit.idx;
+        cinemaPlaying = true;
+        cinemaTime = 0;
+        cinemaDirty = true;
+        if (cinemaBeam) cinemaBeam.visible = true;
+      } else if (hit.type === 'toggle_play') {
+        cinemaPlaying = !cinemaPlaying;
+        cinemaDirty = true;
+        if (cinemaBeam) cinemaBeam.visible = cinemaPlaying;
+      }
       return;
     }
     if (hoveredRankBtn) {
@@ -2189,7 +2217,7 @@
     if (hoveredSwitch) {
       hoveredSwitch.on = !hoveredSwitch.on;
       hoveredSwitch.light.intensity = hoveredSwitch.on ? 1.05 : 0;
-      hoveredSwitch.gLight.intensity = hoveredSwitch.on ? 0.7 : 0;
+      if (hoveredSwitch.gLight) hoveredSwitch.gLight.intensity = hoveredSwitch.on ? 0.7 : 0;
       hoveredSwitch.tubeMat.emissiveIntensity = hoveredSwitch.on ? 1.25 : 0.04;
       hoveredSwitch.ledMat.color.setHex(hoveredSwitch.on ? 0x22c55e : 0xef4444);
       hoveredSwitch.rocker.rotation.x = hoveredSwitch.on ? -0.22 : 0.22;
@@ -2224,6 +2252,7 @@
     hoveredScreenBtn = null;
     hoveredBoardHit = null;
     hoveredCinema = false;
+    hoveredCinemaUv = null;
     hoveredRankBtn = null;
     hoveredSeat = null;
     hoveredSwitch = null;
@@ -2282,7 +2311,15 @@
       var cHits = raycaster.intersectObject(cinemaScreenMesh, false);
       if (cHits.length > 0 && cHits[0].distance < 22) {
         hoveredCinema = true;
-        prompt = cinemaPlaying ? '⏸️ Clique na tela para pausar o vídeo' : '▶️ Clique na tela para reproduzir o vídeo';
+        hoveredCinemaUv = cHits[0].uv ? { x: cHits[0].uv.x, y: 1 - cHits[0].uv.y } : { x: 0.5, y: 0.5 };
+        cinemaDirty = true;
+        var cTarget = getCinemaHitTarget(hoveredCinemaUv);
+        if (cTarget.type === 'power_on') prompt = '⏻ Clique na tela para ligar o Auditório';
+        else if (cTarget.type === 'power_off') prompt = '⏻ Desligar tela do Auditório';
+        else if (cTarget.type === 'menu') prompt = '📋 Voltar ao menu de módulos';
+        else if (cTarget.type === 'lesson') prompt = '▶️ Assistir: ' + ((cinemaLessons[cTarget.idx] && cinemaLessons[cTarget.idx].title) || 'Aula');
+        else if (cTarget.type === 'toggle_play') prompt = cinemaPlaying ? '⏸️ Clique na aula para pausar' : '▶️ Clique na aula para continuar';
+        else prompt = '🎬 Escolha um módulo na tela para assistir';
         if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
         return;
       }
@@ -2432,11 +2469,30 @@
       }
     }, { passive: false });
 
-    var touchLookId = null, lastTX = 0, lastTY = 0, touchMoved = false;
+    var touchLookId = null, touchDrawId = null, lastTX = 0, lastTY = 0, touchMoved = false;
+    function setNdcFromTouch(t) {
+      var rect = renderer.domElement.getBoundingClientRect();
+      pointerNdc.x = ((t.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((t.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
     renderer.domElement.addEventListener('touchstart', function (e) {
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
-        if (touchLookId === null && t.clientX > window.innerWidth * 0.35) {
+        // Se estiver segurando giz/apagador e tocar diretamente na lousa, desenha direto com o dedo!
+        if (!lobbyTourActive && heldItem && getHeldBoardToolColor() && chalkboardMeshes.length && touchDrawId === null) {
+          setNdcFromTouch(t);
+          raycaster.setFromCamera(pointerNdc, camera);
+          var bh = raycaster.intersectObjects(chalkboardMeshes, false);
+          if (bh.length > 0 && bh[0].distance < 5.0 && bh[0].uv) {
+            touchDrawId = t.identifier;
+            hoveredBoardHit = bh[0];
+            hoveredBoardIndex = bh[0].object.userData.boardIndex || 0;
+            isPrimaryDown = true;
+            return;
+          }
+        }
+        if (touchLookId === null && t.clientX > window.innerWidth * 0.28) {
           touchLookId = t.identifier;
           lastTX = t.clientX; lastTY = t.clientY;
           touchMoved = false;
@@ -2448,9 +2504,19 @@
       if (!inFps) return;
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
+        if (t.identifier === touchDrawId) {
+          setNdcFromTouch(t);
+          raycaster.setFromCamera(pointerNdc, camera);
+          var bh = raycaster.intersectObjects(chalkboardMeshes, false);
+          if (bh.length > 0 && bh[0].distance < 5.0 && bh[0].uv) {
+            hoveredBoardHit = bh[0];
+            hoveredBoardIndex = bh[0].object.userData.boardIndex || 0;
+          }
+          continue;
+        }
         if (t.identifier === touchLookId) {
           var dx = t.clientX - lastTX, dy = t.clientY - lastTY;
-          if (Math.hypot(dx, dy) > 4) touchMoved = true;
+          if (Math.hypot(dx, dy) > 5) touchMoved = true;
           playerYaw -= dx * 0.0045;
           playerPitch = Math.max(-1.35, Math.min(1.35, playerPitch - dy * 0.0045));
           lastTX = t.clientX; lastTY = t.clientY;
@@ -2461,12 +2527,22 @@
     renderer.domElement.addEventListener('touchend', function (e) {
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
+        if (t.identifier === touchDrawId) {
+          touchDrawId = null;
+          isPrimaryDown = false;
+          flushCurrentStroke();
+          continue;
+        }
         if (t.identifier === touchLookId) {
           if (!touchMoved && !lobbyTourActive) {
-            var rect = renderer.domElement.getBoundingClientRect();
-            pointerNdc.x = ((t.clientX - rect.left) / rect.width) * 2 - 1;
-            pointerNdc.y = -((t.clientY - rect.top) / rect.height) * 2 + 1;
+            setNdcFromTouch(t);
+            raycaster.setFromCamera(pointerNdc, camera);
             updateHoverRay();
+            // Se tocou no vazio, tenta tambem na mira central (crosshair) para facilitar no celular
+            if (!hoveredPickable && !hoveredMushroom && !hoveredDoor && !hoveredSeat && !hoveredSwitch && !hoveredRankBtn && !hoveredCinema) {
+              pointerNdc.set(0, 0);
+              updateHoverRay();
+            }
             handlePrimaryAction();
           }
           touchLookId = null;
@@ -2648,53 +2724,190 @@
     renderer.render(scene, camera);
   }
 
+  function getCinemaHitTarget(uv) {
+    if (!cinemaPower) return { type: 'power_on' };
+    var px = (uv ? uv.x : 0.5) * 768;
+    var py = (uv ? uv.y : 0.5) * 384;
+    if (px >= 624 && px <= 752 && py >= 10 && py <= 46) return { type: 'power_off' };
+    if (cinemaLessonIdx === -1) {
+      var count = cinemaLessons.length || 6;
+      for (var i = 0; i < count; i++) {
+        var col = i % 2;
+        var row = Math.floor(i / 2);
+        var x0 = col === 0 ? 20 : 394;
+        var y0 = 70 + row * 100;
+        if (px >= x0 && px <= x0 + 354 && py >= y0 && py <= y0 + 88) {
+          return { type: 'lesson', idx: i };
+        }
+      }
+      return { type: 'idle' };
+    }
+    if (px >= 16 && px <= 130 && py >= 10 && py <= 46) return { type: 'menu' };
+    return { type: 'toggle_play' };
+  }
+
+  var cinemaFrameAccum = 0, cinemaDrawnOnce = false;
   function drawCinemaVideoFrame(dt) {
     if (!cinemaCtx || !cinemaTex) return;
-    if (cinemaPlaying) cinemaTime += dt;
+    if (cinemaPower && cinemaLessonIdx >= 0 && cinemaPlaying) cinemaTime += dt;
+    cinemaFrameAccum += dt;
+    if (!cinemaDirty) {
+      if (!cinemaPower || cinemaLessonIdx === -1 || !cinemaPlaying) return;
+      if (cinemaFrameAccum < 0.09) return;
+      if (camera && Math.hypot(camera.position.x - 48, camera.position.z + 12) > 65) return;
+    }
+    cinemaFrameAccum = 0;
+    cinemaDirty = false;
+    cinemaDrawnOnce = true;
     var ctx = cinemaCtx;
-    var t = cinemaTime;
-    // Fundo cinema escuro com gradiente suave
-    var g = ctx.createLinearGradient(0, 0, 512, 256);
+    var W = 768, H = 384;
+
+    // 1) TELA DESLIGADA (preto / cinza escuro com LED standby)
+    if (!cinemaPower) {
+      ctx.fillStyle = '#090d14';
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(4, 4, W - 8, H - 8);
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.arc(W - 24, H - 20, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#334155';
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('⏻ TELA DESLIGADA — Clique para ligar', W / 2, H / 2 + 4);
+      ctx.textAlign = 'left';
+      cinemaTex.needsUpdate = true;
+      return;
+    }
+
+    // Fundo ligado
+    var g = ctx.createLinearGradient(0, 0, W, H);
     g.addColorStop(0, '#0f172a');
     g.addColorStop(1, '#1e1b4b');
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 512, 256);
+    ctx.fillRect(0, 0, W, H);
 
-    // Rede micelial animada crescendo na tela
+    var hoverTarget = hoveredCinema ? getCinemaHitTarget(hoveredCinemaUv) : { type: 'none' };
+
+    // Barra superior
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
+    ctx.fillRect(0, 0, W, 56);
+    // Botao Desligar (sempre visivel no topo direito)
+    ctx.fillStyle = hoverTarget.type === 'power_off' ? '#ef4444' : '#991b1b';
+    ctx.fillRect(624, 10, 128, 36);
+    ctx.strokeStyle = '#fca5a5';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(624, 10, 128, 36);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⏻ DESLIGAR', 688, 33);
+    ctx.textAlign = 'left';
+
+    // 2) MENU DE MODULOS & AULAS
+    if (cinemaLessonIdx === -1) {
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 19px system-ui, sans-serif';
+      ctx.fillText('🎬 AUDITÓRIO MYCOCAMPUS — MÓDULOS & AULAS', 22, 35);
+
+      var list = cinemaLessons.length ? cinemaLessons : [
+        { title: '1. Fluxo Laminar & Técnica Asséptica', subtitle: 'Controle de contaminação no laboratório' }
+      ];
+      for (var i = 0; i < Math.min(list.length, 6); i++) {
+        var mod = list[i];
+        var col = i % 2;
+        var row = Math.floor(i / 2);
+        var bx = col === 0 ? 20 : 394;
+        var by = 70 + row * 100;
+        var isHov = hoverTarget.type === 'lesson' && hoverTarget.idx === i;
+        ctx.fillStyle = isHov ? 'rgba(14, 116, 144, 0.72)' : 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(bx, by, 354, 88);
+        ctx.strokeStyle = isHov ? '#38bdf8' : '#334155';
+        ctx.lineWidth = isHov ? 2.5 : 1.5;
+        ctx.strokeRect(bx, by, 354, 88);
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 12px system-ui, sans-serif';
+        ctx.fillText('MÓDULO ' + (i + 1) + '  •  ▶ ASSISTIR', bx + 14, by + 22);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 15px system-ui, sans-serif';
+        var tTxt = mod.title || ('Módulo ' + (i + 1));
+        if (tTxt.length > 36) tTxt = tTxt.slice(0, 35) + '…';
+        ctx.fillText(tTxt, bx + 14, by + 46);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px system-ui, sans-serif';
+        var sTxt = mod.subtitle || '';
+        if (sTxt.length > 46) sTxt = sTxt.slice(0, 45) + '…';
+        ctx.fillText(sTxt, bx + 14, by + 68);
+      }
+      cinemaTex.needsUpdate = true;
+      return;
+    }
+
+    // 3) REPRODUZINDO AULA SELECIONADA
+    var lesson = cinemaLessons[cinemaLessonIdx] || { title: 'Aula', subtitle: '', bullets: [] };
+    ctx.fillStyle = hoverTarget.type === 'menu' ? '#0284c7' : '#1e293b';
+    ctx.fillRect(16, 10, 114, 36);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(16, 10, 114, 36);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⬅️ MENU', 73, 33);
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 17px system-ui, sans-serif';
+    var headTitle = lesson.title || ('Módulo ' + (cinemaLessonIdx + 1));
+    if (headTitle.length > 44) headTitle = headTitle.slice(0, 43) + '…';
+    ctx.fillText(headTitle, 146, 35);
+
+    // Conteudo da aula (esquerda)
+    ctx.fillStyle = '#34d399';
+    ctx.font = 'bold 15px system-ui, sans-serif';
+    ctx.fillText(lesson.subtitle || '', 26, 86);
+    var bullets = lesson.bullets || [];
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '15px system-ui, sans-serif';
+    for (var bIdx = 0; bIdx < Math.min(bullets.length, 4); bIdx++) {
+      ctx.fillText('• ' + bullets[bIdx], 26, 128 + bIdx * 42);
+    }
+
+    // Animacao micelial / cogumelo (direita)
+    var t = cinemaTime;
+    var cxA = 615, cyA = 195;
     ctx.strokeStyle = 'rgba(52, 211, 153, 0.55)';
-    ctx.lineWidth = 2;
-    for (var i = 0; i < 9; i++) {
-      var ang = (i / 9) * Math.PI * 2 + t * 0.25;
-      var r = 30 + ((Math.sin(t * 1.1 + i) + 1) * 0.5) * 65;
+    ctx.lineWidth = 2.5;
+    for (var k = 0; k < 9; k++) {
+      var ang = (k / 9) * Math.PI * 2 + t * 0.25;
+      var r = 34 + ((Math.sin(t * 1.1 + k) + 1) * 0.5) * 68;
       ctx.beginPath();
-      ctx.moveTo(256, 132);
-      ctx.quadraticCurveTo(256 + Math.cos(ang + 0.4) * r * 0.6, 132 + Math.sin(ang + 0.4) * r * 0.6, 256 + Math.cos(ang) * r, 132 + Math.sin(ang) * r);
+      ctx.moveTo(cxA, cyA);
+      ctx.quadraticCurveTo(cxA + Math.cos(ang + 0.4) * r * 0.6, cyA + Math.sin(ang + 0.4) * r * 0.6, cxA + Math.cos(ang) * r, cyA + Math.sin(ang) * r);
       ctx.stroke();
     }
-    // Cogumelo crescendo em time-lapse no centro
     var grow = 0.6 + 0.4 * Math.sin(t * 0.9);
     ctx.fillStyle = '#fef3c7';
-    ctx.fillRect(247, 135 - 32 * grow, 18, 36 * grow);
+    ctx.fillRect(cxA - 10, cyA - 36 * grow, 20, 40 * grow);
     ctx.fillStyle = '#ef4444';
     ctx.beginPath();
-    ctx.arc(256, 135 - 32 * grow, 28 * grow, Math.PI, 0);
+    ctx.arc(cxA, cyA - 36 * grow, 30 * grow, Math.PI, 0);
     ctx.fill();
 
-    // Titulo & Barra de progresso do video
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(0, 0, 512, 34);
-    ctx.fillRect(0, 224, 512, 32);
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 14px system-ui, sans-serif';
-    ctx.fillText('🎬 DOCUMENTÁRIO: Ciclo do Micélio & Frutificação', 16, 22);
+    // Barra inferior
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
+    ctx.fillRect(0, H - 44, W, 44);
     ctx.fillStyle = '#e2e8f0';
-    ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText(cinemaPlaying ? '⏸️ Clique para pausar' : '▶️ PAUSADO (clique para continuar)', 16, 245);
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.fillText(cinemaPlaying ? '⏸️ Clique na aula para pausar' : '▶️ PAUSADO (clique para continuar)', 22, H - 17);
     var prog = (t % 20) / 20;
     ctx.fillStyle = '#334155';
-    ctx.fillRect(280, 237, 212, 6);
+    ctx.fillRect(420, H - 25, 320, 8);
     ctx.fillStyle = '#10b981';
-    ctx.fillRect(280, 237, 212 * prog, 6);
+    ctx.fillRect(420, H - 25, 320 * prog, 8);
     cinemaTex.needsUpdate = true;
   }
 
@@ -2787,14 +3000,17 @@
       if (envClouds[ci].position.x > 155) envClouds[ci].position.x = -155;
     }
 
-    // Acumulo de neve no terreno e telhados
+    // Acumulo de neve no terreno e telhados (so atualiza quando snowMix muda)
     if (terrainSnowMat) {
       terrainSnowMat.emissive.setHex(0xe2e8f0);
       terrainSnowMat.emissiveIntensity = snowMix * 0.42;
     }
-    var snowWhite = new THREE.Color(0xf1f5f9);
-    for (var si = 0; si < snowableEntries.length; si++) {
-      snowableEntries[si].mat.color.copy(snowableEntries[si].base).lerp(snowWhite, snowMix * 0.85);
+    if (Math.abs(snowMix - (updateDynamicEnvironment._lastSnowMix || -1)) > 0.005) {
+      updateDynamicEnvironment._lastSnowMix = snowMix;
+      var snowWhite = new THREE.Color(0xf1f5f9);
+      for (var si = 0; si < snowableEntries.length; si++) {
+        snowableEntries[si].mat.color.copy(snowableEntries[si].base).lerp(snowWhite, snowMix * 0.85);
+      }
     }
 
     // Particulas de Chuva / Neve ao redor do jogador (bloqueadas por roofZones)
@@ -2902,11 +3118,12 @@
     camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 440);
     camera.position.set(-14, 16, 26);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    var touch = isTouchDevice();
+    renderer = new THREE.WebGLRenderer({ antialias: !touch, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.0 : 1.5));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = touch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     if (THREE.ACESFilmicToneMapping) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.05;
@@ -2927,7 +3144,8 @@
     var sun = new THREE.DirectionalLight(0xfffbeb, 1.15);
     sun.position.set(45, 65, 38);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    var shSize = isTouchDevice() ? 1024 : 1536;
+    sun.shadow.mapSize.set(shSize, shSize);
     sun.shadow.camera.left = -85;
     sun.shadow.camera.right = 85;
     sun.shadow.camera.top = 85;
@@ -3112,9 +3330,26 @@
     rankingTex.needsUpdate = true;
   }
 
+  window.setCampusMobilePrimary = function (down) {
+    if (lobbyTourActive) return;
+    isPrimaryDown = !!down;
+    if (down) {
+      pointerNdc.set(0, 0);
+      updateHoverRay();
+      handlePrimaryAction();
+    } else {
+      flushCurrentStroke();
+    }
+  };
+
   window.updateCampusRanking = function (list) {
     rankingList = Array.isArray(list) ? list : [];
     drawRankingBoard();
+  };
+
+  window.setCampusCinemaLessons = function (list) {
+    cinemaLessons = Array.isArray(list) ? list : [];
+    cinemaDirty = true;
   };
 
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;

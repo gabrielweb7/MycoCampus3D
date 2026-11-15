@@ -533,9 +533,7 @@
     zone.addEventListener('touchend', endStick, { passive: true });
     zone.addEventListener('touchcancel', endStick, { passive: true });
 
-    $('btn-mobile-jump').onclick = function () { window.triggerCampusJump(); };
-    $('btn-rot-left').onclick = function () { window.rotateCampusHeldItem(-0.45); };
-    $('btn-rot-right').onclick = function () { window.rotateCampusHeldItem(0.45); };
+    if ($('btn-mobile-jump')) $('btn-mobile-jump').onclick = function () { window.triggerCampusJump(); };
   }
 
   function updateFpsUi(fps) {
@@ -579,15 +577,26 @@
         $('prof-toolbar').classList.add('hidden');
       },
       onHoldChange: function (label) {
-        if (label) {
-          $('mobile-rotate-row').classList.remove('hidden');
-        } else {
-          $('mobile-rotate-row').classList.add('hidden');
-        }
+        var actBtn = $('btn-mobile-act');
+        if (actBtn) actBtn.textContent = label ? '⬇️' : '✋';
       },
       onFpsChange: updateFpsUi,
       onHoverPrompt: function (txt) {
         var pill = $('interact-pill');
+        var isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        if (isCoarse) {
+          pill.classList.add('hidden');
+          var actBtn = $('btn-mobile-act');
+          if (actBtn && txt) {
+            if (txt.indexOf('escrever') >= 0) actBtn.textContent = '✏️';
+            else if (txt.indexOf('apagar') >= 0) actBtn.textContent = '🧽';
+            else if (txt.indexOf('sentar') >= 0) actBtn.textContent = '🪑';
+            else if (txt.indexOf('luz') >= 0) actBtn.textContent = '💡';
+            else if (txt.indexOf('Soltar') >= 0) actBtn.textContent = '⬇️';
+            else actBtn.textContent = '✋';
+          }
+          return;
+        }
         if (txt && currentUser) {
           pill.textContent = txt;
           pill.classList.remove('hidden');
@@ -629,6 +638,11 @@
     });
 
     $('btn-toggle-fps').onclick = function () { window.setCampusFpsMode(!inFpsState); };
+    var actBtn = $('btn-mobile-act');
+    if (actBtn) {
+      actBtn.addEventListener('touchstart', function (e) { e.preventDefault(); if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true); }, { passive: false });
+      actBtn.addEventListener('touchend', function (e) { e.preventDefault(); if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(false); }, { passive: false });
+    }
     $('btn-logout').onclick = logoutCampus;
     $('btn-open-lessons').onclick = function () { renderLessonsModal(); $('lesson-modal').classList.remove('hidden'); };
     $('btn-close-lessons').onclick = function () { $('lesson-modal').classList.add('hidden'); };
@@ -649,8 +663,29 @@
       if (txt) {
         pendingChatMsg = txt.slice(0, 140);
         inp.value = '';
-        inp.blur();
       }
+      inp.blur();
+    });
+
+    $('chat-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+
+    window.addEventListener('keydown', function (e) {
+      if (e.code !== 'KeyT' || e.ctrlKey || e.metaKey || e.altKey) return;
+      var active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+      var loginEl = $('login-overlay');
+      if (loginEl && !loginEl.classList.contains('hidden')) return;
+      var inp = $('chat-input');
+      if (!inp) return;
+      e.preventDefault();
+      if (document.pointerLockElement) document.exitPointerLock();
+      inp.focus();
+      setTimeout(function () { if (document.activeElement !== inp) inp.focus(); }, 15);
     });
 
     function sendLeave() {
@@ -664,6 +699,7 @@
     window.addEventListener('beforeunload', sendLeave);
 
     tryResumeSession();
+    if (window.setCampusCinemaLessons) window.setCampusCinemaLessons(LESSONS);
   }
 
   document.addEventListener('DOMContentLoaded', boot);

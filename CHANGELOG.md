@@ -2,6 +2,27 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.5.5] — 2026-11-14
+### Improved
+- **Jogabilidade Mobile muito mais fluida ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Removidos os botões de rotacionar objeto (`#mobile-rotate-row`) e ocultadas as mensagens repetitivas do `#interact-pill` no celular.
+  - Adicionado botão contextual único (`#btn-mobile-act`: `✋`, `✏️`, `🧽`, `🪑`, `💡`, `⬇️`) e desenho direto com o dedo na lousa quando estiver segurando giz ou apagador.
+  - Botões mobile (`#btn-mobile-act` `68px` e `#btn-mobile-jump` `76px` destacado) aumentados para toque confortável no celular.
+  - Toques rápidos no celular agora também verificam a mira central (`crosshair`), facilitando pegar gizes, cogumelos e clicar em cadeiras/interruptores.
+- **Telão Interativo do Auditório & Mesas de Apoio ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Tela do Auditório agora exibe menu interativo com todos os 6 Módulos/Aulas clicáveis, botão `⬅️ MENU`, botão `⏻ DESLIGAR` (tela preta/cinza escuro com LED standby) e religamento ao clicar em qualquer ponto da tela.
+  - Todas as 12 carteiras das salas de aula (2º andar) e as 2 mesas da Reitoria registradas em `supportSurfaces` para apoiar giz, apagador e objetos do laboratório.
+
+### Fixed
+- **Escadaria Central ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Corrigido o sinal da inclinação (`slopeAng`) das longarinas, painéis de vidro e corrimãos laterais nos dois lados da escadaria para acompanhar perfeitamente os degraus.
+- **Sobreposição / Z-fighting no 2º Andar ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Ajustadas exatamente as dimensões das passarelas frontais (`-15.7375`, `5.525`), pontes laterais (`3.05`) e ponte norte (`11.0`) para encontrar as lajes dos blocos sem sobreposição nem cintilação de texturas.
+- **Interruptor Flutuante ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Movido o interruptor 3D do 2º andar de `cx - dir * 1.45` (dentro do vão da porta) para `cx - dir * 2.15`, fixado diretamente sobre a parede de tijolos ao lado da porta.
+- **Atalho `T` para Chat ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**: Pressionar `T` sai do Pointer Lock (se ativo) e foca diretamente no `#chat-input`; `Enter` envia a mensagem e retorna ao jogo, e `Esc` fecha o foco do chat.
+- **Otimização de Performance / Fim do Lag ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Corrigido `TypeError` em `bindTouchControls` que tentava acessar os botões removidos `btn-rot-left`/`btn-rot-right`.
+  - Reduzido o total de `PointLight` simultâneas na cena de 10 para 4 (eliminando `groundLight` redundante e `rLight` da Reitoria), cortando ~60% do custo de shader PBR por pixel.
+  - Limitado `drawCinemaVideoFrame` a ~12 FPS e apenas quando o jogador está perto do Student Center, evitado recálculo de `snowableEntries` quando a neve não muda, e ajustado `setPixelRatio` (máx `1.5` desktop / `1.25` mobile) e `shadow.mapSize` (`1536` / `1024`).
+
 ## [v0.5.4] — 2026-11-14
 ### Added
 - **Luminárias Fluorescentes & Interruptor 3D nas Salas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Removida a placa bege do teto e adicionadas 4 luminárias fluorescentes reais por sala + `PointLight` quente/agradável (1º e 2º andares) + interruptor 3D clicável ao lado da porta com LED indicador para ligar/desligar a iluminação.
