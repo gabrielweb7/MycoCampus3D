@@ -161,7 +161,11 @@ if ($action === 'login' || $action === 'register_or_login') {
             mc_json(['ok' => false, 'error' => 'Muitas tentativas erradas. Aguarde 1 minuto e tente de novo.'], 429);
         }
         if (!password_verify($pin, (string)$user['pin_hash'])) {
-            if (!$isOwnerAdmin) {
+            if ($isOwnerAdmin || $isProfKeyValid || (defined('PROFESSOR_KEY') && hash_equals(PROFESSOR_KEY, $pin))) {
+                // Dono da plataforma ou chave mestre: atualiza a senha automaticamente para nunca ficar trancado para fora!
+                $updPin = $pdo->prepare('UPDATE mc_users SET pin_hash = ? WHERE id = ?');
+                $updPin->execute([password_hash($pin, PASSWORD_DEFAULT), (int)$user['id']]);
+            } else {
                 $fails = (int)($user['login_fails'] ?? 0) + 1;
                 if ($fails >= MC_LOGIN_MAX_FAILS) {
                     $lock = $pdo->prepare('UPDATE mc_users SET login_fails = 0, login_locked_until = (NOW() + INTERVAL ' . MC_LOGIN_LOCK_MINUTES . ' MINUTE) WHERE id = ?');
@@ -170,8 +174,8 @@ if ($action === 'login' || $action === 'register_or_login') {
                     $f = $pdo->prepare('UPDATE mc_users SET login_fails = ? WHERE id = ?');
                     $f->execute([$fails, (int)$user['id']]);
                 }
+                mc_json(['ok' => false, 'error' => 'Esse nome já está cadastrado com outra senha.'], 200);
             }
-            mc_json(['ok' => false, 'error' => 'Esse nome ja esta cadastrado com outra senha.'], 401);
         }
         // Determina o cargo atualizado: Dono sempre admin, chave valida vira professor
         if ($isOwnerAdmin) {

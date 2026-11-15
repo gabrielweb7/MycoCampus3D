@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.6] — 2026-11-15
+### 🔑 Correção de Inicialização do App (`boot`) & Autenticação Segura do Dono
+- **Proteção Completa contra Elementos Ausentes no DOM ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Eliminado o erro `Uncaught TypeError: Cannot set properties of null (setting 'onclick') at HTMLDocument.boot (campus-app.js:1324)` que impedia a inicialização dos formulários e botões de login quando botões do HUD não estavam presentes no DOM.
+  - Adicionadas verificações defensivas (`if (el) el.onclick = ...`) para `btn-toggle-fps`, `btn-logout`, `btn-open-lessons`, `btn-close-lessons`, `btn-open-ranking`, `btn-close-ranking`, `btn-slide-prev`, `btn-slide-next`, `btn-reset-lab`, `chat-form` e `chat-input`.
+- **Tratamento Resiliente em `apiPost` ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - `apiPost` agora lê a resposta como texto e executa `JSON.parse` com tratamento de exceção seguro, evitando que respostas de erro HTTP de servidores (como páginas HTML 401 de Apache/LiteSpeed) causem `SyntaxError` genérico de "Falha ao conectar".
+- **Recuperação e Login Automático do Dono da Plataforma ([auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php))**:
+  - Para o usuário Dono (`gabrieldaluz`) ou em caso de uso da chave de professor (`PROFESSOR_KEY`), o sistema agora atualiza a senha/PIN automaticamente caso tenha sido alterada ou esquecida, garantindo que o Dono nunca seja bloqueado da sua própria aplicação com a mensagem "Esse nome já está cadastrado com outra senha".
+
 ## [v0.9.5] — 2026-11-15
 ### 🛡️ Correção Definitiva de Itens nas Mesas, Eliminação de Tela Preta & Otimização do Polling
 - **Correção Geral da Queda de Itens no Chão ao Soltar nas Mesas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

@@ -382,11 +382,17 @@
       body: JSON.stringify(data),
       credentials: 'same-origin'
     });
-    var json = await res.json();
+    var text = await res.text();
+    var json = null;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      json = { ok: false, error: 'Erro de resposta do servidor (' + res.status + ')' };
+    }
     if (res.status === 401 && json && json.auth === false && currentUser) {
       handleSessionExpired(json.error);
     }
-    return json;
+    return json || { ok: false, error: 'Resposta inválida do servidor.' };
   }
 
   function isFullscreenActive() {
@@ -1321,14 +1327,22 @@
       };
     }
 
-    $('btn-toggle-fps').onclick = function () { window.setCampusFpsMode(!inFpsState); };
-    $('btn-logout').onclick = logoutCampus;
-    $('btn-open-lessons').onclick = function () { renderLessonsModal(); $('lesson-modal').classList.remove('hidden'); };
-    $('btn-close-lessons').onclick = function () { $('lesson-modal').classList.add('hidden'); };
-    $('btn-open-ranking').onclick = openRankingModal;
-    $('btn-close-ranking').onclick = function () { $('ranking-modal').classList.add('hidden'); };
-    $('btn-slide-prev').onclick = function () { broadcastSlide(currentSlideIdx - 1); };
-    $('btn-slide-next').onclick = function () { broadcastSlide(currentSlideIdx + 1); };
+    var btnToggleFps = $('btn-toggle-fps');
+    if (btnToggleFps) btnToggleFps.onclick = function () { window.setCampusFpsMode(!inFpsState); };
+    var btnLogout = $('btn-logout');
+    if (btnLogout) btnLogout.onclick = logoutCampus;
+    var btnOpenLessons = $('btn-open-lessons');
+    if (btnOpenLessons) btnOpenLessons.onclick = function () { renderLessonsModal(); var m = $('lesson-modal'); if (m) m.classList.remove('hidden'); };
+    var btnCloseLessons = $('btn-close-lessons');
+    if (btnCloseLessons) btnCloseLessons.onclick = function () { var m = $('lesson-modal'); if (m) m.classList.add('hidden'); };
+    var btnOpenRanking = $('btn-open-ranking');
+    if (btnOpenRanking) btnOpenRanking.onclick = openRankingModal;
+    var btnCloseRanking = $('btn-close-ranking');
+    if (btnCloseRanking) btnCloseRanking.onclick = function () { var m = $('ranking-modal'); if (m) m.classList.add('hidden'); };
+    var btnSlidePrev = $('btn-slide-prev');
+    if (btnSlidePrev) btnSlidePrev.onclick = function () { broadcastSlide(currentSlideIdx - 1); };
+    var btnSlideNext = $('btn-slide-next');
+    if (btnSlideNext) btnSlideNext.onclick = function () { broadcastSlide(currentSlideIdx + 1); };
 
     var btnShop = $('btn-open-shop');
     if (btnShop) {
@@ -1407,10 +1421,13 @@
       }
     });
 
-    $('btn-reset-lab').onclick = async function () {
-      window.resetCampusWorldObjects();
-      try { await apiPost('api/multiplayer.php?action=reset_world', {}, true); } catch (e) { /* silent */ }
-    };
+    var btnResetLab = $('btn-reset-lab');
+    if (btnResetLab) {
+      btnResetLab.onclick = async function () {
+        window.resetCampusWorldObjects();
+        try { await apiPost('api/multiplayer.php?action=reset_world', {}, true); } catch (e) { /* silent */ }
+      };
+    }
 
     function submitChatMessage() {
       var inp = $('chat-input');
@@ -1424,25 +1441,31 @@
       inp.blur();
     }
 
-    $('chat-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      submitChatMessage();
-    });
-
-    $('chat-input').addEventListener('focus', function () {
-      if (window.clearCampusKeys) window.clearCampusKeys();
-    });
-
-    $('chat-input').addEventListener('keydown', function (e) {
-      e.stopPropagation();
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        this.blur();
-      } else if (e.key === 'Enter') {
+    var chatForm = $('chat-form');
+    if (chatForm) {
+      chatForm.addEventListener('submit', function (e) {
         e.preventDefault();
         submitChatMessage();
-      }
-    });
+      });
+    }
+
+    var chatInput = $('chat-input');
+    if (chatInput) {
+      chatInput.addEventListener('focus', function () {
+        if (window.clearCampusKeys) window.clearCampusKeys();
+      });
+
+      chatInput.addEventListener('keydown', function (e) {
+        e.stopPropagation();
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          this.blur();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          submitChatMessage();
+        }
+      });
+    }
 
     window.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
