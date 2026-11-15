@@ -826,44 +826,49 @@
     createVenetianBlind(frontX - dir * 0.11, yFloor2 + h2 - 0.14, cz - d * 0.24, d * 0.45, h2 - 0.26, dir, cz);
     createVenetianBlind(frontX - dir * 0.11, yFloor2 + h2 - 0.14, cz + d * 0.24, d * 0.45, h2 - 0.26, dir, cz);
 
-    // Iluminacao realista de sala de aula (1o e 2o andares): 4 luminarias fluorescentes por andar + PointLight + Interruptor!
-    var tubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 1.25, roughness: 0.25 });
+    // Iluminacao realista em TODAS as salas (1o e 2o andares): 4 luminarias + PointLight + Interruptor por sala!
     var fixMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 });
-    [yFloor1 + h1 - 0.04, yFloor2 + h2 - 0.04].forEach(function (ceilY) {
+    function createFloorLighting(floorY, floorH, swX, swY, swZ, swRotY) {
+      var fTubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 1.25, roughness: 0.25 });
+      var ceilY = floorY + floorH - 0.04;
       [-2.0, 2.0].forEach(function (lx) {
         [-2.8, 2.8].forEach(function (lz) {
           var trayL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 1.65), fixMat);
           trayL.position.set(cx + lx, ceilY, cz + lz);
           scene.add(trayL);
           [-0.1, 0.1].forEach(function (tx) {
-            var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 1.5, 8), tubeMat);
+            var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 1.5, 8), fTubeMat);
             tube.rotation.x = Math.PI / 2;
             tube.position.set(cx + lx + tx, ceilY - 0.04, cz + lz);
             scene.add(tube);
           });
         });
       });
-    });
-    var roomLight = new THREE.PointLight(0xfffbeb, 1.1, 20, 1.45);
-    roomLight.position.set(cx, yFloor2 + h2 - 0.35, cz);
-    scene.add(roomLight);
+      var fLight = new THREE.PointLight(0xfffbeb, 1.1, 22, 1.45);
+      fLight.position.set(cx, floorY + floorH - 0.35, cz);
+      scene.add(fLight);
 
-    // Interruptor 3D ao lado da porta do 2o andar (fixado na parede de tijolos, fora do vao de 3.2m)
-    var swGroup = new THREE.Group();
-    swGroup.position.set(cx - dir * 2.15, yFloor2 + 1.32, zN + 0.155);
-    var swPlate = makeBox(0.18, 0.28, 0.03, 0xf8fafc, { roughness: 0.3 });
-    var swRocker = makeBox(0.08, 0.12, 0.04, 0xe2e8f0, { roughness: 0.4 });
-    swRocker.position.z = 0.02;
-    swRocker.rotation.x = -0.22;
-    var swLedMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
-    var swLed = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.015, 0.02), swLedMat);
-    swLed.position.set(0, 0.09, 0.025);
-    swGroup.add(swPlate, swRocker, swLed);
-    var swData = { on: true, light: roomLight, gLight: null, tubeMat: tubeMat, ledMat: swLedMat, rocker: swRocker };
-    swPlate.userData.lightSwitch = swData;
-    swRocker.userData.lightSwitch = swData;
-    lightSwitchMeshes.push(swPlate, swRocker);
-    scene.add(swGroup);
+      var swGroup = new THREE.Group();
+      swGroup.position.set(swX, swY, swZ);
+      swGroup.rotation.y = swRotY || 0;
+      var swPlate = makeBox(0.18, 0.28, 0.03, 0xf8fafc, { roughness: 0.3 });
+      var swRocker = makeBox(0.08, 0.12, 0.04, 0xe2e8f0, { roughness: 0.4 });
+      swRocker.position.z = 0.02;
+      swRocker.rotation.x = -0.22;
+      var swLedMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+      var swLed = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.015, 0.02), swLedMat);
+      swLed.position.set(0, 0.09, 0.025);
+      swGroup.add(swPlate, swRocker, swLed);
+      var swData = { on: true, light: fLight, gLight: null, tubeMat: fTubeMat, ledMat: swLedMat, rocker: swRocker };
+      swPlate.userData.lightSwitch = swData;
+      swRocker.userData.lightSwitch = swData;
+      lightSwitchMeshes.push(swPlate, swRocker);
+      scene.add(swGroup);
+    }
+    // 1o andar: interruptor na parede Sul logo ao entrar pela porta principal
+    createFloorLighting(yFloor1, h1, frontX - dir * 1.15, yFloor1 + 1.32, zS - 0.155, Math.PI);
+    // 2o andar: interruptor na parede Norte ao lado da porta do 2o andar
+    createFloorLighting(yFloor2, h2, cx - dir * 2.15, yFloor2 + 1.32, zN + 0.155, 0);
     for (var dtRow = -1; dtRow <= 1; dtRow++) {
       var deskZ = cz + dtRow * 3.0;
       var desk = makeBox(1.1, 0.72, 2.0, 0xd97706, { roughness: 0.65 });

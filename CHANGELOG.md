@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.5.9] — 2026-11-15
+### Added
+- **Iluminação e Interruptor 3D em Todas as Salas (1º e 2º Andares) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Adicionado `PointLight` dedicada, material emissivo independente (`fTubeMat`) e **Interruptor 3D com LED** também em todas as salas do **1º andar** (Laboratório, Sala Oeste, Substratos e Estufa) na parede Sul logo ao entrar, mantendo o interruptor independente em todas as salas do **2º andar**.
+
 ## [v0.5.8] — 2026-11-15
 ### Fixed
 - **Panela de Pressão 20L + Tampa encaixada e sincronizada ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
