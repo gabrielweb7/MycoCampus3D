@@ -90,6 +90,10 @@
   var snowboardGroup = null;
   var snowboardRoll = 0;
   var snowboardPitch = 0;
+  var paragliderActive = false;
+  var paragliderGroup = null;
+  var paragliderRoll = 0;
+  var thermalColumns = [];
   var snapClosePot = null;
   var snapPetriStack = false;
   var localAvatar = null;
@@ -1742,6 +1746,45 @@
     return entry;
   }
 
+  function updateContainerVolume(item, newVol) {
+    if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return;
+    var ctrl = item.mesh.userData.liquidCtrl;
+    var clamped = Math.max(0, Math.min(ctrl.maxMl, Math.round(newVol)));
+    ctrl.volMl = clamped;
+    var frac = clamped / ctrl.maxMl;
+    if (clamped <= 0) {
+      ctrl.liqMesh.visible = false;
+      if (ctrl.mycCloud) ctrl.mycCloud.visible = false;
+    } else {
+      ctrl.liqMesh.visible = true;
+      ctrl.liqMesh.scale.y = Math.max(0.02, frac);
+      ctrl.liqMesh.position.y = ctrl.baseY + (ctrl.maxH * frac) * 0.5;
+      if (ctrl.mycCloud) {
+        ctrl.mycCloud.visible = true;
+        ctrl.mycCloud.position.y = ctrl.baseY + Math.min(ctrl.maxH * frac * 0.45, 0.048);
+      }
+    }
+    item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml)';
+  }
+
+  function updateSyringeVolume(item, newVol) {
+    if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
+    var sc = item.mesh.userData.syrCtrl;
+    var clamped = Math.max(0, Math.min(10, Number(newVol) || 0));
+    sc.volMl = clamped;
+    var frac = clamped / 10;
+    if (clamped <= 0.05) {
+      sc.liqMesh.visible = false;
+    } else {
+      sc.liqMesh.visible = true;
+      sc.liqMesh.scale.y = Math.max(0.02, frac);
+      sc.liqMesh.position.y = 0.085 + (0.09 * frac) * 0.5;
+    }
+    sc.plunger.position.y = 0.095 + 0.09 * frac;
+    var dispVal = Math.round(clamped * 10) / 10;
+    item.label = clamped > 0.1 ? 'Seringa 10ml (' + (dispVal % 1 === 0 ? dispVal.toFixed(0) : dispVal.toFixed(1)) + 'ml CL)' : 'Seringa 10ml (Vazia)';
+  }
+
   function buildCampusWingsAndEquipment() {
     // ALA OESTE (Esquerda) — 2 blocos de 2 andares (x: -24..-14)
     // Bloco Oeste-Norte (z: -12.8..-1.2): LABORATORIO DE FLUXO LAMINAR & AUTOCLAVE + 2o andar acessivel
@@ -2524,27 +2567,6 @@
       return tex;
     }
 
-    function updateContainerVolume(item, newVol) {
-      if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return;
-      var ctrl = item.mesh.userData.liquidCtrl;
-      var clamped = Math.max(0, Math.min(ctrl.maxMl, Math.round(newVol)));
-      ctrl.volMl = clamped;
-      var frac = clamped / ctrl.maxMl;
-      if (clamped <= 0) {
-        ctrl.liqMesh.visible = false;
-        if (ctrl.mycCloud) ctrl.mycCloud.visible = false;
-      } else {
-        ctrl.liqMesh.visible = true;
-        ctrl.liqMesh.scale.y = Math.max(0.02, frac);
-        ctrl.liqMesh.position.y = ctrl.baseY + (ctrl.maxH * frac) * 0.5;
-        if (ctrl.mycCloud) {
-          ctrl.mycCloud.visible = true;
-          ctrl.mycCloud.position.y = ctrl.baseY + Math.min(ctrl.maxH * frac * 0.45, 0.048);
-        }
-      }
-      item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml)';
-    }
-
     function makeLiquidJar800(id, px, py, pz, initMl) {
       var jg = new THREE.Group();
       var glassMat = new THREE.MeshStandardMaterial({ color: 0xf0f9ff, transparent: true, opacity: 0.28, roughness: 0.08, metalness: 0.12, depthWrite: false });
@@ -2685,24 +2707,6 @@
       stirSwitchMeshes.push(frontPanel);
       stirrerDevices.push(stirState);
       return registerPickable(id, 'Agitador Magnético (MYCO-MAG)', sg, px, py, pz, 0, 0.24, 0.14);
-    }
-
-    function updateSyringeVolume(item, newVol) {
-      if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
-      var sc = item.mesh.userData.syrCtrl;
-      var clamped = Math.max(0, Math.min(10, Number(newVol) || 0));
-      sc.volMl = clamped;
-      var frac = clamped / 10;
-      if (clamped <= 0.05) {
-        sc.liqMesh.visible = false;
-      } else {
-        sc.liqMesh.visible = true;
-        sc.liqMesh.scale.y = Math.max(0.02, frac);
-        sc.liqMesh.position.y = 0.085 + (0.09 * frac) * 0.5;
-      }
-      sc.plunger.position.y = 0.095 + 0.09 * frac;
-      var dispVal = Math.round(clamped * 10) / 10;
-      item.label = clamped > 0.1 ? 'Seringa 10ml (' + (dispVal % 1 === 0 ? dispVal.toFixed(0) : dispVal.toFixed(1)) + 'ml CL)' : 'Seringa 10ml (Vazia)';
     }
 
     function makeSyringe10ml(id, px, py, pz) {
@@ -4015,6 +4019,85 @@
     snowboardGroup.add(deck, nose, tail);
     snowboardGroup.visible = false;
     scene.add(snowboardGroup);
+    buildParagliderRig();
+    buildThermalColumns();
+  }
+
+  function createParagliderWingMesh(scale) {
+    var wg = new THREE.Group();
+    var s = scale || 1;
+    var panelColors = [0xec4899, 0x8b5cf6, 0x3b82f6, 0x06b6d4, 0xfacc15, 0xf97316, 0xef4444];
+    var spanCount = panelColors.length;
+    var segW = 0.56 * s;
+    for (var i = 0; i < spanCount; i++) {
+      var offset = i - (spanCount - 1) / 2;
+      var arcX = offset * segW * 0.92;
+      var arcY = -Math.pow(Math.abs(offset) / 3.2, 2) * 0.55 * s;
+      var tiltZ = -offset * 0.16;
+      var cellMat = new THREE.MeshStandardMaterial({
+        color: panelColors[i], roughness: 0.45, metalness: 0.05, side: THREE.DoubleSide
+      });
+      var cell = new THREE.Mesh(new THREE.BoxGeometry(segW, 0.08 * s, 1.35 * s), cellMat);
+      cell.position.set(arcX, 2.55 * s + arcY, 0);
+      cell.rotation.z = tiltZ;
+      wg.add(cell);
+    }
+    // Tirantes / linhas descendo da asa para as mãos
+    var lineMat = new THREE.LineBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.72 });
+    var linePts = [];
+    [-1.45 * s, -0.75 * s, 0.75 * s, 1.45 * s].forEach(function (lx) {
+      var handX = lx < 0 ? -0.34 * s : 0.34 * s;
+      var topY = 2.52 * s - Math.pow(Math.abs(lx) / (1.8 * s), 2) * 0.45 * s;
+      linePts.push(lx, topY, -0.38 * s, handX, 0.95 * s, -0.18 * s);
+      linePts.push(lx, topY, 0.38 * s, handX, 0.95 * s, -0.18 * s);
+    });
+    var lGeo = new THREE.BufferGeometry();
+    lGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePts, 3));
+    wg.add(new THREE.LineSegments(lGeo, lineMat));
+    // Batoques (manoplas) esquerdo e direito
+    var handleMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
+    [-0.34 * s, 0.34 * s].forEach(function (hx) {
+      var hdl = new THREE.Mesh(new THREE.TorusGeometry(0.055 * s, 0.015 * s, 6, 12), handleMat);
+      hdl.position.set(hx, 0.93 * s, -0.18 * s);
+      wg.add(hdl);
+    });
+    return wg;
+  }
+
+  function buildParagliderRig() {
+    if (paragliderGroup) return;
+    paragliderGroup = createParagliderWingMesh(1.0);
+    paragliderGroup.visible = false;
+    scene.add(paragliderGroup);
+  }
+
+  function buildThermalColumns() {
+    if (thermalColumns.length) return;
+    var spots = [
+      { x: 0, z: -135 },
+      { x: -70, z: -125 },
+      { x: 70, z: -125 },
+      { x: 0, z: -72 },
+      { x: -105, z: 12 },
+      { x: 105, z: 12 }
+    ];
+    var ringMat = new THREE.MeshBasicMaterial({
+      color: 0x67e8f9, transparent: true, opacity: 0.24, side: THREE.DoubleSide, depthWrite: false
+    });
+    spots.forEach(function (sp) {
+      var baseY = terrainHeight(sp.x, sp.z);
+      var rings = [];
+      for (var r = 0; r < 6; r++) {
+        var radius = 4.5 + r * 0.9;
+        var rm = new THREE.Mesh(new THREE.RingGeometry(radius - 0.35, radius, 28), ringMat);
+        rm.rotation.x = -Math.PI / 2;
+        rm.position.set(sp.x, baseY + 3 + r * 14, sp.z);
+        rm.userData.ignoreRay = true;
+        scene.add(rm);
+        rings.push({ mesh: rm, offset: r * 14 });
+      }
+      thermalColumns.push({ x: sp.x, z: sp.z, baseY: baseY, maxH: 118, radius: 13, rings: rings });
+    });
   }
 
   function drawBoardSegment(ctx, color, p0, p1) {
@@ -4467,7 +4550,11 @@
       if (other.mesh.userData.dynamicSurface) {
         var dynSurf = other.mesh.userData.dynamicSurface;
         // O jogador está colocando o item EM CIMA da superfície deste equipamento/mesa?
-        if (pt.y >= dynSurf.topY - 0.04) {
+        var onDynSurfXZ = (
+          pt.x >= dynSurf.minX - 0.02 && pt.x <= dynSurf.maxX + 0.02 &&
+          pt.z >= dynSurf.minZ - 0.02 && pt.z <= dynSurf.maxZ + 0.02
+        );
+        if (onDynSurfXZ && pt.y >= dynSurf.topY - 0.04 && pt.y <= dynSurf.topY + 0.12) {
           // Impedir colocar uma mesa em cima de outra mesa ou capela (mas permitir colocar a capela em cima de mesas/bancadas!)
           if (other.mesh.userData.isTable && heldItem.mesh.userData.isTable) {
             placementBlockedReason = '🚫 Não é permitido sobrepor mesas';
@@ -5003,10 +5090,23 @@
       g.add(chatSprite);
     }
 
+    // Brinquedos visiveis para outros jogadores (Snowboard e Paraglider)
+    var remoteSb = new THREE.Group();
+    var rDeck = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.024, 1.05), new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.3 }));
+    rDeck.position.y = 0.02;
+    remoteSb.add(rDeck);
+    remoteSb.visible = false;
+    g.add(remoteSb);
+
+    var remotePg = createParagliderWingMesh(0.75);
+    remotePg.visible = false;
+    g.add(remotePg);
+
     scene.add(g);
     return {
       group: g, torso: torso, leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm, headGroup: headGroup,
       auraGroup: auraGroup, auraOrbs: auraOrbs,
+      snowboardMesh: remoteSb, paragliderMesh: remotePg, toyMode: '',
       bodyMat: bodyMat, hatMat: hatMat, hatGroup: hatGroup, current_hat: data.current_hat || 'default', emote: data.emote || '',
       faceCtx: faceCtx, faceTex: faceTex, lastMood: 'happy', lastBlink: false, blinkTimer: 2 + Math.random() * 3,
       labelSprite: labelSprite, chatSprite: chatSprite, lastChat: '', role: data.role || 'student',
@@ -5014,12 +5114,11 @@
       targetYaw: normalizeAngle(data.yaw || 0),
       targetPitch: data.pitch || 0,
       targetVelX: 0, targetVelZ: 0,
+      avgIntervalMs: 140, interpDelay: 185, lastSnapAt: 0,
       snapshots: [],
       holding: '', walking: false, seated: false, walkPhase: 0
     };
   }
-
-  var MP_INTERP_DELAY_MS = 135;
 
   function updateCampusPlayers(players) {
     var seen = {};
@@ -5033,11 +5132,20 @@
         av = buildCuteAvatar(p);
         av.group.position.set(p.x, p.y, p.z);
         av.group.rotation.y = nyaw;
+        av.lastSnapAt = nowMs;
         av.snapshots.push({ t: nowMs, x: p.x, y: p.y, z: p.z, yaw: nyaw, pitch: npitch, vx: Number(p.vx) || 0, vz: Number(p.vz) || 0 });
         remoteAvatars[p.id] = av;
       } else {
         var snaps = av.snapshots;
         var prev = snaps.length ? snaps[snaps.length - 1] : null;
+        if (av.lastSnapAt > 0) {
+          var gap = nowMs - av.lastSnapAt;
+          if (gap > 30 && gap < 1200) {
+            av.avgIntervalMs = av.avgIntervalMs * 0.8 + gap * 0.2;
+            av.interpDelay = Math.max(150, Math.min(320, av.avgIntervalMs * 1.45));
+          }
+        }
+        av.lastSnapAt = nowMs;
         var vx = Number(p.vx) || 0;
         var vz = Number(p.vz) || 0;
         if (prev && vx === 0 && vz === 0) {
@@ -5048,14 +5156,15 @@
           }
         }
         snaps.push({ t: nowMs, x: p.x, y: p.y, z: p.z, yaw: nyaw, pitch: npitch, vx: vx, vz: vz });
-        if (snaps.length > 6) snaps.shift();
+        if (snaps.length > 8) snaps.shift();
       }
       av.targetPos.set(p.x, p.y, p.z);
       av.targetYaw = nyaw;
       av.targetPitch = npitch;
       av.targetVelX = Number(p.vx) || 0;
       av.targetVelZ = Number(p.vz) || 0;
-      av.walking = !!p.walking;
+      av.walking = (p.walking === 1);
+      av.toyMode = (p.walking === 4) ? 'paraglider' : (p.walking === 3 ? 'snowboard' : '');
       av.seated = !!p.seated;
       av.holding = p.holding || '';
       if (av.current_hat !== (p.current_hat || 'default')) {
@@ -5129,8 +5238,8 @@
 
   function stepMultiplayerAvatars(dt) {
     var tNow = clock.elapsedTime;
-    var renderTime = performance.now() - MP_INTERP_DELAY_MS;
-    var blend = 1 - Math.exp(-24 * dt);
+    var nowMs = performance.now();
+    var blend = 1 - Math.exp(-12 * dt);
 
     Object.keys(remoteAvatars).forEach(function (id) {
       var av = remoteAvatars[id];
@@ -5139,21 +5248,22 @@
       var prevX = av.group.position.x;
       var prevZ = av.group.position.z;
       var snaps = av.snapshots;
+      var renderTime = nowMs - (av.interpDelay || 185);
       var desiredYaw = av.targetYaw;
       var desiredPitch = av.targetPitch;
       _tmpInterpPos.copy(av.targetPos);
 
       if (snaps && snaps.length >= 2) {
-        // Encontra o par de snapshots que envolve renderTime
+        // Encontra o par de snapshots que envolve renderTime e aplica spline Hermite cúbica
         var s0 = snaps[0], s1 = snaps[snaps.length - 1];
         if (renderTime <= s0.t) {
           _tmpInterpPos.set(s0.x, s0.y, s0.z);
           desiredYaw = s0.yaw;
           desiredPitch = s0.pitch;
         } else if (renderTime >= s1.t) {
-          // Dead-reckoning suave limitado a 240ms se um pacote atrasar
-          var extrap = Math.min(0.24, (renderTime - s1.t) / 1000);
-          var damp = 1 - extrap * 1.5;
+          // Dead-reckoning suave limitado a 260ms se um pacote atrasar
+          var extrap = Math.min(0.26, (renderTime - s1.t) / 1000);
+          var damp = Math.max(0.15, 1 - extrap * 1.8);
           _tmpInterpPos.set(s1.x + s1.vx * extrap * damp, s1.y, s1.z + s1.vz * extrap * damp);
           desiredYaw = s1.yaw;
           desiredPitch = s1.pitch;
@@ -5161,15 +5271,21 @@
           for (var si = 0; si < snaps.length - 1; si++) {
             if (renderTime >= snaps[si].t && renderTime <= snaps[si + 1].t) {
               var a = snaps[si], b = snaps[si + 1];
-              var span = Math.max(1, b.t - a.t);
-              var alpha = (renderTime - a.t) / span;
+              var spanMs = Math.max(1, b.t - a.t);
+              var u = (renderTime - a.t) / spanMs;
+              var spanSec = spanMs / 1000;
+              var u2 = u * u, u3 = u2 * u;
+              var h00 = 2 * u3 - 3 * u2 + 1;
+              var h10 = u3 - 2 * u2 + u;
+              var h01 = -2 * u3 + 3 * u2;
+              var h11 = u3 - u2;
               _tmpInterpPos.set(
-                a.x + (b.x - a.x) * alpha,
-                a.y + (b.y - a.y) * alpha,
-                a.z + (b.z - a.z) * alpha
+                h00 * a.x + h10 * spanSec * a.vx + h01 * b.x + h11 * spanSec * b.vx,
+                a.y + (b.y - a.y) * u,
+                h00 * a.z + h10 * spanSec * a.vz + h01 * b.z + h11 * spanSec * b.vz
               );
-              desiredYaw = normalizeAngle(a.yaw + normalizeAngle(b.yaw - a.yaw) * alpha);
-              desiredPitch = a.pitch + (b.pitch - a.pitch) * alpha;
+              desiredYaw = normalizeAngle(a.yaw + normalizeAngle(b.yaw - a.yaw) * u);
+              desiredPitch = a.pitch + (b.pitch - a.pitch) * u;
               break;
             }
           }
@@ -5182,8 +5298,8 @@
         av.group.position.lerp(_tmpInterpPos, blend);
       }
       var dYaw = normalizeAngle(desiredYaw - av.group.rotation.y);
-      av.group.rotation.y = normalizeAngle(av.group.rotation.y + dYaw * Math.min(1, dt * 16));
-      av.headGroup.rotation.x += (desiredPitch - av.headGroup.rotation.x) * Math.min(1, dt * 16);
+      av.group.rotation.y = normalizeAngle(av.group.rotation.y + dYaw * Math.min(1, dt * 12));
+      av.headGroup.rotation.x += (desiredPitch - av.headGroup.rotation.x) * Math.min(1, dt * 12);
 
       var moveSpeed = Math.hypot(av.group.position.x - prevX, av.group.position.z - prevZ) / Math.max(dt, 0.001);
       var heldObj = null;
@@ -5208,7 +5324,19 @@
         }
       }
       var twoH = !!(heldObj && heldObj.mesh.userData.twoHanded);
-      if (av.seated) {
+      if (av.snowboardMesh) av.snowboardMesh.visible = (av.toyMode === 'snowboard');
+      if (av.paragliderMesh) av.paragliderMesh.visible = (av.toyMode === 'paraglider');
+      if (av.toyMode === 'paraglider') {
+        av.leftLeg.rotation.x = 0.7;
+        av.rightLeg.rotation.x = 0.7;
+        av.leftArm.rotation.x = -2.4;
+        av.rightArm.rotation.x = -2.4;
+      } else if (av.toyMode === 'snowboard') {
+        av.leftLeg.rotation.x = 0.25;
+        av.rightLeg.rotation.x = -0.25;
+        av.leftArm.rotation.z = -0.55;
+        av.rightArm.rotation.z = 0.55;
+      } else if (av.seated) {
         if (av.torso) av.torso.position.set(0, 0.60, 0);
         av.headGroup.position.set(0, 1.01, 0);
         av.leftLeg.position.set(-0.11, 0.41, 0);
@@ -5230,18 +5358,33 @@
         av.rightArm.position.set(0.28, 0.82, 0);
         if (av.labelSprite) av.labelSprite.position.y = 1.92;
         if (av.chatSprite) av.chatSprite.position.y = 2.28;
-        if (av.walking || moveSpeed > 0.35) {
-          var stepRate = moveSpeed > 0.35 ? Math.max(6, Math.min(14, moveSpeed * 2.1)) : 10;
+        var isMoving = moveSpeed > 0.28;
+        if (isMoving) {
+          var walkIntensity = Math.min(1, moveSpeed / 4.2);
+          var stepRate = Math.max(5.5, Math.min(14, moveSpeed * 2.15));
           av.walkPhase += dt * stepRate;
-          av.leftLeg.rotation.x = Math.sin(av.walkPhase) * 0.55;
-          av.rightLeg.rotation.x = -Math.sin(av.walkPhase) * 0.55;
-          av.leftArm.rotation.x = twoH ? 1.05 : -Math.sin(av.walkPhase) * 0.45;
-          av.rightArm.rotation.x = av.holding ? 1.05 : Math.sin(av.walkPhase) * 0.45;
+          var swing = Math.sin(av.walkPhase);
+          var stepBob = Math.abs(swing) * 0.045 * walkIntensity;
+          if (av.torso) {
+            av.torso.position.y = 0.64 + stepBob;
+            av.torso.rotation.x = 0.06 * walkIntensity;
+            av.torso.rotation.z = swing * 0.035 * walkIntensity;
+          }
+          av.headGroup.position.y = 1.05 + stepBob;
+          av.leftLeg.rotation.x = swing * 0.58 * walkIntensity;
+          av.rightLeg.rotation.x = -swing * 0.58 * walkIntensity;
+          av.leftArm.rotation.x = twoH ? 1.05 : -swing * 0.46 * walkIntensity;
+          av.rightArm.rotation.x = av.holding ? 1.05 : swing * 0.46 * walkIntensity;
         } else {
-          av.leftLeg.rotation.x *= 0.8;
-          av.rightLeg.rotation.x *= 0.8;
-          av.leftArm.rotation.x = twoH ? 1.0 : av.leftArm.rotation.x * 0.8;
-          av.rightArm.rotation.x = av.holding ? 1.0 : av.rightArm.rotation.x * 0.8;
+          var stopDecay = Math.exp(-12 * dt);
+          if (av.torso) {
+            av.torso.rotation.x *= stopDecay;
+            av.torso.rotation.z *= stopDecay;
+          }
+          av.leftLeg.rotation.x *= stopDecay;
+          av.rightLeg.rotation.x *= stopDecay;
+          av.leftArm.rotation.x = twoH ? 1.0 : av.leftArm.rotation.x * stopDecay;
+          av.rightArm.rotation.x = av.holding ? 1.0 : av.rightArm.rotation.x * stopDecay;
         }
         if (av.emote && !av.walking && !av.seated) {
           if (av.emote === 'wave') {
@@ -6152,6 +6295,9 @@
       if (e.code === 'KeyB' && window.toggleCampusSnowboard) {
         window.toggleCampusSnowboard();
       }
+      if (e.code === 'KeyP' && window.toggleCampusParaglider) {
+        window.toggleCampusParaglider();
+      }
     });
     window.addEventListener('keyup', function (e) { keys[e.code] = false; });
 
@@ -6559,6 +6705,22 @@
         var targetRoll = -moveX * 0.24 - Math.max(-0.22, Math.min(0.22, (playerVelX * rightX + playerVelZ * rightZ) * 0.025));
         snowboardPitch += (targetPitch - snowboardPitch) * Math.min(1, dt * 8);
         snowboardRoll += (targetRoll - snowboardRoll) * Math.min(1, dt * 8);
+      } else if (paragliderActive && !onGround) {
+        if (seatedSeat) seatedSeat = null;
+        var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
+        var rightX = Math.cos(playerYaw), rightZ = -Math.sin(playerYaw);
+        var glideSpeed = moveZ > 0.1 ? 15.0 : (moveZ < -0.1 ? 6.2 : 11.2);
+        var targetVX = (fwdX * glideSpeed) + (rightX * moveX * 3.8);
+        var targetVZ = (fwdZ * glideSpeed) + (rightZ * moveX * 3.8);
+        var airBlend = 1 - Math.exp(-3.2 * dt);
+        playerVelX += (targetVX - playerVelX) * airBlend;
+        playerVelZ += (targetVZ - playerVelZ) * airBlend;
+        playerPos.x = Math.max(-210, Math.min(210, playerPos.x + playerVelX * dt));
+        playerPos.z = Math.max(-210, Math.min(210, playerPos.z + playerVelZ * dt));
+        clampPosAgainstWalls(playerPos, PLAYER_RADIUS);
+
+        var targetPgRoll = -moveX * 0.28;
+        paragliderRoll += (targetPgRoll - paragliderRoll) * Math.min(1, dt * 6);
       } else {
         var targetVX = 0, targetVZ = 0;
         if (mag > 0.08) {
@@ -6589,9 +6751,36 @@
       }
 
       var speedNow = Math.hypot(playerVelX, playerVelZ);
-      isWalking = !snowboardActive && speedNow > 0.2;
+      isWalking = !snowboardActive && !(paragliderActive && !onGround) && speedNow > 0.2;
       groundY = getGroundHeight(playerPos.x, playerPos.z, playerPos.y);
-      playerVelY -= 16.5 * dt;
+
+      // Correntes de ar termicas (animacao + sustentacao para Paraglider)
+      var inThermal = false;
+      for (var tci = 0; tci < thermalColumns.length; tci++) {
+        var tc = thermalColumns[tci];
+        for (var tri = 0; tri < tc.rings.length; tri++) {
+          var tr = tc.rings[tri];
+          var relH = ((clock.elapsedTime * 7.5 + tr.offset) % 84);
+          tr.mesh.position.y = tc.baseY + 2 + relH;
+          tr.mesh.rotation.z = clock.elapsedTime * 1.2 + tri;
+        }
+        if (paragliderActive && !onGround && playerPos.y < tc.maxH) {
+          if (Math.hypot(playerPos.x - tc.x, playerPos.z - tc.z) < tc.radius) {
+            inThermal = true;
+          }
+        }
+      }
+
+      if (paragliderActive && !onGround) {
+        if (inThermal) {
+          playerVelY += (8.5 - playerVelY) * Math.min(1, dt * 3.5);
+        } else {
+          var sinkRate = (keys['KeyS'] || keys['ArrowDown']) ? -0.95 : -1.65;
+          playerVelY += (sinkRate - playerVelY) * Math.min(1, dt * 4.0);
+        }
+      } else {
+        playerVelY -= 16.5 * dt;
+      }
       playerPos.y += playerVelY * dt;
       if (playerPos.y <= groundY) {
         playerPos.y = groundY;
@@ -6609,13 +6798,13 @@
       var wantsJump = (now <= jumpBufferUntil) || keys['Space'] || jumpHeld;
       if (wantsJump && (onGround || (now - lastGroundedAt < 150 && playerVelY <= 0))) {
         if (seatedSeat) seatedSeat = null;
-        playerVelY = snowboardActive ? 7.2 : 6.2;
+        playerVelY = paragliderActive ? 9.2 : (snowboardActive ? 7.2 : 6.2);
         onGround = false;
         lastGroundedAt = 0;
         jumpBufferUntil = 0;
       }
       var bobY = 0;
-      if (!snowboardActive && onGround && speedNow > 0.25) {
+      if (!snowboardActive && !(paragliderActive && !onGround) && onGround && speedNow > 0.25) {
         walkBobPhase += dt * (4.5 + speedNow * 1.4);
         bobY = Math.sin(walkBobPhase) * 0.028 * Math.min(1, speedNow / 3.8);
       }
@@ -6634,29 +6823,54 @@
           snowboardGroup.rotation.z = snowboardRoll;
         }
       }
+      if (paragliderGroup) {
+        paragliderGroup.visible = paragliderActive && !onGround && inFps;
+        if (paragliderGroup.visible) {
+          paragliderGroup.position.set(playerPos.x, playerPos.y + 0.45, playerPos.z);
+          paragliderGroup.rotation.order = 'YXZ';
+          paragliderGroup.rotation.y = playerYaw;
+          paragliderGroup.rotation.z = paragliderRoll;
+        }
+      }
       camera.position.set(playerPos.x, playerPos.y + eyeH + bobY, playerPos.z);
       camera.up.set(0, 1, 0);
       camera.rotation.order = 'YXZ';
       camera.rotation.y = playerYaw;
       camera.rotation.x = playerPitch;
-      camera.rotation.z = snowboardActive ? snowboardRoll * 0.35 : 0;
+      camera.rotation.z = snowboardActive ? snowboardRoll * 0.35 : ((paragliderActive && !onGround) ? paragliderRoll * 0.45 : 0);
 
       // Braço(s) em 1a pessoa + item segurado na(s) mao(s)
       var isTwoHanded = !!(heldItem && heldItem.mesh.userData.twoHanded);
       if (fpsArmGroup) {
         fpsArmGroup.visible = true;
-        var drawingNow = !!(isPrimaryDown && hoveredBoardHit && getHeldBoardToolColor());
-        armReach += ((drawingNow ? 1 : 0) - armReach) * Math.min(1, dt * 14);
-        if (speedNow > 0.2) armSwingPhase += dt * 7;
-        fpsArmGroup.position.set(
-          (isTwoHanded ? 0.27 : 0.32) - armReach * 0.08,
-          (isTwoHanded ? -0.34 : -0.28) + Math.sin(armSwingPhase) * 0.014 + armReach * 0.06,
-          (isTwoHanded ? -0.56 : -0.42) - armReach * 0.16
-        );
-        fpsArmGroup.rotation.set(0.18 + armReach * 0.35, (isTwoHanded ? 0.12 : -0.14) + armReach * 0.1, 0.05);
+        if (paragliderActive && !onGround) {
+          fpsArmGroup.position.set(0.32, 0.06, -0.34);
+          fpsArmGroup.rotation.set(0.85, -0.10, -0.15);
+        } else if (snowboardActive) {
+          fpsArmGroup.position.set(0.42, -0.22, -0.34);
+          fpsArmGroup.rotation.set(0.10, -0.45, -0.25);
+        } else {
+          var drawingNow = !!(isPrimaryDown && hoveredBoardHit && getHeldBoardToolColor());
+          armReach += ((drawingNow ? 1 : 0) - armReach) * Math.min(1, dt * 14);
+          if (speedNow > 0.2) armSwingPhase += dt * 7;
+          fpsArmGroup.position.set(
+            (isTwoHanded ? 0.27 : 0.32) - armReach * 0.08,
+            (isTwoHanded ? -0.34 : -0.28) + Math.sin(armSwingPhase) * 0.014 + armReach * 0.06,
+            (isTwoHanded ? -0.56 : -0.42) - armReach * 0.16
+          );
+          fpsArmGroup.rotation.set(0.18 + armReach * 0.35, (isTwoHanded ? 0.12 : -0.14) + armReach * 0.1, 0.05);
+        }
       }
       if (fpsLeftArmGroup) {
-        fpsLeftArmGroup.visible = isTwoHanded;
+        fpsLeftArmGroup.visible = isTwoHanded || (paragliderActive && !onGround) || snowboardActive;
+        if (paragliderActive && !onGround) {
+          fpsLeftArmGroup.position.set(-0.32, 0.06, -0.34);
+          fpsLeftArmGroup.rotation.set(0.85, 0.10, 0.15);
+        } else if (snowboardActive) {
+          fpsLeftArmGroup.position.set(-0.42, -0.22, -0.34);
+          fpsLeftArmGroup.rotation.set(0.10, 0.45, 0.25);
+        }
+      }
         if (isTwoHanded) {
           fpsLeftArmGroup.position.set(-0.27, -0.34 + Math.sin(armSwingPhase) * 0.014, -0.56);
           fpsLeftArmGroup.rotation.set(0.18, -0.12, -0.05);
@@ -8139,6 +8353,8 @@
   };
 
   window.getCampusPlayerPose = function () {
+    var gY = getGroundHeight(playerPos.x, playerPos.z, playerPos.y);
+    var inAir = playerPos.y > gY + 0.18;
     return {
       x: playerPos.x, y: playerPos.y, z: playerPos.z,
       vx: Math.round(playerVelX * 100) / 100,
@@ -8146,6 +8362,7 @@
       yaw: playerYaw, pitch: playerPitch,
       holding_item: heldItem ? heldItem.id : '',
       walking: isWalking, seated: !!seatedSeat, in_fps: inFps,
+      toy_mode: (paragliderActive && inAir) ? 'paraglider' : (snowboardActive ? 'snowboard' : ''),
       current_hat: localHat,
       emote: localEmote
     };
@@ -8184,6 +8401,15 @@
 
   window.isCampusSnowboardActive = function () {
     return snowboardActive;
+  };
+
+  window.setCampusParaglider = function (active) {
+    paragliderActive = !!active;
+    if (!paragliderActive && paragliderGroup) paragliderGroup.visible = false;
+  };
+
+  window.isCampusParagliderActive = function () {
+    return paragliderActive;
   };
 
   window.setLocalAvatarHat = function (hatId) {

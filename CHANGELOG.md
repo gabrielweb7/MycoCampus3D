@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.21] — 2026-11-15
+### 🚶 Caminhada Realista & Curva Hermite no Multiplayer
+- **Movimento Contínuo sem Saltos ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - **Buffer adaptativo de jitter** por jogador (`avgIntervalMs * 1.45`, entre `150 ms` e `320 ms`) para que o avatar nunca fique sem snapshots e não dê saltos quando um pacote atrasar.
+  - **Spline Hermite Cúbica** usando posição e velocidade `(vx, vz)` entre snapshots + suavização exponencial (`1 - exp(-12 * dt)`), deixando curvas e paradas orgânicas.
+  - **Ciclo de caminhada realista**: *bob* vertical dos passos, leve inclinação/balanço do tronco proporcional à velocidade real e desaceleração suave ao parar.
+
 ## [v0.9.20] — 2026-11-15
 ### ⚡ Multiplayer Fluido (125 ms + Interpolação/Predição) & Auto-FPS Dinâmico
 - **Multiplayer Ultra-Rápido e Suave ([api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
