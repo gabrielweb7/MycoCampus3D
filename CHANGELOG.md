@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.5] — 2026-11-15
+### Added & Improved
+- **Nova Sala "📦 DEPÓSITO" com Estantes Industriais Porta-Pallet Azuis e Laranjas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Renomeada a sala térrea do Bloco Oeste-Sul de `📚 SALA` para **`📦 DEPÓSITO`** (`Porta do Depósito` + flâmula externa `📦`).
+  - Adicionadas 3 **Estantes Industriais Porta-Pallet fixas (`addStoragePortaPalletRack`)** nas paredes Oeste, Norte e Sul do Depósito, fiéis à foto de referência: montantes verticais em azul royal (`#1d4ed8`) com treliças horizontais e diagonais em zig-zag, longarinas e 3 níveis de prateleiras metálicas laranjas (`#ea580c`) vazias (sem caixas) e registradas em `supportSurfaces` para permitir guardar/apoiar qualquer objeto do jogo em qualquer prateleira.
+
 ## [v0.6.4] — 2026-11-15
 ### Added, Fixed & Improved
 - **Novos Bancos da Praça (`createBench`) Fiéis à Foto + Assentos Clicáveis ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
