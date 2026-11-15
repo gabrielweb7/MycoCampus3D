@@ -186,10 +186,10 @@
 
   function updateUserHud() {
     if (!currentUser) return;
-    $('hud-name').textContent = currentUser.display_name;
-    $('hud-xp').textContent = String(currentUser.xp || 0);
-    $('hud-mushrooms').textContent = String(currentUser.mushrooms_harvested || 0);
-    $('hud-modules').textContent = String((currentUser.completed_modules || []).length);
+    if ($('hud-name')) $('hud-name').textContent = currentUser.display_name;
+    if ($('hud-xp')) $('hud-xp').textContent = String(currentUser.xp || 0);
+    if ($('hud-mushrooms')) $('hud-mushrooms').textContent = String(currentUser.mushrooms_harvested || 0);
+    if ($('hud-modules')) $('hud-modules').textContent = String((currentUser.completed_modules || []).length);
     if ($('shop-user-xp')) $('shop-user-xp').textContent = String(currentUser.xp || 0);
     if ($('shop-user-mushrooms')) $('shop-user-mushrooms').textContent = String(currentUser.mushrooms_harvested || 0);
     if (window.setLocalAvatarHat) {
@@ -566,7 +566,8 @@
     var s = LESSONS[idx] || LESSONS[0];
     currentSlideIdx = idx;
     currentPresenter = presenter || '';
-    $('prof-slide-label').textContent = 'Slide ' + (idx + 1) + '/' + LESSONS.length;
+    var slideLabel = $('prof-slide-label');
+    if (slideLabel) slideLabel.textContent = 'Slide ' + (idx + 1) + '/' + LESSONS.length;
     window.updateCampusAuditoriumSlide(idx, s.title, s.subtitle, s.bullets, presenter);
   }
 
@@ -1283,23 +1284,34 @@
       btn.disabled = true;
       btn.textContent = 'Entrando no campus...';
 
+      var data;
       try {
-        var data = await apiPost('api/auth.php?action=login', {
+        data = await apiPost('api/auth.php?action=login', {
           display_name: $('input-name').value.trim(),
           pin: $('input-pin').value,
           hat_color: selectedHat,
           body_color: selectedBody
         });
-        if (!data.ok) {
-          errBox.textContent = data.error || 'Erro ao autenticar.';
-          errBox.classList.remove('hidden');
-          btn.disabled = false;
-          btn.textContent = '🚀 Entrar no Campus 3D';
-          return;
-        }
-        enterCampus(data.user, data.token || '');
       } catch (err) {
+        console.error('[MycoCampus3D] Erro de rede no login:', err);
         errBox.textContent = 'Falha ao conectar com o servidor. Tente novamente em instantes.';
+        errBox.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = '🚀 Entrar no Campus 3D';
+        return;
+      }
+      if (!data.ok) {
+        errBox.textContent = data.error || 'Erro ao autenticar.';
+        errBox.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = '🚀 Entrar no Campus 3D';
+        return;
+      }
+      try {
+        enterCampus(data.user, data.token || '');
+      } catch (uiErr) {
+        console.error('[MycoCampus3D] Erro ao iniciar o campus após login:', uiErr);
+        errBox.textContent = 'Erro ao iniciar a interface do campus: ' + (uiErr && uiErr.message ? uiErr.message : 'erro interno.');
         errBox.classList.remove('hidden');
         btn.disabled = false;
         btn.textContent = '🚀 Entrar no Campus 3D';
