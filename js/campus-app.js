@@ -537,6 +537,9 @@
     loadLobbyStats();
     var verEl = $('app-version');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
+    if (window.location.search.indexOf('preview=1') !== -1) {
+      $('campus-lobby').classList.add('hidden');
+    }
 
     window.initCampus3D('campus-canvas-wrap', {
       onHarvestMushroom: function () {

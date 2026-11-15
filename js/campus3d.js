@@ -12,7 +12,9 @@
 
   // Colisoes, pisos e objetos
   var solidColliders = [];   // { minX, maxX, minZ, maxZ, minY, maxY }
-  var wallSegments = [];     // { x1, z1, x2, z2, halfThick }
+  var wallSegments = [];     // { x1, z1, x2, z2, halfThick, minY, maxY }
+  var walkableFloors = [];   // { minX, maxX, minZ, maxZ, topY }
+  var stairsList = [];       // { minX, maxX, zStart, zEnd, yStart, yEnd }
   var supportSurfaces = [];  // { minX, maxX, minZ, maxZ, topY }
   var pickableItems = [];    // { id, label, mesh, homePos, homeRy, radius, height, isMoved }
   var wildMushrooms = [];    // { id, group, capMesh, active, respawnAt }
@@ -196,30 +198,56 @@
     var h = terrainHeight(x, z);
     var curY = refY !== undefined ? refY : playerPos.y;
 
-    // Escadaria Monumental (x: -4.2..4.2, z: -11.5 .. -19.0) sobe de 0 -> 4.0
-    if (x >= -4.2 && x <= 4.2 && z <= -11.5 && z >= -19.0) {
-      var t = (-11.5 - z) / 7.5; // 0 na base, 1 no topo
-      var stepH = Math.min(4.0, Math.max(0, t * 4.0));
-      h = Math.max(h, stepH);
-    }
-
-    // Terraco Norte da Reitoria (x: -24..24, z: -19.0 .. -36.0, y = 4.0)
-    if (x >= -24 && x <= 24 && z <= -19.0 && z >= -36.0) {
-      if (curY >= 2.2 || z <= -19.0 && x >= -4.4 && x <= 4.4) {
-        h = Math.max(h, 4.0);
+    // Escadas automaticas
+    for (var s = 0; s < stairsList.length; s++) {
+      var st = stairsList[s];
+      if (x >= st.minX && x <= st.maxX && z <= Math.max(st.zStart, st.zEnd) && z >= Math.min(st.zStart, st.zEnd)) {
+        var t = (z - st.zStart) / (st.zEnd - st.zStart);
+        t = Math.max(0, Math.min(1, t));
+        var sy = st.yStart + t * (st.yEnd - st.yStart);
+        if (curY >= sy - 1.2) h = Math.max(h, sy);
       }
     }
 
-    // Passarela Elevada (x: -14.5..14.5, z: -16.8..-14.0, y = 4.0)
-    if (x >= -14.5 && x <= 14.5 && z >= -16.8 && z <= -14.0 && curY >= 2.6) {
-      h = Math.max(h, 4.0);
+    // Lajes caminhaveis automaticas (2o andar, passarela, terraco, terreo)
+    for (var f = 0; f < walkableFloors.length; f++) {
+      var fl = walkableFloors[f];
+      if (x >= fl.minX && x <= fl.maxX && z >= fl.minZ && z <= fl.maxZ) {
+        if (curY >= fl.topY - 1.1) {
+          h = Math.max(h, fl.topY);
+        }
+      }
     }
 
-    // Pisos terreo das alas
-    if (x >= -24.2 && x <= -13.8 && z >= -13.2 && z <= 14.2) h = Math.max(h, 0.12);
-    if (x >= 13.8 && x <= 24.2 && z >= -13.2 && z <= 14.2) h = Math.max(h, 0.12);
-
     return h;
+  }
+
+  function addWalkableSlab(cx, topY, cz, w, thickness, d, colorOrMat, opts) {
+    var mesh = makeBox(w, thickness, d, colorOrMat, opts);
+    mesh.position.set(cx, topY - thickness / 2, cz);
+    scene.add(mesh);
+    walkableFloors.push({
+      minX: cx - w / 2, maxX: cx + w / 2,
+      minZ: cz - d / 2, maxZ: cz + d / 2,
+      topY: topY
+    });
+    return mesh;
+  }
+
+  function addSolidWall(x1, z1, x2, z2, minY, height, thickness, colorOrMat, opts) {
+    var dx = x2 - x1, dz = z2 - z1;
+    var len = Math.hypot(dx, dz);
+    if (len < 0.01) return null;
+    var mesh = makeBox(len, height, thickness, colorOrMat, opts);
+    mesh.position.set((x1 + x2) / 2, minY + height / 2, (z1 + z2) / 2);
+    mesh.rotation.y = -Math.atan2(dz, dx);
+    scene.add(mesh);
+    wallSegments.push({
+      x1: x1, z1: z1, x2: x2, z2: z2,
+      halfThick: thickness / 2 + 0.06,
+      minY: minY, maxY: minY + height
+    });
+    return mesh;
   }
 
   // ---------------- Mundo Natural & Lago ----------------
@@ -512,8 +540,10 @@
     scene.add(mStem, mCap);
     for (var s = 0; s < 8; s++) {
       var ang = (s / 8) * Math.PI * 2;
-      var spot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }));
-      spot.position.set(fx + Math.cos(ang) * 0.82, 2.96 + (s % 2) * 0.14, fz + Math.sin(ang) * 0.82);
+      var rSpot = s % 2 === 0 ? 0.96 : 0.68;
+      var ySpot = s % 2 === 0 ? 3.12 : 3.48;
+      var spot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }));
+      spot.position.set(fx + Math.cos(ang) * rSpot, ySpot, fz + Math.sin(ang) * rSpot);
       scene.add(spot);
     }
     solidColliders.push({ minX: fx - 2.9, maxX: fx + 2.9, minZ: fz - 2.9, maxZ: fz + 2.9, minY: 0, maxY: 4.0 });
@@ -547,131 +577,113 @@
   // ---------------- Modulo Geometrico de Predio Universitario (2 Andares) ----------------
 
   function buildCampusBuildingWing(opts) {
-    // opts: { cx, cz, width, depth, faceDir (+1 enfrenta +X, -1 enfrenta -X), hasDoor, style ('brick'|'wood') }
+    // opts: { cx, cz, width, depth, faceDir (+1=-X->+X, -1=+X->-X), hasDoor, style ('brick'|'wood'), connectNorth2F, connectSouth2F }
     var w = opts.width || 10.0;
-    var d = opts.depth || 11.5;
-    var h1 = 3.5; // 1o andar
-    var h2 = 3.5; // 2o andar
+    var d = opts.depth || 11.6;
+    var h1 = 3.68; // 1o andar (piso 2o andar fica em y = 3.80 exato)
+    var h2 = 3.5;  // 2o andar
+    var yFloor1 = 0.12;
+    var yFloor2 = 3.80;
     var totalH = h1 + h2;
     var cx = opts.cx, cz = opts.cz;
-    var dir = opts.faceDir; // +1 = fachada olha para +X (Praca), -1 = fachada olha para -X (Praca)
+    var dir = opts.faceDir;
     var frontX = cx + dir * (w / 2);
     var backX = cx - dir * (w / 2);
+    var zN = cz - d / 2;
+    var zS = cz + d / 2;
 
-    // Laje de piso
-    var floor = makeBox(w + 0.4, 0.14, d + 0.4, 0x475569, { roughness: 0.7 });
-    floor.position.set(cx, 0.07, cz);
-    scene.add(floor);
+    // Laje do terreo e laje do 2o andar (ambas caminhaveis!)
+    addWalkableSlab(cx, yFloor1, cz, w + 0.4, 0.14, d + 0.4, 0x475569, { roughness: 0.7 });
+    addWalkableSlab(cx, yFloor2, cz, w + 0.35, 0.24, d + 0.35, 0x334155, { roughness: 0.55 });
 
-    // Laje do 2o andar + Platibanda cinza no teto
-    var midSlab = makeBox(w + 0.35, 0.24, d + 0.35, 0x334155, { roughness: 0.55 });
-    midSlab.position.set(cx, h1 + 0.12, cz);
-    scene.add(midSlab);
-
+    // Teto e platibanda cinza
     var roofSlab = makeBox(w + 0.6, 0.32, d + 0.6, 0x94a3b8, { roughness: 0.5 });
-    roofSlab.position.set(cx, totalH + 0.28, cz);
+    roofSlab.position.set(cx, yFloor2 + h2 + 0.16, cz);
     scene.add(roofSlab);
-
     var parapet = makeBox(w + 0.72, 0.42, d + 0.72, 0x64748b, { roughness: 0.5 });
-    parapet.position.set(cx, totalH + 0.55, cz);
+    parapet.position.set(cx, yFloor2 + h2 + 0.43, cz);
     scene.add(parapet);
 
-    // Pilares de concreto escuro nos 4 cantos + meio
-    var pPositions = [
-      [frontX, cz - d / 2], [frontX, cz + d / 2],
-      [backX, cz - d / 2], [backX, cz + d / 2],
-      [frontX, cz]
-    ];
-    pPositions.forEach(function (pp) {
-      var col = makeBox(0.45, totalH + 0.3, 0.45, 0x1e293b, { roughness: 0.5 });
-      col.position.set(pp[0], totalH / 2 + 0.12, pp[1]);
+    // Pilares de concreto escuro
+    [[frontX, zN], [frontX, zS], [backX, zN], [backX, zS], [frontX, cz]].forEach(function (pp) {
+      var col = makeBox(0.45, totalH + 0.35, 0.45, 0x1e293b, { roughness: 0.5 });
+      col.position.set(pp[0], yFloor1 + totalH / 2, pp[1]);
       scene.add(col);
     });
 
-    // Parede dos fundos e laterais em tijolinho ou madeira ripada
     var wallMat = opts.style === 'wood' ? woodMat(3, 2) : brickMat(3, 2);
-    var backWall = makeBox(0.28, totalH, d, wallMat);
-    backWall.position.set(backX, totalH / 2 + 0.12, cz);
-    scene.add(backWall);
+    var glassMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.32, roughness: 0.1, metalness: 0.25 });
 
-    var sideN = makeBox(w, totalH, 0.28, brickMat(2.5, 2));
-    sideN.position.set(cx, totalH / 2 + 0.12, cz - d / 2);
-    scene.add(sideN);
+    // Parede dos fundos (1o e 2o andares)
+    addSolidWall(backX, zN, backX, zS, yFloor1, totalH, 0.28, wallMat);
 
-    var sideS = makeBox(w, totalH, 0.28, brickMat(2.5, 2));
-    sideS.position.set(cx, totalH / 2 + 0.12, cz + d / 2);
-    scene.add(sideS);
+    // Parede Norte: 1o andar fechado, 2o andar com vao de porta se connectNorth2F
+    addSolidWall(backX, zN, frontX, zN, yFloor1, h1, 0.28, brickMat(2.5, 1.2));
+    if (opts.connectNorth2F) {
+      // Vao central de 3.2m na parede norte do 2o andar (x: cx - 1.6 .. cx + 1.6)
+      addSolidWall(backX, zN, cx - 1.6, zN, yFloor2, h2, 0.28, brickMat(1, 1));
+      addSolidWall(cx + 1.6, zN, frontX, zN, yFloor2, h2, 0.28, brickMat(1, 1));
+      var headerN = makeBox(3.2, 0.7, 0.28, 0x334155);
+      headerN.position.set(cx, yFloor2 + h2 - 0.35, zN);
+      scene.add(headerN);
+    } else {
+      addSolidWall(backX, zN, frontX, zN, yFloor2, h2, 0.28, brickMat(2.5, 1.2));
+    }
 
-    // Se NAO tiver porta interativa (predio decorativo/outra ala), adiciona janelas panorâmicas nos 2 andares e colisor completo
-    // Se tiver porta (Lab), deixa abertura central na fachada do terreo para entrar!
-    var glassMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.34, roughness: 0.1, metalness: 0.25 });
+    // Parede Sul: 1o andar fechado, 2o andar com vao se connectSouth2F
+    addSolidWall(backX, zS, frontX, zS, yFloor1, h1, 0.28, brickMat(2.5, 1.2));
+    if (opts.connectSouth2F) {
+      addSolidWall(backX, zS, cx - 1.6, zS, yFloor2, h2, 0.28, brickMat(1, 1));
+      addSolidWall(cx + 1.6, zS, frontX, zS, yFloor2, h2, 0.28, brickMat(1, 1));
+      var headerS = makeBox(3.2, 0.7, 0.28, 0x334155);
+      headerS.position.set(cx, yFloor2 + h2 - 0.35, zS);
+      scene.add(headerS);
+    } else {
+      addSolidWall(backX, zS, frontX, zS, yFloor2, h2, 0.28, brickMat(2.5, 1.2));
+    }
 
-    // 2o andar sempre com janelas grandes e sala iluminada visivel
-    var upperGlass = new THREE.Mesh(new THREE.BoxGeometry(0.12, h2 - 0.6, d - 0.6), glassMat);
-    upperGlass.position.set(frontX, h1 + h2 / 2 + 0.12, cz);
-    scene.add(upperGlass);
-
-    // Esquadrias verticais das janelas do 2o andar
+    // Fachada de vidro do 2o andar (sempre solida para nao cair pela janela!)
+    addSolidWall(frontX, zN, frontX, zS, yFloor2, h2 - 0.1, 0.14, glassMat);
     for (var m = -2; m <= 2; m++) {
-      var mullion = makeBox(0.18, h2 - 0.5, 0.1, 0x0f172a);
-      mullion.position.set(frontX, h1 + h2 / 2 + 0.12, cz + m * (d / 5));
+      var mullion = makeBox(0.18, h2 - 0.4, 0.1, 0x0f172a);
+      mullion.position.set(frontX, yFloor2 + h2 / 2, cz + m * (d / 5));
       scene.add(mullion);
     }
 
-    // Mobiliario simples visivel no 2o andar (mesas + quadro verde + luz)
-    var roomGlow = makeBox(w - 2.2, 0.1, d - 2.4, 0xfef9c3, { emissive: 0xfde68a, emissiveIntensity: 0.55, noShadow: true });
-    roomGlow.position.set(cx, totalH - 0.15, cz);
+    // Mobiliario iluminado do 2o andar
+    var roomGlow = makeBox(w - 2.2, 0.08, d - 2.4, 0xfef9c3, { emissive: 0xfde68a, emissiveIntensity: 0.5, noShadow: true });
+    roomGlow.position.set(cx, yFloor2 + h2 - 0.15, cz);
     scene.add(roomGlow);
     for (var dtRow = -1; dtRow <= 1; dtRow++) {
-      var desk = makeBox(1.2, 0.72, 2.2, 0xd97706, { roughness: 0.65 });
-      desk.position.set(cx + dir * 1.2, h1 + 0.6, cz + dtRow * 3.0);
+      var desk = makeBox(1.1, 0.72, 2.0, 0xd97706, { roughness: 0.65 });
+      desk.position.set(cx + dir * 1.1, yFloor2 + 0.36, cz + dtRow * 3.0);
       scene.add(desk);
+      solidColliders.push({
+        minX: cx + dir * 1.1 - 0.6, maxX: cx + dir * 1.1 + 0.6,
+        minZ: cz + dtRow * 3.0 - 1.05, maxZ: cz + dtRow * 3.0 + 1.05,
+        minY: yFloor2, maxY: yFloor2 + 0.9
+      });
     }
     var board = makeBox(0.1, 1.3, 3.6, 0x14532d, { roughness: 0.6 });
-    board.position.set(backX + dir * 0.22, h1 + 1.85, cz);
+    board.position.set(backX + dir * 0.22, yFloor2 + 1.75, cz);
     scene.add(board);
 
+    // Fachada do 1o andar (terreo)
     if (opts.hasDoor) {
-      // Paredes fisicas do terreo com vao da porta em [cz - 0.9 .. cz + 0.9]
-      wallSegments.push({ x1: backX, z1: cz - d / 2, x2: backX, z2: cz + d / 2, halfThick: 0.25 });
-      wallSegments.push({ x1: backX, z1: cz - d / 2, x2: frontX, z2: cz - d / 2, halfThick: 0.25 });
-      wallSegments.push({ x1: backX, z1: cz + d / 2, x2: frontX, z2: cz + d / 2, halfThick: 0.25 });
-
-      var halfSeg = (d / 2) - 0.95;
-      var frontN = new THREE.Mesh(new THREE.BoxGeometry(0.16, h1, halfSeg), glassMat);
-      frontN.position.set(frontX, h1 / 2 + 0.12, cz - 0.95 - halfSeg / 2);
-      scene.add(frontN);
-      wallSegments.push({ x1: frontX, z1: cz - d / 2, x2: frontX, z2: cz - 0.95, halfThick: 0.22 });
-
-      var frontS = new THREE.Mesh(new THREE.BoxGeometry(0.16, h1, halfSeg), glassMat);
-      frontS.position.set(frontX, h1 / 2 + 0.12, cz + 0.95 + halfSeg / 2);
-      scene.add(frontS);
-      wallSegments.push({ x1: frontX, z1: cz + 0.95, x2: frontX, z2: cz + d / 2, halfThick: 0.22 });
-
-      // Porta articulada do Lab
+      addSolidWall(frontX, zN, frontX, cz - 0.95, yFloor1, h1, 0.16, glassMat);
+      addSolidWall(frontX, cz + 0.95, frontX, zS, yFloor1, h1, 0.16, glassMat);
       labDoorPivot = new THREE.Group();
-      labDoorPivot.position.set(frontX, 0.12, cz - 0.95);
+      labDoorPivot.position.set(frontX, yFloor1, cz - 0.95);
       var doorGlass = makeBox(0.1, 2.75, 1.85, 0x0f766e, { transparent: true, opacity: 0.65, roughness: 0.2 });
       doorGlass.position.set(0, 1.38, 0.92);
       var doorHandle = makeBox(0.18, 0.22, 0.08, 0xfbbf24, { metalness: 0.75 });
       doorHandle.position.set(dir * 0.08, 1.1, 1.6);
       labDoorPivot.add(doorGlass, doorHandle);
       scene.add(labDoorPivot);
-    } else if (opts.openFront) {
-      // Aberto na frente para entrar direto (Substratos / Estufa), colisao so nas 3 paredes
-      wallSegments.push({ x1: backX, z1: cz - d / 2, x2: backX, z2: cz + d / 2, halfThick: 0.25 });
-      wallSegments.push({ x1: backX, z1: cz - d / 2, x2: frontX, z2: cz - d / 2, halfThick: 0.25 });
-      wallSegments.push({ x1: backX, z1: cz + d / 2, x2: frontX, z2: cz + d / 2, halfThick: 0.25 });
-    } else {
-      // Bloco envidracado fechado com interior visivel
-      var lowerGlass = new THREE.Mesh(new THREE.BoxGeometry(0.12, h1 - 0.4, d - 0.6), glassMat);
-      lowerGlass.position.set(frontX, h1 / 2 + 0.12, cz);
-      scene.add(lowerGlass);
-      solidColliders.push({
-        minX: cx - w / 2 - 0.2, maxX: cx + w / 2 + 0.2,
-        minZ: cz - d / 2 - 0.2, maxZ: cz + d / 2 + 0.2,
-        minY: 0, maxY: totalH + 1
-      });
+    } else if (!opts.openFront) {
+      // Salas com entrada central aberta de 2.4m no terreo para o jogador entrar!
+      addSolidWall(frontX, zN, frontX, cz - 1.2, yFloor1, h1, 0.16, glassMat);
+      addSolidWall(frontX, cz + 1.2, frontX, zS, yFloor1, h1, 0.16, glassMat);
     }
   }
 
@@ -713,10 +725,11 @@
   }
 
   function buildStaircaseAndBridge() {
-    // 14 degraus largos de z=-11.5 ate z=-19.0 (subindo de y=0 ate y=4.0)
+    var yTop = 3.80;
+    // 14 degraus largos de z=-11.5 ate z=-18.5 (subindo de y=0 ate y=3.80)
     var steps = 14;
-    var stepD = 7.5 / steps;
-    var stepH = 4.0 / steps;
+    var stepD = 7.0 / steps;
+    var stepH = yTop / steps;
     for (var i = 0; i < steps; i++) {
       var sy = (i + 1) * stepH;
       var sz = -11.5 - (i + 0.5) * stepD;
@@ -724,39 +737,39 @@
       step.position.set(0, sy / 2, sz);
       scene.add(step);
     }
+    stairsList.push({ minX: -4.2, maxX: 4.2, zStart: -11.5, zEnd: -18.5, yStart: 0, yEnd: yTop });
 
     // Muretas laterais da escadaria
     [-4.35, 4.35].forEach(function (rx) {
-      var railWall = makeBox(0.35, 2.6, 7.6, 0x64748b, { roughness: 0.6 });
-      railWall.position.set(rx, 1.3, -15.25);
+      var railWall = makeBox(0.35, 2.6, 7.2, 0x64748b, { roughness: 0.6 });
+      railWall.position.set(rx, 1.3, -15.0);
       scene.add(railWall);
-      solidColliders.push({ minX: rx - 0.25, maxX: rx + 0.25, minZ: -19.1, maxZ: -11.4, minY: 0, maxY: 4.9 });
+      solidColliders.push({ minX: rx - 0.25, maxX: rx + 0.25, minZ: -18.6, maxZ: -11.4, minY: 0, maxY: 4.9 });
     });
 
-    // Passarela / Ponte Elevada ligando x=-14.5..14.5 em y=4.0, z=-16.8..-14.0
-    var bridge = makeBox(29.0, 0.34, 2.8, 0x475569, { roughness: 0.6 });
-    bridge.position.set(0, 3.83, -15.4);
-    scene.add(bridge);
+    // Passarela / Ponte Elevada no nivel exato y=3.80 ligando x=-24..+24 ate os predios!
+    // Parte principal dianteira (z: -18.5 .. -12.8) conectando as entradas norte dos 2os andares
+    addWalkableSlab(0, yTop, -15.65, 42.0, 0.34, 5.7, 0x475569, { roughness: 0.6 });
 
-    // Guarda-corpo de vidro da passarela (com abertura central na escadaria -4..4)
+    // Guarda-corpo de vidro na borda sul da passarela (com abertura central na escadaria -4.2..4.2)
     [-1, 1].forEach(function (side) {
-      var bx = side * 9.25;
-      var railF = makeBox(10.5, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
-      railF.position.set(bx, 4.52, -14.05);
-      var railB = makeBox(10.5, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
-      railB.position.set(bx, 4.52, -16.75);
-      scene.add(railF, railB);
+      addSolidWall(side * 4.2, -12.85, side * 14.0, -12.85, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+      addSolidWall(side * 20.6, -12.85, side * 24.0, -12.85, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
     });
 
-    // Terraco Norte (y = 4.0, x: -24..24, z: -19.0..-36.0)
-    var terrace = makeBox(48.0, 4.0, 17.0, 0x94a3b8, { roughness: 0.8 });
-    terrace.position.set(0, 2.0, -27.5);
-    scene.add(terrace);
+    // Pontes ligando Bloco Norte <-> Bloco Sul no 2o andar (x = +-19, z = -1.2 .. 2.2, y = 3.80)
+    [-19, 19].forEach(function (ax) {
+      addWalkableSlab(ax, yTop, 0.5, 4.4, 0.28, 3.6, 0x475569, { roughness: 0.6 });
+      addSolidWall(ax - 2.1, -1.2, ax - 2.1, 2.2, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+      addSolidWall(ax + 2.1, -1.2, ax + 2.1, 2.2, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+    });
+
+    // Terraco Norte (y = 3.80, x: -24..24, z: -18.5 .. -36.0)
+    addWalkableSlab(0, yTop, -27.25, 48.0, 3.80, 17.5, 0x94a3b8, { roughness: 0.8 });
   }
 
   function buildClockTowerAndAuditorium() {
-    // Predio Principal ao fundo (z = -28..-35, base em y = 4.0)
-    var baseY = 4.0;
+    var baseY = 3.80;
 
     // Alas laterais simetricas da Reitoria
     [-9.5, 9.5].forEach(function (ax) {
@@ -766,8 +779,11 @@
       var trim = makeBox(11.4, 0.45, 6.8, 0x64748b);
       trim.position.set(ax, baseY + 6.3, -31.0);
       scene.add(trim);
-      var win = makeBox(8.5, 4.6, 0.14, 0xbae6fd, { transparent: true, opacity: 0.42 });
-      win.position.set(ax, baseY + 3.1, -27.78);
+      var winFrame = makeBox(8.7, 4.8, 0.14, 0x0f172a);
+      winFrame.position.set(ax, baseY + 3.1, -27.72);
+      scene.add(winFrame);
+      var win = makeBox(8.3, 4.4, 0.16, 0x7dd3fc, { transparent: true, opacity: 0.55, roughness: 0.15 });
+      win.position.set(ax, baseY + 3.1, -27.68);
       scene.add(win);
       solidColliders.push({ minX: ax - 5.6, maxX: ax + 5.6, minZ: -34.3, maxZ: -27.7, minY: baseY, maxY: baseY + 7 });
     });
@@ -776,8 +792,11 @@
     var tower = makeBox(5.6, 12.6, 6.8, 0x64748b, { roughness: 0.55 });
     tower.position.set(0, baseY + 6.3, -31.0);
     scene.add(tower);
-    var towerGlass = makeBox(3.4, 7.6, 0.18, 0xbae6fd, { transparent: true, opacity: 0.45 });
-    towerGlass.position.set(0, baseY + 4.4, -27.55);
+    var towerFrame = makeBox(3.6, 7.6, 0.16, 0x0f172a);
+    towerFrame.position.set(0, baseY + 4.3, -27.52);
+    scene.add(towerFrame);
+    var towerGlass = makeBox(3.2, 7.2, 0.18, 0x7dd3fc, { transparent: true, opacity: 0.6, roughness: 0.15 });
+    towerGlass.position.set(0, baseY + 4.3, -27.46);
     scene.add(towerGlass);
     solidColliders.push({ minX: -2.9, maxX: 2.9, minZ: -34.5, maxZ: -27.5, minY: baseY, maxY: baseY + 13 });
 
@@ -798,22 +817,22 @@
     createBanner(-4.6, baseY + 4.0, -27.6, 0, '#1d4ed8', '🎓');
     createBanner(4.6, baseY + 4.0, -27.6, 0, '#4338ca', '🍄');
 
-    // Telao Interativo Principal no Terraco (frente a Torre do Relogio, visivel de toda a praca)
+    // Telao Principal no Terraco (ao lado esquerdo da entrada da Torre do Relogio, deixando o eixo central livre!)
     auditoriumCanvas = document.createElement('canvas');
     auditoriumCanvas.width = 1024;
     auditoriumCanvas.height = 576;
     auditoriumCtx = auditoriumCanvas.getContext('2d');
     auditoriumTex = new THREE.CanvasTexture(auditoriumCanvas);
 
-    var frameMain = makeBox(6.8, 3.9, 0.25, 0x0f172a, { roughness: 0.4 });
-    frameMain.position.set(0, baseY + 2.4, -26.8);
+    var frameMain = makeBox(6.6, 3.8, 0.25, 0x0f172a, { roughness: 0.4 });
+    frameMain.position.set(-9.5, baseY + 2.4, -27.3);
     scene.add(frameMain);
 
     var screenMain = new THREE.Mesh(
-      new THREE.PlaneGeometry(6.3, 3.5),
+      new THREE.PlaneGeometry(6.1, 3.4),
       new THREE.MeshBasicMaterial({ map: auditoriumTex })
     );
-    screenMain.position.set(0, baseY + 2.4, -26.64);
+    screenMain.position.set(-9.5, baseY + 2.4, -27.14);
     scene.add(screenMain);
     auditoriumScreenMeshes.push(screenMain);
 
@@ -870,7 +889,7 @@
       scene.add(group);
     }
 
-    addScreenButtons3D(0, baseY + 0.25, -26.55, 0);
+    addScreenButtons3D(-9.5, baseY + 0.25, -27.08, 0);
     addScreenButtons3D(-13.52, 3.25, 0.5, Math.PI / 2);
 
     updateCampusAuditoriumSlide(
@@ -941,10 +960,10 @@
 
   function buildCampusWingsAndEquipment() {
     // ALA OESTE (Esquerda) — 2 blocos de 2 andares (x: -24..-14)
-    // Bloco Oeste-Norte (z: -13..-1): LABORATORIO DE FLUXO LAMINAR & AUTOCLAVE (com porta articulada)
-    buildCampusBuildingWing({ cx: -19, cz: -7, width: 10, depth: 11.6, faceDir: 1, hasDoor: true, style: 'brick' });
-    // Bloco Oeste-Sul (z: 2.2..13.8): Salas de Aula
-    buildCampusBuildingWing({ cx: -19, cz: 8, width: 10, depth: 11.6, faceDir: 1, hasDoor: false, style: 'brick' });
+    // Bloco Oeste-Norte (z: -12.8..-1.2): LABORATORIO DE FLUXO LAMINAR & AUTOCLAVE + 2o andar acessivel
+    buildCampusBuildingWing({ cx: -19, cz: -7, width: 10, depth: 11.6, faceDir: 1, hasDoor: true, style: 'brick', connectNorth2F: true, connectSouth2F: true });
+    // Bloco Oeste-Sul (z: 2.2..13.8): Salas de Aula (1o e 2o andares acessiveis)
+    buildCampusBuildingWing({ cx: -19, cz: 8, width: 10, depth: 11.6, faceDir: 1, hasDoor: false, style: 'brick', connectNorth2F: true });
 
     createBanner(-13.85, 5.1, -11.6, Math.PI / 2, '#6d28d9', '🔬');
     createBanner(-13.85, 5.1, -2.4, Math.PI / 2, '#1d4ed8', '🧬');
@@ -1007,10 +1026,10 @@
     registerPickable('liquid_culture', 'Cultura Líquida (CL)', lcFlask, -16.8, 0.93, -4.2, 0, 0.2, 0.35);
 
     // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
-    // Bloco Leste-Norte (z: -13..-1): SUBSTRATOS & PASTEURIZACAO (aberto no terreo)
-    buildCampusBuildingWing({ cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, openFront: true, style: 'brick' });
-    // Bloco Leste-Sul (z: 2.2..13.8): ESTUFA DE FRUTIFICACAO (aberto no terreo, madeira ripada)
-    buildCampusBuildingWing({ cx: 19, cz: 8, width: 10, depth: 11.6, faceDir: -1, openFront: true, style: 'wood' });
+    // Bloco Leste-Norte (z: -12.8..-1.2): SUBSTRATOS & PASTEURIZACAO + 2o andar acessivel
+    buildCampusBuildingWing({ cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, openFront: true, style: 'brick', connectNorth2F: true, connectSouth2F: true });
+    // Bloco Leste-Sul (z: 2.2..13.8): ESTUFA DE FRUTIFICACAO + 2o andar acessivel
+    buildCampusBuildingWing({ cx: 19, cz: 8, width: 10, depth: 11.6, faceDir: -1, openFront: true, style: 'wood', connectNorth2F: true });
 
     createBanner(13.85, 5.1, -11.6, -Math.PI / 2, '#0284c7', '🧪');
     createBanner(13.85, 5.1, 3.6, -Math.PI / 2, '#15803d', '🍄');
@@ -1060,7 +1079,7 @@
   function clampPosAgainstWalls(pos, radius) {
     for (var i = 0; i < wallSegments.length; i++) {
       var w = wallSegments[i];
-      if (pos.y > 3.6) continue;
+      if (w.minY !== undefined && (pos.y + 1.4 < w.minY || pos.y > w.maxY - 0.15)) continue;
       var vx = w.x2 - w.x1, vz = w.z2 - w.z1;
       var len2 = vx * vx + vz * vz;
       if (len2 === 0) continue;
@@ -1665,6 +1684,7 @@
       }
       camera.position.set(playerPos.x, playerPos.y + PLAYER_EYE + bobY, playerPos.z);
       camera.up.set(0, 1, 0);
+      camera.up.set(0, 1, 0);
       camera.rotation.order = 'YXZ';
       camera.rotation.y = playerYaw;
       camera.rotation.x = playerPitch;
@@ -1692,8 +1712,23 @@
     callbacks = Object.assign(callbacks, cbs || {});
     var container = document.getElementById(containerId);
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x7dd3fc);
-    scene.fog = new THREE.FogExp2(0xbae6fd, 0.0058);
+    scene.background = new THREE.Color(0x60a5fa);
+    scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0042);
+
+    // Nuvens brancas suaves no ceu
+    var cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe0f2fe, emissiveIntensity: 0.25 });
+    for (var cl = 0; cl < 12; cl++) {
+      var cg = new THREE.Group();
+      var ca = (cl / 12) * Math.PI * 2;
+      cg.position.set(Math.cos(ca) * (70 + (cl % 3) * 18), 32 + (cl % 4) * 4, Math.sin(ca) * (70 + (cl % 3) * 18));
+      for (var cp = 0; cp < 3; cp++) {
+        var puff = new THREE.Mesh(new THREE.SphereGeometry(5 + (cp % 2) * 2.5, 10, 8), cloudMat);
+        puff.position.set((cp - 1) * 5.2, (cp % 2) * 1.4, 0);
+        puff.scale.set(1.3, 0.65, 1.0);
+        cg.add(puff);
+      }
+      scene.add(cg);
+    }
 
     camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 260);
     camera.position.set(-10, 12.5, 22);
