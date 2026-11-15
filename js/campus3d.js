@@ -7503,28 +7503,24 @@
       }
       var saved = objectsMap[item.id];
       if (saved) {
-        var suppY = getGroundHeight(saved.x, saved.z, saved.y);
-        for (var si = 0; si < supportSurfaces.length; si++) {
-          var s = supportSurfaces[si];
-          if (s === item.mesh.userData.dynamicSurface) continue;
-          if (saved.x >= s.minX && saved.x <= s.maxX && saved.z >= s.minZ && saved.z <= s.maxZ && saved.y >= s.topY - 0.15) {
-            suppY = Math.max(suppY, s.topY);
-          }
-        }
         var finalY = saved.y;
-        if (item.id === 'burner_lab') {
-          // O fogareiro deve sempre estar assentado em sua bancada ou piso, nunca flutuando no ar
-          if (saved.y > suppY + 0.04 || saved.y < suppY - 0.05) {
+        if (!item.mesh.userData.isTable && !item.mesh.userData.isHood) {
+          var suppY = getItemGroundHeight(saved.x, saved.z, saved.y, item.mesh.userData.dynamicSurface);
+          for (var si = 0; si < supportSurfaces.length; si++) {
+            var s = supportSurfaces[si];
+            if (s === item.mesh.userData.dynamicSurface) continue;
+            if (saved.x >= s.minX - 0.09 && saved.x <= s.maxX + 0.09 && saved.z >= s.minZ - 0.09 && saved.z <= s.maxZ + 0.09) {
+              suppY = Math.max(suppY, s.topY);
+            }
+          }
+          if (Math.abs(saved.y - suppY) > 0.04) {
             finalY = suppY;
             pendingMovedItems[item.id] = {
               id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
             };
+          } else {
+            finalY = suppY;
           }
-        } else if (!item.mesh.userData.isTable && (saved.y > suppY + 0.08 || saved.y < suppY - 0.08)) {
-          finalY = suppY;
-          pendingMovedItems[item.id] = {
-            id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
-          };
         }
         item.mesh.position.set(saved.x, finalY, saved.z);
         item.mesh.rotation.y = saved.ry || 0;
@@ -7578,19 +7574,21 @@
             return;
           }
         }
-        var suppY = getGroundHeight(saved.x, saved.z, saved.y);
+        var suppY = getItemGroundHeight(saved.x, saved.z, saved.y, item.mesh.userData.dynamicSurface);
         for (var i = 0; i < supportSurfaces.length; i++) {
           var s = supportSurfaces[i];
-          if (saved.x >= s.minX && saved.x <= s.maxX && saved.z >= s.minZ && saved.z <= s.maxZ && saved.y >= s.topY - 0.15) {
+          if (saved.x >= s.minX - 0.09 && saved.x <= s.maxX + 0.09 && saved.z >= s.minZ - 0.09 && saved.z <= s.maxZ + 0.09) {
             suppY = Math.max(suppY, s.topY);
           }
         }
-        var finalY = Math.abs(saved.y - suppY) < 0.06 ? suppY : saved.y;
-        if (saved.y > suppY + 0.08) {
+        var finalY = saved.y;
+        if (saved.y < suppY - 0.04 || (!item.mesh.userData.isPetri && saved.y > suppY + 0.08) || Math.abs(saved.y - suppY) < 0.06) {
           finalY = suppY;
-          pendingMovedItems[item.id] = {
-            id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
-          };
+          if (Math.abs(saved.y - suppY) > 0.04) {
+            pendingMovedItems[item.id] = {
+              id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
+            };
+          }
         }
         item.mesh.position.set(saved.x, finalY, saved.z);
         item.mesh.rotation.y = saved.ry || 0;
