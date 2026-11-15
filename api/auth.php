@@ -75,6 +75,18 @@ const MC_COSMETIC_HATS = [
     ],
 ];
 
+const MC_COSMETIC_TOYS = [
+    'snowboard' => [
+        'id' => 'snowboard',
+        'category' => 'toy',
+        'name' => 'Snowboard Pro MycoRide',
+        'desc' => 'Desça as montanhas com física real, carving e visão nos pés!',
+        'req_xp' => 100,
+        'req_mushrooms' => 2,
+        'icon' => '🏂',
+    ],
+];
+
 function mc_clean_username(string $raw): string {
     $s = mb_strtolower(trim($raw), 'UTF-8');
     $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
@@ -95,14 +107,14 @@ function mc_format_user(array $row): array {
         $decHats = json_decode((string)$row['unlocked_hats'], true);
         if (is_array($decHats)) {
             foreach ($decHats as $h) {
-                if (is_string($h) && isset(MC_COSMETIC_HATS[$h]) && !in_array($h, $unlockedHats, true)) {
+                if (is_string($h) && (isset(MC_COSMETIC_HATS[$h]) || isset(MC_COSMETIC_TOYS[$h])) && !in_array($h, $unlockedHats, true)) {
                     $unlockedHats[] = $h;
                 }
             }
         }
     }
     $currentHat = (string)($row['current_hat'] ?? 'default');
-    if (!isset(MC_COSMETIC_HATS[$currentHat])) {
+    if ($currentHat !== 'none' && !isset(MC_COSMETIC_HATS[$currentHat])) {
         $currentHat = 'default';
     }
     return [
@@ -310,26 +322,27 @@ if ($action === 'harvest_greenhouse') {
 
 if ($action === 'cosmetics_catalog') {
     $user = mc_require_user($pdo);
-    mc_json(['ok' => true, 'catalog' => array_values(MC_COSMETIC_HATS), 'user' => mc_format_user($user)]);
+    mc_json(['ok' => true, 'catalog' => array_merge(array_values(MC_COSMETIC_HATS), array_values(MC_COSMETIC_TOYS)), 'user' => mc_format_user($user)]);
 }
 
 if ($action === 'buy_cosmetic') {
     mc_require_post();
     $user = mc_require_user($pdo);
     $hatId = (string)($body['hat_id'] ?? '');
-    if (!isset(MC_COSMETIC_HATS[$hatId])) {
-        mc_json(['ok' => false, 'error' => 'Chapéu cosmético não encontrado.'], 404);
+    $isToy = isset(MC_COSMETIC_TOYS[$hatId]);
+    if (!isset(MC_COSMETIC_HATS[$hatId]) && !$isToy) {
+        mc_json(['ok' => false, 'error' => 'Item cosmético não encontrado.'], 404);
     }
-    $hatDef = MC_COSMETIC_HATS[$hatId];
+    $hatDef = $isToy ? MC_COSMETIC_TOYS[$hatId] : MC_COSMETIC_HATS[$hatId];
 
     $pdo->beginTransaction();
     try {
-        $st = $pdo->prepare('SELECT xp, mushrooms_harvested, unlocked_hats FROM mc_users WHERE id = ? FOR UPDATE');
+        $st = $pdo->prepare('SELECT xp, mushrooms_harvested, unlocked_hats, current_hat FROM mc_users WHERE id = ? FOR UPDATE');
         $st->execute([(int)$user['id']]);
         $row = $st->fetch();
         if (!$row || (int)$row['xp'] < $hatDef['req_xp']) {
             $pdo->rollBack();
-            mc_json(['ok' => false, 'error' => 'XP insuficiente para desbloquear este chapéu (Requer ' . $hatDef['req_xp'] . ' XP).'], 400);
+            mc_json(['ok' => false, 'error' => 'XP insuficiente para desbloquear este item (Requer ' . $hatDef['req_xp'] . ' XP).'], 400);
         }
         if ((int)$row['mushrooms_harvested'] < $hatDef['req_mushrooms']) {
             $pdo->rollBack();
@@ -339,10 +352,15 @@ if ($action === 'buy_cosmetic') {
         if (!is_array($unlocked)) $unlocked = ['default'];
         if (!in_array($hatId, $unlocked, true)) {
             $unlocked[] = $hatId;
-            $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, current_hat = ?, last_seen = NOW() WHERE id = ?');
-            $upd->execute([json_encode(array_values($unlocked)), $hatId, (int)$user['id']]);
-            $updSes = $pdo->prepare('UPDATE mc_sessions SET current_hat = ? WHERE user_id = ?');
-            $updSes->execute([$hatId, (int)$user['id']]);
+            if ($isToy) {
+                $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, last_seen = NOW() WHERE id = ?');
+                $upd->execute([json_encode(array_values($unlocked)), (int)$user['id']]);
+            } else {
+                $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, current_hat = ?, last_seen = NOW() WHERE id = ?');
+                $upd->execute([json_encode(array_values($unlocked)), $hatId, (int)$user['id']]);
+                $updSes = $pdo->prepare('UPDATE mc_sessions SET current_hat = ? WHERE user_id = ?');
+                $updSes->execute([$hatId, (int)$user['id']]);
+            }
         }
         $pdo->commit();
     } catch (Throwable $e) {
@@ -356,11 +374,11 @@ if ($action === 'equip_cosmetic') {
     mc_require_post();
     $user = mc_require_user($pdo);
     $hatId = (string)($body['hat_id'] ?? 'default');
-    if (!isset(MC_COSMETIC_HATS[$hatId])) {
+    if ($hatId !== 'none' && !isset(MC_COSMETIC_HATS[$hatId])) {
         mc_json(['ok' => false, 'error' => 'Chapéu não encontrado.'], 404);
     }
     $fmt = mc_format_user($user);
-    if (!in_array($hatId, $fmt['unlocked_hats'], true)) {
+    if ($hatId !== 'none' && !in_array($hatId, $fmt['unlocked_hats'], true)) {
         mc_json(['ok' => false, 'error' => 'Você ainda não desbloqueou este chapéu.'], 403);
     }
     $upd = $pdo->prepare('UPDATE mc_users SET current_hat = ?, last_seen = NOW() WHERE id = ?');

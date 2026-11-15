@@ -174,7 +174,8 @@
     { id: 'greenhouse', icon: '🍄', name: 'Estufa de Frutificação', desc: 'Cultive e colha 4 espécies de cogumelos', x: 16.5, y: 0.14, z: 7.5, yaw: -Math.PI / 2 },
     { id: 'cinema', icon: '🎬', name: 'Cinema & Auditório', desc: 'Telão interativo com aulas e poltronas', x: 48, y: 0.14, z: -6.5, yaw: 0 },
     { id: 'sports', icon: '⚽', name: 'Complexo Esportivo', desc: 'Futebol, basquete com bolas reais e tênis', x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
-    { id: 'forest', icon: '🌲', name: 'Bosque & Lago', desc: 'Colha cogumelos silvestres pela floresta', x: 0, y: 0, z: -24, yaw: 0 }
+    { id: 'forest', icon: '🌲', name: 'Bosque & Lago', desc: 'Colha cogumelos silvestres pela floresta', x: 0, y: 0, z: -24, yaw: 0 },
+    { id: 'mountain', icon: '🏔️', name: 'Montanhas (Snowboard)', desc: 'Pico panorâmico para descer de snowboard', x: 0, z: -158, yaw: Math.PI }
   ];
 
   var LAB_QUEST_STEPS = [
@@ -428,6 +429,30 @@
     }
   ];
 
+  window.toggleCampusSnowboard = function () {
+    var unlocked = (currentUser && currentUser.unlocked_hats) || [];
+    if (unlocked.indexOf('snowboard') === -1) {
+      showCampusToast('🔒 Desbloqueie o Snowboard na 👑 Loja -> 🏂 Brinquedos!');
+      return;
+    }
+    var next = !(window.isCampusSnowboardActive && window.isCampusSnowboardActive());
+    if (window.setCampusSnowboard) window.setCampusSnowboard(next);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    showCampusToast(next ? '🏂 Snowboard ativado! Olhe para baixo para ver nos seus pés!' : '🏂 Snowboard guardado!');
+  };
+
+  var COSMETIC_TOYS = [
+    {
+      id: 'snowboard',
+      name: 'Snowboard Pro MycoRide',
+      desc: 'Desça as montanhas com física real, carving e visão nos pés! (Atalho: B)',
+      req_xp: 100,
+      req_mushrooms: 2,
+      icon: '🏂'
+    }
+  ];
+  var activeShopTab = 'hats';
+
   function renderShopModal() {
     var grid = $('shop-grid');
     if (!grid) return;
@@ -436,14 +461,26 @@
     var userMush = currentUser ? (currentUser.mushrooms_harvested || 0) : 0;
     var unlocked = (currentUser && currentUser.unlocked_hats) || ['default'];
     var currentHat = (currentUser && currentUser.current_hat) || 'default';
+    var snowboardOn = !!(window.isCampusSnowboardActive && window.isCampusSnowboardActive());
 
     if ($('shop-user-xp')) $('shop-user-xp').textContent = String(userXp);
     if ($('shop-user-mushrooms')) $('shop-user-mushrooms').textContent = String(userMush);
 
-    COSMETIC_HATS.forEach(function (hat) {
-      var isEquipped = currentHat === hat.id;
-      var isUnlocked = unlocked.indexOf(hat.id) !== -1 || hat.id === 'default';
-      var canUnlock = userXp >= hat.req_xp && userMush >= hat.req_mushrooms;
+    var tabHats = $('shop-tab-hats');
+    var tabToys = $('shop-tab-toys');
+    if (tabHats && tabToys) {
+      tabHats.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'hats' ? 'bg-purple-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+      tabToys.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'toys' ? 'bg-cyan-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+      tabHats.onclick = function () { activeShopTab = 'hats'; renderShopModal(); };
+      tabToys.onclick = function () { activeShopTab = 'toys'; renderShopModal(); };
+    }
+
+    var list = activeShopTab === 'toys' ? COSMETIC_TOYS : COSMETIC_HATS;
+    list.forEach(function (item) {
+      var isToy = activeShopTab === 'toys';
+      var isEquipped = isToy ? snowboardOn : (currentHat === item.id);
+      var isUnlocked = unlocked.indexOf(item.id) !== -1 || (!isToy && item.id === 'default');
+      var canUnlock = userXp >= item.req_xp && userMush >= item.req_mushrooms;
 
       var card = document.createElement('div');
       card.className = 'glass-panel rounded-xl p-3 flex flex-col justify-between border ' +
@@ -453,37 +490,64 @@
       top.className = 'space-y-1.5';
       top.innerHTML =
         '<div class="flex items-center gap-2">' +
-          '<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">' + hat.icon + '</span>' +
+          '<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">' + item.icon + '</span>' +
           '<div>' +
-            '<div class="font-bold text-white text-xs">' + escapeHtml(hat.name) + '</div>' +
-            '<div class="text-[11px] text-slate-400">' + escapeHtml(hat.desc) + '</div>' +
+            '<div class="font-bold text-white text-xs">' + escapeHtml(item.name) + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + escapeHtml(item.desc) + '</div>' +
           '</div>' +
         '</div>' +
         '<div class="flex items-center gap-2 pt-1 text-[11px] text-slate-300 font-semibold">' +
-          (hat.req_xp > 0 ? '<span class="text-amber-300">⭐ ' + hat.req_xp + ' XP</span>' : '<span class="text-emerald-300">Grátis</span>') +
-          (hat.req_mushrooms > 0 ? '<span class="text-emerald-300">• 🍄 ' + hat.req_mushrooms + ' colheitas</span>' : '') +
+          (item.req_xp > 0 ? '<span class="text-amber-300">⭐ ' + item.req_xp + ' XP</span>' : '<span class="text-emerald-300">Grátis</span>') +
+          (item.req_mushrooms > 0 ? '<span class="text-emerald-300">• 🍄 ' + item.req_mushrooms + ' colheitas</span>' : '') +
         '</div>';
       card.appendChild(top);
 
       var btnWrap = document.createElement('div');
       btnWrap.className = 'pt-3';
       if (isEquipped) {
-        btnWrap.innerHTML = '<button disabled class="w-full py-1.5 rounded-lg bg-emerald-600/80 text-white font-bold text-xs shadow-sm">✅ Equipado</button>';
+        var unequipBtn = document.createElement('button');
+        unequipBtn.className = 'w-full py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition';
+        unequipBtn.textContent = isToy ? '❌ Desativar Snowboard' : '❌ Desativar Chapéu';
+        unequipBtn.onclick = async function () {
+          if (window.MycoAudio) window.MycoAudio.playClick();
+          if (isToy) {
+            if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+            showCampusToast('🏂 Snowboard guardado!');
+            renderShopModal();
+          } else {
+            try {
+              var res = await apiPost('api/auth.php?action=equip_cosmetic', { hat_id: 'none' }, true);
+              if (res.ok && res.user) {
+                currentUser = res.user;
+                window.setLocalAvatarHat('none');
+                updateUserHud();
+                renderShopModal();
+              }
+            } catch (e) { /* silent */ }
+          }
+        };
+        btnWrap.appendChild(unequipBtn);
       } else if (isUnlocked) {
         var equipBtn = document.createElement('button');
-        equipBtn.className = 'w-full py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow transition';
-        equipBtn.textContent = 'Equipar';
+        equipBtn.className = 'w-full py-1.5 rounded-lg ' + (isToy ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-purple-600 hover:bg-purple-500') + ' text-white font-bold text-xs shadow transition';
+        equipBtn.textContent = isToy ? '🏂 Ativar Snowboard' : 'Equipar';
         equipBtn.onclick = async function () {
-          try {
-            if (window.MycoAudio) window.MycoAudio.playClick();
-            var res = await apiPost('api/auth.php?action=equip_cosmetic', { hat_id: hat.id }, true);
-            if (res.ok && res.user) {
-              currentUser = res.user;
-              window.setLocalAvatarHat(hat.id);
-              updateUserHud();
-              renderShopModal();
-            }
-          } catch (e) { /* silent */ }
+          if (window.MycoAudio) window.MycoAudio.playClick();
+          if (isToy) {
+            if (window.setCampusSnowboard) window.setCampusSnowboard(true);
+            showCampusToast('🏂 Snowboard ativado! Olhe para baixo para ver nos seus pés ou suba a montanha! (B para alternar)');
+            renderShopModal();
+          } else {
+            try {
+              var res = await apiPost('api/auth.php?action=equip_cosmetic', { hat_id: item.id }, true);
+              if (res.ok && res.user) {
+                currentUser = res.user;
+                window.setLocalAvatarHat(item.id);
+                updateUserHud();
+                renderShopModal();
+              }
+            } catch (e) { /* silent */ }
+          }
         };
         btnWrap.appendChild(equipBtn);
       } else if (canUnlock) {
@@ -493,10 +557,15 @@
         buyBtn.onclick = async function () {
           try {
             if (window.MycoAudio) window.MycoAudio.playClick();
-            var res = await apiPost('api/auth.php?action=buy_cosmetic', { hat_id: hat.id }, true);
+            var res = await apiPost('api/auth.php?action=buy_cosmetic', { hat_id: item.id }, true);
             if (res.ok && res.user) {
               currentUser = res.user;
-              window.setLocalAvatarHat(hat.id);
+              if (isToy) {
+                if (window.setCampusSnowboard) window.setCampusSnowboard(true);
+                showCampusToast('🏂 Snowboard desbloqueado e ativado! Suba a montanha no 🗺️ Mapa!');
+              } else {
+                window.setLocalAvatarHat(item.id);
+              }
               if (window.playCampusEmote) window.playCampusEmote('cheer');
               updateUserHud();
               renderShopModal();
@@ -639,6 +708,7 @@
     pendingChatMsg = '';
     sessionId = 'mc_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
     if (window.resetCampusLocalSession) window.resetCampusLocalSession();
+    if (window.setCampusSnowboard) window.setCampusSnowboard(false);
     window.updateCampusPlayers([]);
     window.setCampusFpsMode(false);
     $('campus-hud').classList.add('hidden');

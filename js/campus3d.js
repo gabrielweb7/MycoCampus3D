@@ -86,6 +86,10 @@
   var fpsArmGroup = null;
   var fpsLeftArmGroup = null;
   var fpsSleeveMat = null;
+  var snowboardActive = false;
+  var snowboardGroup = null;
+  var snowboardRoll = 0;
+  var snowboardPitch = 0;
   var snapClosePot = null;
   var snapPetriStack = false;
   var localAvatar = null;
@@ -3948,6 +3952,69 @@
     fpsLeftArmGroup.visible = false;
     camera.add(fpsLeftArmGroup);
     scene.add(camera);
+    buildSnowboardRig();
+  }
+
+  function buildSnowboardRig() {
+    if (snowboardGroup) return;
+    snowboardGroup = new THREE.Group();
+
+    // Textura estilizada de snowboard gradiente (ciano -> roxo -> rosa)
+    var sbCanvas = document.createElement('canvas');
+    sbCanvas.width = 256; sbCanvas.height = 64;
+    var sbx = sbCanvas.getContext('2d');
+    var grd = sbx.createLinearGradient(0, 0, 256, 64);
+    grd.addColorStop(0, '#06b6d4');
+    grd.addColorStop(0.5, '#6366f1');
+    grd.addColorStop(1, '#ec4899');
+    sbx.fillStyle = grd;
+    sbx.fillRect(0, 0, 256, 64);
+    sbx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+    sbx.fillRect(42, 6, 172, 10);
+    sbx.fillRect(42, 48, 172, 10);
+    sbx.font = 'bold 20px sans-serif';
+    sbx.fillStyle = '#ffffff';
+    sbx.textAlign = 'center';
+    sbx.fillText('MYCORIDE PRO', 128, 39);
+    var sbTex = new THREE.CanvasTexture(sbCanvas);
+
+    var deckMat = new THREE.MeshStandardMaterial({ map: sbTex, roughness: 0.25, metalness: 0.2 });
+    var darkBootMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.75 });
+    var pantMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+
+    // Prancha principal (comprimento ao longo de -Z/+Z quando rotacionada em stance lateral)
+    var deck = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.028, 1.38), deckMat);
+    deck.position.y = 0.02;
+    deck.castShadow = true;
+
+    // Bicos levantados (rocker frontal e traseiro)
+    var nose = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.024, 0.24), deckMat);
+    nose.position.set(0, 0.055, -0.76);
+    nose.rotation.x = 0.34;
+    var tail = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.024, 0.24), deckMat);
+    tail.position.set(0, 0.055, 0.76);
+    tail.rotation.x = -0.34;
+
+    // Fixações e botas em posição lateral de snowboarder (stance diagonal)
+    [-0.28, 0.28].forEach(function (fz, idx) {
+      var binding = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.04, 0.16), darkBootMat);
+      binding.position.set(0, 0.048, fz);
+      binding.rotation.y = idx === 0 ? 0.48 : 0.25;
+
+      var boot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.24), darkBootMat);
+      boot.position.set(0.02, 0.12, fz);
+      boot.rotation.y = idx === 0 ? 0.48 : 0.25;
+
+      var shin = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.36, 0.14), pantMat);
+      shin.position.set(0.03, 0.34, fz * 0.92);
+      shin.rotation.x = idx === 0 ? 0.16 : -0.16;
+
+      snowboardGroup.add(binding, boot, shin);
+    });
+
+    snowboardGroup.add(deck, nose, tail);
+    snowboardGroup.visible = false;
+    scene.add(snowboardGroup);
   }
 
   function drawBoardSegment(ctx, color, p0, p1) {
@@ -4742,6 +4809,9 @@
       disposeObject3D(oldHat, hatMat);
     }
     var id = hatId || 'default';
+    if (id === 'none') {
+      return;
+    }
 
     if (id === 'golden_shroom') {
       var goldMat = new THREE.MeshStandardMaterial({
@@ -6001,6 +6071,9 @@
           dropHeldItem();
         }
       }
+      if (e.code === 'KeyB' && window.toggleCampusSnowboard) {
+        window.toggleCampusSnowboard();
+      }
     });
     window.addEventListener('keyup', function (e) { keys[e.code] = false; });
 
@@ -6237,31 +6310,116 @@
       var moveZ = (keys['KeyW'] || keys['ArrowUp'] ? 1 : 0) - (keys['KeyS'] || keys['ArrowDown'] ? 1 : 0) - joyY;
       var moveX = (keys['KeyD'] || keys['ArrowRight'] ? 1 : 0) - (keys['KeyA'] || keys['ArrowLeft'] ? 1 : 0) + joyX;
       var mag = Math.hypot(moveX, moveZ);
-      var targetVX = 0, targetVZ = 0;
-      if (mag > 0.08) {
-        if (seatedSeat) seatedSeat = null; // levanta automaticamente ao andar!
-        var isSprinting = !!(keys['ShiftLeft'] || keys['ShiftRight'] || mobileSprint);
-        var maxSpeed = isSprinting ? 7.5 : 4.6;
-        var throttle = Math.min(1, mag);
-        moveX /= mag; moveZ /= mag;
+
+      var groundY = getGroundHeight(playerPos.x, playerPos.z, playerPos.y);
+      var onGround = (playerPos.y <= groundY + 0.06 && playerVelY <= 0.05);
+
+      if (snowboardActive) {
+        if (seatedSeat) seatedSeat = null;
         var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
         var rightX = Math.cos(playerYaw), rightZ = -Math.sin(playerYaw);
-        targetVX = (fwdX * moveZ + rightX * moveX) * maxSpeed * throttle;
-        targetVZ = (fwdZ * moveZ + rightZ * moveX) * maxSpeed * throttle;
+
+        // Gradiente do terreno para aceleração real na descida da montanha
+        var hL = terrainHeight(playerPos.x - 0.6, playerPos.z);
+        var hR = terrainHeight(playerPos.x + 0.6, playerPos.z);
+        var hD = terrainHeight(playerPos.x, playerPos.z - 0.6);
+        var hU = terrainHeight(playerPos.x, playerPos.z + 0.6);
+        var gradX = (hR - hL) / 1.2;
+        var gradZ = (hU - hD) / 1.2;
+
+        if (onGround) {
+          // Gravidade puxando morro abaixo
+          playerVelX += (-gradX) * 20.0 * dt;
+          playerVelZ += (-gradZ) * 20.0 * dt;
+
+          // Impulso manual (remar no plano / embalar) e freio (S)
+          if (moveZ > 0.1) {
+            playerVelX += fwdX * moveZ * 10.5 * dt;
+            playerVelZ += fwdZ * moveZ * 10.5 * dt;
+          } else if (moveZ < -0.1) {
+            // Freio de borda (carving brake)
+            var brakeDamp = Math.exp(-5.5 * dt);
+            playerVelX *= brakeDamp;
+            playerVelZ *= brakeDamp;
+          }
+
+          // Carving lateral: transfere parte da velocidade para a direção que a prancha aponta
+          var curSpd = Math.hypot(playerVelX, playerVelZ);
+          if (curSpd > 0.4) {
+            var carveSteer = (moveX * 0.45);
+            var targetDirX = fwdX + rightX * carveSteer;
+            var targetDirZ = fwdZ + rightZ * carveSteer;
+            var tdLen = Math.hypot(targetDirX, targetDirZ) || 1;
+            targetDirX /= tdLen; targetDirZ /= tdLen;
+            var align = (playerVelX * targetDirX + playerVelZ * targetDirZ) >= 0 ? 1 : -1;
+            var desiredVX = targetDirX * curSpd * align;
+            var desiredVZ = targetDirZ * curSpd * align;
+            var carveBlend = 1 - Math.exp(-3.4 * dt);
+            playerVelX += (desiredVX - playerVelX) * carveBlend;
+            playerVelZ += (desiredVZ - playerVelZ) * carveBlend;
+          } else if (Math.abs(moveX) > 0.1) {
+            playerVelX += rightX * moveX * 6.0 * dt;
+            playerVelZ += rightZ * moveX * 6.0 * dt;
+          }
+
+          // Atrito suave da neve/grama
+          var snowFriction = Math.exp(-0.48 * dt);
+          playerVelX *= snowFriction;
+          playerVelZ *= snowFriction;
+        }
+
+        // Limite de velocidade realista (até 26 m/s em descida forte)
+        var sbSpeed = Math.hypot(playerVelX, playerVelZ);
+        if (sbSpeed > 26.0) {
+          playerVelX = (playerVelX / sbSpeed) * 26.0;
+          playerVelZ = (playerVelZ / sbSpeed) * 26.0;
+          sbSpeed = 26.0;
+        }
+
+        if (sbSpeed > 0.01) {
+          playerPos.x += playerVelX * dt;
+          playerPos.z += playerVelZ * dt;
+          playerPos.x = Math.max(-210, Math.min(210, playerPos.x));
+          playerPos.z = Math.max(-210, Math.min(210, playerPos.z));
+          clampPosAgainstWalls(playerPos, PLAYER_RADIUS);
+        }
+
+        var targetPitch = Math.atan2(-(gradX * fwdX + gradZ * fwdZ), 1);
+        var targetRoll = -moveX * 0.24 - Math.max(-0.22, Math.min(0.22, (playerVelX * rightX + playerVelZ * rightZ) * 0.025));
+        snowboardPitch += (targetPitch - snowboardPitch) * Math.min(1, dt * 8);
+        snowboardRoll += (targetRoll - snowboardRoll) * Math.min(1, dt * 8);
+      } else {
+        var targetVX = 0, targetVZ = 0;
+        if (mag > 0.08) {
+          if (seatedSeat) seatedSeat = null; // levanta automaticamente ao andar!
+          var isSprinting = !!(keys['ShiftLeft'] || keys['ShiftRight'] || mobileSprint);
+          var maxSpeed = isSprinting ? 7.5 : 4.6;
+          var throttle = Math.min(1, mag);
+          moveX /= mag; moveZ /= mag;
+          var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
+          var rightX = Math.cos(playerYaw), rightZ = -Math.sin(playerYaw);
+          targetVX = (fwdX * moveZ + rightX * moveX) * maxSpeed * throttle;
+          targetVZ = (fwdZ * moveZ + rightZ * moveX) * maxSpeed * throttle;
+        }
+        // Aceleracao e desaceleracao suaves (inercia natural ao andar e parar)
+        var accelFactor = 1 - Math.exp(-(mag > 0.08 ? 9.5 : 7.5) * dt);
+        playerVelX += (targetVX - playerVelX) * accelFactor;
+        playerVelZ += (targetVZ - playerVelZ) * accelFactor;
+
+        var speedNowWalk = Math.hypot(playerVelX, playerVelZ);
+        isWalking = speedNowWalk > 0.2;
+        if (speedNowWalk > 0.01) {
+          playerPos.x += playerVelX * dt;
+          playerPos.z += playerVelZ * dt;
+          playerPos.x = Math.max(-210, Math.min(210, playerPos.x));
+          playerPos.z = Math.max(-210, Math.min(210, playerPos.z));
+          clampPosAgainstWalls(playerPos, PLAYER_RADIUS);
+        }
       }
-      // Aceleracao e desaceleracao suaves (inercia natural ao andar e parar)
-      var accelFactor = 1 - Math.exp(-(mag > 0.08 ? 9.5 : 7.5) * dt);
-      playerVelX += (targetVX - playerVelX) * accelFactor;
-      playerVelZ += (targetVZ - playerVelZ) * accelFactor;
 
       var speedNow = Math.hypot(playerVelX, playerVelZ);
-      isWalking = speedNow > 0.2;
-      if (speedNow > 0.01) {
-        playerPos.x += playerVelX * dt;
-        playerPos.z += playerVelZ * dt;
-        clampPosAgainstWalls(playerPos, PLAYER_RADIUS);
-      }
-      var groundY = getGroundHeight(playerPos.x, playerPos.z, playerPos.y);
+      isWalking = !snowboardActive && speedNow > 0.2;
+      groundY = getGroundHeight(playerPos.x, playerPos.z, playerPos.y);
       playerVelY -= 16.5 * dt;
       playerPos.y += playerVelY * dt;
       if (playerPos.y <= groundY) {
@@ -6280,27 +6438,37 @@
       var wantsJump = (now <= jumpBufferUntil) || keys['Space'] || jumpHeld;
       if (wantsJump && (onGround || (now - lastGroundedAt < 150 && playerVelY <= 0))) {
         if (seatedSeat) seatedSeat = null;
-        playerVelY = 6.2;
+        playerVelY = snowboardActive ? 7.2 : 6.2;
         onGround = false;
         lastGroundedAt = 0;
         jumpBufferUntil = 0;
       }
       var bobY = 0;
-      if (onGround && speedNow > 0.25) {
+      if (!snowboardActive && onGround && speedNow > 0.25) {
         walkBobPhase += dt * (4.5 + speedNow * 1.4);
         bobY = Math.sin(walkBobPhase) * 0.028 * Math.min(1, speedNow / 3.8);
       }
-      var eyeH = seatedSeat ? 1.50 : PLAYER_EYE;
+      var eyeH = seatedSeat ? 1.50 : (snowboardActive ? 1.42 : PLAYER_EYE);
       if (seatedSeat) {
         playerPos.set(seatedSeat.x, seatedSeat.y, seatedSeat.z);
         playerVelY = 0;
+      }
+      if (snowboardGroup) {
+        snowboardGroup.visible = snowboardActive && inFps;
+        if (snowboardGroup.visible) {
+          snowboardGroup.position.set(playerPos.x, playerPos.y + 0.03, playerPos.z);
+          snowboardGroup.rotation.order = 'YXZ';
+          snowboardGroup.rotation.y = playerYaw - 0.35;
+          snowboardGroup.rotation.x = snowboardPitch;
+          snowboardGroup.rotation.z = snowboardRoll;
+        }
       }
       camera.position.set(playerPos.x, playerPos.y + eyeH + bobY, playerPos.z);
       camera.up.set(0, 1, 0);
       camera.rotation.order = 'YXZ';
       camera.rotation.y = playerYaw;
       camera.rotation.x = playerPitch;
-      camera.rotation.z = 0;
+      camera.rotation.z = snowboardActive ? snowboardRoll * 0.35 : 0;
 
       // Braço(s) em 1a pessoa + item segurado na(s) mao(s)
       var isTwoHanded = !!(heldItem && heldItem.mesh.userData.twoHanded);
@@ -7816,6 +7984,15 @@
     if (name === 'cheer') {
       triggerConfettiBurst(playerPos.x, playerPos.y, playerPos.z);
     }
+  };
+
+  window.setCampusSnowboard = function (active) {
+    snowboardActive = !!active;
+    if (!snowboardActive && snowboardGroup) snowboardGroup.visible = false;
+  };
+
+  window.isCampusSnowboardActive = function () {
+    return snowboardActive;
   };
 
   window.setLocalAvatarHat = function (hatId) {

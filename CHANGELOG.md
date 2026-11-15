@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.19] — 2026-11-15
+### 🏂 Snowboard Realista nas Montanhas & Loja com Categorias (Chapéus e Brinquedos)
+- **Loja com Abas, Troca e Desativação ([api/auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Categorias separadas na loja: `🎩 Chapéus` e `🏂 Brinquedos`.
+  - Chapéus agora podem ser equipados, trocados ou desativados (`hat_id: 'none'`).
+  - Novo brinquedo desbloqueável: **Snowboard Pro MycoRide** (`100 XP • 2 cogumelos`), com botão Ativar/Desativar na loja e atalho `B`.
+- **Snowboard 3D nos Pés & Física de Montanha ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Modelo 3D da prancha (`MYCORIDE PRO`), fixações, botas e pernas em 1ª pessoa visíveis ao olhar para baixo.
+  - Física de descida por gradiente do terreno (aceleração natural morro abaixo até `26 m/s`, *carving* lateral nas curvas, freio com `S`, salto *Ollie* com `Espaço` e inclinação dinâmica da prancha).
+  - Novo setor no `🗺️ Mapa`: **Montanhas (Snowboard)** no pico norte para testar descidas direto do alto.
+
 ## [v0.9.18] — 2026-11-15
 ### 🐛 Correção da Tela Preta na Seringa & Etapas Claras da Autoclave
 - **Correção Crítica da Seringa ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
