@@ -6823,7 +6823,7 @@
         if (seatedSeat) seatedSeat = null;
         var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
         var rightX = Math.cos(playerYaw), rightZ = -Math.sin(playerYaw);
-        var glideSpeed = moveZ > 0.1 ? 15.0 : (moveZ < -0.1 ? 6.2 : 11.2);
+        var glideSpeed = moveZ > 0.1 ? 15.0 : (moveZ < -0.1 ? 4.2 : 11.2);
         var targetVX = (fwdX * glideSpeed) + (rightX * moveX * 3.8);
         var targetVZ = (fwdZ * glideSpeed) + (rightZ * moveX * 3.8);
         var airBlend = 1 - Math.exp(-3.2 * dt);
@@ -6889,8 +6889,8 @@
         if (inThermal) {
           playerVelY += (8.5 - playerVelY) * Math.min(1, dt * 3.5);
         } else {
-          var sinkRate = (keys['KeyS'] || keys['ArrowDown']) ? -0.95 : -1.65;
-          playerVelY += (sinkRate - playerVelY) * Math.min(1, dt * 4.0);
+          var sinkRate = moveZ < -0.1 ? -5.2 : (moveZ > 0.1 ? -2.15 : -1.55);
+          playerVelY += (sinkRate - playerVelY) * Math.min(1, dt * 4.5);
         }
       } else {
         playerVelY -= 16.5 * dt;

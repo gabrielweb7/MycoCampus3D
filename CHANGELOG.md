@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.25] — 2026-11-15
+### 🪂 Freio & Descida Rápida no Paraglider
+- **Controle de descida ao andar para trás ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Segurar para trás (`S` / `↓` / analógico para trás) durante o voo reduz a velocidade horizontal para `4.2 m/s` (freio aéreo) e aumenta a taxa de descida para `-5.2 m/s`, facilitando o pouso rápido no ponto desejado.
+
 ## [v0.9.24] — 2026-11-15
 ### 🧰 Bandejas Inox Cirúrgicas, Empilhamento de Placas de Petri & Braço na Seringa
 - **Bandejas Inox de Laboratório (`makeLabTray`) ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
