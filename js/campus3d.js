@@ -529,11 +529,12 @@
     return h;
   }
 
-  function getSupportSurfaceAt(x, z, margin) {
+  function getSupportSurfaceAt(x, z, margin, ignoreSurf) {
     var m = (typeof margin === 'number') ? margin : 0.08;
     var best = null;
     for (var u = 0; u < supportSurfaces.length; u++) {
       var ss = supportSurfaces[u];
+      if (ignoreSurf && ss === ignoreSurf) continue;
       if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
       if (x >= ss.minX - m && x <= ss.maxX + m && z >= ss.minZ - m && z <= ss.maxZ + m) {
         if (!best || ss.topY > best.topY) {
@@ -544,9 +545,9 @@
     return best;
   }
 
-  function getItemGroundHeight(x, z, refY) {
+  function getItemGroundHeight(x, z, refY, ignoreSurf) {
     var gh = getGroundHeight(x, z, refY !== undefined ? refY : 3.0);
-    var ss = getSupportSurfaceAt(x, z, 0.08);
+    var ss = getSupportSurfaceAt(x, z, 0.08, ignoreSurf);
     if (ss && ss.topY > gh) {
       return ss.topY;
     }
@@ -4528,7 +4529,7 @@
         };
         return;
       }
-      var supportedY = getItemGroundHeight(item.mesh.position.x, item.mesh.position.z, item.mesh.position.y);
+      var supportedY = getItemGroundHeight(item.mesh.position.x, item.mesh.position.z, item.mesh.position.y, item.mesh.userData.dynamicSurface);
       if (!item.mesh.userData.isTable) {
         for (var i = 0; i < supportSurfaces.length; i++) {
           var s = supportSurfaces[i];
