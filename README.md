@@ -11,70 +11,45 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 - **Física & Interações Realistas:** Sistema de colisão com suporte a superfícies caminháveis (mesas inox, bancadas, carteiras e estufas), acoplamento magnético de tampa de panela de pressão, inoculação com agulha perfurando septos de borracha e simulação de temperatura física por material.
 - **Interface & HUD:** Glassmorphism responsivo com Tailwind CSS (v2 pré-compilado), suporte a Safe Area Inset (`env(safe-area-inset-*)`), joystick analógico virtual para mobile e modo Fullscreen automático.
 - **Back-end:** PHP 8.x nativo com PDO MySQL, arquitetura orientada a APIs RESTful leves com JSON, headers anti-cache e segurança nos cookies (`HttpOnly`, `SameSite=Lax`).
-- **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`schema_version 4`) e cache de flag local para evitar sobrecarga no servidor.
-- **Sincronização Multiplayer:** Polling HTTP POST assíncrono a cada 200ms por cliente ativo (reduzido automaticamente para 1200ms quando a aba fica em segundo plano para economizar bateria e CPU).
+- **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`MC_SCHEMA_VERSION = 7`) e cache de flag local em `data/` para evitar sobrecarga no servidor.
+- **Sincronização Multiplayer:** Polling HTTP POST assíncrono a cada **750ms** por cliente ativo (reduzido automaticamente para **1500ms** quando a aba fica em segundo plano para economizar bateria e CPU), com *batch inserts* para objetos e traços de lousa.
 
 ---
 
-## 📁 2. Estrutura do Repositório
+## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
+
+> ⚠️ **Atenção:** O arquivo `index.html` em produção carrega **exclusivamente** os 3 scripts principais abaixo (`js/campus-audio.js`, `js/campus3d.js` e `js/campus-app.js`), além de `js/vendor/`. As pastas `js/app/`, `js/audio/`, `js/config/`, `js/engine/`, `js/entities/` e `js/world/` contêm um rascunho modular congelado na `v0.9.0` e **NÃO são carregadas em produção**. Sempre edite os arquivos ativos listados abaixo.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais
-├── VERSION                    # Versão semântica atual do projeto (ex.: 0.8.0)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.9)
+├── VERSION                    # Versão semântica atual do projeto (0.9.9)
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
 ├── .cpanel.yml                # Script de deploy automatizado no cPanel / HostGator
-├── .htaccess                  # Regras Apache (compressão gzip, segurança e MIME types)
+├── .htaccess                  # Regras Apache (HTTPS, bloqueio de data/ e dotfiles, gzip, cache)
 │
 ├── api/                       # Back-end em PHP
 │   ├── config.php             # Credenciais do MySQL e PROFESSOR_KEY (ignorado pelo git)
 │   ├── config.example.php     # Template seguro para criação do config.php
-│   ├── db.php                 # Conexão PDO, migrações cacheadas e autenticação por token
-│   ├── auth.php               # Login/registro, XP, módulos, ranking e painel Master Admin
-│   └── multiplayer.php        # Sincronização de avatares, itens, lousas, chat e estados
+│   ├── db.php                 # Conexão PDO, migrações cacheadas (v7) e autenticação por token
+│   ├── auth.php               # Login/registro, XP, módulos, missão prática, cosméticos, ranking e Admin
+│   └── multiplayer.php        # Sincronização em tempo real (avatares, objetos em lote, lousas, chat)
 │
 ├── database/
-│   └── schema.sql             # Definição DDL de todas as tabelas MySQL (schema_version 4)
+│   └── schema.sql             # Definição DDL completa das tabelas MySQL (schema_version 7)
 │
-├── js/                        # Arquitetura Modular Orientada a Domínios (Zero Bundler)
-│   ├── config/                # Dados estáticos e configurações globais (window.MycoConfig)
-│   │   ├── constants.js       # Cores, intervalos de sync, física e catálogo de cosméticos
-│   │   └── lessons-data.js    # Conteúdo dos 5 módulos de aula e quizzes práticos
-│   │
-│   ├── audio/                 # Síntese procedural via Web Audio API (window.MycoAudio)
-│   │   └── campus-audio.js    # Passos por superfície, colheita, spray, vapor, laser e mudo
-│   │
-│   ├── engine/                # Núcleo do Motor 3D e Estado Compartilhado (window.MycoEngine)
-│   │   ├── core-state.js      # Estado global, vetores/cores pré-alocados (Zero-GC) e helpers
-│   │   ├── materials-textures.js # Texturas procedurais, cache de materiais e fábricas de malhas
-│   │   ├── physics-collision.js  # Altura do terreno, pisos caminháveis, colisores e itens móveis
-│   │   ├── environment-weather.js # Ciclo dia/noite, clima dinâmico, arco-íris e relógio da torre
-│   │   └── particles-fx.js    # Pools de partículas (confete, esporos e névoa de água)
-│   │
-│   ├── world/                 # Construtores de Cenário e Setores do Campus (window.MycoEngine)
-│   │   ├── nature-plaza.js    # Terreno, nuvens, árvores, cogumelos silvestres e praça central
-│   │   ├── buildings-wings.js # Prédios, portas, persianas, escadarias, auditório e lousas
-│   │   ├── lab-equipment.js   # Laboratório, fluxo laminar, autoclave, fogareiro e frascos
-│   │   ├── greenhouse.js      # Bancada colaborativa de cultivo e crescimento na estufa
-│   │   └── outer-campus.js    # Lago em 8, ponte arqueada, complexo esportivo e cinema 3D
-│   │
-│   ├── entities/              # Jogador, Avatares, Input e Loop Principal
-│   │   ├── avatars.js         # Braços 1ª pessoa, avatares fofos, chapéus e interpolação MP
-│   │   ├── interactions-input.js # Raycast, fantasma holográfico, termômetro, seringa e controles
-│   │   └── campus3d-main.js   # Loop animate(), initCampus3D e API pública window.MycoCampus
-│   │
-│   └── app/                   # Camada de Aplicação, UI e Sincronização (window.MycoApp)
-│       ├── state-api.js       # Estado da aplicação, perfil de dispositivo, fullscreen e apiPost
-│       ├── ui-modals.js       # HUD, loja de cosméticos, aulas, ranking e painel Master Admin
-│       ├── mobile-controls.js # Joystick analógico virtual e botões táteis responsivos
-│       └── multiplayer-sync.js # Login/sessão, polling multiplayer, chat e bootstrap (boot)
+├── js/                        # Scripts ativos em produção + dependências self-hosted
+│   ├── vendor/                # Three.js r128 e OrbitControls.js (100% self-hosted, zero CDN)
+│   ├── campus-audio.js        # Motor procedural Web Audio API (window.MycoAudio)
+│   ├── campus3d.js            # Motor 3D completo, física, clima, lab, estufa, esportes e avatares
+│   └── campus-app.js          # Lobby, HUD, modais (Aulas, Mapa, Missão, Loja, Ranking, Admin) e sync
 │
 ├── css/
-│   ├── game.css               # Estilos principais, HUD, glassmorphism, modais e regras mobile
+│   ├── game.css               # Estilos principais, HUD, glassmorphism e regras mobile/tablet
 │   └── tailwind.min.css       # Tailwind CSS pré-compilado
 │
 ├── assets/                    # Favicons, ícones PWA e imagem OpenGraph
-└── data/                      # Flags de cache de migração (ex.: .migrated_v4)
+└── data/                      # Flags de cache de migração (ex.: .migrated_v7) - bloqueado no .htaccess
 ```
 
 ---
@@ -121,19 +96,19 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 ## 🌐 5. Endpoints da API
 
 ### `api/auth.php`
-- `action=login` ou `register_or_login`: Autentica ou cria novo usuário via `display_name`, `pin`, `hat_color`, `body_color` e opcional `professor_key`.
-- `action=logout`: Revoga o token atual e limpa os cookies.
+- `action=login` *(POST)*: Autentica (exigindo sempre `password_verify`) ou cria novo usuário via `display_name`, `pin`, `hat_color`, `body_color` e opcional `professor_key`.
+- `action=logout` *(POST)*: Revoga o token atual e limpa os cookies.
 - `action=me`: Valida a sessão atual e retorna os dados do usuário conectado.
-- `action=harvest`: Valida e pontua colheita de cogumelo com cooldown anti-spam.
-- `action=complete_module`: Conclui módulo prático com validação das respostas no servidor.
+- `action=harvest` *(POST)*: Valida colheita de cogumelo silvestre (`wild_0..wild_31`) com trava em `mc_world_state` e cooldown anti-spam (+25 XP).
+- `action=harvest_greenhouse` *(POST)*: Valida colheita na estufa (`slot_id` 0..3) com cooldown por slot (+50 XP e +2 cogumelos).
+- `action=complete_module` *(POST)*: Conclui módulo prático com validação obrigatória da resposta no servidor (+50 XP).
+- `action=complete_lab_quest` *(POST)*: Conclui a Missão Prática de 5 passos do laboratório (`lab_practica_v1`, +100 XP uma única vez).
+- `action=buy_cosmetic` / `equip_cosmetic` *(POST)*: Desbloqueia e equipa chapéus 3D verificando XP e cogumelos dentro de transação `FOR UPDATE`.
 - `action=leaderboard`: Retorna os 15 melhores jogadores e estatísticas gerais da universidade.
-- `action=admin_list_users`: *(Admin)* Lista todos os usuários, XP, módulos e status online.
-- `action=admin_set_role`: *(Admin)* Altera o cargo de um usuário (`student`, `professor`, `admin`).
-- `action=admin_teleport`: *(Admin)* Enfileira teletransporte forçado para um jogador.
-- `action=admin_kick`: *(Admin)* Desconecta um jogador ativo.
+- `action=admin_list_users`, `admin_set_role`, `admin_teleport`, `admin_kick` *(Admin)*: Gestão completa em tempo real; `admin_kick` também revoga tokens em `mc_auth_tokens`.
 
-### `api/multiplayer.php`
-- `action=sync`: Ponto central de sincronização em tempo real (envia pose local, itens movidos, traços da lousa e recebe os outros jogadores, objetos e estado do mundo).
+### `api/multiplayer.php` *(apenas POST)*
+- `action=sync`: Ponto central de sincronização em tempo real (envia pose local, itens movidos em lote, traços da lousa em lote e recebe os outros jogadores, objetos e estado do mundo; bloqueia troca de slide do auditório para não-professores).
 - `action=leave`: Notifica a saída do jogador via `navigator.sendBeacon`.
 - `action=reset_world`: *(Professor/Admin)* Limpa `mc_world_objects`, restaurando posições originais.
 - `action=set_slide`: *(Professor/Admin)* Altera o slide do telão do auditório para todos.
@@ -147,22 +122,14 @@ Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite
 1. **Zero Garbage Collection nos Loops de Renderização:**
    - Nunca use `new THREE.Vector3()`, `new THREE.Color()` ou `new THREE.Matrix4()` dentro de `animate()` ou funções chamadas a cada quadro (como `updateDynamicEnvironment`). Use sempre variáveis pré-alocadas (`_tmpHandPos`, etc.).
 2. **Proteção do Banco de Dados:**
-   - O jogo faz polling a cada 200ms por jogador. **Nunca** coloque queries pesadas de `information_schema`, `ALTER TABLE` ou varreduras de tabelas inteiras no fluxo de `sync`. Use índices e cache de arquivos em `data/`.
-3. **Persistência Exclusiva no MySQL:**
-   - Nunca utilize `localStorage` para XP, nível ou progresso do jogador. Todo o estado canônico reside no MySQL e é verificado pelo servidor.
+   - O jogo faz polling a cada 750ms por jogador. **Nunca** coloque queries pesadas de `information_schema`, `ALTER TABLE` ou varreduras sem índice no fluxo de `sync`. Use *batch inserts* e cache de flag em `data/`.
+3. **Segurança & Persistência Exclusiva no MySQL:**
+   - Nunca confie em XP, cargo ou respostas vindas do cliente; todo o estado canônico reside no MySQL e ações de escrita exigem `POST` + token válido.
 4. **Respeito aos Dispositivos Móveis:**
-   - Todas as novidades devem ser testadas em telas de toque (joystick, área útil com safe-area, rotação e eventos passivos).
-5. **Padrão Modular de Namespaces & Escalabilidade:**
-   - Todo o front-end segue separação estrita por responsabilidades em 5 namespaces globais sem necessidade de bundler (`webpack`/`vite`):
-     - `window.MycoConfig` (`js/config/`): constantes, paletas, cosméticos e dados de aulas.
-     - `window.MycoAudio` (`js/audio/`): efeitos sonoros procedurais centralizados (nunca duplicar `AudioContext` em outros módulos).
-     - `window.MycoEngine` (`js/engine/`, `js/world/`, `js/entities/`): estado 3D, fábricas reutilizáveis (`makeBox`, `brickMat`, `woodMat`), física, clima, setores do mapa e loop `animate()`.
-     - `window.MycoApp` (`js/app/`): modais, HUD, controles mobile e polling multiplayer.
-     - `window.MycoCampus` (`js/entities/campus3d-main.js`): API pública limpa consumida pela camada de UI.
-   - **Como adicionar novos recursos:**
-     - *Nova aula ou cosmético:* edite apenas `js/config/lessons-data.js` ou `js/config/constants.js`.
-     - *Novo prédio ou setor do campus:* crie um novo módulo em `js/world/<setor>.js` registrando o construtor em `window.MycoEngine`, adicione a tag `<script>` em `index.html` e chame-o em `initCampus3D` (`js/entities/campus3d-main.js`).
-     - *Novo modal ou painel:* adicione a lógica de renderização em `js/app/ui-modals.js` usando `App.apiPost` e `App.$`.
+   - Todas as novidades devem ser testadas em telas de toque (joystick, `#interact-pill`, `#btn-mobile-action`, área útil com `safe-area-inset` e eventos passivos).
+5. **Áudio Centralizado & Versionamento:**
+   - Todo novo efeito sonoro deve ser implementado em `js/campus-audio.js` (`window.MycoAudio`) conectado ao `masterGain` (para respeitar o botão 🔇 Mudo).
+   - Ao finalizar uma entrega, atualize `VERSION`, os parâmetros `?v=` em `index.html` e o `CHANGELOG.md` para forçar recarregamento limpo nos clientes online.
 
 ---
 
@@ -173,4 +140,5 @@ Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite
 - **Autoclave / Panela de Pressão (`pressure_cooker` + `pressure_lid`):** Suporte a esterilização de grãos e substratos sob 15 PSI a 121°C. Encaixe magnético com fantasma verde e remoção direta da tampa pelo topo sem deslocar a panela base.
 - **Locomoção Tridimensional sobre Superfícies:** Suporte para pular e caminhar sobre mesas de inox, bancadas e carteiras escolares com zero ejeção horizontal.
 - **Prevenção Física de Sobreposição / Anti-Clipping (`isPlacementBlocked`):** Verificação física contínua no espaço 3D (radial e caixas AABB) que impede colocar itens atravessando ou por dentro de outros itens em estantes, bancadas ou pisos. O fantasma holográfico pulsa em vermelho (`#ef4444`) com o aviso `🚫 Espaço ocupado por outro objeto`, bloqueando a soltura até que o jogador aponte para um local desobstruído.
+- **Missão Prática Guiada (`🧪 Missão`), Mapa Rápido (`🗺️ Mapa`) & Esportes 3D:** Checklist de 5 passos reais de cultivo asséptico (+100 XP), teleporte rápido entre 7 setores do campus (`window.teleportCampusPlayer`) e bolas de futebol/basquete com física 3D (Zero-GC) e comemoração de gol.
 - **Arco-íris Espectral sobre as Montanhas:** Formação atmosférica procedural em 3D de 92m com as 7 cores do espectro óptico visível que surge majestosa sobre a cordilheira ao cessar da chuva, acompanhando a abertura de sol e dissipação da nebulosidade.
