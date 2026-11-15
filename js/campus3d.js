@@ -63,7 +63,9 @@
   };
 
   function isTouchDevice() {
-    return window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var hasTouch = (navigator.maxTouchPoints || 0) > 0 && window.innerWidth <= 1180;
+    return coarse || hasTouch;
   }
 
   function terrainHeight(x, z) {
