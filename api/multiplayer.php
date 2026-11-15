@@ -18,7 +18,6 @@ $mpBaseItems = [
     'precision_scale', 'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03', 'burner_lab',
     'infrared_thermometer',
     'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
-    'substrate_bag', 'fruiting_block',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
     'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',
     'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser',
@@ -309,6 +308,10 @@ if ($action === 'sync') {
                 $stUpsert->execute(['auditorium_presenter', (string)$user['display_name']]);
             } elseif ($sKey === 'auditorium_presenter') {
                 continue;
+            } elseif (preg_match('/^greenhouse_slot_[0-3]_humidity$/', $sKey)) {
+                $cleanVal = (string)max(0, min(100, (int)round((float)$sVal)));
+            } elseif (preg_match('/^greenhouse_slot_[0-3]_stage$/', $sKey)) {
+                $cleanVal = (string)max(0, min(3, (int)$sVal));
             } else {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             }

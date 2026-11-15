@@ -2,6 +2,23 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.10] — 2026-11-15
+### 🔧 Auditoria Completa de Objetos, Compatibilidade de Itens & Zero-GC
+- **Estufa Sincronizada Corretamente ([api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Corrigida gravação de `greenhouse_slot_[0-3]_humidity` (`0..100`) e `greenhouse_slot_[0-3]_stage` (`0..3`) no PHP (antes eram convertidos para `'0'`/`'1'`).
+  - Corrigido `slot.species` (`undefined`) para `slot.name` no toast de inspeção da estufa.
+- **Inoculação Real com Seringa 10ml & Termômetro ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Ao concluir injeção em `spawn_jar` ou `spawn_bag`, agora marca `inoculated = true` (com risco educativo de contaminação se o Fluxo Laminar estiver desligado ou não higienizado com Álcool 70%) e atualiza `spawnCtrl` em `mesh.userData` para leitura correta no termômetro laser (`26.4°C`).
+- **Compatibilidade de Itens, Panela de Pressão & Balança ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Hierarquia de superfícies em `isPlacementBlocked`: bloqueia mesas/capela em cima de aparelhos pequenos (`isScale`, `isStirrer`, `isBurner`) e impede empilhar aparelhos incompatíveis.
+  - `isSurfaceOccupied` agora ignora o item segurado pelo jogador ou por jogadores remotos.
+  - Mover a Panela de Pressão agora leva junto os frascos/bags guardados dentro dela (`cookerPots.contents`).
+  - Balança de precisão agora pesa pilhas completas de até 7 placas de Petri.
+  - Paridade exata de `MP_ITEMS` (161 itens) removendo `substrate_bag` e `fruiting_block` órfãos.
+- **Otimização Zero-GC, Raycasts & Som ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Removidos arrays mortos `auditoriumScreenMeshes` e `screenActionMeshes`, hitboxes duplicadas de carteiras, `.filter()` em raycasts e `forEach` em `animate()`.
+  - Restaurado throttle de 90ms do telão do Cinema no hover, filtro de distância em 3ª pessoa e som nas persianas (`blind_0..15`).
+
 ## [v0.9.9] — 2026-11-15
 ### 🛡️ Segurança, UX Mobile, Missão Prática, Mapa Rápido & Performance (Fases 1, 2 e 3)
 - **Segurança & Validação no Back-end ([api/auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php), [api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [.htaccess](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/.htaccess))**:

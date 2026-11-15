@@ -27,11 +27,8 @@
   var windowBlinds = [];     // { slats, bottomRail, tapes, cordKnob, open, progress, dropH, dir }
   var blindHitMeshes = [];
   var hoveredBlindObj = null;
-  var auditoriumScreenMeshes = [];
-  var screenActionMeshes = []; // botoes 3D [◀, ▶, 📚] presos aos teloes
-  var auditoriumCanvas = null;
-  var auditoriumCtx = null;
-  var auditoriumTex = null;
+  var lastCinemaHoverType = '';
+  var lastCinemaHoverIdx = -1;
   var clockCanvas = null;
   var clockCtx = null;
   var clockTex = null;
@@ -1253,8 +1250,7 @@
         cg.add(seatPad, backPad);
         var sitYaw = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
         seatPad.userData.seatInfo = { x: chairX, y: yFloor2, z: chairZ, yaw: sitYaw };
-        backPad.userData.seatInfo = seatPad.userData.seatInfo;
-        seatMeshes.push(seatPad, backPad);
+        seatMeshes.push(seatPad);
         scene.add(cg);
       });
     }
@@ -1778,7 +1774,7 @@
       if (!surf) return false;
       for (var i = 0; i < pickableItems.length; i++) {
         var o = pickableItems[i];
-        if (o === ignoreItem) continue;
+        if (o === ignoreItem || o === heldItem || isHeldByRemote(o.id)) continue;
         var p = o.mesh.position;
         if (p.x >= surf.minX - 0.08 && p.x <= surf.maxX + 0.08 &&
           p.z >= surf.minZ - 0.08 && p.z <= surf.maxZ + 0.08 &&
@@ -2345,6 +2341,7 @@
         mycOverlay: filled ? mycOverlay : null,
         updateVisual: function () { updateSpawnVisual(item); }
       };
+      item.mesh.userData.spawnCtrl = item.spawnCtrl;
       updateSpawnVisual(item);
       spawnGrowItems.push(item);
       return item;
@@ -2383,6 +2380,7 @@
         mycOverlay: filled ? mycOverlay : null,
         updateVisual: function () { updateSpawnVisual(item); }
       };
+      item.mesh.userData.spawnCtrl = item.spawnCtrl;
       updateSpawnVisual(item);
       spawnGrowItems.push(item);
       return item;
@@ -3417,7 +3415,7 @@
       var stageNames = ['Micélio colonizando', 'Primórdios (Pins)', 'Crescimento médio', 'Maduro para colheita'];
       var stLabel = stageNames[slot.stage] || 'Em cultivo';
       var hum = Math.round(slot.humidity);
-      callbacks.onToast('🍄 ' + slot.species + ' • ' + stLabel + ' (' + hum + '% UR) — Use o Borrifador para hidratar ou aguarde amadurecer!');
+      callbacks.onToast('🍄 ' + slot.name + ' • ' + stLabel + ' (' + hum + '% UR) — Use o Borrifador para hidratar ou aguarde amadurecer!');
     }
   }
 
@@ -4181,10 +4179,12 @@
     placementRing.scale.set(ringPulse, ringPulse, 1);
   }
 
+  var _tmpPlacePt = new THREE.Vector3();
+  var _tmpPlaceCenter = new THREE.Vector3();
   function findPlacementTarget(customNdc) {
     snapClosePot = null;
     snapPetriStack = false;
-    var rayNdc = customNdc || (inFps ? new THREE.Vector2(0, 0) : pointerNdc);
+    var rayNdc = customNdc || (inFps ? _vZero2 : pointerNdc);
     raycaster.setFromCamera(rayNdc, camera);
     var dir = raycaster.ray.direction;
     var origin = raycaster.ray.origin;
@@ -4197,13 +4197,13 @@
         var cp = cookerPots[cpi];
         var targetPot = cp.potItem;
         if (targetPot.lidItem && targetPot.lidItem.isAttached && targetPot.lidItem !== heldItem) continue;
-        var potCenter = new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
-        var camDist = origin.distanceTo(potCenter);
+        _tmpPlaceCenter.set(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
+        var camDist = origin.distanceTo(_tmpPlaceCenter);
         var potHits = raycaster.intersectObject(targetPot.mesh, true);
-        if ((potHits.length > 0 && potHits[0].distance < 4.5) || (camDist < 4.5 && raycaster.ray.distanceSqToPoint(potCenter) < 0.25)) {
+        if ((potHits.length > 0 && potHits[0].distance < 4.5) || (camDist < 4.5 && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.25)) {
           snapClosePot = targetPot;
           heldRotY = targetPot.mesh.rotation.y;
-          return new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.36, targetPot.mesh.position.z);
+          return _tmpPlacePt.set(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.36, targetPot.mesh.position.z);
         }
       }
     }
@@ -4217,9 +4217,9 @@
         if (!cand || cand === heldItem || !cand.mesh || !cand.mesh.userData.isPetri) continue;
         if (isHeldByRemote(cand.id)) continue;
         var cp = cand.mesh.position;
-        var cTop = new THREE.Vector3(cp.x, cp.y + 0.03, cp.z);
-        var dCam = origin.distanceTo(cTop);
-        if (dCam < petriDist && raycaster.ray.distanceSqToPoint(cTop) < 0.036) {
+        _tmpPlaceCenter.set(cp.x, cp.y + 0.03, cp.z);
+        var dCam = origin.distanceTo(_tmpPlaceCenter);
+        if (dCam < petriDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.036) {
           petriDist = dCam;
           petriBest = cand;
         }
@@ -4239,7 +4239,7 @@
         }
         if (stackCount < 7) {
           snapPetriStack = true;
-          return new THREE.Vector3(bx, maxY + 0.055, bz);
+          return _tmpPlacePt.set(bx, maxY + 0.055, bz);
         }
       }
     }
@@ -4383,6 +4383,17 @@
           if (other.mesh.userData.isHood && heldItem.mesh.userData.isTable) {
             placementBlockedReason = '🚫 Não cabe aqui';
             return true;
+          }
+          if (other.mesh.userData.isScale || other.mesh.userData.isStirrer || other.mesh.userData.isBurner) {
+            var hUd = heldItem.mesh.userData;
+            if (hUd.isTable || hUd.isHood || hUd.isScale || hUd.isStirrer || hUd.isBurner) {
+              placementBlockedReason = '🚫 Equipamento incompatível com esta superfície';
+              return true;
+            }
+            if ((other.mesh.userData.isScale || other.mesh.userData.isStirrer) && hUd.twoHanded) {
+              placementBlockedReason = '🚫 Objeto grande demais para este aparelho';
+              return true;
+            }
           }
           // Está apoiado sobre a superfície: o suporte em si não bloqueia
           // (mas qualquer outro objeto já em cima desse suporte será checado nas próximas iterações!)
@@ -5262,12 +5273,27 @@
           pendingMovedItems[attLid.id] = {
             id: attLid.id, x: attLid.mesh.position.x, y: attLid.mesh.position.y, z: attLid.mesh.position.z, ry: attLid.mesh.rotation.y
           };
-          recentlyDropped[attLid.id] = performance.now() + 1500;
+          recentlyDropped[attLid.id] = performance.now() + 15000;
+        }
+        // Move os itens guardados dentro da panela junto com ela
+        for (var cpiDrop = 0; cpiDrop < cookerPots.length; cpiDrop++) {
+          var cpDrop = cookerPots[cpiDrop];
+          if (cpDrop.potItem === heldItem && cpDrop.contents.length > 0) {
+            for (var ciDrop = 0; ciDrop < cpDrop.contents.length; ciDrop++) {
+              var cItem = cpDrop.contents[ciDrop];
+              if (!cItem || !cItem.mesh) continue;
+              var cox = (ciDrop % 2 === 0 ? -0.06 : 0.06);
+              var coz = (ciDrop < 2 ? -0.05 : 0.05);
+              cItem.mesh.position.set(heldItem.mesh.position.x + cox, heldItem.mesh.position.y + 0.045, heldItem.mesh.position.z + coz);
+              cItem.isMoved = true;
+              pendingMovedItems[cItem.id] = {
+                id: cItem.id, x: cItem.mesh.position.x, y: cItem.mesh.position.y, z: cItem.mesh.position.z, ry: cItem.mesh.rotation.y
+              };
+              recentlyDropped[cItem.id] = performance.now() + 15000;
+            }
+          }
         }
         recentlyDropped[heldItem.id] = performance.now() + 15000;
-        if (heldItem.lidItem && heldItem.lidItem.isAttached) {
-          recentlyDropped[heldItem.lidItem.id] = performance.now() + 15000;
-        }
         if (heldItem.mesh.userData.updateBounds) heldItem.mesh.userData.updateBounds(heldItem);
         setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
@@ -5298,6 +5324,7 @@
     }
     if (hoveredBlindObj) {
       hoveredBlindObj.open = !hoveredBlindObj.open;
+      if (window.MycoAudio) window.MycoAudio.playSwitch();
       queueWorldStateChange(hoveredBlindObj.id, hoveredBlindObj.open ? 1 : 0);
       return;
     }
@@ -5375,20 +5402,6 @@
       queueWorldStateChange(hoveredSwitch.id, hoveredSwitch.on ? 1 : 0);
       return;
     }
-    if (hoveredScreenBtn) {
-      if (hoveredScreenBtn.action === 'prev' && callbacks.onScreenNav) callbacks.onScreenNav(-1);
-      else if (hoveredScreenBtn.action === 'next' && callbacks.onScreenNav) callbacks.onScreenNav(1);
-      else if (hoveredScreenBtn.action === 'lessons') {
-        if (document.pointerLockElement) document.exitPointerLock();
-        if (callbacks.onOpenLessons) callbacks.onOpenLessons();
-      }
-      return;
-    }
-    if (hoveredScreen) {
-      if (document.pointerLockElement) document.exitPointerLock();
-      if (callbacks.onOpenLessons) callbacks.onOpenLessons();
-      return;
-    }
     if (hoveredHoodSwitch) {
       hoveredHoodSwitch.on = !hoveredHoodSwitch.on;
       hoveredHoodSwitch.points.visible = hoveredHoodSwitch.on;
@@ -5454,9 +5467,9 @@
 
   function isSeatOccupied(seat) {
     if (!seat) return false;
-    var ids = Object.keys(remoteAvatars);
-    for (var i = 0; i < ids.length; i++) {
-      var av = remoteAvatars[ids[i]];
+    for (var avId in remoteAvatars) {
+      if (!Object.prototype.hasOwnProperty.call(remoteAvatars, avId)) continue;
+      var av = remoteAvatars[avId];
       if (!av || !av.targetPos) continue;
       if (av.seated && Math.hypot(av.targetPos.x - seat.x, av.targetPos.z - seat.z) < 0.48 && Math.abs(av.targetPos.y - seat.y) < 0.85) {
         return true;
@@ -5465,13 +5478,18 @@
     return false;
   }
 
+  function firstValidRayHit(hits) {
+    for (var hi = 0; hi < hits.length; hi++) {
+      if (!hits[hi].object.userData.ignoreRay) return hits[hi];
+    }
+    return null;
+  }
+
   function updateHoverRay(customNdc) {
     hoveredPickable = null;
     hoveredMushroom = null;
     hoveredDoorObj = null;
     hoveredBlindObj = null;
-    hoveredScreen = false;
-    hoveredScreenBtn = null;
     hoveredBoardHit = null;
     hoveredCinema = false;
     hoveredCinemaUv = null;
@@ -5487,20 +5505,7 @@
     hoveredSprayTarget = null;
     var prompt = '';
 
-    // Verifica proximidade dos teloes para exibir opcoes contextuais
-    var nearScr = false;
-    for (var s = 0; s < auditoriumScreenMeshes.length; s++) {
-      if (playerPos.distanceTo(auditoriumScreenMeshes[s].position) < 18) {
-        nearScr = true;
-        break;
-      }
-    }
-    if (nearScr !== nearScreenState) {
-      nearScreenState = nearScr;
-      if (callbacks.onNearScreen) callbacks.onNearScreen(nearScreenState);
-    }
-
-    var rayNdc = customNdc || (inFps ? new THREE.Vector2(0, 0) : pointerNdc);
+    var rayNdc = customNdc || (inFps ? _vZero2 : pointerNdc);
     raycaster.setFromCamera(rayNdc, camera);
 
     if (heldItem) {
@@ -5520,11 +5525,15 @@
         }
       }
       if (heldItem.mesh.userData.isAlcoholSpray) {
+        var spRefX = inFps ? playerPos.x : camera.position.x;
+        var spRefZ = inFps ? playerPos.z : camera.position.z;
         for (var ai = 0; ai < pickableItems.length; ai++) {
           var aCand = pickableItems[ai];
           if (aCand === heldItem || isHeldByRemote(aCand.id)) continue;
-          var aHits = raycaster.intersectObject(aCand.mesh, true).filter(function (h) { return !h.object.userData.ignoreRay; });
-          if (aHits.length > 0 && aHits[0].distance < 3.5) {
+          var adx = aCand.mesh.position.x - spRefX, adz = aCand.mesh.position.z - spRefZ;
+          if (adx * adx + adz * adz > 100) continue;
+          var aHit = firstValidRayHit(raycaster.intersectObject(aCand.mesh, true));
+          if (aHit && aHit.distance < 3.5) {
             hoveredSprayTarget = aCand.mesh.userData.isHood ? 'hood' : aCand;
             placementGhost.visible = false;
             if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('🧴 Borrifar Álcool 70% (' + aCand.label + ')');
@@ -5547,11 +5556,15 @@
       }
       if (heldItem.mesh.userData.isSyringe) {
         var sc = heldItem.mesh.userData.syrCtrl;
+        var syRefX = inFps ? playerPos.x : camera.position.x;
+        var syRefZ = inFps ? playerPos.z : camera.position.z;
         for (var si = 0; si < pickableItems.length; si++) {
           var cand = pickableItems[si];
           if (cand === heldItem || isHeldByRemote(cand.id)) continue;
-          var sHits = raycaster.intersectObject(cand.mesh, true).filter(function (h) { return !h.object.userData.ignoreRay; });
-          if (sHits.length > 0 && sHits[0].distance < 3.5) {
+          var sydx = cand.mesh.position.x - syRefX, sydz = cand.mesh.position.z - syRefZ;
+          if (sydx * sydx + sydz * sydz > 100) continue;
+          var sHit = firstValidRayHit(raycaster.intersectObject(cand.mesh, true));
+          if (sHit && sHit.distance < 3.5) {
             if (cand.mesh.userData.liquidCtrl) {
               var lc = cand.mesh.userData.liquidCtrl;
               if (syringePumping) {
@@ -5621,8 +5634,12 @@
       if (cHits.length > 0 && cHits[0].distance < 22) {
         hoveredCinema = true;
         hoveredCinemaUv = cHits[0].uv ? { x: cHits[0].uv.x, y: 1 - cHits[0].uv.y } : { x: 0.5, y: 0.5 };
-        cinemaDirty = true;
         var cTarget = getCinemaHitTarget(hoveredCinemaUv);
+        if (cTarget.type !== lastCinemaHoverType || (cTarget.idx || -1) !== lastCinemaHoverIdx) {
+          lastCinemaHoverType = cTarget.type;
+          lastCinemaHoverIdx = cTarget.idx !== undefined ? cTarget.idx : -1;
+          cinemaDirty = true;
+        }
         if (cTarget.type === 'power_on') prompt = '⏻ Clique na tela para ligar o Auditório';
         else if (cTarget.type === 'power_off') prompt = '⏻ Desligar tela do Auditório';
         else if (cTarget.type === 'menu') prompt = '📋 Voltar ao menu de módulos';
@@ -5699,22 +5716,6 @@
       }
     }
 
-    if (screenActionMeshes.length) {
-      var btnHits = raycaster.intersectObjects(screenActionMeshes, false);
-      if (btnHits.length > 0 && btnHits[0].distance < 18) {
-        var act = btnHits[0].object.userData.screenAction;
-        hoveredScreenBtn = { action: act, mesh: btnHits[0].object };
-        prompt = act === 'prev' ? '◀ Slide Anterior' : (act === 'next' ? '▶ Próximo Slide' : '📚 Abrir Módulos');
-      }
-    }
-
-    if (!prompt && auditoriumScreenMeshes.length) {
-      var scrHits = raycaster.intersectObjects(auditoriumScreenMeshes, false);
-      if (scrHits.length > 0 && scrHits[0].distance < 22) {
-        hoveredScreen = true;
-        prompt = '📺 Abrir Módulos da Universidade';
-      }
-    }
     if (!prompt && doorHitMeshes.length) {
       var doorHits = raycaster.intersectObjects(doorHitMeshes, false);
       if (doorHits.length > 0 && doorHits[0].distance < 5.0) {
@@ -5724,12 +5725,14 @@
     }
     var refX = inFps ? playerPos.x : camera.position.x;
     var refZ = inFps ? playerPos.z : camera.position.z;
+    var maxMushSq = inFps ? 24 : 225;
+    var maxPickSq = inFps ? 26 : 225;
     if (!prompt) {
       for (var m = 0; m < wildMushrooms.length; m++) {
         var wm = wildMushrooms[m];
         if (!wm.active) continue;
         var mdx = wm.group.position.x - refX, mdz = wm.group.position.z - refZ;
-        if (inFps && (mdx * mdx + mdz * mdz > 24)) continue;
+        if (mdx * mdx + mdz * mdz > maxMushSq) continue;
         var mHits = raycaster.intersectObject(wm.group, true);
         if (mHits.length > 0 && mHits[0].distance < 4.5) {
           hoveredMushroom = wm;
@@ -5747,12 +5750,12 @@
         if (item === heldItem || (heldItem && item === heldItem.lidItem)) continue;
         if (isHeldByRemote(item.id)) continue;
         var idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
-        if (inFps && (idx * idx + idz * idz > 26)) continue;
-        var hits = raycaster.intersectObject(item.mesh, true).filter(function (h) { return !h.object.userData.ignoreRay; });
-        if (hits.length > 0 && hits[0].distance < 4.5) {
-          var dHit = hits[0].distance;
+        if (idx * idx + idz * idz > maxPickSq) continue;
+        var hit0 = firstValidRayHit(raycaster.intersectObject(item.mesh, true));
+        if (hit0 && hit0.distance < 4.5) {
+          var dHit = hit0.distance;
           // Se mirar na parte superior da panela de pressão com tampa acoplada, prioriza a tampa!
-          if (item.lidItem && item.lidItem.isAttached && hits[0].point.y >= item.mesh.position.y + 0.26) {
+          if (item.lidItem && item.lidItem.isAttached && hit0.point.y >= item.mesh.position.y + 0.26) {
             item = item.lidItem;
           }
           if (item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) {
@@ -6048,13 +6051,14 @@
 
     updateClockTexture();
 
-    wildMushrooms.forEach(function (wm) {
+    for (var wmIdx = 0; wmIdx < wildMushrooms.length; wmIdx++) {
+      var wm = wildMushrooms[wmIdx];
       if (!wm.active && now >= wm.respawnAt) {
         wm.active = true; wm.group.visible = true;
       } else if (wm.active) {
         wm.capMesh.rotation.y += dt * 0.5;
       }
-    });
+    }
 
     for (var di = 0; di < campusDoors.length; di++) {
       var d = campusDoors[di];
@@ -6448,6 +6452,20 @@
           if (syringePumping.target.item && syringePumping.target.item.mesh.userData.liquidCtrl) {
             var finalD = syringePumping.toVol - syringePumping.fromVol;
             updateContainerVolume(syringePumping.target.item, Math.max(0, syringePumping.startJarVol - finalD));
+          } else if (syringePumping.target.item && syringePumping.target.item.spawnCtrl) {
+            var spTarget = syringePumping.target.item;
+            var spCtrl = spTarget.spawnCtrl;
+            var isAseptic = !!(hoodAirData && hoodAirData.on && performance.now() < hoodSanitizedUntil);
+            spCtrl.inoculated = true;
+            if (!isAseptic && Math.random() < 0.45) {
+              spCtrl.contaminated = true;
+              if (callbacks.onToast) callbacks.onToast('🦠 Contaminação! Lembre de ligar e higienizar o Fluxo Laminar com Álcool 70% antes de inocular!');
+            } else {
+              if (callbacks.onToast) callbacks.onToast('💉 ' + spCtrl.baseLabel + ' inoculado com sucesso! Micélio em colonização.');
+            }
+            spCtrl.updateVisual();
+          } else if (syringePumping.target.item && syringePumping.target.item.mesh.userData.isPetri) {
+            if (callbacks.onToast) callbacks.onToast('🧫 Placa de Petri inoculada com Cultura Líquida!');
           }
           if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
           if (callbacks.onLabStep) callbacks.onLabStep('syringe_use');
@@ -6636,7 +6654,7 @@
           var pIt = pickableItems[pi];
           if (heldItem === pIt || pIt.mesh.userData.tableDims || pIt.potItem) continue;
           var px0 = pIt.mesh.position.x, py0 = pIt.mesh.position.y, pz0 = pIt.mesh.position.z;
-          if (px0 >= scObj.surface.minX && px0 <= scObj.surface.maxX && pz0 >= scObj.surface.minZ && pz0 <= scObj.surface.maxZ && Math.abs(py0 - scObj.surface.topY) < 0.08) {
+          if (px0 >= scObj.surface.minX && px0 <= scObj.surface.maxX && pz0 >= scObj.surface.minZ && pz0 <= scObj.surface.maxZ && py0 >= scObj.surface.topY - 0.04 && py0 <= scObj.surface.topY + 0.45) {
             if (pIt.mesh.userData.liquidCtrl) gross += 260 + pIt.mesh.userData.liquidCtrl.volMl;
             else if (pIt.id.indexOf('spawn_jar_empty') === 0) gross += 320;
             else if (pIt.id.indexOf('spawn_jar') === 0) gross += 780;
