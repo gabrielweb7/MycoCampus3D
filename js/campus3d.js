@@ -767,11 +767,6 @@
     createBench(-3.5, 13.5, 0);
     createBench(3.5, 13.5, 0);
 
-    createUmbrellaTable(-9.5, 2.5);
-    createUmbrellaTable(9.5, 2.5);
-    createUmbrellaTable(-8.5, -8.2);
-    createUmbrellaTable(8.5, -8.2);
-
     // Luminarias
     createCampusLamp(-10.5, -10.5);
     createCampusLamp(10.5, -10.5);
@@ -1006,37 +1001,64 @@
     createFloorLighting(yFloor2, h2, cx - dir * 2.15, yFloor2 + 1.32, zN + 0.155, 0);
     for (var dtRow = -1; dtRow <= 1; dtRow++) {
       var deskZ = cz + dtRow * 3.0;
-      var desk = makeBox(1.1, 0.72, 2.0, 0xd97706, { roughness: 0.65 });
-      desk.position.set(cx + dir * 1.1, yFloor2 + 0.36, deskZ);
-      scene.add(desk);
+      var deskX = cx + dir * 1.1;
+      var deskGrp = new THREE.Group();
+      deskGrp.position.set(deskX, yFloor2, deskZ);
+      var fndeBlue = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42 });
+      var fndeWhite = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.35, roughness: 0.3 });
+      var fndeDark = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65 });
+      var deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.045, 1.96), fndeBlue);
+      deskTop.position.set(0, 0.72, 0); deskTop.castShadow = true;
+      var underTray = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.04, 1.66), fndeDark);
+      underTray.position.set(0, 0.61, 0);
+      [-0.82, 0.82].forEach(function (lz) {
+        var legPost = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.70, 10), fndeWhite);
+        legPost.position.set(0, 0.36, lz);
+        var footBar = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.88, 10), fndeWhite);
+        footBar.rotation.z = Math.PI / 2;
+        footBar.position.set(0, 0.032, lz);
+        [-0.42, 0.42].forEach(function (fx) {
+          var cap = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.055, 0.07), fndeDark);
+          cap.position.set(fx, 0.028, lz);
+          deskGrp.add(cap);
+        });
+        deskGrp.add(legPost, footBar);
+      });
+      deskGrp.add(deskTop, underTray);
+      scene.add(deskGrp);
       solidColliders.push({
-        minX: cx + dir * 1.1 - 0.6, maxX: cx + dir * 1.1 + 0.6,
-        minZ: deskZ - 1.05, maxZ: deskZ + 1.05,
+        minX: deskX - 0.56, maxX: deskX + 0.56,
+        minZ: deskZ - 1.02, maxZ: deskZ + 1.02,
         minY: yFloor2, maxY: yFloor2 + 0.9
       });
       supportSurfaces.push({
-        minX: cx + dir * 1.1 - 0.52, maxX: cx + dir * 1.1 + 0.52,
-        minZ: deskZ - 0.96, maxZ: deskZ + 0.96,
-        topY: yFloor2 + 0.72
+        minX: deskX - 0.50, maxX: deskX + 0.50,
+        minZ: deskZ - 0.94, maxZ: deskZ + 0.94,
+        topY: yFloor2 + 0.745
       });
 
-      // 2 Cadeiras ergonomicas clicaveis atras de cada mesa (voltadas para a lousa)
+      // 2 Cadeiras escolares ergonomicas azuis & brancas clicaveis atras de cada mesa
       [-0.5, 0.5].forEach(function (chDz) {
         var chairX = cx + dir * 2.1;
         var chairZ = deskZ + chDz;
         var cg = new THREE.Group();
         cg.position.set(chairX, yFloor2, chairZ);
-        var legMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.35 });
-        var padMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.7 });
+        var legMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.45, roughness: 0.28 });
+        var padMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42 });
         [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]].forEach(function (lp) {
-          var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.44, 8), legMat);
+          var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.44, 8), legMat);
           leg.position.set(lp[0], 0.22, lp[1]);
           cg.add(leg);
         });
-        var seatPad = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.07, 0.46), padMat);
-        seatPad.position.set(0, 0.45, 0);
+        [-0.15, 0.15].forEach(function (bz) {
+          var backBar = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.36, 8), legMat);
+          backBar.position.set(dir * 0.21, 0.60, bz);
+          cg.add(backBar);
+        });
+        var seatPad = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.045, 0.45), padMat);
+        seatPad.position.set(0, 0.445, 0);
         seatPad.castShadow = true;
-        var backPad = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.46, 0.44), padMat);
+        var backPad = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.28, 0.44), padMat);
         backPad.position.set(dir * 0.21, 0.72, 0);
         backPad.castShadow = true;
         cg.add(seatPad, backPad);
@@ -1083,8 +1105,8 @@
     tray.position.set(trayX, trayY, cz);
     scene.add(tray);
     supportSurfaces.push({
-      minX: trayX - 0.22, maxX: trayX + 0.22,
-      minZ: cz - 1.65, maxZ: cz + 1.65,
+      minX: trayX - 0.28, maxX: trayX + 0.28,
+      minZ: cz - 3.42, maxZ: cz + 3.42,
       topY: trayY + 0.04
     });
 
@@ -2028,7 +2050,7 @@
       );
       mycCloud.scale.set(1.25, 0.55, 1.15);
       // Peixinho agitador magnetico PTFE branco no fundo do vidro
-      var stirBar = new THREE.Mesh(new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.009, 0.038, 6, 10) : new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }));
+      var stirBar = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }));
       stirBar.rotation.z = Math.PI / 2;
       stirBar.position.set(0, 0.018, 0);
       // Tampa branca com porta de injecao vermelha e filtro microporoso branco
@@ -2408,9 +2430,7 @@
       solidColliders.push({ minX: 42.4, maxX: 53.6, minZ: rz - 0.45, maxZ: rz + 0.45, minY: 0, maxY: 1.4 });
     });
 
-    createUmbrellaTable(41, -1.5);
-    createUmbrellaTable(48, 0.5);
-    createUmbrellaTable(55, -1.5);
+    // Quadra poliesportiva livre (sem guarda-sois)
 
     // 4b. 2a Praca Circular Leste com Fonte (x: 42, z: 12, sem z-fighting!)
     var plazaE = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 8.5, 0.04, 28), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
@@ -3529,19 +3549,26 @@
       }
     }
     if (!prompt) {
-      var bestPickDist = 4.5;
+      var bestSmall = null, bestSmallDist = Infinity;
+      var bestLarge = null, bestLargeDist = Infinity;
       for (var i = 0; i < pickableItems.length; i++) {
         var item = pickableItems[i];
         if (isHeldByRemote(item.id)) continue;
-        if (item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) continue;
-        var hits = raycaster.intersectObject(item.mesh, true);
-        if (hits.length > 0 && hits[0].distance < bestPickDist) {
-          bestPickDist = hits[0].distance;
-          hoveredPickable = item;
+        var hits = raycaster.intersectObject(item.mesh, true).filter(function (h) { return !h.object.userData.ignoreRay; });
+        if (hits.length > 0 && hits[0].distance < 4.5) {
+          var dHit = hits[0].distance;
+          if (item.mesh.userData.tableDims) {
+            if (!(item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) && dHit < bestLargeDist) {
+              bestLargeDist = dHit; bestLarge = item;
+            }
+          } else if (dHit < bestSmallDist) {
+            bestSmallDist = dHit; bestSmall = item;
+          }
         }
       }
+      hoveredPickable = bestSmall || bestLarge;
       if (hoveredPickable) {
-        if (hoveredPickable.mesh.userData.potItem && hoveredPickable.mesh.userData.isAttached) {
+        if (hoveredPickable.potItem && hoveredPickable.isAttached) {
           prompt = '🍲 Abrir tampa da Panela de Pressão';
         } else if (hoveredPickable.mesh.userData.twoHanded) {
           prompt = '🙌 Pegar ' + hoveredPickable.label + ' (2 mãos)';
@@ -3885,10 +3912,10 @@
         heldItem.mesh.position.copy(handPos);
         if (heldItem.id.indexOf('chalk_') === 0) {
           heldItem.mesh.rotation.order = 'YXZ';
-          heldItem.mesh.rotation.set(playerPitch - 0.18, playerYaw, 0);
+          heldItem.mesh.rotation.set(playerPitch + 0.35, playerYaw, 0);
         } else if (heldItem.id.indexOf('board_eraser') === 0) {
           heldItem.mesh.rotation.order = 'YXZ';
-          heldItem.mesh.rotation.set(playerPitch - Math.PI / 2, playerYaw, 0);
+          heldItem.mesh.rotation.set(playerPitch + Math.PI / 2, playerYaw, 0);
         } else {
           heldItem.mesh.rotation.set(0, heldRotY, 0);
         }
@@ -4597,11 +4624,10 @@
       if (pendingMovedItems[item.id] || recentlyDropped[item.id] > now) return;
       var saved = objectsMap[item.id];
       if (saved) {
-        if (item.mesh.userData.potItem) {
-          var pot = item.mesh.userData.potItem;
-          var attached = Math.hypot(saved.x - pot.mesh.position.x, saved.z - pot.mesh.position.z) < 0.22 &&
-                         Math.abs(saved.y - (pot.mesh.position.y + 0.36)) < 0.24;
-          item.mesh.userData.isAttached = attached;
+        if (item.potItem) {
+          var pot = item.potItem;
+          var attached = Math.hypot(saved.x - pot.mesh.position.x, saved.z - pot.mesh.position.z) < 0.22;
+          item.isAttached = attached;
           if (attached) {
             item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
             item.mesh.rotation.copy(pot.mesh.rotation);
@@ -4623,7 +4649,7 @@
       } else if (item.isMoved) {
         item.mesh.position.copy(item.homePos);
         item.mesh.rotation.y = item.homeRy;
-        if (item.mesh.userData.potItem) item.mesh.userData.isAttached = true;
+        if (item.potItem) item.isAttached = true;
         item.isMoved = false;
       }
     });
@@ -4636,7 +4662,7 @@
     pickableItems.forEach(function (item) {
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
-      if (item.mesh.userData.potItem) item.mesh.userData.isAttached = true;
+      if (item.potItem) item.isAttached = true;
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       item.isMoved = false;
     });
@@ -4814,8 +4840,8 @@
     if (pose.holding && !heldItem) {
       var item = findPickable(pose.holding);
       if (item && !isHeldByRemote(item.id)) {
-        if (item.mesh.userData.potItem && item.mesh.userData.isAttached) {
-          item.mesh.userData.isAttached = false;
+        if (item.potItem && item.isAttached) {
+          item.isAttached = false;
         }
         heldItem = item;
         heldRotY = item.mesh.rotation.y;

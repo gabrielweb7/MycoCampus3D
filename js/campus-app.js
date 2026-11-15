@@ -217,14 +217,37 @@
   }
 
   async function tryResumeSession() {
+    var params = new URLSearchParams(window.location.search);
+    var urlName = (params.get('campus_name') || '').trim();
+    var urlPin = params.get('campus_pin') || '';
+    if (urlName || urlPin) {
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) { /* ignore */ }
+    }
     try {
       var res = await fetch('api/auth.php?action=me', { credentials: 'same-origin', cache: 'no-store' });
-      if (!res.ok) return;
-      var data = await res.json();
-      if (data.ok && data.user) {
-        enterCampus(data.user, '');
+      if (res.ok) {
+        var data = await res.json();
+        if (data.ok && data.user) {
+          enterCampus(data.user, '');
+          return;
+        }
       }
-    } catch (e) { /* segue no lobby */ }
+    } catch (e) { /* segue */ }
+    if (urlName.length >= 2 && urlPin.length >= 4) {
+      try {
+        var loginData = await apiPost('api/auth.php?action=login', {
+          display_name: urlName,
+          pin: urlPin,
+          hat_color: selectedHat,
+          body_color: selectedBody
+        });
+        if (loginData.ok && loginData.user) {
+          enterCampus(loginData.user, loginData.token || '');
+        }
+      } catch (e) { /* segue no lobby */ }
+    }
   }
 
   async function logoutCampus() {
