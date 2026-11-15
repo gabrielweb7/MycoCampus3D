@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>MycoCampus3D — Universidade 3D do Cultivo de Cogumelos</title>
-  <meta name="description" content="Entre no campus 3D multiplayer e aprenda cultivo de cogumelos na prática: fluxo laminar, esterilização, spawn, contaminações e frutificação. Grátis, direto no navegador, no PC e no celular.">
-  <meta name="keywords" content="cultivo de cogumelos, micologia, jogo 3D, universidade virtual, fluxo laminar, spawn, cultura líquida, frutificação, multiplayer">
+  <meta name="description"
+    content="Entre no campus 3D multiplayer e aprenda cultivo de cogumelos na prática: fluxo laminar, esterilização, spawn, contaminações e frutificação. Grátis, direto no navegador, no PC e no celular.">
+  <meta name="keywords"
+    content="cultivo de cogumelos, micologia, jogo 3D, universidade virtual, fluxo laminar, spawn, cultura líquida, frutificação, multiplayer">
   <meta name="author" content="Alquimistas Mágicos">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://mycocampus3d.alquimistasmagicos.com.br/">
@@ -15,19 +19,22 @@
   <meta property="og:locale" content="pt_BR">
   <meta property="og:site_name" content="MycoCampus3D">
   <meta property="og:title" content="🍄 MycoCampus3D — Universidade 3D do Cultivo de Cogumelos">
-  <meta property="og:description" content="Campus 3D multiplayer no navegador: explore o laboratório, colha cogumelos, assista aulas ao vivo no auditório e suba no ranking.">
+  <meta property="og:description"
+    content="Campus 3D multiplayer no navegador: explore o laboratório, colha cogumelos, assista aulas ao vivo no auditório e suba no ranking.">
   <meta property="og:url" content="https://mycocampus3d.alquimistasmagicos.com.br/">
   <meta property="og:image" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
   <meta property="og:image:secure_url" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Campus 3D com cogumelo gigante na praça, laboratório de vidro e auditório com telão">
+  <meta property="og:image:alt"
+    content="Campus 3D com cogumelo gigante na praça, laboratório de vidro e auditório com telão">
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="🍄 MycoCampus3D — Universidade 3D do Cultivo de Cogumelos">
-  <meta name="twitter:description" content="Campus 3D multiplayer no navegador para aprender cultivo de cogumelos na prática.">
+  <meta name="twitter:description"
+    content="Campus 3D multiplayer no navegador para aprender cultivo de cogumelos na prática.">
   <meta name="twitter:image" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
 
   <!-- App / PWA -->
@@ -65,7 +72,8 @@
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
   <link rel="stylesheet" href="css/game.css?v=0.9.10">
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       width: 100vw;
@@ -78,6 +86,7 @@
       -webkit-user-select: none;
       touch-action: none;
     }
+
     #campus-canvas-wrap {
       position: fixed;
       inset: 0;
@@ -85,11 +94,13 @@
       height: 100dvh;
       z-index: 1;
     }
+
     #campus-canvas-wrap canvas {
       display: block;
       width: 100% !important;
       height: 100% !important;
     }
+
     .glass-panel {
       background: rgba(15, 23, 42, 0.84);
       backdrop-filter: blur(16px);
@@ -97,6 +108,7 @@
       border: 1px solid rgba(148, 163, 184, 0.25);
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
     }
+
     .lobby-card {
       width: min(92vw, 420px);
       max-height: 92dvh;
@@ -104,28 +116,34 @@
       border-radius: 20px;
       padding: 22px 24px;
     }
+
     .modal-card-lg {
       width: min(94vw, 680px);
       max-height: 88dvh;
     }
+
     .modal-card-md {
       width: min(94vw, 500px);
       max-height: 85dvh;
     }
+
     .chat-bar-wrap {
       width: min(92vw, 380px);
       bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     }
+
     @media (max-width: 640px) {
       .lobby-card {
         padding: 18px 16px;
         border-radius: 16px;
       }
+
       .chat-bar-wrap {
         width: min(56vw, 240px);
         bottom: calc(14px + env(safe-area-inset-bottom, 0px));
       }
     }
+
     .swatch-btn {
       width: 28px;
       height: 28px;
@@ -134,10 +152,12 @@
       cursor: pointer;
       transition: transform 0.15s ease, border-color 0.15s ease;
     }
+
     .swatch-btn.active {
       border-color: #ffffff;
       transform: scale(1.15);
     }
+
     #crosshair {
       position: fixed;
       left: 50%;
@@ -154,16 +174,20 @@
       z-index: 25;
       display: none;
     }
+
     #fps-hint {
       transition: opacity 0.6s ease;
     }
+
     #fps-hint.faded {
       opacity: 0;
       pointer-events: none;
     }
+
     body.device-phone #fps-hint {
       top: 102px;
     }
+
     body.device-phone #crosshair {
       width: 12px;
       height: 12px;
@@ -171,30 +195,37 @@
       margin-top: -6px;
       border-width: 2px;
     }
+
     body.device-phone #chat-form {
       max-width: min(220px, calc(100vw - 235px)) !important;
       bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
     }
+
     body.device-phone #chat-input {
       padding: 5px 10px !important;
       font-size: 11px !important;
     }
+
     body.device-phone #chat-form button[type="submit"] {
       padding: 5px 10px !important;
       font-size: 11px !important;
     }
+
     body.device-tablet #chat-form {
       max-width: min(360px, calc(100vw - 360px)) !important;
       bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
     }
+
     body.device-tablet #mobile-joystick-zone {
       width: 132px;
       height: 132px;
     }
+
     body.device-desktop #mobile-joystick-zone,
     body.device-desktop #mobile-actions {
       display: none !important;
     }
+
     /* Mobile analog joystick */
     #mobile-joystick-zone {
       position: fixed;
@@ -210,6 +241,7 @@
       touch-action: none;
       display: none;
     }
+
     #mobile-joystick-knob {
       position: absolute;
       left: 50%;
@@ -224,6 +256,7 @@
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
       pointer-events: none;
     }
+
     #mobile-actions {
       position: fixed;
       right: calc(18px + env(safe-area-inset-right, 0px));
@@ -235,6 +268,7 @@
       gap: 10px;
       touch-action: none;
     }
+
     .touch-btn {
       min-width: 68px;
       height: 68px;
@@ -247,10 +281,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
       touch-action: none;
       user-select: none;
     }
+
     #btn-mobile-action {
       min-width: 74px;
       height: 74px;
@@ -259,12 +294,14 @@
       border-color: rgba(52, 211, 153, 0.75);
       box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
     }
+
     #btn-mobile-action.action-active {
       background: rgba(16, 185, 129, 0.92);
       border-color: #6ee7b7;
       transform: scale(0.92);
       box-shadow: 0 0 24px rgba(52, 211, 153, 0.75);
     }
+
     #btn-mobile-jump {
       min-width: 74px;
       height: 74px;
@@ -272,27 +309,32 @@
       background: rgba(16, 185, 129, 0.38);
       border-color: rgba(52, 211, 153, 0.7);
     }
+
     #btn-mobile-sprint.sprint-active {
       background: rgba(245, 158, 11, 0.82);
       border-color: #fde047;
       box-shadow: 0 0 18px rgba(251, 191, 36, 0.55);
     }
+
     .touch-btn:active {
       transform: scale(0.92);
       background: rgba(16, 185, 129, 0.75);
     }
   </style>
 </head>
+
 <body>
   <!-- 3D Fullscreen Canvas -->
   <div id="campus-canvas-wrap"></div>
   <div id="crosshair"></div>
 
   <!-- ENTRY LOBBY OVERLAY -->
-  <div id="campus-lobby" class="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-950/45">
+  <div id="campus-lobby"
+    class="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-950/45">
     <div class="glass-panel lobby-card space-y-4">
       <div class="text-center space-y-1">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
+        <div
+          class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
           🍄 Campus Virtual Multiplayer 3D
         </div>
         <h1 class="text-2xl font-extrabold tracking-tight text-white">MycoCampus3D</h1>
@@ -302,12 +344,14 @@
       <form id="lobby-form" class="space-y-3" autocomplete="off">
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1">Seu Nome no Campus</label>
-          <input id="input-name" name="campus_name" type="text" required minlength="2" maxlength="48" autocomplete="nickname" placeholder="Ex: Gabriel ou Prof. Alquimista"
+          <input id="input-name" name="campus_name" type="text" required minlength="2" maxlength="48"
+            autocomplete="nickname" placeholder="Ex: Gabriel ou Prof. Alquimista"
             class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-400">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1">Senha (mínimo 4 caracteres)</label>
-          <input id="input-pin" name="campus_pin" type="password" required minlength="4" maxlength="20" autocomplete="new-password" placeholder="Crie ou digite sua senha"
+          <input id="input-pin" name="campus_pin" type="password" required minlength="4" maxlength="20"
+            autocomplete="new-password" placeholder="Crie ou digite sua senha"
             class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-400">
         </div>
 
@@ -322,7 +366,8 @@
           </div>
         </div>
 
-        <div id="lobby-error" class="hidden text-xs text-rose-300 bg-rose-950/60 border border-rose-500/40 rounded-lg px-3 py-2"></div>
+        <div id="lobby-error"
+          class="hidden text-xs text-rose-300 bg-rose-950/60 border border-rose-500/40 rounded-lg px-3 py-2"></div>
 
         <button id="btn-enter-campus" type="submit"
           class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm shadow-lg transition">
@@ -333,7 +378,8 @@
       <div id="lobby-stats" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
         Conectando ao servidor da Universidade...
       </div>
-      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.9.7</span> • Alquimistas Mágicos</div>
+      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.9.7</span> •
+        Alquimistas Mágicos</div>
     </div>
   </div>
 
@@ -342,19 +388,35 @@
     <!-- Top Left Profile & Stats -->
     <div class="fixed top-3 left-3 flex flex-col gap-2 pointer-events-auto max-w-[92vw]">
       <div class="glass-panel rounded-xl px-3 py-2 flex flex-wrap items-center gap-2 text-xs">
-        <span id="hud-role-badge" class="px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">🎓 Aluno</span>
+        <span id="hud-role-badge"
+          class="px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">🎓
+          Aluno</span>
         <span id="hud-name" class="font-bold text-white truncate max-w-[130px]">Explorador</span>
         <span class="text-amber-300 font-bold">⭐ <span id="hud-xp">0</span> XP</span>
         <span class="text-emerald-300 font-bold">🍄 <span id="hud-mushrooms">0</span></span>
         <span class="text-sky-300 font-bold">🌐 <span id="hud-online">1</span> online</span>
-        <button id="btn-open-map" type="button" title="Mapa & Teleporte Rápido" class="px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️ Mapa</button>
-        <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório" class="px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪 Missão <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/5</span></button>
-        <button id="btn-open-shop" type="button" title="Loja de Cosméticos & Chapéus" class="px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑 Loja</button>
-        <button id="btn-open-admin" type="button" title="Painel Master Admin" class="hidden px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🛡️ Admin</button>
-        <button id="btn-open-emotes" type="button" title="Emotes & Animações" class="px-2 py-0.5 rounded-lg bg-pink-900/60 hover:bg-pink-800 text-pink-200 font-bold border border-pink-500/50 flex items-center gap-1">💃 Emotes</button>
-        <button id="btn-quality" type="button" title="Qualidade Gráfica & Auto-FPS (clique para alternar)" class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 font-bold border border-cyan-500/40 whitespace-nowrap">⚡ Auto</button>
-        <button id="btn-toggle-audio" type="button" title="Ativar/Desativar Som" class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">🔊</button>
-        <button id="btn-fullscreen" type="button" title="Tela Cheia (Fullscreen)" class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">⛶</button>
+        <button id="btn-open-map" type="button" title="Mapa & Teleporte Rápido"
+          class="px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️
+          Mapa</button>
+        <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório"
+          class="px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪
+          Missão <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/5</span></button>
+        <button id="btn-open-shop" type="button" title="Loja de Cosméticos & Chapéus"
+          class="px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
+          Loja</button>
+        <button id="btn-open-admin" type="button" title="Painel Master Admin"
+          class="hidden px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🛡️
+          Admin</button>
+        <button id="btn-open-emotes" type="button" title="Emotes & Animações"
+          class="px-2 py-0.5 rounded-lg bg-pink-900/60 hover:bg-pink-800 text-pink-200 font-bold border border-pink-500/50 flex items-center gap-1">💃
+          Emotes</button>
+        <button id="btn-quality" type="button" title="Qualidade Gráfica & Auto-FPS (clique para alternar)"
+          class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 font-bold border border-cyan-500/40 whitespace-nowrap">⚡
+          Auto</button>
+        <button id="btn-toggle-audio" type="button" title="Ativar/Desativar Som"
+          class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">🔊</button>
+        <button id="btn-fullscreen" type="button" title="Tela Cheia (Fullscreen)"
+          class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">⛶</button>
       </div>
       <div id="hud-quick-actions" style="display:none!important;visibility:hidden!important;"></div>
     </div>
@@ -363,34 +425,50 @@
     <div id="prof-toolbar" style="display:none!important;visibility:hidden!important;"></div>
 
     <!-- Center Fading Hint -->
-    <div id="fps-hint" class="fixed top-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap max-w-[92vw] truncate">
+    <div id="fps-hint"
+      class="fixed top-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap max-w-[92vw] truncate">
       WASD anda • Shift corre • Espaço pula • R gira • Clique interage
     </div>
 
     <!-- Interaction Prompt Pill -->
-    <div id="interact-pill" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40">
+    <div id="interact-pill"
+      class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40">
       Interagir
     </div>
 
     <!-- Emotes Quick Bar -->
-    <div id="emote-bar" class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 glass-panel rounded-full px-3 py-1.5 z-30 shadow-2xl border border-purple-500/40">
-      <button type="button" class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1" data-emote="wave">👋 Acenar</button>
-      <button type="button" class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1" data-emote="dance">💃 Dançar</button>
-      <button type="button" class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1" data-emote="cheer">🎉 Festa</button>
-      <button type="button" class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1" data-emote="meditate">🧘 Meditar</button>
-      <button id="btn-close-emotes" type="button" class="text-slate-400 hover:text-white text-xs font-bold px-1.5" title="Fechar barra de emotes">✕</button>
+    <div id="emote-bar"
+      class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 glass-panel rounded-full px-3 py-1.5 z-30 shadow-2xl border border-purple-500/40">
+      <button type="button"
+        class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
+        data-emote="wave">👋 Acenar</button>
+      <button type="button"
+        class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
+        data-emote="dance">💃 Dançar</button>
+      <button type="button"
+        class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
+        data-emote="cheer">🎉 Festa</button>
+      <button type="button"
+        class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
+        data-emote="meditate">🧘 Meditar</button>
+      <button id="btn-close-emotes" type="button" class="text-slate-400 hover:text-white text-xs font-bold px-1.5"
+        title="Fechar barra de emotes">✕</button>
     </div>
 
     <!-- Bottom Center Chat Bar -->
-    <form id="chat-form" class="fixed left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 chat-bar-wrap">
+    <form id="chat-form"
+      class="fixed left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 chat-bar-wrap">
       <input id="chat-input" type="text" maxlength="140" placeholder="💬 Escreva no chat..."
         class="flex-1 px-3 py-2 rounded-full glass-panel text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400">
-      <button type="submit" class="px-3.5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow">Enviar</button>
+      <button type="submit"
+        class="px-3.5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow">Enviar</button>
     </form>
   </div>
 
   <!-- MOBILE CONTROLS -->
-  <div id="mobile-joystick-zone"><div id="mobile-joystick-knob"></div></div>
+  <div id="mobile-joystick-zone">
+    <div id="mobile-joystick-knob"></div>
+  </div>
   <div id="mobile-actions">
     <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
     <button id="btn-mobile-action" type="button" class="touch-btn" title="Ação" style="display:none">🧽</button>
@@ -421,7 +499,8 @@
   </div>
 
   <!-- COSMETICS SHOP MODAL -->
-  <div id="shop-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
+  <div id="shop-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
     <div class="glass-panel rounded-2xl modal-card-lg flex flex-col overflow-hidden max-h-[90dvh]">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
         <div class="flex items-center gap-2">
@@ -433,10 +512,14 @@
         </div>
         <button id="btn-close-shop" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
-      <div class="px-5 py-2.5 bg-purple-950/40 border-b border-purple-500/20 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
+      <div
+        class="px-5 py-2.5 bg-purple-950/40 border-b border-purple-500/20 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
         <div class="flex items-center gap-2">
-          <button id="shop-tab-hats" class="px-3 py-1 rounded-lg bg-purple-600 text-white font-bold text-xs transition">🎩 Chapéus</button>
-          <button id="shop-tab-toys" class="px-3 py-1 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🏂 Brinquedos</button>
+          <button id="shop-tab-hats"
+            class="px-3 py-1 rounded-lg bg-purple-600 text-white font-bold text-xs transition">🎩 Chapéus</button>
+          <button id="shop-tab-toys"
+            class="px-3 py-1 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🏂
+            Brinquedos</button>
         </div>
         <div class="flex items-center gap-3 font-bold">
           <span class="text-amber-300">⭐ <span id="shop-user-xp">0</span> XP</span>
@@ -450,7 +533,8 @@
   </div>
 
   <!-- QUICK MAP TELEPORT MODAL -->
-  <div id="map-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
+  <div id="map-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
     <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden max-h-[88dvh]">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
         <div class="flex items-center gap-2">
@@ -467,7 +551,8 @@
   </div>
 
   <!-- LAB QUEST CHECKLIST MODAL -->
-  <div id="quest-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
+  <div id="quest-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
     <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden max-h-[88dvh]">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
         <div class="flex items-center gap-2">
@@ -500,8 +585,12 @@
       <div class="p-3 sm:p-4 border-b border-slate-700/40 flex flex-wrap gap-2 items-center bg-slate-900/20">
         <input id="admin-search-input" type="text" placeholder="🔍 Buscar jogador por nome..."
           class="flex-1 min-w-[200px] px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-400">
-        <button id="btn-admin-refresh" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold">🔄 Atualizar</button>
-        <button id="btn-admin-reset-world" class="px-3 py-2 rounded-xl bg-rose-900/70 hover:bg-rose-800 text-rose-200 text-xs font-semibold border border-rose-500/40">♻️ Resetar Itens</button>
+        <button id="btn-admin-refresh"
+          class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold">🔄
+          Atualizar</button>
+        <button id="btn-admin-reset-world"
+          class="px-3 py-2 rounded-xl bg-rose-900/70 hover:bg-rose-800 text-rose-200 text-xs font-semibold border border-rose-500/40">♻️
+          Resetar Itens</button>
       </div>
 
       <div id="admin-notice" class="hidden mx-4 mt-3 px-3 py-2 rounded-lg text-xs font-semibold"></div>
@@ -513,17 +602,18 @@
   </div>
 
   <noscript>
-    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99;background:#0b1220;color:#fff;padding:24px;text-align:center">
+    <div
+      style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99;background:#0b1220;color:#fff;padding:24px;text-align:center">
       🍄 O MycoCampus3D precisa de JavaScript ativado para carregar o campus 3D.
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.9.22';</script>
+  <script>window.MYCO_VERSION = '0.9.23';</script>
   <script src="js/vendor/three.min.js?v=r128"></script>
   <script src="js/vendor/OrbitControls.js?v=r128"></script>
-  <script src="js/campus-audio.js?v=0.9.22"></script>
-  <script src="js/campus3d.js?v=0.9.22"></script>
-  <script src="js/campus-app.js?v=0.9.22"></script>
+  <script src="js/campus-audio.js?v=0.9.23"></script>
+  <script src="js/campus3d.js?v=0.9.23"></script>
+  <script src="js/campus-app.js?v=0.9.23"></script>
 </body>
-</html>
 
+</html>

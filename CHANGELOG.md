@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.23] — 2026-11-15
+### 🏂 Sincronização Multiplayer do Snowboard & Paraglider
+- **Correção do envio e leitura de `toy_mode` ([js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - `syncMultiplayer()` agora envia `toy_mode` no payload para `api/multiplayer.php?action=sync`.
+  - `api/multiplayer.php` passa a retornar `toy_mode` explícito (`'snowboard'` ou `'paraglider'`) para os outros jogadores em vez de reduzir `walking = 3/4` para booleano.
+  - Prancha de snowboard do avatar remoto aprimorada (bico e rabeta curvados, fixações e pose lateral com inclinação ao deslizar/andar) e reset suave dos braços/inclinação ao desequipar.
+
 ## [v0.9.22] — 2026-11-15
 ### 🪂 Paraglider MycoWing, Correntes Térmicas & Visão Multiplayer dos Brinquedos
 - **Paraglider em 1ª Pessoa & Física de Voo ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:

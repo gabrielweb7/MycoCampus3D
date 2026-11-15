@@ -5092,9 +5092,27 @@
 
     // Brinquedos visiveis para outros jogadores (Snowboard e Paraglider)
     var remoteSb = new THREE.Group();
-    var rDeck = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.024, 1.05), new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.3 }));
-    rDeck.position.y = 0.02;
+    var rDeckMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.25, metalness: 0.15 });
+    var rTipMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 });
+    var rBindMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.55 });
+    var rDeck = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.024, 0.92), rDeckMat);
+    rDeck.position.y = 0.025;
     remoteSb.add(rDeck);
+    var rNose = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.022, 0.16), rTipMat);
+    rNose.position.set(0, 0.048, -0.51);
+    rNose.rotation.x = 0.36;
+    remoteSb.add(rNose);
+    var rTail = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.022, 0.16), rTipMat);
+    rTail.position.set(0, 0.048, 0.51);
+    rTail.rotation.x = -0.36;
+    remoteSb.add(rTail);
+    var rBindF = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.035, 0.12), rBindMat);
+    rBindF.position.set(0, 0.048, -0.20);
+    remoteSb.add(rBindF);
+    var rBindB = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.035, 0.12), rBindMat);
+    rBindB.position.set(0, 0.048, 0.20);
+    remoteSb.add(rBindB);
+    remoteSb.rotation.y = -0.28;
     remoteSb.visible = false;
     g.add(remoteSb);
 
@@ -5163,8 +5181,8 @@
       av.targetPitch = npitch;
       av.targetVelX = Number(p.vx) || 0;
       av.targetVelZ = Number(p.vz) || 0;
-      av.walking = (p.walking === 1);
-      av.toyMode = (p.walking === 4) ? 'paraglider' : (p.walking === 3 ? 'snowboard' : '');
+      av.walking = !!p.walking;
+      av.toyMode = p.toy_mode || ((p.walking === 4) ? 'paraglider' : (p.walking === 3 ? 'snowboard' : ''));
       av.seated = !!p.seated;
       av.holding = p.holding || '';
       if (av.current_hat !== (p.current_hat || 'default')) {
@@ -5331,12 +5349,33 @@
         av.rightLeg.rotation.x = 0.7;
         av.leftArm.rotation.x = -2.4;
         av.rightArm.rotation.x = -2.4;
+        av.leftArm.rotation.z = 0;
+        av.rightArm.rotation.z = 0;
+        av.group.rotation.z *= Math.exp(-8 * dt);
       } else if (av.toyMode === 'snowboard') {
-        av.leftLeg.rotation.x = 0.25;
-        av.rightLeg.rotation.x = -0.25;
-        av.leftArm.rotation.z = -0.55;
-        av.rightArm.rotation.z = 0.55;
+        var sbGlide = Math.min(1, moveSpeed / 6.0);
+        if (av.torso) {
+          av.torso.position.set(0, 0.67, 0);
+          av.torso.rotation.x = 0.08 * sbGlide;
+          av.torso.rotation.z = Math.sin(av.walkPhase * 0.5) * 0.06 * sbGlide;
+        }
+        av.headGroup.position.set(0, 1.08, 0);
+        av.leftLeg.position.set(-0.10, 0.42, -0.06);
+        av.rightLeg.position.set(0.10, 0.42, 0.06);
+        av.leftLeg.rotation.x = 0.22;
+        av.rightLeg.rotation.x = -0.22;
+        av.leftArm.position.set(-0.28, 0.84, 0);
+        av.rightArm.position.set(0.28, 0.84, 0);
+        av.leftArm.rotation.x = twoH ? 1.05 : -0.15;
+        av.rightArm.rotation.x = av.holding ? 1.05 : 0.15;
+        av.leftArm.rotation.z = -0.58;
+        av.rightArm.rotation.z = 0.58;
+        if (sbGlide > 0.08) av.walkPhase += dt * 4.5;
+        av.group.rotation.z = Math.sin(av.walkPhase * 0.5) * 0.07 * sbGlide;
       } else if (av.seated) {
+        av.leftArm.rotation.z *= Math.exp(-10 * dt);
+        av.rightArm.rotation.z *= Math.exp(-10 * dt);
+        av.group.rotation.z *= Math.exp(-10 * dt);
         if (av.torso) av.torso.position.set(0, 0.60, 0);
         av.headGroup.position.set(0, 1.01, 0);
         av.leftLeg.position.set(-0.11, 0.41, 0);
@@ -5350,6 +5389,10 @@
         if (av.labelSprite) av.labelSprite.position.y = 1.84;
         if (av.chatSprite) av.chatSprite.position.y = 2.20;
       } else {
+        var resetDecay = Math.exp(-10 * dt);
+        av.leftArm.rotation.z *= resetDecay;
+        av.rightArm.rotation.z *= resetDecay;
+        av.group.rotation.z *= resetDecay;
         if (av.torso) av.torso.position.set(0, 0.64, 0);
         av.headGroup.position.set(0, 1.05, 0);
         av.leftLeg.position.set(-0.10, 0.38, 0);

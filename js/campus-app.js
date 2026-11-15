@@ -1174,6 +1174,7 @@
         walking: pose.walking,
         seated: pose.seated,
         in_fps: pose.in_fps,
+        toy_mode: pose.toy_mode || '',
         current_hat: pose.current_hat || 'default',
         emote: pose.emote || '',
         chat_msg: chatToSend,

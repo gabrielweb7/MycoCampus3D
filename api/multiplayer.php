@@ -310,6 +310,7 @@ if ($action === 'sync') {
             'holding' => (string)$p['holding_item'],
             'walking' => ((int)$p['walking'] === 1),
             'seated' => ((int)$p['walking'] === 2),
+            'toy_mode' => ((int)$p['walking'] === 4) ? 'paraglider' : (((int)$p['walking'] === 3) ? 'snowboard' : ''),
             'in_fps' => (bool)$p['in_fps'],
             'chat' => $p['chat_msg'],
         ];
