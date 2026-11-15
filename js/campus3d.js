@@ -1671,9 +1671,10 @@
       var col = item.mesh.userData.dynamicCollider;
       var dims = item.mesh.userData.tableDims;
       if (dims) {
-        var rotSwap = Math.abs(Math.sin(item.mesh.rotation.y)) > 0.707;
-        var hw = (rotSwap ? dims.d : dims.w) / 2;
-        var hd = (rotSwap ? dims.w : dims.d) / 2;
+        var cRot = Math.abs(Math.cos(item.mesh.rotation.y));
+        var sRot = Math.abs(Math.sin(item.mesh.rotation.y));
+        var hw = (dims.w * cRot + dims.d * sRot) / 2;
+        var hd = (dims.w * sRot + dims.d * cRot) / 2;
         if (surf) {
           surf.minX = px - hw + 0.02; surf.maxX = px + hw - 0.02;
           surf.minZ = pz - hd + 0.02; surf.maxZ = pz + hd - 0.02;
@@ -1694,8 +1695,8 @@
         if (o === ignoreItem) continue;
         var p = o.mesh.position;
         if (p.x >= surf.minX - 0.08 && p.x <= surf.maxX + 0.08 &&
-            p.z >= surf.minZ - 0.08 && p.z <= surf.maxZ + 0.08 &&
-            p.y >= surf.topY - 0.12 && p.y <= surf.topY + 0.55) {
+          p.z >= surf.minZ - 0.08 && p.z <= surf.maxZ + 0.08 &&
+          p.y >= surf.topY - 0.12 && p.y <= surf.topY + 0.55) {
           return true;
         }
       }
@@ -3606,8 +3607,8 @@
           if (s === item.mesh.userData.dynamicSurface) continue;
           if (item.mesh.userData.isHood && s.isHood) continue;
           if (item.mesh.position.x >= s.minX && item.mesh.position.x <= s.maxX &&
-              item.mesh.position.z >= s.minZ && item.mesh.position.z <= s.maxZ &&
-              item.mesh.position.y >= s.topY - 0.15) {
+            item.mesh.position.z >= s.minZ && item.mesh.position.z <= s.maxZ &&
+            item.mesh.position.y >= s.topY - 0.15) {
             supportedY = Math.max(supportedY, s.topY);
           }
         }
@@ -3617,8 +3618,8 @@
             if (!pBase || pBase === item || pBase === heldItem || isHeldByRemote(pBase.id)) continue;
             if (!pBase.mesh || !pBase.mesh.userData.isPetri) continue;
             if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < 0.12 &&
-                item.mesh.position.y >= pBase.mesh.position.y + 0.025 &&
-                item.mesh.position.y <= pBase.mesh.position.y + 0.14) {
+              item.mesh.position.y >= pBase.mesh.position.y + 0.025 &&
+              item.mesh.position.y <= pBase.mesh.position.y + 0.14) {
               supportedY = Math.max(supportedY, pBase.mesh.position.y + 0.055);
             }
           }
@@ -5786,25 +5787,6 @@
   };
 
   window.consumeCampusMovedItems = function () {
-    if (heldItem) {
-      pendingMovedItems[heldItem.id] = {
-        id: heldItem.id,
-        x: heldItem.mesh.position.x,
-        y: heldItem.mesh.position.y,
-        z: heldItem.mesh.position.z,
-        ry: heldRotY
-      };
-      if (heldItem.lidItem && heldItem.lidItem.isAttached) {
-        var attLid = heldItem.lidItem;
-        pendingMovedItems[attLid.id] = {
-          id: attLid.id,
-          x: heldItem.mesh.position.x,
-          y: heldItem.mesh.position.y + 0.36,
-          z: heldItem.mesh.position.z,
-          ry: heldRotY
-        };
-      }
-    }
     var list = Object.values(pendingMovedItems);
     pendingMovedItems = {};
     return list;
@@ -5881,7 +5863,7 @@
           var refY = potSaved ? potSaved.y : pot.mesh.position.y;
           var refZ = potSaved ? potSaved.z : pot.mesh.position.z;
           var attached = Math.hypot(saved.x - refX, saved.z - refZ) < 0.28 &&
-                         Math.abs(saved.y - (refY + 0.36)) < 0.28;
+            Math.abs(saved.y - (refY + 0.36)) < 0.28;
           item.isAttached = attached;
           if (attached) {
             item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);

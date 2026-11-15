@@ -52,6 +52,11 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Substituído `new THREE.CapsuleGeometry` (inexistente no Three.js `r128`, que causava `TypeError: THREE.CapsuleGeometry is not a constructor` em `makeLiquidJar800` e interrompia o `boot()` antes do `tryResumeSession()`) por `new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10)`.
   - Adicionado suporte em `tryResumeSession()` para autenticar automaticamente e limpar imediatamente a URL (`history.replaceState`) caso o formulário tenha sido submetido via GET (`?campus_name=...&campus_pin=...`).
 
+## [v0.6.9] - 2026-11-15
+### Corrigido
+- **Bug raiz de itens caindo no chão após soltar na mesa**: `consumeCampusMovedItems()` não grava mais no servidor a posição temporária da mão enquanto o item está sendo carregado no ar — apenas quando é efetivamente solto no mundo, eliminando o retorno de posições antigas no meio do salão que faziam o item cair no chão.
+- **Mesas giradas em 45° e mesas de sala de aula**: `updateItemBounds` agora calcula o bounding box exato para qualquer ângulo (`cos/sin`) e as mesas escolares também participam de `supportMeshes`.
+
 ## [v0.6.8] - 2026-11-15
 ### Corrigido
 - **Item preso dentro da Capela de Fluxo Laminar**: itens/equipamentos de bancada (como a Balança Digital) posicionados sob a base da capela agora sobem automaticamente para o tampo de trabalho (`topY`) e equipamentos de bancada têm prioridade de mira sobre a capela/mesa.
