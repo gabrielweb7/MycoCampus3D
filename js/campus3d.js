@@ -1814,12 +1814,15 @@
     var bestPt = null;
     var bestT = Infinity;
 
-    // 0. Se estiver segurando uma Tampa de Panela e mirar na Panela aberta, encaixa para fechar!
+    // 0. Se estiver segurando uma Tampa de Panela e mirar na Panela aberta (ou na boca dela), encaixa para fechar!
     if (heldItem && heldItem.mesh.userData.potItem) {
       var targetPot = heldItem.mesh.userData.potItem;
+      var potCenter = new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
+      var camDist = origin.distanceTo(potCenter);
       var potHits = raycaster.intersectObject(targetPot.mesh, true);
-      if (potHits.length > 0 && potHits[0].distance < 4.2) {
+      if ((potHits.length > 0 && potHits[0].distance < 4.5) || (camDist < 4.5 && raycaster.ray.distanceSqToPoint(potCenter) < 0.18)) {
         snapClosePot = targetPot;
+        heldRotY = targetPot.mesh.rotation.y;
         return new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.36, targetPot.mesh.position.z);
       }
     }
