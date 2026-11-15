@@ -225,10 +225,41 @@
     return json;
   }
 
+  function isFullscreenActive() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+  }
+
+  function requestCampusFullscreen() {
+    try {
+      if (isFullscreenActive()) return;
+      var el = document.documentElement;
+      var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (req) {
+        var p = req.call(el, { navigationUI: 'hide' });
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      }
+      if (isTouch() && screen.orientation && typeof screen.orientation.lock === 'function') {
+        screen.orientation.lock('landscape').catch(function () {});
+      }
+    } catch (e) { /* browser policy */ }
+  }
+
+  function toggleCampusFullscreen() {
+    try {
+      if (isFullscreenActive()) {
+        var exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+        if (exit) exit.call(document);
+      } else {
+        requestCampusFullscreen();
+      }
+    } catch (e) { /* ignore */ }
+  }
+
   function enterCampus(user, token) {
     currentUser = user;
     if (token) authToken = token;
     isInitialSync = true;
+    requestCampusFullscreen();
     if (window.setCampusPlayerColors) window.setCampusPlayerColors(user.hat_color, user.body_color);
     $('input-pin').value = '';
     updateUserHud();
@@ -598,6 +629,7 @@
     zone.addEventListener('touchstart', function (e) {
       e.preventDefault();
       e.stopPropagation();
+      if (isTouch() && !isFullscreenActive()) requestCampusFullscreen();
       var t = e.changedTouches[0];
       if (!t) return;
       activeId = t.identifier;
@@ -765,6 +797,7 @@
 
     $('lobby-form').addEventListener('submit', async function (e) {
       e.preventDefault();
+      requestCampusFullscreen();
       var errBox = $('lobby-error');
       errBox.classList.add('hidden');
       var btn = $('btn-enter-campus');
@@ -793,6 +826,27 @@
         btn.textContent = '🚀 Entrar no Campus 3D';
       }
     });
+
+    // Garante entrada automatica em Fullscreen no primeiro toque/clique caso tenha entrado via sessao salva (auto-login)
+    var autoFsTriggered = false;
+    function onFirstGameGesture(e) {
+      if (!currentUser) return;
+      if (e && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.id === 'btn-fullscreen')) return;
+      if (!autoFsTriggered || (isTouch() && !isFullscreenActive())) {
+        autoFsTriggered = true;
+        requestCampusFullscreen();
+      }
+    }
+    window.addEventListener('touchstart', onFirstGameGesture, { passive: true });
+    window.addEventListener('mousedown', onFirstGameGesture, { passive: true });
+
+    var fsBtn = $('btn-fullscreen');
+    if (fsBtn) {
+      fsBtn.onclick = function (e) {
+        e.stopPropagation();
+        toggleCampusFullscreen();
+      };
+    }
 
     $('btn-toggle-fps').onclick = function () { window.setCampusFpsMode(!inFpsState); };
     $('btn-logout').onclick = logoutCampus;

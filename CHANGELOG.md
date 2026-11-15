@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.7] — 2026-11-15
+### Added, Fixed & Improved
+- **Tela Cheia Automática (Auto-Fullscreen) no Mobile e Desktop ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
+  - Ao clicar em **Entrar no Campus 3D** ou no primeiro toque na tela/joystick (quando entra via login automático), o jogo ativa automaticamente o modo **Fullscreen (`requestFullscreen` com `navigationUI: 'hide'`)** e trava orientação paisagem (`landscape`) no celular quando suportado, além de contar com botão rápido `⛶` na barra superior do HUD.
+- **Câmera Mais Alta ao Sentar, Bloqueio de Assento Ocupado e Sentar Lado a Lado ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Elevada a altura da visão em 1ª pessoa quando sentado (`eyeH` de `1.18m` para `1.50m`) e nivelado o ângulo vertical (`playerPitch`) ao sentar, além de ocultar o tronco translúcido local enquanto sentado para visão 100% limpa.
+  - Adicionada verificação `isSeatOccupied(seat)` que impede duas pessoas de sentarem exatamente no mesmo lugar (`🚫 Assento ocupado (sente ao lado!)`), permitindo sentar lado a lado no assento vizinho dos bancos da praça, carteiras da sala de aula e fileiras do auditório.
+- **Otimização Pesada de Performance para Mobile Sem Lags ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Desativados os 8 `PointLight`s internos e o passe extra de `ShadowMap` em dispositivos móveis (mantendo iluminação `HemisphereLight` + `DirectionalLight` + tubos fluorescentes emissivos), reduzindo pela metade os draw calls e o custo de fragment shader no celular.
+  - Adicionado pré-filtro rápido de distância ao quadrado antes do raycast nos 145 itens pegáveis e cogumelos, throttling inteligente na física de gravidade (`dropUnsupportedItems`), balança digital (`scaleDevices`), raycast mobile e partículas distantes da fonte.
+
 ## [v0.6.6] — 2026-11-15
 ### Fixed & Improved
 - **Anatomia e Postura Perfeita ao Sentar em Cadeiras, Bancos e Auditório ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
@@ -35,6 +46,11 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
 - **Correção do Auto-Login e Inicialização do Motor 3D ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
   - Substituído `new THREE.CapsuleGeometry` (inexistente no Three.js `r128`, que causava `TypeError: THREE.CapsuleGeometry is not a constructor` em `makeLiquidJar800` e interrompia o `boot()` antes do `tryResumeSession()`) por `new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10)`.
   - Adicionado suporte em `tryResumeSession()` para autenticar automaticamente e limpar imediatamente a URL (`history.replaceState`) caso o formulário tenha sido submetido via GET (`?campus_name=...&campus_pin=...`).
+
+## [v0.6.7] - 2026-11-15
+### Melhorado
+- **Nova Ponte de Madeira Arqueada**: ponte caminhável sobre o Lago em 8 com tábuas individuais seguindo o arco, estacas submersas na água, guarda-corpo com treliças em X, escoras diagonais externas e calçada conectando os dois lados do lago.
+- **Água e Lago mais profundos**: textura de água 100% contínua (sem costuras em grade) com cáusticas animadas, além de bacia do lago com 3 níveis de profundidade e pedras submersas.
 
 ## [v0.6.6] - 2026-11-15
 ### Adicionado & Melhorado

@@ -262,32 +262,37 @@
     var watC = document.createElement('canvas');
     watC.width = 256; watC.height = 256;
     var watCtx = watC.getContext('2d');
-    var wg = watCtx.createLinearGradient(0, 0, 256, 256);
-    wg.addColorStop(0, '#0284c7');
-    wg.addColorStop(0.5, '#0ea5e9');
-    wg.addColorStop(1, '#0369a1');
-    watCtx.fillStyle = wg;
+    watCtx.fillStyle = '#0369a1';
     watCtx.fillRect(0, 0, 256, 256);
-    for (var wi = 0; wi < 42; wi++) {
-      var wx = (wi * 53) % 256;
-      var wy = (wi * 79) % 256;
-      var wr = 18 + (wi % 5) * 9;
-      watCtx.strokeStyle = wi % 2 === 0 ? 'rgba(186, 230, 253, 0.34)' : 'rgba(56, 189, 248, 0.38)';
-      watCtx.lineWidth = 2.2;
-      watCtx.beginPath();
-      watCtx.ellipse(wx, wy, wr * 1.35, wr * 0.65, (wi % 4) * 0.4, 0, Math.PI * 2);
-      watCtx.stroke();
+    // Causticas organicas sem emendas (seamless wrap 256x256)
+    for (var wi = 0; wi < 48; wi++) {
+      var wx = (wi * 53 + 17) % 256;
+      var wy = (wi * 79 + 29) % 256;
+      var wr = 14 + (wi % 5) * 7;
+      watCtx.strokeStyle = wi % 2 === 0 ? 'rgba(186, 230, 253, 0.26)' : 'rgba(56, 189, 248, 0.30)';
+      watCtx.lineWidth = 2.0;
+      [-256, 0, 256].forEach(function (ox) {
+        [-256, 0, 256].forEach(function (oy) {
+          if (wx + ox < -50 || wx + ox > 306 || wy + oy < -50 || wy + oy > 306) return;
+          watCtx.beginPath();
+          watCtx.ellipse(wx + ox, wy + oy, wr * 1.25, wr * 0.62, (wi % 4) * 0.45, 0, Math.PI * 2);
+          watCtx.stroke();
+        });
+      });
     }
-    for (var wj = 0; wj < 28; wj++) {
-      watCtx.fillStyle = 'rgba(224, 242, 254, 0.25)';
+    for (var wj = 0; wj < 24; wj++) {
+      var bx = (wj * 67 + 11) % 256;
+      var by = (wj * 43 + 19) % 256;
+      var br = 3 + (wj % 3) * 2.5;
+      watCtx.fillStyle = 'rgba(224, 242, 254, 0.18)';
       watCtx.beginPath();
-      watCtx.arc((wj * 67) % 256, (wj * 43) % 256, 4 + (wj % 3) * 3, 0, Math.PI * 2);
+      watCtx.arc(bx, by, br, 0, Math.PI * 2);
       watCtx.fill();
     }
     texWater = new THREE.CanvasTexture(watC);
     texWater.wrapS = THREE.RepeatWrapping;
     texWater.wrapT = THREE.RepeatWrapping;
-    texWater.repeat.set(3, 3);
+    texWater.repeat.set(4, 4);
   }
 
   function brickMat(repX, repY) {
@@ -2812,45 +2817,166 @@
       scene.add(st1, st2);
     }
 
-    // Calcada em bloquetes ligando a Praca Central ate a beira da ponte do Lago em 8 (sem passar por baixo da agua!)
-    var walkS = new THREE.Mesh(new THREE.PlaneGeometry(8, 4.5), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-    walkS.rotation.x = -Math.PI / 2; walkS.position.set(0, 0.022, 19.2); walkS.receiveShadow = true;
+    // Calcada em bloquetes ligando a Praca Central ate a ponte e continuando do outro lado do Lago em 8!
+    var walkS = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 5.2), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
+    walkS.rotation.x = -Math.PI / 2; walkS.position.set(0, 0.022, 18.4); walkS.receiveShadow = true;
+    var walkSouthEnd = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 6.5), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
+    walkSouthEnd.rotation.x = -Math.PI / 2; walkSouthEnd.position.set(0, 0.022, 38.6); walkSouthEnd.receiveShadow = true;
     var walkE = new THREE.Mesh(new THREE.PlaneGeometry(14, 8), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
     walkE.rotation.x = -Math.PI / 2; walkE.position.set(27, 0.022, 12); walkE.receiveShadow = true;
-    scene.add(walkS, walkE);
+    scene.add(walkS, walkSouthEnd, walkE);
 
-    // 2. Lago Duplo (formato de 8) no Sul + Ponte de Madeira caminhavel (com fundo azul profundo e textura de agua animada!)
+    // 2. Lago Duplo (formato de 8) com profundidade em camadas + agua cristalina animada + Ponte de Madeira Arqueada
     var lakeMat = new THREE.MeshStandardMaterial({
       map: texWater,
       color: 0x38bdf8,
-      emissive: 0x0369a1,
-      emissiveIntensity: 0.18,
-      roughness: 0.08,
-      metalness: 0.22,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.16,
+      roughness: 0.06,
+      metalness: 0.32,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.78,
       depthWrite: false
     });
-    var lakeBedMat = new THREE.MeshStandardMaterial({ color: 0x082f49, roughness: 0.9 });
+    var lakeShallowMat = new THREE.MeshStandardMaterial({ color: 0x0c4a6e, roughness: 0.92 });
+    var lakeMidMat = new THREE.MeshStandardMaterial({ color: 0x082f49, roughness: 0.95 });
+    var lakeDeepMat = new THREE.MeshStandardMaterial({ color: 0x021724, roughness: 0.98 });
+    var lakeStoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.88 });
     [-6.5, 6.5].forEach(function (lx) {
-      var bed = new THREE.Mesh(new THREE.CircleGeometry(7.55, 32), lakeBedMat);
-      bed.rotation.x = -Math.PI / 2;
-      bed.position.set(lx, 0.02, 28.0);
-      scene.add(bed);
-      var lobe = new THREE.Mesh(new THREE.CircleGeometry(7.55, 32), lakeMat);
-      lobe.rotation.x = -Math.PI / 2;
-      lobe.position.set(lx, 0.06, 28.0);
-      scene.add(lobe);
-      var rim = new THREE.Mesh(new THREE.RingGeometry(7.45, 8.25, 32), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.82 }));
-      rim.rotation.x = -Math.PI / 2;
-      rim.position.set(lx, 0.045, 28.0);
-      scene.add(rim);
+      var bed1 = new THREE.Mesh(new THREE.CircleGeometry(7.55, 36), lakeShallowMat);
+      bed1.rotation.x = -Math.PI / 2; bed1.position.set(lx, 0.015, 28.0);
+      var bed2 = new THREE.Mesh(new THREE.CircleGeometry(5.8, 32), lakeMidMat);
+      bed2.rotation.x = -Math.PI / 2; bed2.position.set(lx, 0.018, 28.0);
+      var bed3 = new THREE.Mesh(new THREE.CircleGeometry(3.7, 28), lakeDeepMat);
+      bed3.rotation.x = -Math.PI / 2; bed3.position.set(lx, 0.021, 28.0);
+      var lobe = new THREE.Mesh(new THREE.CircleGeometry(7.55, 36), lakeMat);
+      lobe.rotation.x = -Math.PI / 2; lobe.position.set(lx, 0.11, 28.0);
+      var rim = new THREE.Mesh(new THREE.RingGeometry(7.42, 8.28, 36), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.82 }));
+      rim.rotation.x = -Math.PI / 2; rim.position.set(lx, 0.045, 28.0);
+      scene.add(bed1, bed2, bed3, lobe, rim);
+      // Algumas pedras submersas e na margem para dar sensacao de profundidade real
+      for (var st = 0; st < 8; st++) {
+        var sang = (st / 8) * Math.PI * 2 + (lx > 0 ? 0.3 : 0);
+        var srad = 3.2 + (st % 3) * 1.4;
+        var rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32 + (st % 2) * 0.14, 0), lakeStoneMat);
+        rock.scale.set(1.2, 0.45, 1.0);
+        rock.position.set(lx + Math.cos(sang) * srad, 0.03, 28.0 + Math.sin(sang) * srad);
+        scene.add(rock);
+      }
     });
-    // Ponte de madeira atravessando o meio do Lago em 8 (x: -2.2..2.2, z: 21..35)
-    addWalkableSlab(0, 0.48, 28.0, 3.6, 0.24, 13.5, 0x92400e, { roughness: 0.8 });
-    [-1.7, 1.7].forEach(function (px) {
-      addSolidWall(px, 21.5, px, 34.5, 0.48, 0.85, 0.1, 0x78350f);
-    });
+
+    // Ponte de Madeira Arqueada (z: 20.6 .. 35.4, ligando os dois lados do lago!)
+    (function buildArchedWoodBridge() {
+      var bg = new THREE.Group();
+      var bridgeW = 3.2;
+      var zStart = 20.6, zEnd = 35.4;
+      var zMid = (zStart + zEnd) * 0.5;
+      var halfSpan = (zEnd - zStart) * 0.5; // 7.4m
+      var archHeight = 0.88;
+      var baseDeckY = 0.14;
+      function deckYAt(z) {
+        var u = Math.max(-1, Math.min(1, (z - zMid) / halfSpan));
+        return baseDeckY + archHeight * (1 - u * u);
+      }
+
+      var plankMat = woodMat(1, 1);
+      var railMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.78 });
+      var postMat = new THREE.MeshStandardMaterial({ color: 0x5c2d0c, roughness: 0.82 });
+
+      // 38 Tabuas individuais seguindo o arco suave da ponte + segmentos caminhaveis
+      var plankCount = 38;
+      var stepZ = (zEnd - zStart) / plankCount;
+      for (var pi = 0; pi < plankCount; pi++) {
+        var pz = zStart + (pi + 0.5) * stepZ;
+        var py = deckYAt(pz);
+        var slope = Math.atan2(deckYAt(pz + 0.15) - deckYAt(pz - 0.15), 0.30);
+        var plank = makeBox(bridgeW, 0.09, stepZ * 0.88, plankMat);
+        plank.position.set(0, py - 0.045, pz);
+        plank.rotation.x = -slope;
+        bg.add(plank);
+        if (pi % 2 === 0) {
+          var segZ = zStart + (pi + 1) * stepZ;
+          var segY = deckYAt(segZ);
+          walkableSlabs.push({
+            minX: -bridgeW / 2 + 0.12, maxX: bridgeW / 2 - 0.12,
+            minZ: pz - stepZ * 0.6, maxZ: pz + stepZ * 1.6,
+            topY: segY
+          });
+        }
+      }
+
+      // Vigas longitudinais curvas e postes + trelicas em X + escoras diagonais externas (estilo da foto!)
+      var postCount = 10;
+      var postStep = (zEnd - zStart) / postCount;
+      var sideX = bridgeW / 2 - 0.10;
+      for (var k = 0; k <= postCount; k++) {
+        var kz = zStart + k * postStep;
+        var ky = deckYAt(kz);
+        [-sideX, sideX].forEach(function (sx) {
+          // Estaca submersa indo ate o fundo do lago
+          if (k > 0 && k < postCount) {
+            var pile = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, ky + 0.2, 10), postMat);
+            pile.position.set(sx * 0.92, (ky - 0.1) * 0.5, kz);
+            pile.castShadow = true;
+            bg.add(pile);
+          }
+          // Poste vertical do guarda-corpo
+          var post = makeBox(0.11, 0.98, 0.11, postMat);
+          post.position.set(sx, ky + 0.46, kz);
+          bg.add(post);
+          // Escora diagonal externa nos postes (fiel a referencia!)
+          if (k % 2 === 0) {
+            var dirSign = sx > 0 ? 1 : -1;
+            var brace = makeBox(0.07, 0.88, 0.07, railMat);
+            brace.position.set(sx + dirSign * 0.24, ky + 0.34, kz);
+            brace.rotation.z = dirSign * 0.52;
+            bg.add(brace);
+          }
+        });
+
+        if (k < postCount) {
+          var nz = zStart + (k + 1) * postStep;
+          var ny = deckYAt(nz);
+          var mz = (kz + nz) * 0.5;
+          var my = (ky + ny) * 0.5;
+          var dz = nz - kz;
+          var dy = ny - ky;
+          var spanLen = Math.hypot(dz, dy);
+          var ang = Math.atan2(dy, dz);
+          var crossLen = Math.hypot(dz, 0.72);
+          var crossAng = Math.atan2(0.72, dz);
+
+          [-sideX, sideX].forEach(function (sx) {
+            // Corrimao superior e travessa inferior
+            var topRail = makeBox(0.11, 0.08, spanLen + 0.04, railMat);
+            topRail.position.set(sx, my + 0.92, mz);
+            topRail.rotation.x = -ang;
+            var botRail = makeBox(0.08, 0.06, spanLen + 0.02, railMat);
+            botRail.position.set(sx, my + 0.14, mz);
+            botRail.rotation.x = -ang;
+            // Trelica em X entre os postes
+            var x1 = makeBox(0.055, 0.055, crossLen, railMat);
+            x1.position.set(sx, my + 0.52, mz);
+            x1.rotation.x = crossAng - ang;
+            var x2 = makeBox(0.055, 0.055, crossLen, railMat);
+            x2.position.set(sx, my + 0.52, mz);
+            x2.rotation.x = -crossAng - ang;
+            bg.add(topRail, botRail, x1, x2);
+          });
+        }
+      }
+
+      // Colisoes laterais invisiveis para o jogador nao cair pelas laterais da ponte
+      [-sideX, sideX].forEach(function (sx) {
+        solidColliders.push({
+          minX: sx - 0.10, maxX: sx + 0.10,
+          minZ: zStart + 0.2, maxZ: zEnd - 0.2,
+          minY: 0, maxY: 2.4
+        });
+      });
+
+      scene.add(bg);
+    })();
 
     // 3. Complexo Esportivo Oeste
     // 3a. Campo de Futebol + Pista de Atletismo vermelha (x: -54, z: -15)
@@ -5528,13 +5654,13 @@
     scene.add(weatherPoints);
 
     var touch = isTouchDevice();
-    camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, touch ? 240 : 440);
+    camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, touch ? 210 : 440);
     camera.position.set(-14, 16, 26);
 
     renderer = new THREE.WebGLRenderer({ antialias: !touch, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 0.9 : 1.5));
-    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.0 : 1.5));
+    renderer.shadowMap.enabled = !touch;
     renderer.shadowMap.type = touch ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     if (THREE.ACESFilmicToneMapping) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -5555,7 +5681,7 @@
     envHemi = hemi;
     var sun = new THREE.DirectionalLight(0xfffbeb, 1.15);
     sun.position.set(45, 65, 38);
-    sun.castShadow = true;
+    sun.castShadow = !touch;
     var shSize = touch ? 768 : 1536;
     sun.shadow.mapSize.set(shSize, shSize);
     sun.shadow.camera.left = -85;
