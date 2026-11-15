@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.15] — 2026-11-15
+### 🎨 Equilíbrio de Iluminação Natural (Bancadas em Destaque, Paredes sem Estouro)
+- **Contraste & Foco nos Equipamentos ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Reduzida a `HemisphereLight` (`0.56` PC / `0.68` Mobile) e ajustada a exposição (`1.02` PC / `1.08` Mobile) para preservar a cor e o contraste dos tijolos nas paredes.
+  - Ajustadas as luzes pontuais de teto (`PointLight`, intensidade `1.35`, alcance `16`, decay `1.85`, altura `ceilY - 0.55`) para iluminar com naturalidade as mesas, bancadas e itens centrais da sala.
+
 ## [v0.9.14] — 2026-11-15
 ### 🍲 Autoclave Realista: Trava de Pressão, HUD 3D (0–15 PSI) & Válvula Sincronizada
 - **Trava de Segurança por Pressão ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
