@@ -164,7 +164,8 @@
       : 'px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
 
     if (isProf) {
-      $('prof-toolbar').classList.remove('hidden');
+      // Toolbar do telao fica oculta ate o professor se aproximar de um telao (HUD contextual)
+      $('prof-toolbar').classList.add('hidden');
     } else {
       $('prof-toolbar').classList.add('hidden');
     }
@@ -193,7 +194,6 @@
     currentUser = user;
     if (token) authToken = token;
     $('input-pin').value = '';
-    $('input-prof-key').value = '';
     updateUserHud();
     $('campus-lobby').classList.add('hidden');
     $('campus-hud').classList.remove('hidden');
@@ -546,6 +546,19 @@
         renderLessonsModal();
         $('lesson-modal').classList.remove('hidden');
       },
+      onScreenNav: function (delta) {
+        if (currentUser && (currentUser.role === 'professor' || currentUser.role === 'admin')) {
+          broadcastSlide(currentSlideIdx + delta);
+        }
+      },
+      onNearScreen: function (isNear) {
+        var isProf = currentUser && (currentUser.role === 'professor' || currentUser.role === 'admin');
+        if (isProf && isNear) {
+          $('prof-toolbar').classList.remove('hidden');
+        } else {
+          $('prof-toolbar').classList.add('hidden');
+        }
+      },
       onHoldChange: function (label) {
         if (label) {
           $('mobile-rotate-row').classList.remove('hidden');
@@ -577,7 +590,6 @@
         var data = await apiPost('api/auth.php?action=login', {
           display_name: $('input-name').value.trim(),
           pin: $('input-pin').value,
-          professor_key: $('input-prof-key').value,
           hat_color: selectedHat,
           body_color: selectedBody
         });

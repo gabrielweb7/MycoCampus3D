@@ -13,6 +13,7 @@ const MC_HARVEST_COOLDOWN_MS = 1200;
 const MC_MODULES = ['fluxo_laminar', 'esterilizacao', 'spawn_graos', 'contaminacao', 'frutificacao'];
 const MC_LOGIN_MAX_FAILS = 12;
 const MC_LOGIN_LOCK_MINUTES = 1;
+const MC_ADMIN_USERNAMES = ['gabrieldaluz'];
 
 function mc_clean_username(string $raw): string {
     $s = mb_strtolower(trim($raw), 'UTF-8');
@@ -64,7 +65,7 @@ if ($action === 'login' || $action === 'register_or_login') {
         mc_json(['ok' => false, 'error' => 'Informe um nome com pelo menos 2 caracteres.'], 400);
     }
     if (strlen($pin) < 4 || strlen($pin) > 20) {
-        mc_json(['ok' => false, 'error' => 'Use um PIN de 4 a 20 caracteres.'], 400);
+        mc_json(['ok' => false, 'error' => 'Use uma senha de 4 a 20 caracteres.'], 400);
     }
 
     $username = mc_clean_username($displayName);
@@ -72,7 +73,7 @@ if ($action === 'login' || $action === 'register_or_login') {
         $username = 'user_' . substr(md5($displayName), 0, 8);
     }
 
-    $validProfKey = defined('PROFESSOR_KEY') && PROFESSOR_KEY !== '' && $profKey !== '' && hash_equals((string)PROFESSOR_KEY, $profKey);
+    $isOwnerAdmin = in_array($username, MC_ADMIN_USERNAMES, true);
 
     $stmt = $pdo->prepare('SELECT * FROM mc_users WHERE username = ? LIMIT 1');
     $stmt->execute([$username]);
@@ -80,11 +81,11 @@ if ($action === 'login' || $action === 'register_or_login') {
 
     if ($user) {
         $lockedUntil = $user['login_locked_until'] ?? null;
-        if (!$validProfKey && $lockedUntil !== null && strtotime((string)$lockedUntil) > time()) {
+        if (!$isOwnerAdmin && $lockedUntil !== null && strtotime((string)$lockedUntil) > time()) {
             mc_json(['ok' => false, 'error' => 'Muitas tentativas erradas. Aguarde 1 minuto e tente de novo.'], 429);
         }
         if (!password_verify($pin, (string)$user['pin_hash'])) {
-            if (!$validProfKey) {
+            if (!$isOwnerAdmin) {
                 $fails = (int)($user['login_fails'] ?? 0) + 1;
                 if ($fails >= MC_LOGIN_MAX_FAILS) {
                     $lock = $pdo->prepare('UPDATE mc_users SET login_fails = 0, login_locked_until = (NOW() + INTERVAL ' . MC_LOGIN_LOCK_MINUTES . ' MINUTE) WHERE id = ?');
@@ -94,18 +95,15 @@ if ($action === 'login' || $action === 'register_or_login') {
                     $f->execute([$fails, (int)$user['id']]);
                 }
             }
-            mc_json(['ok' => false, 'error' => 'Esse nome ja esta cadastrado com outro PIN.'], 401);
+            mc_json(['ok' => false, 'error' => 'Esse nome ja esta cadastrado com outra senha.'], 401);
         }
-        $newRole = (string)$user['role'];
-        if ($validProfKey && $newRole === 'student') {
-            $newRole = 'professor';
-        }
+        $newRole = $isOwnerAdmin ? 'professor' : (string)$user['role'];
         $upd = $pdo->prepare('UPDATE mc_users SET display_name = ?, role = ?, hat_color = ?, body_color = ?, login_fails = 0, login_locked_until = NULL, last_seen = NOW() WHERE id = ?');
         $upd->execute([$displayName, $newRole, $hatColor, $bodyColor, (int)$user['id']]);
         $userId = (int)$user['id'];
         $created = false;
     } else {
-        $role = $validProfKey ? 'professor' : 'student';
+        $role = $isOwnerAdmin ? 'professor' : 'student';
         $ins = $pdo->prepare('INSERT INTO mc_users (username, display_name, role, pin_hash, hat_color, body_color, xp, mushrooms_harvested, completed_modules) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?)');
         $ins->execute([$username, $displayName, $role, password_hash($pin, PASSWORD_DEFAULT), $hatColor, $bodyColor, '[]']);
         $userId = (int)$pdo->lastInsertId();
