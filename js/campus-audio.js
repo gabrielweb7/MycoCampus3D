@@ -8,6 +8,7 @@
   var audioCtx = null;
   var masterGain = null;
   var isMuted = false;
+  var userHasGestured = false;
   var lastFootstepAt = 0;
   var steamNode = null;
   var steamGain = null;
@@ -18,6 +19,7 @@
 
   function getAudioContext() {
     if (!audioCtx) {
+      if (!userHasGestured) return null;
       var AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return null;
       audioCtx = new AudioContextClass();
@@ -25,13 +27,14 @@
       masterGain.gain.setValueAtTime(isMuted ? 0 : 0.7, audioCtx.currentTime);
       masterGain.connect(audioCtx.destination);
     }
-    if (audioCtx.state === 'suspended') {
+    if (audioCtx.state === 'suspended' && userHasGestured) {
       audioCtx.resume().catch(function () {});
     }
     return audioCtx;
   }
 
   function unlockAudio() {
+    userHasGestured = true;
     var ctx = getAudioContext();
     if (ctx && ctx.state === 'suspended') {
       ctx.resume().catch(function () {});
@@ -257,32 +260,54 @@
     }
   }
 
-  // 7. Vapor Contínuo da Panela de Pressão
-  function setPressureCookerSteam(active) {
+  // 7. Vapor Contínuo da Panela de Pressão (com atenuação por distância)
+  function stopSteamNode() {
+    if (steamNode) {
+      try { steamNode.stop(); } catch (e) {}
+      try { steamNode.disconnect(); } catch (e) {}
+      steamNode = null;
+    }
+    if (steamGain) {
+      try { steamGain.disconnect(); } catch (e) {}
+      steamGain = null;
+    }
+  }
+
+  function setPressureCookerSteam(active, volume) {
+    var vol = (typeof volume === 'number') ? Math.max(0, Math.min(1, volume)) : (active ? 1 : 0);
+    if (!active || isMuted || vol <= 0.01) {
+      stopSteamNode();
+      return;
+    }
     var ctx = getAudioContext();
-    if (!ctx) return;
-    if (active && !steamNode) {
+    if (!ctx || ctx.state !== 'running') return;
+    var targetGain = 0.065 * vol;
+    if (!steamNode) {
       var bufferSize = ctx.sampleRate * 2;
       var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       var data = buffer.getChannelData(0);
-      for (var i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      // Ruído suavizado (pink-ish) para chiado de válvula realista, não ruído branco áspero
+      var lastOut = 0;
+      for (var i = 0; i < bufferSize; i++) {
+        var white = Math.random() * 2 - 1;
+        lastOut = (lastOut + 0.08 * white) / 1.08;
+        data[i] = lastOut * 2.2;
+      }
       steamNode = ctx.createBufferSource();
       steamNode.buffer = buffer;
       steamNode.loop = true;
       var filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(4800, ctx.currentTime);
-      filter.Q.setValueAtTime(3.5, ctx.currentTime);
+      filter.frequency.setValueAtTime(2600, ctx.currentTime);
+      filter.Q.setValueAtTime(2.0, ctx.currentTime);
       steamGain = ctx.createGain();
-      steamGain.gain.setValueAtTime(isMuted ? 0 : 0.16, ctx.currentTime);
+      steamGain.gain.setValueAtTime(targetGain, ctx.currentTime);
       steamNode.connect(filter);
       filter.connect(steamGain);
       steamGain.connect(masterGain);
       steamNode.start();
-    } else if (!active && steamNode) {
-      try { steamNode.stop(); } catch (e) {}
-      steamNode = null;
-      steamGain = null;
+    } else if (steamGain) {
+      steamGain.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.08);
     }
   }
 
@@ -326,6 +351,7 @@
   // 10. Controle de Mudo / Desmudo
   function toggleMute() {
     isMuted = !isMuted;
+    if (isMuted) stopSteamNode();
     try {
       localStorage.setItem('myco_audio_muted', isMuted ? 'true' : 'false');
     } catch (e) {}

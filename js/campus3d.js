@@ -6768,6 +6768,7 @@
         bnd.coilMat.color.setRGB(0.39 + h * 0.55, 0.45 - h * 0.30, 0.55 - h * 0.48);
         if (bnd.reflectorMat) bnd.reflectorMat.emissiveIntensity = h * 0.28;
       }
+      var nearestSteamDist = Infinity;
       for (var cpi = 0; cpi < cookerPots.length; cpi++) {
         var cp = cookerPots[cpi];
         var potP = cp.potItem.mesh.position;
@@ -6783,6 +6784,8 @@
           cp.psi = Math.max(0, ((cp.temp - 100) / 21) * 15);
           if (cp.psi >= 14.2) {
             anyPotSteaming = true;
+            var sDist = Math.hypot(potP.x - playerPos.x, potP.z - playerPos.z);
+            if (sDist < nearestSteamDist) nearestSteamDist = sDist;
             cp.steamPoints.visible = true;
             var sa = cp.steamAttr.array;
             for (var si = 0; si < sa.length; si += 3) {
@@ -6822,7 +6825,12 @@
         }
       }
       if (window.MycoAudio) {
-        window.MycoAudio.setSteam(anyPotSteaming);
+        var lobbyEl = document.getElementById('campus-lobby');
+        var inLobby = lobbyEl && !lobbyEl.classList.contains('hidden');
+        var steamVol = (!inLobby && anyPotSteaming && nearestSteamDist < 12)
+          ? Math.max(0, Math.min(1, 1 - (nearestSteamDist - 2) / 10))
+          : 0;
+        window.MycoAudio.setSteam(steamVol > 0.01, steamVol);
       }
     }
     if (spawnGrowItems.length) {
@@ -7772,6 +7780,7 @@
     playerYaw = 0;
     playerPitch = 0;
     if (window.clearCampusKeys) window.clearCampusKeys();
+    if (window.MycoAudio) window.MycoAudio.setSteam(false, 0);
     if (callbacks.onHoldChange) callbacks.onHoldChange(null);
   };
 

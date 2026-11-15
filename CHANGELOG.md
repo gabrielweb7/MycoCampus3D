@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.12] — 2026-11-15
+### 🔊 Áudio Espacial na Panela de Pressão & Correção de `AudioContext`
+- **Atenuação por Distância ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [js/campus-audio.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-audio.js))**:
+  - O vapor da panela de pressão agora só é audível quando o jogador está próximo (`< 12m`), com volume gradual conforme a distância (`<= 2m` máximo, `12m` zero) e silenciamento automático no lobby e no logout.
+  - Substituído o ruído branco contínuo áspero por chiado suavizado de válvula (`bandpass 2600 Hz`, ganho máximo `0.065`).
+- **Zero Spam de `AudioContext` ([js/campus-audio.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-audio.js))**:
+  - `getAudioContext()` agora só cria/retoma o `AudioContext` após gesto do usuário (`userHasGestured`) e `setPressureCookerSteam(false)` não toca mais no `AudioContext`, eliminando os avisos repetidos no console.
+
 ## [v0.9.11] — 2026-11-15
 ### 🐛 Correções Profundas de Vazamentos WebGL, Panela de Pressão, Seringa, Input & Sessão
 - **Panela de Pressão & Física de Conteúdo ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
