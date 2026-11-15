@@ -6911,8 +6911,27 @@
       x: playerPos.x, y: playerPos.y, z: playerPos.z,
       yaw: playerYaw, pitch: playerPitch,
       holding_item: heldItem ? heldItem.id : '',
-      walking: isWalking, seated: !!seatedSeat, in_fps: inFps
+      walking: isWalking, seated: !!seatedSeat, in_fps: inFps,
+      current_hat: localHat,
+      emote: localEmote
     };
+  };
+
+  window.playCampusEmote = function (name) {
+    localEmote = name || '';
+    localEmoteTimer = 4.5;
+    if (window.MycoAudio) window.MycoAudio.playEmote(name);
+    if (name === 'cheer') {
+      triggerConfettiBurst(playerPos.x, playerPos.y, playerPos.z);
+    }
+  };
+
+  window.setLocalAvatarHat = function (hatId) {
+    localHat = hatId || 'default';
+    if (localAvatar && localAvatar.hatGroup) {
+      buildAvatarHat(localHat, localAvatar.hatMat, localAvatar.hatGroup);
+      localAvatar.current_hat = localHat;
+    }
   };
 
   window.consumeCampusMovedItems = function () {
