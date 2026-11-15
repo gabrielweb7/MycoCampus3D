@@ -36,12 +36,41 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 ├── database/
 │   └── schema.sql             # Definição DDL de todas as tabelas MySQL (schema_version 4)
 │
-├── js/
-│   ├── campus3d.js            # Motor 3D, mapa, avatares, física, sons e namespace MycoCampus
-│   └── campus-app.js          # Lógica da aplicação, HUD, módulos de aula, polling e Admin UI
+├── js/                        # Arquitetura Modular Orientada a Domínios (Zero Bundler)
+│   ├── config/                # Dados estáticos e configurações globais (window.MycoConfig)
+│   │   ├── constants.js       # Cores, intervalos de sync, física e catálogo de cosméticos
+│   │   └── lessons-data.js    # Conteúdo dos 5 módulos de aula e quizzes práticos
+│   │
+│   ├── audio/                 # Síntese procedural via Web Audio API (window.MycoAudio)
+│   │   └── campus-audio.js    # Passos por superfície, colheita, spray, vapor, laser e mudo
+│   │
+│   ├── engine/                # Núcleo do Motor 3D e Estado Compartilhado (window.MycoEngine)
+│   │   ├── core-state.js      # Estado global, vetores/cores pré-alocados (Zero-GC) e helpers
+│   │   ├── materials-textures.js # Texturas procedurais, cache de materiais e fábricas de malhas
+│   │   ├── physics-collision.js  # Altura do terreno, pisos caminháveis, colisores e itens móveis
+│   │   ├── environment-weather.js # Ciclo dia/noite, clima dinâmico, arco-íris e relógio da torre
+│   │   └── particles-fx.js    # Pools de partículas (confete, esporos e névoa de água)
+│   │
+│   ├── world/                 # Construtores de Cenário e Setores do Campus (window.MycoEngine)
+│   │   ├── nature-plaza.js    # Terreno, nuvens, árvores, cogumelos silvestres e praça central
+│   │   ├── buildings-wings.js # Prédios, portas, persianas, escadarias, auditório e lousas
+│   │   ├── lab-equipment.js   # Laboratório, fluxo laminar, autoclave, fogareiro e frascos
+│   │   ├── greenhouse.js      # Bancada colaborativa de cultivo e crescimento na estufa
+│   │   └── outer-campus.js    # Lago em 8, ponte arqueada, complexo esportivo e cinema 3D
+│   │
+│   ├── entities/              # Jogador, Avatares, Input e Loop Principal
+│   │   ├── avatars.js         # Braços 1ª pessoa, avatares fofos, chapéus e interpolação MP
+│   │   ├── interactions-input.js # Raycast, fantasma holográfico, termômetro, seringa e controles
+│   │   └── campus3d-main.js   # Loop animate(), initCampus3D e API pública window.MycoCampus
+│   │
+│   └── app/                   # Camada de Aplicação, UI e Sincronização (window.MycoApp)
+│       ├── state-api.js       # Estado da aplicação, perfil de dispositivo, fullscreen e apiPost
+│       ├── ui-modals.js       # HUD, loja de cosméticos, aulas, ranking e painel Master Admin
+│       ├── mobile-controls.js # Joystick analógico virtual e botões táteis responsivos
+│       └── multiplayer-sync.js # Login/sessão, polling multiplayer, chat e bootstrap (boot)
 │
 ├── css/
-│   ├── game.css               # Estilos complementares do jogo e animações
+│   ├── game.css               # Estilos principais, HUD, glassmorphism, modais e regras mobile
 │   └── tailwind.min.css       # Tailwind CSS pré-compilado
 │
 ├── assets/                    # Favicons, ícones PWA e imagem OpenGraph
@@ -123,8 +152,17 @@ Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite
    - Nunca utilize `localStorage` para XP, nível ou progresso do jogador. Todo o estado canônico reside no MySQL e é verificado pelo servidor.
 4. **Respeito aos Dispositivos Móveis:**
    - Todas as novidades devem ser testadas em telas de toque (joystick, área útil com safe-area, rotação e eventos passivos).
-5. **Namespace Limpo:**
-   - Prefira expor novas capacidades no objeto `window.MycoCampus` para manter a arquitetura desacoplada e profissional.
+5. **Padrão Modular de Namespaces & Escalabilidade:**
+   - Todo o front-end segue separação estrita por responsabilidades em 5 namespaces globais sem necessidade de bundler (`webpack`/`vite`):
+     - `window.MycoConfig` (`js/config/`): constantes, paletas, cosméticos e dados de aulas.
+     - `window.MycoAudio` (`js/audio/`): efeitos sonoros procedurais centralizados (nunca duplicar `AudioContext` em outros módulos).
+     - `window.MycoEngine` (`js/engine/`, `js/world/`, `js/entities/`): estado 3D, fábricas reutilizáveis (`makeBox`, `brickMat`, `woodMat`), física, clima, setores do mapa e loop `animate()`.
+     - `window.MycoApp` (`js/app/`): modais, HUD, controles mobile e polling multiplayer.
+     - `window.MycoCampus` (`js/entities/campus3d-main.js`): API pública limpa consumida pela camada de UI.
+   - **Como adicionar novos recursos:**
+     - *Nova aula ou cosmético:* edite apenas `js/config/lessons-data.js` ou `js/config/constants.js`.
+     - *Novo prédio ou setor do campus:* crie um novo módulo em `js/world/<setor>.js` registrando o construtor em `window.MycoEngine`, adicione a tag `<script>` em `index.html` e chame-o em `initCampus3D` (`js/entities/campus3d-main.js`).
+     - *Novo modal ou painel:* adicione a lógica de renderização em `js/app/ui-modals.js` usando `App.apiPost` e `App.$`.
 
 ---
 
