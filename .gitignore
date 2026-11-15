@@ -1,0 +1,14 @@
+# Dados sensíveis e credenciais (NUNCA versionar)
+api/config.php
+.env
+*.env
+
+# Dados temporários / runtime
+data/*.json
+*.log
+
+# Sistema / IDE
+Thumbs.db
+.DS_Store
+node_modules/
+.vscode/

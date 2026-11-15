@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/REPLACE_CPANEL_USER/game.alquimistasmagicos.com.br/
+    - /bin/cp -R index.html css js api database $DEPLOYPATH

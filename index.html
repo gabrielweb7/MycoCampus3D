@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>MycoCampus3D — Universidade 3D do Cultivo de Cogumelos</title>
+  <link rel="stylesheet" href="css/tailwind.min.css">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      background: #0b1220;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    #campus-canvas-wrap {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      z-index: 1;
+    }
+    #campus-canvas-wrap canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+    .swatch-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .swatch-btn.active {
+      border-color: #ffffff;
+      transform: scale(1.15);
+    }
+    #crosshair {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      margin-left: -5px;
+      margin-top: -5px;
+      border-radius: 9999px;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      background: rgba(16, 185, 129, 0.45);
+      pointer-events: none;
+      z-index: 15;
+      display: none;
+    }
+    #fps-hint {
+      transition: opacity 0.6s ease;
+    }
+    #fps-hint.faded {
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* Mobile analog joystick */
+    #mobile-joystick-zone {
+      position: fixed;
+      left: calc(18px + env(safe-area-inset-left, 0px));
+      bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+      width: 124px;
+      height: 124px;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.45);
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(6px);
+      z-index: 25;
+      touch-action: none;
+      display: none;
+    }
+    #mobile-joystick-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 52px;
+      height: 52px;
+      margin-left: -26px;
+      margin-top: -26px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.88);
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+      pointer-events: none;
+    }
+    #mobile-actions {
+      position: fixed;
+      right: calc(18px + env(safe-area-inset-right, 0px));
+      bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      z-index: 25;
+      display: none;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+    }
+    .touch-btn {
+      min-width: 54px;
+      height: 54px;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.72);
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+      touch-action: manipulation;
+    }
+    .touch-btn:active {
+      transform: scale(0.92);
+      background: rgba(16, 185, 129, 0.75);
+    }
+  </style>
+</head>
+<body>
+  <!-- 3D Fullscreen Canvas -->
+  <div id="campus-canvas-wrap"></div>
+  <div id="crosshair"></div>
+
+  <!-- ENTRY LOBBY OVERLAY -->
+  <div id="campus-lobby" class="fixed inset-0 z-40 flex items-center justify-center p-4 overflow-y-auto bg-slate-950/55">
+    <div class="glass-panel rounded-2xl w-full max-w-md p-6 space-y-4">
+      <div class="text-center space-y-1">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
+          🍄 Campus Virtual Multiplayer 3D
+        </div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-white">MycoCampus3D</h1>
+        <p class="text-xs text-slate-300">Universidade do Cultivo de Cogumelos • Progresso salvo em MySQL</p>
+      </div>
+
+      <form id="lobby-form" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Seu Nome no Campus</label>
+          <input id="input-name" type="text" required minlength="2" maxlength="48" placeholder="Ex: Gabriel ou Prof. Alquimista"
+            class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-400">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">PIN de Acesso (4 a 20 caracteres)</label>
+          <input id="input-pin" type="password" required minlength="4" maxlength="20" placeholder="Para entrar e salvar seu XP no MySQL"
+            class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-400">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <span class="block text-xs font-semibold text-slate-300 mb-1.5">Chapéu Cogu</span>
+            <div id="hat-swatches" class="flex flex-wrap gap-1.5"></div>
+          </div>
+          <div>
+            <span class="block text-xs font-semibold text-slate-300 mb-1.5">Jaleco / Roupa</span>
+            <div id="body-swatches" class="flex flex-wrap gap-1.5"></div>
+          </div>
+        </div>
+
+        <details class="text-xs text-slate-300 pt-1">
+          <summary class="cursor-pointer hover:text-emerald-300 font-semibold">👨‍🏫 Sou Professor / Admin (opcional)</summary>
+          <div class="mt-2">
+            <input id="input-prof-key" type="password" placeholder="Chave do Professor (PROFESSOR_KEY)"
+              class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-400">
+          </div>
+        </details>
+
+        <div id="lobby-error" class="hidden text-xs text-rose-300 bg-rose-950/60 border border-rose-500/40 rounded-lg px-3 py-2"></div>
+
+        <button id="btn-enter-campus" type="submit"
+          class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm shadow-lg transition">
+          🚀 Entrar no Campus 3D
+        </button>
+      </form>
+
+      <div id="lobby-stats" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
+        Conectando ao MySQL da Universidade...
+      </div>
+    </div>
+  </div>
+
+  <!-- IN-GAME HUD -->
+  <div id="campus-hud" class="hidden fixed inset-0 z-20 pointer-events-none">
+    <!-- Top Left Profile & Stats -->
+    <div class="fixed top-3 left-3 flex flex-col gap-2 pointer-events-auto max-w-[92vw]">
+      <div class="glass-panel rounded-xl px-3 py-2 flex flex-wrap items-center gap-2 text-xs">
+        <span id="hud-role-badge" class="px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">🎓 Aluno</span>
+        <span id="hud-name" class="font-bold text-white truncate max-w-[130px]">Explorador</span>
+        <span class="text-amber-300 font-bold">⭐ <span id="hud-xp">0</span> XP</span>
+        <span class="text-emerald-300 font-bold">🍄 <span id="hud-mushrooms">0</span></span>
+        <span class="text-sky-300 font-bold">🌐 <span id="hud-online">1</span> online</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5">
+        <button id="btn-open-lessons" class="glass-panel hover:bg-slate-800/90 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white">📚 Aulas (<span id="hud-modules">0</span>/5)</button>
+        <button id="btn-open-ranking" class="glass-panel hover:bg-slate-800/90 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white">🏆 Ranking</button>
+        <button id="btn-reset-lab" class="glass-panel hover:bg-slate-800/90 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-200" title="Voltar equipamentos do Lab ao lugar">♻️ Lab</button>
+        <button id="btn-toggle-fps" class="glass-panel hover:bg-slate-800/90 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-300">🎥 1ª Pessoa</button>
+      </div>
+    </div>
+
+    <!-- Top Right Professor Controls (if professor) -->
+    <div id="prof-toolbar" class="hidden fixed top-3 right-3 glass-panel rounded-xl px-3 py-2 pointer-events-auto flex items-center gap-2 text-xs">
+      <span class="font-bold text-amber-300">👨‍🏫 Telão:</span>
+      <button id="btn-slide-prev" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold">◀</button>
+      <span id="prof-slide-label" class="font-semibold text-white min-w-[60px] text-center">Slide 1/5</span>
+      <button id="btn-slide-next" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold">▶</button>
+    </div>
+
+    <!-- Center Fading Hint -->
+    <div id="fps-hint" class="fixed top-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap">
+      WASD anda • Espaço pula • Clique pega/solta • Scroll gira item • ESC libera mouse
+    </div>
+
+    <!-- Interaction Prompt Pill -->
+    <div id="interact-pill" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40">
+      Clique para interagir
+    </div>
+
+    <!-- Bottom Center Chat Bar -->
+    <form id="chat-form" class="fixed bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 w-[min(92vw,380px)]">
+      <input id="chat-input" type="text" maxlength="140" placeholder="💬 Falar no campus (Enter)..."
+        class="flex-1 px-3 py-2 rounded-full glass-panel text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400">
+      <button type="submit" class="px-3.5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow">Enviar</button>
+    </form>
+  </div>
+
+  <!-- MOBILE CONTROLS -->
+  <div id="mobile-joystick-zone"><div id="mobile-joystick-knob"></div></div>
+  <div id="mobile-actions">
+    <div id="mobile-rotate-row" class="hidden flex gap-2">
+      <button id="btn-rot-left" type="button" class="touch-btn">⟲</button>
+      <button id="btn-rot-right" type="button" class="touch-btn">⟳</button>
+    </div>
+    <button id="btn-mobile-jump" type="button" class="touch-btn">⬆️</button>
+  </div>
+
+  <!-- LESSONS MODAL -->
+  <div id="lesson-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75">
+    <div class="glass-panel rounded-2xl w-full max-w-2xl max-h-[88dvh] flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
+        <h2 class="text-base font-extrabold text-white">📚 Universidade MycoCampus — Módulos Práticos</h2>
+        <button id="btn-close-lessons" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
+      </div>
+      <div id="lessons-body" class="p-5 overflow-y-auto space-y-4 text-sm text-slate-200"></div>
+    </div>
+  </div>
+
+  <!-- RANKING MODAL -->
+  <div id="ranking-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75">
+    <div class="glass-panel rounded-2xl w-full max-w-lg max-h-[85dvh] flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
+        <h2 class="text-base font-extrabold text-white">🏆 Ranking da Universidade (MySQL)</h2>
+        <button id="btn-close-ranking" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
+      </div>
+      <div id="ranking-body" class="p-5 overflow-y-auto space-y-2 text-xs"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="js/campus3d.js"></script>
+  <script src="js/campus-app.js"></script>
+</body>
+</html>
