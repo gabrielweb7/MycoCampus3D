@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.1.2] — 2026-11-14
+
+### Ajustes de UI
+- **Lobby mais limpo (`index.html`)**: removido o texto `"• Seu progresso fica salvo"` do subtítulo de entrada.
+
 ## [v0.1.1] — 2026-11-14
 
 ### Melhorias de Login & Sessão Persistente
