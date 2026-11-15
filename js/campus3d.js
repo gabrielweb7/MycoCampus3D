@@ -115,10 +115,19 @@
   var hoveredSeat = null;
   var seatedSeat = null;
   var lightSwitchMeshes = [];
+  var campusLightSwitches = [];
   var hoveredSwitch = null;
   var hoodSwitchMeshes = [];
   var hoveredHoodSwitch = null;
   var hoodAirData = null;
+  var stirSwitchMeshes = [];
+  var hoveredStirSwitch = null;
+  var stirrerDevices = [];
+  var hoveredSyringeTarget = null;
+  var pendingStateChanges = {};
+  var recentlyChangedState = {};
+  var fountainDropsAttr = null;
+  var fountainRipples = [];
   var terrainSnowMat = null;
   var roofZones = []; // { minX, maxX, minZ, maxZ, roofY } para impedir chuva/neve dentro dos predios
 
@@ -149,7 +158,7 @@
   var remoteAvatars = {};
 
   // Texturas procedurais compartilhadas
-  var texBrick, texPaving, texWood;
+  var texBrick, texPaving, texWood, texWater;
 
   var callbacks = {
     onHarvestMushroom: null,
@@ -158,8 +167,19 @@
     onNearScreen: null,
     onHoldChange: null,
     onFpsChange: null,
-    onHoverPrompt: null
+    onHoverPrompt: null,
+    onWorldAction: null
   };
+
+  function notifyWorldAction() {
+    if (callbacks.onWorldAction) callbacks.onWorldAction();
+  }
+
+  function queueWorldStateChange(key, val) {
+    pendingStateChanges[key] = String(val);
+    recentlyChangedState[key] = performance.now() + 1600;
+    notifyWorldAction();
+  }
 
   function isTouchDevice() {
     var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -222,6 +242,37 @@
     texWood = new THREE.CanvasTexture(wc);
     texWood.wrapS = THREE.RepeatWrapping;
     texWood.wrapT = THREE.RepeatWrapping;
+
+    // 4. Agua cristalina com caustics / ondulacoes suaves
+    var watC = document.createElement('canvas');
+    watC.width = 256; watC.height = 256;
+    var watCtx = watC.getContext('2d');
+    var wg = watCtx.createLinearGradient(0, 0, 256, 256);
+    wg.addColorStop(0, '#0284c7');
+    wg.addColorStop(0.5, '#0ea5e9');
+    wg.addColorStop(1, '#0369a1');
+    watCtx.fillStyle = wg;
+    watCtx.fillRect(0, 0, 256, 256);
+    for (var wi = 0; wi < 42; wi++) {
+      var wx = (wi * 53) % 256;
+      var wy = (wi * 79) % 256;
+      var wr = 18 + (wi % 5) * 9;
+      watCtx.strokeStyle = wi % 2 === 0 ? 'rgba(186, 230, 253, 0.34)' : 'rgba(56, 189, 248, 0.38)';
+      watCtx.lineWidth = 2.2;
+      watCtx.beginPath();
+      watCtx.ellipse(wx, wy, wr * 1.35, wr * 0.65, (wi % 4) * 0.4, 0, Math.PI * 2);
+      watCtx.stroke();
+    }
+    for (var wj = 0; wj < 28; wj++) {
+      watCtx.fillStyle = 'rgba(224, 242, 254, 0.25)';
+      watCtx.beginPath();
+      watCtx.arc((wj * 67) % 256, (wj * 43) % 256, 4 + (wj % 3) * 3, 0, Math.PI * 2);
+      watCtx.fill();
+    }
+    texWater = new THREE.CanvasTexture(watC);
+    texWater.wrapS = THREE.RepeatWrapping;
+    texWater.wrapT = THREE.RepeatWrapping;
+    texWater.repeat.set(3, 3);
   }
 
   function brickMat(repX, repY) {
@@ -590,29 +641,98 @@
     plazaFloor.receiveShadow = true;
     scene.add(plazaFloor);
 
-    // Fonte Central em (0, 0, 2) com Cogumelo no Topo!
+    // Fonte Central Realista em (0, 0, 2) com Bacia Vazada (Zero Z-Fighting), Agua Cristalina Animada, Cascatas e Cogumelo no Topo!
     var fx = 0, fz = 2;
-    var outerRim = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.85, 3.05, 0.48, 28),
-      new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.72 })
-    );
-    outerRim.position.set(fx, 0.24, fz);
-    outerRim.castShadow = true; outerRim.receiveShadow = true;
-    scene.add(outerRim);
+    var basinStoneMat = new THREE.MeshStandardMaterial({ color: 0xdbe4ee, roughness: 0.58, metalness: 0.08 });
+    var basinInnerMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.68, side: THREE.DoubleSide });
+    var tilePoolMat = new THREE.MeshStandardMaterial({ color: 0x075985, roughness: 0.35, metalness: 0.15 });
+    var waterSurfMat = new THREE.MeshStandardMaterial({
+      map: texWater,
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.22,
+      roughness: 0.06,
+      metalness: 0.22,
+      transparent: true,
+      opacity: 0.88,
+      depthWrite: false
+    });
 
-    var waterRing = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.45, 2.45, 0.42, 28),
-      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.85 })
-    );
-    waterRing.position.set(fx, 0.27, fz);
-    scene.add(waterRing);
+    // Fundo azulejado azul-profundo da bacia (y = 0.08, bem abaixo da agua em y = 0.44!)
+    var poolFloor = new THREE.Mesh(new THREE.CylinderGeometry(2.62, 2.62, 0.12, 36), tilePoolMat);
+    poolFloor.position.set(fx, 0.06, fz);
+    poolFloor.receiveShadow = true;
+    scene.add(poolFloor);
 
-    // Pedestal de pedra em 2 niveis
-    var ped1 = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.95, 0.9, 20), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.65 }));
-    ped1.position.set(fx, 0.65, fz); ped1.castShadow = true;
-    var bowl = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 0.75, 0.32, 20), new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.6 }));
-    bowl.position.set(fx, 1.2, fz); bowl.castShadow = true;
-    scene.add(ped1, bowl);
+    // Parede cilindrica externa e interna da bacia (abertas no centro, sem tampar a agua!)
+    var outerWall = new THREE.Mesh(new THREE.CylinderGeometry(2.98, 3.10, 0.50, 36, 1, true), basinStoneMat);
+    outerWall.position.set(fx, 0.25, fz);
+    outerWall.castShadow = true; outerWall.receiveShadow = true;
+    var innerWall = new THREE.Mesh(new THREE.CylinderGeometry(2.58, 2.58, 0.48, 36, 1, true), basinInnerMat);
+    innerWall.position.set(fx, 0.24, fz);
+    var rimTop = new THREE.Mesh(new THREE.TorusGeometry(2.78, 0.23, 14, 40), basinStoneMat);
+    rimTop.rotation.x = Math.PI / 2;
+    rimTop.scale.set(1, 1, 0.45);
+    rimTop.position.set(fx, 0.50, fz);
+    rimTop.castShadow = true; rimTop.receiveShadow = true;
+    scene.add(outerWall, innerWall, rimTop);
+
+    // Superficie da agua cristalina inferior (y = 0.43, livre de qualquer sobreposicao!)
+    var waterDisc = new THREE.Mesh(new THREE.CircleGeometry(2.57, 36), waterSurfMat);
+    waterDisc.rotation.x = -Math.PI / 2;
+    waterDisc.position.set(fx, 0.43, fz);
+    scene.add(waterDisc);
+
+    // Pedestal de pedra esculpida em 2 niveis + Taca superior com agua
+    var pedBase = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 1.08, 0.26, 24), basinStoneMat);
+    pedBase.position.set(fx, 0.22, fz);
+    var ped1 = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.86, 0.88, 24), basinStoneMat);
+    ped1.position.set(fx, 0.72, fz); ped1.castShadow = true;
+    var bowl = new THREE.Mesh(new THREE.CylinderGeometry(1.32, 0.68, 0.30, 28), basinStoneMat);
+    bowl.position.set(fx, 1.22, fz); bowl.castShadow = true;
+    var bowlRim = new THREE.Mesh(new THREE.TorusGeometry(1.28, 0.08, 10, 32), basinStoneMat);
+    bowlRim.rotation.x = Math.PI / 2;
+    bowlRim.position.set(fx, 1.37, fz);
+    var upperWater = new THREE.Mesh(new THREE.CircleGeometry(1.23, 28), waterSurfMat);
+    upperWater.rotation.x = -Math.PI / 2;
+    upperWater.position.set(fx, 1.38, fz);
+    scene.add(pedBase, ped1, bowl, bowlRim, upperWater);
+
+    // 8 jatos / veus de agua cristalina caindo da taca superior para a bacia + aneis de espuma animados
+    var streamMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.48, depthWrite: false, side: THREE.DoubleSide });
+    var rippleMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide });
+    for (var j = 0; j < 8; j++) {
+      var jAng = (j / 8) * Math.PI * 2;
+      var jx = fx + Math.cos(jAng) * 1.42;
+      var jz = fz + Math.sin(jAng) * 1.42;
+      var stream = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.055, 0.96, 8, 1, true), streamMat);
+      stream.position.set(fx + Math.cos(jAng) * 1.34, 0.89, fz + Math.sin(jAng) * 1.34);
+      stream.rotation.z = -Math.cos(jAng) * 0.16;
+      stream.rotation.x = Math.sin(jAng) * 0.16;
+      scene.add(stream);
+
+      var rip = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.15, 18), rippleMat);
+      rip.rotation.x = -Math.PI / 2;
+      rip.position.set(jx, 0.44, jz);
+      scene.add(rip);
+      fountainRipples.push({ mesh: rip, phase: j * 0.78 });
+    }
+
+    // Particulas de goticulas de agua saltando na fonte
+    var dropCount = 84;
+    var dropArr = new Float32Array(dropCount * 3);
+    for (var di = 0; di < dropCount; di++) {
+      var dAng = (di / dropCount) * Math.PI * 2 * 4;
+      var dRad = 1.15 + (di % 7) * 0.12;
+      dropArr[di * 3] = fx + Math.cos(dAng) * dRad;
+      dropArr[di * 3 + 1] = 0.44 + (di / dropCount) * 0.95;
+      dropArr[di * 3 + 2] = fz + Math.sin(dAng) * dRad;
+    }
+    var dropGeo = new THREE.BufferGeometry();
+    fountainDropsAttr = new THREE.BufferAttribute(dropArr, 3);
+    dropGeo.setAttribute('position', fountainDropsAttr);
+    var dropPoints = new THREE.Points(dropGeo, new THREE.PointsMaterial({ color: 0xe0f2fe, size: 0.075, transparent: true, opacity: 0.82, depthWrite: false }));
+    scene.add(dropPoints);
 
     // Cogumelo no topo da fonte!
     var mStem = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, 1.35, 16), new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.55 }));
@@ -724,6 +844,7 @@
     root.add(wand, cordLine, cordKnob);
 
     var blindObj = {
+      id: 'blind_' + windowBlinds.length,
       slats: slats,
       bottomRail: bottomRail,
       tapes: tapes,
@@ -826,11 +947,16 @@
     createVenetianBlind(frontX - dir * 0.11, yFloor2 + h2 - 0.14, cz - d * 0.24, d * 0.45, h2 - 0.26, dir, cz);
     createVenetianBlind(frontX - dir * 0.11, yFloor2 + h2 - 0.14, cz + d * 0.24, d * 0.45, h2 - 0.26, dir, cz);
 
+    // Forro claro no teto do 1o andar (abaixo da laje do 2o andar em y = 3.555)
+    var ceilPlaster1 = makeBox(w - 0.1, 0.02, d - 0.1, 0xe2e8f0, { roughness: 0.7, noShadow: true });
+    ceilPlaster1.position.set(cx, 3.55, cz);
+    scene.add(ceilPlaster1);
+
     // Iluminacao realista em TODAS as salas (1o e 2o andares): 4 luminarias + PointLight + Interruptor por sala!
     var fixMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 });
     function createFloorLighting(floorY, floorH, swX, swY, swZ, swRotY) {
       var fTubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 1.25, roughness: 0.25 });
-      var ceilY = floorY + floorH - 0.04;
+      var ceilY = floorY < 1.0 ? 3.51 : (floorY + floorH - 0.04);
       [-2.0, 2.0].forEach(function (lx) {
         [-2.8, 2.8].forEach(function (lz) {
           var trayL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 1.65), fixMat);
@@ -845,7 +971,7 @@
         });
       });
       var fLight = new THREE.PointLight(0xfffbeb, 1.1, 22, 1.45);
-      fLight.position.set(cx, floorY + floorH - 0.35, cz);
+      fLight.position.set(cx, ceilY - 0.30, cz);
       scene.add(fLight);
 
       var swGroup = new THREE.Group();
@@ -859,10 +985,19 @@
       var swLed = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.015, 0.02), swLedMat);
       swLed.position.set(0, 0.09, 0.025);
       swGroup.add(swPlate, swRocker, swLed);
-      var swData = { on: true, light: fLight, gLight: null, tubeMat: fTubeMat, ledMat: swLedMat, rocker: swRocker };
+      var swData = {
+        id: 'light_' + campusLightSwitches.length,
+        on: true,
+        light: fLight,
+        gLight: null,
+        tubeMat: fTubeMat,
+        ledMat: swLedMat,
+        rocker: swRocker
+      };
       swPlate.userData.lightSwitch = swData;
       swRocker.userData.lightSwitch = swData;
       lightSwitchMeshes.push(swPlate, swRocker);
+      campusLightSwitches.push(swData);
       scene.add(swGroup);
     }
     // 1o andar: interruptor na parede Sul logo ao entrar pela porta principal
@@ -1004,6 +1139,30 @@
     topFacadeBar.position.set(frontX, yFloor1 + h1 - 0.05, cz);
     scene.add(transomBar, topFacadeBar);
 
+    if (opts.doorSign) {
+      var sCan = document.createElement('canvas');
+      sCan.width = 512; sCan.height = 160;
+      var sCtx = sCan.getContext('2d');
+      sCtx.fillStyle = '#0f172a';
+      sCtx.fillRect(0, 0, 512, 160);
+      sCtx.strokeStyle = '#34d399';
+      sCtx.lineWidth = 8;
+      sCtx.strokeRect(8, 8, 496, 144);
+      sCtx.fillStyle = '#ffffff';
+      sCtx.font = 'bold 58px system-ui, Segoe UI, sans-serif';
+      sCtx.textAlign = 'center';
+      sCtx.textBaseline = 'middle';
+      sCtx.fillText(opts.doorSign, 256, 82);
+      var sTex = new THREE.CanvasTexture(sCan);
+      var signMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.44, 1.55),
+        new THREE.MeshStandardMaterial({ map: sTex, emissive: 0x064e3b, emissiveIntensity: 0.35, roughness: 0.3 })
+      );
+      signMesh.position.set(frontX + dir * 0.06, yFloor1 + doorH + transomH * 0.5, cz);
+      if (dir < 0) signMesh.rotation.y = Math.PI;
+      scene.add(signMesh);
+    }
+
     // Persianas horizontais clicaveis cobrindo todo o vidro de cada lado da porta (Esquerda e Direita)
     var sideWinW = (d / 2) - doorHalfW - 0.26;
     var sideCenterOffset = doorHalfW + 0.04 + sideWinW / 2;
@@ -1030,6 +1189,7 @@
     scene.add(doorPivot);
 
     var doorObj = {
+      id: 'door_' + campusDoors.length,
       pivot: doorPivot,
       open: false,
       angle: 0,
@@ -1365,9 +1525,9 @@
   function buildCampusWingsAndEquipment() {
     // ALA OESTE (Esquerda) — 2 blocos de 2 andares (x: -24..-14)
     // Bloco Oeste-Norte (z: -12.8..-1.2): LABORATORIO DE FLUXO LAMINAR & AUTOCLAVE + 2o andar acessivel
-    buildCampusBuildingWing({ cx: -19, cz: -7, width: 10, depth: 11.6, faceDir: 1, doorLabel: 'Porta do Laboratório', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 0 });
+    buildCampusBuildingWing({ cx: -19, cz: -7, width: 10, depth: 11.6, faceDir: 1, doorLabel: 'Porta do Laboratório', doorSign: '🔬 LAB', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 0 });
     // Bloco Oeste-Sul (z: 2.2..13.8): Salas de Aula (1o e 2o andares acessiveis)
-    buildCampusBuildingWing({ cx: -19, cz: 8, width: 10, depth: 11.6, faceDir: 1, doorLabel: 'Porta da Sala Oeste', style: 'brick', connectNorth2F: true, boardIndex: 1 });
+    buildCampusBuildingWing({ cx: -19, cz: 8, width: 10, depth: 11.6, faceDir: 1, doorLabel: 'Porta da Sala Oeste', doorSign: '📚 SALA', style: 'brick', connectNorth2F: true, boardIndex: 1 });
 
     createBanner(-13.85, 5.1, -11.6, Math.PI / 2, '#6d28d9', '🔬');
     createBanner(-13.85, 5.1, -2.4, Math.PI / 2, '#1d4ed8', '🧬');
@@ -1478,7 +1638,7 @@
     solidColliders.push({ minX: rackX - 1.65, maxX: rackX + 1.65, minZ: rackZ - 0.38, maxZ: rackZ + 0.38, minY: 0.14, maxY: 2.1 });
 
     // Ilha central em Inox com Fluxo Laminar Horizontal (movivel se vazio + botao Power/LED + ar esteril!)
-    addMovableStainlessTable('table_hood_lab', 'Mesa Inox (Fluxo Laminar)', -18.5, 0.14, -8.2, 1.5, 0.90, 2.4);
+    addMovableStainlessTable('table_hood_lab', 'Mesa Inox (Fluxo Laminar)', -18.5, 0.12, -8.2, 1.5, 0.90, 2.4);
 
     var hoodGroup = new THREE.Group();
     var hoodBackBox = makeBox(0.32, 1.08, 2.34, 0x0f172a, { roughness: 0.45, metalness: 0.4 });
@@ -1504,8 +1664,10 @@
     hoodTop.position.set(0.10, 1.08, 0);
     var hoodGlassL = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
     hoodGlassL.position.set(0.115, 0.545, -1.15);
+    hoodGlassL.userData.ignoreRay = true;
     var hoodGlassR = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
     hoodGlassR.position.set(0.115, 0.545, 1.15);
+    hoodGlassR.userData.ignoreRay = true;
     // Base fechada em aco inox sem frestas no chao (encaixa perfeitamente em bancadas e mesas)
     var hoodBase = makeBox(1.39, 0.04, 2.34, 0xcbd5e1, { metalness: 0.72, roughness: 0.28 });
     hoodBase.position.set(-0.045, 0.02, 0);
@@ -1535,6 +1697,7 @@
     var airAttr = new THREE.BufferAttribute(airPos, 3);
     airGeo.setAttribute('position', airAttr);
     var airPoints = new THREE.Points(airGeo, new THREE.PointsMaterial({ color: 0xbae6fd, size: 0.045, transparent: true, opacity: 0.72 }));
+    airPoints.userData.ignoreRay = true;
     hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLed, airPoints);
 
     hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat: hepaMat, ledMat: hoodLedMat };
@@ -1542,15 +1705,15 @@
     hoodSwitchBox.userData.hoodSwitch = hoodAirData;
     hoodSwitchMeshes.push(hoodBtnMesh, hoodSwitchBox);
 
-    var hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.085 };
+    var hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.065 };
     supportSurfaces.push(hoodSurf);
     hoodGroup.userData.twoHanded = true;
     hoodGroup.userData.isHood = true;
-    hoodGroup.userData.tableDims = { w: 1.39, h: 0.045, d: 2.34, surfOffset: 0.045 };
+    hoodGroup.userData.tableDims = { w: 1.39, h: 0.045, d: 2.34, surfOffset: 0 };
     hoodGroup.userData.dynamicSurface = hoodSurf;
     hoodGroup.userData.updateBounds = updateItemBounds;
     hoodGroup.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(hoodSurf, item); };
-    registerPickable('laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -18.5, 1.04, -8.2, 0, 0.85, 1.1);
+    registerPickable('laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -18.5, 1.02, -8.2, 0, 0.85, 1.1);
 
     function createPressureCookerPair(potId, lidId, labelSuffix, px, py, pz) {
       var steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20 });
@@ -1598,16 +1761,16 @@
         lidGroup.add(clasp);
       });
       lidGroup.add(lidRim, lidDome, weight, weightTop);
-      lidGroup.userData.potItem = potItem;
-      lidGroup.userData.isAttached = true;
       var lidItem = registerPickable(lidId, 'Tampa da Panela (' + labelSuffix + ')', lidGroup, px, py + 0.36, pz, 0, 0.26, 0.16);
-      potGroup.userData.lidItem = lidItem;
+      lidItem.potItem = potItem;
+      lidItem.isAttached = true;
+      potItem.lidItem = lidItem;
     }
 
-    addMovableStainlessTable('table_cooker_lab', 'Mesa Inox (Autoclave/Spawn)', -18.5, 0.14, -5.0, 1.5, 0.85, 2.4);
-    createPressureCookerPair('pressure_cooker_lab', 'pressure_lid_lab', 'Lab', -18.5, 0.99, -4.6);
+    addMovableStainlessTable('table_cooker_lab', 'Mesa Inox (Autoclave/Spawn)', -18.5, 0.12, -5.0, 1.5, 0.85, 2.4);
+    createPressureCookerPair('pressure_cooker_lab', 'pressure_lid_lab', 'Lab', -18.5, 0.97, -4.6);
 
-    addMovableStainlessTable('table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.14, -10.6, 2.0, 0.79, 1.0);
+    addMovableStainlessTable('table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);
 
     // Texturas procedurais realistas para Placas de Petri (PDA, Micelio Rizomorfico, Contaminacao) e Spawn
     function makePetriDish(mode) {
@@ -1654,25 +1817,81 @@
       return pg;
     }
 
-    registerPickable('petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.3, 1.07, -8.6, 0, 0.20, 0.08);
-    registerPickable('petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 1.07, -7.8, 0, 0.20, 0.08);
+    registerPickable('petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.3, 1.065, -8.6, 0, 0.20, 0.08);
+    registerPickable('petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 1.065, -7.8, 0, 0.20, 0.08);
     registerPickable('petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, 0.20, 0.08);
 
-    // Frasco de Potato Dextrose Agar (PDA 500g) com tampa laranja e rotulo
+    // Frasco reagente profissional de Potato Dextrose Agar (PDA / BDA 500g) com rotulo de alta definicao 100% legivel de frente!
     var pdaGroup = new THREE.Group();
-    var pdaC = document.createElement('canvas'); pdaC.width = 256; pdaC.height = 128;
+    var hdpeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35, metalness: 0.05 });
+    var pdaBody = new THREE.Mesh(new THREE.CylinderGeometry(0.102, 0.102, 0.21, 28), hdpeMat);
+    pdaBody.position.y = 0.105;
+    pdaBody.castShadow = true;
+    var pdaShoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.102, 0.038, 28), hdpeMat);
+    pdaShoulder.position.y = 0.228;
+    var pdaNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.070, 0.070, 0.024, 24), hdpeMat);
+    pdaNeck.position.y = 0.255;
+
+    var pdaC = document.createElement('canvas');
+    pdaC.width = 512; pdaC.height = 256;
     var pdaCtx = pdaC.getContext('2d');
-    pdaCtx.fillStyle = '#f8fafc'; pdaCtx.fillRect(0, 0, 256, 128);
-    pdaCtx.fillStyle = '#0284c7'; pdaCtx.fillRect(0, 14, 256, 10); pdaCtx.fillRect(0, 104, 256, 10);
-    pdaCtx.fillStyle = '#0f172a'; pdaCtx.font = 'bold 16px system-ui, sans-serif';
-    pdaCtx.fillText('POTATO DEXTROSE AGAR', 16, 56);
-    pdaCtx.font = '13px system-ui, sans-serif'; pdaCtx.fillText('Meio de Cultura • 500g', 16, 82);
-    var pdaBody = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.24, 16), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(pdaC), roughness: 0.45 }));
-    pdaBody.position.y = 0.12;
-    var pdaCap = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.085, 0.07, 16), new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.35 }));
-    pdaCap.position.y = 0.27;
-    pdaGroup.add(pdaBody, pdaCap);
-    registerPickable('pda_bottle', 'Frasco PDA 500g (Ágar Batata Dextrose)', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.32);
+    pdaCtx.fillStyle = '#ffffff';
+    pdaCtx.fillRect(0, 0, 512, 256);
+    // Desenha 2 rotulos completos (frente e verso do cilindro) para ficar 100% legivel de qualquer angulo!
+    [0, 256].forEach(function (ox) {
+      pdaCtx.fillStyle = '#f8fafc';
+      pdaCtx.fillRect(ox + 10, 8, 236, 240);
+      pdaCtx.strokeStyle = '#cbd5e1';
+      pdaCtx.lineWidth = 3;
+      pdaCtx.strokeRect(ox + 10, 8, 236, 240);
+
+      // Faixa superior azul laboratorio
+      pdaCtx.fillStyle = '#0284c7';
+      pdaCtx.fillRect(ox + 12, 10, 232, 38);
+      pdaCtx.fillStyle = '#ffffff';
+      pdaCtx.font = 'bold 17px system-ui, sans-serif';
+      pdaCtx.textAlign = 'center';
+      pdaCtx.fillText('🧪 MYCOLAB • REAGENTE', ox + 128, 35);
+
+      // Nome principal grande e centralizado (nao corta nas bordas!)
+      pdaCtx.fillStyle = '#0f172a';
+      pdaCtx.font = '900 32px system-ui, sans-serif';
+      pdaCtx.fillText('BDA / PDA', ox + 128, 86);
+
+      pdaCtx.fillStyle = '#0369a1';
+      pdaCtx.font = 'bold 20px system-ui, sans-serif';
+      pdaCtx.fillText('POTATO DEXTROSE', ox + 128, 118);
+      pdaCtx.fillText('AGAR • MEIO SÓLIDO', ox + 128, 144);
+
+      // Badge verde de especificacao + peso 500g
+      pdaCtx.fillStyle = '#059669';
+      pdaCtx.fillRect(ox + 28, 162, 200, 32);
+      pdaCtx.fillStyle = '#ffffff';
+      pdaCtx.font = 'bold 17px system-ui, sans-serif';
+      pdaCtx.fillText('CULTIVO DE COGUMELOS', ox + 128, 184);
+
+      pdaCtx.fillStyle = '#334155';
+      pdaCtx.font = 'bold 21px system-ui, sans-serif';
+      pdaCtx.fillText('PESO LÍQ. 500g  •  pH 5.6', ox + 128, 222);
+
+      pdaCtx.fillStyle = '#ea580c';
+      pdaCtx.fillRect(ox + 12, 236, 232, 10);
+    });
+    var pdaLabelTex = new THREE.CanvasTexture(pdaC);
+    pdaLabelTex.anisotropy = 4;
+    var pdaLabel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1035, 0.1035, 0.175, 32, 1, true),
+      new THREE.MeshStandardMaterial({ map: pdaLabelTex, roughness: 0.32 })
+    );
+    pdaLabel.position.y = 0.105;
+
+    var capMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.32 });
+    var pdaCap = new THREE.Mesh(new THREE.CylinderGeometry(0.078, 0.080, 0.056, 24), capMat);
+    pdaCap.position.y = 0.285;
+    var pdaSealRing = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.082, 0.010, 24), new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.4 }));
+    pdaSealRing.position.y = 0.254;
+    pdaGroup.add(pdaBody, pdaShoulder, pdaNeck, pdaLabel, pdaCap, pdaSealRing);
+    registerPickable('pda_bottle', 'Frasco PDA 500g (Ágar Batata Dextrose)', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.34);
 
     // Vidros 800ml de Spawn (Vazio e Colonizado com Milho)
     function makeSpawnJar800(filled) {
@@ -1742,33 +1961,235 @@
     sealerGroup.add(sealerBase, sealerArm, sealerLed);
     registerPickable('heat_sealer', 'Seladora Térmica de Bags', sealerGroup, -23.1, 1.02, -6.2, Math.PI / 2, 0.28, 0.16);
 
-    var lcFlask = new THREE.Group();
-    var lcBody = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.28, 14), new THREE.MeshStandardMaterial({ color: 0xfef08a, transparent: true, opacity: 0.82 }));
-    lcBody.position.y = 0.14; lcFlask.add(lcBody);
-    registerPickable('liquid_culture', 'Cultura Líquida (CL)', lcFlask, -20.5, 0.93, -10.6, 0, 0.2, 0.35);
+    // ---------------- Agitador Magnetico, Cultura Liquida 800ml (350ml), Bequeres 1L e Seringas 10ml ----------------
+    function makeScaleTex(maxVal, stepVal, brandTitle) {
+      var sc = document.createElement('canvas');
+      sc.width = 256; sc.height = 256;
+      var sx = sc.getContext('2d');
+      sx.clearRect(0, 0, 256, 256);
+      sx.strokeStyle = 'rgba(248, 250, 252, 0.88)';
+      sx.fillStyle = 'rgba(248, 250, 252, 0.92)';
+      sx.lineWidth = 2;
+      sx.font = 'bold 20px sans-serif';
+      sx.fillText(brandTitle, 18, 46);
+      sx.font = 'bold 16px monospace';
+      sx.fillText('Boro 3.3', 24, 72);
+      sx.beginPath(); sx.moveTo(138, 36); sx.lineTo(138, 232); sx.stroke();
+      for (var v = stepVal; v <= maxVal; v += stepVal) {
+        var frac = v / maxVal;
+        var yy = 232 - frac * 186;
+        sx.beginPath(); sx.moveTo(138, yy); sx.lineTo(174, yy); sx.stroke();
+        sx.fillText(String(v), 180, yy + 5);
+      }
+      var tex = new THREE.CanvasTexture(sc);
+      return tex;
+    }
+
+    function updateContainerVolume(item, newVol) {
+      if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return;
+      var ctrl = item.mesh.userData.liquidCtrl;
+      var clamped = Math.max(0, Math.min(ctrl.maxMl, Math.round(newVol)));
+      ctrl.volMl = clamped;
+      var frac = clamped / ctrl.maxMl;
+      if (clamped <= 0) {
+        ctrl.liqMesh.visible = false;
+        if (ctrl.mycCloud) ctrl.mycCloud.visible = false;
+      } else {
+        ctrl.liqMesh.visible = true;
+        ctrl.liqMesh.scale.y = Math.max(0.02, frac);
+        ctrl.liqMesh.position.y = ctrl.baseY + (ctrl.maxH * frac) * 0.5;
+        if (ctrl.mycCloud) {
+          ctrl.mycCloud.visible = true;
+          ctrl.mycCloud.position.y = ctrl.baseY + Math.min(ctrl.maxH * frac * 0.45, 0.048);
+        }
+      }
+      item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml)';
+    }
+
+    function makeLiquidJar800(id, px, py, pz, initMl) {
+      var jg = new THREE.Group();
+      var glassMat = new THREE.MeshStandardMaterial({ color: 0xf0f9ff, transparent: true, opacity: 0.28, roughness: 0.08, metalness: 0.12, depthWrite: false });
+      var body = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.21, 22, 1, true), glassMat);
+      body.position.y = 0.11;
+      var bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.01, 22), glassMat);
+      bottom.position.y = 0.005;
+      var shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.088, 0.035, 22), glassMat);
+      shoulder.position.y = 0.232;
+      var scaleCyl = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.089, 0.089, 0.19, 20, 1, true),
+        new THREE.MeshBasicMaterial({ map: makeScaleTex(800, 200, '800ml'), transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide })
+      );
+      scaleCyl.position.y = 0.11;
+      var liqMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xca8a04, emissiveIntensity: 0.14, transparent: true, opacity: 0.58, roughness: 0.15 });
+      var liqMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.082, 0.19, 20), liqMat);
+      var mycCloud = new THREE.Mesh(
+        new THREE.SphereGeometry(0.048, 12, 10),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf8fafc, emissiveIntensity: 0.25, transparent: true, opacity: 0.72, roughness: 0.85 })
+      );
+      mycCloud.scale.set(1.25, 0.55, 1.15);
+      // Peixinho agitador magnetico PTFE branco no fundo do vidro
+      var stirBar = new THREE.Mesh(new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.009, 0.038, 6, 10) : new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }));
+      stirBar.rotation.z = Math.PI / 2;
+      stirBar.position.set(0, 0.018, 0);
+      // Tampa branca com porta de injecao vermelha e filtro microporoso branco
+      var cap = new THREE.Mesh(new THREE.CylinderGeometry(0.074, 0.074, 0.034, 20), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 }));
+      cap.position.y = 0.266;
+      var injPort = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.016, 12), new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 }));
+      injPort.position.set(0.036, 0.290, 0);
+      var filterPort = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.022, 12), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.9 }));
+      filterPort.position.set(-0.036, 0.292, 0);
+
+      jg.add(liqMesh, mycCloud, stirBar, body, bottom, shoulder, scaleCyl, cap, injPort, filterPort);
+      jg.userData.liquidCtrl = {
+        volMl: initMl, maxMl: 800, baseY: 0.012, maxH: 0.19,
+        liqMesh: liqMesh, mycCloud: mycCloud, stirBar: stirBar,
+        baseLabel: 'Cultura Líquida 800ml'
+      };
+      var item = registerPickable(id, 'Cultura Líquida 800ml', jg, px, py, pz, 0, 0.14, 0.30);
+      item.setVolume = function (v) { updateContainerVolume(item, v); };
+      updateContainerVolume(item, initMl);
+      return item;
+    }
+
+    function makeBeaker1L(id, px, py, pz, initMl) {
+      var bg = new THREE.Group();
+      var glassMat = new THREE.MeshStandardMaterial({ color: 0xf0f9ff, transparent: true, opacity: 0.26, roughness: 0.08, metalness: 0.12, depthWrite: false });
+      var body = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.23, 22, 1, true), glassMat);
+      body.position.y = 0.12;
+      var bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.01, 22), glassMat);
+      bottom.position.y = 0.005;
+      var rim = new THREE.Mesh(new THREE.TorusGeometry(0.097, 0.006, 8, 22), glassMat);
+      rim.rotation.x = Math.PI / 2; rim.position.y = 0.235;
+      var scaleCyl = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.096, 0.096, 0.21, 20, 1, true),
+        new THREE.MeshBasicMaterial({ map: makeScaleTex(1000, 200, '1000ml'), transparent: true, opacity: 0.88, depthWrite: false, side: THREE.DoubleSide })
+      );
+      scaleCyl.position.y = 0.12;
+      var liqMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, emissive: 0x0284c7, emissiveIntensity: 0.10, transparent: true, opacity: 0.52, roughness: 0.15 });
+      var liqMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.089, 0.089, 0.20, 20), liqMat);
+      var stirBar = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.052, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }));
+      stirBar.rotation.z = Math.PI / 2;
+      stirBar.position.set(0, 0.018, 0);
+      bg.add(liqMesh, stirBar, body, bottom, rim, scaleCyl);
+      bg.userData.liquidCtrl = {
+        volMl: initMl, maxMl: 1000, baseY: 0.012, maxH: 0.20,
+        liqMesh: liqMesh, mycCloud: null, stirBar: stirBar,
+        baseLabel: 'Béquer 1L'
+      };
+      var item = registerPickable(id, 'Béquer 1L', bg, px, py, pz, 0, 0.14, 0.24);
+      item.setVolume = function (v) { updateContainerVolume(item, v); };
+      updateContainerVolume(item, initMl);
+      return item;
+    }
+
+    function makeMagneticStirrer(id, px, py, pz) {
+      var sg = new THREE.Group();
+      var baseMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.45, metalness: 0.15 });
+      var plateMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.82, roughness: 0.22 });
+      var panelMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35 });
+      var housing = makeBox(0.32, 0.085, 0.36, baseMat, { roughness: 0.45 });
+      housing.position.set(0, 0.0425, 0);
+      var plate = makeBox(0.24, 0.018, 0.24, plateMat, { metalness: 0.85 });
+      plate.position.set(0, 0.096, -0.04);
+      var frontPanel = makeBox(0.26, 0.055, 0.10, panelMat, { noShadow: true });
+      frontPanel.position.set(0, 0.055, 0.15);
+      frontPanel.rotation.x = 0.45;
+      var knob1 = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.020, 0.024, 14), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 }));
+      knob1.rotation.x = Math.PI / 2 + 0.45; knob1.position.set(-0.055, 0.072, 0.165);
+      var knob2 = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.020, 0.024, 14), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 }));
+      knob2.rotation.x = Math.PI / 2 + 0.45; knob2.position.set(0.055, 0.072, 0.165);
+      var ledMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+      var powerLed = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 8), ledMat);
+      powerLed.position.set(0, 0.082, 0.155);
+      sg.add(housing, plate, frontPanel, knob1, knob2, powerLed);
+
+      var stirSurf = { minX: px - 0.13, maxX: px + 0.13, minZ: pz - 0.16, maxZ: pz + 0.10, topY: py + 0.105 };
+      supportSurfaces.push(stirSurf);
+      sg.userData.isStirrer = true;
+      sg.userData.tableDims = { w: 0.32, h: 0.105, d: 0.36, surfOffset: 0 };
+      sg.userData.dynamicSurface = stirSurf;
+      sg.userData.updateBounds = updateItemBounds;
+      sg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(stirSurf, it); };
+
+      var stirState = { on: false, ledMat: ledMat, surface: stirSurf };
+      frontPanel.userData.stirSwitch = stirState;
+      knob1.userData.stirSwitch = stirState;
+      knob2.userData.stirSwitch = stirState;
+      stirSwitchMeshes.push(frontPanel, knob1, knob2);
+      stirrerDevices.push(stirState);
+      return registerPickable(id, 'Agitador Magnético', sg, px, py, pz, 0, 0.24, 0.14);
+    }
+
+    function updateSyringeVolume(item, newVol) {
+      if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
+      var sc = item.mesh.userData.syrCtrl;
+      var clamped = Math.max(0, Math.min(10, Math.round(newVol)));
+      sc.volMl = clamped;
+      var frac = clamped / 10;
+      if (clamped <= 0) {
+        sc.liqMesh.visible = false;
+      } else {
+        sc.liqMesh.visible = true;
+        sc.liqMesh.scale.y = frac;
+        sc.liqMesh.position.y = 0.085 + (0.09 * frac) * 0.5;
+      }
+      sc.plunger.position.y = 0.095 + 0.09 * frac;
+      item.label = clamped > 0 ? 'Seringa 10ml (' + clamped + 'ml CL)' : 'Seringa 10ml (Vazia)';
+    }
+
+    function makeSyringe10ml(id, px, py, pz) {
+      var sg = new THREE.Group();
+      var barrelMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.12, depthWrite: false });
+      var barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12, 14, 1, true), barrelMat);
+      barrel.position.y = 0.135;
+      var flange = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.005, 14), barrelMat);
+      flange.position.y = 0.195;
+      var liqMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.012, 0.012, 0.09, 12),
+        new THREE.MeshStandardMaterial({ color: 0xfef08a, transparent: true, opacity: 0.78 })
+      );
+      liqMesh.visible = false;
+      var plunger = new THREE.Group();
+      var stopper = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.014, 12), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+      stopper.position.y = 0;
+      var rod = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.11, 8), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+      rod.position.y = 0.06;
+      var thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.005, 12), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+      thumb.position.y = 0.115;
+      plunger.add(stopper, rod, thumb);
+      plunger.position.y = 0.095;
+      var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.009, 0.018, 10), new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.35 }));
+      hub.position.y = 0.068;
+      var needle = new THREE.Mesh(new THREE.CylinderGeometry(0.0016, 0.001, 0.058, 8), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 }));
+      needle.position.y = 0.030;
+      sg.add(liqMesh, plunger, barrel, flange, hub, needle);
+      sg.userData.isSyringe = true;
+      sg.userData.syrCtrl = { volMl: 0, liqMesh: liqMesh, plunger: plunger };
+      var item = registerPickable(id, 'Seringa 10ml (Vazia)', sg, px, py, pz, 0, 0.08, 0.24);
+      item.setVolume = function (v) { updateSyringeVolume(item, v); };
+      updateSyringeVolume(item, 0);
+      return item;
+    }
+
+    makeMagneticStirrer('magnetic_stirrer', -20.95, 0.91, -10.55);
+    makeLiquidJar800('liquid_culture', -20.95, 1.015, -10.59, 350);
+    makeBeaker1L('beaker_1l_a', -20.42, 0.91, -10.55, 0);
+    makeBeaker1L('beaker_1l_b', -20.08, 0.91, -10.55, 500);
+    makeSyringe10ml('syringe_10ml_a', -19.72, 0.91, -10.42);
+    makeSyringe10ml('syringe_10ml_b', -19.72, 0.91, -10.72);
 
     // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
     // Bloco Leste-Norte (z: -12.8..-1.2): SUBSTRATOS & PASTEURIZACAO + 2o andar acessivel
-    buildCampusBuildingWing({ cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta de Substratos', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 2 });
+    buildCampusBuildingWing({ cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta de Substratos', doorSign: '🧪 SUBSTRATOS', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 2 });
     // Bloco Leste-Sul (z: 2.2..13.8): ESTUFA DE FRUTIFICACAO + 2o andar acessivel
-    buildCampusBuildingWing({ cx: 19, cz: 8, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta da Estufa', style: 'wood', connectNorth2F: true, boardIndex: 3 });
+    buildCampusBuildingWing({ cx: 19, cz: 8, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta da Estufa', doorSign: '🍄 ESTUFA', style: 'wood', connectNorth2F: true, boardIndex: 3 });
 
     createBanner(13.85, 5.1, -11.6, -Math.PI / 2, '#0284c7', '🧪');
     createBanner(13.85, 5.1, 3.6, -Math.PI / 2, '#15803d', '🍄');
 
     // Equipamentos de Substratos (Leste-Norte)
-    var drum = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.68, 1.35, 18), new THREE.MeshStandardMaterial({ color: 0x0ea5e9, metalness: 0.5, roughness: 0.35 }));
-    drum.position.set(21.5, 0.14 + 0.675, -10.0); drum.castShadow = true;
-    scene.add(drum);
-    solidColliders.push({ minX: 20.7, maxX: 22.3, minZ: -10.8, maxZ: -9.2, minY: 0.14, maxY: 1.6 });
-
-    addMovableStainlessTable('table_sub_east', 'Mesa Inox (Substratos)', 21.2, 0.14, -5.2, 1.5, 0.82, 3.2);
-
-    var subBag = new THREE.Group();
-    var bagMesh = makeBox(0.38, 0.44, 0.28, 0xd6d3d1, { roughness: 0.85 });
-    bagMesh.position.y = 0.22; subBag.add(bagMesh);
-    registerPickable('substrate_bag', 'Saco de Substrato Pasteurizado', subBag, 21.2, 0.96, -5.6, 0, 0.28, 0.46);
-    createPressureCookerPair('pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.2, 0.96, -4.3);
+    addMovableStainlessTable('table_sub_east', 'Mesa Inox (Substratos)', 21.2, 0.12, -5.2, 1.5, 0.82, 3.2);
+    createPressureCookerPair('pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.2, 0.94, -4.3);
 
     // Equipamentos da Estufa (Leste-Sul)
     var rack = makeBox(1.6, 0.72, 4.0, 0x1e293b);
@@ -1813,23 +2234,38 @@
       scene.add(st1, st2);
     }
 
-    // Calcada em bloquetes ligando a Praca Central ao Lago em 8 e ao Setor Leste
-    var walkS = new THREE.Mesh(new THREE.PlaneGeometry(14, 18), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-    walkS.rotation.x = -Math.PI / 2; walkS.position.set(0, 0.022, 26); walkS.receiveShadow = true;
-    var walkE = new THREE.Mesh(new THREE.PlaneGeometry(36, 10), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-    walkE.rotation.x = -Math.PI / 2; walkE.position.set(38, 0.022, 12); walkE.receiveShadow = true;
+    // Calcada em bloquetes ligando a Praca Central ate a beira da ponte do Lago em 8 (sem passar por baixo da agua!)
+    var walkS = new THREE.Mesh(new THREE.PlaneGeometry(8, 4.5), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
+    walkS.rotation.x = -Math.PI / 2; walkS.position.set(0, 0.022, 19.2); walkS.receiveShadow = true;
+    var walkE = new THREE.Mesh(new THREE.PlaneGeometry(14, 8), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
+    walkE.rotation.x = -Math.PI / 2; walkE.position.set(27, 0.022, 12); walkE.receiveShadow = true;
     scene.add(walkS, walkE);
 
-    // 2. Lago Duplo (formato de 8) no Sul + Ponte de Madeira caminhavel
-    var lakeMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.86 });
+    // 2. Lago Duplo (formato de 8) no Sul + Ponte de Madeira caminhavel (com fundo azul profundo e textura de agua animada!)
+    var lakeMat = new THREE.MeshStandardMaterial({
+      map: texWater,
+      color: 0x38bdf8,
+      emissive: 0x0369a1,
+      emissiveIntensity: 0.18,
+      roughness: 0.08,
+      metalness: 0.22,
+      transparent: true,
+      opacity: 0.88,
+      depthWrite: false
+    });
+    var lakeBedMat = new THREE.MeshStandardMaterial({ color: 0x082f49, roughness: 0.9 });
     [-6.5, 6.5].forEach(function (lx) {
-      var lobe = new THREE.Mesh(new THREE.CircleGeometry(7.6, 28), lakeMat);
+      var bed = new THREE.Mesh(new THREE.CircleGeometry(7.55, 32), lakeBedMat);
+      bed.rotation.x = -Math.PI / 2;
+      bed.position.set(lx, 0.02, 28.0);
+      scene.add(bed);
+      var lobe = new THREE.Mesh(new THREE.CircleGeometry(7.55, 32), lakeMat);
       lobe.rotation.x = -Math.PI / 2;
-      lobe.position.set(lx, 0.04, 28.0);
+      lobe.position.set(lx, 0.06, 28.0);
       scene.add(lobe);
-      var rim = new THREE.Mesh(new THREE.RingGeometry(7.5, 8.2, 28), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 }));
+      var rim = new THREE.Mesh(new THREE.RingGeometry(7.45, 8.25, 32), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.82 }));
       rim.rotation.x = -Math.PI / 2;
-      rim.position.set(lx, 0.03, 28.0);
+      rim.position.set(lx, 0.045, 28.0);
       scene.add(rim);
     });
     // Ponte de madeira atravessando o meio do Lago em 8 (x: -2.2..2.2, z: 21..35)
@@ -1976,14 +2412,21 @@
     createUmbrellaTable(48, 0.5);
     createUmbrellaTable(55, -1.5);
 
-    // 4b. 2a Praca Circular Leste com Fonte (x: 42, z: 12)
+    // 4b. 2a Praca Circular Leste com Fonte (x: 42, z: 12, sem z-fighting!)
     var plazaE = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 8.5, 0.04, 28), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-    plazaE.position.set(42, 0.02, 12);
-    var rimE = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.6, 0.42, 24), new THREE.MeshStandardMaterial({ color: 0xcbd5e1 }));
-    rimE.position.set(42, 0.21, 12);
-    var waterE = new THREE.Mesh(new THREE.CylinderGeometry(2.05, 2.05, 0.44, 24), lakeMat);
-    waterE.position.set(42, 0.23, 12);
-    scene.add(plazaE, rimE, waterE);
+    plazaE.position.set(42, 0.025, 12);
+    var bedE = new THREE.Mesh(new THREE.CylinderGeometry(2.15, 2.15, 0.10, 28), lakeBedMat);
+    bedE.position.set(42, 0.08, 12);
+    var wallE = new THREE.Mesh(new THREE.CylinderGeometry(2.45, 2.58, 0.44, 28, 1, true), new THREE.MeshStandardMaterial({ color: 0xcbd5e1, side: THREE.DoubleSide }));
+    wallE.position.set(42, 0.24, 12);
+    var rimTorusE = new THREE.Mesh(new THREE.TorusGeometry(2.32, 0.18, 12, 32), new THREE.MeshStandardMaterial({ color: 0xdbe4ee, roughness: 0.6 }));
+    rimTorusE.rotation.x = Math.PI / 2;
+    rimTorusE.scale.set(1, 1, 0.45);
+    rimTorusE.position.set(42, 0.45, 12);
+    var waterE = new THREE.Mesh(new THREE.CircleGeometry(2.18, 28), lakeMat);
+    waterE.rotation.x = -Math.PI / 2;
+    waterE.position.set(42, 0.39, 12);
+    scene.add(plazaE, bedE, wallE, rimTorusE, waterE);
     solidColliders.push({ minX: 39.5, maxX: 44.5, minZ: 9.5, maxZ: 14.5, minY: 0, maxY: 1.2 });
 
     // 4c. 2 Dormitorios Caminhaveis no Sudeste (com porta aberta, piso, cama e mesa!)
@@ -2206,8 +2649,8 @@
     var bestT = Infinity;
 
     // 0. Se estiver segurando uma Tampa de Panela e mirar na Panela aberta (ou na boca dela), encaixa para fechar!
-    if (heldItem && heldItem.mesh.userData.potItem) {
-      var targetPot = heldItem.mesh.userData.potItem;
+    if (heldItem && heldItem.potItem) {
+      var targetPot = heldItem.potItem;
       var potCenter = new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
       var camDist = origin.distanceTo(potCenter);
       var potHits = raycaster.intersectObject(targetPot.mesh, true);
@@ -2255,6 +2698,26 @@
 
   function isPlacementBlocked(pt) {
     if (snapClosePot) return false;
+    // Impede colocar objetos grandes (Fluxo Laminar, Mesas, Agitador) em cima de outros itens ja existentes!
+    if (heldItem && heldItem.mesh && heldItem.mesh.userData.tableDims) {
+      var dims = heldItem.mesh.userData.tableDims;
+      var c = Math.abs(Math.cos(heldRotY)), s = Math.abs(Math.sin(heldRotY));
+      var hw = (dims.w * c + dims.d * s) * 0.5;
+      var hd = (dims.w * s + dims.d * c) * 0.5;
+      var hTop = heldItem.mesh.userData.isHood ? 1.1 : (dims.h || 0.85);
+      for (var k = 0; k < pickableItems.length; k++) {
+        var other = pickableItems[k];
+        if (other === heldItem || other === heldItem.lidItem) continue;
+        if (other.mesh.userData.isTable && heldItem.mesh.userData.isHood) continue;
+        if (other.mesh.userData.isTable && heldItem.mesh.userData.isStirrer) continue;
+        if (other.mesh.position.y >= pt.y - 0.12 && other.mesh.position.y <= pt.y + hTop) {
+          var rad = (other.radius || 0.18) * 0.45;
+          if (Math.abs(other.mesh.position.x - pt.x) < hw + rad && Math.abs(other.mesh.position.z - pt.z) < hd + rad) {
+            return true;
+          }
+        }
+      }
+    }
     for (var i = 0; i < supportSurfaces.length; i++) {
       var s = supportSurfaces[i];
       if (pt.x >= s.minX && pt.x <= s.maxX && pt.z >= s.minZ && pt.z <= s.maxZ && Math.abs(pt.y - s.topY) < 0.08) {
@@ -2276,8 +2739,8 @@
   function dropUnsupportedItems() {
     var now = performance.now();
     pickableItems.forEach(function (item) {
-      if (item.mesh.userData.potItem && item.mesh.userData.isAttached) {
-        var pot = item.mesh.userData.potItem;
+      if (item.potItem && item.isAttached) {
+        var pot = item.potItem;
         item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
         item.mesh.rotation.copy(pot.mesh.rotation);
         return;
@@ -2286,40 +2749,59 @@
         item.movedAt = now;
         return;
       }
-      var isReturnable = item.id.indexOf('chalk_') === 0 || item.id.indexOf('board_eraser') === 0;
-      var distHome = item.mesh.position.distanceTo(item.homePos);
-      if (isReturnable && distHome > 2.5) {
-        if (!item.movedAt) item.movedAt = now;
-        if (now - item.movedAt > 45000) {
-          item.mesh.position.copy(item.homePos);
-          item.mesh.rotation.y = item.homeRy;
-          item.isMoved = false;
-          item.movedAt = 0;
-          pendingMovedItems[item.id] = {
-            id: item.id, x: item.homePos.x, y: item.homePos.y, z: item.homePos.z, ry: item.homeRy
-          };
-          return;
-        }
-      } else {
-        item.movedAt = 0;
-      }
       if (item.mesh.position.y < -5) {
         item.mesh.position.copy(item.homePos);
         item.mesh.rotation.y = item.homeRy;
         if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+        recentlyDropped[item.id] = now + 1500;
+        pendingMovedItems[item.id] = {
+          id: item.id, x: item.homePos.x, y: item.homePos.y, z: item.homePos.z, ry: item.homeRy
+        };
         return;
       }
       var supportedY = getGroundHeight(item.mesh.position.x, item.mesh.position.z, item.mesh.position.y);
-      for (var i = 0; i < supportSurfaces.length; i++) {
-        var s = supportSurfaces[i];
-        if (item.mesh.position.x >= s.minX && item.mesh.position.x <= s.maxX &&
-            item.mesh.position.z >= s.minZ && item.mesh.position.z <= s.maxZ &&
-            item.mesh.position.y >= s.topY - 0.15) {
-          supportedY = Math.max(supportedY, s.topY);
+      if (!item.mesh.userData.isTable) {
+        for (var i = 0; i < supportSurfaces.length; i++) {
+          var s = supportSurfaces[i];
+          if (s === item.mesh.userData.dynamicSurface) continue;
+          if (item.mesh.userData.isHood && s.isHood) continue;
+          if (item.mesh.position.x >= s.minX && item.mesh.position.x <= s.maxX &&
+              item.mesh.position.z >= s.minZ && item.mesh.position.z <= s.maxZ &&
+              item.mesh.position.y >= s.topY - 0.15) {
+            supportedY = Math.max(supportedY, s.topY);
+          }
         }
       }
-      if (item.mesh.position.y > supportedY + 0.02) {
+      if (item.mesh.position.y > supportedY + 0.015) {
+        recentlyDropped[item.id] = now + 1500;
         item.mesh.position.y = Math.max(supportedY, item.mesh.position.y - 0.18);
+        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+        if (item.lidItem && item.lidItem.isAttached) {
+          var attLid = item.lidItem;
+          attLid.mesh.position.set(item.mesh.position.x, item.mesh.position.y + 0.36, item.mesh.position.z);
+          recentlyDropped[attLid.id] = now + 1500;
+        }
+        if (Math.abs(item.mesh.position.y - supportedY) < 0.005) {
+          item.mesh.position.y = supportedY;
+          item.isMoved = true;
+          pendingMovedItems[item.id] = {
+            id: item.id,
+            x: item.mesh.position.x,
+            y: item.mesh.position.y,
+            z: item.mesh.position.z,
+            ry: item.mesh.rotation.y
+          };
+          if (item.lidItem && item.lidItem.isAttached) {
+            var lid = item.lidItem;
+            pendingMovedItems[lid.id] = {
+              id: lid.id,
+              x: lid.mesh.position.x,
+              y: lid.mesh.position.y,
+              z: lid.mesh.position.z,
+              ry: lid.mesh.rotation.y
+            };
+          }
+        }
       }
     });
   }
@@ -2350,7 +2832,14 @@
   function isHeldByRemote(itemId) {
     var ids = Object.keys(remoteAvatars);
     for (var i = 0; i < ids.length; i++) {
-      if (remoteAvatars[ids[i]].holding === itemId) return true;
+      var hId = remoteAvatars[ids[i]].holding;
+      if (hId === itemId) return true;
+      if (hId) {
+        var item = findPickable(itemId);
+        if (item && item.potItem && item.isAttached && item.potItem.id === hId) {
+          return true;
+        }
+      }
     }
     return false;
   }
@@ -2514,7 +3003,7 @@
       targetPos: new THREE.Vector3(data.x || 0, data.y || 0, data.z || 0),
       targetYaw: normalizeAngle(data.yaw || 0),
       targetPitch: data.pitch || 0,
-      holding: '', walking: false, walkPhase: 0
+      holding: '', walking: false, seated: false, walkPhase: 0
     };
   }
 
@@ -2532,8 +3021,10 @@
       av.targetYaw = normalizeAngle(p.yaw || 0);
       av.targetPitch = p.pitch || 0;
       av.walking = !!p.walking;
+      av.seated = !!p.seated;
       av.holding = p.holding || '';
       if (heldItem && av.holding === heldItem.id) {
+        setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
         if (placementGhost) placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
@@ -2577,25 +3068,48 @@
       var dYaw = normalizeAngle(av.targetYaw - av.group.rotation.y);
       av.group.rotation.y = normalizeAngle(av.group.rotation.y + dYaw * Math.min(1, dt * 12));
       av.headGroup.rotation.x += (av.targetPitch - av.headGroup.rotation.x) * Math.min(1, dt * 12);
+      var heldObj = null;
       if (av.holding) {
-        var held = findPickable(av.holding);
-        if (held && held !== heldItem) {
-          var hand = new THREE.Vector3(0.28, 0.62, -0.32).applyAxisAngle(new THREE.Vector3(0, 1, 0), av.group.rotation.y);
-          held.mesh.position.copy(av.group.position).add(hand);
-          held.mesh.rotation.y = av.group.rotation.y;
+        heldObj = findPickable(av.holding);
+        if (heldObj && heldObj !== heldItem) {
+          var isTwo = !!heldObj.mesh.userData.twoHanded;
+          var handOffset = isTwo
+            ? new THREE.Vector3(0, 0.48, -0.58)
+            : new THREE.Vector3(0.28, 0.62, -0.32);
+          handOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), av.group.rotation.y);
+          heldObj.mesh.position.copy(av.group.position).add(handOffset);
+          heldObj.mesh.rotation.y = av.group.rotation.y;
+          if (heldObj.mesh.userData.updateBounds) heldObj.mesh.userData.updateBounds(heldObj);
+          if (heldObj.lidItem && heldObj.lidItem.isAttached) {
+            var lidObj = heldObj.lidItem.mesh;
+            lidObj.position.set(heldObj.mesh.position.x, heldObj.mesh.position.y + 0.36, heldObj.mesh.position.z);
+            lidObj.rotation.copy(heldObj.mesh.rotation);
+          }
         }
       }
-      if (av.walking) {
-        av.walkPhase += dt * 10;
-        av.leftLeg.rotation.x = Math.sin(av.walkPhase) * 0.55;
-        av.rightLeg.rotation.x = -Math.sin(av.walkPhase) * 0.55;
-        av.leftArm.rotation.x = -Math.sin(av.walkPhase) * 0.45;
-        av.rightArm.rotation.x = av.holding ? -0.9 : Math.sin(av.walkPhase) * 0.45;
+      var twoH = !!(heldObj && heldObj.mesh.userData.twoHanded);
+      if (av.seated) {
+        av.leftLeg.rotation.x = -1.35;
+        av.rightLeg.rotation.x = -1.35;
+        av.leftLeg.position.set(-0.1, 0.30, -0.14);
+        av.rightLeg.position.set(0.1, 0.30, -0.14);
+        av.leftArm.rotation.x = twoH ? -0.95 : -0.35;
+        av.rightArm.rotation.x = av.holding ? -0.95 : -0.35;
       } else {
-        av.leftLeg.rotation.x *= 0.8;
-        av.rightLeg.rotation.x *= 0.8;
-        av.leftArm.rotation.x *= 0.8;
-        av.rightArm.rotation.x = av.holding ? -0.85 : av.rightArm.rotation.x * 0.8;
+        av.leftLeg.position.set(-0.1, 0.19, 0);
+        av.rightLeg.position.set(0.1, 0.19, 0);
+        if (av.walking) {
+          av.walkPhase += dt * 10;
+          av.leftLeg.rotation.x = Math.sin(av.walkPhase) * 0.55;
+          av.rightLeg.rotation.x = -Math.sin(av.walkPhase) * 0.55;
+          av.leftArm.rotation.x = twoH ? -0.95 : -Math.sin(av.walkPhase) * 0.45;
+          av.rightArm.rotation.x = av.holding ? -0.95 : Math.sin(av.walkPhase) * 0.45;
+        } else {
+          av.leftLeg.rotation.x *= 0.8;
+          av.rightLeg.rotation.x *= 0.8;
+          av.leftArm.rotation.x = twoH ? -0.9 : av.leftArm.rotation.x * 0.8;
+          av.rightArm.rotation.x = av.holding ? -0.9 : av.rightArm.rotation.x * 0.8;
+        }
       }
       animateAvatarExpression(av, dt, av.holding, av.lastChat);
     });
@@ -2628,8 +3142,8 @@
   function setHeldTwoHandedGhost(item, active) {
     if (!item || !item.mesh || !item.mesh.userData.twoHanded) return;
     setMeshGhostOpacity(item.mesh, active);
-    if (item.mesh.userData.lidItem && item.mesh.userData.lidItem.mesh.userData.isAttached) {
-      setMeshGhostOpacity(item.mesh.userData.lidItem.mesh, active);
+    if (item.lidItem && item.lidItem.isAttached) {
+      setMeshGhostOpacity(item.lidItem.mesh, active);
     }
   }
 
@@ -2639,12 +3153,39 @@
       if (hoveredBoardHit && getHeldBoardToolColor()) {
         return;
       }
+      if (hoveredSyringeTarget && heldItem.mesh.userData.isSyringe) {
+        var syrCtrl = heldItem.mesh.userData.syrCtrl;
+        var tgt = hoveredSyringeTarget;
+        if (tgt.mode === 'draw' && tgt.item.mesh.userData.liquidCtrl) {
+          var lq = tgt.item.mesh.userData.liquidCtrl;
+          var take = Math.min(10 - syrCtrl.volMl, lq.volMl);
+          if (take > 0) {
+            if (tgt.item.setVolume) tgt.item.setVolume(lq.volMl - take);
+            if (heldItem.setVolume) heldItem.setVolume(syrCtrl.volMl + take);
+            if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
+          }
+        } else if (tgt.mode === 'inject' && syrCtrl.volMl > 0) {
+          if (tgt.item.mesh.userData.liquidCtrl) {
+            var lq2 = tgt.item.mesh.userData.liquidCtrl;
+            var give = Math.min(syrCtrl.volMl, lq2.maxMl - lq2.volMl);
+            if (give > 0) {
+              if (tgt.item.setVolume) tgt.item.setVolume(lq2.volMl + give);
+              if (heldItem.setVolume) heldItem.setVolume(syrCtrl.volMl - give);
+              if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
+            }
+          } else {
+            if (heldItem.setVolume) heldItem.setVolume(0);
+            if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
+          }
+        }
+        return;
+      }
       if (placementValid && placementGhost) {
         heldItem.mesh.position.copy(placementGhost.position);
         heldItem.mesh.rotation.set(0, heldRotY, 0);
         heldItem.isMoved = true;
-        if (heldItem.mesh.userData.potItem && snapClosePot === heldItem.mesh.userData.potItem) {
-          heldItem.mesh.userData.isAttached = true;
+        if (heldItem.potItem && snapClosePot === heldItem.potItem) {
+          heldItem.isAttached = true;
           heldItem.mesh.rotation.copy(snapClosePot.mesh.rotation);
           snapClosePot = null;
         }
@@ -2655,8 +3196,8 @@
           z: heldItem.mesh.position.z,
           ry: heldItem.mesh.rotation.y
         };
-        if (heldItem.mesh.userData.lidItem && heldItem.mesh.userData.lidItem.mesh.userData.isAttached) {
-          var attLid = heldItem.mesh.userData.lidItem;
+        if (heldItem.lidItem && heldItem.lidItem.isAttached) {
+          var attLid = heldItem.lidItem;
           attLid.mesh.position.set(heldItem.mesh.position.x, heldItem.mesh.position.y + 0.36, heldItem.mesh.position.z);
           attLid.mesh.rotation.copy(heldItem.mesh.rotation);
           attLid.isMoved = true;
@@ -2671,6 +3212,7 @@
         heldItem = null;
         placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
+        notifyWorldAction();
       }
       return;
     }
@@ -2678,15 +3220,18 @@
       hoveredMushroom.active = false;
       hoveredMushroom.group.visible = false;
       hoveredMushroom.respawnAt = performance.now() + 20000;
+      queueWorldStateChange(hoveredMushroom.id, 0);
       if (callbacks.onHarvestMushroom) callbacks.onHarvestMushroom(hoveredMushroom.id);
       return;
     }
     if (hoveredDoorObj) {
       hoveredDoorObj.open = !hoveredDoorObj.open;
+      queueWorldStateChange(hoveredDoorObj.id, hoveredDoorObj.open ? 1 : 0);
       return;
     }
     if (hoveredBlindObj) {
       hoveredBlindObj.open = !hoveredBlindObj.open;
+      queueWorldStateChange(hoveredBlindObj.id, hoveredBlindObj.open ? 1 : 0);
       return;
     }
     if (hoveredCinema) {
@@ -2695,24 +3240,30 @@
         cinemaPower = true;
         cinemaDirty = true;
         if (cinemaBeam) cinemaBeam.visible = (cinemaLessonIdx === -1 || cinemaPlaying);
+        queueWorldStateChange('cinema_power', 1);
       } else if (hit.type === 'power_off') {
         cinemaPower = false;
         cinemaDirty = true;
         if (cinemaBeam) cinemaBeam.visible = false;
+        queueWorldStateChange('cinema_power', 0);
       } else if (hit.type === 'menu') {
         cinemaLessonIdx = -1;
         cinemaDirty = true;
         if (cinemaBeam) cinemaBeam.visible = true;
+        queueWorldStateChange('cinema_lesson', -1);
       } else if (hit.type === 'lesson') {
         cinemaLessonIdx = hit.idx;
         cinemaPlaying = true;
         cinemaTime = 0;
         cinemaDirty = true;
         if (cinemaBeam) cinemaBeam.visible = true;
+        queueWorldStateChange('cinema_lesson', cinemaLessonIdx);
+        queueWorldStateChange('cinema_playing', 1);
       } else if (hit.type === 'toggle_play') {
         cinemaPlaying = !cinemaPlaying;
         cinemaDirty = true;
         if (cinemaBeam) cinemaBeam.visible = cinemaPlaying;
+        queueWorldStateChange('cinema_playing', cinemaPlaying ? 1 : 0);
       }
       return;
     }
@@ -2728,6 +3279,7 @@
       playerPos.set(seatedSeat.x, seatedSeat.y, seatedSeat.z);
       playerYaw = seatedSeat.yaw;
       playerVelX = 0; playerVelZ = 0; playerVelY = 0;
+      notifyWorldAction();
       return;
     }
     if (hoveredSwitch) {
@@ -2737,6 +3289,7 @@
       hoveredSwitch.tubeMat.emissiveIntensity = hoveredSwitch.on ? 1.25 : 0.04;
       hoveredSwitch.ledMat.color.setHex(hoveredSwitch.on ? 0x22c55e : 0xef4444);
       hoveredSwitch.rocker.rotation.x = hoveredSwitch.on ? -0.22 : 0.22;
+      queueWorldStateChange(hoveredSwitch.id, hoveredSwitch.on ? 1 : 0);
       return;
     }
     if (hoveredScreenBtn) {
@@ -2758,19 +3311,26 @@
       hoveredHoodSwitch.points.visible = hoveredHoodSwitch.on;
       hoveredHoodSwitch.hepaMat.emissiveIntensity = hoveredHoodSwitch.on ? 0.35 : 0.04;
       hoveredHoodSwitch.ledMat.color.setHex(hoveredHoodSwitch.on ? 0x22c55e : 0xef4444);
+      queueWorldStateChange('hood_lab', hoveredHoodSwitch.on ? 1 : 0);
+      return;
+    }
+    if (hoveredStirSwitch) {
+      hoveredStirSwitch.on = !hoveredStirSwitch.on;
+      hoveredStirSwitch.ledMat.color.setHex(hoveredStirSwitch.on ? 0x22c55e : 0xef4444);
       return;
     }
     if (hoveredPickable) {
       if (hoveredPickable.mesh.userData.isBlockedPickup && hoveredPickable.mesh.userData.isBlockedPickup(hoveredPickable)) {
         return;
       }
-      if (hoveredPickable.mesh.userData.potItem && hoveredPickable.mesh.userData.isAttached) {
-        hoveredPickable.mesh.userData.isAttached = false;
+      if (hoveredPickable.potItem && hoveredPickable.isAttached) {
+        hoveredPickable.isAttached = false;
       }
       heldItem = hoveredPickable;
       heldRotY = heldItem.mesh.rotation.y;
       setHeldTwoHandedGhost(heldItem, true);
       if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
+      notifyWorldAction();
     }
   }
 
@@ -2788,6 +3348,8 @@
     hoveredSeat = null;
     hoveredSwitch = null;
     hoveredHoodSwitch = null;
+    hoveredStirSwitch = null;
+    hoveredSyringeTarget = null;
     var prompt = '';
 
     // Verifica proximidade dos teloes para exibir opcoes contextuais
@@ -2817,6 +3379,35 @@
           prompt = toolCol === 'erase' ? '🧽 Segure o clique para apagar a lousa' : '✏️ Segure o clique para escrever na lousa';
           if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
           return;
+        }
+      }
+      if (heldItem.mesh.userData.isSyringe) {
+        var sc = heldItem.mesh.userData.syrCtrl;
+        for (var si = 0; si < pickableItems.length; si++) {
+          var cand = pickableItems[si];
+          if (cand === heldItem || isHeldByRemote(cand.id)) continue;
+          var sHits = raycaster.intersectObject(cand.mesh, true).filter(function (h) { return !h.object.userData.ignoreRay; });
+          if (sHits.length > 0 && sHits[0].distance < 3.5) {
+            if (cand.mesh.userData.liquidCtrl) {
+              var lc = cand.mesh.userData.liquidCtrl;
+              if (sc.volMl < 10 && lc.volMl > 0) {
+                hoveredSyringeTarget = { item: cand, mode: 'draw' };
+                placementGhost.visible = false;
+                if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Aspirar ' + Math.min(10 - sc.volMl, lc.volMl) + 'ml de ' + cand.label);
+                return;
+              } else if (sc.volMl > 0 && lc.volMl < lc.maxMl) {
+                hoveredSyringeTarget = { item: cand, mode: 'inject' };
+                placementGhost.visible = false;
+                if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Despejar ' + sc.volMl + 'ml em ' + cand.label);
+                return;
+              }
+            } else if (sc.volMl > 0 && (cand.id.indexOf('spawn_') === 0 || cand.id.indexOf('petri_') === 0)) {
+              hoveredSyringeTarget = { item: cand, mode: 'inject' };
+              placementGhost.visible = false;
+              if (callbacks.onHoverPrompt) callbacks.onHoverPrompt('💉 Inocular ' + sc.volMl + 'ml em ' + cand.label);
+              return;
+            }
+          }
         }
       }
       var pt = findPlacementTarget(rayNdc);
@@ -2857,6 +3448,16 @@
         else if (cTarget.type === 'lesson') prompt = '▶️ Assistir: ' + ((cinemaLessons[cTarget.idx] && cinemaLessons[cTarget.idx].title) || 'Aula');
         else if (cTarget.type === 'toggle_play') prompt = cinemaPlaying ? '⏸️ Clique na aula para pausar' : '▶️ Clique na aula para continuar';
         else prompt = '🎬 Escolha um módulo na tela para assistir';
+        if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
+        return;
+      }
+    }
+
+    if (stirSwitchMeshes.length) {
+      var stSwHits = raycaster.intersectObjects(stirSwitchMeshes, false);
+      if (stSwHits.length > 0 && stSwHits[0].distance < 4.0) {
+        hoveredStirSwitch = stSwHits[0].object.userData.stirSwitch;
+        prompt = hoveredStirSwitch.on ? '🌀 Desligar Agitador Magnético' : '🌀 Ligar Agitador Magnético';
         if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
         return;
       }
@@ -2928,22 +3529,24 @@
       }
     }
     if (!prompt) {
+      var bestPickDist = 4.5;
       for (var i = 0; i < pickableItems.length; i++) {
         var item = pickableItems[i];
         if (isHeldByRemote(item.id)) continue;
+        if (item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) continue;
         var hits = raycaster.intersectObject(item.mesh, true);
-        if (hits.length > 0 && hits[0].distance < 4.5) {
+        if (hits.length > 0 && hits[0].distance < bestPickDist) {
+          bestPickDist = hits[0].distance;
           hoveredPickable = item;
-          if (item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) {
-            prompt = item.mesh.userData.isHood ? '⚠️ Tire os itens de dentro do Fluxo Laminar' : '⚠️ Tire os objetos de cima da mesa';
-          } else if (item.mesh.userData.potItem && item.mesh.userData.isAttached) {
-            prompt = '🍲 Abrir tampa da Panela de Pressão';
-          } else if (item.mesh.userData.twoHanded) {
-            prompt = '🙌 Pegar ' + item.label + ' (2 mãos)';
-          } else {
-            prompt = '✋ Pegar ' + item.label;
-          }
-          break;
+        }
+      }
+      if (hoveredPickable) {
+        if (hoveredPickable.mesh.userData.potItem && hoveredPickable.mesh.userData.isAttached) {
+          prompt = '🍲 Abrir tampa da Panela de Pressão';
+        } else if (hoveredPickable.mesh.userData.twoHanded) {
+          prompt = '🙌 Pegar ' + hoveredPickable.label + ' (2 mãos)';
+        } else {
+          prompt = '✋ Pegar ' + hoveredPickable.label;
         }
       }
     }
@@ -3289,8 +3892,8 @@
         } else {
           heldItem.mesh.rotation.set(0, heldRotY, 0);
         }
-        if (heldItem.mesh.userData.lidItem && heldItem.mesh.userData.lidItem.mesh.userData.isAttached) {
-          var lidObj = heldItem.mesh.userData.lidItem.mesh;
+        if (heldItem.lidItem && heldItem.lidItem.isAttached) {
+          var lidObj = heldItem.lidItem.mesh;
           lidObj.position.set(handPos.x, handPos.y + 0.36, handPos.z);
           lidObj.rotation.copy(heldItem.mesh.rotation);
         }
@@ -3365,6 +3968,22 @@
         }
       }
       hoodAirData.attr.needsUpdate = true;
+    }
+    if (stirrerDevices.length) {
+      for (var si = 0; si < pickableItems.length; si++) {
+        var liqIt = pickableItems[si];
+        var lcCtrl = liqIt.mesh && liqIt.mesh.userData.liquidCtrl;
+        if (!lcCtrl || !lcCtrl.stirBar) continue;
+        var lx = liqIt.mesh.position.x, ly = liqIt.mesh.position.y, lz = liqIt.mesh.position.z;
+        for (var sj = 0; sj < stirrerDevices.length; sj++) {
+          var st = stirrerDevices[sj];
+          if (st.on && lx >= st.surface.minX && lx <= st.surface.maxX && lz >= st.surface.minZ && lz <= st.surface.maxZ && Math.abs(ly - st.surface.topY) < 0.08) {
+            lcCtrl.stirBar.rotation.y += dt * 18;
+            if (lcCtrl.mycCloud) lcCtrl.mycCloud.rotation.y += dt * 4.5;
+            break;
+          }
+        }
+      }
     }
     drawCinemaVideoFrame(dt);
     updateDynamicEnvironment(dt);
@@ -3693,6 +4312,39 @@
         weatherPosAttr.needsUpdate = true;
       }
     }
+
+    // Animacao continua da agua da Fonte Central e Lagos (caustics + ondas de espuma + gotas de agua)
+    if (texWater) {
+      texWater.offset.x = (envTime * 0.045) % 1;
+      texWater.offset.y = (Math.sin(envTime * 0.4) * 0.04) % 1;
+    }
+    for (var ri = 0; ri < fountainRipples.length; ri++) {
+      var rp = fountainRipples[ri];
+      var rPhase = (envTime * 0.55 + rp.phase) % 1;
+      var rScale = 0.28 + rPhase * 0.85;
+      rp.mesh.scale.set(rScale, rScale, 1);
+      rp.mesh.material.opacity = (1 - rPhase) * 0.52;
+    }
+    if (fountainDropsAttr) {
+      var dArr = fountainDropsAttr.array;
+      for (var di = 0; di < dArr.length; di += 3) {
+        dArr[di + 1] -= dt * 1.65;
+        var dxF = dArr[di];
+        var dzF = dArr[di + 2] - 2.0;
+        var rDist = Math.hypot(dxF, dzF) || 0.01;
+        dArr[di] += (dxF / rDist) * dt * 0.52;
+        dArr[di + 2] += (dzF / rDist) * dt * 0.52;
+        if (dArr[di + 1] < 0.44) {
+          var nAng = Math.random() * Math.PI * 2;
+          var isTop = (di % 6 === 0);
+          var startR = isTop ? (0.35 + Math.random() * 0.25) : (1.28 + Math.random() * 0.22);
+          dArr[di] = Math.cos(nAng) * startR;
+          dArr[di + 1] = isTop ? (1.85 + Math.random() * 0.35) : (1.15 + Math.random() * 0.28);
+          dArr[di + 2] = 2.0 + Math.sin(nAng) * startR;
+        }
+      }
+      fountainDropsAttr.needsUpdate = true;
+    }
   }
 
   // ---------------- Inicializacao & API Publica ----------------
@@ -3882,11 +4534,30 @@
       x: playerPos.x, y: playerPos.y, z: playerPos.z,
       yaw: playerYaw, pitch: playerPitch,
       holding_item: heldItem ? heldItem.id : '',
-      walking: isWalking, in_fps: inFps
+      walking: isWalking, seated: !!seatedSeat, in_fps: inFps
     };
   };
 
   window.consumeCampusMovedItems = function () {
+    if (heldItem) {
+      pendingMovedItems[heldItem.id] = {
+        id: heldItem.id,
+        x: heldItem.mesh.position.x,
+        y: heldItem.mesh.position.y,
+        z: heldItem.mesh.position.z,
+        ry: heldRotY
+      };
+      if (heldItem.mesh.userData.lidItem && heldItem.mesh.userData.lidItem.mesh.userData.isAttached) {
+        var attLid = heldItem.mesh.userData.lidItem;
+        pendingMovedItems[attLid.id] = {
+          id: attLid.id,
+          x: attLid.mesh.position.x,
+          y: attLid.mesh.position.y,
+          z: attLid.mesh.position.z,
+          ry: heldRotY
+        };
+      }
+    }
     var list = Object.values(pendingMovedItems);
     pendingMovedItems = {};
     return list;
@@ -3900,23 +4571,59 @@
 
   window.applyCampusWorldObjects = function (objectsMap) {
     if (!objectsMap) return;
+    var now = performance.now();
+    // 1o passo: atualiza mesas e fluxo laminar primeiro para que suas superficies de suporte estejam na posicao exata!
     pickableItems.forEach(function (item) {
+      if (!item.mesh.userData.updateBounds) return;
       if (heldItem === item || isHeldByRemote(item.id)) return;
-      if (pendingMovedItems[item.id] || recentlyDropped[item.id] > performance.now()) return;
+      if (pendingMovedItems[item.id] || recentlyDropped[item.id] > now) return;
       var saved = objectsMap[item.id];
       if (saved) {
         item.mesh.position.set(saved.x, saved.y, saved.z);
         item.mesh.rotation.y = saved.ry || 0;
+        item.isMoved = true;
+        item.mesh.userData.updateBounds(item);
+      } else if (item.isMoved) {
+        item.mesh.position.copy(item.homePos);
+        item.mesh.rotation.y = item.homeRy;
+        item.mesh.userData.updateBounds(item);
+        item.isMoved = false;
+      }
+    });
+    // 2o passo: atualiza os demais itens e tampas de panela sem jamais causar salto/queda em loop
+    pickableItems.forEach(function (item) {
+      if (item.mesh.userData.updateBounds) return;
+      if (heldItem === item || isHeldByRemote(item.id)) return;
+      if (pendingMovedItems[item.id] || recentlyDropped[item.id] > now) return;
+      var saved = objectsMap[item.id];
+      if (saved) {
         if (item.mesh.userData.potItem) {
-          var potPos = item.mesh.userData.potItem.mesh.position;
-          item.mesh.userData.isAttached = Math.hypot(saved.x - potPos.x, saved.z - potPos.z) < 0.20;
+          var pot = item.mesh.userData.potItem;
+          var attached = Math.hypot(saved.x - pot.mesh.position.x, saved.z - pot.mesh.position.z) < 0.22 &&
+                         Math.abs(saved.y - (pot.mesh.position.y + 0.36)) < 0.24;
+          item.mesh.userData.isAttached = attached;
+          if (attached) {
+            item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
+            item.mesh.rotation.copy(pot.mesh.rotation);
+            item.isMoved = true;
+            return;
+          }
         }
-        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+        var suppY = getGroundHeight(saved.x, saved.z, saved.y);
+        for (var i = 0; i < supportSurfaces.length; i++) {
+          var s = supportSurfaces[i];
+          if (saved.x >= s.minX && saved.x <= s.maxX && saved.z >= s.minZ && saved.z <= s.maxZ && saved.y >= s.topY - 0.15) {
+            suppY = Math.max(suppY, s.topY);
+          }
+        }
+        var finalY = Math.abs(saved.y - suppY) < 0.06 ? suppY : saved.y;
+        item.mesh.position.set(saved.x, finalY, saved.z);
+        item.mesh.rotation.y = saved.ry || 0;
+        item.isMoved = true;
       } else if (item.isMoved) {
         item.mesh.position.copy(item.homePos);
         item.mesh.rotation.y = item.homeRy;
         if (item.mesh.userData.potItem) item.mesh.userData.isAttached = true;
-        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
         item.isMoved = false;
       }
     });
@@ -3929,19 +4636,193 @@
     pickableItems.forEach(function (item) {
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
+      if (item.mesh.userData.potItem) item.mesh.userData.isAttached = true;
+      if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       item.isMoved = false;
     });
     if (callbacks.onHoldChange) callbacks.onHoldChange(null);
   };
 
   window.consumeCampusBoardStrokes = function () {
+    // Transmite os tracos da lousa em tempo real enquanto o jogador desenha (sem precisar esperar soltar o mouse!)
+    if (currentStroke && currentStroke.pts.length >= 2) {
+      var lastPt = currentStroke.pts[currentStroke.pts.length - 1];
+      pendingBoardStrokes.push({
+        b: currentStroke.b,
+        c: currentStroke.c,
+        pts: currentStroke.pts.slice()
+      });
+      currentStroke.pts = [lastPt];
+    }
     var out = pendingBoardStrokes.slice();
     pendingBoardStrokes = [];
     return out;
   };
 
+  window.requeueCampusBoardStrokes = function (strokes) {
+    if (!Array.isArray(strokes) || !strokes.length) return;
+    pendingBoardStrokes = strokes.concat(pendingBoardStrokes);
+  };
+
   window.applyCampusBoardStrokes = function (strokes) {
     (strokes || []).forEach(applyStrokeToBoard);
+  };
+
+  window.consumeCampusStateChanges = function () {
+    var out = Object.assign({}, pendingStateChanges);
+    pendingStateChanges = {};
+    return out;
+  };
+
+  window.requeueCampusStateChanges = function (changes) {
+    if (!changes || typeof changes !== 'object') return;
+    Object.keys(changes).forEach(function (k) {
+      if (pendingStateChanges[k] === undefined) {
+        pendingStateChanges[k] = changes[k];
+      }
+    });
+  };
+
+  window.applyCampusWorldState = function (stateMap, isInitial) {
+    if (!stateMap || typeof stateMap !== 'object') return;
+    var now = performance.now();
+
+    // 1. Portas das salas (door_0..door_3)
+    for (var di = 0; di < campusDoors.length; di++) {
+      var d = campusDoors[di];
+      if (!d.id || stateMap[d.id] === undefined) continue;
+      if (pendingStateChanges[d.id] !== undefined || recentlyChangedState[d.id] > now) continue;
+      var wantOpen = Number(stateMap[d.id]) === 1;
+      if (d.open !== wantOpen) {
+        d.open = wantOpen;
+        if (isInitial) {
+          d.angle = d.open ? -d.dir * Math.PI * 0.48 : 0;
+          d.pivot.rotation.y = d.angle;
+        }
+      }
+    }
+
+    // 2. Persianas horizontais de todos os vidros (blind_0..blind_15)
+    for (var bi = 0; bi < windowBlinds.length; bi++) {
+      var b = windowBlinds[bi];
+      if (!b.id || stateMap[b.id] === undefined) continue;
+      if (pendingStateChanges[b.id] !== undefined || recentlyChangedState[b.id] > now) continue;
+      var wantBlindOpen = Number(stateMap[b.id]) === 1;
+      if (b.open !== wantBlindOpen) {
+        b.open = wantBlindOpen;
+      }
+    }
+
+    // 3. Interruptores de luz de todas as salas (light_0..light_7)
+    for (var li = 0; li < campusLightSwitches.length; li++) {
+      var sw = campusLightSwitches[li];
+      if (!sw.id || stateMap[sw.id] === undefined) continue;
+      if (pendingStateChanges[sw.id] !== undefined || recentlyChangedState[sw.id] > now) continue;
+      var wantLightOn = Number(stateMap[sw.id]) !== 0;
+      if (sw.on !== wantLightOn) {
+        sw.on = wantLightOn;
+        sw.light.intensity = sw.on ? 1.05 : 0;
+        if (sw.gLight) sw.gLight.intensity = sw.on ? 0.7 : 0;
+        sw.tubeMat.emissiveIntensity = sw.on ? 1.25 : 0.04;
+        sw.ledMat.color.setHex(sw.on ? 0x22c55e : 0xef4444);
+        sw.rocker.rotation.x = sw.on ? -0.22 : 0.22;
+      }
+    }
+
+    // 4. Capela de Fluxo Laminar (hood_lab)
+    if (hoodAirData && stateMap.hood_lab !== undefined) {
+      if (pendingStateChanges.hood_lab === undefined && !(recentlyChangedState.hood_lab > now)) {
+        var wantHoodOn = Number(stateMap.hood_lab) !== 0;
+        if (hoodAirData.on !== wantHoodOn) {
+          hoodAirData.on = wantHoodOn;
+          hoodAirData.points.visible = hoodAirData.on;
+          hoodAirData.hepaMat.emissiveIntensity = hoodAirData.on ? 0.35 : 0.04;
+          hoodAirData.ledMat.color.setHex(hoodAirData.on ? 0x22c55e : 0xef4444);
+        }
+      }
+    }
+
+    // 5. Tela de Cinema / Aulas do Student Center (cinema_power, cinema_lesson, cinema_playing)
+    var cinemaChanged = false;
+    if (stateMap.cinema_power !== undefined && pendingStateChanges.cinema_power === undefined && !(recentlyChangedState.cinema_power > now)) {
+      var wantPower = Number(stateMap.cinema_power) === 1;
+      if (cinemaPower !== wantPower) {
+        cinemaPower = wantPower;
+        cinemaChanged = true;
+      }
+    }
+    if (stateMap.cinema_lesson !== undefined && pendingStateChanges.cinema_lesson === undefined && !(recentlyChangedState.cinema_lesson > now)) {
+      var wantLes = parseInt(stateMap.cinema_lesson, 10);
+      if (!isNaN(wantLes) && cinemaLessonIdx !== wantLes) {
+        cinemaLessonIdx = wantLes;
+        cinemaTime = 0;
+        cinemaChanged = true;
+      }
+    }
+    if (stateMap.cinema_playing !== undefined && pendingStateChanges.cinema_playing === undefined && !(recentlyChangedState.cinema_playing > now)) {
+      var wantPlay = Number(stateMap.cinema_playing) === 1;
+      if (cinemaPlaying !== wantPlay) {
+        cinemaPlaying = wantPlay;
+        cinemaChanged = true;
+      }
+    }
+    if (cinemaChanged) {
+      cinemaDirty = true;
+      if (cinemaBeam) cinemaBeam.visible = cinemaPower && (cinemaLessonIdx === -1 || cinemaPlaying);
+    }
+
+    // 6. Cogumelos silvestres colhidos (wild_0..wild_31)
+    for (var mi = 0; mi < wildMushrooms.length; mi++) {
+      var wm = wildMushrooms[mi];
+      if (!wm.id || stateMap[wm.id] === undefined) continue;
+      if (pendingStateChanges[wm.id] !== undefined || recentlyChangedState[wm.id] > now) continue;
+      var remSec = parseInt(stateMap[wm.id], 10);
+      if (remSec > 0 && wm.active) {
+        wm.active = false;
+        wm.group.visible = false;
+        wm.respawnAt = now + remSec * 1000;
+      } else if (remSec === 0 && !wm.active) {
+        wm.active = true;
+        wm.group.visible = true;
+      }
+    }
+  };
+
+  window.applyCampusSavedPose = function (pose) {
+    if (!pose || typeof pose !== 'object') return;
+    if (typeof pose.x === 'number' && typeof pose.z === 'number') {
+      playerPos.set(pose.x, typeof pose.y === 'number' ? pose.y : 0, pose.z);
+    }
+    if (typeof pose.yaw === 'number') playerYaw = pose.yaw;
+    if (typeof pose.pitch === 'number') playerPitch = pose.pitch;
+    if (pose.seated) {
+      var bestSeat = null, bestD = 1.6;
+      for (var i = 0; i < seatMeshes.length; i++) {
+        var si = seatMeshes[i].userData.seatInfo;
+        if (!si) continue;
+        var d = Math.hypot(si.x - playerPos.x, si.z - playerPos.z);
+        if (d < bestD && Math.abs(si.y - playerPos.y) < 1.0) {
+          bestD = d;
+          bestSeat = si;
+        }
+      }
+      if (bestSeat) {
+        seatedSeat = bestSeat;
+        playerPos.set(bestSeat.x, bestSeat.y, bestSeat.z);
+      }
+    }
+    if (pose.holding && !heldItem) {
+      var item = findPickable(pose.holding);
+      if (item && !isHeldByRemote(item.id)) {
+        if (item.mesh.userData.potItem && item.mesh.userData.isAttached) {
+          item.mesh.userData.isAttached = false;
+        }
+        heldItem = item;
+        heldRotY = item.mesh.rotation.y;
+        setHeldTwoHandedGhost(heldItem, true);
+        if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
+      }
+    }
   };
 
   window.setCampusPlayerColors = function (hatHex, bodyHex) {

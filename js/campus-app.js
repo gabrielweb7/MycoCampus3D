@@ -105,6 +105,8 @@
   var boardLastId = 0;
   var syncTimer = null;
   var syncInFlight = false;
+  var syncQueued = false;
+  var isInitialSync = true;
   var syncFailures = 0;
   var inFpsState = false;
 
@@ -201,6 +203,7 @@
   function enterCampus(user, token) {
     currentUser = user;
     if (token) authToken = token;
+    isInitialSync = true;
     if (window.setCampusPlayerColors) window.setCampusPlayerColors(user.hat_color, user.body_color);
     $('input-pin').value = '';
     updateUserHud();
@@ -430,17 +433,26 @@
   }
 
   async function syncMultiplayer() {
-    if (!currentUser || syncInFlight) return;
+    if (!currentUser) return;
+    if (syncInFlight) {
+      syncQueued = true;
+      return;
+    }
     syncInFlight = true;
+    syncQueued = false;
+    var firstSync = isInitialSync;
+    isInitialSync = false;
     var pose = window.getCampusPlayerPose();
     var moved = window.consumeCampusMovedItems();
     var strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
+    var stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
     var chatToSend = pendingChatMsg;
     pendingChatMsg = '';
 
     try {
       var data = await apiPost('api/multiplayer.php?action=sync', {
         session_id: sessionId,
+        init_sync: firstSync ? 1 : 0,
         x: pose.x,
         y: pose.y,
         z: pose.z,
@@ -448,9 +460,11 @@
         pitch: pose.pitch,
         holding_item: pose.holding_item,
         walking: pose.walking,
+        seated: pose.seated,
         in_fps: pose.in_fps,
         chat_msg: chatToSend,
         moved_items: moved,
+        state_changes: stateChanges,
         board_since: boardLastId,
         board_strokes: strokes
       }, true);
@@ -463,8 +477,14 @@
           return;
         }
         $('hud-online').textContent = String(data.online_count || 1);
-        window.updateCampusPlayers(data.players || []);
         window.applyCampusWorldObjects(data.objects || {});
+        if (data.world_state && window.applyCampusWorldState) {
+          window.applyCampusWorldState(data.world_state, firstSync);
+        }
+        if (firstSync && data.saved_pose && window.applyCampusSavedPose) {
+          window.applyCampusSavedPose(data.saved_pose);
+        }
+        window.updateCampusPlayers(data.players || []);
         if (typeof data.board_last_id === 'number' && data.board_last_id > boardLastId) {
           boardLastId = data.board_last_id;
         }
@@ -481,12 +501,18 @@
         throw new Error(data.error || 'sync');
       }
     } catch (e) {
-      // Reenvia itens/chat que nao chegaram ao servidor
+      // Reenvia itens/chat/estados/tracos que nao chegaram ao servidor
       syncFailures++;
+      if (firstSync) isInitialSync = true;
       if (chatToSend && !pendingChatMsg) pendingChatMsg = chatToSend;
       if (moved && moved.length) window.requeueCampusMovedItems(moved);
+      if (strokes && strokes.length && window.requeueCampusBoardStrokes) window.requeueCampusBoardStrokes(strokes);
+      if (stateChanges && window.requeueCampusStateChanges) window.requeueCampusStateChanges(stateChanges);
     } finally {
       syncInFlight = false;
+      if (syncQueued) {
+        syncMultiplayer();
+      }
     }
   }
 
@@ -643,9 +669,12 @@
         $('lesson-modal').classList.remove('hidden');
       },
       onScreenNav: function (delta) {
-        if (currentUser && (currentUser.role === 'professor' || currentUser.role === 'admin')) {
+        if (currentUser) {
           broadcastSlide(currentSlideIdx + delta);
         }
+      },
+      onWorldAction: function () {
+        syncMultiplayer();
       },
       onNearScreen: function () {
         $('prof-toolbar').classList.add('hidden');

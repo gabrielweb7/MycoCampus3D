@@ -14,7 +14,8 @@ const MP_WORLD_LIMIT = 220.0;
 const MP_ITEMS = [
     'petri_clean', 'petri_contam', 'petri_empty', 'pda_bottle',
     'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
-    'heat_sealer', 'liquid_culture',
+    'heat_sealer', 'liquid_culture', 'magnetic_stirrer',
+    'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b',
     'substrate_bag', 'fruiting_block',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
     'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',
@@ -68,9 +69,6 @@ if ($action === 'reset_world') {
 
 if ($action === 'set_slide') {
     $user = mc_require_user($pdo);
-    if (!mc_is_professor($user)) {
-        mc_json(['ok' => false, 'error' => 'Apenas professores podem controlar o telao ao vivo.'], 403);
-    }
     $slideIndex = max(0, min(MP_SLIDE_COUNT - 1, (int)($body['slide_index'] ?? 0)));
     $upsert = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');
     $upsert->execute(['auditorium_slide', (string)$slideIndex]);
@@ -78,23 +76,62 @@ if ($action === 'set_slide') {
     mc_json(['ok' => true, 'slide_index' => $slideIndex, 'presenter' => (string)$user['display_name']]);
 }
 
+function mp_is_valid_state_key(string $k): bool {
+    if (in_array($k, ['hood_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson', 'auditorium_slide'], true)) {
+        return true;
+    }
+    if (preg_match('/^(door_[0-3]|light_[0-7])$/', $k)) return true;
+    if (preg_match('/^blind_([0-9]|1[0-5])$/', $k)) return true;
+    if (preg_match('/^wild_([0-9]|[12][0-9]|3[01])$/', $k)) return true;
+    return false;
+}
+
 if ($action === 'sync') {
     $user = mc_require_user($pdo);
     $userId = (int)$user['id'];
     $sessionKey = mp_session_key($userId, mp_client_sid($body));
+    $initSync = !empty($body['init_sync']);
+    $poseKey = 'upose_' . $userId;
 
     // Limpa jogadores inativos
     $pdo->exec('DELETE FROM mc_sessions WHERE last_seen < (NOW() - INTERVAL ' . MP_SESSION_TIMEOUT_S . ' SECOND)');
 
-    $x = mp_num($body['x'] ?? 0, MP_WORLD_LIMIT);
-    $y = mp_num($body['y'] ?? 0, 50.0);
-    $z = mp_num($body['z'] ?? 0, MP_WORLD_LIMIT);
-    $yaw = mp_num($body['yaw'] ?? 0, 1000.0);
-    $pitch = mp_num($body['pitch'] ?? 0, 2.0);
-    $holding = (string)($body['holding_item'] ?? '');
+    $savedPose = null;
+    if ($initSync) {
+        $ps = $pdo->prepare('SELECT state_val FROM mc_world_state WHERE state_key = ? LIMIT 1');
+        $ps->execute([$poseKey]);
+        $rawPose = $ps->fetchColumn();
+        if (is_string($rawPose) && $rawPose !== '') {
+            $decPose = json_decode($rawPose, true);
+            if (is_array($decPose) && isset($decPose['x'], $decPose['y'], $decPose['z'])) {
+                $savedPose = $decPose;
+            }
+        }
+    }
+
+    $x = $savedPose ? mp_num($savedPose['x'], MP_WORLD_LIMIT) : mp_num($body['x'] ?? 0, MP_WORLD_LIMIT);
+    $y = $savedPose ? mp_num($savedPose['y'], 50.0) : mp_num($body['y'] ?? 0, 50.0);
+    $z = $savedPose ? mp_num($savedPose['z'], MP_WORLD_LIMIT) : mp_num($body['z'] ?? 0, MP_WORLD_LIMIT);
+    $yaw = $savedPose ? mp_num($savedPose['yaw'] ?? 0, 1000.0) : mp_num($body['yaw'] ?? 0, 1000.0);
+    $pitch = $savedPose ? mp_num($savedPose['pitch'] ?? 0, 2.0) : mp_num($body['pitch'] ?? 0, 2.0);
+    $holding = $savedPose ? (string)($savedPose['holding'] ?? '') : (string)($body['holding_item'] ?? '');
     $holding = in_array($holding, MP_ITEMS, true) ? $holding : '';
-    $walking = !empty($body['walking']) ? 1 : 0;
+    $seated = !empty($body['seated']);
+    $walking = $seated ? 2 : (!empty($body['walking']) ? 1 : 0);
     $inFps = !empty($body['in_fps']) ? 1 : 0;
+
+    if (!$initSync) {
+        $poseJson = json_encode([
+            'x' => round($x, 2),
+            'y' => round($y, 2),
+            'z' => round($z, 2),
+            'yaw' => round($yaw, 3),
+            'pitch' => round($pitch, 3),
+            'holding' => $holding,
+        ]);
+        $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)')
+            ->execute([$poseKey, $poseJson]);
+    }
     $chatMsg = trim((string)($body['chat_msg'] ?? ''));
     $chatMsg = $chatMsg !== '' ? mb_substr($chatMsg, 0, 140, 'UTF-8') : null;
 
@@ -153,7 +190,8 @@ if ($action === 'sync') {
             'yaw' => (float)$p['yaw'],
             'pitch' => (float)$p['pitch'],
             'holding' => (string)$p['holding_item'],
-            'walking' => (bool)$p['walking'],
+            'walking' => ((int)$p['walking'] === 1),
+            'seated' => ((int)$p['walking'] === 2),
             'in_fps' => (bool)$p['in_fps'],
             'chat' => $p['chat_msg'],
         ];
@@ -169,10 +207,40 @@ if ($action === 'sync') {
         ];
     }
 
+    // Salva mudancas de estado do mundo (portas, persianas, interruptores, fluxo laminar, cinema, cogumelos)
+    if (!empty($body['state_changes']) && is_array($body['state_changes'])) {
+        $stUpsert = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');
+        foreach ($body['state_changes'] as $sKey => $sVal) {
+            $sKey = (string)$sKey;
+            if (!mp_is_valid_state_key($sKey)) continue;
+            if (strpos($sKey, 'wild_') === 0) {
+                $cleanVal = (string)(time() + 20);
+            } elseif ($sKey === 'cinema_lesson') {
+                $cleanVal = (string)max(-1, min(10, (int)$sVal));
+            } elseif ($sKey === 'auditorium_slide') {
+                $cleanVal = (string)max(0, min(MP_SLIDE_COUNT - 1, (int)$sVal));
+                $stUpsert->execute(['auditorium_presenter', (string)$user['display_name']]);
+            } else {
+                $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
+            }
+            $stUpsert->execute([$sKey, $cleanVal]);
+        }
+    }
+
+    $nowTs = time();
     $state = ['auditorium_slide' => 0, 'auditorium_presenter' => ''];
-    foreach ($pdo->query("SELECT state_key, state_val FROM mc_world_state WHERE state_key IN ('auditorium_slide', 'auditorium_presenter')")->fetchAll() as $st) {
-        if ($st['state_key'] === 'auditorium_slide') $state['auditorium_slide'] = (int)$st['state_val'];
-        if ($st['state_key'] === 'auditorium_presenter') $state['auditorium_presenter'] = (string)$st['state_val'];
+    foreach ($pdo->query('SELECT state_key, state_val FROM mc_world_state')->fetchAll() as $st) {
+        $k = (string)$st['state_key'];
+        $v = (string)$st['state_val'];
+        if ($k === 'auditorium_slide') {
+            $state['auditorium_slide'] = (int)$v;
+        } elseif ($k === 'auditorium_presenter') {
+            $state['auditorium_presenter'] = $v;
+        } elseif (strpos($k, 'wild_') === 0) {
+            $state[$k] = ((int)$v > $nowTs) ? '0' : '1';
+        } elseif (mp_is_valid_state_key($k)) {
+            $state[$k] = $v;
+        }
     }
 
     // Salva novos tracos da lousa enviados pelo jogador
@@ -193,16 +261,16 @@ if ($action === 'sync') {
                 $stIns->execute([json_encode(['b' => $boardIdx, 'c' => $col, 'pts' => $pts])]);
             }
         }
-        // Mantem no maximo os ultimos 500 tracos para a tabela nao crescer infinito
+        // Mantem ate 2500 tracos para preservar todo o desenho das 4 lousas
         $maxId = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes')->fetchColumn();
-        if ($maxId > 500) {
+        if ($maxId > 2500) {
             $delOld = $pdo->prepare('DELETE FROM mc_board_strokes WHERE id <= ?');
-            $delOld->execute([$maxId - 500]);
+            $delOld->execute([$maxId - 2500]);
         }
     }
 
     $boardSince = max(0, (int)($body['board_since'] ?? 0));
-    $bStmt = $pdo->prepare('SELECT id, stroke_json FROM mc_board_strokes WHERE id > ? ORDER BY id ASC LIMIT 200');
+    $bStmt = $pdo->prepare('SELECT id, stroke_json FROM mc_board_strokes WHERE id > ? ORDER BY id ASC LIMIT 500');
     $bStmt->execute([$boardSince]);
     $boardStrokes = [];
     $lastBoardId = $boardSince;
@@ -218,6 +286,7 @@ if ($action === 'sync') {
         'ok' => true,
         'app_version' => trim((string)@file_get_contents(__DIR__ . '/../VERSION')),
         'online_count' => count($players) + 1,
+        'saved_pose' => $savedPose,
         'players' => $players,
         'objects' => $objects,
         'world_state' => $state,

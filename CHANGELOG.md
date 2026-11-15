@@ -2,6 +2,28 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.6.2] — 2026-11-15
+### Added, Fixed & Improved
+- **Sincronização 100% em Tempo Real + Persistência Completa no Banco de Dados MySQL ([multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Todas as ações do jogo agora são sincronizadas instantaneamente em multiplayer e persistidas em `mc_world_state` / `mc_world_objects` / `mc_board_strokes` para permanecerem idênticas mesmo após dar F5 / atualizar a página:
+    - Abertura/fechamento de todas as 4 portas (`door_0`..`door_3`).
+    - Abertura/fechamento de todas as 16 persianas horizontais (`blind_0`..`blind_15`).
+    - Interruptores de luz das salas do 1º e 2º andares (`light_0`..`light_7`), com luminárias do 1º andar reposicionadas abaixo da laje (`ceilY = 3.51`) e painel refletor de teto.
+    - Status ligado/desligado da Capela de Fluxo Laminar (`hood_lab`).
+    - Controle compartilhado da tela de Cinema/Aulas do Student Center (`cinema_power`, `cinema_lesson`, `cinema_playing`) e telões principais (`auditorium_slide`).
+    - Traços das 4 lousas transmitidos em tempo real durante o desenho (`consumeCampusBoardStrokes`), posição ao vivo dos objetos carregados, animação de sentar nas cadeiras (`seated`) e restauração da última posição/direção/item segurado do próprio jogador (`upose_<userId>`) ao atualizar a página.
+- **Correção definitiva de objetos saltando/caindo em loop ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Corrigido o loop em que `dropUnsupportedItems()` descia o item mas `applyCampusWorldObjects()` lia a altura antiga do banco e jogava o item de volta para o alto a cada 200ms. Agora a gravidade registra `recentlyDropped` e salva a nova altura apoiada imediatamente no MySQL.
+  - Alinhadas todas as mesas inox do 1º andar à cota exata do piso (`y = 0.12`) e atualizado `applyCampusWorldObjects` em 2 etapas (mesas/fluxo laminar primeiro, itens depois).
+- **Fonte Central, Fonte Leste e Lago em 8 com Água Realista Animada sem Piscar ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Eliminado o *Z-fighting* (piscadas brancas e azuis) da Fonte Central substituindo o cilindro maciço por borda de pedra oca (`RingGeometry` + cilindros abertos), fundo azulejado azul-profundo, textura procedural de água com *caustics* em movimento contínuo, ondas concêntricas de espuma (`fountainRipples`), 8 filetes de água contínua e 84 gotículas animadas (`fountainDropsAttr`).
+- **Embalagem do Frasco PDA 500g (`pda_bottle`) e Erlenmeyer de Cultura Líquida (`liquid_culture`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Novo rótulo de alta definição (`512x256`) com dupla face frontal/traseira (`🧪 MYCOLAB • BDA / PDA • POTATO DEXTROSE AGAR • 500g`) 100% legível de frente sem cortar nas laterais do cilindro, além de ombro cônico, gargalo e tampa laranja com anel de lacre.
+  - Frasco de Cultura Líquida remodelado como Erlenmeyer 500ml de vidro borossilicato transparente com caldo nutritivo dourado, nuvem de micélio em suspensão, barra magnética e tampa azul com filtro PTFE e septo de injeção.
+- **Limpeza da Sala de Substratos e Remoção de Mensagem de Bloqueio das Mesas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Removidos o bloco branco (`substrate_bag`) de cima da mesa e o tonel azul (`drum`) da sala de Substratos.
+  - Removida a mensagem `⚠️ Tire os objetos de cima da mesa` ao olhar para mesas ocupadas, priorizando sempre o objeto mais próximo na mira (`bestPickDist`).
+
 ## [v0.6.1] — 2026-11-15
 ### Improved
 - **Mira central (`#crosshair`) reforçada no celular ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
