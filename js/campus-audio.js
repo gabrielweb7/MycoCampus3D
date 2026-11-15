@@ -281,7 +281,7 @@
     }
     var ctx = getAudioContext();
     if (!ctx || ctx.state !== 'running') return;
-    var targetGain = 0.065 * vol;
+    var targetGain = 0.125 * vol;
     if (!steamNode) {
       var bufferSize = ctx.sampleRate * 2;
       var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -298,8 +298,8 @@
       steamNode.loop = true;
       var filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(2600, ctx.currentTime);
-      filter.Q.setValueAtTime(2.0, ctx.currentTime);
+      filter.frequency.setValueAtTime(2700, ctx.currentTime);
+      filter.Q.setValueAtTime(1.9, ctx.currentTime);
       steamGain = ctx.createGain();
       steamGain.gain.setValueAtTime(targetGain, ctx.currentTime);
       steamNode.connect(filter);

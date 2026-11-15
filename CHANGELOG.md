@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.14] — 2026-11-15
+### 🍲 Autoclave Realista: Trava de Pressão, HUD 3D (0–15 PSI) & Válvula Sincronizada
+- **Trava de Segurança por Pressão ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Não é mais possível retirar a tampa enquanto `psi >= 1.5` (exibe aviso 🔒 e instrui a desligar o fogareiro e aguardar despressurizar).
+  - Ao desligar o fogareiro ou retirar a panela do fogo, a pressão cai gradualmente (`2.0 PSI/s`) até destravar a tampa automaticamente abaixo de `1.5 PSI`.
+- **Indicador 3D Flutuante Acima da Panela ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Exibe `PSI (0..15)` e porcentagem, barra colorida, status de trava (`🔒`/`🔓`) e progresso de aquecimento/esterilização/despressurização em tempo real (Zero-GC com cache de desenho `lastHudKey`).
+- **Animação & Som Sincronizados ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [js/campus-audio.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-audio.js))**:
+  - Pinos vermelhos de segurança sobem/descem conforme a trava (`psi >= 1.5`), peso central vibra/balança e vapor acelera proporcionalmente entre `10` e `15 PSI`.
+  - Chiado do vapor aumentado suavemente (`0.125` de ganho máximo) mantendo o alcance espacial de `12m`.
+
 ## [v0.9.13] — 2026-11-15
 ### 💡 Melhoria de Iluminação Interna e Exposição (`ACESFilmicToneMapping`)
 - **Salas Mais Claras e Nítidas ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

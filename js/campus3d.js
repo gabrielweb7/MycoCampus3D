@@ -1979,11 +1979,13 @@
       weight.position.y = 0.13;
       var weightTop = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.014, 12), redMat);
       weightTop.position.y = 0.16;
+      var safetyPins = [];
       [-0.12, 0.12].forEach(function (vz) {
         var vRing = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.015, 10), darkMat);
         vRing.position.set(0, 0.105, vz);
         var vPin = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.022, 10), redMat);
-        vPin.position.set(0, 0.112, vz);
+        vPin.position.set(0, 0.110, vz);
+        safetyPins.push(vPin);
         lidGroup.add(vRing, vPin);
       });
       [-1, 1].forEach(function (side) {
@@ -2011,9 +2013,26 @@
       lidItem.potItem = potItem;
       lidItem.isAttached = true;
       potItem.lidItem = lidItem;
+
+      // Indicador 3D de Pressão (0-15 PSI) & Esterilização acima da panela
+      var pCanvas = document.createElement('canvas');
+      pCanvas.width = 320;
+      pCanvas.height = 112;
+      var pCtx = pCanvas.getContext('2d');
+      var pTex = new THREE.CanvasTexture(pCanvas);
+      var pSpriteMat = new THREE.SpriteMaterial({ map: pTex, transparent: true, depthTest: false });
+      var pSprite = new THREE.Sprite(pSpriteMat);
+      pSprite.scale.set(0.95, 0.33, 1);
+      pSprite.position.set(0, 0.78, 0);
+      pSprite.visible = false;
+      pSprite.userData.ignoreRay = true;
+      potGroup.add(pSprite);
+
       cookerPots.push({
         potItem: potItem, lidItem: lidItem, weight: weight, weightTop: weightTop,
+        safetyPins: safetyPins,
         steamPoints: steamPoints, steamAttr: sAttr, contents: [],
+        statusSprite: pSprite, statusCtx: pCtx, statusTex: pTex, lastHudKey: '',
         psi: 0, temp: 25, progress: 0, sterilized: false
       });
     }
@@ -5520,6 +5539,18 @@
         notifyWorldAction();
         return;
       }
+      if (hoveredPickable.potItem && hoveredPickable.isAttached) {
+        for (var cpLockIdx = 0; cpLockIdx < cookerPots.length; cpLockIdx++) {
+          var cpLock = cookerPots[cpLockIdx];
+          if (cpLock.lidItem === hoveredPickable && cpLock.psi >= 1.5) {
+            if (window.MycoAudio) window.MycoAudio.playClick();
+            if (callbacks.onToast) {
+              callbacks.onToast('🔒 Tampa travada pela pressão (' + cpLock.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar (< 1.5 PSI).');
+            }
+            return;
+          }
+        }
+      }
       for (var cpIdx = 0; cpIdx < cookerPots.length; cpIdx++) {
         var idxInPot = cookerPots[cpIdx].contents.indexOf(hoveredPickable);
         if (idxInPot !== -1) cookerPots[cpIdx].contents.splice(idxInPot, 1);
@@ -5858,10 +5889,22 @@
           }
         }
         if (hoveredPickable.potItem && hoveredPickable.isAttached) {
-          if (potStatus && potStatus.progress >= 100) prompt = '🍲 Retirar Tampa (✅ Esterilizado 100%)';
-          else if (potStatus && potStatus.psi >= 14) prompt = '🔥 Esterilizando: ' + Math.round(potStatus.temp) + '°C • ' + Math.round(potStatus.psi) + ' PSI (' + Math.floor(potStatus.progress) + '%)';
-          else if (potStatus && potStatus.temp > 32) prompt = '🔥 Aquecendo: ' + Math.round(potStatus.temp) + '°C • ' + potStatus.psi.toFixed(1) + ' PSI';
-          else prompt = '🍲 Retirar Tampa da Panela de Pressão';
+          if (potStatus && potStatus.psi >= 1.5) {
+            var pctP = Math.min(100, Math.round((potStatus.psi / 15) * 100));
+            if (potStatus.progress >= 100) {
+              prompt = '🔒 Tampa Travada (' + potStatus.psi.toFixed(1) + ' PSI • ✅ 100%) — Desligue o fogo e aguarde';
+            } else if (potStatus.psi >= 14) {
+              prompt = '🔒 Esterilizando: ' + potStatus.psi.toFixed(1) + '/15 PSI (' + pctP + '%) • ' + Math.floor(potStatus.progress) + '%';
+            } else {
+              prompt = '🔒 Pressurizada: ' + potStatus.psi.toFixed(1) + '/15 PSI (' + pctP + '%) — Aguarde < 1.5 PSI';
+            }
+          } else if (potStatus && potStatus.progress >= 100) {
+            prompt = '🍲 Retirar Tampa (🔓 Despressurizada • ✅ Esterilizado 100%)';
+          } else if (potStatus && potStatus.temp > 32) {
+            prompt = '🍲 Retirar Tampa (🔥 Aquecendo: ' + Math.round(potStatus.temp) + '°C)';
+          } else {
+            prompt = '🍲 Retirar Tampa da Panela de Pressão';
+          }
         } else if (hoveredPickable.mesh.userData.twoHanded) {
           prompt = '🙌 Pegar ' + hoveredPickable.label + ' (2 mãos)';
         } else {
@@ -6769,6 +6812,7 @@
         if (bnd.reflectorMat) bnd.reflectorMat.emissiveIntensity = h * 0.28;
       }
       var nearestSteamDist = Infinity;
+      var bestSteamFactor = 0;
       for (var cpi = 0; cpi < cookerPots.length; cpi++) {
         var cp = cookerPots[cpi];
         var potP = cp.potItem.mesh.position;
@@ -6780,55 +6824,138 @@
           }
         }
         if (onActiveBurner && cp.lidItem.isAttached) {
-          cp.temp = Math.min(121, cp.temp + dt * 16);
+          cp.temp = Math.min(121, cp.temp + dt * 5.2);
           cp.psi = Math.max(0, ((cp.temp - 100) / 21) * 15);
-          if (cp.psi >= 14.2) {
-            anyPotSteaming = true;
-            var sDist = Math.hypot(potP.x - playerPos.x, potP.z - playerPos.z);
-            if (sDist < nearestSteamDist) nearestSteamDist = sDist;
-            cp.steamPoints.visible = true;
-            var sa = cp.steamAttr.array;
-            for (var si = 0; si < sa.length; si += 3) {
-              sa[si + 1] += dt * 0.65;
-              if (sa[si + 1] > 0.60) {
-                sa[si] = (Math.random() - 0.5) * 0.04;
-                sa[si + 1] = 0.17;
-                sa[si + 2] = (Math.random() - 0.5) * 0.04;
-              }
-            }
-            cp.steamAttr.needsUpdate = true;
-            cp.weight.position.y = 0.13 + Math.sin(clock.elapsedTime * 35) * 0.004;
-            cp.weightTop.position.y = 0.16 + Math.sin(clock.elapsedTime * 35) * 0.004;
-            if (cp.progress < 100) {
-              cp.progress = Math.min(100, cp.progress + dt * 8.5);
-              if (cp.progress >= 100) {
-                cp.sterilized = true;
-                for (var ci = 0; ci < cp.contents.length; ci++) {
-                  var cIt = cp.contents[ci];
-                  if (cIt.spawnCtrl) {
-                    cIt.spawnCtrl.sterilized = true;
-                    cIt.spawnCtrl.updateVisual();
-                  }
-                }
-              }
-            }
-          } else {
-            cp.steamPoints.visible = false;
-          }
         } else {
-          cp.temp = Math.max(25, cp.temp - dt * 12);
-          cp.psi = Math.max(0, cp.psi - dt * 6);
+          cp.temp = Math.max(25, cp.temp - dt * 2.8);
+          cp.psi = Math.max(0, cp.psi - dt * 2.0);
+          if (!cp.lidItem.isAttached) {
+            cp.psi = 0;
+            cp.progress = 0;
+          }
+        }
+
+        // Pinos de trava vermelhos sincronizados com a pressão (travados >= 1.5 PSI)
+        var isLocked = cp.lidItem.isAttached && cp.psi >= 1.5;
+        if (cp.safetyPins) {
+          var targetPinY = isLocked ? 0.128 : 0.110;
+          for (var pni = 0; pni < cp.safetyPins.length; pni++) {
+            cp.safetyPins[pni].position.y += (targetPinY - cp.safetyPins[pni].position.y) * Math.min(1, dt * 10);
+          }
+        }
+
+        // Animação sincronizada do pino central + vapor + áudio (10..15 PSI)
+        var steamFactor = (cp.lidItem.isAttached && cp.psi >= 10.0) ? Math.min(1, (cp.psi - 10.0) / 5.0) : 0;
+        if (steamFactor > 0.02) {
+          anyPotSteaming = true;
+          var sDist = Math.hypot(potP.x - playerPos.x, potP.z - playerPos.z);
+          if (sDist < nearestSteamDist) {
+            nearestSteamDist = sDist;
+            bestSteamFactor = steamFactor;
+          }
+          cp.steamPoints.visible = true;
+          var sa = cp.steamAttr.array;
+          var riseSpd = 0.35 + steamFactor * 0.45;
+          for (var si = 0; si < sa.length; si += 3) {
+            sa[si + 1] += dt * riseSpd;
+            if (sa[si + 1] > 0.60) {
+              sa[si] = (Math.random() - 0.5) * 0.04;
+              sa[si + 1] = 0.17;
+              sa[si + 2] = (Math.random() - 0.5) * 0.04;
+            }
+          }
+          cp.steamAttr.needsUpdate = true;
+          var wobble = Math.sin(clock.elapsedTime * (20 + steamFactor * 20));
+          var lift = Math.abs(wobble) * (0.008 * steamFactor);
+          cp.weight.position.y = 0.13 + lift;
+          cp.weightTop.position.y = 0.16 + lift;
+          cp.weight.rotation.z = wobble * 0.10 * steamFactor;
+          cp.weightTop.rotation.z = wobble * 0.10 * steamFactor;
+        } else {
           cp.steamPoints.visible = false;
           cp.weight.position.y = 0.13;
           cp.weightTop.position.y = 0.16;
-          if (!cp.lidItem.isAttached) cp.progress = 0;
+          cp.weight.rotation.z = 0;
+          cp.weightTop.rotation.z = 0;
+        }
+
+        if (onActiveBurner && cp.lidItem.isAttached && cp.psi >= 14.0 && cp.progress < 100) {
+          cp.progress = Math.min(100, cp.progress + dt * 8.5);
+          if (cp.progress >= 100) {
+            cp.sterilized = true;
+            for (var ci = 0; ci < cp.contents.length; ci++) {
+              var cIt = cp.contents[ci];
+              if (cIt.spawnCtrl) {
+                cIt.spawnCtrl.sterilized = true;
+                cIt.spawnCtrl.updateVisual();
+              }
+            }
+          }
+        }
+
+        // Indicador 3D acima da panela (Pressão 0-15 PSI, % e trava)
+        if (cp.statusSprite) {
+          var pDist = Math.hypot(potP.x - playerPos.x, potP.z - playerPos.z);
+          var showHud = pDist < 10.5 && (cp.temp > 27 || cp.psi > 0.15 || cp.progress > 0);
+          cp.statusSprite.visible = showHud;
+          if (showHud) {
+            var psiDisp = cp.psi.toFixed(1);
+            var psiPct = Math.min(100, Math.round((cp.psi / 15) * 100));
+            var progInt = Math.floor(cp.progress);
+            var hudKey = psiDisp + '|' + psiPct + '|' + progInt + '|' + (isLocked ? 1 : 0) + '|' + (onActiveBurner ? 1 : 0) + '|' + Math.round(cp.temp);
+            if (cp.lastHudKey !== hudKey) {
+              cp.lastHudKey = hudKey;
+              var ctxHud = cp.statusCtx;
+              ctxHud.clearRect(0, 0, 320, 112);
+              ctxHud.fillStyle = 'rgba(15, 23, 42, 0.88)';
+              ctxHud.beginPath();
+              ctxHud.roundRect(4, 4, 312, 104, 16);
+              ctxHud.fill();
+              ctxHud.lineWidth = 2;
+              ctxHud.strokeStyle = isLocked ? '#f59e0b' : '#38bdf8';
+              ctxHud.stroke();
+
+              ctxHud.font = 'bold 20px sans-serif';
+              ctxHud.fillStyle = '#f8fafc';
+              ctxHud.textAlign = 'left';
+              ctxHud.fillText((isLocked ? '🔒 ' : '🔓 ') + psiDisp + ' / 15 PSI (' + psiPct + '%)', 16, 34);
+
+              // Barra de pressão
+              ctxHud.fillStyle = '#1e293b';
+              ctxHud.fillRect(16, 46, 288, 16);
+              var barCol = cp.psi >= 14 ? '#22c55e' : (cp.psi >= 10 ? '#f59e0b' : (cp.psi >= 1.5 ? '#fb923c' : '#38bdf8'));
+              ctxHud.fillStyle = barCol;
+              ctxHud.fillRect(16, 46, Math.round(2.88 * psiPct), 16);
+
+              ctxHud.font = 'bold 17px sans-serif';
+              var subTxt = '';
+              if (cp.progress >= 100) {
+                ctxHud.fillStyle = isLocked ? '#fde047' : '#86efac';
+                subTxt = isLocked ? '✅ 100% • Despressurizando...' : '✅ Esterilizado 100% (Pode abrir)';
+              } else if (cp.psi >= 14) {
+                ctxHud.fillStyle = '#86efac';
+                subTxt = '♨️ Esterilizando: ' + progInt + '% (' + Math.round(cp.temp) + '°C)';
+              } else if (onActiveBurner && cp.lidItem.isAttached) {
+                ctxHud.fillStyle = '#bae6fd';
+                subTxt = '🔥 Aquecendo: ' + Math.round(cp.temp) + '°C';
+              } else if (isLocked) {
+                ctxHud.fillStyle = '#fdba74';
+                subTxt = '❄️ Perdendo pressão... (< 1.5 PSI)';
+              } else {
+                ctxHud.fillStyle = '#cbd5e1';
+                subTxt = '🔓 Tampa destravada (' + Math.round(cp.temp) + '°C)';
+              }
+              ctxHud.fillText(subTxt, 16, 90);
+              cp.statusTex.needsUpdate = true;
+            }
+          }
         }
       }
       if (window.MycoAudio) {
         var lobbyEl = document.getElementById('campus-lobby');
         var inLobby = lobbyEl && !lobbyEl.classList.contains('hidden');
         var steamVol = (!inLobby && anyPotSteaming && nearestSteamDist < 12)
-          ? Math.max(0, Math.min(1, 1 - (nearestSteamDist - 2) / 10))
+          ? Math.max(0, Math.min(1, 1 - (nearestSteamDist - 2) / 10)) * (0.45 + 0.55 * bestSteamFactor)
           : 0;
         window.MycoAudio.setSteam(steamVol > 0.01, steamVol);
       }
@@ -7748,7 +7875,13 @@
       cp.progress = 0;
       cp.sterilized = false;
       if (cp.steamPoints) cp.steamPoints.visible = false;
-      if (cp.weight) cp.weight.rotation.set(0, 0, 0);
+      if (cp.statusSprite) cp.statusSprite.visible = false;
+      cp.lastHudKey = '';
+      if (cp.weight) { cp.weight.position.y = 0.13; cp.weight.rotation.set(0, 0, 0); }
+      if (cp.weightTop) { cp.weightTop.position.y = 0.16; cp.weightTop.rotation.set(0, 0, 0); }
+      if (cp.safetyPins) {
+        for (var pni = 0; pni < cp.safetyPins.length; pni++) cp.safetyPins[pni].position.y = 0.110;
+      }
     }
     pickableItems.forEach(function (item) {
       item.mesh.position.copy(item.homePos);
