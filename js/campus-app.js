@@ -269,6 +269,9 @@
       } else {
         $('lobby-stats').textContent = data.error || 'Aguardando configuração do MySQL.';
       }
+      if (data.ok && Array.isArray(data.leaderboard) && window.updateCampusRanking) {
+        window.updateCampusRanking(data.leaderboard);
+      }
     } catch (err) {
       $('lobby-stats').textContent = 'Servidor offline no momento. Tente novamente em instantes.';
     }
@@ -565,13 +568,8 @@
           broadcastSlide(currentSlideIdx + delta);
         }
       },
-      onNearScreen: function (isNear) {
-        var isProf = currentUser && (currentUser.role === 'professor' || currentUser.role === 'admin');
-        if (isProf && isNear) {
-          $('prof-toolbar').classList.remove('hidden');
-        } else {
-          $('prof-toolbar').classList.add('hidden');
-        }
+      onNearScreen: function () {
+        $('prof-toolbar').classList.add('hidden');
       },
       onHoldChange: function (label) {
         if (label) {

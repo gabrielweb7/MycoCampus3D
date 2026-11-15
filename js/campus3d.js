@@ -80,6 +80,15 @@
   var currentStroke = null;
   var pendingBoardStrokes = [];
 
+  // Painel 3D do Ranking na Torre do Relogio
+  var rankingCanvas = null;
+  var rankingCtx = null;
+  var rankingTex = null;
+  var rankingList = [];
+  var rankingScroll = 0;
+  var rankingBtnMeshes = [];
+  var hoveredRankBtn = null;
+
   // Cinema / Projetor do Student Center
   var cinemaScreenMesh = null;
   var cinemaCanvas = null;
@@ -89,6 +98,9 @@
   var cinemaPlaying = true;
   var cinemaTime = 0;
   var hoveredCinema = false;
+  var seatMeshes = [];
+  var hoveredSeat = null;
+  var seatedSeat = null;
   var terrainSnowMat = null;
   var roofZones = []; // { minX, maxX, minZ, maxZ, roofY } para impedir chuva/neve dentro dos predios
 
@@ -96,10 +108,15 @@
   var envSun = null;
   var envHemi = null;
   var envClouds = [];
-  var envTime = 14; // comeca em dia ensolarado e transita para por do sol / noite
+  var envCloudMat = null;
+  var sunDisc = null;
+  var sunHalo = null;
+  var moonDisc = null;
+  var starPoints = null;
+  var envTime = 14;
   var weatherPoints = null;
   var weatherPosAttr = null;
-  var weatherMode = 'clear'; // 'clear' | 'rain' | 'snow'
+  var weatherMode = 'clear'; // 'clear' | 'partly' | 'overcast' | 'rain' | 'snow'
   var snowMix = 0;
   var snowableEntries = []; // { mat, baseColor }
   function registerSnowable(mat) {
@@ -630,7 +647,7 @@
     // opts: { cx, cz, width, depth, faceDir (+1=-X->+X, -1=+X->-X), hasDoor, style ('brick'|'wood'), connectNorth2F, connectSouth2F }
     var w = opts.width || 10.0;
     var d = opts.depth || 11.6;
-    var h1 = 3.68; // 1o andar (piso 2o andar fica em y = 3.80 exato)
+    var h1 = 3.56; // 1o andar termina abaixo da laje do 2o andar (y=3.80) para nao vazar tijolo na soleira!
     var h2 = 3.5;  // 2o andar
     var yFloor1 = 0.12;
     var yFloor2 = 3.80;
@@ -707,17 +724,45 @@
     roomGlow.position.set(cx, yFloor2 + h2 - 0.15, cz);
     scene.add(roomGlow);
     for (var dtRow = -1; dtRow <= 1; dtRow++) {
+      var deskZ = cz + dtRow * 3.0;
       var desk = makeBox(1.1, 0.72, 2.0, 0xd97706, { roughness: 0.65 });
-      desk.position.set(cx + dir * 1.1, yFloor2 + 0.36, cz + dtRow * 3.0);
+      desk.position.set(cx + dir * 1.1, yFloor2 + 0.36, deskZ);
       scene.add(desk);
       solidColliders.push({
         minX: cx + dir * 1.1 - 0.6, maxX: cx + dir * 1.1 + 0.6,
-        minZ: cz + dtRow * 3.0 - 1.05, maxZ: cz + dtRow * 3.0 + 1.05,
+        minZ: deskZ - 1.05, maxZ: deskZ + 1.05,
         minY: yFloor2, maxY: yFloor2 + 0.9
       });
+
+      // 2 Cadeiras ergonomicas clicaveis atras de cada mesa (voltadas para a lousa)
+      [-0.5, 0.5].forEach(function (chDz) {
+        var chairX = cx + dir * 2.1;
+        var chairZ = deskZ + chDz;
+        var cg = new THREE.Group();
+        cg.position.set(chairX, yFloor2, chairZ);
+        var legMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.35 });
+        var padMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.7 });
+        [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]].forEach(function (lp) {
+          var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.44, 8), legMat);
+          leg.position.set(lp[0], 0.22, lp[1]);
+          cg.add(leg);
+        });
+        var seatPad = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.07, 0.46), padMat);
+        seatPad.position.set(0, 0.45, 0);
+        seatPad.castShadow = true;
+        var backPad = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.46, 0.44), padMat);
+        backPad.position.set(dir * 0.21, 0.72, 0);
+        backPad.castShadow = true;
+        cg.add(seatPad, backPad);
+        var sitYaw = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+        seatPad.userData.seatInfo = { x: chairX, y: yFloor2 + 0.08, z: chairZ, yaw: sitYaw };
+        backPad.userData.seatInfo = seatPad.userData.seatInfo;
+        seatMeshes.push(seatPad, backPad);
+        scene.add(cg);
+      });
     }
-    var board = makeBox(0.1, 1.3, 3.6, 0x14532d, { roughness: 0.6 });
-    board.position.set(backX + dir * 0.22, yFloor2 + 1.75, cz);
+    var board = makeBox(0.1, 2.35, 8.0, 0x78350f, { roughness: 0.6 });
+    board.position.set(backX + dir * 0.22, yFloor2 + 2.02, cz);
     scene.add(board);
 
     // Toda sala do 2o andar tem lousa interativa + kit de giz completo + apagador!
@@ -735,10 +780,10 @@
     var bTex = new THREE.CanvasTexture(bCanvas);
 
     var bMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.4, 1.2),
+      new THREE.PlaneGeometry(7.6, 2.15),
       new THREE.MeshBasicMaterial({ map: bTex })
     );
-    bMesh.position.set(backX + dir * 0.28, yFloor2 + 1.75, cz);
+    bMesh.position.set(backX + dir * 0.28, yFloor2 + 2.02, cz);
     bMesh.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
     bMesh.userData.boardIndex = bIdx;
     scene.add(bMesh);
@@ -747,8 +792,8 @@
 
     // Bandeja de giz & apagador
     var trayX = backX + dir * 0.42;
-    var trayY = yFloor2 + 0.98;
-    var tray = makeBox(0.38, 0.08, 3.2, 0x78350f, { roughness: 0.7 });
+    var trayY = yFloor2 + 0.84;
+    var tray = makeBox(0.38, 0.08, 6.8, 0x78350f, { roughness: 0.7 });
     tray.position.set(trayX, trayY, cz);
     scene.add(tray);
     supportSurfaces.push({
@@ -774,10 +819,10 @@
       registerPickable(cd.id, cd.label, cg, trayX, trayY + 0.04, cz + cd.dz, 0, 0.15, 0.12);
     });
 
-    // Apagador largo de madeira + feltro
+    // Apagador largo de madeira + feltro (sem sobreposicao / z-fighting)
     var eraser = new THREE.Group();
     var eWood = makeBox(0.12, 0.06, 0.28, 0x92400e, { roughness: 0.75 });
-    eWood.position.y = 0.05;
+    eWood.position.y = 0.06;
     var eFelt = makeBox(0.12, 0.03, 0.28, 0x1e293b, { roughness: 0.95 });
     eFelt.position.y = 0.015;
     eraser.add(eWood, eFelt);
@@ -804,13 +849,18 @@
 
   // ---------------- Escadaria, Passarela Elevada & Torre do Relogio ----------------
 
+  // Ciclo completo de 40 minutos reais (20 min dia + 20 min noite) sincronizado para todos via UTC
+  function getVirtualDayFrac() {
+    return ((Date.now() / 1000) % 2400) / 2400; // 0.0=00h, 0.25=06h, 0.50=12h, 0.75=18h
+  }
+
   function updateClockTexture() {
     if (!clockCtx || !clockTex) return;
-    var now = new Date();
-    var m = now.getMinutes();
+    var totalMin = Math.floor(getVirtualDayFrac() * 1440);
+    var m = totalMin % 60;
     if (m === lastClockMin) return;
     lastClockMin = m;
-    var h = now.getHours() % 12;
+    var h = Math.floor(totalMin / 60) % 12;
 
     var ctx = clockCtx;
     ctx.clearRect(0, 0, 256, 256);
@@ -841,38 +891,80 @@
 
   function buildStaircaseAndBridge() {
     var yTop = 3.80;
-    // 14 degraus largos de z=-11.5 ate z=-18.5 (subindo de y=0 ate y=3.80)
+    // 14 degraus arquitetonicos de z=-11.5 ate z=-18.5 (subindo de y=0 ate y=3.80)
     var steps = 14;
     var stepD = 7.0 / steps;
     var stepH = yTop / steps;
+    var riserMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.78 });
+    var treadMat = new THREE.MeshStandardMaterial({ map: texPaving, color: 0xe2e8f0, roughness: 0.65 });
+    var noseMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.45, metalness: 0.25 });
     for (var i = 0; i < steps; i++) {
       var sy = (i + 1) * stepH;
       var sz = -11.5 - (i + 0.5) * stepD;
-      var step = makeBox(8.4, sy, stepD + 0.04, 0xcbd5e1, { roughness: 0.72 });
-      step.position.set(0, sy / 2, sz);
-      scene.add(step);
+      var riserH = Math.max(0.05, sy - 0.06);
+      var riser = new THREE.Mesh(new THREE.BoxGeometry(8.2, riserH, stepD), riserMat);
+      riser.position.set(0, riserH / 2, sz);
+      riser.castShadow = true; riser.receiveShadow = true;
+      var tread = new THREE.Mesh(new THREE.BoxGeometry(8.36, 0.06, stepD + 0.03), treadMat);
+      tread.position.set(0, sy - 0.03, sz + 0.015);
+      tread.castShadow = true; tread.receiveShadow = true;
+      var nose = new THREE.Mesh(new THREE.BoxGeometry(8.36, 0.025, 0.04), noseMat);
+      nose.position.set(0, sy - 0.012, sz + stepD / 2 + 0.015);
+      scene.add(riser, tread, nose);
     }
-    stairsList.push({ minX: -4.2, maxX: 4.2, zStart: -11.5, zEnd: -18.5, yStart: 0, yEnd: yTop });
+    stairsList.push({ minX: -4.15, maxX: 4.15, zStart: -11.5, zEnd: -18.5, yStart: 0, yEnd: yTop });
 
-    // Muretas laterais da escadaria
-    [-4.35, 4.35].forEach(function (rx) {
-      var railWall = makeBox(0.35, 2.6, 7.2, 0x64748b, { roughness: 0.6 });
-      railWall.position.set(rx, 1.3, -15.0);
-      scene.add(railWall);
-      solidColliders.push({ minX: rx - 0.25, maxX: rx + 0.25, minZ: -18.6, maxZ: -11.4, minY: 0, maxY: 4.9 });
+    // Guarda-corpo inclinado profissional com viga lateral, vidro temperado, postes e corrimao metalico
+    var slopeLen = Math.hypot(7.0, yTop);
+    var slopeAng = Math.atan2(yTop, 7.0);
+    var steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.65 });
+    var railMetalMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.22, metalness: 0.8 });
+    var stairGlassMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.34, roughness: 0.1, metalness: 0.2 });
+    [-4.25, 4.25].forEach(function (rx) {
+      var stringer = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.42, slopeLen + 0.3), steelMat);
+      stringer.position.set(rx, yTop / 2 - 0.08, -15.0);
+      stringer.rotation.x = -slopeAng;
+      stringer.castShadow = true;
+      var glassPanel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.88, slopeLen), stairGlassMat);
+      glassPanel.position.set(rx, yTop / 2 + 0.52, -15.0);
+      glassPanel.rotation.x = -slopeAng;
+      var handrail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, slopeLen + 0.2, 12), railMetalMat);
+      handrail.position.set(rx, yTop / 2 + 1.0, -15.0);
+      handrail.rotation.x = Math.PI / 2 - slopeAng;
+      scene.add(stringer, glassPanel, handrail);
+
+      for (var pIdx = 0; pIdx <= 3; pIdx++) {
+        var frac = pIdx / 3;
+        var post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.02, 0.08), steelMat);
+        post.position.set(rx, frac * yTop + 0.51, -11.5 - frac * 7.0);
+        scene.add(post);
+      }
+      solidColliders.push({ minX: rx - 0.22, maxX: rx + 0.22, minZ: -18.55, maxZ: -11.45, minY: 0, maxY: 5.0 });
     });
 
-    // Passarela / Ponte Elevada no nivel exato y=3.80 dividida em Esquerda e Direita
-    // (deixa o vao central x: -4.2..4.2 totalmente aberto para sair da escadaria sem teto bloqueando!)
+    // Passarela / Ponte Elevada no nivel exato y=3.80 dividida em Esquerda e Direita (sem sobrepor o ultimo degrau!)
     addWalkableSlab(-12.6, yTop, -15.65, 16.8, 0.34, 5.7, 0x475569, { roughness: 0.6 });
     addWalkableSlab(12.6, yTop, -15.65, 16.8, 0.34, 5.7, 0x475569, { roughness: 0.6 });
-    // Patamar superior atras do topo da escada conectando as passarelas e a Ponte Norte
-    addWalkableSlab(0, yTop, -18.6, 9.6, 0.34, 1.4, 0x475569, { roughness: 0.6 });
+    // Patamar superior alinhado exatamente atras de z=-18.5 (zero z-fighting!)
+    addWalkableSlab(0, yTop, -19.05, 8.6, 0.34, 1.1, 0x475569, { roughness: 0.6 });
 
-    // Guarda-corpo de vidro na borda sul da passarela (com abertura central na escadaria -4.2..4.2)
+    // Pilares estruturais sustentando a passarela
+    [-12.5, -6.5, 6.5, 12.5].forEach(function (px) {
+      [-13.2, -18.0].forEach(function (pz) {
+        var col = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, yTop - 0.34, 14), steelMat);
+        col.position.set(px, (yTop - 0.34) / 2, pz);
+        col.castShadow = true; col.receiveShadow = true;
+        scene.add(col);
+      });
+    });
+
+    // Guarda-corpo de vidro + corrimao metalico na borda sul da passarela
     [-1, 1].forEach(function (side) {
-      addSolidWall(side * 4.2, -12.85, side * 14.0, -12.85, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
-      addSolidWall(side * 20.6, -12.85, side * 24.0, -12.85, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+      addSolidWall(side * 4.2, -12.85, side * 14.0, -12.85, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+      var rail1 = new THREE.Mesh(new THREE.BoxGeometry(9.8, 0.06, 0.1), railMetalMat);
+      rail1.position.set(side * 9.1, yTop + 1.03, -12.85);
+      scene.add(rail1);
+      addSolidWall(side * 20.6, -12.85, side * 24.0, -12.85, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
     });
 
     // Pontes ligando Bloco Norte <-> Bloco Sul no 2o andar (x = +-19, z = -1.2 .. 2.2, y = 3.80)
@@ -935,9 +1027,39 @@
     var towerFrame = makeBox(3.6, 7.6, 0.16, 0x0f172a);
     towerFrame.position.set(0, baseY + 4.3, -33.52);
     scene.add(towerFrame);
-    var towerGlass = makeBox(3.2, 7.2, 0.18, 0x7dd3fc, { transparent: true, opacity: 0.6, roughness: 0.15 });
-    towerGlass.position.set(0, baseY + 4.3, -33.46);
-    scene.add(towerGlass);
+
+    // Painel 3D Interativo de Ranking logo abaixo do Relogio
+    rankingCanvas = document.createElement('canvas');
+    rankingCanvas.width = 512; rankingCanvas.height = 1024;
+    rankingCtx = rankingCanvas.getContext('2d');
+    rankingTex = new THREE.CanvasTexture(rankingCanvas);
+    var rankBoard = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.2, 6.6),
+      new THREE.MeshBasicMaterial({ map: rankingTex })
+    );
+    rankBoard.position.set(0, baseY + 4.5, -33.42);
+    scene.add(rankBoard);
+
+    // Botoes 3D de rolagem (▲ Subir / ▼ Descer) no rodape do painel
+    [['▲', -0.75, 'up'], ['▼', 0.75, 'down']].forEach(function (rb) {
+      var bc = document.createElement('canvas');
+      bc.width = 128; bc.height = 96;
+      var bctx = bc.getContext('2d');
+      bctx.fillStyle = '#1e293b'; bctx.fillRect(0, 0, 128, 96);
+      bctx.strokeStyle = '#38bdf8'; bctx.lineWidth = 6; bctx.strokeRect(4, 4, 120, 88);
+      bctx.fillStyle = '#f8fafc'; bctx.font = 'bold 48px system-ui, sans-serif';
+      bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+      bctx.fillText(rb[0], 64, 48);
+      var btn = new THREE.Mesh(
+        new THREE.BoxGeometry(0.95, 0.62, 0.1),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(bc) })
+      );
+      btn.position.set(rb[1], baseY + 0.85, -33.36);
+      btn.userData.rankAction = rb[2];
+      scene.add(btn);
+      rankingBtnMeshes.push(btn);
+    });
+    drawRankingBoard();
     solidColliders.push({ minX: -2.9, maxX: 2.9, minZ: -40.5, maxZ: -33.5, minY: baseY, maxY: baseY + 13 });
 
     // Relogio funcional no topo da torre
@@ -1987,7 +2109,7 @@
       }
       if (placementValid && placementGhost) {
         heldItem.mesh.position.copy(placementGhost.position);
-        heldItem.mesh.rotation.y = heldRotY;
+        heldItem.mesh.rotation.set(0, heldRotY, 0);
         heldItem.isMoved = true;
         pendingMovedItems[heldItem.id] = {
           id: heldItem.id,
@@ -2019,6 +2141,20 @@
       if (cinemaBeam) cinemaBeam.visible = cinemaPlaying;
       return;
     }
+    if (hoveredRankBtn) {
+      var maxStart = Math.max(0, rankingList.length - 8);
+      if (hoveredRankBtn === 'up') rankingScroll = Math.max(0, rankingScroll - 1);
+      else rankingScroll = Math.min(maxStart, rankingScroll + 1);
+      drawRankingBoard();
+      return;
+    }
+    if (hoveredSeat) {
+      seatedSeat = hoveredSeat;
+      playerPos.set(seatedSeat.x, seatedSeat.y, seatedSeat.z);
+      playerYaw = seatedSeat.yaw;
+      playerVelX = 0; playerVelZ = 0; playerVelY = 0;
+      return;
+    }
     if (hoveredScreenBtn) {
       if (hoveredScreenBtn.action === 'prev' && callbacks.onScreenNav) callbacks.onScreenNav(-1);
       else if (hoveredScreenBtn.action === 'next' && callbacks.onScreenNav) callbacks.onScreenNav(1);
@@ -2048,6 +2184,8 @@
     hoveredScreenBtn = null;
     hoveredBoardHit = null;
     hoveredCinema = false;
+    hoveredRankBtn = null;
+    hoveredSeat = null;
     var prompt = '';
 
     // Verifica proximidade dos teloes para exibir opcoes contextuais
@@ -2089,11 +2227,31 @@
     }
     if (placementGhost) placementGhost.visible = false;
 
+    if (rankingBtnMeshes.length) {
+      var rHits = raycaster.intersectObjects(rankingBtnMeshes, false);
+      if (rHits.length > 0 && rHits[0].distance < 18) {
+        hoveredRankBtn = rHits[0].object.userData.rankAction;
+        prompt = hoveredRankBtn === 'up' ? '▲ Subir Ranking' : '▼ Descer Ranking';
+        if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
+        return;
+      }
+    }
+
     if (cinemaScreenMesh) {
       var cHits = raycaster.intersectObject(cinemaScreenMesh, false);
       if (cHits.length > 0 && cHits[0].distance < 22) {
         hoveredCinema = true;
         prompt = cinemaPlaying ? '⏸️ Clique na tela para pausar o vídeo' : '▶️ Clique na tela para reproduzir o vídeo';
+        if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
+        return;
+      }
+    }
+
+    if (seatMeshes.length) {
+      var stHits = raycaster.intersectObjects(seatMeshes, false);
+      if (stHits.length > 0 && stHits[0].distance < 4.2) {
+        hoveredSeat = stHits[0].object.userData.seatInfo;
+        prompt = '🪑 Clique para sentar';
         if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
         return;
       }
@@ -2301,8 +2459,9 @@
       var mag = Math.hypot(moveX, moveZ);
       var targetVX = 0, targetVZ = 0;
       if (mag > 0.08) {
+        if (seatedSeat) seatedSeat = null; // levanta automaticamente ao andar!
         if (mag > 1) { moveX /= mag; moveZ /= mag; }
-        var maxSpeed = keys['ShiftLeft'] ? 6.2 : 3.8;
+        var maxSpeed = keys['ShiftLeft'] ? 7.5 : 4.6;
         var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
         var rightX = Math.cos(playerYaw), rightZ = -Math.sin(playerYaw);
         targetVX = (fwdX * moveZ + rightX * moveX) * maxSpeed;
@@ -2333,7 +2492,12 @@
         walkBobPhase += dt * (4.5 + speedNow * 1.4);
         bobY = Math.sin(walkBobPhase) * 0.028 * Math.min(1, speedNow / 3.8);
       }
-      camera.position.set(playerPos.x, playerPos.y + PLAYER_EYE + bobY, playerPos.z);
+      var eyeH = seatedSeat ? 1.18 : PLAYER_EYE;
+      if (seatedSeat) {
+        playerPos.set(seatedSeat.x, seatedSeat.y, seatedSeat.z);
+        playerVelY = 0;
+      }
+      camera.position.set(playerPos.x, playerPos.y + eyeH + bobY, playerPos.z);
       camera.up.set(0, 1, 0);
       camera.up.set(0, 1, 0);
       camera.rotation.order = 'YXZ';
@@ -2360,7 +2524,15 @@
         var reachY = fpsArmGroup ? armReach * 0.06 : 0;
         var handPos = new THREE.Vector3(0.30, -0.22 + reachY, -0.58 - reachZ).applyEuler(camera.rotation).add(camera.position);
         heldItem.mesh.position.copy(handPos);
-        heldItem.mesh.rotation.y = heldRotY;
+        if (heldItem.id.indexOf('chalk_') === 0) {
+          heldItem.mesh.rotation.order = 'YXZ';
+          heldItem.mesh.rotation.set(playerPitch - 0.18, playerYaw, 0);
+        } else if (heldItem.id.indexOf('board_eraser') === 0) {
+          heldItem.mesh.rotation.order = 'YXZ';
+          heldItem.mesh.rotation.set(playerPitch - Math.PI / 2, playerYaw, 0);
+        } else {
+          heldItem.mesh.rotation.set(0, heldRotY, 0);
+        }
       }
       if (localAvatar) {
         localAvatar.group.visible = true;
@@ -2477,52 +2649,91 @@
 
   function updateDynamicEnvironment(dt) {
     envTime += dt;
-    // Ciclo completo de ~240s (4 min): Dia -> Por do Sol dourado -> Noite estrelada -> Amanhecer
-    var dayPhase = (envTime % 240) / 240; // 0..1
-    var sunAngle = dayPhase * Math.PI * 2;
-    var sunY = Math.sin(sunAngle); // >0 dia, ~0 por do sol, <0 noite
+    // Ciclo completo de 40 min reais (20 min dia + 20 min noite), sincronizado com o Relogio da Torre
+    var dayFrac = getVirtualDayFrac();
+    var sunAngle = (dayFrac - 0.25) * Math.PI * 2;
+    var sunY = Math.sin(sunAngle); // >0 dia (06h..18h), ~0 nascer/por do sol, <0 noite (18h..06h)
+    var sunX = Math.cos(sunAngle);
 
-    // Clima alterna a cada ~55s: 0..55 Limpo, 55..100 Chuva, 100..150 Neve
-    var wCycle = envTime % 150;
-    weatherMode = wCycle < 55 ? 'clear' : (wCycle < 100 ? 'rain' : 'snow');
+    // 5 condicoes climaticas sincronizadas (ciclo de 7.5 min):
+    // 0..110 Ensolarado, 110..200 Parcialmente nublado, 200..270 Nublado, 270..360 Chuva, 360..450 Neve
+    var wCycle = (Date.now() / 1000) % 450;
+    if (wCycle < 110) weatherMode = 'clear';
+    else if (wCycle < 200) weatherMode = 'partly';
+    else if (wCycle < 270) weatherMode = 'overcast';
+    else if (wCycle < 360) weatherMode = 'rain';
+    else weatherMode = 'snow';
+
     var targetSnow = weatherMode === 'snow' ? 1 : 0;
     snowMix += (targetSnow - snowMix) * Math.min(1, dt * 0.25);
 
-    // Cores do ceu conforme hora do dia + clima
+    // Cores do ceu conforme Nascer do Sol, Dia, Por do Sol, Noite e Clima
     var skyDay = new THREE.Color(0x60a5fa);
     var skySunset = new THREE.Color(0xf97316);
-    var skyNight = new THREE.Color(0x0f172a);
-    var skyOvercast = new THREE.Color(0x64748b);
+    var skyNight = new THREE.Color(0x0b132b);
     var skyCol = skyDay.clone();
-    if (sunY < 0.22 && sunY > -0.18) {
-      var sT = 1 - Math.abs(sunY - 0.02) / 0.2;
+    if (sunY < 0.24 && sunY > -0.18) {
+      var sT = 1 - Math.abs(sunY - 0.03) / 0.21;
       skyCol.lerp(skySunset, Math.max(0, Math.min(1, sT)));
     } else if (sunY <= -0.18) {
       skyCol.lerp(skyNight, Math.min(1, (-sunY - 0.18) / 0.25));
     }
-    if (weatherMode === 'rain') skyCol.lerp(skyOvercast, 0.55);
-    if (weatherMode === 'snow') skyCol.lerp(new THREE.Color(0xcbd5e1), 0.45);
+    if (weatherMode === 'partly') skyCol.lerp(new THREE.Color(0x93c5fd), 0.2);
+    if (weatherMode === 'overcast') skyCol.lerp(new THREE.Color(0x94a3b8), 0.45);
+    if (weatherMode === 'rain') skyCol.lerp(new THREE.Color(0x475569), 0.65);
+    if (weatherMode === 'snow') skyCol.lerp(new THREE.Color(0xcbd5e1), 0.5);
     scene.background.copy(skyCol);
     if (scene.fog) scene.fog.color.copy(skyCol);
 
+    // Sol 3D, Halo, Lua 3D e Estrelas
+    if (sunDisc && sunHalo) {
+      sunDisc.position.set(sunX * 165, sunY * 145, -45);
+      sunHalo.position.copy(sunDisc.position);
+      var sunVis = sunY > -0.08 && weatherMode !== 'rain';
+      sunDisc.visible = sunVis;
+      sunHalo.visible = sunVis;
+      var sunOrbCol = sunY < 0.22 ? 0xfb923c : 0xfef08a;
+      sunDisc.material.color.setHex(sunOrbCol);
+      sunHalo.material.color.setHex(sunOrbCol);
+      sunHalo.material.opacity = weatherMode === 'overcast' ? 0.16 : 0.36;
+    }
+    if (moonDisc) {
+      moonDisc.position.set(-sunX * 165, -sunY * 145, -45);
+      moonDisc.visible = sunY < 0.08;
+    }
+    if (starPoints) {
+      var starOp = Math.max(0, Math.min(0.9, (-sunY - 0.02) * 2.4)) * (weatherMode === 'rain' || weatherMode === 'overcast' ? 0.2 : 1);
+      starPoints.visible = starOp > 0.02;
+      starPoints.material.opacity = starOp;
+    }
+
     if (envSun) {
-      envSun.position.set(Math.cos(sunAngle) * 75, Math.max(8, sunY * 75 + 12), 38);
+      envSun.position.set(sunX * 75, Math.max(8, sunY * 75 + 12), 38);
       var sunDay = new THREE.Color(0xfffbeb);
       var sunSet = new THREE.Color(0xfb923c);
       var sunNight = new THREE.Color(0x93c5fd);
-      if (sunY > 0.2) envSun.color.copy(sunDay);
+      if (sunY > 0.22) envSun.color.copy(sunDay);
       else if (sunY > -0.15) envSun.color.copy(sunSet);
       else envSun.color.copy(sunNight);
-      envSun.intensity = Math.max(0.28, sunY * 0.95 + 0.45) * (weatherMode === 'rain' ? 0.65 : 1);
+      var cloudDim = weatherMode === 'rain' ? 0.52 : (weatherMode === 'overcast' ? 0.72 : (weatherMode === 'partly' ? 0.88 : 1));
+      envSun.intensity = Math.max(0.28, sunY * 0.95 + 0.48) * cloudDim;
     }
     if (envHemi) {
       envHemi.intensity = Math.max(0.35, sunY * 0.45 + 0.55);
     }
 
-    // Nuvens deslizando suavemente
+    // Nuvens dinamicas: quantidade, cor e velocidade conforme o clima
+    var targetClouds = weatherMode === 'clear' ? 8 : (weatherMode === 'partly' ? 15 : (weatherMode === 'snow' ? 20 : 24));
+    var cloudSpeed = weatherMode === 'rain' ? 2.6 : (weatherMode === 'overcast' ? 1.8 : 1.0);
+    if (envCloudMat) {
+      var cCol = weatherMode === 'rain' ? new THREE.Color(0x64748b) : (weatherMode === 'overcast' ? new THREE.Color(0xcbd5e1) : new THREE.Color(0xffffff));
+      if (sunY < 0.22 && sunY > -0.15 && weatherMode !== 'rain') cCol.lerp(new THREE.Color(0xfdba74), 0.35);
+      envCloudMat.color.copy(cCol);
+    }
     for (var ci = 0; ci < envClouds.length; ci++) {
-      envClouds[ci].position.x += dt * (0.9 + (ci % 3) * 0.3);
-      if (envClouds[ci].position.x > 140) envClouds[ci].position.x = -140;
+      envClouds[ci].visible = ci < targetClouds;
+      envClouds[ci].position.x += dt * cloudSpeed * (0.8 + (ci % 3) * 0.25);
+      if (envClouds[ci].position.x > 155) envClouds[ci].position.x = -155;
     }
 
     // Acumulo de neve no terreno e telhados
@@ -2535,9 +2746,9 @@
       snowableEntries[si].mat.color.copy(snowableEntries[si].base).lerp(snowWhite, snowMix * 0.85);
     }
 
-    // Particulas de Chuva / Neve ao redor do jogador
+    // Particulas de Chuva / Neve ao redor do jogador (bloqueadas por roofZones)
     if (weatherPoints && weatherPosAttr) {
-      weatherPoints.visible = weatherMode !== 'clear';
+      weatherPoints.visible = weatherMode === 'rain' || weatherMode === 'snow';
       if (weatherPoints.visible) {
         weatherPoints.material.color.setHex(weatherMode === 'rain' ? 0x93c5fd : 0xffffff);
         weatherPoints.material.size = weatherMode === 'rain' ? 0.16 : 0.24;
@@ -2577,14 +2788,42 @@
     scene.background = new THREE.Color(0x60a5fa);
     scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0022);
 
-    // Nuvens brancas suaves no ceu
-    var cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe0f2fe, emissiveIntensity: 0.25 });
-    for (var cl = 0; cl < 12; cl++) {
+    // Sol 3D + Halo, Lua 3D, Estrelas e 24 Nuvens dinamicas no ceu
+    sunDisc = new THREE.Mesh(
+      new THREE.SphereGeometry(7.5, 18, 14),
+      new THREE.MeshBasicMaterial({ color: 0xfef08a, fog: false })
+    );
+    sunHalo = new THREE.Mesh(
+      new THREE.SphereGeometry(14.5, 18, 14),
+      new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+    );
+    moonDisc = new THREE.Mesh(
+      new THREE.SphereGeometry(5.5, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xe2e8f0, fog: false })
+    );
+    scene.add(sunDisc, sunHalo, moonDisc);
+
+    var starCount = 320;
+    var starPos = new Float32Array(starCount * 3);
+    for (var st = 0; st < starCount; st++) {
+      var sTheta = Math.random() * Math.PI * 2;
+      var sPhi = Math.random() * Math.PI * 0.44;
+      starPos[st * 3] = Math.cos(sTheta) * Math.cos(sPhi) * 210;
+      starPos[st * 3 + 1] = Math.sin(sPhi) * 210 + 18;
+      starPos[st * 3 + 2] = Math.sin(sTheta) * Math.cos(sPhi) * 210;
+    }
+    var starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xf8fafc, size: 1.4, transparent: true, opacity: 0, fog: false }));
+    scene.add(starPoints);
+
+    envCloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe0f2fe, emissiveIntensity: 0.22 });
+    for (var cl = 0; cl < 24; cl++) {
       var cg = new THREE.Group();
-      var ca = (cl / 12) * Math.PI * 2;
-      cg.position.set(Math.cos(ca) * (70 + (cl % 3) * 18), 32 + (cl % 4) * 4, Math.sin(ca) * (70 + (cl % 3) * 18));
+      var ca = (cl / 24) * Math.PI * 2;
+      cg.position.set(Math.cos(ca) * (55 + (cl % 4) * 24), 30 + (cl % 5) * 4.5, Math.sin(ca) * (55 + (cl % 4) * 24));
       for (var cp = 0; cp < 3; cp++) {
-        var puff = new THREE.Mesh(new THREE.SphereGeometry(5 + (cp % 2) * 2.5, 10, 8), cloudMat);
+        var puff = new THREE.Mesh(new THREE.SphereGeometry(5 + (cp % 2) * 2.5, 10, 8), envCloudMat);
         puff.position.set((cp - 1) * 5.2, (cp % 2) * 1.4, 0);
         puff.scale.set(1.3, 0.65, 1.0);
         cg.add(puff);
@@ -2760,6 +2999,71 @@
       if (hatHex && localAvatar.hatMat) localAvatar.hatMat.color.set(hatHex);
       if (bodyHex && localAvatar.bodyMat) localAvatar.bodyMat.color.set(bodyHex);
     }
+  };
+
+  function drawRankingBoard() {
+    if (!rankingCtx || !rankingTex) return;
+    var ctx = rankingCtx;
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, 512, 1024);
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(14, 14, 484, 90);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 34px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🏆 RANKING DO CAMPUS', 256, 70);
+
+    var perPage = 8;
+    var maxStart = Math.max(0, rankingList.length - perPage);
+    if (rankingScroll > maxStart) rankingScroll = maxStart;
+
+    if (!rankingList.length) {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '24px system-ui, sans-serif';
+      ctx.fillText('Carregando ranking...', 256, 260);
+    } else {
+      for (var i = 0; i < perPage; i++) {
+        var idx = rankingScroll + i;
+        if (idx >= rankingList.length) break;
+        var row = rankingList[idx];
+        var y = 128 + i * 102;
+        var isProf = row.role === 'professor' || row.role === 'admin';
+        ctx.fillStyle = idx === 0 ? 'rgba(251, 191, 36, 0.18)' : 'rgba(30, 41, 59, 0.9)';
+        ctx.fillRect(20, y, 472, 88);
+
+        // Posicao (#1, #2, #3...)
+        ctx.textAlign = 'left';
+        ctx.fillStyle = idx === 0 ? '#fbbf24' : (idx === 1 ? '#e2e8f0' : (idx === 2 ? '#fb923c' : '#94a3b8'));
+        ctx.font = 'bold 30px system-ui, sans-serif';
+        var medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : '#' + (idx + 1)));
+        ctx.fillText(medal, 32, y + 54);
+
+        // Cargo + Nome
+        ctx.fillStyle = isProf ? '#fbbf24' : '#34d399';
+        ctx.font = 'bold 20px system-ui, sans-serif';
+        ctx.fillText(isProf ? 'PROF.' : 'ALUNO', 105, y + 32);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 24px system-ui, sans-serif';
+        var nm = String(row.display_name || 'Explorador').slice(0, 16);
+        ctx.fillText(nm, 105, y + 66);
+
+        // XP
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#fde047';
+        ctx.font = 'bold 26px system-ui, sans-serif';
+        ctx.fillText((row.xp || 0) + ' XP', 476, y + 54);
+      }
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '20px system-ui, sans-serif';
+      ctx.fillText((rankingScroll + 1) + '–' + Math.min(rankingList.length, rankingScroll + perPage) + ' de ' + rankingList.length, 256, 985);
+    }
+    rankingTex.needsUpdate = true;
+  }
+
+  window.updateCampusRanking = function (list) {
+    rankingList = Array.isArray(list) ? list : [];
+    drawRankingBoard();
   };
 
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;

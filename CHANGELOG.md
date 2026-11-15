@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.5.3] — 2026-11-14
+### Improved
+- **Escadaria Monumental & Passarela Arquitetônica ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Degraus com piso de pedra clara, focinho antiderrapante metálico, guarda-corpo inclinado em vidro temperado com postes e corrimão metálico escovado, pilares cilíndricos sob a passarela e remoção completa do z-fighting no patamar superior.
+- **Relógio da Torre & Ciclo Dia/Noite em Tempo Real Virtual (40 min)**: Ciclo completo de 40 minutos (20 min dia + 20 min noite) sincronizado via UTC entre todos os jogadores e ligado diretamente aos ponteiros do Relógio da Torre (`06:00` amanhecer, `12:00` meio-dia, `18:00` pôr do sol, `00:00` meia-noite).
+- **Painel 3D Interativo de Ranking na Torre**: Ranking ao vivo abaixo do relógio com posição (`#1`, `#2`, `#3`...), cargo (`PROF.` / `ALUNO`), XP e botões 3D `▲` / `▼` para rolar a lista.
+- **Céu & Clima Dinâmico**: Sol 3D com halo, Lua, 320 estrelas noturnas e 24 nuvens variando em 5 condições (`clear`, `partly`, `overcast`, `rain`, `snow`).
+- **Jogabilidade & HUD**: Velocidade de caminhada aumentada em +20%, giz e apagador apontados na direção da lousa ao segurar, remoção da barra flutuante `#prof-toolbar` e eliminação do z-fighting na soleira do 2º andar.
+
 ## [v0.5.2] — 2026-11-14
 ### Fixed
 - **Posicionamento preciso seguindo a mira/mouse ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Substituída a amostragem grosseira por interseção exata raio × plano em mesas/bandejas/bancadas, passo fino no piso e liberação de superfícies de apoio perto de paredes/cantos.
