@@ -2,6 +2,41 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.0] — 2026-11-15
+### 👑 Loja de Cosméticos, 💃 Emotes Multiplayer, 🎵 Áudio Procedural Web Audio & 🍄 Ciclo de Cultivo na Estufa
+- **👑 Loja de Cosméticos por XP & Chapéus Especiais ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php), [db.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/db.php))**:
+  - Modal interativo (`#shop-modal`) e botão de atalho `👑 Loja` no topo do HUD.
+  - Catálogo de 6 chapéus 3D modelados individualmente:
+    - 🍄 **Cogumelo Vermelho Clássico** (*Amanita* vermelho com pintas brancas).
+    - 👑 **Cogumelo Dourado Radiante** (*Ouro reflexivo metálico com esferas cintilantes* - 200 XP e 5 cogumelos).
+    - 🧙‍♂️ **Capuz de Alquimista** (*Cone místico com aba e fivela dourada* - 350 XP e 10 cogumelos).
+    - 🎓 **Capelo Universitário** (*Chapéu acadêmico de formatura com borla dourada balançando* - 500 XP e 15 cogumelos).
+    - 🌸 **Coroa de Flores Silvestres** (*Grinalda botânica com flores coloridas da floresta* - 150 XP e 3 cogumelos).
+    - 🎨 **Boina de Pesquisador** (*Boina estilosa parisiense com ponteira* - 100 XP e 2 cogumelos).
+  - Persistência no banco MySQL via Migração v5 (`unlocked_hats` e `current_hat` em `mc_users` e `mc_sessions`).
+- **💃 Emotes & Animações Multiplayer ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Barra rápida de emotes (`#emote-bar`) com acionamento para mobile e desktop:
+    - 👋 **Acenar** (`wave`): Levanta o braço direito e oscila a mão amigavelmente.
+    - 💃 **Dançar** (`dance`): Ginga ritmicamente os braços, pernas e tronco.
+    - 🎉 **Comemorar** (`cheer`): Pula de braços erguidos em comemoração, acompanhado por uma explosão 3D de 45 confetes coloridos reutilizáveis (zero alocação de memória no loop).
+    - 🧘 **Meditar** (`meditate`): Sentado em posição de lótus flutuando suavemente no ar com efeito de levitação.
+  - Sincronização em tempo real entre todos os jogadores no campus 3D via `multiplayer.php?action=sync`.
+- **🎵 Áudio & Efeitos Sonoros Imersivos ([campus-audio.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-audio.js), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
+  - Motor sonoro procedural 100% sintetizado via Web Audio API (zero megabytes de áudio baixado).
+  - **Passos por tipo de piso**: Diferenciação acústica dinâmica de grama fofa (`grass`), assoalho e decks de madeira (`wood`), pedras e calçadas da praça (`stone`) e piso cerâmico do laboratório/estufa (`lab`).
+  - **Sons procedurais de interação**: Arpejo cintilante ao colher cogumelos, chiado de spray de álcool/água, som de portas abrindo e fechando, chiado de vapor pressurizado da panela de pressão e fanfarras de emotes.
+  - Botão de controle de volume / mudo no HUD (`#btn-toggle-audio` 🔊/🔇).
+- **🍄 Ciclo de Cultivo Completo na Estufa ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Bancada interativa na Estufa (Ala Leste-Sul) com 4 espécies de cogumelos:
+    1. **Shimeji Dourado** (*Pleurotus citrinopileatus*) — Buquê de chapéus amarelos vivos.
+    2. **Shiitake** (*Lentinula edodes*) — Chapéus robustos marrons com margens esbranquiçadas.
+    3. **Juba de Leão** (*Hericium erinaceus*) — Pompons brancos em cascata suave.
+    4. **Golden Teacher** (*Psilocybe cubensis*) — Hastes altas, véu escuro e brilho sutil bioluminescente no estágio maduro.
+  - Sistema de umidade individual com barra de LED indicadora (Verde >70%, Amarelo 45-70%, Vermelho <45%).
+  - Borrifar água com o borrifador (`💦`) hidrata o bloco em +25% UR com efeito de gotas d'água e som de spray.
+  - 4 fases de desenvolvimento visíveis: Micélio colonizando ➔ Primórdios (Pins) ➔ Crescimento médio ➔ Maduro pronto para colheita!
+  - Colher o bloco maduro concede +50 XP e +2 cogumelos colhidos com nuvem de partículas de esporos, som de conquista e reinício automático do ciclo de cultivo.
+
 ## [v0.8.3] — 2026-11-15
 ### Walk on Tables, Pressure Cooker Lid Snap, Laser Thermometer Gun & Syringe Puncture Animation
 - **Subir e Andar em Cima de Mesas, Bancadas e Móveis Sem Ejeção ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
