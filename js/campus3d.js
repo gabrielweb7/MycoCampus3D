@@ -4038,8 +4038,15 @@
     drawThermoScreen(24.0, 'HOLD');
   }
 
-  function drawThermoScreen(tempVal, modeStr) {
+  var lastDrawnTempStr = '';
+  var lastDrawnMode = '';
+  function drawThermoScreen(tempVal, modeStr, force) {
     if (!thermoCtx || !thermoTex) return;
+    var tStr = (typeof tempVal === 'number' ? tempVal.toFixed(1) : '24.0') + '°C';
+    var mStr = modeStr || 'SCAN';
+    if (!force && tStr === lastDrawnTempStr && mStr === lastDrawnMode) return;
+    lastDrawnTempStr = tStr;
+    lastDrawnMode = mStr;
     var ctx = thermoCtx;
     ctx.fillStyle = '#4ade80';
     ctx.fillRect(0, 0, 128, 128);
@@ -4050,14 +4057,13 @@
     ctx.fillStyle = '#064e3b';
     ctx.font = 'bold 12px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(modeStr || 'SCAN', 10, 22);
+    ctx.fillText(mStr, 10, 22);
 
     ctx.textAlign = 'right';
     ctx.fillText('⚡ 🔋', 118, 22);
 
     ctx.font = 'bold 30px monospace';
     ctx.textAlign = 'center';
-    var tStr = (typeof tempVal === 'number' ? tempVal.toFixed(1) : '24.0') + '°C';
     ctx.fillText(tStr, 64, 68);
 
     ctx.font = 'bold 11px monospace';
@@ -4094,6 +4100,17 @@
 
   function prepareGhostCloneMesh(rootGroup, matList) {
     rootGroup.traverse(function (ch) {
+      ch.userData.ignoreRay = true;
+      ch.userData.supportSurface = null;
+      ch.userData.dynamicSurface = null;
+      ch.userData.burnerSwitch = null;
+      ch.userData.stirSwitch = null;
+      ch.userData.hoodSwitch = null;
+      ch.userData.scaleObj = null;
+      ch.userData.isTable = false;
+      ch.userData.isHood = false;
+      ch.userData.isBurner = false;
+      ch.userData.isStirrer = false;
       if (ch.isPoints) {
         ch.visible = false;
         return;
@@ -4251,9 +4268,13 @@
       for (var si = 0; si < sHits.length; si++) {
         var sh = sHits[si];
         if (sh.distance < 0.02 || sh.distance > 5.5) continue;
+        if (sh.object.userData.ignoreRay) continue;
         var sSurf = sh.object.userData.supportSurface;
         if (!sSurf) continue;
-        if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === sSurf) continue;
+        if (heldItem && heldItem.mesh) {
+          if (heldItem.mesh.userData.dynamicSurface === sSurf) continue;
+          if (heldItem.mesh === sh.object || heldItem.mesh.getObjectById(sh.object.id)) continue;
+        }
         var cx = Math.max(sSurf.minX + 0.02, Math.min(sSurf.maxX - 0.02, sh.point.x));
         var cz = Math.max(sSurf.minZ + 0.02, Math.min(sSurf.maxZ - 0.02, sh.point.z));
         return new THREE.Vector3(cx, sSurf.topY, cz);
@@ -4264,6 +4285,7 @@
     if (dir.y < -0.005) {
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
+        if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === s) continue;
         var tPlane = (s.topY - origin.y) / dir.y;
         if (tPlane >= 0.08 && tPlane <= 5.5 && tPlane < bestT) {
           var hx = origin.x + dir.x * tPlane;
@@ -5060,10 +5082,45 @@
     }
   }
 
+  function dropHeldItem() {
+    if (!heldItem) return;
+    var rayNdc = inFps ? new THREE.Vector2(0, 0) : pointerNdc;
+    var pt = findPlacementTarget(rayNdc);
+    if (isPlacementBlocked(pt)) {
+      var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
+      var altPt = new THREE.Vector3(playerPos.x + fwdX * 0.85, getGroundHeight(playerPos.x + fwdX * 0.85, playerPos.z + fwdZ * 0.85, playerPos.y), playerPos.z + fwdZ * 0.85);
+      if (!isPlacementBlocked(altPt)) pt = altPt;
+    }
+    heldItem.mesh.position.copy(pt);
+    heldItem.mesh.rotation.set(0, heldRotY, 0);
+    heldItem.isMoved = true;
+    if (heldItem.mesh.userData.updateBounds) heldItem.mesh.userData.updateBounds(heldItem);
+    pendingMovedItems[heldItem.id] = {
+      id: heldItem.id, x: heldItem.mesh.position.x, y: heldItem.mesh.position.y, z: heldItem.mesh.position.z, ry: heldItem.mesh.rotation.y
+    };
+    recentlyDropped[heldItem.id] = performance.now() + 5000;
+    setHeldTwoHandedGhost(heldItem, false);
+    heldItem = null;
+    if (placementGhost) placementGhost.visible = false;
+    if (thermoLaserLine) thermoLaserLine.visible = false;
+    if (thermoLaserDot) thermoLaserDot.visible = false;
+    if (callbacks.onHoldChange) callbacks.onHoldChange(null);
+    notifyWorldAction();
+  }
+
   var lastPickupAt = 0;
   function handlePrimaryAction() {
     if (heldItem) {
       if (performance.now() - lastPickupAt < 140) return;
+      // Se estiver segurando o termômetro laser:
+      // O clique aciona o gatilho da pistola de medição com bipe sonoro (não solta no chão)
+      if (heldItem.mesh && heldItem.mesh.userData.isThermometer) {
+        if (window.MycoAudio && window.MycoAudio.playLaserBeep) {
+          window.MycoAudio.playLaserBeep();
+        }
+        drawThermoScreen(thermoCurrentTemp, 'HOLD', true);
+        return;
+      }
       // Se estiver perto da lousa com giz ou apagador, o clique desenha/apaga no ponto em vez de soltar
       if (hoveredBoardHit && getHeldBoardToolColor()) {
         var boardToolCol = getHeldBoardToolColor();
@@ -5506,6 +5563,13 @@
           }
         }
       }
+      if (heldItem.mesh.userData.isThermometer) {
+        if (placementGhost) placementGhost.visible = false;
+        var modeStr = isPrimaryDown ? 'SCAN' : 'HOLD';
+        prompt = '🔫 ' + (thermoTargetLabel || 'Ambiente') + ': ' + thermoCurrentTemp.toFixed(1) + '°C [' + modeStr + '] (Clique: Medir • Tecla G ou clique dir.: Soltar)';
+        if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
+        return;
+      }
       var pt = findPlacementTarget(rayNdc);
       placementValid = !isPlacementBlocked(pt);
       placementGhost.position.copy(pt);
@@ -5559,7 +5623,7 @@
       }
     }
 
-    if (burnerSwitchMeshes.length) {
+    if (burnerSwitchMeshes.length && (!heldItem || !heldItem.mesh.userData.isBurner)) {
       var bHits = raycaster.intersectObjects(burnerSwitchMeshes, false);
       if (bHits.length > 0 && bHits[0].distance < 4.0) {
         hoveredBurnerSwitch = bHits[0].object.userData.burnerSwitch;
@@ -5569,7 +5633,7 @@
       }
     }
 
-    if (stirSwitchMeshes.length) {
+    if (stirSwitchMeshes.length && (!heldItem || !heldItem.mesh.userData.isStirrer)) {
       var stSwHits = raycaster.intersectObjects(stirSwitchMeshes, false);
       if (stSwHits.length > 0 && stSwHits[0].distance < 4.0) {
         hoveredStirSwitch = stSwHits[0].object.userData.stirSwitch;
@@ -5775,6 +5839,11 @@
       if (e.code === 'Space') {
         e.preventDefault();
         window.triggerCampusJump();
+      }
+      if (e.code === 'KeyG' || e.code === 'KeyQ') {
+        if (heldItem) {
+          dropHeldItem();
+        }
       }
     });
     window.addEventListener('keyup', function (e) { keys[e.code] = false; });
@@ -6115,15 +6184,33 @@
           heldItem.mesh.rotation.order = 'YXZ';
           heldItem.mesh.rotation.set(playerPitch, playerYaw, 0);
 
-          // Feixe laser e leitura de temperatura em tempo real
+          // Feixe laser e leitura de temperatura em tempo real (otimizado sem travar o jogo)
           var muzzlePos = new THREE.Vector3(0, 0.155, -0.09).applyEuler(heldItem.mesh.rotation).add(heldItem.mesh.position);
           raycaster.setFromCamera(inFps ? _vZero2 : pointerNdc, camera);
-          var allLaserHits = raycaster.intersectObjects(scene.children, true).filter(function (h) {
+
+          if (!window._cachedLaserTargets || (now - (window._lastLaserCacheAt || 0) > 800)) {
+            window._lastLaserCacheAt = now;
+            var lTargets = [];
+            for (var pki = 0; pki < pickableItems.length; pki++) {
+              var pItem = pickableItems[pki];
+              if (pItem && pItem.mesh && pItem !== heldItem) lTargets.push(pItem.mesh);
+            }
+            for (var smi = 0; smi < supportMeshes.length; smi++) {
+              var sMesh = supportMeshes[smi];
+              if (sMesh && (!heldItem || sMesh !== heldItem.mesh)) lTargets.push(sMesh);
+            }
+            Object.keys(remoteAvatars).forEach(function (rId) {
+              var rAv = remoteAvatars[rId];
+              if (rAv && rAv.group) lTargets.push(rAv.group);
+            });
+            window._cachedLaserTargets = lTargets;
+          }
+
+          var allLaserHits = raycaster.intersectObjects(window._cachedLaserTargets, true).filter(function (h) {
             return !h.object.userData.ignoreRay &&
                    h.object !== heldItem.mesh &&
                    h.object !== thermoLaserLine &&
-                   h.object !== thermoLaserDot &&
-                   !heldItem.mesh.children.includes(h.object);
+                   h.object !== thermoLaserDot;
           });
           if (allLaserHits.length > 0 && allLaserHits[0].distance < 35.0) {
             var lHit = allLaserHits[0];
@@ -6194,7 +6281,7 @@
             thermoTargetLabel = 'Ar Ambiente';
           }
           thermoCurrentTemp += (thermoTargetTemp - thermoCurrentTemp) * Math.min(1, dt * 14);
-          drawThermoScreen(thermoCurrentTemp, 'SCAN');
+          drawThermoScreen(thermoCurrentTemp, isPrimaryDown ? 'SCAN' : 'HOLD');
         } else {
           heldItem.mesh.rotation.set(0, heldRotY, 0);
         }
@@ -7710,6 +7797,7 @@
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;
   window.updateCampusPlayers = updateCampusPlayers;
   window.triggerCampusRainbow = triggerCampusRainbow;
+  window.dropCampusHeldItem = dropHeldItem;
 
   // Namespace unificado MycoCampus para arquitetura limpa e escalabilidade
   window.MycoCampus = window.MycoCampus || {};
@@ -7721,4 +7809,5 @@
   window.MycoCampus.setColors = window.setCampusPlayerColors;
   window.MycoCampus.setFpsMode = window.setCampusFpsMode;
   window.MycoCampus.triggerRainbow = triggerCampusRainbow;
+  window.MycoCampus.dropHeldItem = dropHeldItem;
 })();

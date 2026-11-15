@@ -286,7 +286,25 @@
     }
   }
 
-  // 8. Controle de Mudo / Desmudo
+  // 8. Bipe do Termômetro Laser Infravermelho
+  function playLaserBeep() {
+    if (isMuted) return;
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2400, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1800, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.1);
+  }
+
+  // 9. Controle de Mudo / Desmudo
   function toggleMute() {
     isMuted = !isMuted;
     try {
@@ -305,6 +323,7 @@
     playClick: playClick,
     playDoor: playDoor,
     playEmote: playEmote,
+    playLaserBeep: playLaserBeep,
     setSteam: setPressureCookerSteam,
     toggleMute: toggleMute,
     isMuted: function () { return isMuted; },

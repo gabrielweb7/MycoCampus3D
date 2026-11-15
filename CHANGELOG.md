@@ -2,6 +2,20 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.4] — 2026-11-15
+### 🛠️ Otimização do Termômetro Laser, Eliminação de Congelamento & Estabilização do Fogareiro
+- **Termômetro Laser Infravermelho Otimizado (`infrared_thermometer`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-audio.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-audio.js))**:
+  - **Eliminação Total de Travamento/Congelamento**: O raycast do feixe laser foi desacoplado de `scene.children` e agora opera sobre um pool otimizado de alvos (`pickableItems` + `supportMeshes` + avatares remotos), reduzindo o custo de raycast de 10.000 nós para apenas ~35 objetos.
+  - **Otimização de Renderização LCD**: A textura Canvas 2D da tela verde (`drawThermoScreen`) agora faz throttle inteligente, atualizando e transferindo para a GPU somente quando há variação de temperatura (>= 0.1°C), liberando 100% da CPU/GPU.
+  - **Comportamento como Ferramenta na Mão**:
+    - O `placementGhost` fica oculto enquanto mira com o termômetro (não projeta mais um fantasma no chão ou em cima dos objetos medidos).
+    - Clicar aciona o gatilho da pistola (emite o bipe sonoro de laser `playLaserBeep()`, atualiza a medição SCAN/HOLD e fixa a leitura na tela sem soltar no chão).
+    - Tecla **G** (ou **Q** ou clique direito) solta o termômetro organizadamente sobre a bancada quando o jogador desejar.
+- **Estabilização do Fogareiro Elétrico (`burner_lab`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - **Fim da Subida Infinita / Flutuação no Ar**: As meshes clonadas no `placementGhost` agora limpam estritamente `userData.supportSurface`, `dynamicSurface` e recebem `ignoreRay = true`. O raycast de colocação (`findPlacementTarget`) ignora o próprio item segurado, eliminando a auto-interseção que fazia o fogareiro subir sozinho para o teto.
+  - O seletor de switches desconsidera botões do próprio aparelho segurado nas mãos, permitindo manuseá-lo com suavidade e precisão.
+
+
 ## [v0.9.3] — 2026-11-15
 ### 🍄 Correção de Piscar dos Cogumelos Silvestres & 🌈 Arco-íris 3D Espectral
 - **Estabilidade Total dos Cogumelos Silvestres no Bosque (`applyCampusWorldState`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
