@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.24] — 2026-11-15
+### 🧰 Bandejas Inox Cirúrgicas, Empilhamento de Placas de Petri & Braço na Seringa
+- **Bandejas Inox de Laboratório (`makeLabTray`) ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Adicionadas 3 bandejas cirúrgicas em aço inox polido com bordas inclinadas, cantos arredondados e pezinhos de silicone menta (`lab_tray_01`, `lab_tray_02`, `lab_tray_03`) sincronizadas no multiplayer, suportando seringas, placas de Petri e outros itens dentro delas.
+- **Correção do Empilhamento de Placas de Petri ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Corrigido o bug em `stepFallingItems` e `getPlacementSpot` onde a 2ª/3ª placa caía para dentro da placa de baixo.
+- **Braço na Coleta com Seringa ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Braço em 1ª pessoa mantido próximo ao corpo sem tampar o frasco enquanto a seringa vai até o septo.
+
 ## [v0.9.23] — 2026-11-15
 ### 🏂 Sincronização Multiplayer do Snowboard & Paraglider
 - **Correção do envio e leitura de `toy_mode` ([js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

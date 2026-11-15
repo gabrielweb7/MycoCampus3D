@@ -16,7 +16,7 @@ $mpBaseItems = [
     'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
     'heat_sealer', 'liquid_culture', 'magnetic_stirrer',
     'precision_scale', 'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03', 'burner_lab',
-    'infrared_thermometer',
+    'infrared_thermometer', 'lab_tray_01', 'lab_tray_02', 'lab_tray_03',
     'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
     'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',

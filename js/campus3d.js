@@ -2812,12 +2812,81 @@
       return registerPickable(id, 'Termômetro Laser Infravermelho', tg, px, py, pz, 0, 0.18, 0.22);
     }
 
+    function makeLabTray(id, label, px, py, pz) {
+      var tg = new THREE.Group();
+      var steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.18 });
+      var innerSteelMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.82, roughness: 0.25 });
+      var padMat = new THREE.MeshStandardMaterial({ color: 0x5eead4, roughness: 0.65, metalness: 0.05 });
+
+      // Fundo interno plano da bandeja (onde ficam seringas, bisturi, placas)
+      var floorPlate = makeBox(0.36, 0.006, 0.24, innerSteelMat);
+      floorPlate.position.y = 0.005;
+      floorPlate.castShadow = true;
+      floorPlate.receiveShadow = true;
+
+      // 4 paredes internas levemente inclinadas (estilo bandeja cirurgica inox)
+      var wallF = makeBox(0.38, 0.026, 0.008, steelMat);
+      wallF.position.set(0, 0.015, 0.126);
+      wallF.rotation.x = 0.22;
+      var wallB = makeBox(0.38, 0.026, 0.008, steelMat);
+      wallB.position.set(0, 0.015, -0.126);
+      wallB.rotation.x = -0.22;
+      var wallL = makeBox(0.008, 0.026, 0.26, steelMat);
+      wallL.position.set(-0.186, 0.015, 0);
+      wallL.rotation.z = -0.22;
+      var wallR = makeBox(0.008, 0.026, 0.26, steelMat);
+      wallR.position.set(0.186, 0.015, 0);
+      wallR.rotation.z = 0.22;
+
+      // Aba superior (borda arredondada) nos 4 lados
+      var lipF = makeBox(0.42, 0.005, 0.022, steelMat);
+      lipF.position.set(0, 0.028, 0.139);
+      var lipB = makeBox(0.42, 0.005, 0.022, steelMat);
+      lipB.position.set(0, 0.028, -0.139);
+      var lipL = makeBox(0.022, 0.005, 0.26, steelMat);
+      lipL.position.set(-0.199, 0.028, 0);
+      var lipR = makeBox(0.022, 0.005, 0.26, steelMat);
+      lipR.position.set(0.199, 0.028, 0);
+
+      // Cantos arredondados fofinhos + pezinhos de silicone menta
+      var cornerCoords = [[-0.199, -0.139], [0.199, -0.139], [-0.199, 0.139], [0.199, 0.139]];
+      for (var ci = 0; ci < cornerCoords.length; ci++) {
+        var cc = cornerCoords[ci];
+        var cCap = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.005, 12), steelMat);
+        cCap.position.set(cc[0], 0.028, cc[1]);
+        var foot = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.004, 10), padMat);
+        foot.position.set(cc[0] * 0.85, 0.002, cc[1] * 0.82);
+        tg.add(cCap, foot);
+      }
+
+      // Plaquinha fofa frontal "MYCO 304"
+      var badge = makeBox(0.07, 0.004, 0.014, padMat);
+      badge.position.set(0, 0.031, 0.139);
+
+      tg.add(floorPlate, wallF, wallB, wallL, wallR, lipF, lipB, lipL, badge);
+
+      var traySurf = { minX: px - 0.175, maxX: px + 0.175, minZ: pz - 0.115, maxZ: pz + 0.115, topY: py + 0.008 };
+      supportSurfaces.push(traySurf);
+      floorPlate.userData.supportSurface = traySurf;
+      supportMeshes.push(floorPlate);
+
+      tg.userData.isTray = true;
+      tg.userData.tableDims = { w: 0.35, h: 0.008, d: 0.23, surfOffset: 0 };
+      tg.userData.dynamicSurface = traySurf;
+      tg.userData.updateBounds = updateItemBounds;
+      tg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(traySurf, it); };
+      return registerPickable(id, label, tg, px, py, pz, 0, 0.22, 0.04);
+    }
+
     makeMagneticStirrer('magnetic_stirrer', -20.95, 0.91, -10.55);
     makeLiquidJar800('liquid_culture', -20.95, 1.015, -10.59, 350);
     makeBeaker1L('beaker_1l_a', -20.42, 0.91, -10.55, 0);
     makeBeaker1L('beaker_1l_b', -20.08, 0.91, -10.55, 500);
-    makeSyringe10ml('syringe_10ml_a', -19.72, 0.91, -10.42);
-    makeSyringe10ml('syringe_10ml_b', -19.72, 0.91, -10.72);
+    makeLabTray('lab_tray_01', 'Bandeja Inox Cirúrgica', -19.70, 0.91, -10.57);
+    makeLabTray('lab_tray_02', 'Bandeja Inox (Fluxo)', -18.30, 1.065, -8.20);
+    makeLabTray('lab_tray_03', 'Bandeja Inox (Preparo)', -20.42, 0.91, -10.18);
+    makeSyringe10ml('syringe_10ml_a', -19.70, 0.918, -10.50);
+    makeSyringe10ml('syringe_10ml_b', -19.70, 0.918, -10.64);
     makeInfraredThermometer('infrared_thermometer', -20.0, 0.91, -10.2);
 
     // Estantes Industriais Porta-Pallet (Azul Royal + Laranja) fixas no DEPOSITO (Bloco Oeste-Sul: x: -24..-14, z: 2.2..13.8)
@@ -4395,7 +4464,7 @@
         var cp = cand.mesh.position;
         _tmpPlaceCenter.set(cp.x, cp.y + 0.03, cp.z);
         var dCam = origin.distanceTo(_tmpPlaceCenter);
-        if (dCam < petriDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.036) {
+        if (dCam < petriDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.045) {
           petriDist = dCam;
           petriBest = cand;
         }
@@ -4408,7 +4477,7 @@
         for (var pj = 0; pj < pickableItems.length; pj++) {
           var pOther = pickableItems[pj];
           if (!pOther || pOther === heldItem || !pOther.mesh || !pOther.mesh.userData.isPetri) continue;
-          if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < 0.10) {
+          if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < 0.14) {
             stackCount++;
             if (pOther.mesh.position.y > maxY) maxY = pOther.mesh.position.y;
           }
@@ -4692,14 +4761,16 @@
           }
         }
         if (item.mesh.userData.isPetri) {
+          var myIdx = pickableItems.indexOf(item);
           for (var pj = 0; pj < pickableItems.length; pj++) {
             var pBase = pickableItems[pj];
             if (!pBase || pBase === item || pBase === heldItem || isHeldByRemote(pBase.id)) continue;
             if (!pBase.mesh || !pBase.mesh.userData.isPetri) continue;
-            if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < 0.12 &&
-              item.mesh.position.y >= pBase.mesh.position.y + 0.025 &&
-              item.mesh.position.y <= pBase.mesh.position.y + 0.14) {
-              supportedY = Math.max(supportedY, pBase.mesh.position.y + 0.055);
+            if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < 0.15) {
+              var dyPetri = item.mesh.position.y - pBase.mesh.position.y;
+              if (dyPetri > 0.008 || (Math.abs(dyPetri) <= 0.008 && myIdx > pj)) {
+                supportedY = Math.max(supportedY, pBase.mesh.position.y + 0.055);
+              }
             }
           }
         }
@@ -7159,13 +7230,15 @@
             heldItem.mesh.position.copy(_tmpHandPos);
 
             if (fpsArmGroup) {
-              // Traz a mão direita até o corpo da seringa para não parecer flutuando no ar
-              _tmpSyrOff.set(0.02, 0.04, 0).applyEuler(heldItem.mesh.rotation).add(_tmpHandPos);
-              camera.worldToLocal(_tmpSyrHand.copy(_tmpSyrOff));
-              fpsArmGroup.position.lerp(_tmpSyrHand.add(_tmpSyrOff.set(0.06, -0.05, 0.16)), syringePunctureProgress);
+              // Mantém o braço próximo do corpo do jogador (sem tampar o frasco) enquanto a seringa vai ao septo
+              fpsArmGroup.position.set(
+                0.32 - 0.04 * syringePunctureProgress,
+                -0.28 - 0.04 * syringePunctureProgress,
+                -0.42 - 0.04 * syringePunctureProgress
+              );
               fpsArmGroup.rotation.set(
-                0.18 + 0.42 * syringePunctureProgress,
-                -0.14 + 0.10 * syringePunctureProgress,
+                0.18 + 0.14 * syringePunctureProgress,
+                -0.14 + 0.04 * syringePunctureProgress,
                 0.05
               );
             }
