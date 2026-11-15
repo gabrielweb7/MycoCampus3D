@@ -5,6 +5,7 @@ api/config.php
 
 # Dados temporários / runtime
 data/*.json
+data/.migrated_*
 *.log
 
 # Sistema / IDE
