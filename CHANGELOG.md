@@ -8,6 +8,13 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Substituído `new THREE.CapsuleGeometry` (inexistente no Three.js `r128`, que causava `TypeError: THREE.CapsuleGeometry is not a constructor` em `makeLiquidJar800` e interrompia o `boot()` antes do `tryResumeSession()`) por `new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10)`.
   - Adicionado suporte em `tryResumeSession()` para autenticar automaticamente e limpar imediatamente a URL (`history.replaceState`) caso o formulário tenha sido submetido via GET (`?campus_name=...&campus_pin=...`).
 
+## [v0.6.3] - 2026-11-15
+### Added & Fixed
+- Panela de Pressao 20L sem travamento ao pegar tampa ou panela (removidas referencias circulares em mesh.userData).
+- Cultura Liquida 800ml (350ml), Agitador Magnetico clicavel com peixinho giratorio, 2x Bequeres 1L (1000ml) e 2x Seringas 10ml com agulha e transferencia real de volume.
+- Bloqueio visual (fantasma vermelho) ao tentar colocar Fluxo Laminar/Mesas sobre outros objetos, mira atravessando o vidro do Fluxo para pegar itens internos/vizinhos sem avisos.
+- Placa LAB na porta do Laboratorio, carteiras e cadeiras escolares azuis/brancas no 2o andar, remocao dos guarda-sois, canaleta da lousa liberada (6.8m), apagador virado para a lousa e giz inclinado para cima.
+
 ## [v0.6.2] — 2026-11-15
 ### Added, Fixed & Improved
 - **Sincronização 100% em Tempo Real + Persistência Completa no Banco de Dados MySQL ([multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
