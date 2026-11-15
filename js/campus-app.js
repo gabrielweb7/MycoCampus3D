@@ -1417,6 +1417,22 @@
     if (btnCloseAdmin) btnCloseAdmin.onclick = closeAdminModal;
     var btnRefreshAdmin = $('btn-admin-refresh');
     if (btnRefreshAdmin) btnRefreshAdmin.onclick = loadAdminUsers;
+    var btnAdminResetWorld = $('btn-admin-reset-world');
+    if (btnAdminResetWorld) {
+      btnAdminResetWorld.onclick = async function () {
+        try {
+          var rw = await apiPost('api/multiplayer.php?action=reset_world', {}, true);
+          if (rw && rw.ok) {
+            if (window.resetCampusWorldObjects) window.resetCampusWorldObjects();
+            showAdminNotice('♻️ Todos os itens do laboratório e estantes foram restaurados para as posições originais!');
+          } else {
+            showAdminNotice((rw && rw.error) || 'Não foi possível resetar os itens.', true);
+          }
+        } catch (e) {
+          showAdminNotice('Erro de conexão ao resetar itens.', true);
+        }
+      };
+    }
     var searchAdminInput = $('admin-search-input');
     if (searchAdminInput) {
       searchAdminInput.addEventListener('input', function () {
