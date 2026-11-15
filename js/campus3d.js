@@ -4475,6 +4475,7 @@
       }
       if (heldItem === item || isHeldByRemote(item.id)) {
         item.movedAt = now;
+        removeFromCookerContents(item);
         return;
       }
       for (var cpi = 0; cpi < cookerPots.length; cpi++) {
@@ -4675,9 +4676,44 @@
     }
   }
 
+  function removeFromCookerContents(item) {
+    if (!item) return;
+    for (var i = 0; i < cookerPots.length; i++) {
+      var idx = cookerPots[i].contents.indexOf(item);
+      if (idx !== -1) cookerPots[i].contents.splice(idx, 1);
+    }
+  }
+
+  function isItemInsideClosedCooker(item) {
+    if (!item) return null;
+    for (var i = 0; i < cookerPots.length; i++) {
+      var cp = cookerPots[i];
+      if (cp.contents.indexOf(item) !== -1 && cp.lidItem && cp.lidItem.isAttached) {
+        return cp;
+      }
+    }
+    return null;
+  }
+
+  function disposeObject3D(root, skipMat) {
+    if (!root) return;
+    root.traverse(function (obj) {
+      if (obj.geometry && obj.geometry.dispose) obj.geometry.dispose();
+      var mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
+      for (var i = 0; i < mats.length; i++) {
+        var m = mats[i];
+        if (!m || m === skipMat) continue;
+        if (m.map && m.map.dispose) m.map.dispose();
+        if (m.dispose) m.dispose();
+      }
+    });
+  }
+
   function buildAvatarHat(hatId, hatMat, hatGroup) {
     while (hatGroup.children.length > 0) {
-      hatGroup.remove(hatGroup.children[0]);
+      var oldHat = hatGroup.children[0];
+      hatGroup.remove(oldHat);
+      disposeObject3D(oldHat, hatMat);
     }
     var id = hatId || 'default';
 
@@ -4932,6 +4968,7 @@
     });
     Object.keys(remoteAvatars).forEach(function (id) {
       if (!seen[id]) {
+        disposeObject3D(remoteAvatars[id].group);
         scene.remove(remoteAvatars[id].group);
         delete remoteAvatars[id];
       }
@@ -5105,6 +5142,7 @@
 
   function dropHeldItem() {
     if (!heldItem) return;
+    syringePumping = null;
     var rayNdc = inFps ? new THREE.Vector2(0, 0) : pointerNdc;
     var pt = findPlacementTarget(rayNdc);
     if (isPlacementBlocked(pt)) {
@@ -5112,8 +5150,13 @@
       var altX = playerPos.x + fwdX * 0.85;
       var altZ = playerPos.z + fwdZ * 0.85;
       var altPt = new THREE.Vector3(altX, getItemGroundHeight(altX, altZ, playerPos.y), altZ);
-      if (!isPlacementBlocked(altPt)) pt = altPt;
+      if (isPlacementBlocked(altPt)) {
+        if (callbacks.onToast) callbacks.onToast('🚫 Sem espaço livre aqui para soltar o item!');
+        return;
+      }
+      pt = altPt;
     }
+    var dropTs = performance.now() + 15000;
     heldItem.mesh.position.copy(pt);
     heldItem.mesh.rotation.set(0, heldRotY, 0);
     heldItem.isMoved = true;
@@ -5121,7 +5164,32 @@
     pendingMovedItems[heldItem.id] = {
       id: heldItem.id, x: heldItem.mesh.position.x, y: heldItem.mesh.position.y, z: heldItem.mesh.position.z, ry: heldItem.mesh.rotation.y
     };
-    recentlyDropped[heldItem.id] = performance.now() + 5000;
+    recentlyDropped[heldItem.id] = dropTs;
+    if (heldItem.lidItem && heldItem.lidItem.isAttached) {
+      var lid = heldItem.lidItem;
+      lid.mesh.position.set(pt.x, pt.y + 0.36, pt.z);
+      lid.mesh.rotation.copy(heldItem.mesh.rotation);
+      lid.isMoved = true;
+      pendingMovedItems[lid.id] = {
+        id: lid.id, x: lid.mesh.position.x, y: lid.mesh.position.y, z: lid.mesh.position.z, ry: lid.mesh.rotation.y
+      };
+      recentlyDropped[lid.id] = dropTs;
+    }
+    for (var cpi = 0; cpi < cookerPots.length; cpi++) {
+      if (cookerPots[cpi].potItem === heldItem) {
+        cookerPots[cpi].contents.forEach(function (cItem, cIdx) {
+          var ox = (cIdx % 2 === 0 ? -0.06 : 0.06);
+          var oz = (cIdx < 2 ? -0.05 : 0.05);
+          cItem.mesh.position.set(pt.x + ox, pt.y + 0.045, pt.z + oz);
+          cItem.isMoved = true;
+          pendingMovedItems[cItem.id] = {
+            id: cItem.id, x: cItem.mesh.position.x, y: cItem.mesh.position.y, z: cItem.mesh.position.z, ry: cItem.mesh.rotation.y
+          };
+          recentlyDropped[cItem.id] = dropTs;
+        });
+        break;
+      }
+    }
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
     thermoLaserOn = false;
@@ -5758,6 +5826,7 @@
           if (item.lidItem && item.lidItem.isAttached && hit0.point.y >= item.mesh.position.y + 0.26) {
             item = item.lidItem;
           }
+          if (isItemInsideClosedCooker(item)) continue;
           if (item.mesh.userData.isBlockedPickup && item.mesh.userData.isBlockedPickup(item)) {
             if (dHit < bestBlockedDist) {
               bestBlockedDist = dHit;
@@ -5858,7 +5927,8 @@
 
   function bindControls() {
     window.addEventListener('keydown', function (e) {
-      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      var ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
       keys[e.code] = true;
       if (e.code === 'Space') {
         e.preventDefault();
@@ -5879,6 +5949,9 @@
       flushCurrentStroke();
     }
     window.addEventListener('blur', clearAllInputKeys);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) clearAllInputKeys();
+    });
     document.addEventListener('pointerlockchange', function () {
       if (document.pointerLockElement !== renderer.domElement) {
         clearAllInputKeys();
@@ -6436,6 +6509,14 @@
       }
 
       // Processo de bombeamento contínuo da seringa de 2 segundos (0% a 100%)
+      if (syringePumping) {
+        if (!heldItem || !heldItem.mesh.userData.isSyringe) {
+          syringePumping = null;
+        } else if (syringePumping.target.item && syringePumping.target.item.mesh.position.distanceTo(playerPos) > 4.5) {
+          syringePumping = null;
+          if (callbacks.onToast) callbacks.onToast('💉 Bombeamento cancelado: você se afastou do recipiente.');
+        }
+      }
       if (syringePumping && heldItem && heldItem.mesh.userData.isSyringe) {
         syringePumping.elapsed += dt;
         var pRatio = Math.min(1, syringePumping.elapsed / syringePumping.duration);
@@ -6768,6 +6849,8 @@
         sb.mat.opacity = Math.max(0, 0.85 * (1 - sb.age / 0.45));
         if (sb.age >= 0.45) {
           scene.remove(sb.pts);
+          if (sb.pts.geometry && sb.pts.geometry.dispose) sb.pts.geometry.dispose();
+          if (sb.mat && sb.mat.dispose) sb.mat.dispose();
           sprayBursts.splice(sbi, 1);
         }
       }
@@ -7634,6 +7717,7 @@
         item.mesh.rotation.y = saved.ry || 0;
         item.isMoved = true;
       } else if (item.isMoved) {
+        removeFromCookerContents(item);
         item.mesh.position.copy(item.homePos);
         item.mesh.rotation.y = item.homeRy;
         if (item.potItem) item.isAttached = true;
@@ -7643,9 +7727,21 @@
   };
 
   window.resetCampusWorldObjects = function () {
+    syringePumping = null;
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
     pendingMovedItems = {};
+    recentlyDropped = {};
+    for (var cpi = 0; cpi < cookerPots.length; cpi++) {
+      var cp = cookerPots[cpi];
+      cp.contents = [];
+      cp.psi = 0;
+      cp.temp = 25;
+      cp.progress = 0;
+      cp.sterilized = false;
+      if (cp.steamPoints) cp.steamPoints.visible = false;
+      if (cp.weight) cp.weight.rotation.set(0, 0, 0);
+    }
     pickableItems.forEach(function (item) {
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
@@ -7653,6 +7749,29 @@
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       item.isMoved = false;
     });
+    if (callbacks.onHoldChange) callbacks.onHoldChange(null);
+  };
+
+  window.resetCampusLocalSession = function () {
+    syringePumping = null;
+    setHeldTwoHandedGhost(heldItem, false);
+    heldItem = null;
+    thermoLaserOn = false;
+    seatedSeat = null;
+    pendingMovedItems = {};
+    pendingBoardStrokes = [];
+    pendingStateChanges = {};
+    recentlyDropped = {};
+    if (placementGhost) placementGhost.visible = false;
+    if (thermoLaserLine) thermoLaserLine.visible = false;
+    if (thermoLaserDot) thermoLaserDot.visible = false;
+    playerVelX = 0;
+    playerVelY = 0;
+    playerVelZ = 0;
+    playerPos.set(0, 0, 10.5);
+    playerYaw = 0;
+    playerPitch = 0;
+    if (window.clearCampusKeys) window.clearCampusKeys();
     if (callbacks.onHoldChange) callbacks.onHoldChange(null);
   };
 
@@ -7888,6 +8007,7 @@
     if (pose.holding && !heldItem) {
       var item = findPickable(pose.holding);
       if (item && !isHeldByRemote(item.id)) {
+        removeFromCookerContents(item);
         if (item.potItem && item.isAttached) {
           item.isAttached = false;
         }
@@ -7900,6 +8020,7 @@
   };
 
   window.teleportCampusPlayer = function (x, y, z, yaw) {
+    syringePumping = null;
     seatedSeat = null;
     playerVelX = 0;
     playerVelZ = 0;

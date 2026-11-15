@@ -2,6 +2,23 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.11] — 2026-11-15
+### 🐛 Correções Profundas de Vazamentos WebGL, Panela de Pressão, Seringa, Input & Sessão
+- **Panela de Pressão & Física de Conteúdo ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Bloqueada a coleta de frascos/bags de dentro da panela enquanto a tampa estiver acoplada (`isItemInsideClosedCooker`).
+  - `updatePickablePhysics` e `applyCampusSavedPose` agora removem o item de `cookerPots.contents` (`removeFromCookerContents`) quando segurado por jogador remoto ou restaurado no spawn, evitando teleporte de volta para dentro da panela.
+  - `window.resetCampusWorldObjects()` e `applyCampusWorldObjects()` agora limpam `cookerPots.contents`, `psi`, `temp`, `progress`, `sterilized`, vapor e `recentlyDropped` ao resetar o mundo.
+- **Seringa 10ml & `dropHeldItem` ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Cancelamento automático de `syringePumping` ao soltar item (`G`/`Q`), teleportar (`teleportCampusPlayer`) ou se afastar mais de `4.5m` do recipiente.
+  - `dropHeldItem` agora recusa soltar em locais bloqueados (mesmo no fallback frontal), move tampa acoplada e `cookerPots.contents` junto com a panela, e usa janela de `15000ms` em `recentlyDropped`.
+- **Limpeza de Memória WebGL ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Adicionado helper `disposeObject3D()` para descartar geometrias, materiais e texturas (`map`) de chapéus antigos em `buildAvatarHat` e de avatares remotos desconectados.
+  - Partículas `sprayBursts` agora chamam `.geometry.dispose()` e `.mat.dispose()` ao expirar.
+- **Input, Modais & Isolamento de Sessão ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Adicionado `visibilitychange` para limpar teclas presas, verificação de `isContentEditable` no `keydown`, `blur` no botão mobile `#btn-mobile-action` e foco no `#admin-search-input`.
+  - Novo `releaseInputForModal()` ao abrir qualquer modal (`ranking`, `admin`, `lesson`, `map`, `quest`, `shop`) liberando teclas e pointer lock.
+  - `logoutCampus()` agora regenera `sessionId`, limpa `pendingChatMsg`, fecha todos os modais e chama `window.resetCampusLocalSession()`.
+
 ## [v0.9.10] — 2026-11-15
 ### 🔧 Auditoria Completa de Objetos, Compatibilidade de Itens & Zero-GC
 - **Estufa Sincronizada Corretamente ([api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

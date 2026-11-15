@@ -619,6 +619,13 @@
     }
   }
 
+  function releaseInputForModal() {
+    if (window.clearCampusKeys) window.clearCampusKeys();
+    if (document.pointerLockElement && document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (e) { /* silent */ }
+    }
+  }
+
   async function logoutCampus() {
     if (syncTimer) clearInterval(syncTimer);
     syncTimer = null;
@@ -629,13 +636,18 @@
     } catch (e) { /* silent */ }
     currentUser = null;
     authToken = '';
+    pendingChatMsg = '';
+    sessionId = 'mc_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+    if (window.resetCampusLocalSession) window.resetCampusLocalSession();
     window.updateCampusPlayers([]);
     window.setCampusFpsMode(false);
     $('campus-hud').classList.add('hidden');
     $('lesson-modal').classList.add('hidden');
     $('ranking-modal').classList.add('hidden');
-    var adminEl = $('admin-modal');
-    if (adminEl) adminEl.classList.add('hidden');
+    ['admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'emote-bar'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.classList.add('hidden');
+    });
     $('campus-lobby').classList.remove('hidden');
     if (lastName) $('input-name').value = lastName;
     var btn = $('btn-enter-campus');
@@ -784,6 +796,7 @@
   }
 
   async function openRankingModal() {
+    releaseInputForModal();
     $('ranking-modal').classList.remove('hidden');
     var body = $('ranking-body');
     body.innerHTML = '<div class="text-slate-400">Carregando ranking...</div>';
@@ -988,6 +1001,7 @@
   function openAdminModal() {
     var m = $('admin-modal');
     if (!m) return;
+    releaseInputForModal();
     m.classList.remove('hidden');
     loadAdminUsers();
   }
@@ -1321,9 +1335,11 @@
           if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(false);
           window.removeEventListener('mousemove', onMouseMove);
           window.removeEventListener('mouseup', onMouseUp);
+          window.removeEventListener('blur', onMouseUp);
         }
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('blur', onMouseUp);
       });
     }
   }
@@ -1516,7 +1532,7 @@
     var btnLogout = $('btn-logout');
     if (btnLogout) btnLogout.onclick = logoutCampus;
     var btnOpenLessons = $('btn-open-lessons');
-    if (btnOpenLessons) btnOpenLessons.onclick = function () { renderLessonsModal(); var m = $('lesson-modal'); if (m) m.classList.remove('hidden'); };
+    if (btnOpenLessons) btnOpenLessons.onclick = function () { releaseInputForModal(); renderLessonsModal(); var m = $('lesson-modal'); if (m) m.classList.remove('hidden'); };
     var btnCloseLessons = $('btn-close-lessons');
     if (btnCloseLessons) btnCloseLessons.onclick = function () { var m = $('lesson-modal'); if (m) m.classList.add('hidden'); };
     var btnOpenRanking = $('btn-open-ranking');
@@ -1528,6 +1544,7 @@
     if (btnMap) {
       btnMap.onclick = function () {
         if (window.MycoAudio) window.MycoAudio.playClick();
+        releaseInputForModal();
         renderMapModal();
         var mm = $('map-modal');
         if (mm) mm.classList.remove('hidden');
@@ -1546,6 +1563,7 @@
     if (btnQuest) {
       btnQuest.onclick = function () {
         if (window.MycoAudio) window.MycoAudio.playClick();
+        releaseInputForModal();
         renderQuestModal();
         var qm = $('quest-modal');
         if (qm) qm.classList.remove('hidden');
@@ -1564,6 +1582,7 @@
     if (btnShop) {
       btnShop.onclick = function () {
         if (window.MycoAudio) window.MycoAudio.playClick();
+        releaseInputForModal();
         renderShopModal();
         $('shop-modal').classList.remove('hidden');
       };
@@ -1635,6 +1654,9 @@
     }
     var searchAdminInput = $('admin-search-input');
     if (searchAdminInput) {
+      searchAdminInput.addEventListener('focus', function () {
+        if (window.clearCampusKeys) window.clearCampusKeys();
+      });
       searchAdminInput.addEventListener('input', function () {
         renderAdminUsers(adminUsersCache);
       });
