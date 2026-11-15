@@ -1,4 +1,4 @@
--- MycoCampus3D - Schema MySQL (schema_version 5)
+-- MycoCampus3D - Schema MySQL (schema_version 7)
 -- Criado/migrado automaticamente por api/db.php no primeiro acesso.
 
 CREATE TABLE IF NOT EXISTS mc_meta (
@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS mc_users (
     login_fails INT NOT NULL DEFAULT 0,
     login_locked_until DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_users_leaderboard (xp, mushrooms_harvested)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS mc_auth_tokens (
@@ -31,7 +32,8 @@ CREATE TABLE IF NOT EXISTS mc_auth_tokens (
     user_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_tokens_user (user_id)
+    INDEX idx_tokens_user (user_id),
+    INDEX idx_tokens_last_used (last_used)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS mc_sessions (

@@ -147,6 +147,7 @@
   var burnerSwitchMeshes = [];
   var hoveredBurnerSwitch = null;
   var burnerDevices = [];
+  var sportBalls = [];
   var cookerPots = [];
   var spawnGrowItems = [];
   var sprayBursts = [];
@@ -193,121 +194,7 @@
     return mat;
   }
 
-  // ---------------- Sistema de Áudio Procedural (Web Audio API - Zero dependências externas) ----------------
-  var audioCtx = null;
-  function getAudioContext() {
-    if (!audioCtx) {
-      try {
-        var AudioCtor = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtor) audioCtx = new AudioCtor();
-      } catch (e) { /* ignore */ }
-    }
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(function () { });
-    }
-    return audioCtx;
-  }
-
-  function playHarvestSound() {
-    var ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      var now = ctx.currentTime;
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(520, now);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
-      gain.gain.setValueAtTime(0.22, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.22);
-    } catch (e) { /* silent */ }
-  }
-
-  function playSwitchSound() {
-    var ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      var now = ctx.currentTime;
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(1400, now);
-      osc.frequency.exponentialRampToValueAtTime(360, now + 0.04);
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.045);
-    } catch (e) { /* silent */ }
-  }
-
-  function playDoorSound() {
-    var ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      var now = ctx.currentTime;
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(180, now);
-      osc.frequency.linearRampToValueAtTime(110, now + 0.15);
-      gain.gain.setValueAtTime(0.14, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.16);
-    } catch (e) { /* silent */ }
-  }
-
-  function playSpraySound() {
-    var ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      var now = ctx.currentTime;
-      var bufferSize = Math.floor(ctx.sampleRate * 0.12);
-      var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      var data = buffer.getChannelData(0);
-      for (var i = 0; i < bufferSize; i++) {
-        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.035));
-      }
-      var noise = ctx.createBufferSource();
-      noise.buffer = buffer;
-      var filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 3400;
-      var gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.22, now);
-      noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
-      noise.start(now);
-    } catch (e) { /* silent */ }
-  }
-
-  function playPickupSound() {
-    var ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      var now = ctx.currentTime;
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(320, now);
-      osc.frequency.exponentialRampToValueAtTime(460, now + 0.07);
-      gain.gain.setValueAtTime(0.14, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.08);
-    } catch (e) { /* silent */ }
-  }
+  // Áudio centralizado em window.MycoAudio (js/campus-audio.js)
 
   // Multiplayer
   var remoteAvatars = {};
@@ -3511,6 +3398,7 @@
       updateGreenhouseSlotMesh(slot);
       queueWorldStateChange('greenhouse_slot_' + slot.id + '_stage', 0);
       queueWorldStateChange('greenhouse_slot_' + slot.id + '_humidity', 70);
+      if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
       return;
     }
 
@@ -3520,10 +3408,17 @@
       triggerWaterSprayFx(slot.x, slot.y + 0.30, slot.z);
       updateGreenhouseSlotMesh(slot);
       queueWorldStateChange('greenhouse_slot_' + slot.id + '_humidity', Math.round(slot.humidity));
+      if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
       return;
     }
 
     if (window.MycoAudio) window.MycoAudio.playClick();
+    if (callbacks.onToast) {
+      var stageNames = ['Micélio colonizando', 'Primórdios (Pins)', 'Crescimento médio', 'Maduro para colheita'];
+      var stLabel = stageNames[slot.stage] || 'Em cultivo';
+      var hum = Math.round(slot.humidity);
+      callbacks.onToast('🍄 ' + slot.species + ' • ' + stLabel + ' (' + hum + '% UR) — Use o Borrifador para hidratar ou aguarde amadurecer!');
+    }
   }
 
   // ---------------- Mega Campus: Lago em 8, Esportes, Student Center, Dormitorios & Avenidas ----------------
@@ -3743,6 +3638,61 @@
       boardB.position.set(hx + (hx < -48 ? 0.35 : -0.35), 2.8, 6);
       scene.add(post, boardB);
     });
+
+    // Bolas interativas do Complexo Esportivo (Futebol + Basquete)
+    (function createSportBalls() {
+      function makeBallTex(bg, lineCol, isSoccer) {
+        var c = document.createElement('canvas');
+        c.width = 128; c.height = 64;
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, 128, 64);
+        ctx.strokeStyle = lineCol; ctx.fillStyle = lineCol;
+        if (isSoccer) {
+          for (var sx = 16; sx < 128; sx += 32) {
+            for (var sy = 16; sy < 64; sy += 32) {
+              ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI * 2); ctx.fill();
+            }
+          }
+        } else {
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(0, 32); ctx.lineTo(128, 32); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(64, 0); ctx.lineTo(64, 64); ctx.stroke();
+          ctx.beginPath(); ctx.arc(32, 32, 22, -1.1, 1.1); ctx.stroke();
+          ctx.beginPath(); ctx.arc(96, 32, 22, Math.PI - 1.1, Math.PI + 1.1); ctx.stroke();
+        }
+        return new THREE.CanvasTexture(c);
+      }
+
+      var soccerMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.24, 16, 12),
+        new THREE.MeshStandardMaterial({ map: makeBallTex('#f8fafc', '#0f172a', true), roughness: 0.55 })
+      );
+      soccerMesh.position.set(-50, 0.29, -15);
+      soccerMesh.castShadow = true;
+      scene.add(soccerMesh);
+      sportBalls.push({
+        kind: 'soccer', mesh: soccerMesh, r: 0.24,
+        vx: 0, vy: 0, vz: 0,
+        homeX: -50, homeZ: -15, groundY: 0.05,
+        minX: -61.8, maxX: -38.2, minZ: -21.8, maxZ: -8.2,
+        bounceUp: 3.2, goalCooldown: 0
+      });
+
+      var bballMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 16, 12),
+        new THREE.MeshStandardMaterial({ map: makeBallTex('#ea580c', '#1e293b', false), roughness: 0.65 })
+      );
+      bballMesh.position.set(-48, 0.27, 6);
+      bballMesh.castShadow = true;
+      scene.add(bballMesh);
+      sportBalls.push({
+        kind: 'basketball', mesh: bballMesh, r: 0.22,
+        vx: 0, vy: 0, vz: 0,
+        homeX: -48, homeZ: 6, groundY: 0.05,
+        minX: -55.3, maxX: -40.7, minZ: 1.4, maxZ: 10.6,
+        bounceUp: 4.5, goalCooldown: 0
+      });
+    })();
 
     // 3c. Quadras de Tenis azuis (x: -48, z: -36)
     [-54, -42].forEach(function (tx) {
@@ -5222,6 +5172,7 @@
         heldItem = null;
         placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
+        if (callbacks.onLabStep) callbacks.onLabStep('cooker_heat');
         notifyWorldAction();
         return;
       }
@@ -5230,6 +5181,7 @@
         var nowMs = performance.now();
         if (hoveredSprayTarget === 'hood') {
           hoodSanitizedUntil = nowMs + 90000;
+          if (callbacks.onLabStep) callbacks.onLabStep('sanitize_hood');
         } else {
           hoveredSprayTarget.sanitizedUntil = nowMs + 90000;
         }
@@ -5419,7 +5371,7 @@
       if (hoveredSwitch.rocker) {
         hoveredSwitch.rocker.rotation.x = hoveredSwitch.on ? -0.22 : 0.22;
       }
-      playSwitchSound();
+      if (window.MycoAudio) window.MycoAudio.playSwitch();
       queueWorldStateChange(hoveredSwitch.id, hoveredSwitch.on ? 1 : 0);
       return;
     }
@@ -5446,8 +5398,9 @@
         hoveredHoodSwitch.workLight.visible = hoveredHoodSwitch.on;
         hoveredHoodSwitch.workLight.intensity = hoveredHoodSwitch.on ? 0.95 : 0;
       }
-      playSwitchSound();
+      if (window.MycoAudio) window.MycoAudio.playSwitch();
       queueWorldStateChange('hood_lab', hoveredHoodSwitch.on ? 1 : 0);
+      if (hoveredHoodSwitch.on && callbacks.onLabStep) callbacks.onLabStep('hood_on');
       return;
     }
     if (hoveredStirSwitch) {
@@ -5468,6 +5421,7 @@
         hoveredBurnerSwitch.knobGroup.rotation.z = hoveredBurnerSwitch.on ? -1.45 : 0;
       }
       queueWorldStateChange('burner_lab', hoveredBurnerSwitch.on ? 1 : 0);
+      if (hoveredBurnerSwitch.on && callbacks.onLabStep) callbacks.onLabStep('cooker_heat');
       return;
     }
     if (hoveredPickable) {
@@ -6496,8 +6450,71 @@
             updateContainerVolume(syringePumping.target.item, Math.max(0, syringePumping.startJarVol - finalD));
           }
           if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
+          if (callbacks.onLabStep) callbacks.onLabStep('syringe_use');
           notifyWorldAction();
           syringePumping = null;
+        }
+      }
+      if (sportBalls.length) {
+        for (var sbi = 0; sbi < sportBalls.length; sbi++) {
+          var sb = sportBalls[sbi];
+          var bPos = sb.mesh.position;
+          if (sb.goalCooldown > 0) {
+            sb.goalCooldown -= dt;
+            if (sb.goalCooldown <= 0) {
+              bPos.set(sb.homeX, sb.groundY + sb.r, sb.homeZ);
+              sb.vx = 0; sb.vy = 0; sb.vz = 0;
+            }
+          }
+          var bdx = bPos.x - playerPos.x;
+          var bdz = bPos.z - playerPos.z;
+          var bDistSq = bdx * bdx + bdz * bdz;
+          var touchR = 0.42 + sb.r;
+          if (bDistSq < touchR * touchR && Math.abs(playerPos.y - bPos.y) < 1.25) {
+            var bDist = Math.sqrt(bDistSq) || 0.01;
+            var nx = bdx / bDist;
+            var nz = bdz / bDist;
+            var pSpeed = Math.hypot(playerVelX, playerVelZ);
+            var kickPow = Math.max(4.5, pSpeed * 1.65);
+            sb.vx = nx * kickPow;
+            sb.vz = nz * kickPow;
+            sb.vy = Math.max(sb.vy, sb.bounceUp * (pSpeed > 1 ? 1.0 : 0.6));
+            bPos.x = playerPos.x + nx * (touchR + 0.03);
+            bPos.z = playerPos.z + nz * (touchR + 0.03);
+            if (window.MycoAudio) window.MycoAudio.playClick();
+          }
+          sb.vy -= 14.0 * dt;
+          bPos.x += sb.vx * dt;
+          bPos.y += sb.vy * dt;
+          bPos.z += sb.vz * dt;
+          var floorY = sb.groundY + sb.r;
+          if (bPos.y <= floorY) {
+            bPos.y = floorY;
+            if (Math.abs(sb.vy) > 0.8) {
+              sb.vy = -sb.vy * 0.62;
+            } else {
+              sb.vy = 0;
+            }
+            var fric = Math.pow(0.18, dt);
+            sb.vx *= fric;
+            sb.vz *= fric;
+          } else {
+            var airFric = Math.pow(0.75, dt);
+            sb.vx *= airFric;
+            sb.vz *= airFric;
+          }
+          if (sb.kind === 'soccer' && sb.goalCooldown <= 0 && (bPos.x < -61.2 || bPos.x > -38.8) && Math.abs(bPos.z - (-15)) < 2.1 && bPos.y < 2.1) {
+            sb.goalCooldown = 1.6;
+            triggerConfettiBurst(bPos.x, bPos.y + 0.6, bPos.z);
+            if (window.MycoAudio) window.MycoAudio.playHarvest();
+            if (callbacks.onToast) callbacks.onToast('⚽ GOOOOL! 🎉');
+          }
+          if (bPos.x < sb.minX) { bPos.x = sb.minX; sb.vx = Math.abs(sb.vx) * 0.7; }
+          if (bPos.x > sb.maxX) { bPos.x = sb.maxX; sb.vx = -Math.abs(sb.vx) * 0.7; }
+          if (bPos.z < sb.minZ) { bPos.z = sb.minZ; sb.vz = Math.abs(sb.vz) * 0.7; }
+          if (bPos.z > sb.maxZ) { bPos.z = sb.maxZ; sb.vz = -Math.abs(sb.vz) * 0.7; }
+          sb.mesh.rotation.z -= (sb.vx * dt) / sb.r;
+          sb.mesh.rotation.x += (sb.vz * dt) / sb.r;
         }
       }
       if (localAvatar) {
@@ -7864,6 +7881,18 @@
     }
   };
 
+  window.teleportCampusPlayer = function (x, y, z, yaw) {
+    seatedSeat = null;
+    playerVelX = 0;
+    playerVelZ = 0;
+    playerVelY = 0;
+    playerPos.set(Number(x) || 0, Number(y) || 0, Number(z) || 0);
+    if (typeof yaw === 'number') playerYaw = yaw;
+    playerPitch = 0;
+    clampPosAgainstWalls(playerPos, 0.35);
+    if (window.MycoAudio) window.MycoAudio.playDoor(true);
+  };
+
   window.setCampusPlayerColors = function (hatHex, bodyHex) {
     if (fpsSleeveMat && bodyHex) {
       fpsSleeveMat.color.set(bodyHex);
@@ -7977,7 +8006,7 @@
       playerYaw = yaw;
       if (controls && controls.target) controls.target.set(x, targetY + 1.2, z);
     }
-    playSwitchSound();
+    if (window.MycoAudio) window.MycoAudio.playSwitch();
   };
 
   window.getCampusPlayerPos = function () {

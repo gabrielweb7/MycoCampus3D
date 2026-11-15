@@ -80,6 +80,10 @@ $pdo = mc_db_or_fail();
 $body = mc_body();
 $action = mc_action('sync');
 
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+    mc_json(['ok' => false, 'error' => 'Método HTTP inválido. Use POST.'], 405);
+}
+
 if ($action === 'leave') {
     $user = mc_require_user($pdo);
     $del = $pdo->prepare('DELETE FROM mc_sessions WHERE session_id = ?');
@@ -231,18 +235,23 @@ if ($action === 'sync') {
     $pdo->prepare($sql)->execute($params);
 
     if (!empty($body['moved_items']) && is_array($body['moved_items'])) {
-        $itemUpsert = $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)');
+        $batchPlaceholders = [];
+        $batchParams = [];
         foreach (array_slice($body['moved_items'], 0, count(MP_ITEMS)) as $item) {
             if (!is_array($item)) continue;
             $iid = (string)($item['id'] ?? '');
             if (!in_array($iid, MP_ITEMS, true)) continue;
-            $itemUpsert->execute([
-                $iid,
-                mp_num($item['x'] ?? 0, MP_WORLD_LIMIT),
-                mp_num($item['y'] ?? 0, 50.0),
-                mp_num($item['z'] ?? 0, MP_WORLD_LIMIT),
-                mp_num($item['ry'] ?? 0, 1000.0),
-            ]);
+            $batchPlaceholders[] = '(?, ?, ?, ?, ?)';
+            $batchParams[] = $iid;
+            $batchParams[] = mp_num($item['x'] ?? 0, MP_WORLD_LIMIT);
+            $batchParams[] = mp_num($item['y'] ?? 0, 50.0);
+            $batchParams[] = mp_num($item['z'] ?? 0, MP_WORLD_LIMIT);
+            $batchParams[] = mp_num($item['ry'] ?? 0, 1000.0);
+        }
+        if ($batchPlaceholders) {
+            $batchSql = 'INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES ' . implode(',', $batchPlaceholders)
+                      . ' ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)';
+            $pdo->prepare($batchSql)->execute($batchParams);
         }
     }
 
@@ -276,14 +285,9 @@ if ($action === 'sync') {
     $objects = new stdClass();
     foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
         $itemId = (string)$obj['item_id'];
-        $yVal = (float)$obj['y'];
-        if ($itemId === 'burner_lab' && $yVal > 1.15) {
-            $pdo->prepare('DELETE FROM mc_world_objects WHERE item_id = "burner_lab"')->execute();
-            continue;
-        }
         $objects->{$itemId} = [
             'x' => (float)$obj['x'],
-            'y' => $yVal,
+            'y' => (float)$obj['y'],
             'z' => (float)$obj['z'],
             'ry' => (float)$obj['ry'],
         ];
@@ -300,8 +304,11 @@ if ($action === 'sync') {
             } elseif ($sKey === 'cinema_lesson') {
                 $cleanVal = (string)max(-1, min(10, (int)$sVal));
             } elseif ($sKey === 'auditorium_slide') {
+                if (!mc_is_professor($user)) continue;
                 $cleanVal = (string)max(0, min(MP_SLIDE_COUNT - 1, (int)$sVal));
                 $stUpsert->execute(['auditorium_presenter', (string)$user['display_name']]);
+            } elseif ($sKey === 'auditorium_presenter') {
+                continue;
             } else {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             }
@@ -325,9 +332,10 @@ if ($action === 'sync') {
         }
     }
 
-    // Salva novos tracos da lousa enviados pelo jogador
+    // Salva novos tracos da lousa enviados pelo jogador (batch insert)
     if (!empty($body['board_strokes']) && is_array($body['board_strokes'])) {
-        $stIns = $pdo->prepare('INSERT INTO mc_board_strokes (stroke_json) VALUES (?)');
+        $strokePlaceholders = [];
+        $strokeParams = [];
         foreach (array_slice($body['board_strokes'], 0, 20) as $st) {
             if (!is_array($st)) continue;
             $col = (string)($st['c'] ?? '');
@@ -340,14 +348,19 @@ if ($action === 'sync') {
             }
             if (count($pts) >= 1) {
                 $boardIdx = max(0, min(3, (int)($st['b'] ?? 0)));
-                $stIns->execute([json_encode(['b' => $boardIdx, 'c' => $col, 'pts' => $pts])]);
+                $strokePlaceholders[] = '(?)';
+                $strokeParams[] = json_encode(['b' => $boardIdx, 'c' => $col, 'pts' => $pts]);
             }
         }
-        // Mantem ate 2500 tracos para preservar todo o desenho das 4 lousas
-        $maxId = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes')->fetchColumn();
-        if ($maxId > 2500) {
-            $delOld = $pdo->prepare('DELETE FROM mc_board_strokes WHERE id <= ?');
-            $delOld->execute([$maxId - 2500]);
+        if ($strokePlaceholders) {
+            $pdo->prepare('INSERT INTO mc_board_strokes (stroke_json) VALUES ' . implode(',', $strokePlaceholders))
+                ->execute($strokeParams);
+            // Mantem ate 2500 tracos para preservar todo o desenho das 4 lousas
+            $maxId = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes')->fetchColumn();
+            if ($maxId > 2500) {
+                $delOld = $pdo->prepare('DELETE FROM mc_board_strokes WHERE id <= ?');
+                $delOld->execute([$maxId - 2500]);
+            }
         }
     }
 
@@ -364,9 +377,17 @@ if ($action === 'sync') {
         $lastBoardId = (int)$row['id'];
     }
 
+    $appVersion = function_exists('apcu_fetch') ? apcu_fetch('mc_app_version') : false;
+    if ($appVersion === false) {
+        $appVersion = trim((string)@file_get_contents(__DIR__ . '/../VERSION'));
+        if (function_exists('apcu_store')) {
+            apcu_store('mc_app_version', $appVersion, 5);
+        }
+    }
+
     mc_json([
         'ok' => true,
-        'app_version' => trim((string)@file_get_contents(__DIR__ . '/../VERSION')),
+        'app_version' => $appVersion,
         'online_count' => count($players) + 1,
         'saved_pose' => $savedPose,
         'force_teleport' => $forceTeleport,

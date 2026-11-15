@@ -304,7 +304,26 @@
     osc.stop(ctx.currentTime + 0.1);
   }
 
-  // 9. Controle de Mudo / Desmudo
+  // 9. Som de Interruptor / Botão Físico
+  function playSwitch() {
+    if (isMuted) return;
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1400, now);
+    osc.frequency.exponentialRampToValueAtTime(360, now + 0.04);
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.045);
+  }
+
+  // 10. Controle de Mudo / Desmudo
   function toggleMute() {
     isMuted = !isMuted;
     try {
@@ -324,6 +343,7 @@
     playDoor: playDoor,
     playEmote: playEmote,
     playLaserBeep: playLaserBeep,
+    playSwitch: playSwitch,
     setSteam: setPressureCookerSteam,
     toggleMute: toggleMute,
     isMuted: function () { return isMuted; },

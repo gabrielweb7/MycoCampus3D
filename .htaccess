@@ -9,9 +9,9 @@ AddDefaultCharset UTF-8
   RewriteCond %{HTTPS} off
   RewriteCond %{HTTP:X-Forwarded-Proto} !https
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-  # Bloqueia arquivos internos
-  RewriteRule (^|/)\.git - [F,L]
-  RewriteRule ^(database|tools)(/|$) - [F,L]
+  # Bloqueia arquivos internos e dotfiles
+  RewriteRule (^|/)\.(?!well-known/) - [F,L]
+  RewriteRule ^(database|tools|data)(/|$) - [F,L]
   RewriteRule ^(README\.md|CHANGELOG\.md|VERSION|\.cpanel\.yml|\.gitignore)$ - [F,L]
 </IfModule>
 

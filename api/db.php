@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 6;
+const MC_SCHEMA_VERSION = 7;
 const MC_TOKEN_TTL_DAYS = 30;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -115,6 +115,21 @@ function mc_migrate(PDO $pdo): void {
         } catch (Throwable $e) {}
         try {
             $pdo->exec("ALTER TABLE mc_sessions ADD COLUMN emote VARCHAR(16) NOT NULL DEFAULT ''");
+        } catch (Throwable $e) {}
+
+        // v5 -> v7: Tabela de lousa garantida + Índices de performance (ranking e limpeza de tokens)
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS mc_board_strokes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                stroke_json MEDIUMTEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (Throwable $e) {}
+        try {
+            $pdo->exec("ALTER TABLE mc_users ADD INDEX idx_users_leaderboard (xp, mushrooms_harvested)");
+        } catch (Throwable $e) {}
+        try {
+            $pdo->exec("ALTER TABLE mc_auth_tokens ADD INDEX idx_tokens_last_used (last_used)");
         } catch (Throwable $e) {}
 
         try {

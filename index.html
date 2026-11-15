@@ -63,7 +63,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=0.9.5">
+  <link rel="stylesheet" href="css/game.css?v=0.9.9">
   <style>
     html, body {
       margin: 0;
@@ -347,6 +347,8 @@
         <span class="text-amber-300 font-bold">⭐ <span id="hud-xp">0</span> XP</span>
         <span class="text-emerald-300 font-bold">🍄 <span id="hud-mushrooms">0</span></span>
         <span class="text-sky-300 font-bold">🌐 <span id="hud-online">1</span> online</span>
+        <button id="btn-open-map" type="button" title="Mapa & Teleporte Rápido" class="px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️ Mapa</button>
+        <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório" class="px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪 Missão <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/5</span></button>
         <button id="btn-open-shop" type="button" title="Loja de Cosméticos & Chapéus" class="px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑 Loja</button>
         <button id="btn-open-admin" type="button" title="Painel Master Admin" class="hidden px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🛡️ Admin</button>
         <button id="btn-open-emotes" type="button" title="Emotes & Animações" class="px-2 py-0.5 rounded-lg bg-pink-900/60 hover:bg-pink-800 text-pink-200 font-bold border border-pink-500/50 flex items-center gap-1">💃 Emotes</button>
@@ -443,6 +445,40 @@
     </div>
   </div>
 
+  <!-- QUICK MAP TELEPORT MODAL -->
+  <div id="map-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
+    <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden max-h-[88dvh]">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🗺️</span>
+          <div>
+            <h2 class="text-base font-extrabold text-white">Mapa Rápido do Campus</h2>
+            <p class="text-[11px] text-sky-300">Escolha um setor para ir direto até lá</p>
+          </div>
+        </div>
+        <button id="btn-close-map" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
+      </div>
+      <div id="map-sectors-grid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- LAB QUEST CHECKLIST MODAL -->
+  <div id="quest-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
+    <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden max-h-[88dvh]">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🧪</span>
+          <div>
+            <h2 class="text-base font-extrabold text-white">Missão Prática: Cultivo Asséptico</h2>
+            <p class="text-[11px] text-emerald-300">Complete os 5 passos reais no campus e ganhe +100 XP</p>
+          </div>
+        </div>
+        <button id="btn-close-quest" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
+      </div>
+      <div id="quest-body" class="p-4 overflow-y-auto space-y-2.5 text-xs"></div>
+    </div>
+  </div>
+
   <!-- MASTER ADMIN MODAL -->
   <div id="admin-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80">
     <div class="glass-panel rounded-2xl modal-card-lg flex flex-col overflow-hidden max-h-[90dvh]">
@@ -478,12 +514,12 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.9.8';</script>
+  <script>window.MYCO_VERSION = '0.9.9';</script>
   <script src="js/vendor/three.min.js?v=r128"></script>
   <script src="js/vendor/OrbitControls.js?v=r128"></script>
-  <script src="js/campus-audio.js?v=0.9.8"></script>
-  <script src="js/campus3d.js?v=0.9.8"></script>
-  <script src="js/campus-app.js?v=0.9.8"></script>
+  <script src="js/campus-audio.js?v=0.9.9"></script>
+  <script src="js/campus3d.js?v=0.9.9"></script>
+  <script src="js/campus-app.js?v=0.9.9"></script>
 </body>
 </html>
 

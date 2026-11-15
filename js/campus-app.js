@@ -152,11 +152,153 @@
     }
   }
 
-  function showFloatingToast(msg) {
+  var toastUntil = 0;
+
+  function showFloatingToast(msg, durationMs) {
     var pill = $('interact-pill');
     if (!pill) return;
+    toastUntil = Date.now() + (durationMs || 3200);
     pill.textContent = msg;
     pill.classList.remove('hidden');
+    setTimeout(function () {
+      if (Date.now() >= toastUntil && pill.textContent === msg) {
+        pill.classList.add('hidden');
+      }
+    }, durationMs || 3200);
+  }
+
+  var CAMPUS_SECTORS = [
+    { id: 'plaza', icon: '🏛️', name: 'Praça Central', desc: 'Ponto inicial, fonte e torre do relógio', x: 0, y: 0, z: 10.5, yaw: 0 },
+    { id: 'lab', icon: '🧪', name: 'Laboratório Asséptico', desc: 'Fluxo laminar, autoclave, fogareiro e seringas', x: -16.2, y: 0.14, z: -7.0, yaw: Math.PI / 2 },
+    { id: 'storage', icon: '📦', name: 'Depósito de Insumos', desc: 'Bags, vidros, grãos, placas e borrifadores', x: -16.2, y: 0.14, z: 7.5, yaw: Math.PI / 2 },
+    { id: 'greenhouse', icon: '🍄', name: 'Estufa de Frutificação', desc: 'Cultive e colha 4 espécies de cogumelos', x: 16.5, y: 0.14, z: 7.5, yaw: -Math.PI / 2 },
+    { id: 'cinema', icon: '🎬', name: 'Cinema & Auditório', desc: 'Telão interativo com aulas e poltronas', x: 48, y: 0.14, z: -6.5, yaw: 0 },
+    { id: 'sports', icon: '⚽', name: 'Complexo Esportivo', desc: 'Futebol, basquete com bolas reais e tênis', x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
+    { id: 'forest', icon: '🌲', name: 'Bosque & Lago', desc: 'Colha cogumelos silvestres pela floresta', x: 0, y: 0, z: -24, yaw: 0 }
+  ];
+
+  var LAB_QUEST_STEPS = [
+    { key: 'sanitize_hood', icon: '🧴', title: '1. Higienizar a Capela', desc: 'Pegue um Borrifador de Álcool 70% e borrife dentro da Capela de Fluxo Laminar.' },
+    { key: 'hood_on', icon: '🌬️', title: '2. Ligar o Fluxo Laminar', desc: 'Clique no interruptor da Capela de Fluxo Laminar para ligar o filtro HEPA.' },
+    { key: 'cooker_heat', icon: '🔥', title: '3. Esterilizar na Autoclave', desc: 'Coloque um frasco/bag na Panela de Pressão ou ligue o Fogareiro Industrial.' },
+    { key: 'syringe_use', icon: '💉', title: '4. Inocular com Seringa', desc: 'Use a Seringa 10ml em um frasco de Cultura Líquida ou spawn.' },
+    { key: 'greenhouse_care', icon: '🍄', title: '5. Cuidar da Estufa', desc: 'Vá até a Estufa e borrife água ou colha um bloco maduro de cogumelos.' }
+  ];
+  var labQuestDone = {};
+
+  function getQuestStorageKey() {
+    return 'myco_quest_' + (currentUser ? currentUser.id : 'guest');
+  }
+
+  function loadLabQuestProgress() {
+    labQuestDone = {};
+    try {
+      var raw = localStorage.getItem(getQuestStorageKey());
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') labQuestDone = parsed;
+      }
+    } catch (e) {}
+    var mods = (currentUser && currentUser.completed_modules) || [];
+    if (mods.indexOf('lab_practica_v1') !== -1) {
+      LAB_QUEST_STEPS.forEach(function (st) { labQuestDone[st.key] = true; });
+    }
+    updateQuestBadge();
+  }
+
+  function updateQuestBadge() {
+    var badge = $('quest-badge');
+    if (!badge) return;
+    var count = 0;
+    LAB_QUEST_STEPS.forEach(function (st) { if (labQuestDone[st.key]) count++; });
+    badge.textContent = count + '/' + LAB_QUEST_STEPS.length;
+  }
+
+  async function completeLabStep(stepKey) {
+    if (!currentUser || !stepKey || labQuestDone[stepKey]) return;
+    var stepObj = null;
+    for (var i = 0; i < LAB_QUEST_STEPS.length; i++) {
+      if (LAB_QUEST_STEPS[i].key === stepKey) { stepObj = LAB_QUEST_STEPS[i]; break; }
+    }
+    if (!stepObj) return;
+    labQuestDone[stepKey] = true;
+    try { localStorage.setItem(getQuestStorageKey(), JSON.stringify(labQuestDone)); } catch (e) {}
+    updateQuestBadge();
+
+    var doneCount = 0;
+    LAB_QUEST_STEPS.forEach(function (st) { if (labQuestDone[st.key]) doneCount++; });
+    if (doneCount < LAB_QUEST_STEPS.length) {
+      showFloatingToast('✅ Etapa concluída (' + doneCount + '/5): ' + stepObj.title, 3600);
+    } else {
+      try {
+        var res = await apiPost('api/auth.php?action=complete_lab_quest', {}, true);
+        if (res && res.ok && res.user) {
+          currentUser = res.user;
+          updateUserHud();
+          if (res.new_quest) {
+            if (window.MycoAudio) window.MycoAudio.playEmote('cheer');
+            showFloatingToast('🏆 Missão Prática 5/5 Concluída! +100 XP no seu perfil!', 4500);
+          } else {
+            showFloatingToast('🧪 Missão Prática 5/5 completa!', 3200);
+          }
+        }
+      } catch (e) {}
+    }
+    var qm = $('quest-modal');
+    if (qm && !qm.classList.contains('hidden')) renderQuestModal();
+  }
+
+  function renderMapModal() {
+    var grid = $('map-sectors-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    CAMPUS_SECTORS.forEach(function (sec) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'text-left p-3 rounded-xl bg-slate-900/80 hover:bg-sky-900/50 border border-slate-700/70 hover:border-sky-400/60 transition flex items-start gap-2.5';
+      btn.innerHTML =
+        '<span class="text-2xl leading-none">' + sec.icon + '</span>' +
+        '<div><div class="font-bold text-white">' + escapeHtml(sec.name) + '</div>' +
+        '<div class="text-[11px] text-slate-400">' + escapeHtml(sec.desc) + '</div></div>';
+      btn.onclick = function () {
+        if (window.teleportCampusPlayer) {
+          window.teleportCampusPlayer(sec.x, sec.y, sec.z, sec.yaw);
+          showFloatingToast(sec.icon + ' Teleportado para ' + sec.name, 2500);
+        }
+        var mm = $('map-modal');
+        if (mm) mm.classList.add('hidden');
+      };
+      grid.appendChild(btn);
+    });
+  }
+
+  function renderQuestModal() {
+    var body = $('quest-body');
+    if (!body) return;
+    body.innerHTML = '';
+    var doneCount = 0;
+    LAB_QUEST_STEPS.forEach(function (st) { if (labQuestDone[st.key]) doneCount++; });
+    var pct = Math.round((doneCount / LAB_QUEST_STEPS.length) * 100);
+    var header = document.createElement('div');
+    header.className = 'p-3 rounded-xl bg-slate-900/80 border border-emerald-500/30 space-y-1.5';
+    header.innerHTML =
+      '<div class="flex items-center justify-between font-bold text-white">' +
+      '<span>Progresso da Prática</span><span class="text-emerald-300">' + doneCount + '/5 (' + pct + '%)</span></div>' +
+      '<div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">' +
+      '<div class="h-full bg-emerald-400 transition-all" style="width:' + pct + '%"></div></div>';
+    body.appendChild(header);
+
+    LAB_QUEST_STEPS.forEach(function (st) {
+      var isDone = !!labQuestDone[st.key];
+      var row = document.createElement('div');
+      row.className = 'p-3 rounded-xl border flex items-start gap-2.5 ' +
+        (isDone ? 'bg-emerald-950/35 border-emerald-500/40' : 'bg-slate-900/75 border-slate-700/70');
+      row.innerHTML =
+        '<span class="text-xl leading-none">' + (isDone ? '✅' : st.icon) + '</span>' +
+        '<div class="flex-1"><div class="font-bold ' + (isDone ? 'text-emerald-300' : 'text-white') + '">' + escapeHtml(st.title) + '</div>' +
+        '<div class="text-[11px] text-slate-300">' + escapeHtml(st.desc) + '</div></div>';
+      body.appendChild(row);
+    });
   }
 
   function renderSwatches() {
@@ -433,6 +575,7 @@
     if (window.setCampusPlayerColors) window.setCampusPlayerColors(user.hat_color, user.body_color);
     $('input-pin').value = '';
     updateUserHud();
+    loadLabQuestProgress();
     $('campus-lobby').classList.add('hidden');
     $('campus-hud').classList.remove('hidden');
     window.setCampusFpsMode(true);
@@ -566,8 +709,6 @@
     var s = LESSONS[idx] || LESSONS[0];
     currentSlideIdx = idx;
     currentPresenter = presenter || '';
-    var slideLabel = $('prof-slide-label');
-    if (slideLabel) slideLabel.textContent = 'Slide ' + (idx + 1) + '/' + LESSONS.length;
     window.updateCampusAuditoriumSlide(idx, s.title, s.subtitle, s.bullets, presenter);
   }
 
@@ -1237,6 +1378,12 @@
       onWorldAction: function () {
         syncMultiplayer();
       },
+      onLabStep: function (stepKey) {
+        completeLabStep(stepKey);
+      },
+      onToast: function (msg) {
+        showFloatingToast(msg, 3500);
+      },
       onNearScreen: function (near) {
         var tb = $('prof-toolbar');
         if (tb) tb.classList.add('hidden');
@@ -1246,35 +1393,56 @@
         if (rotBtn) rotBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
         var actBtn = $('btn-mobile-action');
         if (actBtn) {
-          if (label && (label.indexOf('Giz') !== -1 || label.indexOf('chalk') !== -1)) {
-            actBtn.style.display = isTouch() ? 'flex' : 'none';
+          if (!isTouch() || !label) {
+            actBtn.style.display = 'none';
+          } else if (label.indexOf('Giz') !== -1 || label.indexOf('chalk') !== -1) {
+            actBtn.style.display = 'flex';
             actBtn.textContent = '✏️';
             actBtn.title = 'Desenhar na Lousa (segure e arraste o dedo para pintar)';
-          } else if (label && (label.indexOf('Apagador') !== -1 || label.indexOf('eraser') !== -1)) {
-            actBtn.style.display = isTouch() ? 'flex' : 'none';
+          } else if (label.indexOf('Apagador') !== -1 || label.indexOf('eraser') !== -1) {
+            actBtn.style.display = 'flex';
             actBtn.textContent = '🧽';
             actBtn.title = 'Apagar Lousa (segure e arraste o dedo para apagar)';
+          } else if (label.indexOf('Borrifador') !== -1 || label.indexOf('Álcool') !== -1) {
+            actBtn.style.display = 'flex';
+            actBtn.textContent = '💦';
+            actBtn.title = 'Borrifar / Soltar';
+          } else if (label.indexOf('Termômetro') !== -1) {
+            actBtn.style.display = 'flex';
+            actBtn.textContent = '🌡️';
+            actBtn.title = 'Medir Temperatura';
+          } else if (label.indexOf('Seringa') !== -1) {
+            actBtn.style.display = 'flex';
+            actBtn.textContent = '💉';
+            actBtn.title = 'Usar Seringa';
           } else {
-            // No celular, não exibimos o botão de mão genérico (✋).
-            // Ações no mundo (pegar, abrir portas, colher, sentar ou soltar itens) são feitas tocando diretamente na tela.
-            actBtn.style.display = 'none';
+            actBtn.style.display = 'flex';
+            actBtn.textContent = '✋';
+            actBtn.title = 'Soltar / Usar Item';
           }
         }
       },
       onFpsChange: updateFpsUi,
       onHoverPrompt: function (txt) {
         var pill = $('interact-pill');
-        if (getDeviceProfile() === 'phone') {
-          pill.classList.add('hidden');
-        } else if (txt && currentUser) {
-          pill.textContent = txt;
-          pill.classList.remove('hidden');
-        } else if (pill) {
-          pill.classList.add('hidden');
+        if (pill && Date.now() >= toastUntil) {
+          if (txt && currentUser) {
+            pill.textContent = txt;
+            pill.classList.remove('hidden');
+          } else {
+            pill.classList.add('hidden');
+          }
         }
         var actBtn = $('btn-mobile-action');
-        if (actBtn && (!window.getCampusPlayerPose || !window.getCampusPlayerPose().holding_item)) {
-          actBtn.style.display = 'none';
+        var isHolding = window.getCampusPlayerPose && window.getCampusPlayerPose().holding_item;
+        if (actBtn && !isHolding) {
+          if (isTouch() && txt && currentUser) {
+            actBtn.style.display = 'flex';
+            actBtn.textContent = '✋';
+            actBtn.title = txt;
+          } else {
+            actBtn.style.display = 'none';
+          }
         }
       }
     });
@@ -1355,10 +1523,42 @@
     if (btnOpenRanking) btnOpenRanking.onclick = openRankingModal;
     var btnCloseRanking = $('btn-close-ranking');
     if (btnCloseRanking) btnCloseRanking.onclick = function () { var m = $('ranking-modal'); if (m) m.classList.add('hidden'); };
-    var btnSlidePrev = $('btn-slide-prev');
-    if (btnSlidePrev) btnSlidePrev.onclick = function () { broadcastSlide(currentSlideIdx - 1); };
-    var btnSlideNext = $('btn-slide-next');
-    if (btnSlideNext) btnSlideNext.onclick = function () { broadcastSlide(currentSlideIdx + 1); };
+
+    var btnMap = $('btn-open-map');
+    if (btnMap) {
+      btnMap.onclick = function () {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        renderMapModal();
+        var mm = $('map-modal');
+        if (mm) mm.classList.remove('hidden');
+      };
+    }
+    var btnCloseMap = $('btn-close-map');
+    if (btnCloseMap) {
+      btnCloseMap.onclick = function () {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        var mm = $('map-modal');
+        if (mm) mm.classList.add('hidden');
+      };
+    }
+
+    var btnQuest = $('btn-open-quest');
+    if (btnQuest) {
+      btnQuest.onclick = function () {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        renderQuestModal();
+        var qm = $('quest-modal');
+        if (qm) qm.classList.remove('hidden');
+      };
+    }
+    var btnCloseQuest = $('btn-close-quest');
+    if (btnCloseQuest) {
+      btnCloseQuest.onclick = function () {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        var qm = $('quest-modal');
+        if (qm) qm.classList.add('hidden');
+      };
+    }
 
     var btnShop = $('btn-open-shop');
     if (btnShop) {

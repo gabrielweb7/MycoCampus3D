@@ -9,6 +9,8 @@ require_once __DIR__ . '/db.php';
 
 const MC_XP_HARVEST = 25;
 const MC_XP_MODULE = 50;
+const MC_XP_LAB_QUEST = 100;
+const MC_LAB_QUEST_SLUG = 'lab_practica_v1';
 const MC_HARVEST_COOLDOWN_MS = 1200;
 const MC_MODULES = ['fluxo_laminar', 'esterilizacao', 'spawn_graos', 'contaminacao', 'frutificacao'];
 const MC_MODULE_ANSWERS = [
@@ -128,7 +130,14 @@ $pdo = mc_db_or_fail();
 $body = mc_body();
 $action = mc_action('leaderboard');
 
+function mc_require_post(): void {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        mc_json(['ok' => false, 'error' => 'Método HTTP inválido. Use POST.'], 405);
+    }
+}
+
 if ($action === 'login' || $action === 'register_or_login') {
+    mc_require_post();
     $displayName = trim((string)($body['display_name'] ?? ''));
     $displayName = mb_substr((string)preg_replace('/\s+/u', ' ', $displayName), 0, 48, 'UTF-8');
     $pin = trim((string)($body['pin'] ?? ''));
@@ -161,21 +170,15 @@ if ($action === 'login' || $action === 'register_or_login') {
             mc_json(['ok' => false, 'error' => 'Muitas tentativas erradas. Aguarde 1 minuto e tente de novo.'], 429);
         }
         if (!password_verify($pin, (string)$user['pin_hash'])) {
-            if ($isOwnerAdmin || $isProfKeyValid || (defined('PROFESSOR_KEY') && hash_equals(PROFESSOR_KEY, $pin))) {
-                // Dono da plataforma ou chave mestre: atualiza a senha automaticamente para nunca ficar trancado para fora!
-                $updPin = $pdo->prepare('UPDATE mc_users SET pin_hash = ? WHERE id = ?');
-                $updPin->execute([password_hash($pin, PASSWORD_DEFAULT), (int)$user['id']]);
+            $fails = (int)($user['login_fails'] ?? 0) + 1;
+            if ($fails >= MC_LOGIN_MAX_FAILS) {
+                $lock = $pdo->prepare('UPDATE mc_users SET login_fails = 0, login_locked_until = (NOW() + INTERVAL ' . MC_LOGIN_LOCK_MINUTES . ' MINUTE) WHERE id = ?');
+                $lock->execute([(int)$user['id']]);
             } else {
-                $fails = (int)($user['login_fails'] ?? 0) + 1;
-                if ($fails >= MC_LOGIN_MAX_FAILS) {
-                    $lock = $pdo->prepare('UPDATE mc_users SET login_fails = 0, login_locked_until = (NOW() + INTERVAL ' . MC_LOGIN_LOCK_MINUTES . ' MINUTE) WHERE id = ?');
-                    $lock->execute([(int)$user['id']]);
-                } else {
-                    $f = $pdo->prepare('UPDATE mc_users SET login_fails = ? WHERE id = ?');
-                    $f->execute([$fails, (int)$user['id']]);
-                }
-                mc_json(['ok' => false, 'error' => 'Esse nome já está cadastrado com outra senha.'], 200);
+                $f = $pdo->prepare('UPDATE mc_users SET login_fails = ? WHERE id = ?');
+                $f->execute([$fails, (int)$user['id']]);
             }
+            mc_json(['ok' => false, 'error' => 'Esse nome já está cadastrado com outra senha.'], 401);
         }
         // Determina o cargo atualizado: Dono sempre admin, chave valida vira professor
         if ($isOwnerAdmin) {
@@ -199,10 +202,17 @@ if ($action === 'login' || $action === 'register_or_login') {
             $role = 'student';
         }
 
-        $ins = $pdo->prepare('INSERT INTO mc_users (username, display_name, role, pin_hash, hat_color, body_color, xp, mushrooms_harvested, completed_modules) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?)');
-        $ins->execute([$username, $displayName, $role, password_hash($pin, PASSWORD_DEFAULT), $hatColor, $bodyColor, '[]']);
-        $userId = (int)$pdo->lastInsertId();
-        $created = true;
+        try {
+            $ins = $pdo->prepare('INSERT INTO mc_users (username, display_name, role, pin_hash, hat_color, body_color, xp, mushrooms_harvested, completed_modules) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?)');
+            $ins->execute([$username, $displayName, $role, password_hash($pin, PASSWORD_DEFAULT), $hatColor, $bodyColor, '[]']);
+            $userId = (int)$pdo->lastInsertId();
+            $created = true;
+        } catch (PDOException $e) {
+            if ($e->getCode() === '23000') {
+                mc_json(['ok' => false, 'error' => 'Esse nome acabou de ser cadastrado. Tente entrar com sua senha.'], 409);
+            }
+            throw $e;
+        }
     }
 
     $token = mc_issue_token($pdo, $userId);
@@ -210,6 +220,7 @@ if ($action === 'login' || $action === 'register_or_login') {
 }
 
 if ($action === 'logout') {
+    mc_require_post();
     $token = (string)($body['token'] ?? $_COOKIE['mc_token'] ?? '');
     if (preg_match('/^[a-f0-9]{64}$/', $token)) {
         $del = $pdo->prepare('DELETE FROM mc_auth_tokens WHERE token_hash = ?');
@@ -225,22 +236,75 @@ if ($action === 'me') {
 }
 
 if ($action === 'harvest') {
+    mc_require_post();
     $user = mc_require_user($pdo);
-    // Anti-spam de colheita: no maximo 1 a cada MC_HARVEST_COOLDOWN_MS
-    $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + ?, mushrooms_harvested = mushrooms_harvested + 1, last_harvest_at = NOW(3), last_seen = NOW()
-        WHERE id = ? AND (last_harvest_at IS NULL OR last_harvest_at < (NOW(3) - INTERVAL ? MICROSECOND))');
-    $upd->execute([MC_XP_HARVEST, (int)$user['id'], MC_HARVEST_COOLDOWN_MS * 1000]);
-    $awarded = $upd->rowCount() > 0;
+    $mushId = trim((string)($body['mushroom_id'] ?? ''));
+    if ($mushId !== '' && !preg_match('/^wild_(?:[0-9]|[12][0-9]|3[01])$/', $mushId)) {
+        mc_json(['ok' => false, 'error' => 'Cogumelo inválido.'], 400);
+    }
+
+    $awarded = false;
+    $pdo->beginTransaction();
+    try {
+        $canHarvest = true;
+        if ($mushId !== '') {
+            $stMush = $pdo->prepare('SELECT state_val FROM mc_world_state WHERE state_key = ? FOR UPDATE');
+            $stMush->execute([$mushId]);
+            $until = (int)($stMush->fetchColumn() ?: 0);
+            if ($until > time()) {
+                $canHarvest = false;
+            }
+        }
+        if ($canHarvest) {
+            // Anti-spam de colheita: no maximo 1 a cada MC_HARVEST_COOLDOWN_MS
+            $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + ?, mushrooms_harvested = mushrooms_harvested + 1, last_harvest_at = NOW(3), last_seen = NOW()
+                WHERE id = ? AND (last_harvest_at IS NULL OR last_harvest_at < (NOW(3) - INTERVAL ? MICROSECOND))');
+            $upd->execute([MC_XP_HARVEST, (int)$user['id'], MC_HARVEST_COOLDOWN_MS * 1000]);
+            $awarded = $upd->rowCount() > 0;
+            if ($awarded && $mushId !== '') {
+                $upState = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');
+                $upState->execute([$mushId, (string)(time() + 20)]);
+            }
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
     mc_json(['ok' => true, 'awarded' => $awarded, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
 if ($action === 'harvest_greenhouse') {
+    mc_require_post();
     $user = mc_require_user($pdo);
-    // Colheita de bloco frutificado na estufa: concede 50 XP e 2 cogumelos colhidos
-    $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + 50, mushrooms_harvested = mushrooms_harvested + 2, last_harvest_at = NOW(3), last_seen = NOW()
-        WHERE id = ? AND (last_harvest_at IS NULL OR last_harvest_at < (NOW(3) - INTERVAL ? MICROSECOND))');
-    $upd->execute([(int)$user['id'], MC_HARVEST_COOLDOWN_MS * 1000]);
-    $awarded = $upd->rowCount() > 0;
+    $slotId = isset($body['slot_id']) ? (int)$body['slot_id'] : -1;
+    if ($slotId < 0 || $slotId > 3) {
+        mc_json(['ok' => false, 'error' => 'Slot da estufa inválido.'], 400);
+    }
+
+    $awarded = false;
+    $slotCooldownKey = 'gh_harvest_cd_' . $slotId;
+    $pdo->beginTransaction();
+    try {
+        $stCd = $pdo->prepare('SELECT state_val FROM mc_world_state WHERE state_key = ? FOR UPDATE');
+        $stCd->execute([$slotCooldownKey]);
+        $until = (int)($stCd->fetchColumn() ?: 0);
+        if ($until <= time()) {
+            // Colheita de bloco frutificado na estufa: concede 50 XP e 2 cogumelos colhidos
+            $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + 50, mushrooms_harvested = mushrooms_harvested + 2, last_harvest_at = NOW(3), last_seen = NOW()
+                WHERE id = ? AND (last_harvest_at IS NULL OR last_harvest_at < (NOW(3) - INTERVAL ? MICROSECOND))');
+            $upd->execute([(int)$user['id'], MC_HARVEST_COOLDOWN_MS * 1000]);
+            $awarded = $upd->rowCount() > 0;
+            if ($awarded) {
+                $upState = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');
+                $upState->execute([$slotCooldownKey, (string)(time() + 15)]);
+            }
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
     mc_json(['ok' => true, 'awarded' => $awarded, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
@@ -250,36 +314,46 @@ if ($action === 'cosmetics_catalog') {
 }
 
 if ($action === 'buy_cosmetic') {
+    mc_require_post();
     $user = mc_require_user($pdo);
     $hatId = (string)($body['hat_id'] ?? '');
     if (!isset(MC_COSMETIC_HATS[$hatId])) {
         mc_json(['ok' => false, 'error' => 'Chapéu cosmético não encontrado.'], 404);
     }
     $hatDef = MC_COSMETIC_HATS[$hatId];
-    if ((int)$user['xp'] < $hatDef['req_xp']) {
-        mc_json(['ok' => false, 'error' => 'XP insuficiente para desbloquear este chapéu (Requer ' . $hatDef['req_xp'] . ' XP).'], 400);
-    }
-    if ((int)$user['mushrooms_harvested'] < $hatDef['req_mushrooms']) {
-        mc_json(['ok' => false, 'error' => 'Cogumelos colhidos insuficientes (Requer ' . $hatDef['req_mushrooms'] . ' cogumelos).'], 400);
-    }
 
     $pdo->beginTransaction();
-    $st = $pdo->prepare('SELECT unlocked_hats FROM mc_users WHERE id = ? FOR UPDATE');
-    $st->execute([(int)$user['id']]);
-    $unlocked = json_decode((string)($st->fetchColumn() ?: '["default"]'), true);
-    if (!is_array($unlocked)) $unlocked = ['default'];
-    if (!in_array($hatId, $unlocked, true)) {
-        $unlocked[] = $hatId;
-        $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, current_hat = ?, last_seen = NOW() WHERE id = ?');
-        $upd->execute([json_encode(array_values($unlocked)), $hatId, (int)$user['id']]);
-        $updSes = $pdo->prepare('UPDATE mc_sessions SET current_hat = ? WHERE user_id = ?');
-        $updSes->execute([$hatId, (int)$user['id']]);
+    try {
+        $st = $pdo->prepare('SELECT xp, mushrooms_harvested, unlocked_hats FROM mc_users WHERE id = ? FOR UPDATE');
+        $st->execute([(int)$user['id']]);
+        $row = $st->fetch();
+        if (!$row || (int)$row['xp'] < $hatDef['req_xp']) {
+            $pdo->rollBack();
+            mc_json(['ok' => false, 'error' => 'XP insuficiente para desbloquear este chapéu (Requer ' . $hatDef['req_xp'] . ' XP).'], 400);
+        }
+        if ((int)$row['mushrooms_harvested'] < $hatDef['req_mushrooms']) {
+            $pdo->rollBack();
+            mc_json(['ok' => false, 'error' => 'Cogumelos colhidos insuficientes (Requer ' . $hatDef['req_mushrooms'] . ' cogumelos).'], 400);
+        }
+        $unlocked = json_decode((string)($row['unlocked_hats'] ?: '["default"]'), true);
+        if (!is_array($unlocked)) $unlocked = ['default'];
+        if (!in_array($hatId, $unlocked, true)) {
+            $unlocked[] = $hatId;
+            $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, current_hat = ?, last_seen = NOW() WHERE id = ?');
+            $upd->execute([json_encode(array_values($unlocked)), $hatId, (int)$user['id']]);
+            $updSes = $pdo->prepare('UPDATE mc_sessions SET current_hat = ? WHERE user_id = ?');
+            $updSes->execute([$hatId, (int)$user['id']]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
     }
-    $pdo->commit();
     mc_json(['ok' => true, 'unlocked' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
 if ($action === 'equip_cosmetic') {
+    mc_require_post();
     $user = mc_require_user($pdo);
     $hatId = (string)($body['hat_id'] ?? 'default');
     if (!isset(MC_COSMETIC_HATS[$hatId])) {
@@ -297,13 +371,14 @@ if ($action === 'equip_cosmetic') {
 }
 
 if ($action === 'complete_module') {
+    mc_require_post();
     $user = mc_require_user($pdo);
     $slug = (string)($body['module'] ?? '');
     if (!in_array($slug, MC_MODULES, true)) {
         mc_json(['ok' => false, 'error' => 'Modulo desconhecido.'], 400);
     }
     $answer = trim((string)($body['answer'] ?? ''));
-    if (isset(MC_MODULE_ANSWERS[$slug]) && $answer !== '' && $answer !== MC_MODULE_ANSWERS[$slug]) {
+    if (isset(MC_MODULE_ANSWERS[$slug]) && ($answer === '' || $answer !== MC_MODULE_ANSWERS[$slug])) {
         mc_json(['ok' => false, 'error' => 'Resposta incorreta para o módulo.'], 400);
     }
 
@@ -320,6 +395,29 @@ if ($action === 'complete_module') {
     }
     $pdo->commit();
     mc_json(['ok' => true, 'new_module' => $isNew, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+}
+
+if ($action === 'complete_lab_quest') {
+    mc_require_post();
+    $user = mc_require_user($pdo);
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare('SELECT completed_modules FROM mc_users WHERE id = ? FOR UPDATE');
+        $st->execute([(int)$user['id']]);
+        $modules = json_decode((string)($st->fetchColumn() ?: '[]'), true);
+        if (!is_array($modules)) $modules = [];
+        $isNew = !in_array(MC_LAB_QUEST_SLUG, $modules, true);
+        if ($isNew) {
+            $modules[] = MC_LAB_QUEST_SLUG;
+            $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + ?, completed_modules = ?, last_seen = NOW() WHERE id = ?');
+            $upd->execute([MC_XP_LAB_QUEST, json_encode(array_values($modules)), (int)$user['id']]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+    mc_json(['ok' => true, 'new_quest' => $isNew, 'awarded_xp' => $isNew ? MC_XP_LAB_QUEST : 0, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
 if ($action === 'leaderboard') {
@@ -358,7 +456,12 @@ if ($action === 'admin_list_users') {
                u.xp, u.mushrooms_harvested, u.completed_modules, u.created_at, u.last_seen,
                (s.session_id IS NOT NULL) AS is_online, s.x, s.y, s.z
         FROM mc_users u
-        LEFT JOIN mc_sessions s ON s.user_id = u.id
+        LEFT JOIN mc_sessions s ON s.session_id = (
+            SELECT s2.session_id FROM mc_sessions s2
+            WHERE s2.user_id = u.id
+            ORDER BY s2.last_seen DESC
+            LIMIT 1
+        )
         ORDER BY is_online DESC, u.xp DESC, u.id ASC
         LIMIT 100
     ');
@@ -393,6 +496,7 @@ if ($action === 'admin_list_users') {
 }
 
 if ($action === 'admin_set_role') {
+    mc_require_post();
     $user = mc_require_user($pdo);
     if (!mc_is_admin($user)) {
         mc_json(['ok' => false, 'error' => 'Acesso restrito ao Administrador Master.'], 403);
@@ -417,6 +521,7 @@ if ($action === 'admin_set_role') {
 }
 
 if ($action === 'admin_teleport') {
+    mc_require_post();
     $user = mc_require_user($pdo);
     if (!mc_is_admin($user)) {
         mc_json(['ok' => false, 'error' => 'Acesso restrito ao Administrador Master.'], 403);
@@ -426,10 +531,18 @@ if ($action === 'admin_teleport') {
     if (!$target) {
         mc_json(['ok' => false, 'error' => 'Usuario nao encontrado.'], 404);
     }
-    $tx = (float)($body['x'] ?? 0.0);
-    $ty = (float)($body['y'] ?? 0.0);
-    $tz = (float)($body['z'] ?? 0.0);
-    $tyaw = (float)($body['yaw'] ?? 0.0);
+    $tx = is_numeric($body['x'] ?? null) ? (float)$body['x'] : 0.0;
+    $ty = is_numeric($body['y'] ?? null) ? (float)$body['y'] : 0.0;
+    $tz = is_numeric($body['z'] ?? null) ? (float)$body['z'] : 0.0;
+    $tyaw = is_numeric($body['yaw'] ?? null) ? (float)$body['yaw'] : 0.0;
+    if (!is_finite($tx)) $tx = 0.0;
+    if (!is_finite($ty)) $ty = 0.0;
+    if (!is_finite($tz)) $tz = 0.0;
+    if (!is_finite($tyaw)) $tyaw = 0.0;
+    $tx = max(-220.0, min(220.0, $tx));
+    $ty = max(-10.0, min(120.0, $ty));
+    $tz = max(-220.0, min(220.0, $tz));
+    $tyaw = max(-100.0, min(100.0, $tyaw));
     $payload = json_encode(['x' => round($tx, 2), 'y' => round($ty, 2), 'z' => round($tz, 2), 'yaw' => round($tyaw, 2)]);
     $ins = $pdo->prepare('INSERT INTO mc_admin_events (target_user_id, action_type, payload) VALUES (?, "teleport", ?)');
     $ins->execute([$targetId, $payload]);
@@ -437,6 +550,7 @@ if ($action === 'admin_teleport') {
 }
 
 if ($action === 'admin_kick') {
+    mc_require_post();
     $user = mc_require_user($pdo);
     if (!mc_is_admin($user)) {
         mc_json(['ok' => false, 'error' => 'Acesso restrito ao Administrador Master.'], 403);
@@ -452,6 +566,8 @@ if ($action === 'admin_kick') {
     }
     $delSes = $pdo->prepare('DELETE FROM mc_sessions WHERE user_id = ?');
     $delSes->execute([$targetId]);
+    $delTok = $pdo->prepare('DELETE FROM mc_auth_tokens WHERE user_id = ?');
+    $delTok->execute([$targetId]);
     $ins = $pdo->prepare('INSERT INTO mc_admin_events (target_user_id, action_type, payload) VALUES (?, "kick", ?)');
     $ins->execute([$targetId, json_encode(['reason' => $reason])]);
     mc_json(['ok' => true, 'target_id' => $targetId, 'kicked' => true]);

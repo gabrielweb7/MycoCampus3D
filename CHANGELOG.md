@@ -2,6 +2,24 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.9] — 2026-11-15
+### 🛡️ Segurança, UX Mobile, Missão Prática, Mapa Rápido & Performance (Fases 1, 2 e 3)
+- **Segurança & Validação no Back-end ([api/auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php), [api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [.htaccess](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/.htaccess))**:
+  - Removido reset automático de senha no login por nome de admin ou `PROFESSOR_KEY`; contas existentes sempre exigem `password_verify()` (`401` em falha) e registros concorrentes retornam `409` amigável.
+  - Corrigido bypass do quiz em `complete_module` (não aceita mais resposta vazia).
+  - `harvest` e `harvest_greenhouse` agora validam `mushroom_id` / `slot_id` com trava e cooldown no `mc_world_state`.
+  - `buy_cosmetic` verifica XP e cogumelos dentro da transação com `FOR UPDATE`.
+  - `admin_list_users` sem linhas duplicadas por múltiplas sessões; `admin_kick` revoga tokens em `mc_auth_tokens`; `admin_teleport` valida limites finitos.
+  - Bloqueio de alteração de `auditorium_slide` / `auditorium_presenter` por alunos via `sync`; exigência de `POST` em ações de escrita; bloqueio de `data/` e dotfiles no `.htaccess`.
+- **Missão Prática Guiada, Mapa Rápido & Esportes 3D ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Novo botão `🗺️ Mapa` com teleporte rápido para 7 setores do campus (`window.teleportCampusPlayer`).
+  - Nova `🧪 Missão` prática em 5 etapas reais no laboratório e estufa, com recompensa única de `+100 XP` (`action=complete_lab_quest`).
+  - Complexo esportivo com bola de futebol e bola de basquete com física 3D (Zero-GC) e comemoração de gol com confete.
+- **Áudio, UX Mobile & Performance ([js/campus-audio.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-audio.js), [css/game.css](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/css/game.css), [api/db.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/db.php), [database/schema.sql](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/database/schema.sql))**:
+  - `playSwitch()` centralizado em `window.MycoAudio` respeitando o mudo; remoção do `AudioContext` duplicado e funções mortas.
+  - `#interact-pill` e `#btn-mobile-action` visíveis e funcionais no celular; feedback de estágio e umidade na estufa.
+  - `MC_SCHEMA_VERSION = 7` com índices `idx_users_leaderboard` e `idx_tokens_last_used`, e *batch inserts* em `moved_items` e `board_strokes` no `multiplayer.php`.
+
 ## [v0.9.6] — 2026-11-15
 ### 🔑 Correção de Inicialização do App (`boot`) & Autenticação Segura do Dono
 - **Proteção Completa contra Elementos Ausentes no DOM ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
