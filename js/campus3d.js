@@ -2262,8 +2262,9 @@
         knobGroup: knobGroup,
         surface: bSurf
       };
-      knobBase.userData.burnerSwitch = bState;
-      knobPointer.userData.burnerSwitch = bState;
+      var bIdx = burnerDevices.length;
+      knobBase.userData.burnerSwitchIdx = bIdx;
+      knobPointer.userData.burnerSwitchIdx = bIdx;
       burnerSwitchMeshes.push(knobBase, knobPointer);
       burnerDevices.push(bState);
       return registerPickable(id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12);
@@ -4134,7 +4135,7 @@
       ch.userData.ignoreRay = true;
       ch.userData.supportSurface = null;
       ch.userData.dynamicSurface = null;
-      ch.userData.burnerSwitch = null;
+      ch.userData.burnerSwitchIdx = null;
       ch.userData.stirSwitch = null;
       ch.userData.hoodSwitch = null;
       ch.userData.scaleObj = null;
@@ -5692,7 +5693,7 @@
     if (burnerSwitchMeshes.length && (!heldItem || !heldItem.mesh.userData.isBurner)) {
       var bHits = raycaster.intersectObjects(burnerSwitchMeshes, false);
       if (bHits.length > 0 && bHits[0].distance < 4.0) {
-        hoveredBurnerSwitch = bHits[0].object.userData.burnerSwitch;
+        hoveredBurnerSwitch = burnerDevices[bHits[0].object.userData.burnerSwitchIdx];
         prompt = hoveredBurnerSwitch.on ? '🔥 Desligar Fogareiro' : '🔥 Ligar Fogareiro';
         if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
         return;
@@ -6318,7 +6319,7 @@
 
               for (var bi = 0; bi < burnerDevices.length; bi++) {
                 var bd = burnerDevices[bi];
-                if (hObj.userData.burnerSwitch || hObj.userData.supportSurface === bd.surface ||
+                if (hObj.userData.burnerSwitchIdx !== undefined || hObj.userData.supportSurface === bd.surface ||
                     (lHit.point.x >= bd.surface.minX && lHit.point.x <= bd.surface.maxX &&
                      lHit.point.z >= bd.surface.minZ && lHit.point.z <= bd.surface.maxZ &&
                      Math.abs(lHit.point.y - bd.surface.topY) < 0.15)) {
