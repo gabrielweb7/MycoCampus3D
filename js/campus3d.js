@@ -139,6 +139,9 @@
   var stirrerDevices = [];
   var hoveredSyringeTarget = null;
   var lastSyringeTargetItem = null;
+  var _tmpSyrPort = new THREE.Vector3();
+  var _tmpSyrHand = new THREE.Vector3();
+  var _tmpSyrOff = new THREE.Vector3();
   var scaleTareMeshes = [];
   var hoveredScaleTare = null;
   var scaleDevices = [];
@@ -2034,7 +2037,8 @@
         safetyPins: safetyPins,
         steamPoints: steamPoints, steamAttr: sAttr, contents: [],
         statusSprite: pSprite, statusCtx: pCtx, statusTex: pTex, lastHudKey: '',
-        psi: 0, temp: 25, progress: 0, sterilized: false
+        psi: 0, temp: 25, progress: 0, sterilized: false,
+        overheatTimer: 0, burned: false
       });
     }
 
@@ -2309,13 +2313,15 @@
       if (!item || !item.spawnCtrl) return;
       var sc = item.spawnCtrl;
       if (sc.mycOverlay) {
-        sc.mycOverlay.visible = sc.colonization > 0;
-        var f = Math.min(1, sc.colonization / 100);
-        sc.mycOverlay.material.opacity = sc.contaminated ? 0.72 : (0.15 + f * 0.78);
-        sc.mycOverlay.material.color.setHex(sc.contaminated ? 0x15803d : 0xf8fafc);
+        sc.mycOverlay.visible = sc.burned || sc.colonization > 0;
+        var f = sc.burned ? 1 : Math.min(1, sc.colonization / 100);
+        sc.mycOverlay.material.opacity = sc.burned ? 0.85 : (sc.contaminated ? 0.72 : (0.15 + f * 0.78));
+        sc.mycOverlay.material.color.setHex(sc.burned ? 0x1c1917 : (sc.contaminated ? 0x15803d : 0xf8fafc));
         sc.mycOverlay.scale.set(1, Math.max(0.15, f), 1);
       }
-      if (sc.contaminated) {
+      if (sc.burned) {
+        item.label = sc.baseLabel + ' (Queimado 🔥 Jogue fora)';
+      } else if (sc.contaminated) {
         item.label = sc.baseLabel + ' (Contaminado ⚠️)';
       } else if (sc.colonization >= 100) {
         item.label = sc.baseLabel + ' (100% Colonizado ✅)';
@@ -6543,9 +6549,9 @@
           syringePunctureProgress += ((isPuncturing ? 1 : 0) - syringePunctureProgress) * Math.min(1, dt * 10);
           if (syringePunctureProgress > 0.01 && lastSyringeTargetItem) {
             var sTgt = lastSyringeTargetItem;
-            _tmpV1.set(0.036, 0.290, 0).applyEuler(sTgt.mesh.rotation).add(sTgt.mesh.position);
-            _tmpV2.copy(_tmpV1).add(_tmpV3.set(0.04, 0.12, 0.05));
-            _tmpHandPos.lerp(_tmpV2, syringePunctureProgress);
+            _tmpSyrPort.set(0.036, 0.290, 0).applyEuler(sTgt.mesh.rotation).add(sTgt.mesh.position);
+            _tmpSyrHand.copy(_tmpSyrPort).add(_tmpSyrOff.set(0.04, 0.12, 0.05));
+            _tmpHandPos.lerp(_tmpSyrHand, syringePunctureProgress);
             heldItem.mesh.position.copy(_tmpHandPos);
             heldItem.mesh.rotation.set(0.78, sTgt.mesh.rotation.y + Math.PI, 0);
 
@@ -6843,19 +6849,22 @@
           }
         }
         if (onActiveBurner && cp.lidItem.isAttached) {
-          cp.temp = Math.min(121, cp.temp + dt * 5.2);
-          if (cp.temp >= 100) {
-            var targetPsi = ((cp.temp - 100) / 21) * 15;
-            if (cp.psi < targetPsi) {
-              cp.psi = Math.min(targetPsi, cp.psi + dt * 3.8);
-            }
+          if (cp.temp < 121) {
+            cp.temp = Math.min(121, cp.temp + dt * 6.5);
+          } else if (cp.psi < 15.0 && cp.progress < 100) {
+            cp.psi = Math.min(15.0, cp.psi + dt * 3.0);
           }
         } else {
-          cp.temp = Math.max(25, cp.temp - dt * 2.8);
-          cp.psi = Math.max(0, cp.psi - dt * 2.0);
+          if (cp.psi > 0) {
+            cp.psi = Math.max(0, cp.psi - dt * 2.2);
+          } else {
+            cp.temp = Math.max(25, cp.temp - dt * 9.5);
+          }
           if (!cp.lidItem.isAttached) {
             cp.psi = 0;
-            cp.progress = 0;
+            cp.overheatTimer = 0;
+            if (cp.contents.length === 0) cp.burned = false;
+            if (!cp.burned) cp.progress = 0;
           }
         }
 
@@ -6903,77 +6912,139 @@
           cp.weightTop.rotation.z = 0;
         }
 
-        if (onActiveBurner && cp.lidItem.isAttached && cp.psi >= 14.0 && cp.progress < 100) {
-          cp.progress = Math.min(100, cp.progress + dt * 8.5);
-          if (cp.progress >= 100) {
-            cp.sterilized = true;
-            for (var ci = 0; ci < cp.contents.length; ci++) {
-              var cIt = cp.contents[ci];
-              if (cIt.spawnCtrl) {
-                cIt.spawnCtrl.sterilized = true;
-                cIt.spawnCtrl.updateVisual();
+        if (onActiveBurner && cp.lidItem.isAttached && cp.psi >= 14.9 && !cp.burned) {
+          if (cp.progress < 100) {
+            cp.progress = Math.min(100, cp.progress + dt * 8.5);
+            if (cp.progress >= 100) {
+              cp.sterilized = true;
+              cp.overheatTimer = 0;
+              for (var ci = 0; ci < cp.contents.length; ci++) {
+                var cIt = cp.contents[ci];
+                if (cIt.spawnCtrl) {
+                  cIt.spawnCtrl.sterilized = true;
+                  cIt.spawnCtrl.updateVisual();
+                }
+              }
+            }
+          } else {
+            cp.overheatTimer += dt;
+            if (cp.overheatTimer >= 16.0) {
+              cp.burned = true;
+              cp.sterilized = false;
+              for (var bi2 = 0; bi2 < cp.contents.length; bi2++) {
+                var bIt = cp.contents[bi2];
+                if (bIt.spawnCtrl) {
+                  bIt.spawnCtrl.burned = true;
+                  bIt.spawnCtrl.sterilized = false;
+                  bIt.spawnCtrl.updateVisual();
+                }
+              }
+              if (callbacks.onToast) {
+                callbacks.onToast('🔥 Você esqueceu o fogo ligado! Tudo na panela queimou :( Jogue fora!');
               }
             }
           }
         }
 
-        // Indicador 3D acima da panela (Pressão 0-15 PSI, % e trava)
+        // Indicador 3D acima da panela: mostra UMA etapa clara por vez
         if (cp.statusSprite) {
           var pDist = Math.hypot(potP.x - playerPos.x, potP.z - playerPos.z);
-          var showHud = pDist < 10.5 && (cp.temp > 27 || cp.psi > 0.15 || cp.progress > 0);
+          var showHud = pDist < 10.5 && (cp.burned || cp.temp > 26 || cp.psi > 0.1 || cp.progress > 0);
           cp.statusSprite.visible = showHud;
           if (showHud) {
-            var psiDisp = cp.psi.toFixed(1);
-            var psiPct = Math.min(100, Math.round((cp.psi / 15) * 100));
-            var progInt = Math.floor(cp.progress);
-            var hudKey = psiDisp + '|' + psiPct + '|' + progInt + '|' + (isLocked ? 1 : 0) + '|' + (onActiveBurner ? 1 : 0) + '|' + Math.round(cp.temp);
+            var stageTitle = '';
+            var stageSub = '';
+            var barPct = 0;
+            var barCol = '#38bdf8';
+            var borderCol = '#38bdf8';
+
+            if (cp.burned) {
+              stageTitle = '🔥 Tudo queimado :(';
+              stageSub = 'Jogue fora o conteúdo!';
+              barPct = 100;
+              barCol = '#ef4444';
+              borderCol = '#ef4444';
+            } else if (onActiveBurner && cp.lidItem.isAttached) {
+              if (cp.temp < 121) {
+                barPct = Math.min(100, Math.round(((cp.temp - 25) / 96) * 100));
+                stageTitle = '🔥 Aquecendo...';
+                stageSub = Math.round(cp.temp) + '°C / 121°C (' + barPct + '%)';
+                barCol = '#f97316';
+                borderCol = '#f97316';
+              } else if (cp.psi < 15.0 && cp.progress < 100) {
+                barPct = Math.min(100, Math.round((cp.psi / 15) * 100));
+                stageTitle = '🔒 PSI aumentando...';
+                stageSub = cp.psi.toFixed(1) + ' / 15 PSI (' + barPct + '%)';
+                barCol = '#f59e0b';
+                borderCol = '#f59e0b';
+              } else if (cp.progress < 100) {
+                barPct = Math.floor(cp.progress);
+                stageTitle = '♨️ Esterilizando...';
+                stageSub = barPct + '% concluído (15 PSI)';
+                barCol = '#22c55e';
+                borderCol = '#22c55e';
+              } else {
+                var secLeft = Math.max(0, Math.ceil(16 - cp.overheatTimer));
+                barPct = Math.round((secLeft / 16) * 100);
+                stageTitle = '✅ 100% Esterilizado!';
+                stageSub = 'Desligue o fogo! (' + secLeft + 's)';
+                barCol = secLeft <= 5 ? '#ef4444' : '#eab308';
+                borderCol = barCol;
+              }
+            } else {
+              if (cp.psi >= 1.5) {
+                barPct = Math.min(100, Math.round((cp.psi / 15) * 100));
+                stageTitle = '🔒 Perdendo pressão...';
+                stageSub = cp.psi.toFixed(1) + ' / 15 PSI (aguarde < 1.5)';
+                barCol = '#fb923c';
+                borderCol = '#f59e0b';
+              } else if (cp.temp > 30) {
+                barPct = Math.max(0, Math.min(100, Math.round(((cp.temp - 25) / 96) * 100)));
+                stageTitle = '❄️ Temperatura caindo...';
+                stageSub = Math.round(cp.temp) + '°C → ambiente (🔓 Destravada)';
+                barCol = '#38bdf8';
+                borderCol = '#38bdf8';
+              } else if (cp.progress >= 100) {
+                barPct = 100;
+                stageTitle = '✅ 100% Esterilizado';
+                stageSub = 'Pronto para uso! :)';
+                barCol = '#22c55e';
+                borderCol = '#22c55e';
+              } else {
+                barPct = 0;
+                stageTitle = '🔓 Tampa destravada';
+                stageSub = Math.round(cp.temp) + '°C';
+                barCol = '#94a3b8';
+                borderCol = '#64748b';
+              }
+            }
+
+            var hudKey = stageTitle + '|' + stageSub + '|' + barPct + '|' + barCol;
             if (cp.lastHudKey !== hudKey) {
               cp.lastHudKey = hudKey;
               var ctxHud = cp.statusCtx;
               ctxHud.clearRect(0, 0, 320, 112);
-              ctxHud.fillStyle = 'rgba(15, 23, 42, 0.88)';
+              ctxHud.fillStyle = 'rgba(15, 23, 42, 0.90)';
               ctxHud.beginPath();
               ctxHud.roundRect(4, 4, 312, 104, 16);
               ctxHud.fill();
-              ctxHud.lineWidth = 2;
-              ctxHud.strokeStyle = isLocked ? '#f59e0b' : '#38bdf8';
+              ctxHud.lineWidth = 2.5;
+              ctxHud.strokeStyle = borderCol;
               ctxHud.stroke();
 
-              ctxHud.font = 'bold 20px sans-serif';
+              ctxHud.font = 'bold 21px sans-serif';
               ctxHud.fillStyle = '#f8fafc';
               ctxHud.textAlign = 'left';
-              ctxHud.fillText((isLocked ? '🔒 ' : '🔓 ') + psiDisp + ' / 15 PSI (' + psiPct + '%)', 16, 34);
+              ctxHud.fillText(stageTitle, 16, 35);
 
-              // Barra de pressão
               ctxHud.fillStyle = '#1e293b';
-              ctxHud.fillRect(16, 46, 288, 16);
-              var barCol = cp.psi >= 14 ? '#22c55e' : (cp.psi >= 10 ? '#f59e0b' : (cp.psi >= 1.5 ? '#fb923c' : '#38bdf8'));
+              ctxHud.fillRect(16, 48, 288, 16);
               ctxHud.fillStyle = barCol;
-              ctxHud.fillRect(16, 46, Math.round(2.88 * psiPct), 16);
+              ctxHud.fillRect(16, 48, Math.round(2.88 * barPct), 16);
 
               ctxHud.font = 'bold 17px sans-serif';
-              var subTxt = '';
-              if (cp.progress >= 100) {
-                ctxHud.fillStyle = isLocked ? '#fde047' : '#86efac';
-                if (isLocked) {
-                  subTxt = onActiveBurner ? '✅ 100% • Desligue o fogareiro!' : '❄️ Despressurizando... (< 1.5 PSI)';
-                } else {
-                  subTxt = '✅ Esterilizado 100% (Pode abrir)';
-                }
-              } else if (cp.psi >= 14) {
-                ctxHud.fillStyle = '#86efac';
-                subTxt = '♨️ Esterilizando: ' + progInt + '% (' + Math.round(cp.temp) + '°C)';
-              } else if (onActiveBurner && cp.lidItem.isAttached) {
-                ctxHud.fillStyle = '#bae6fd';
-                subTxt = '🔥 Aquecendo: ' + Math.round(cp.temp) + '°C';
-              } else if (isLocked) {
-                ctxHud.fillStyle = '#fdba74';
-                subTxt = '❄️ Perdendo pressão... (< 1.5 PSI)';
-              } else {
-                ctxHud.fillStyle = '#cbd5e1';
-                subTxt = '🔓 Tampa destravada (' + Math.round(cp.temp) + '°C)';
-              }
-              ctxHud.fillText(subTxt, 16, 90);
+              ctxHud.fillStyle = cp.burned ? '#fca5a5' : '#e2e8f0';
+              ctxHud.fillText(stageSub, 16, 90);
               cp.statusTex.needsUpdate = true;
             }
           }
@@ -7902,6 +7973,8 @@
       cp.temp = 25;
       cp.progress = 0;
       cp.sterilized = false;
+      cp.overheatTimer = 0;
+      cp.burned = false;
       if (cp.steamPoints) cp.steamPoints.visible = false;
       if (cp.statusSprite) cp.statusSprite.visible = false;
       cp.lastHudKey = '';

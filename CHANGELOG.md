@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.18] — 2026-11-15
+### 🐛 Correção da Tela Preta na Seringa & Etapas Claras da Autoclave
+- **Correção Crítica da Seringa ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Declarados `_tmpSyrPort`, `_tmpSyrHand` e `_tmpSyrOff` no escopo de `campus3d.js`, corrigindo o `ReferenceError: _tmpV1 is not defined` que deixava a tela preta ao usar a seringa na cultura líquida.
+- **Autoclave em Etapas Sequenciais ("uma coisa por vez") ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - **Aquecendo** (`25°C -> 121°C`) → **PSI aumentando** (`0 -> 15 PSI`) → **Esterilizando** (`0 -> 100%`) → **100% Esterilizado! Desligue o fogo!** (contagem regressiva de `16s`).
+  - Se esquecer o fogo ligado após `16s`, o conteúdo queima (`burned = true`, visual escurecido) e exibe `🔥 Tudo queimado :( Jogue fora!`.
+  - Se desligar o fogo no tempo certo: **Perdendo pressão** (`15 -> <1.5 PSI`) → **Temperatura caindo** (`121°C -> ambiente`) → **✅ 100% Esterilizado • Pronto para uso! :)**.
+
 ## [v0.9.17] — 2026-11-15
 ### 🐛 Correção de Crash Fatal da Seringa na Cultura Líquida (`animate()`)
 - **Fim do Congelamento ao Tirar Mira / Soltar Seringa ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
