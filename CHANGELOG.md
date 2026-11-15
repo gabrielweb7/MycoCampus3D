@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.3] — 2026-11-15
+### 🌈 Arco-íris 3D Espectral sobre a Cordilheira de Montanhas
+- **Formação Atmosférica Dinâmica pós-Chuva (`createRainbowMesh`, `updateDynamicEnvironment`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - **Arco 3D Espectral com Coordenadas UV Radiais**: Modelado semicírculo geométrico majestoso de 92 metros de raio (`innerR: 72`, `outerR: 92`), com 64 segmentos de alta fidelidade e mapeamento UV contínuo.
+  - **Gradiente Óptico de 7 Cores Reais**: Textura procedural com as 7 faixas espectrais autênticas (Violeta, Anil/Azul, Ciano, Verde, Amarelo, Laranja, Vermelho), com blending aditivo (`THREE.AdditiveBlending`) que ilumina suavemente o céu e as nuvens.
+  - **Suavização das Extremidades nas Montanhas**: Máscara com interpolação de opacidade que funde naturalmente a base do arco-íris atrás das montanhas distantes ao norte/nordeste do campus.
+  - **Transição Automática ao Fim da Chuva**:
+    - O ciclo climático detecta quando a chuva cessa (`lastWeatherMode === 'rain' && weatherMode !== 'rain'`), abrindo o céu com luz solar dourada e ativando a formação do arco-íris.
+    - Animação cinematográfica com fade-in suave de 8 segundos, brilho sustentado com pulsação atmosférica sutil por ~50 segundos e fade-out gracioso de 12 segundos.
+    - Disponibilizada função global para acionamento/testes instantâneos: `window.triggerCampusRainbow(duracaoEmSegundos)`.
+
 ## [v0.9.2] — 2026-11-15
 ### 🛡️ Prevenção Total de Penetração e Sobreposição de Itens no Mundo 3D
 - **Bloqueio Físico de Colisão Entre Itens (`isPlacementBlocked`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
