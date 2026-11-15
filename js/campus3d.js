@@ -4422,9 +4422,9 @@
         var dynSurf = other.mesh.userData.dynamicSurface;
         // O jogador está colocando o item EM CIMA da superfície deste equipamento/mesa?
         if (pt.y >= dynSurf.topY - 0.04) {
-          // Impedir colocar uma mesa em cima de outra mesa ou capela
-          if (other.mesh.userData.isTable && (heldItem.mesh.userData.isTable || heldItem.mesh.userData.isHood)) {
-            placementBlockedReason = '🚫 Não é permitido sobrepor mesas/capelas';
+          // Impedir colocar uma mesa em cima de outra mesa ou capela (mas permitir colocar a capela em cima de mesas/bancadas!)
+          if (other.mesh.userData.isTable && heldItem.mesh.userData.isTable) {
+            placementBlockedReason = '🚫 Não é permitido sobrepor mesas';
             return true;
           }
           if (other.mesh.userData.isHood && heldItem.mesh.userData.isTable) {
@@ -4484,7 +4484,8 @@
       var len2 = vx * vx + vz * vz;
       var t = Math.max(0, Math.min(1, ((pt.x - w.x1) * vx + (pt.z - w.z1) * vz) / len2));
       var dist = Math.hypot(pt.x - (w.x1 + t * vx), pt.z - (w.z1 + t * vz));
-      var minWallDist = Math.max(0.16, heldRad * 0.82);
+      var effectiveHalf = heldIsBox ? Math.min(heldHw, heldHd) : heldRad;
+      var minWallDist = Math.max(0.16, effectiveHalf * 0.78 + 0.08);
       if (dist < minWallDist) {
         placementBlockedReason = '🚫 Muito próximo da parede';
         return true;
