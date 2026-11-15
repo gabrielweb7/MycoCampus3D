@@ -3,7 +3,11 @@
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
 ## [v0.9.3] — 2026-11-15
-### 🌈 Arco-íris 3D Espectral sobre a Cordilheira de Montanhas
+### 🍄 Correção de Piscar dos Cogumelos Silvestres & 🌈 Arco-íris 3D Espectral
+- **Estabilidade Total dos Cogumelos Silvestres no Bosque (`applyCampusWorldState`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Corrigida a inversão semântica na sincronização multiplayer dos cogumelos coletáveis (`wild_0`..`wild_31`).
+  - O valor `'1'` enviado pelo servidor (`1 = disponível/ativo`) vinha sendo tratado como `remSec > 0`, fazendo com que cada pacote de sync (a cada 200ms) forçasse a desativação visual do cogumelo enquanto o loop local tentava reexibi-lo, gerando cintilação/piscar contínuo no mapa.
+  - Agora os cogumelos permanecem 100% firmes, visíveis e rotacionando suavemente na grama, desaparecendo apenas quando colhidos por um jogador pelo período exato de 20 segundos de respawn.
 - **Formação Atmosférica Dinâmica pós-Chuva (`createRainbowMesh`, `updateDynamicEnvironment`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
   - **Arco 3D Espectral com Coordenadas UV Radiais**: Modelado semicírculo geométrico majestoso de 92 metros de raio (`innerR: 72`, `outerR: 92`), com 64 segmentos de alta fidelidade e mapeamento UV contínuo.
   - **Gradiente Óptico de 7 Cores Reais**: Textura procedural com as 7 faixas espectrais autênticas (Violeta, Anil/Azul, Ciano, Verde, Amarelo, Laranja, Vermelho), com blending aditivo (`THREE.AdditiveBlending`) que ilumina suavemente o céu e as nuvens.
