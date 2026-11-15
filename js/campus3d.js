@@ -194,19 +194,22 @@
   // ---------------- Altura do Terreno & Pisos Elevados ----------------
 
   function terrainHeight(x, z) {
-    // Plato plano da universidade (-32..32, -38..28)
-    var distCenter = Math.max(Math.abs(x) - 31, Math.abs(z + 4) - 32);
+    // Plato plano amplo para todo o mega-campus (-78..78, -50..52)
+    var distCenter = Math.max(Math.abs(x) - 76, Math.abs(z - 1) - 50);
     if (distCenter <= 0) return 0;
-    var blend = Math.min(1, distCenter / 16);
+    var blend = Math.min(1, distCenter / 24);
 
-    // Lago Alpino ao Nordeste (38, -42)
-    var dxLake = (x - 38) / 14;
-    var dzLake = (z + 42) / 11;
-    var lakeDist = Math.sqrt(dxLake * dxLake + dzLake * dzLake);
-    var lakeDrop = lakeDist < 1 ? -1.5 * (1 - lakeDist * lakeDist) : 0;
+    // Anel de montanhas distantes ao redor do horizonte (r > 125m)
+    var r = Math.hypot(x, z);
+    var mtn = 0;
+    if (r > 120) {
+      var mt = Math.min(1, (r - 120) / 55);
+      var ridge = Math.abs(Math.sin(x * 0.032 + z * 0.021) * Math.cos(z * 0.028 - x * 0.017));
+      mtn = mt * mt * (14 + ridge * 26);
+    }
 
-    var hills = Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2.5 + Math.sin(x * 0.13 + z * 0.1) * 0.6;
-    return blend * hills + lakeDrop;
+    var hills = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 2.4 + Math.sin(x * 0.11 + z * 0.09) * 0.7;
+    return blend * hills + mtn;
   }
 
   function getGroundHeight(x, z, refY) {
@@ -268,15 +271,16 @@
   // ---------------- Mundo Natural & Lago ----------------
 
   function buildNatureWorld() {
-    var size = 240;
-    var segs = 120;
+    var size = 480;
+    var segs = 140;
     var geo = new THREE.PlaneGeometry(size, size, segs, segs);
     geo.rotateX(-Math.PI / 2);
     var pos = geo.attributes.position;
     var colors = [];
     var cGrass = new THREE.Color(0x2f7038);
     var cGrassAlt = new THREE.Color(0x3c8444);
-    var cSand = new THREE.Color(0xcbd5e1);
+    var cMtn = new THREE.Color(0x1e462a);
+    var cRock = new THREE.Color(0x475569);
 
     for (var i = 0; i < pos.count; i++) {
       var x = pos.getX(i);
@@ -284,7 +288,8 @@
       var y = terrainHeight(x, z);
       pos.setY(i, y);
       var col = ((Math.sin(x * 0.14) + Math.cos(z * 0.14)) > 0 ? cGrass : cGrassAlt).clone();
-      if (y < -0.2) col.lerp(cSand, 0.7);
+      if (y > 6) col.lerp(cMtn, Math.min(1, (y - 6) / 14));
+      if (y > 22) col.lerp(cRock, Math.min(0.65, (y - 22) / 16));
       colors.push(col.r, col.g, col.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -293,74 +298,73 @@
     terrain.receiveShadow = true;
     scene.add(terrain);
 
-    // Lago Alpino
-    var waterGeo = new THREE.CircleGeometry(13, 36);
-    waterGeo.rotateX(-Math.PI / 2);
-    var water = new THREE.Mesh(waterGeo, new THREE.MeshStandardMaterial({
-      color: 0x0284c7, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.84
-    }));
-    water.position.set(38, -0.25, -42);
-    scene.add(water);
-
-    // Floresta densa ao redor do campus (72 arvores)
-    var treeCoords = [];
-    for (var a = 0; a < 36; a++) {
-      var ang = (a / 36) * Math.PI * 2;
-      var rad = 38 + (a % 3) * 8;
+    // Floresta densa com InstancedMesh (~360 arvores em apenas 3 draw calls!)
+    var treePositions = [];
+    for (var idx = 0; idx < 420; idx++) {
+      var ang = idx * 2.39996; // espiral de Fibonacci
+      var rad = 64 + Math.sqrt(idx / 420) * 95;
       var tx = Math.cos(ang) * rad;
-      var tz = Math.sin(ang) * rad - 4;
-      if (Math.hypot(tx - 38, tz + 42) > 13.5) treeCoords.push([tx, tz]);
+      var tz = Math.sin(ang) * rad * 0.85;
+      // Mantem livre o miolo do campus (inclui quadras, student center, dormitorios e avenida)
+      if (tx > -70 && tx < 74 && tz > -48 && tz < 46) continue;
+      // Mantem livre a avenida de entrada Sudoeste
+      if (tz > 34 && tz < 46 && tx > -80 && tx < 20) continue;
+      treePositions.push({ x: tx, y: terrainHeight(tx, tz), z: tz, s: 0.85 + (idx % 5) * 0.18 });
     }
-    // Arvores extras de fundo (Norte/Leste/Oeste)
-    for (var b = 0; b < 36; b++) {
-      var ang2 = (b / 36) * Math.PI * 2 + 0.09;
-      var rad2 = 52 + (b % 4) * 7;
-      treeCoords.push([Math.cos(ang2) * rad2, Math.sin(ang2) * rad2 - 6]);
-    }
-
-    treeCoords.forEach(function (tc, idx) {
-      var tx = tc[0], tz = tc[1];
-      var ty = terrainHeight(tx, tz);
-      var scale = 0.9 + (idx % 4) * 0.22;
-      var tree = new THREE.Group();
-      tree.position.set(tx, ty, tz);
-      tree.scale.setScalar(scale);
-
-      var trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.24, 0.38, 3.0, 8),
-        new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 })
-      );
-      trunk.position.y = 1.5;
-      trunk.castShadow = true;
-      tree.add(trunk);
-
-      if (idx % 3 === 0) {
-        var c1 = new THREE.Mesh(new THREE.DodecahedronGeometry(2.1, 1), new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.85 }));
-        c1.position.y = 3.9; c1.castShadow = true;
-        var c2 = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5, 1), new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.85 }));
-        c2.position.set(0.6, 4.9, 0.4); c2.castShadow = true;
-        tree.add(c1); tree.add(c2);
-      } else {
-        for (var k = 0; k < 3; k++) {
-          var cone = new THREE.Mesh(
-            new THREE.ConeGeometry(2.0 - k * 0.42, 2.5 - k * 0.2, 8),
-            new THREE.MeshStandardMaterial({ color: k === 2 ? 0x15803d : 0x166534, roughness: 0.85 })
-          );
-          cone.position.y = 3.0 + k * 1.4;
-          cone.castShadow = true;
-          tree.add(cone);
-        }
-      }
-      scene.add(tree);
-      solidColliders.push({ minX: tx - 0.55, maxX: tx + 0.55, minZ: tz - 0.55, maxZ: tz + 0.55, minY: ty, maxY: ty + 5 });
+    // Arvores decorativas entre as alas e perto dos lagos
+    var extraTrees = [
+      [-29, 18], [-29, -2], [-29, -20], [29, 18], [29, -18],
+      [-14, 24], [14, 24], [-18, 34], [18, 34], [28, 32],
+      [-32, 34], [64, -12], [68, 22], [32, -28], [-32, -32]
+    ];
+    extraTrees.forEach(function (et, k) {
+      treePositions.push({ x: et[0], y: 0, z: et[1], s: 0.95 + (k % 3) * 0.15 });
     });
 
-    // 20 Cogumelos Silvestres colhiveis (+25 XP) ao redor dos canteiros externos e floresta
+    var count = treePositions.length;
+    var trunkGeo = new THREE.CylinderGeometry(0.24, 0.38, 3.2, 7);
+    var trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
+    var cone1Geo = new THREE.ConeGeometry(2.1, 3.2, 8);
+    var cone1Mat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 });
+    var cone2Geo = new THREE.ConeGeometry(1.5, 2.6, 8);
+    var cone2Mat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 });
+
+    var trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
+    var cone1Inst = new THREE.InstancedMesh(cone1Geo, cone1Mat, count);
+    var cone2Inst = new THREE.InstancedMesh(cone2Geo, cone2Mat, count);
+    trunkInst.castShadow = true;
+    cone1Inst.castShadow = true;
+    cone2Inst.castShadow = true;
+
+    var dummy = new THREE.Object3D();
+    treePositions.forEach(function (tp, i) {
+      dummy.scale.setScalar(tp.s);
+      dummy.position.set(tp.x, tp.y + 1.6 * tp.s, tp.z);
+      dummy.updateMatrix();
+      trunkInst.setMatrixAt(i, dummy.matrix);
+
+      dummy.position.set(tp.x, tp.y + 3.6 * tp.s, tp.z);
+      dummy.updateMatrix();
+      cone1Inst.setMatrixAt(i, dummy.matrix);
+
+      dummy.position.set(tp.x, tp.y + 5.2 * tp.s, tp.z);
+      dummy.updateMatrix();
+      cone2Inst.setMatrixAt(i, dummy.matrix);
+
+      if (Math.abs(tp.x) < 90 && Math.abs(tp.z) < 70) {
+        solidColliders.push({ minX: tp.x - 0.5, maxX: tp.x + 0.5, minZ: tp.z - 0.5, maxZ: tp.z + 0.5, minY: tp.y, maxY: tp.y + 5 });
+      }
+    });
+    scene.add(trunkInst, cone1Inst, cone2Inst);
+
+    // 32 Cogumelos Silvestres colhiveis (+25 XP) espalhados por todo o campus e bosques
     var mushCoords = [
       [-11.5, 15.5], [11.5, 15.5], [-26, 8], [-27, -6], [26, 8], [27, -6],
-      [-26, 18], [26, 18], [-16, 22], [16, 22], [0, 25], [-8, 27],
-      [9, 27], [-28, -20], [28, -20], [31, -30], [25, -36], [34, -27],
-      [-31, 0], [31, 0]
+      [-26, 18], [26, 18], [-16, 22], [16, 22], [-10, 32], [10, 32],
+      [-24, 34], [24, 34], [-34, 4], [-34, -24], [32, -24], [34, 24],
+      [48, -24], [58, -16], [62, 2], [58, 34], [36, 36], [-48, 28],
+      [-64, 16], [-68, -12], [-58, -42], [-24, -42], [24, -42], [44, -40],
+      [-74, 2], [74, 10]
     ];
     var capColors = [0xef4444, 0xf59e0b, 0xa855f7, 0xec4899, 0x10b981];
     mushCoords.forEach(function (mc, idx) {
@@ -839,41 +843,56 @@
       addSolidWall(ax + 2.1, -1.2, ax + 2.1, 2.2, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
     });
 
-    // Terraco Norte (y = 3.80, x: -24..24, z: -18.5 .. -36.0)
-    addWalkableSlab(0, yTop, -27.25, 48.0, 3.80, 17.5, 0x94a3b8, { roughness: 0.8 });
+    // Terraco Norte (y = 3.80, x: -24..24, z: -29.5 .. -42.0) — separado da passarela por um Lago Norte com ponte!
+    addWalkableSlab(0, yTop, -35.75, 48.0, 3.80, 12.5, 0x94a3b8, { roughness: 0.8 });
+
+    // Ponte Norte sobre o lago ligando a Passarela (-18.5) ate o Terraco da Torre do Relogio (-29.5)
+    addWalkableSlab(0, yTop, -24.0, 5.6, 0.36, 11.2, 0x64748b, { roughness: 0.65 });
+    [-2.75, 2.75].forEach(function (bx) {
+      addSolidWall(bx, -29.5, bx, -18.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45 });
+    });
+
+    // Lago Norte sob a ponte (x: -24..24, z: -29.5 .. -18.5)
+    var northWater = new THREE.Mesh(
+      new THREE.PlaneGeometry(48, 11.5),
+      new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.84 })
+    );
+    northWater.rotation.x = -Math.PI / 2;
+    northWater.position.set(0, 0.08, -24.0);
+    scene.add(northWater);
   }
 
   function buildClockTowerAndAuditorium() {
     var baseY = 3.80;
 
-    // Alas laterais simetricas da Reitoria
+    // Alas laterais simetricas da Reitoria (recuadas para z = -37)
     [-9.5, 9.5].forEach(function (ax) {
       var wing = makeBox(11.0, 6.2, 6.4, brickMat(3, 2));
-      wing.position.set(ax, baseY + 3.1, -31.0);
+      wing.position.set(ax, baseY + 3.1, -37.0);
       scene.add(wing);
       var trim = makeBox(11.4, 0.45, 6.8, 0x64748b);
-      trim.position.set(ax, baseY + 6.3, -31.0);
+      trim.position.set(ax, baseY + 6.3, -37.0);
       scene.add(trim);
       var winFrame = makeBox(8.7, 4.8, 0.14, 0x0f172a);
-      winFrame.position.set(ax, baseY + 3.1, -27.72);
+      winFrame.position.set(ax, baseY + 3.1, -33.72);
       scene.add(winFrame);
       var win = makeBox(8.3, 4.4, 0.16, 0x7dd3fc, { transparent: true, opacity: 0.55, roughness: 0.15 });
-      win.position.set(ax, baseY + 3.1, -27.68);
+      win.position.set(ax, baseY + 3.1, -33.68);
       scene.add(win);
-      solidColliders.push({ minX: ax - 5.6, maxX: ax + 5.6, minZ: -34.3, maxZ: -27.7, minY: baseY, maxY: baseY + 7 });
+      solidColliders.push({ minX: ax - 5.6, maxX: ax + 5.6, minZ: -40.3, maxZ: -33.7, minY: baseY, maxY: baseY + 7 });
     });
 
     // Torre Central do Relogio
     var tower = makeBox(5.6, 12.6, 6.8, 0x64748b, { roughness: 0.55 });
-    tower.position.set(0, baseY + 6.3, -31.0);
+    tower.position.set(0, baseY + 6.3, -37.0);
     scene.add(tower);
     var towerFrame = makeBox(3.6, 7.6, 0.16, 0x0f172a);
-    towerFrame.position.set(0, baseY + 4.3, -27.52);
+    towerFrame.position.set(0, baseY + 4.3, -33.52);
     scene.add(towerFrame);
     var towerGlass = makeBox(3.2, 7.2, 0.18, 0x7dd3fc, { transparent: true, opacity: 0.6, roughness: 0.15 });
-    towerGlass.position.set(0, baseY + 4.3, -27.46);
+    towerGlass.position.set(0, baseY + 4.3, -33.46);
     scene.add(towerGlass);
-    solidColliders.push({ minX: -2.9, maxX: 2.9, minZ: -34.5, maxZ: -27.5, minY: baseY, maxY: baseY + 13 });
+    solidColliders.push({ minX: -2.9, maxX: 2.9, minZ: -40.5, maxZ: -33.5, minY: baseY, maxY: baseY + 13 });
 
     // Relogio funcional no topo da torre
     clockCanvas = document.createElement('canvas');
@@ -885,14 +904,14 @@
       new THREE.CircleGeometry(1.35, 28),
       new THREE.MeshBasicMaterial({ map: clockTex })
     );
-    clockMesh.position.set(0, baseY + 10.4, -27.5);
+    clockMesh.position.set(0, baseY + 10.4, -33.5);
     scene.add(clockMesh);
 
     // Banners da Reitoria
-    createBanner(-4.6, baseY + 4.0, -27.6, 0, '#1d4ed8', '🎓');
-    createBanner(4.6, baseY + 4.0, -27.6, 0, '#4338ca', '🍄');
+    createBanner(-4.6, baseY + 4.0, -33.6, 0, '#1d4ed8', '🎓');
+    createBanner(4.6, baseY + 4.0, -33.6, 0, '#4338ca', '🍄');
 
-    // Telao Principal no Terraco (ao lado esquerdo da entrada da Torre do Relogio, deixando o eixo central livre!)
+    // Telao Principal no Terraco (ao lado esquerdo da entrada da Torre do Relogio)
     auditoriumCanvas = document.createElement('canvas');
     auditoriumCanvas.width = 1024;
     auditoriumCanvas.height = 576;
@@ -900,14 +919,14 @@
     auditoriumTex = new THREE.CanvasTexture(auditoriumCanvas);
 
     var frameMain = makeBox(6.6, 3.8, 0.25, 0x0f172a, { roughness: 0.4 });
-    frameMain.position.set(-9.5, baseY + 2.4, -27.3);
+    frameMain.position.set(-9.5, baseY + 2.4, -33.3);
     scene.add(frameMain);
 
     var screenMain = new THREE.Mesh(
       new THREE.PlaneGeometry(6.1, 3.4),
       new THREE.MeshBasicMaterial({ map: auditoriumTex })
     );
-    screenMain.position.set(-9.5, baseY + 2.4, -27.14);
+    screenMain.position.set(-9.5, baseY + 2.4, -33.14);
     scene.add(screenMain);
     auditoriumScreenMeshes.push(screenMain);
 
@@ -964,7 +983,7 @@
       scene.add(group);
     }
 
-    addScreenButtons3D(-9.5, baseY + 0.25, -27.08, 0);
+    addScreenButtons3D(-9.5, baseY + 0.25, -33.08, 0);
     addScreenButtons3D(-13.52, 3.25, 0.5, Math.PI / 2);
 
     updateCampusAuditoriumSlide(
@@ -1149,6 +1168,164 @@
     registerPickable('fruiting_block', 'Bloco em Frutificação (Ostra/Juba)', mushBlock, 21.0, 0.86, 8.0, 0, 0.26, 0.48);
   }
 
+  // ---------------- Mega Campus: Lago em 8, Esportes, Student Center, Dormitorios & Avenidas ----------------
+
+  function buildOuterCampus() {
+    // 1. Avenidas asfaltadas com faixas de pedestres
+    var roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.88 });
+    var roadSouth = makeBox(140, 0.03, 7.0, roadMat, { noShadow: true });
+    roadSouth.position.set(0, 0.015, 39.5);
+    var roadEast = makeBox(7.0, 0.03, 62, roadMat, { noShadow: true });
+    roadEast.position.set(30.5, 0.015, 8.5);
+    scene.add(roadSouth, roadEast);
+
+    // Faixas de pedestres
+    for (var s = -2; s <= 2; s++) {
+      var st1 = makeBox(0.65, 0.04, 4.8, 0xf8fafc, { noShadow: true });
+      st1.position.set(-42 + s * 1.3, 0.02, 39.5);
+      var st2 = makeBox(4.8, 0.04, 0.65, 0xf8fafc, { noShadow: true });
+      st2.position.set(30.5, 0.02, 12 + s * 1.3);
+      scene.add(st1, st2);
+    }
+
+    // Calcada em bloquetes ligando a Praca Central ao Lago em 8 e ao Setor Leste
+    var walkS = new THREE.Mesh(new THREE.PlaneGeometry(14, 18), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
+    walkS.rotation.x = -Math.PI / 2; walkS.position.set(0, 0.022, 26); walkS.receiveShadow = true;
+    var walkE = new THREE.Mesh(new THREE.PlaneGeometry(36, 10), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
+    walkE.rotation.x = -Math.PI / 2; walkE.position.set(38, 0.022, 12); walkE.receiveShadow = true;
+    scene.add(walkS, walkE);
+
+    // 2. Lago Duplo (formato de 8) no Sul + Ponte de Madeira caminhavel
+    var lakeMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.86 });
+    [-6.5, 6.5].forEach(function (lx) {
+      var lobe = new THREE.Mesh(new THREE.CircleGeometry(7.6, 28), lakeMat);
+      lobe.rotation.x = -Math.PI / 2;
+      lobe.position.set(lx, 0.04, 28.0);
+      scene.add(lobe);
+      var rim = new THREE.Mesh(new THREE.RingGeometry(7.5, 8.2, 28), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 }));
+      rim.rotation.x = -Math.PI / 2;
+      rim.position.set(lx, 0.03, 28.0);
+      scene.add(rim);
+    });
+    // Ponte de madeira atravessando o meio do Lago em 8 (x: -2.2..2.2, z: 21..35)
+    addWalkableSlab(0, 0.48, 28.0, 3.6, 0.24, 13.5, 0x92400e, { roughness: 0.8 });
+    [-1.7, 1.7].forEach(function (px) {
+      addSolidWall(px, 21.5, px, 34.5, 0.48, 0.85, 0.1, 0x78350f);
+    });
+
+    // 3. Complexo Esportivo Oeste
+    // 3a. Campo de Futebol + Pista de Atletismo vermelha (x: -54, z: -15)
+    var track = makeBox(30, 0.04, 19, 0xb91c1c, { roughness: 0.85, noShadow: true });
+    track.position.set(-50, 0.02, -15);
+    var field = makeBox(24, 0.05, 14, 0x16a34a, { roughness: 0.9, noShadow: true });
+    field.position.set(-50, 0.025, -15);
+    scene.add(track, field);
+    var midLine = makeBox(0.14, 0.06, 13.8, 0xffffff, { noShadow: true });
+    midLine.position.set(-50, 0.03, -15);
+    scene.add(midLine);
+    [-61.5, -38.5].forEach(function (gx) {
+      var goal = makeBox(0.3, 2.0, 4.2, 0xf8fafc, { transparent: true, opacity: 0.75 });
+      goal.position.set(gx, 1.0, -15);
+      scene.add(goal);
+    });
+    // Arquibancada
+    for (var b = 0; b < 3; b++) {
+      var bleacher = makeBox(18, 0.45, 1.1, 0x94a3b8);
+      bleacher.position.set(-50, 0.22 + b * 0.45, -26 - b * 1.1);
+      scene.add(bleacher);
+    }
+
+    // 3b. Quadra de Basquete (x: -48, z: 6)
+    var bball = makeBox(18, 0.04, 12, 0x0f766e, { roughness: 0.8, noShadow: true });
+    bball.position.set(-48, 0.02, 6);
+    var bballIn = makeBox(15, 0.05, 9.5, 0x15803d, { roughness: 0.8, noShadow: true });
+    bballIn.position.set(-48, 0.025, 6);
+    scene.add(bball, bballIn);
+    [-55.5, -40.5].forEach(function (hx) {
+      var post = makeBox(0.16, 3.0, 0.16, 0x1e293b);
+      post.position.set(hx, 1.5, 6);
+      var boardB = makeBox(0.12, 1.0, 1.6, 0xf8fafc);
+      boardB.position.set(hx + (hx < -48 ? 0.35 : -0.35), 2.8, 6);
+      scene.add(post, boardB);
+    });
+
+    // 3c. Quadras de Tenis azuis (x: -48, z: -36)
+    [-54, -42].forEach(function (tx) {
+      var tCourt = makeBox(10, 0.04, 15, 0x1d4ed8, { roughness: 0.8, noShadow: true });
+      tCourt.position.set(tx, 0.02, -36);
+      var tNet = makeBox(9.2, 0.9, 0.1, 0xf8fafc, { transparent: true, opacity: 0.85 });
+      tNet.position.set(tx, 0.45, -36);
+      scene.add(tCourt, tNet);
+    });
+
+    // 3d. Estacionamento Sudoeste com carros
+    var lot = makeBox(24, 0.03, 18, roadMat, { noShadow: true });
+    lot.position.set(-48, 0.015, 24);
+    scene.add(lot);
+    var carCols = [0xef4444, 0x3b82f6, 0xfacc15, 0xf8fafc, 0x10b981, 0x64748b];
+    for (var c = 0; c < 6; c++) {
+      var car = makeBox(2.0, 1.1, 3.6, carCols[c], { roughness: 0.35, metalness: 0.3 });
+      car.position.set(-55 + (c % 3) * 6.5, 0.55, 19 + Math.floor(c / 3) * 9.5);
+      scene.add(car);
+      solidColliders.push({
+        minX: car.position.x - 1.1, maxX: car.position.x + 1.1,
+        minZ: car.position.z - 1.9, maxZ: car.position.z + 1.9, minY: 0, maxY: 1.4
+      });
+    }
+
+    // 4. Setor Leste: Student Center + 2a Praca Circular + Dormitorios
+    // 4a. Student Center (x: 48, z: -12) com terraco aberto no 2o andar
+    addWalkableSlab(48, 0.14, -12, 18, 0.14, 14, 0x475569);
+    addWalkableSlab(48, 3.6, -12, 18, 0.24, 14, 0x334155);
+    var scBody = makeBox(17.4, 3.4, 13.4, brickMat(4, 1.5));
+    scBody.position.set(48, 1.84, -12);
+    var scTop = makeBox(14, 2.8, 9, brickMat(3, 1.2));
+    scTop.position.set(48, 5.0, -14);
+    var scRoof = makeBox(14.8, 0.35, 9.8, 0x64748b);
+    scRoof.position.set(48, 6.55, -14);
+    scene.add(scBody, scTop, scRoof);
+    solidColliders.push({ minX: 39.2, maxX: 56.8, minZ: -18.8, maxZ: -5.2, minY: 0, maxY: 3.5 });
+    // Letreiro 3D Student Center
+    var scSignC = document.createElement('canvas');
+    scSignC.width = 512; scSignC.height = 96;
+    var scCtx = scSignC.getContext('2d');
+    scCtx.fillStyle = '#0f172a'; scCtx.fillRect(0, 0, 512, 96);
+    scCtx.fillStyle = '#38bdf8'; scCtx.font = 'bold 42px system-ui, sans-serif';
+    scCtx.textAlign = 'center'; scCtx.textBaseline = 'middle';
+    scCtx.fillText('STUDENT CENTER', 256, 48);
+    var scSign = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 1.4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(scSignC) }));
+    scSign.position.set(48, 5.4, -9.45);
+    scene.add(scSign);
+    createUmbrellaTable(43, -2.5);
+    createUmbrellaTable(48, -2.5);
+    createUmbrellaTable(53, -2.5);
+
+    // 4b. 2a Praca Circular Leste com Fonte (x: 42, z: 12)
+    var plazaE = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 8.5, 0.04, 28), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
+    plazaE.position.set(42, 0.02, 12);
+    var rimE = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.6, 0.42, 24), new THREE.MeshStandardMaterial({ color: 0xcbd5e1 }));
+    rimE.position.set(42, 0.21, 12);
+    var waterE = new THREE.Mesh(new THREE.CylinderGeometry(2.05, 2.05, 0.44, 24), lakeMat);
+    waterE.position.set(42, 0.23, 12);
+    scene.add(plazaE, rimE, waterE);
+    solidColliders.push({ minX: 39.5, maxX: 44.5, minZ: 9.5, maxZ: 14.5, minY: 0, maxY: 1.2 });
+
+    // 4c. 2 Dormitorios no Sudeste (tijolinho + madeira + toldos coloridos)
+    [[58, 12, 0xfacc15], [50, 28, 0x38bdf8]].forEach(function (dm) {
+      var dBody = makeBox(14, 6.2, 10, brickMat(3, 2));
+      dBody.position.set(dm[0], 3.1, dm[1]);
+      var dRoof = makeBox(14.6, 0.4, 10.6, 0x64748b);
+      dRoof.position.set(dm[0], 6.4, dm[1]);
+      var awning = makeBox(2.4, 0.25, 1.2, dm[2]);
+      awning.position.set(dm[0] - 4.0, 2.3, dm[1] + 5.4);
+      scene.add(dBody, dRoof, awning);
+      solidColliders.push({
+        minX: dm[0] - 7.1, maxX: dm[0] + 7.1,
+        minZ: dm[1] - 5.1, maxZ: dm[1] + 5.1, minY: 0, maxY: 6.8
+      });
+    });
+  }
+
   // ---------------- Colisao & Posicionamento de Itens ----------------
 
   function clampPosAgainstWalls(pos, radius) {
@@ -1187,8 +1364,8 @@
         }
       }
     }
-    pos.x = Math.max(-95, Math.min(95, pos.x));
-    pos.z = Math.max(-95, Math.min(95, pos.z));
+    pos.x = Math.max(-200, Math.min(200, pos.x));
+    pos.z = Math.max(-200, Math.min(200, pos.z));
   }
 
   function buildFirstPersonArm() {
@@ -1253,12 +1430,65 @@
     lastDrawPt = null;
   }
 
+  var placementRing = null;
+  var placementDot = null;
+  var placementHoloWrap = null;
+  var placementHoloMat = null;
+  var placementGhostItemId = null;
+
   function createPlacementGhost() {
-    var geo = new THREE.CylinderGeometry(0.28, 0.28, 0.14, 18);
-    var mat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.45, depthWrite: false });
-    placementGhost = new THREE.Mesh(geo, mat);
+    placementGhost = new THREE.Group();
+    placementRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.11, 0.142, 48),
+      new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false })
+    );
+    placementRing.rotation.x = -Math.PI / 2;
+    placementRing.position.y = 0.008;
+    placementGhost.add(placementRing);
+
+    placementDot = new THREE.Mesh(
+      new THREE.CircleGeometry(0.024, 24),
+      new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
+    );
+    placementDot.rotation.x = -Math.PI / 2;
+    placementDot.position.y = 0.009;
+    placementGhost.add(placementDot);
+
+    placementHoloMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.44, depthWrite: false });
+    placementHoloWrap = new THREE.Group();
+    placementGhost.add(placementHoloWrap);
+
     placementGhost.visible = false;
     scene.add(placementGhost);
+  }
+
+  function updatePlacementGhostVisual(item, isValid, rotY) {
+    if (!placementGhost || !item) return;
+    if (placementGhostItemId !== item.id) {
+      while (placementHoloWrap.children.length > 0) {
+        placementHoloWrap.remove(placementHoloWrap.children[0]);
+      }
+      var clone = item.mesh.clone(true);
+      clone.position.set(0, 0, 0);
+      clone.rotation.set(0, 0, 0);
+      clone.visible = true;
+      clone.traverse(function (ch) {
+        if (ch.isMesh) {
+          ch.material = placementHoloMat;
+          ch.castShadow = false;
+          ch.receiveShadow = false;
+        }
+      });
+      placementHoloWrap.add(clone);
+      placementGhostItemId = item.id;
+    }
+    var col = isValid ? 0x10b981 : 0xef4444;
+    placementRing.material.color.setHex(col);
+    placementDot.material.color.setHex(col);
+    placementHoloMat.color.setHex(col);
+    placementHoloWrap.rotation.y = rotY;
+    var pulse = 1 + Math.sin(clock.elapsedTime * 5) * 0.04;
+    placementRing.scale.set(pulse, pulse, 1);
   }
 
   function findPlacementTarget() {
@@ -1609,7 +1839,7 @@
       var pt = findPlacementTarget();
       placementValid = !isPlacementBlocked(pt);
       placementGhost.position.copy(pt);
-      placementGhost.material.color.setHex(placementValid ? 0x10b981 : 0xef4444);
+      updatePlacementGhostVisual(heldItem, placementValid, heldRotY);
       placementGhost.visible = true;
       prompt = placementValid ? 'Soltar: ' + heldItem.label : 'Local bloqueado';
       if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
@@ -1669,25 +1899,25 @@
 
   function stepLobbyTour(dt) {
     tourTime += dt;
-    var cycle = tourTime % 30;
+    var cycle = tourTime % 36;
     var camPos = new THREE.Vector3();
     var lookAt = new THREE.Vector3();
 
-    if (cycle < 10) {
-      // Vista panoramica da praca igual a foto de referencia
-      var t0 = cycle / 10;
-      camPos.set(-10 + t0 * 20, 12.5 - Math.sin(t0 * Math.PI) * 2.5, 22 - t0 * 3);
-      lookAt.set(0, 4.5, -14);
-    } else if (cycle < 20) {
-      // Voo baixo sobre a fonte do cogumelo em direcao a escadaria e torre do relogio
-      var t1 = (cycle - 10) / 10;
-      camPos.set(Math.sin(t1 * Math.PI) * 5, 5.5 + t1 * 3.5, 14 - t1 * 22);
-      lookAt.set(0, 7.5, -30);
+    if (cycle < 12) {
+      // Vista panoramica da praca, fonte do cogumelo e ponte da Torre do Relogio
+      var t0 = cycle / 12;
+      camPos.set(-14 + t0 * 28, 16.0 - Math.sin(t0 * Math.PI) * 3.0, 26 - t0 * 4);
+      lookAt.set(0, 3.5, -12);
+    } else if (cycle < 24) {
+      // Sobrevoo pelo Lago em 8 e Complexo Esportivo
+      var t1 = (cycle - 12) / 12;
+      camPos.set(16 - t1 * 48, 22.0, 36 - t1 * 28);
+      lookAt.set(-22, 1.5, 4);
     } else {
-      // Passagem pelas alas de tijolo e vidro
-      var t2 = (cycle - 20) / 10;
-      camPos.set(11 - t2 * 22, 8.0, -4 + Math.sin(t2 * Math.PI) * 8);
-      lookAt.set(0, 2.5, 2);
+      // Retorno pelo Student Center, Praca Leste e Montanhas
+      var t2 = (cycle - 24) / 12;
+      camPos.set(52 - t2 * 64, 24.0, 28 - Math.sin(t2 * Math.PI) * 18);
+      lookAt.set(8, 2.5, -6);
     }
 
     camera.position.lerp(camPos, Math.min(1, dt * 1.4));
@@ -1927,7 +2157,7 @@
     var container = document.getElementById(containerId);
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x60a5fa);
-    scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0042);
+    scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0022);
 
     // Nuvens brancas suaves no ceu
     var cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe0f2fe, emissiveIntensity: 0.25 });
@@ -1944,8 +2174,8 @@
       scene.add(cg);
     }
 
-    camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 260);
-    camera.position.set(-10, 12.5, 22);
+    camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 440);
+    camera.position.set(-14, 16, 26);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1969,13 +2199,14 @@
     var hemi = new THREE.HemisphereLight(0xe0f2fe, 0x3f6212, 0.85);
     scene.add(hemi);
     var sun = new THREE.DirectionalLight(0xfffbeb, 1.15);
-    sun.position.set(28, 42, 26);
+    sun.position.set(45, 65, 38);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -45;
-    sun.shadow.camera.right = 45;
-    sun.shadow.camera.top = 45;
-    sun.shadow.camera.bottom = -45;
+    sun.shadow.camera.left = -85;
+    sun.shadow.camera.right = 85;
+    sun.shadow.camera.top = 85;
+    sun.shadow.camera.bottom = -85;
+    sun.shadow.camera.far = 220;
     scene.add(sun);
 
     clock = new THREE.Clock();
@@ -1985,6 +2216,7 @@
     buildStaircaseAndBridge();
     buildClockTowerAndAuditorium();
     buildCampusWingsAndEquipment();
+    buildOuterCampus();
     buildFirstPersonArm();
     createPlacementGhost();
     bindControls();

@@ -10,7 +10,7 @@ require_once __DIR__ . '/db.php';
 const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
 const MP_SLIDE_COUNT = 5;
-const MP_WORLD_LIMIT = 100.0;
+const MP_WORLD_LIMIT = 220.0;
 const MP_ITEMS = [
     'petri_clean', 'petri_contam', 'spawn_jar', 'liquid_culture',
     'substrate_bag', 'fruiting_block',
