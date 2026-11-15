@@ -76,6 +76,7 @@
   var fpsLeftArmGroup = null;
   var fpsSleeveMat = null;
   var snapClosePot = null;
+  var snapPetriStack = false;
   var localAvatar = null;
   var armSwingPhase = 0;
   var armReach = 0;
@@ -1287,17 +1288,17 @@
     var doorPivot = new THREE.Group();
     doorPivot.position.set(frontX, yFloor1, cz - doorHalfW + 0.04);
     var leafW = (doorHalfW - 0.04) * 2;
-    var doorGlass = makeBox(0.08, doorH - 0.04, leafW, 0x0f766e, { transparent: true, opacity: 0.65, roughness: 0.2, noShadow: true });
-    doorGlass.position.set(0, doorH / 2, leafW / 2);
+    var doorGlass = makeBox(0.036, doorH - 0.17, leafW - 0.15, 0x0f766e, { transparent: true, opacity: 0.58, roughness: 0.15, noShadow: true });
+    doorGlass.position.set(0, doorH / 2 - 0.01, leafW / 2);
     var stL = new THREE.Mesh(new THREE.BoxGeometry(0.11, doorH, 0.08), frameMat);
     stL.position.set(0, doorH / 2, 0.04);
     var stR = new THREE.Mesh(new THREE.BoxGeometry(0.11, doorH, 0.08), frameMat);
     stR.position.set(0, doorH / 2, leafW - 0.04);
-    var rlT = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.08, leafW), frameMat);
+    var rlT = new THREE.Mesh(new THREE.BoxGeometry(0.106, 0.08, leafW - 0.16), frameMat);
     rlT.position.set(0, doorH - 0.04, leafW / 2);
-    var rlB = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.10, leafW), frameMat);
+    var rlB = new THREE.Mesh(new THREE.BoxGeometry(0.106, 0.10, leafW - 0.16), frameMat);
     rlB.position.set(0, 0.05, leafW / 2);
-    var doorHandle = makeBox(0.22, 0.24, 0.06, 0xfbbf24, { metalness: 0.8, roughness: 0.2, noShadow: true });
+    var doorHandle = makeBox(0.18, 0.42, 0.035, 0xe2e8f0, { metalness: 0.85, roughness: 0.2, noShadow: true });
     doorHandle.position.set(0, 1.12, leafW - 0.18);
     doorPivot.add(doorGlass, stL, stR, rlT, rlB, doorHandle);
     scene.add(doorPivot);
@@ -1728,7 +1729,7 @@
       top.position.set(bx, 0.14 + 0.85, bz);
       scene.add(trim, cab, top);
       solidColliders.push({ minX: bx - bw / 2 - 0.05, maxX: bx + bw / 2 + 0.05, minZ: bz - bd / 2 - 0.05, maxZ: bz + bd / 2 + 0.05, minY: 0.14, maxY: 1.3 });
-      supportSurfaces.push({ minX: bx - bw / 2 + 0.04, maxX: bx + bw / 2 - 0.04, minZ: bz - bd / 2 + 0.04, maxZ: bz + bd / 2 - 0.04, topY: 1.02 });
+      supportSurfaces.push({ minX: bx - bw / 2, maxX: bx + bw / 2, minZ: bz - bd / 2, maxZ: bz + bd / 2, topY: 1.02 });
     }
     addWallLabBench(-23.15, -7.0, 1.2, 10.6); // Parede Oeste inteira
     addWallLabBench(-18.5, -12.0, 8.1, 1.1);  // Parede Norte inteira
@@ -1973,13 +1974,17 @@
         ctx.fillStyle = '#e7dcc8';
         ctx.beginPath(); ctx.arc(174, 118, 44, 0, Math.PI * 2); ctx.fill();
       }
-      var agarTex = new THREE.CanvasTexture(c);
-      var agar = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.156, 0.156, 0.022, 22),
-        new THREE.MeshStandardMaterial({ map: agarTex, roughness: 0.35 })
-      );
-      agar.position.y = 0.015;
-      pg.add(agar, rim, lid);
+      if (mode !== 'bare') {
+        var agarTex = new THREE.CanvasTexture(c);
+        var agar = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.156, 0.156, 0.022, 22),
+          new THREE.MeshStandardMaterial({ map: agarTex, roughness: 0.35 })
+        );
+        agar.position.y = 0.015;
+        pg.add(agar);
+      }
+      pg.add(rim, lid);
+      pg.userData.isPetri = true;
       return pg;
     }
 
@@ -2210,7 +2215,7 @@
     })();
 
     // Borrifador de Alcool 70%
-    (function () {
+    function makeAlcoholSprayBottle(id, px, py, pz) {
       var ag = new THREE.Group();
       var bottle = new THREE.Mesh(
         new THREE.CylinderGeometry(0.055, 0.062, 0.18, 16),
@@ -2225,8 +2230,9 @@
       trig.position.set(0, 0.212, 0.042);
       ag.add(bottle, neck, nozzle, trig);
       ag.userData.isAlcoholSpray = true;
-      registerPickable('alcohol_spray', 'Borrifador Álcool 70%', ag, -23.1, 1.02, -7.1, Math.PI / 2, 0.12, 0.26);
-    })();
+      return registerPickable(id, 'Borrifador Álcool 70%', ag, px, py, pz, Math.PI / 2, 0.12, 0.26);
+    }
+    makeAlcoholSprayBottle('alcohol_spray', -23.1, 1.02, -7.1);
 
     // Seladora Termica de Bancada
     var sealerGroup = new THREE.Group();
@@ -2363,40 +2369,63 @@
 
     function makeMagneticStirrer(id, px, py, pz) {
       var sg = new THREE.Group();
-      var baseMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.45, metalness: 0.15 });
-      var plateMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.82, roughness: 0.22 });
-      var panelMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35 });
-      var housing = makeBox(0.32, 0.085, 0.36, baseMat, { roughness: 0.45 });
-      housing.position.set(0, 0.0425, 0);
-      var plate = makeBox(0.24, 0.018, 0.24, plateMat, { metalness: 0.85 });
-      plate.position.set(0, 0.096, -0.04);
-      var frontPanel = makeBox(0.26, 0.055, 0.10, panelMat, { noShadow: true });
-      frontPanel.position.set(0, 0.055, 0.15);
-      frontPanel.rotation.x = 0.45;
-      var knob1 = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.020, 0.024, 14), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 }));
-      knob1.rotation.x = Math.PI / 2 + 0.45; knob1.position.set(-0.055, 0.072, 0.165);
-      var knob2 = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.020, 0.024, 14), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 }));
-      knob2.rotation.x = Math.PI / 2 + 0.45; knob2.position.set(0.055, 0.072, 0.165);
-      var ledMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-      var powerLed = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 8), ledMat);
-      powerLed.position.set(0, 0.082, 0.155);
-      sg.add(housing, plate, frontPanel, knob1, knob2, powerLed);
+      var baseMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.35, metalness: 0.12 });
+      var plateMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.18 });
+      var body = makeBox(0.30, 0.078, 0.28, baseMat, { roughness: 0.35 });
+      body.position.set(0, 0.039, -0.04);
+      var plate = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.118, 0.018, 24), plateMat);
+      plate.position.set(0, 0.088, -0.04);
+      var plateRim = new THREE.Mesh(new THREE.TorusGeometry(0.116, 0.006, 8, 24), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7 }));
+      plateRim.rotation.x = Math.PI / 2; plateRim.position.set(0, 0.082, -0.04);
 
-      var stirSurf = { minX: px - 0.13, maxX: px + 0.13, minZ: pz - 0.16, maxZ: pz + 0.10, topY: py + 0.105 };
+      // Painel frontal inclinado azul estilo IKA / HYCC SH-2 com marca e legendas nitidas
+      var pCan = document.createElement('canvas'); pCan.width = 256; pCan.height = 96;
+      var pCtx = pCan.getContext('2d');
+      pCtx.fillStyle = '#1d4ed8'; pCtx.fillRect(0, 0, 256, 96);
+      pCtx.fillStyle = '#ffffff'; pCtx.font = 'bold 18px system-ui, sans-serif';
+      pCtx.textAlign = 'center'; pCtx.fillText('IKA • MYCO-MAG SH-2', 128, 22);
+      pCtx.font = 'bold 12px system-ui, sans-serif';
+      pCtx.fillStyle = '#bfdbfe';
+      pCtx.fillText('STIRRING', 56, 84);
+      pCtx.fillText('POWER', 128, 84);
+      pCtx.fillText('HEATING', 200, 84);
+      var panelMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(pCan), roughness: 0.3 });
+      var frontPanel = makeBox(0.28, 0.068, 0.075, panelMat, { noShadow: true });
+      frontPanel.position.set(0, 0.036, 0.12);
+      frontPanel.rotation.x = 0.42;
+
+      function makeRotaryKnob(kx) {
+        var kg = new THREE.Group();
+        var kBase = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.021, 0.016, 16), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }));
+        var kCap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.006, 16), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.2 }));
+        kCap.position.y = 0.010;
+        kg.add(kBase, kCap);
+        kg.rotation.x = Math.PI / 2 - 1.15;
+        kg.position.set(kx, 0.056, 0.135);
+        return kg;
+      }
+      var knob1 = makeRotaryKnob(-0.075);
+      var knob2 = makeRotaryKnob(0.075);
+      var ledMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+      var powerLed = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 8), ledMat);
+      powerLed.position.set(0, 0.056, 0.132);
+      sg.add(body, plate, plateRim, frontPanel, knob1, knob2, powerLed);
+
+      var stirSurf = { minX: px - 0.13, maxX: px + 0.13, minZ: pz - 0.16, maxZ: pz + 0.08, topY: py + 0.098 };
       supportSurfaces.push(stirSurf);
       sg.userData.isStirrer = true;
-      sg.userData.tableDims = { w: 0.32, h: 0.105, d: 0.36, surfOffset: 0 };
+      sg.userData.tableDims = { w: 0.30, h: 0.098, d: 0.34, surfOffset: 0 };
       sg.userData.dynamicSurface = stirSurf;
       sg.userData.updateBounds = updateItemBounds;
       sg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(stirSurf, it); };
 
       var stirState = { on: false, ledMat: ledMat, surface: stirSurf };
       frontPanel.userData.stirSwitch = stirState;
-      knob1.userData.stirSwitch = stirState;
-      knob2.userData.stirSwitch = stirState;
-      stirSwitchMeshes.push(frontPanel, knob1, knob2);
+      knob1.children.forEach(function (c) { c.userData.stirSwitch = stirState; stirSwitchMeshes.push(c); });
+      knob2.children.forEach(function (c) { c.userData.stirSwitch = stirState; stirSwitchMeshes.push(c); });
+      stirSwitchMeshes.push(frontPanel);
       stirrerDevices.push(stirState);
-      return registerPickable(id, 'Agitador Magnético', sg, px, py, pz, 0, 0.24, 0.14);
+      return registerPickable(id, 'Agitador Magnético (MYCO-MAG)', sg, px, py, pz, 0, 0.24, 0.14);
     }
 
     function updateSyringeVolume(item, newVol) {
@@ -2554,10 +2583,143 @@
       });
     }
 
-    // 3 Estantes Porta-Pallet vazias no Deposito (parede Oeste ao fundo, parede Norte e parede Sul)
+    // 3 Estantes Porta-Pallet no Deposito (parede Oeste ao fundo, parede Norte e parede Sul)
     addStoragePortaPalletRack(-23.05, 8.0, 7.6, 0.86, Math.PI / 2);
     addStoragePortaPalletRack(-19.2, 3.05, 5.4, 0.86, 0);
     addStoragePortaPalletRack(-19.8, 12.95, 4.8, 0.86, Math.PI);
+
+    // Helpers de Insumos Extras do Deposito
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function makeSubstrateBag5kg(id, kind, px, py, pz) {
+      var sg = new THREE.Group();
+      var isGrain = kind === 'grain';
+      var bagColor = isGrain ? 0xd97706 : 0x78350f;
+      var bag = makeBox(0.30, 0.42, 0.22, bagColor, { roughness: 0.85 });
+      bag.position.y = 0.21;
+      var c = document.createElement('canvas'); c.width = 256; c.height = 128;
+      var ctx = c.getContext('2d');
+      ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, 256, 128);
+      ctx.fillStyle = isGrain ? '#b45309' : '#065f46';
+      ctx.fillRect(0, 0, 256, 36);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 20px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(isGrain ? 'GRÃOS • MILHO 5KG' : 'SUBSTRATO BULK 5KG', 128, 25);
+      ctx.fillStyle = '#1e293b'; ctx.font = 'bold 18px system-ui, sans-serif';
+      ctx.fillText(isGrain ? 'Spawn / Semente' : 'Serragem + Fibra Coco', 128, 72);
+      ctx.fillStyle = '#64748b'; ctx.font = '15px system-ui, sans-serif';
+      ctx.fillText('Uso Laboratorial • Estoque', 128, 102);
+      var lbl = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.24, 0.12),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) })
+      );
+      lbl.position.set(0, 0.24, 0.112);
+      sg.add(bag, lbl);
+      var label = isGrain ? 'Saco de Grãos/Milho 5kg' : 'Saco de Substrato (Serragem/Coco) 5kg';
+      return registerPickable(id, label, sg, px, py, pz, 0, 0.26, 0.42);
+    }
+
+    function makeGlovesBox(id, px, py, pz) {
+      var gg = new THREE.Group();
+      var box = makeBox(0.24, 0.12, 0.13, 0x0284c7, { roughness: 0.45 });
+      box.position.y = 0.06;
+      var slot = makeBox(0.12, 0.008, 0.05, 0xe0f2fe, { noShadow: true });
+      slot.position.set(0, 0.122, 0);
+      var strip = makeBox(0.242, 0.04, 0.132, 0xf8fafc, { noShadow: true });
+      strip.position.y = 0.085;
+      gg.add(box, slot, strip);
+      return registerPickable(id, 'Caixa de Luvas Nitrílicas Estéreis', gg, px, py, pz, 0, 0.18, 0.14);
+    }
+
+    function makeTapeRoll(id, kind, px, py, pz) {
+      var tg = new THREE.Group();
+      var isMicro = kind === 'micropore';
+      var outer = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.055, 0.055, isMicro ? 0.032 : 0.055, 18),
+        new THREE.MeshStandardMaterial({ color: isMicro ? 0xf8fafc : 0xe2e8f0, roughness: 0.6 })
+      );
+      outer.position.y = isMicro ? 0.016 : 0.0275;
+      var core = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.036, 0.036, isMicro ? 0.034 : 0.057, 14),
+        new THREE.MeshStandardMaterial({ color: isMicro ? 0x0284c7 : 0x7c3aed, roughness: 0.5 })
+      );
+      core.position.y = outer.position.y;
+      tg.add(outer, core);
+      var lbl = isMicro ? 'Rolo de Fita Micropore (Troca Gasosa)' : 'Rolo de Parafilm M (Vedação Petri)';
+      return registerPickable(id, lbl, tg, px, py, pz, 0, 0.08, 0.06);
+    }
+
+    function makeFoilRoll(id, px, py, pz) {
+      var fg = new THREE.Group();
+      var box = makeBox(0.32, 0.065, 0.065, 0xdc2626, { roughness: 0.45 });
+      box.position.y = 0.0325;
+      var band = makeBox(0.322, 0.025, 0.067, 0xfef08a, { noShadow: true });
+      band.position.y = 0.04;
+      fg.add(box, band);
+      return registerPickable(id, 'Papel Alumínio (Autoclave)', fg, px, py, pz, 0, 0.18, 0.08);
+    }
+
+    // Popular Estoque do Deposito (Niveis: 0.438 | 1.118 | 1.798)
+    // 1. ESTANTE NORTE (x: -21.7..-16.7, z = 3.05)
+    // Nivel 2 (y = 1.118): 15 Bags 1,5kg Vazias
+    for (var bi = 0; bi < 15; bi++) {
+      var bRow = Math.floor(bi / 8);
+      var bCol = bi % 8;
+      makeSpawnBag1500('spawn_bag_empty_' + pad2(bi + 1), false, -21.4 + bCol * 0.62, 1.118, 2.86 + bRow * 0.36);
+    }
+    // Nivel 1 (y = 0.438): 4 Sacos de Graos/Milho 5kg + 4 Sacos de Substrato Bulk 5kg
+    for (var si = 0; si < 4; si++) {
+      makeSubstrateBag5kg('substrate_grain_' + pad2(si + 1), 'grain', -21.35 + si * 0.58, 0.438, 3.05);
+      makeSubstrateBag5kg('substrate_sawdust_' + pad2(si + 1), 'sawdust', -18.85 + si * 0.58, 0.438, 3.05);
+    }
+    // Nivel 3 (y = 1.798): 40 Placas de Petri Vazias (5 pilhas de 7 + 1 pilha de 5 = 40!) + 2 Frascos PDA extras
+    for (var pIdx = 0; pIdx < 40; pIdx++) {
+      var stackIdx = Math.floor(pIdx / 7);
+      var stackLvl = pIdx % 7;
+      registerPickable(
+        'petri_bare_' + pad2(pIdx + 1),
+        'Placa de Petri Vazia',
+        makePetriDish('bare'),
+        -21.3 + stackIdx * 0.56,
+        1.798 + stackLvl * 0.055,
+        3.05,
+        0, 0.20, 0.08
+      );
+    }
+    registerPickable('pda_bottle_02', 'Ágar PDA / BDA (500g)', pdaGroup.clone(), -17.55, 1.798, 3.05, 0, 0.14, 0.31);
+    registerPickable('pda_bottle_03', 'Ágar PDA / BDA (500g)', pdaGroup.clone(), -17.15, 1.798, 3.05, 0, 0.14, 0.31);
+
+    // 2. ESTANTE OESTE / FUNDO (x = -23.05, z: 4.4..11.6)
+    // Nivel 2 (y = 1.118): 15 Vidros 800ml Vazios
+    for (var ji = 0; ji < 15; ji++) {
+      var jRow = Math.floor(ji / 8);
+      var jCol = ji % 8;
+      makeSpawnJar800('spawn_jar_empty_' + pad2(ji + 1), false, -23.22 + jRow * 0.34, 1.118, 4.75 + jCol * 0.85);
+    }
+    // Nivel 1 (y = 0.438): 3 Caixas de Luvas Nitrilicas + 3 Rolos Papel Aluminio + 2 Borrifadores Alcool 70%
+    for (var gi = 0; gi < 3; gi++) {
+      makeGlovesBox('gloves_box_' + pad2(gi + 1), -23.05, 0.438, 4.9 + gi * 0.65);
+      makeFoilRoll('foil_roll_' + pad2(gi + 1), -23.05, 0.438, 7.2 + gi * 0.65);
+    }
+    makeAlcoholSprayBottle('alcohol_spray_02', -23.05, 0.438, 9.8);
+    makeAlcoholSprayBottle('alcohol_spray_03', -23.05, 0.438, 10.4);
+    // Nivel 3 (y = 1.798): 4 Rolos Fita Micropore + 3 Rolos Parafilm M + 2 Bequeres 1L extras
+    for (var mi = 0; mi < 4; mi++) {
+      makeTapeRoll('micropore_' + pad2(mi + 1), 'micropore', -23.05, 1.798, 4.8 + mi * 0.45);
+    }
+    for (var pfi = 0; pfi < 3; pfi++) {
+      makeTapeRoll('parafilm_' + pad2(pfi + 1), 'parafilm', -23.05, 1.798, 7.1 + pfi * 0.45);
+    }
+    makeBeaker1L('beaker_1l_03', 0, -23.05, 1.798, 9.2);
+    makeBeaker1L('beaker_1l_04', 0, -23.05, 1.798, 9.9);
+
+    // 3. ESTANTE SUL (x: -22.0..-17.6, z = 12.95)
+    // Nivel 2 (y = 1.118): 20 Seringas 10ml Estereis
+    for (var syi = 0; syi < 20; syi++) {
+      var sRow = Math.floor(syi / 10);
+      var sCol = syi % 10;
+      makeSyringe10ml('syringe_10ml_' + pad2(syi + 1), -21.75 + sCol * 0.43, 1.118, 12.78 + sRow * 0.34);
+    }
 
     // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
     // Bloco Leste-Norte (z: -12.8..-1.2): SUBSTRATOS & PASTEURIZACAO + 2o andar acessivel
@@ -3071,6 +3233,7 @@
 
   function findPlacementTarget(customNdc) {
     snapClosePot = null;
+    snapPetriStack = false;
     var rayNdc = customNdc || (inFps ? new THREE.Vector2(0, 0) : pointerNdc);
     raycaster.setFromCamera(rayNdc, camera);
     var dir = raycaster.ray.direction;
@@ -3091,17 +3254,55 @@
       }
     }
 
+    // 0b. Se estiver segurando uma Placa de Petri e mirar em outra Placa de Petri (pilha max 7 placas!)
+    if (heldItem && heldItem.mesh && heldItem.mesh.userData.isPetri) {
+      var petriBest = null;
+      var petriDist = 4.2;
+      for (var pi = 0; pi < pickableItems.length; pi++) {
+        var cand = pickableItems[pi];
+        if (!cand || cand === heldItem || !cand.mesh || !cand.mesh.userData.isPetri) continue;
+        if (isHeldByRemote(cand.id)) continue;
+        var cp = cand.mesh.position;
+        var cTop = new THREE.Vector3(cp.x, cp.y + 0.03, cp.z);
+        var dCam = origin.distanceTo(cTop);
+        if (dCam < petriDist && raycaster.ray.distanceSqToPoint(cTop) < 0.036) {
+          petriDist = dCam;
+          petriBest = cand;
+        }
+      }
+      if (petriBest) {
+        var bx = petriBest.mesh.position.x;
+        var bz = petriBest.mesh.position.z;
+        var stackCount = 0;
+        var maxY = petriBest.mesh.position.y;
+        for (var pj = 0; pj < pickableItems.length; pj++) {
+          var pOther = pickableItems[pj];
+          if (!pOther || pOther === heldItem || !pOther.mesh || !pOther.mesh.userData.isPetri) continue;
+          if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < 0.10) {
+            stackCount++;
+            if (pOther.mesh.position.y > maxY) maxY = pOther.mesh.position.y;
+          }
+        }
+        if (stackCount < 7) {
+          snapPetriStack = true;
+          return new THREE.Vector3(bx, maxY + 0.055, bz);
+        }
+      }
+    }
+
     // 1. Intersecao exata Raio x Plano para mesas, bancadas e bandejas de lousa
-    if (dir.y < -0.02) {
+    if (dir.y < -0.005) {
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
         var tPlane = (s.topY - origin.y) / dir.y;
-        if (tPlane >= 0.35 && tPlane <= 5.0 && tPlane < bestT) {
+        if (tPlane >= 0.08 && tPlane <= 5.5 && tPlane < bestT) {
           var hx = origin.x + dir.x * tPlane;
           var hz = origin.z + dir.z * tPlane;
-          if (hx >= s.minX && hx <= s.maxX && hz >= s.minZ && hz <= s.maxZ) {
+          if (hx >= s.minX - 0.05 && hx <= s.maxX + 0.05 && hz >= s.minZ - 0.05 && hz <= s.maxZ + 0.05) {
+            var cx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, hx));
+            var cz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, hz));
             bestT = tPlane;
-            bestPt = new THREE.Vector3(hx, s.topY, hz);
+            bestPt = new THREE.Vector3(cx, s.topY, cz);
           }
         }
       }
@@ -3127,7 +3328,7 @@
   }
 
   function isPlacementBlocked(pt) {
-    if (snapClosePot) return false;
+    if (snapClosePot || snapPetriStack) return false;
     // Impede colocar objetos grandes (Fluxo Laminar, Mesas, Agitador) em cima de outros itens ja existentes!
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.tableDims) {
       var dims = heldItem.mesh.userData.tableDims;
@@ -3199,6 +3400,18 @@
               item.mesh.position.z >= s.minZ && item.mesh.position.z <= s.maxZ &&
               item.mesh.position.y >= s.topY - 0.15) {
             supportedY = Math.max(supportedY, s.topY);
+          }
+        }
+        if (item.mesh.userData.isPetri) {
+          for (var pj = 0; pj < pickableItems.length; pj++) {
+            var pBase = pickableItems[pj];
+            if (!pBase || pBase === item || pBase === heldItem || isHeldByRemote(pBase.id)) continue;
+            if (!pBase.mesh || !pBase.mesh.userData.isPetri) continue;
+            if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < 0.12 &&
+                item.mesh.position.y >= pBase.mesh.position.y + 0.025 &&
+                item.mesh.position.y <= pBase.mesh.position.y + 0.14) {
+              supportedY = Math.max(supportedY, pBase.mesh.position.y + 0.055);
+            }
           }
         }
       }
@@ -3401,25 +3614,48 @@
     headGroup.add(head, hat);
 
     var isProf = data.role === 'professor' || data.role === 'admin';
+    var auraGroup = null;
+    var auraOrbs = [];
     if (isProf) {
-      var crown = new THREE.Mesh(
-        new THREE.TorusGeometry(0.22, 0.035, 8, 18),
-        new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xd97706, emissiveIntensity: 0.45, metalness: 0.8 })
+      auraGroup = new THREE.Group();
+      var outerRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.46, 0.56, 36),
+        new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.45, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
       );
-      crown.rotation.x = Math.PI / 2;
-      crown.position.set(0, 0.59, 0);
-      headGroup.add(crown);
+      outerRing.rotation.x = -Math.PI / 2;
+      outerRing.position.y = 0.025;
+      var innerRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.32, 0.38, 36),
+        new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.50, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+      );
+      innerRing.rotation.x = -Math.PI / 2;
+      innerRing.position.y = 0.032;
+      auraGroup.add(outerRing, innerRing);
+      var orbGeo = new THREE.SphereGeometry(0.026, 8, 8);
+      for (var oi = 0; oi < 8; oi++) {
+        var oMat = new THREE.MeshBasicMaterial({
+          color: oi % 2 === 0 ? 0x34d399 : 0xfbbf24,
+          transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        var orb = new THREE.Mesh(orbGeo, oMat);
+        auraGroup.add(orb);
+        auraOrbs.push({ mesh: orb, angle: (oi / 8) * Math.PI * 2, phase: oi * 0.75 });
+      }
+      g.add(auraGroup);
     }
     g.add(headGroup);
+    g.scale.set(1.38, 1.38, 1.38);
 
     var labelSprite = data.isLocal ? null : makeTextSprite((isProf ? '👨‍🏫 ' : '') + (data.name || 'Aluno'), isProf ? '#fbbf24' : '#ffffff');
     if (labelSprite) {
-      labelSprite.position.set(0, 1.9, 0);
+      labelSprite.position.set(0, 1.92, 0);
+      labelSprite.scale.set(1.45, 0.36, 1);
       g.add(labelSprite);
     }
     var chatSprite = data.isLocal ? null : makeTextSprite('', '#34d399');
     if (chatSprite) {
-      chatSprite.position.set(0, 2.3, 0);
+      chatSprite.position.set(0, 2.28, 0);
+      chatSprite.scale.set(1.45, 0.36, 1);
       chatSprite.visible = false;
       g.add(chatSprite);
     }
@@ -3427,6 +3663,7 @@
     scene.add(g);
     return {
       group: g, leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm, headGroup: headGroup,
+      auraGroup: auraGroup, auraOrbs: auraOrbs,
       bodyMat: bodyMat, hatMat: hatMat,
       faceCtx: faceCtx, faceTex: faceTex, lastMood: 'happy', lastBlink: false, blinkTimer: 2 + Math.random() * 3,
       labelSprite: labelSprite, chatSprite: chatSprite, lastChat: '',
@@ -3491,9 +3728,26 @@
     }
   }
 
+  function animateAvatarAura(av, tNow) {
+    if (!av || !av.auraGroup) return;
+    av.auraGroup.rotation.y = tNow * 0.7;
+    var pScale = 1 + Math.sin(tNow * 2.6) * 0.06;
+    av.auraGroup.children[0].scale.set(pScale, pScale, 1);
+    for (var oi = 0; oi < av.auraOrbs.length; oi++) {
+      var o = av.auraOrbs[oi];
+      var a = o.angle + tNow * 1.1;
+      var h = ((tNow * 0.45 + o.phase) % 1.45) + 0.08;
+      var rad = 0.44 + Math.sin(tNow * 2 + o.phase) * 0.05;
+      o.mesh.position.set(Math.cos(a) * rad, h, Math.sin(a) * rad);
+      o.mesh.material.opacity = Math.sin((h - 0.08) / 1.45 * Math.PI) * 0.78;
+    }
+  }
+
   function stepMultiplayerAvatars(dt) {
+    var tNow = clock.elapsedTime;
     Object.keys(remoteAvatars).forEach(function (id) {
       var av = remoteAvatars[id];
+      animateAvatarAura(av, tNow);
       av.group.position.lerp(av.targetPos, Math.min(1, dt * 10));
       var dYaw = normalizeAngle(av.targetYaw - av.group.rotation.y);
       av.group.rotation.y = normalizeAngle(av.group.rotation.y + dYaw * Math.min(1, dt * 12));
@@ -3504,8 +3758,8 @@
         if (heldObj && heldObj !== heldItem) {
           var isTwo = !!heldObj.mesh.userData.twoHanded;
           var handOffset = isTwo
-            ? new THREE.Vector3(0, 0.48, -0.58)
-            : new THREE.Vector3(0.28, 0.62, -0.32);
+            ? new THREE.Vector3(0, 0.72, -0.62)
+            : new THREE.Vector3(0.36, 0.88, -0.38);
           handOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), av.group.rotation.y);
           heldObj.mesh.position.copy(av.group.position).add(handOffset);
           heldObj.mesh.rotation.y = av.group.rotation.y;
@@ -4469,6 +4723,7 @@
       }
       if (localAvatar) {
         localAvatar.group.visible = true;
+        animateAvatarAura(localAvatar, clock.elapsedTime);
         // Desloca 0.14m para tras para enxergar as proprias pernas ao olhar para baixo e projetar sombra inteira!
         localAvatar.group.position.set(
           playerPos.x + Math.sin(playerYaw) * 0.14,
@@ -4551,6 +4806,118 @@
             if (lcCtrl.mycCloud) lcCtrl.mycCloud.rotation.y += dt * 4.5;
             break;
           }
+        }
+      }
+    }
+    if (scaleDevices.length) {
+      for (var sci = 0; sci < scaleDevices.length; sci++) {
+        var scObj = scaleDevices[sci];
+        var gross = 0;
+        for (var pi = 0; pi < pickableItems.length; pi++) {
+          var pIt = pickableItems[pi];
+          if (heldItem === pIt || pIt.mesh.userData.tableDims || pIt.potItem) continue;
+          var px0 = pIt.mesh.position.x, py0 = pIt.mesh.position.y, pz0 = pIt.mesh.position.z;
+          if (px0 >= scObj.surface.minX && px0 <= scObj.surface.maxX && pz0 >= scObj.surface.minZ && pz0 <= scObj.surface.maxZ && Math.abs(py0 - scObj.surface.topY) < 0.08) {
+            if (pIt.mesh.userData.liquidCtrl) gross += 260 + pIt.mesh.userData.liquidCtrl.volMl;
+            else if (pIt.id.indexOf('spawn_jar_empty') === 0) gross += 320;
+            else if (pIt.id.indexOf('spawn_jar') === 0) gross += 780;
+            else if (pIt.id.indexOf('spawn_bag_empty') === 0) gross += 25;
+            else if (pIt.id.indexOf('spawn_bag') === 0) gross += 1525;
+            else if (pIt.id.indexOf('pda_bottle') === 0) gross += 540;
+            else if (pIt.id.indexOf('petri_bare_') === 0) gross += 18;
+            else if (pIt.id.indexOf('petri_') === 0) gross += 38;
+            else if (pIt.mesh.userData.isSyringe) gross += 12 + pIt.mesh.userData.syrCtrl.volMl;
+            else if (pIt.mesh.userData.isAlcoholSpray) gross += 380;
+            else if (pIt.id.indexOf('substrate_') === 0) gross += 5000;
+            else if (pIt.id.indexOf('gloves_box_') === 0) gross += 420;
+            else if (pIt.id.indexOf('foil_roll_') === 0) gross += 260;
+            else if (pIt.id.indexOf('micropore_') === 0 || pIt.id.indexOf('parafilm_') === 0) gross += 65;
+            else gross += 150;
+          }
+        }
+        scObj.lastGross = gross;
+        scObj.draw(gross - scObj.tare);
+      }
+    }
+    if (cookerPots.length) {
+      for (var cpi = 0; cpi < cookerPots.length; cpi++) {
+        var cp = cookerPots[cpi];
+        var potP = cp.potItem.mesh.position;
+        var onActiveBurner = false;
+        for (var bi = 0; bi < burnerDevices.length; bi++) {
+          var bn = burnerDevices[bi];
+          if (bn.on && potP.x >= bn.surface.minX && potP.x <= bn.surface.maxX && potP.z >= bn.surface.minZ && potP.z <= bn.surface.maxZ && Math.abs(potP.y - bn.surface.topY) < 0.08) {
+            onActiveBurner = true; break;
+          }
+        }
+        if (onActiveBurner && cp.lidItem.isAttached) {
+          cp.temp = Math.min(121, cp.temp + dt * 16);
+          cp.psi = Math.max(0, ((cp.temp - 100) / 21) * 15);
+          if (cp.psi >= 14.2) {
+            cp.steamPoints.visible = true;
+            var sa = cp.steamAttr.array;
+            for (var si = 0; si < sa.length; si += 3) {
+              sa[si + 1] += dt * 0.65;
+              if (sa[si + 1] > 0.60) {
+                sa[si] = (Math.random() - 0.5) * 0.04;
+                sa[si + 1] = 0.17;
+                sa[si + 2] = (Math.random() - 0.5) * 0.04;
+              }
+            }
+            cp.steamAttr.needsUpdate = true;
+            cp.weight.position.y = 0.13 + Math.sin(clock.elapsedTime * 35) * 0.004;
+            cp.weightTop.position.y = 0.16 + Math.sin(clock.elapsedTime * 35) * 0.004;
+            if (cp.progress < 100) {
+              cp.progress = Math.min(100, cp.progress + dt * 8.5);
+              if (cp.progress >= 100) {
+                cp.sterilized = true;
+                for (var ci = 0; ci < cp.contents.length; ci++) {
+                  var cIt = cp.contents[ci];
+                  if (cIt.spawnCtrl) {
+                    cIt.spawnCtrl.sterilized = true;
+                    cIt.spawnCtrl.updateVisual();
+                  }
+                }
+              }
+            }
+          } else {
+            cp.steamPoints.visible = false;
+          }
+        } else {
+          cp.temp = Math.max(25, cp.temp - dt * 12);
+          cp.psi = Math.max(0, cp.psi - dt * 6);
+          cp.steamPoints.visible = false;
+          cp.weight.position.y = 0.13;
+          cp.weightTop.position.y = 0.16;
+          if (!cp.lidItem.isAttached) cp.progress = 0;
+        }
+      }
+    }
+    if (spawnGrowItems.length) {
+      for (var sgi = 0; sgi < spawnGrowItems.length; sgi++) {
+        var sgIt = spawnGrowItems[sgi];
+        var sc = sgIt.spawnCtrl;
+        if (sc && sc.inoculated && sc.colonization < 100) {
+          sc.colonization = Math.min(100, sc.colonization + dt * 4.2);
+          sc.updateVisual();
+        }
+      }
+    }
+    if (sprayBursts.length) {
+      for (var sbi = sprayBursts.length - 1; sbi >= 0; sbi--) {
+        var sb = sprayBursts[sbi];
+        sb.age += dt;
+        var sArr = sb.attr.array;
+        for (var k = 0; k < sArr.length; k += 3) {
+          sArr[k] += sb.dir.x * dt * 2.2;
+          sArr[k + 1] += sb.dir.y * dt * 2.2;
+          sArr[k + 2] += sb.dir.z * dt * 2.2;
+        }
+        sb.attr.needsUpdate = true;
+        sb.mat.opacity = Math.max(0, 0.85 * (1 - sb.age / 0.45));
+        if (sb.age >= 0.45) {
+          scene.remove(sb.pts);
+          sprayBursts.splice(sbi, 1);
         }
       }
     }

@@ -26,6 +26,22 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Substituído `new THREE.CapsuleGeometry` (inexistente no Three.js `r128`, que causava `TypeError: THREE.CapsuleGeometry is not a constructor` em `makeLiquidJar800` e interrompia o `boot()` antes do `tryResumeSession()`) por `new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10)`.
   - Adicionado suporte em `tryResumeSession()` para autenticar automaticamente e limpar imediatamente a URL (`history.replaceState`) caso o formulário tenha sido submetido via GET (`?campus_name=...&campus_pin=...`).
 
+## [v0.6.4] - 2026-11-15
+### Adicionado
+- **Esterilização funcional na panela de pressão**: fogão elétrico de bancada (`burner_lab`), inserção de vidros, bags e garrafas na panela destampada, ciclo de autoclave a 121 °C / 15 PSI com vapor, chiado do pino e progresso 0–100%.
+- **Crescimento real de micélio (0–100%)**: vidros de spawn 800 ml e bags 1,5 kg colonizam em tempo real após inoculação, com verificação de assepsia (Capela de Fluxo Laminar ligada + Álcool 70%); sem assepsia há risco de contaminação.
+- **Balança de precisão digital (`precision_scale`)**: display LCD em tempo real em gramas (`g`) ao apoiar itens no prato de inox e botão `TARE` clicável.
+- **Borrifador Álcool 70% (`alcohol_spray`)**: jato de névoa com partículas e janela de sanitização por 90 s para preparar bancada, capela e recipientes.
+- **Estoque completo no Depósito (3 Estantes Porta-Pallet)**: 15 bags 1,5 kg vazias, 15 vidros 800 ml vazios, 20 seringas 10 ml, **40 placas de Petri vazias empilháveis até 7 placas uma em cima da outra**, sacos de grãos/milho 5 kg e serragem/fibra de coco 5 kg, caixas de luvas nitrílicas, papel alumínio, fita micropore, Parafilm M, borrifadores extras, frascos PDA extras e béqueres 1 L.
+
+### Melhorado
+- **Altura dos jogadores e áurea de Professor/Admin**: avatares ajustados para a mesma altura real da câmera (`~1,62 m` nos olhos), removendo o disco laranja da cabeça do professor/admin e adicionando uma áurea luminosa suave nos pés e partículas em espiral (alunos continuam sem áurea).
+- **Correção ao colocar itens em mesas e bancadas**: ampliada a detecção de bordas e distância mínima em `findPlacementTarget` e nas bancadas fixas, evitando que objetos soltos perto da borda da mesa escorreguem para o chão.
+
+### Melhorado
+- **Agitador Magnético (`IKA • MYCO-MAG SH-2`)**: novo visual inspirado em equipamento de laboratório com painel frontal impresso, placa circular em aço escovado e botões rotativos prateados.
+- **Portas de vidro sem Z-fighting**: vidro recuado dentro dos perfis metálicos da esquadria e novo puxador cromado, eliminando texturas piscando nos cantos.
+
 ## [v0.6.3] - 2026-11-15
 ### Added & Fixed
 - Panela de Pressao 20L sem travamento ao pegar tampa ou panela (removidas referencias circulares em mesh.userData).

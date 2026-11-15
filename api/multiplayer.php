@@ -11,12 +11,12 @@ const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
 const MP_SLIDE_COUNT = 5;
 const MP_WORLD_LIMIT = 220.0;
-const MP_ITEMS = [
-    'petri_clean', 'petri_contam', 'petri_empty', 'pda_bottle',
+$mpBaseItems = [
+    'petri_clean', 'petri_contam', 'petri_empty', 'pda_bottle', 'pda_bottle_02', 'pda_bottle_03',
     'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
     'heat_sealer', 'liquid_culture', 'magnetic_stirrer',
-    'precision_scale', 'alcohol_spray', 'burner_lab',
-    'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b',
+    'precision_scale', 'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03', 'burner_lab',
+    'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
     'substrate_bag', 'fruiting_block',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
     'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',
@@ -25,6 +25,30 @@ const MP_ITEMS = [
     'chalk_white_2', 'chalk_green_2', 'chalk_yellow_2', 'board_eraser_2',
     'chalk_white_3', 'chalk_green_3', 'chalk_yellow_3', 'board_eraser_3'
 ];
+foreach (range(1, 15) as $n) {
+    $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+    $mpBaseItems[] = "spawn_bag_empty_$p";
+    $mpBaseItems[] = "spawn_jar_empty_$p";
+}
+foreach (range(1, 20) as $n) {
+    $mpBaseItems[] = 'syringe_10ml_' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+}
+foreach (range(1, 40) as $n) {
+    $mpBaseItems[] = 'petri_bare_' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+}
+foreach (range(1, 4) as $n) {
+    $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+    $mpBaseItems[] = "substrate_grain_$p";
+    $mpBaseItems[] = "substrate_sawdust_$p";
+    $mpBaseItems[] = "micropore_$p";
+}
+foreach (range(1, 3) as $n) {
+    $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+    $mpBaseItems[] = "gloves_box_$p";
+    $mpBaseItems[] = "foil_roll_$p";
+    $mpBaseItems[] = "parafilm_$p";
+}
+define('MP_ITEMS', $mpBaseItems);
 const MP_STROKE_COLORS = ['#f8fafc', '#4ade80', '#facc15', 'erase'];
 
 /** session_id interno ligado ao usuario: impede que alguem sobrescreva a sessao de outro jogador. */
