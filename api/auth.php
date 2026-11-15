@@ -11,8 +11,8 @@ const MC_XP_HARVEST = 25;
 const MC_XP_MODULE = 50;
 const MC_HARVEST_COOLDOWN_MS = 1200;
 const MC_MODULES = ['fluxo_laminar', 'esterilizacao', 'spawn_graos', 'contaminacao', 'frutificacao'];
-const MC_LOGIN_MAX_FAILS = 5;
-const MC_LOGIN_LOCK_MINUTES = 5;
+const MC_LOGIN_MAX_FAILS = 12;
+const MC_LOGIN_LOCK_MINUTES = 1;
 
 function mc_clean_username(string $raw): string {
     $s = mb_strtolower(trim($raw), 'UTF-8');
@@ -80,17 +80,19 @@ if ($action === 'login' || $action === 'register_or_login') {
 
     if ($user) {
         $lockedUntil = $user['login_locked_until'] ?? null;
-        if ($lockedUntil !== null && strtotime((string)$lockedUntil) > time()) {
-            mc_json(['ok' => false, 'error' => 'Muitas tentativas erradas. Aguarde alguns minutos e tente de novo.'], 429);
+        if (!$validProfKey && $lockedUntil !== null && strtotime((string)$lockedUntil) > time()) {
+            mc_json(['ok' => false, 'error' => 'Muitas tentativas erradas. Aguarde 1 minuto e tente de novo.'], 429);
         }
         if (!password_verify($pin, (string)$user['pin_hash'])) {
-            $fails = (int)($user['login_fails'] ?? 0) + 1;
-            if ($fails >= MC_LOGIN_MAX_FAILS) {
-                $lock = $pdo->prepare('UPDATE mc_users SET login_fails = 0, login_locked_until = (NOW() + INTERVAL ' . MC_LOGIN_LOCK_MINUTES . ' MINUTE) WHERE id = ?');
-                $lock->execute([(int)$user['id']]);
-            } else {
-                $f = $pdo->prepare('UPDATE mc_users SET login_fails = ? WHERE id = ?');
-                $f->execute([$fails, (int)$user['id']]);
+            if (!$validProfKey) {
+                $fails = (int)($user['login_fails'] ?? 0) + 1;
+                if ($fails >= MC_LOGIN_MAX_FAILS) {
+                    $lock = $pdo->prepare('UPDATE mc_users SET login_fails = 0, login_locked_until = (NOW() + INTERVAL ' . MC_LOGIN_LOCK_MINUTES . ' MINUTE) WHERE id = ?');
+                    $lock->execute([(int)$user['id']]);
+                } else {
+                    $f = $pdo->prepare('UPDATE mc_users SET login_fails = ? WHERE id = ?');
+                    $f->execute([$fails, (int)$user['id']]);
+                }
             }
             mc_json(['ok' => false, 'error' => 'Esse nome ja esta cadastrado com outro PIN.'], 401);
         }
