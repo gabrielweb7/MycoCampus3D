@@ -1842,7 +1842,8 @@
       homePos: new THREE.Vector3(x, y, z), homeRy: ry || 0,
       radius: radius || 0.25, height: height || 0.4, isMoved: false, movedAt: 0
     };
-    mesh.userData.pickableRef = entry;
+    mesh.userData.pickableId = id;
+    mesh.userData.pickableLabel = label;
     pickableItems.push(entry);
     return entry;
   }
@@ -6346,14 +6347,14 @@
                   sLbl = hObj.userData.doorObj.label || 'Porta';
                 } else {
                   var pWalk = hObj;
-                  var pRef = null;
+                  var pNode = null;
                   while (pWalk) {
-                    if (pWalk.userData && pWalk.userData.pickableRef) { pRef = pWalk.userData.pickableRef; break; }
+                    if (pWalk.userData && pWalk.userData.pickableId) { pNode = pWalk; break; }
                     pWalk = pWalk.parent;
                   }
-                  if (pRef) {
-                    var pid = pRef.id;
-                    sLbl = pRef.label;
+                  if (pNode) {
+                    var pid = pNode.userData.pickableId;
+                    sLbl = pNode.userData.pickableLabel || pid;
                     if (pid.indexOf('heat_sealer') === 0) sTemp = 165.0 + Math.sin(clock.elapsedTime * 2.5) * 1.2;
                     else if (pid.indexOf('laminar_hood') === 0) sTemp = (hoodAirData && hoodAirData.on) ? 21.2 : 23.5;
                     else if (pid.indexOf('precision_scale') === 0) sTemp = 24.1;
@@ -6361,7 +6362,7 @@
                     else if (pid.indexOf('liquid_culture') === 0) sTemp = 24.5 + Math.sin(clock.elapsedTime * 2.0) * 0.2;
                     else if (pid === 'petri_contam') sTemp = 26.8;
                     else if (pid.indexOf('petri_') === 0) sTemp = 25.0;
-                    else if (pid === 'spawn_bag_colonized' || (pRef.spawnCtrl && pRef.spawnCtrl.inoculated)) sTemp = 26.4;
+                    else if (pid === 'spawn_bag_colonized' || (pNode.userData.spawnCtrl && pNode.userData.spawnCtrl.inoculated)) sTemp = 26.4;
                     else if (pid.indexOf('spawn_') === 0) sTemp = 23.8;
                     else if (pid.indexOf('fruiting_block') === 0) sTemp = 21.4;
                     else if (pid.indexOf('substrate_') === 0) sTemp = 22.6;
