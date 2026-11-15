@@ -190,6 +190,11 @@
     $('hud-xp').textContent = String(currentUser.xp || 0);
     $('hud-mushrooms').textContent = String(currentUser.mushrooms_harvested || 0);
     $('hud-modules').textContent = String((currentUser.completed_modules || []).length);
+    if ($('shop-user-xp')) $('shop-user-xp').textContent = String(currentUser.xp || 0);
+    if ($('shop-user-mushrooms')) $('shop-user-mushrooms').textContent = String(currentUser.mushrooms_harvested || 0);
+    if (window.setLocalAvatarHat) {
+      window.setLocalAvatarHat(currentUser.current_hat || 'default');
+    }
 
     var isMaster = (currentUser.role === 'admin') || (currentUser.username === 'gabrieldaluz');
     var isProf = (currentUser.role === 'professor') || isMaster;
@@ -216,6 +221,153 @@
     if (pBar) pBar.classList.add('hidden');
     var btnAdmin = $('btn-open-admin');
     if (btnAdmin) btnAdmin.classList.toggle('hidden', !isMaster);
+  }
+
+  async function harvestGreenhouseSlot(slot) {
+    if (!currentUser) return;
+    try {
+      var data = await apiPost('api/auth.php?action=harvest_greenhouse', { slot_id: slot.id }, true);
+      if (data.ok && data.user) {
+        currentUser = data.user;
+        updateUserHud();
+        showFloatingToast('🍄 +50 XP e +2 Cogumelos colhidos na Estufa!');
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  var COSMETIC_HATS = [
+    {
+      id: 'default',
+      name: 'Cogumelo Vermelho Clássico',
+      desc: 'O clássico Amanita com pintas brancas.',
+      req_xp: 0,
+      req_mushrooms: 0,
+      icon: '🍄'
+    },
+    {
+      id: 'golden_shroom',
+      name: 'Cogumelo Dourado Radiante',
+      desc: 'Dourado brilhante com esferas cintilantes.',
+      req_xp: 200,
+      req_mushrooms: 5,
+      icon: '👑'
+    },
+    {
+      id: 'wizard_hood',
+      name: 'Capuz de Alquimista',
+      desc: 'Cone místico com runas de micologia.',
+      req_xp: 350,
+      req_mushrooms: 10,
+      icon: '🧙‍♂️'
+    },
+    {
+      id: 'grad_cap',
+      name: 'Capelo Universitário',
+      desc: 'Chapéu acadêmico de formatura com borla dourada.',
+      req_xp: 500,
+      req_mushrooms: 15,
+      icon: '🎓'
+    },
+    {
+      id: 'flower_crown',
+      name: 'Coroa de Flores Silvestres',
+      desc: 'Grinalda botânica com pétalas da floresta.',
+      req_xp: 150,
+      req_mushrooms: 3,
+      icon: '🌸'
+    },
+    {
+      id: 'beret',
+      name: 'Boina de Pesquisador',
+      desc: 'Estilo elegante de cientista micologista.',
+      req_xp: 100,
+      req_mushrooms: 2,
+      icon: '🎨'
+    }
+  ];
+
+  function renderShopModal() {
+    var grid = $('shop-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    var userXp = currentUser ? (currentUser.xp || 0) : 0;
+    var userMush = currentUser ? (currentUser.mushrooms_harvested || 0) : 0;
+    var unlocked = (currentUser && currentUser.unlocked_hats) || ['default'];
+    var currentHat = (currentUser && currentUser.current_hat) || 'default';
+
+    if ($('shop-user-xp')) $('shop-user-xp').textContent = String(userXp);
+    if ($('shop-user-mushrooms')) $('shop-user-mushrooms').textContent = String(userMush);
+
+    COSMETIC_HATS.forEach(function (hat) {
+      var isEquipped = currentHat === hat.id;
+      var isUnlocked = unlocked.indexOf(hat.id) !== -1 || hat.id === 'default';
+      var canUnlock = userXp >= hat.req_xp && userMush >= hat.req_mushrooms;
+
+      var card = document.createElement('div');
+      card.className = 'glass-panel rounded-xl p-3 flex flex-col justify-between border ' +
+        (isEquipped ? 'border-emerald-400/60 shadow-lg' : (isUnlocked ? 'border-purple-500/40' : 'border-slate-700/50'));
+
+      var top = document.createElement('div');
+      top.className = 'space-y-1.5';
+      top.innerHTML =
+        '<div class="flex items-center gap-2">' +
+          '<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">' + hat.icon + '</span>' +
+          '<div>' +
+            '<div class="font-bold text-white text-xs">' + escapeHtml(hat.name) + '</div>' +
+            '<div class="text-[11px] text-slate-400">' + escapeHtml(hat.desc) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-2 pt-1 text-[11px] text-slate-300 font-semibold">' +
+          (hat.req_xp > 0 ? '<span class="text-amber-300">⭐ ' + hat.req_xp + ' XP</span>' : '<span class="text-emerald-300">Grátis</span>') +
+          (hat.req_mushrooms > 0 ? '<span class="text-emerald-300">• 🍄 ' + hat.req_mushrooms + ' colheitas</span>' : '') +
+        '</div>';
+      card.appendChild(top);
+
+      var btnWrap = document.createElement('div');
+      btnWrap.className = 'pt-3';
+      if (isEquipped) {
+        btnWrap.innerHTML = '<button disabled class="w-full py-1.5 rounded-lg bg-emerald-600/80 text-white font-bold text-xs shadow-sm">✅ Equipado</button>';
+      } else if (isUnlocked) {
+        var equipBtn = document.createElement('button');
+        equipBtn.className = 'w-full py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow transition';
+        equipBtn.textContent = 'Equipar';
+        equipBtn.onclick = async function () {
+          try {
+            if (window.MycoAudio) window.MycoAudio.playClick();
+            var res = await apiPost('api/auth.php?action=equip_cosmetic', { hat_id: hat.id }, true);
+            if (res.ok && res.user) {
+              currentUser = res.user;
+              window.setLocalAvatarHat(hat.id);
+              updateUserHud();
+              renderShopModal();
+            }
+          } catch (e) { /* silent */ }
+        };
+        btnWrap.appendChild(equipBtn);
+      } else if (canUnlock) {
+        var buyBtn = document.createElement('button');
+        buyBtn.className = 'w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow transition';
+        buyBtn.textContent = '🎉 Desbloquear';
+        buyBtn.onclick = async function () {
+          try {
+            if (window.MycoAudio) window.MycoAudio.playClick();
+            var res = await apiPost('api/auth.php?action=buy_cosmetic', { hat_id: hat.id }, true);
+            if (res.ok && res.user) {
+              currentUser = res.user;
+              window.setLocalAvatarHat(hat.id);
+              if (window.playCampusEmote) window.playCampusEmote('cheer');
+              updateUserHud();
+              renderShopModal();
+            }
+          } catch (e) { /* silent */ }
+        };
+        btnWrap.appendChild(buyBtn);
+      } else {
+        btnWrap.innerHTML = '<button disabled class="w-full py-1.5 rounded-lg bg-slate-800/80 text-slate-500 font-semibold text-xs border border-slate-700/40">🔒 Bloqueado</button>';
+      }
+      card.appendChild(btnWrap);
+      grid.appendChild(card);
+    });
   }
 
   async function apiPost(url, payload, withAuth) {
@@ -736,6 +888,8 @@
         walking: pose.walking,
         seated: pose.seated,
         in_fps: pose.in_fps,
+        current_hat: pose.current_hat || 'default',
+        emote: pose.emote || '',
         chat_msg: chatToSend,
         moved_items: moved,
         state_changes: stateChanges,
@@ -1057,6 +1211,9 @@
       onHarvestMushroom: function (mushId) {
         harvestMushroom(mushId);
       },
+      onHarvestGreenhouse: function (slot) {
+        harvestGreenhouseSlot(slot);
+      },
       onOpenLessons: function () {
         renderLessonsModal();
         $('lesson-modal').classList.remove('hidden');
@@ -1172,6 +1329,57 @@
     $('btn-close-ranking').onclick = function () { $('ranking-modal').classList.add('hidden'); };
     $('btn-slide-prev').onclick = function () { broadcastSlide(currentSlideIdx - 1); };
     $('btn-slide-next').onclick = function () { broadcastSlide(currentSlideIdx + 1); };
+
+    var btnShop = $('btn-open-shop');
+    if (btnShop) {
+      btnShop.onclick = function () {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        renderShopModal();
+        $('shop-modal').classList.remove('hidden');
+      };
+    }
+    var btnCloseShop = $('btn-close-shop');
+    if (btnCloseShop) {
+      btnCloseShop.onclick = function () {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        $('shop-modal').classList.add('hidden');
+      };
+    }
+
+    var btnEmotes = $('btn-open-emotes');
+    if (btnEmotes) {
+      btnEmotes.onclick = function () {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        var eb = $('emote-bar');
+        if (eb) eb.classList.toggle('hidden');
+      };
+    }
+    var btnCloseEmotes = $('btn-close-emotes');
+    if (btnCloseEmotes) {
+      btnCloseEmotes.onclick = function () {
+        var eb = $('emote-bar');
+        if (eb) eb.classList.add('hidden');
+      };
+    }
+    document.querySelectorAll('.emote-btn').forEach(function (btn) {
+      btn.onclick = function () {
+        var em = btn.getAttribute('data-emote');
+        if (em && window.playCampusEmote) {
+          window.playCampusEmote(em);
+        }
+      };
+    });
+
+    var audioBtn = $('btn-toggle-audio');
+    if (audioBtn) {
+      audioBtn.textContent = (window.MycoAudio && window.MycoAudio.isMuted()) ? '🔇' : '🔊';
+      audioBtn.onclick = function () {
+        if (window.MycoAudio) {
+          var muted = window.MycoAudio.toggleMute();
+          audioBtn.textContent = muted ? '🔇' : '🔊';
+        }
+      };
+    }
 
     var btnOpenAdmin = $('btn-open-admin');
     if (btnOpenAdmin) btnOpenAdmin.onclick = openAdminModal;
