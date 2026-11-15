@@ -67,7 +67,9 @@
 
   // Braco 1a pessoa, Corpo local & Lousas Interativas
   var fpsArmGroup = null;
+  var fpsLeftArmGroup = null;
   var fpsSleeveMat = null;
+  var snapClosePot = null;
   var localAvatar = null;
   var armSwingPhase = 0;
   var armReach = 0;
@@ -1200,34 +1202,134 @@
     createBanner(-13.85, 5.1, 12.6, Math.PI / 2, '#991b1b', '📚');
 
     // Equipamentos do Lab dentro do Bloco Oeste-Norte (x: -24..-14, z: -12.8..-1.2)
-    var hoodBase = makeBox(1.5, 0.9, 2.4, 0xf1f5f9, { roughness: 0.4 });
-    hoodBase.position.set(-22.2, 0.14 + 0.45, -9.8);
-    scene.add(hoodBase);
-    var hoodTop = makeBox(1.4, 1.15, 2.3, 0x94a3b8, { transparent: true, opacity: 0.35 });
-    hoodTop.position.set(-22.2, 0.14 + 1.48, -9.8);
-    scene.add(hoodTop);
-    var hepa = makeBox(0.15, 0.95, 2.1, 0xecfeff, { emissive: 0x38bdf8, emissiveIntensity: 0.5 });
-    hepa.position.set(-22.85, 0.14 + 1.42, -9.8);
-    scene.add(hepa);
-    solidColliders.push({ minX: -23.0, maxX: -21.4, minZ: -11.1, maxZ: -8.5, minY: 0.14, maxY: 2.3 });
-    supportSurfaces.push({ minX: -22.9, maxX: -21.5, minZ: -10.9, maxZ: -8.7, topY: 1.04 });
+    function addStainlessTable(tx, floorY, tz, tw, th, td) {
+      var inoxMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.22 });
+      var legMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.9, roughness: 0.15 });
+      var footMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
+      var tg = new THREE.Group();
+      tg.position.set(tx, floorY, tz);
+      var top = new THREE.Mesh(new THREE.BoxGeometry(tw, 0.055, td), inoxMat);
+      top.position.y = th - 0.0275; top.castShadow = true; top.receiveShadow = true;
+      var shelf = new THREE.Mesh(new THREE.BoxGeometry(tw - 0.08, 0.035, td - 0.08), inoxMat);
+      shelf.position.y = th * 0.28; shelf.receiveShadow = true;
+      tg.add(top, shelf);
+      var lx = tw / 2 - 0.07, lz = td / 2 - 0.07;
+      [[-lx, -lz], [lx, -lz], [-lx, lz], [lx, lz]].forEach(function (lp) {
+        var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, th - 0.04, 10), legMat);
+        leg.position.set(lp[0], (th - 0.04) / 2 + 0.02, lp[1]);
+        var foot = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.03, 10), footMat);
+        foot.position.set(lp[0], 0.015, lp[1]);
+        tg.add(leg, foot);
+      });
+      scene.add(tg);
+    }
 
-    var autoBench = makeBox(1.5, 0.85, 2.2, 0x475569, { roughness: 0.5 });
-    autoBench.position.set(-22.2, 0.14 + 0.425, -4.4);
-    scene.add(autoBench);
-    var autoclave = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.45, 0.45, 0.95, 16),
-      new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.78, roughness: 0.25 })
+    // Fluxo Laminar Horizontal realista: mesa de inox + gabinete + Filtro HEPA plissado + grade + lamparina + bisturi
+    addStainlessTable(-22.2, 0.14, -9.8, 1.5, 0.90, 2.4);
+    var hoodBackBox = makeBox(0.32, 1.08, 2.34, 0x0f172a, { roughness: 0.45, metalness: 0.4 });
+    hoodBackBox.position.set(-22.78, 0.14 + 1.44, -9.8);
+    scene.add(hoodBackBox);
+    // Textura procedural da tela/colmeia do Filtro HEPA
+    var hepaCanvas = document.createElement('canvas');
+    hepaCanvas.width = 256; hepaCanvas.height = 128;
+    var hctx = hepaCanvas.getContext('2d');
+    hctx.fillStyle = '#f8fafc';
+    hctx.fillRect(0, 0, 256, 128);
+    hctx.strokeStyle = '#cbd5e1';
+    hctx.lineWidth = 1.5;
+    for (var hx = -128; hx < 384; hx += 8) {
+      hctx.beginPath(); hctx.moveTo(hx, 0); hctx.lineTo(hx + 128, 128); hctx.stroke();
+      hctx.beginPath(); hctx.moveTo(hx + 128, 0); hctx.lineTo(hx, 128); hctx.stroke();
+    }
+    var hepaTex = new THREE.CanvasTexture(hepaCanvas);
+    hepaTex.wrapS = hepaTex.wrapT = THREE.RepeatWrapping;
+    hepaTex.repeat.set(3, 2);
+    var hepa = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.94, 2.16),
+      new THREE.MeshStandardMaterial({ map: hepaTex, emissive: 0xe0f2fe, emissiveIntensity: 0.25, roughness: 0.6 })
     );
-    autoclave.position.set(-22.3, 0.14 + 0.85 + 0.47, -4.1);
-    autoclave.castShadow = true;
-    scene.add(autoclave);
-    solidColliders.push({ minX: -23.0, maxX: -21.4, minZ: -5.6, maxZ: -3.2, minY: 0.14, maxY: 2.1 });
-    supportSurfaces.push({ minX: -22.9, maxX: -21.5, minZ: -5.4, maxZ: -4.5, topY: 0.99 });
+    hepa.position.set(-22.61, 0.14 + 1.44, -9.8);
+    scene.add(hepa);
+    // Paredes laterais de vidro/acrilico e teto do fluxo laminar
+    var hoodTop = makeBox(1.1, 0.06, 2.34, 0x0f172a, { roughness: 0.4 });
+    hoodTop.position.set(-22.1, 0.14 + 1.98, -9.8);
+    var hoodGlassL = makeBox(1.05, 1.02, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
+    hoodGlassL.position.set(-22.1, 0.14 + 1.44, -10.95);
+    var hoodGlassR = makeBox(1.05, 1.02, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
+    hoodGlassR.position.set(-22.1, 0.14 + 1.44, -8.65);
+    scene.add(hoodTop, hoodGlassL, hoodGlassR);
+    // Grade preta de trabalho + Lamparina a alcool com chama + Bisturi
+    var wireRack = makeBox(0.95, 0.025, 2.0, 0x111827, { metalness: 0.7, roughness: 0.35 });
+    wireRack.position.set(-22.05, 1.05, -9.8);
+    var lampBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 14), new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 }));
+    lampBody.position.set(-21.85, 1.12, -10.55);
+    var flameMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.9 });
+    var lampFlame = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.11, 10), flameMat);
+    lampFlame.position.set(-21.85, 1.24, -10.55);
+    var scalpelHandle = makeBox(0.24, 0.014, 0.024, 0xd1d5db, { metalness: 0.85, roughness: 0.2 });
+    scalpelHandle.position.set(-21.82, 1.07, -9.55);
+    scalpelHandle.rotation.y = 0.35;
+    scene.add(wireRack, lampBody, lampFlame, scalpelHandle);
+    solidColliders.push({ minX: -23.0, maxX: -21.4, minZ: -11.1, maxZ: -8.5, minY: 0.14, maxY: 2.3 });
+    supportSurfaces.push({ minX: -22.9, maxX: -21.5, minZ: -10.9, maxZ: -8.7, topY: 1.06 });
 
-    var shelfLow = makeBox(2.2, 0.08, 1.0, 0x92400e);
-    shelfLow.position.set(-16.8, 0.14 + 0.75, -4.2);
-    scene.add(shelfLow);
+    function createPressureCookerPair(potId, lidId, labelSuffix, px, py, pz) {
+      var steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20 });
+      var darkMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.55, metalness: 0.2 });
+      var redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.35 });
+
+      var potGroup = new THREE.Group();
+      var potBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.23, 0.36, 22), steelMat);
+      potBody.position.y = 0.18; potBody.castShadow = true;
+      var potBase = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.03, 22), darkMat);
+      potBase.position.y = 0.015;
+      var potInner = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.215, 0.33, 20), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 }));
+      potInner.position.y = 0.195;
+      var potRim = new THREE.Mesh(new THREE.TorusGeometry(0.242, 0.018, 10, 24), steelMat);
+      potRim.rotation.x = Math.PI / 2; potRim.position.y = 0.36;
+      [-1, 1].forEach(function (side) {
+        var hdl = makeBox(0.09, 0.065, 0.11, darkMat, { noShadow: true });
+        hdl.position.set(side * 0.275, 0.29, 0);
+        potGroup.add(hdl);
+      });
+      potGroup.add(potBody, potBase, potInner, potRim);
+      potGroup.userData.twoHanded = true;
+      var potItem = registerPickable(potId, 'Panela de Pressão 20L (' + labelSuffix + ')', potGroup, px, py, pz, 0, 0.30, 0.42);
+
+      var lidGroup = new THREE.Group();
+      var lidRim = new THREE.Mesh(new THREE.CylinderGeometry(0.248, 0.256, 0.045, 22), steelMat);
+      lidRim.position.y = 0.022;
+      var lidDome = new THREE.Mesh(new THREE.SphereGeometry(0.242, 22, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), steelMat);
+      lidDome.scale.set(1, 0.36, 1); lidDome.position.y = 0.025;
+      var weight = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.055, 12), darkMat);
+      weight.position.y = 0.13;
+      var weightTop = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.014, 12), redMat);
+      weightTop.position.y = 0.16;
+      [-0.12, 0.12].forEach(function (vz) {
+        var vRing = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.015, 10), darkMat);
+        vRing.position.set(0, 0.105, vz);
+        var vPin = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.022, 10), redMat);
+        vPin.position.set(0, 0.112, vz);
+        lidGroup.add(vRing, vPin);
+      });
+      [-1, 1].forEach(function (side) {
+        var clasp = makeBox(0.085, 0.045, 0.10, darkMat, { noShadow: true });
+        clasp.position.set(side * 0.27, 0.025, 0);
+        lidGroup.add(clasp);
+      });
+      lidGroup.add(lidRim, lidDome, weight, weightTop);
+      lidGroup.userData.potItem = potItem;
+      lidGroup.userData.isAttached = true;
+      var lidItem = registerPickable(lidId, 'Tampa da Panela (' + labelSuffix + ')', lidGroup, px, py + 0.36, pz, 0, 0.26, 0.16);
+      potGroup.userData.lidItem = lidItem;
+    }
+
+    addStainlessTable(-22.2, 0.14, -4.4, 1.5, 0.85, 2.4);
+    solidColliders.push({ minX: -23.0, maxX: -21.4, minZ: -5.65, maxZ: -3.15, minY: 0.14, maxY: 1.5 });
+    supportSurfaces.push({ minX: -22.9, maxX: -21.5, minZ: -5.5, maxZ: -3.3, topY: 0.99 });
+    createPressureCookerPair('pressure_cooker_lab', 'pressure_lid_lab', 'Lab', -22.2, 0.99, -3.9);
+
+    addStainlessTable(-16.8, 0.14, -4.2, 2.2, 0.79, 1.0);
     supportSurfaces.push({ minX: -17.85, maxX: -15.75, minZ: -4.68, maxZ: -3.72, topY: 0.93 });
     solidColliders.push({ minX: -17.9, maxX: -15.7, minZ: -4.7, maxZ: -3.7, minY: 0.14, maxY: 1.8 });
 
@@ -1270,16 +1372,15 @@
     scene.add(drum);
     solidColliders.push({ minX: 20.7, maxX: 22.3, minZ: -10.8, maxZ: -9.2, minY: 0.14, maxY: 1.6 });
 
-    var benchSub = makeBox(1.5, 0.82, 3.2, 0x92400e, { roughness: 0.75 });
-    benchSub.position.set(21.2, 0.14 + 0.41, -5.2);
-    scene.add(benchSub);
+    addStainlessTable(21.2, 0.14, -5.2, 1.5, 0.82, 3.2);
     solidColliders.push({ minX: 20.4, maxX: 22.0, minZ: -6.85, maxZ: -3.55, minY: 0.14, maxY: 1.1 });
     supportSurfaces.push({ minX: 20.5, maxX: 21.9, minZ: -6.75, maxZ: -3.65, topY: 0.96 });
 
     var subBag = new THREE.Group();
     var bagMesh = makeBox(0.38, 0.44, 0.28, 0xd6d3d1, { roughness: 0.85 });
     bagMesh.position.y = 0.22; subBag.add(bagMesh);
-    registerPickable('substrate_bag', 'Saco de Substrato Pasteurizado', subBag, 21.2, 0.96, -5.2, 0, 0.28, 0.46);
+    registerPickable('substrate_bag', 'Saco de Substrato Pasteurizado', subBag, 21.2, 0.96, -5.6, 0, 0.28, 0.46);
+    createPressureCookerPair('pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.2, 0.96, -4.3);
 
     // Equipamentos da Estufa (Leste-Sul)
     var rack = makeBox(1.6, 0.72, 4.0, 0x1e293b);
@@ -1582,6 +1683,17 @@
     fpsArmGroup.rotation.set(0.18, -0.14, 0.05);
     fpsArmGroup.visible = false;
     camera.add(fpsArmGroup);
+
+    fpsLeftArmGroup = new THREE.Group();
+    var sleeveL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.36), fpsSleeveMat);
+    sleeveL.position.set(0, 0, 0.18);
+    var handL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.13), skinMat);
+    handL.position.set(0, 0.01, -0.04);
+    fpsLeftArmGroup.add(sleeveL, handL);
+    fpsLeftArmGroup.position.set(-0.32, -0.28, -0.42);
+    fpsLeftArmGroup.rotation.set(0.18, 0.14, -0.05);
+    fpsLeftArmGroup.visible = false;
+    camera.add(fpsLeftArmGroup);
     scene.add(camera);
   }
 
@@ -1694,11 +1806,22 @@
   }
 
   function findPlacementTarget() {
+    snapClosePot = null;
     raycaster.setFromCamera(inFps ? new THREE.Vector2(0, 0) : pointerNdc, camera);
     var dir = raycaster.ray.direction;
     var origin = raycaster.ray.origin;
     var bestPt = null;
     var bestT = Infinity;
+
+    // 0. Se estiver segurando uma Tampa de Panela e mirar na Panela aberta, encaixa para fechar!
+    if (heldItem && heldItem.mesh.userData.potItem) {
+      var targetPot = heldItem.mesh.userData.potItem;
+      var potHits = raycaster.intersectObject(targetPot.mesh, true);
+      if (potHits.length > 0 && potHits[0].distance < 4.2) {
+        snapClosePot = targetPot;
+        return new THREE.Vector3(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.36, targetPot.mesh.position.z);
+      }
+    }
 
     // 1. Intersecao exata Raio x Plano para mesas, bancadas e bandejas de lousa
     if (dir.y < -0.02) {
@@ -1736,6 +1859,7 @@
   }
 
   function isPlacementBlocked(pt) {
+    if (snapClosePot) return false;
     for (var i = 0; i < supportSurfaces.length; i++) {
       var s = supportSurfaces[i];
       if (pt.x >= s.minX && pt.x <= s.maxX && pt.z >= s.minZ && pt.z <= s.maxZ && Math.abs(pt.y - s.topY) < 0.08) {
@@ -1757,6 +1881,12 @@
   function dropUnsupportedItems() {
     var now = performance.now();
     pickableItems.forEach(function (item) {
+      if (item.mesh.userData.potItem && item.mesh.userData.isAttached) {
+        var pot = item.mesh.userData.potItem;
+        item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
+        item.mesh.rotation.copy(pot.mesh.rotation);
+        return;
+      }
       if (heldItem === item || isHeldByRemote(item.id)) {
         item.movedAt = now;
         return;
@@ -2079,13 +2209,28 @@
         heldItem.mesh.position.copy(placementGhost.position);
         heldItem.mesh.rotation.set(0, heldRotY, 0);
         heldItem.isMoved = true;
+        if (heldItem.mesh.userData.potItem && snapClosePot === heldItem.mesh.userData.potItem) {
+          heldItem.mesh.userData.isAttached = true;
+          heldItem.mesh.rotation.copy(snapClosePot.mesh.rotation);
+          snapClosePot = null;
+        }
         pendingMovedItems[heldItem.id] = {
           id: heldItem.id,
           x: heldItem.mesh.position.x,
           y: heldItem.mesh.position.y,
           z: heldItem.mesh.position.z,
-          ry: heldRotY
+          ry: heldItem.mesh.rotation.y
         };
+        if (heldItem.mesh.userData.lidItem && heldItem.mesh.userData.lidItem.mesh.userData.isAttached) {
+          var attLid = heldItem.mesh.userData.lidItem;
+          attLid.mesh.position.set(heldItem.mesh.position.x, heldItem.mesh.position.y + 0.36, heldItem.mesh.position.z);
+          attLid.mesh.rotation.copy(heldItem.mesh.rotation);
+          attLid.isMoved = true;
+          pendingMovedItems[attLid.id] = {
+            id: attLid.id, x: attLid.mesh.position.x, y: attLid.mesh.position.y, z: attLid.mesh.position.z, ry: attLid.mesh.rotation.y
+          };
+          recentlyDropped[attLid.id] = performance.now() + 1500;
+        }
         recentlyDropped[heldItem.id] = performance.now() + 1500;
         heldItem = null;
         placementGhost.visible = false;
@@ -2169,6 +2314,9 @@
       return;
     }
     if (hoveredPickable) {
+      if (hoveredPickable.mesh.userData.potItem && hoveredPickable.mesh.userData.isAttached) {
+        hoveredPickable.mesh.userData.isAttached = false;
+      }
       heldItem = hoveredPickable;
       heldRotY = heldItem.mesh.rotation.y;
       if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
@@ -2222,7 +2370,11 @@
       placementGhost.position.copy(pt);
       updatePlacementGhostVisual(heldItem, placementValid, heldRotY);
       placementGhost.visible = true;
-      prompt = placementValid ? 'Soltar: ' + heldItem.label : 'Local bloqueado';
+      if (snapClosePot) {
+        prompt = '🍲 Fechar tampa na Panela de Pressão';
+      } else {
+        prompt = placementValid ? 'Soltar: ' + heldItem.label : 'Local bloqueado';
+      }
       if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
       return;
     }
@@ -2318,7 +2470,13 @@
         var hits = raycaster.intersectObject(item.mesh, true);
         if (hits.length > 0 && hits[0].distance < 4.5) {
           hoveredPickable = item;
-          prompt = '✋ Pegar ' + item.label;
+          if (item.mesh.userData.potItem && item.mesh.userData.isAttached) {
+            prompt = '🍲 Abrir tampa da Panela de Pressão';
+          } else if (item.mesh.userData.twoHanded) {
+            prompt = '🙌 Pegar ' + item.label + ' (2 mãos)';
+          } else {
+            prompt = '✋ Pegar ' + item.label;
+          }
           break;
         }
       }
@@ -2563,24 +2721,35 @@
       camera.rotation.x = playerPitch;
       camera.rotation.z = 0;
 
-      // Braço direito em 1a pessoa + item segurado na mao
+      // Braço(s) em 1a pessoa + item segurado na(s) mao(s)
+      var isTwoHanded = !!(heldItem && heldItem.mesh.userData.twoHanded);
       if (fpsArmGroup) {
         fpsArmGroup.visible = true;
         var drawingNow = !!(isPrimaryDown && hoveredBoardHit && getHeldBoardToolColor());
         armReach += ((drawingNow ? 1 : 0) - armReach) * Math.min(1, dt * 14);
         if (speedNow > 0.2) armSwingPhase += dt * 7;
         fpsArmGroup.position.set(
-          0.32 - armReach * 0.08,
+          (isTwoHanded ? 0.28 : 0.32) - armReach * 0.08,
           -0.28 + Math.sin(armSwingPhase) * 0.014 + armReach * 0.06,
-          -0.42 - armReach * 0.16
+          (isTwoHanded ? -0.45 : -0.42) - armReach * 0.16
         );
-        fpsArmGroup.rotation.set(0.18 + armReach * 0.35, -0.14 + armReach * 0.1, 0.05);
+        fpsArmGroup.rotation.set(0.18 + armReach * 0.35, (isTwoHanded ? 0.12 : -0.14) + armReach * 0.1, 0.05);
+      }
+      if (fpsLeftArmGroup) {
+        fpsLeftArmGroup.visible = isTwoHanded;
+        if (isTwoHanded) {
+          fpsLeftArmGroup.position.set(-0.28, -0.28 + Math.sin(armSwingPhase) * 0.014, -0.45);
+          fpsLeftArmGroup.rotation.set(0.18, -0.12, -0.05);
+        }
       }
 
       if (heldItem) {
         var reachZ = fpsArmGroup ? armReach * 0.16 : 0;
         var reachY = fpsArmGroup ? armReach * 0.06 : 0;
-        var handPos = new THREE.Vector3(0.30, -0.22 + reachY, -0.58 - reachZ).applyEuler(camera.rotation).add(camera.position);
+        var handLocal = isTwoHanded
+          ? new THREE.Vector3(0, -0.28, -0.56)
+          : new THREE.Vector3(0.30, -0.22 + reachY, -0.58 - reachZ);
+        var handPos = handLocal.applyEuler(camera.rotation).add(camera.position);
         heldItem.mesh.position.copy(handPos);
         if (heldItem.id.indexOf('chalk_') === 0) {
           heldItem.mesh.rotation.order = 'YXZ';
@@ -2590,6 +2759,11 @@
           heldItem.mesh.rotation.set(playerPitch - Math.PI / 2, playerYaw, 0);
         } else {
           heldItem.mesh.rotation.set(0, heldRotY, 0);
+        }
+        if (heldItem.mesh.userData.lidItem && heldItem.mesh.userData.lidItem.mesh.userData.isAttached) {
+          var lidObj = heldItem.mesh.userData.lidItem.mesh;
+          lidObj.position.set(handPos.x, handPos.y + 0.36, handPos.z);
+          lidObj.rotation.copy(heldItem.mesh.rotation);
         }
       }
       if (localAvatar) {
@@ -2613,6 +2787,7 @@
       }
     } else {
       if (fpsArmGroup) fpsArmGroup.visible = false;
+      if (fpsLeftArmGroup) fpsLeftArmGroup.visible = false;
       if (localAvatar) localAvatar.group.visible = false;
       isWalking = false;
       controls.update();

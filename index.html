@@ -64,8 +64,8 @@
 
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="css/tailwind.min.css?v=0.5.5">
-  <link rel="stylesheet" href="css/game.css?v=0.5.5">
+  <link rel="stylesheet" href="css/tailwind.min.css?v=0.5.6">
+  <link rel="stylesheet" href="css/game.css?v=0.5.6">
   <style>
     html, body {
       margin: 0;
@@ -280,7 +280,7 @@
       <div id="lobby-stats" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
         Conectando ao servidor da Universidade...
       </div>
-      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.5.5</span> • Alquimistas Mágicos</div>
+      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.5.6</span> • Alquimistas Mágicos</div>
     </div>
   </div>
 
@@ -314,7 +314,7 @@
 
     <!-- Center Fading Hint -->
     <div id="fps-hint" class="fixed top-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap">
-      WASD anda • Espaço pula • Clique pega/solta • Scroll gira item • ESC libera mouse
+      WASD anda • Shift corre • Espaço pula • Clique interage • E ou T abre o Chat
     </div>
 
     <!-- Interaction Prompt Pill -->
@@ -324,7 +324,7 @@
 
     <!-- Bottom Center Chat Bar -->
     <form id="chat-form" class="fixed left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 chat-bar-wrap">
-      <input id="chat-input" type="text" maxlength="140" placeholder="💬 Falar no campus (Enter)..."
+      <input id="chat-input" type="text" maxlength="140" placeholder="💬 Aperte E ou T para digitar (Enter envia)..."
         class="flex-1 px-3 py-2 rounded-full glass-panel text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400">
       <button type="submit" class="px-3.5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow">Enviar</button>
     </form>
@@ -365,11 +365,11 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.5.5';</script>
+  <script>window.MYCO_VERSION = '0.5.6';</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="js/campus3d.js?v=0.5.5"></script>
-  <script src="js/campus-app.js?v=0.5.5"></script>
+  <script src="js/campus3d.js?v=0.5.6"></script>
+  <script src="js/campus-app.js?v=0.5.6"></script>
 </body>
 </html>
 

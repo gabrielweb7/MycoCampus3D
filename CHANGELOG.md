@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.5.6] — 2026-11-15
+### Added & Improved
+- **Panelas de Pressão 20L Profissionais com Tampa Removível ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Modeladas em aço inox com alças laterais pretas, peso central com topo vermelho e 2 válvulas de segurança, instaladas nos dois laboratórios (Bloco Oeste de Culturas/Spawn e Bloco Leste de Substratos/Pasteurização).
+  - Carregamento com **as duas mãos** em 1ª pessoa (`fpsArmGroup` + `fpsLeftArmGroup`) ao segurar a panela.
+  - **Abrir e fechar tampa**: clique na tampa para removê-la, carregá-la e apoiá-la em qualquer mesa ou chão; ao segurar a tampa e mirar na panela aberta, ela encaixa de volta para fechar (sincronizado no multiplayer).
+- **Fluxo Laminar Horizontal Realista ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Filtro HEPA plissado com textura de colmeia, gabinete preto/vidro, grade metálica preta, lamparina a álcool com chama e bisturi sobre a bancada.
+- **Mesas de Aço Inox de Laboratório ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**: Todas as bancadas dos laboratórios (Fluxo Laminar, Panela/Spawn, Cultura Líquida e Substratos) atualizadas para mesas industriais em inox com prateleira inferior e pés niveladores.
+
 ## [v0.5.5] — 2026-11-14
 ### Improved
 - **Jogabilidade Mobile muito mais fluida ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
