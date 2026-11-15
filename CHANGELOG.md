@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.7.0] — 2026-11-15
+### Milestone Release & Performance
+- **Consolidação de Recursos e Bump de Versão (`v0.7.0`)**:
+  - Consolidação oficial de todas as novidades visuais e mecânicas: ponte de madeira arqueada no lago com bacia d'água multicamadas, modo tela cheia automático com travas touch mobile, anatomia e visão realista ao sentar lado a lado.
+  - Equipamentos de laboratório atualizados: fogareiro elétrico esmaltado com aquecimento progressivo e resistência incandescente, LEDs de energia em todos os aparelhos e limite de 4 recipientes na panela de pressão.
+  - Otimizações pesadas de desempenho mobile (throttling de raycast, desativação de sombras secundárias e point lights) e correção anti-loop de versão no client/servidor.
+
 ## [v0.6.11] — 2026-11-15
 ### Fixed & Improved
 - **Correção do Loop Infinito de Reload (`window.MYCO_VERSION`) ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
