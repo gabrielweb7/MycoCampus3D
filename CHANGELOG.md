@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.17] — 2026-11-15
+### 🐛 Correção de Crash Fatal da Seringa na Cultura Líquida (`animate()`)
+- **Fim do Congelamento ao Tirar Mira / Soltar Seringa ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Corrigido `TypeError: Cannot read properties of null (reading 'item')` na animação de perfuração do septo (`syringePunctureProgress > 0.01` quando `hoveredSyringeTarget` virava `null`), que travava o `requestAnimationFrame(animate)`.
+  - Adicionado `lastSyringeTargetItem` com fallback seguro, alcance de seringa ampliado para `4.2m`, e uso de vetores temporários Zero-GC (`_tmpV1`, `_tmpV2`, `_tmpV3`).
+
 ## [v0.9.16] — 2026-11-15
 ### 🐛 Correção da Trava da Panela de Pressão & Subida Gradual de PSI
 - **Trava Ativa na Tampa e na Panela ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

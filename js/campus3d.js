@@ -138,6 +138,7 @@
   var hoveredStirSwitch = null;
   var stirrerDevices = [];
   var hoveredSyringeTarget = null;
+  var lastSyringeTargetItem = null;
   var scaleTareMeshes = [];
   var hoveredScaleTare = null;
   var scaleDevices = [];
@@ -5162,6 +5163,8 @@
   function dropHeldItem() {
     if (!heldItem) return;
     syringePumping = null;
+    syringePunctureProgress = 0;
+    lastSyringeTargetItem = null;
     var rayNdc = inFps ? new THREE.Vector2(0, 0) : pointerNdc;
     var pt = findPlacementTarget(rayNdc);
     if (isPlacementBlocked(pt)) {
@@ -5673,7 +5676,7 @@
           var sydx = cand.mesh.position.x - syRefX, sydz = cand.mesh.position.z - syRefZ;
           if (sydx * sydx + sydz * sydz > 100) continue;
           var sHit = firstValidRayHit(raycaster.intersectObject(cand.mesh, true));
-          if (sHit && sHit.distance < 3.5) {
+          if (sHit && sHit.distance < 4.2) {
             if (cand.mesh.userData.liquidCtrl) {
               var lc = cand.mesh.userData.liquidCtrl;
               if (syringePumping) {
@@ -6532,14 +6535,17 @@
 
         // Animação da Seringa furando o septo de borracha vermelha
         if (heldItem.mesh.userData.isSyringe) {
-          var isPuncturing = !!(hoveredSyringeTarget && hoveredSyringeTarget.item && hoveredSyringeTarget.item.mesh.userData.liquidCtrl);
+          var activeSyrItem = (hoveredSyringeTarget && hoveredSyringeTarget.item && hoveredSyringeTarget.item.mesh.userData.liquidCtrl)
+            ? hoveredSyringeTarget.item
+            : ((syringePumping && syringePumping.target && syringePumping.target.item && syringePumping.target.item.mesh.userData.liquidCtrl) ? syringePumping.target.item : null);
+          var isPuncturing = !!activeSyrItem;
+          if (activeSyrItem) lastSyringeTargetItem = activeSyrItem;
           syringePunctureProgress += ((isPuncturing ? 1 : 0) - syringePunctureProgress) * Math.min(1, dt * 10);
-          if (syringePunctureProgress > 0.01) {
-            var sTgt = hoveredSyringeTarget.item;
-            var portLocal = new THREE.Vector3(0.036, 0.290, 0);
-            var portWorld = portLocal.applyEuler(sTgt.mesh.rotation).add(sTgt.mesh.position);
-            var piercedHandPos = portWorld.clone().add(new THREE.Vector3(0.04, 0.12, 0.05));
-            _tmpHandPos.lerp(piercedHandPos, syringePunctureProgress);
+          if (syringePunctureProgress > 0.01 && lastSyringeTargetItem) {
+            var sTgt = lastSyringeTargetItem;
+            _tmpV1.set(0.036, 0.290, 0).applyEuler(sTgt.mesh.rotation).add(sTgt.mesh.position);
+            _tmpV2.copy(_tmpV1).add(_tmpV3.set(0.04, 0.12, 0.05));
+            _tmpHandPos.lerp(_tmpV2, syringePunctureProgress);
             heldItem.mesh.position.copy(_tmpHandPos);
             heldItem.mesh.rotation.set(0.78, sTgt.mesh.rotation.y + Math.PI, 0);
 
@@ -6548,6 +6554,9 @@
               fpsArmGroup.position.set(0.18, -0.20, -0.62);
               fpsArmGroup.rotation.set(0.52, -0.05, 0.08);
             }
+          } else if (syringePunctureProgress <= 0.01) {
+            syringePunctureProgress = 0;
+            lastSyringeTargetItem = null;
           }
         }
 
@@ -7914,6 +7923,8 @@
 
   window.resetCampusLocalSession = function () {
     syringePumping = null;
+    syringePunctureProgress = 0;
+    lastSyringeTargetItem = null;
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
     thermoLaserOn = false;
