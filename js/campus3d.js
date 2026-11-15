@@ -2849,11 +2849,10 @@
       var backBezel = makeBox(0.058, 0.078, 0.016, darkMat);
       backBezel.position.set(0, 0.155, 0.076);
       var screenMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.046, 0.046),
+        new THREE.PlaneGeometry(0.048, 0.046),
         new THREE.MeshBasicMaterial({ map: thermoTex })
       );
-      screenMesh.position.set(0, 0.160, 0.086);
-      screenMesh.rotation.y = Math.PI; // voltado para trás em direção ao olhar do jogador!
+      screenMesh.position.set(0, 0.163, 0.0865); // PlaneGeometry já aponta para +Z (em direção ao jogador)
 
       // Botões amarelos de controle abaixo da tela LCD
       [-0.015, 0, 0.015].forEach(function (bx) {
