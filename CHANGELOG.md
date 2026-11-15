@@ -36,6 +36,11 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Substituído `new THREE.CapsuleGeometry` (inexistente no Three.js `r128`, que causava `TypeError: THREE.CapsuleGeometry is not a constructor` em `makeLiquidJar800` e interrompia o `boot()` antes do `tryResumeSession()`) por `new THREE.CylinderGeometry(0.009, 0.009, 0.052, 10)`.
   - Adicionado suporte em `tryResumeSession()` para autenticar automaticamente e limpar imediatamente a URL (`history.replaceState`) caso o formulário tenha sido submetido via GET (`?campus_name=...&campus_pin=...`).
 
+## [v0.6.6] - 2026-11-15
+### Adicionado & Melhorado
+- **UI adaptada por dispositivo (PC vs iPad/Tablet vs Celular)**: detecção automática em `getDeviceProfile()` com layout, placeholders de chat (sem "Aperte E ou T / Enter" no mobile/tablet) e dicas de controle específicas para cada plataforma, além de suporte completo a iPadOS.
+- **Proteção reforçada ao soltar itens em mesas/bancadas**: janela de proteção multiplayer ampliada para 5 s com confirmação por coordenada e reenvio automático caso o servidor ainda retorne posição antiga, bordas úteis ampliadas nas mesas inox e guarda anti-soltura acidental (140 ms).
+
 ## [v0.6.5] - 2026-11-15
 ### Corrigido
 - **Bug no Mobile ao pegar/soltar itens**: corrigido disparo duplo de `touchend` + `mousedown` sintético que fazia o item voltar para o chão imediatamente após ser pego; adicionado cooldown anti-duplo-toque e suporte completo de alvos no toque fora do centro.

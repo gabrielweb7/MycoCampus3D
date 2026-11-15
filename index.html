@@ -163,26 +163,36 @@
       opacity: 0;
       pointer-events: none;
     }
-    @media (pointer: coarse), (max-width: 768px) {
-      #crosshair {
-        width: 12px;
-        height: 12px;
-        margin-left: -6px;
-        margin-top: -6px;
-        border-width: 2px;
-      }
-      #chat-form {
-        max-width: min(220px, calc(100vw - 240px)) !important;
-        bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
-      }
-      #chat-input {
-        padding: 5px 10px !important;
-        font-size: 11px !important;
-      }
-      #chat-form button[type="submit"] {
-        padding: 5px 10px !important;
-        font-size: 11px !important;
-      }
+    body.device-phone #crosshair {
+      width: 12px;
+      height: 12px;
+      margin-left: -6px;
+      margin-top: -6px;
+      border-width: 2px;
+    }
+    body.device-phone #chat-form {
+      max-width: min(220px, calc(100vw - 235px)) !important;
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+    body.device-phone #chat-input {
+      padding: 5px 10px !important;
+      font-size: 11px !important;
+    }
+    body.device-phone #chat-form button[type="submit"] {
+      padding: 5px 10px !important;
+      font-size: 11px !important;
+    }
+    body.device-tablet #chat-form {
+      max-width: min(360px, calc(100vw - 360px)) !important;
+      bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+    body.device-tablet #mobile-joystick-zone {
+      width: 132px;
+      height: 132px;
+    }
+    body.device-desktop #mobile-joystick-zone,
+    body.device-desktop #mobile-actions {
+      display: none !important;
     }
     /* Mobile analog joystick */
     #mobile-joystick-zone {
@@ -307,7 +317,7 @@
       <div id="lobby-stats" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
         Conectando ao servidor da Universidade...
       </div>
-      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.6.5</span> • Alquimistas Mágicos</div>
+      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.6.6</span> • Alquimistas Mágicos</div>
     </div>
   </div>
 
@@ -340,18 +350,18 @@
     </div>
 
     <!-- Center Fading Hint -->
-    <div id="fps-hint" class="fixed top-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap">
-      WASD anda • Shift corre • Espaço pula • Clique interage • E ou T abre o Chat
+    <div id="fps-hint" class="fixed top-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap max-w-[92vw] truncate">
+      WASD anda • Shift corre • Espaço pula • R gira • Clique interage
     </div>
 
     <!-- Interaction Prompt Pill -->
     <div id="interact-pill" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40">
-      Clique para interagir
+      Interagir
     </div>
 
     <!-- Bottom Center Chat Bar -->
     <form id="chat-form" class="fixed left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 chat-bar-wrap">
-      <input id="chat-input" type="text" maxlength="140" placeholder="💬 Aperte E ou T para digitar (Enter envia)..."
+      <input id="chat-input" type="text" maxlength="140" placeholder="💬 Escreva no chat..."
         class="flex-1 px-3 py-2 rounded-full glass-panel text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400">
       <button type="submit" class="px-3.5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow">Enviar</button>
     </form>

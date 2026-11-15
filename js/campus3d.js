@@ -197,7 +197,8 @@
 
   function isTouchDevice() {
     var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    var hasTouch = (navigator.maxTouchPoints || 0) > 0 && window.innerWidth <= 1180;
+    var minDim = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+    var hasTouch = (navigator.maxTouchPoints || 0) > 0 && (window.innerWidth <= 1380 || minDim <= 1080);
     return coarse || hasTouch;
   }
 
@@ -651,13 +652,13 @@
 
     g.add(seatPlankF, seatPlankR, backPlankLow, backPlankHigh);
 
-    // Permite sentar no banco da praca (2 lugares: esquerda e direita)
+    // Permite sentar no banco da praca (2 lugares lado a lado: esquerda e direita)
     var sitYaw = rotY + Math.PI;
     [-0.44, 0.44].forEach(function (offsetX) {
-      var worldX = x + Math.cos(rotY) * offsetX;
-      var worldZ = z - Math.sin(rotY) * offsetX;
+      var worldX = x + Math.cos(rotY) * offsetX + Math.sin(rotY) * 0.05;
+      var worldZ = z - Math.sin(rotY) * offsetX + Math.cos(rotY) * 0.05;
       var seatHit = new THREE.Mesh(
-        new THREE.BoxGeometry(0.88, 0.55, 0.56),
+        new THREE.BoxGeometry(0.86, 0.55, 0.56),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
       );
       seatHit.position.set(offsetX, 0.56, -0.02);
@@ -1059,9 +1060,14 @@
           });
         });
       });
-      var fLight = new THREE.PointLight(0xfffbeb, 1.1, 22, 1.45);
-      fLight.position.set(cx, ceilY - 0.30, cz);
-      scene.add(fLight);
+      var fLight;
+      if (isTouchDevice()) {
+        fLight = { intensity: 1.05 };
+      } else {
+        fLight = new THREE.PointLight(0xfffbeb, 1.1, 22, 1.45);
+        fLight.position.set(cx, ceilY - 0.30, cz);
+        scene.add(fLight);
+      }
 
       var swGroup = new THREE.Group();
       swGroup.position.set(swX, swY, swZ);
@@ -1664,8 +1670,8 @@
         var hw = (rotSwap ? dims.d : dims.w) / 2;
         var hd = (rotSwap ? dims.w : dims.d) / 2;
         if (surf) {
-          surf.minX = px - hw + 0.05; surf.maxX = px + hw - 0.05;
-          surf.minZ = pz - hd + 0.05; surf.maxZ = pz + hd - 0.05;
+          surf.minX = px - hw + 0.02; surf.maxX = px + hw - 0.02;
+          surf.minZ = pz - hd + 0.02; surf.maxZ = pz + hd - 0.02;
           surf.topY = py + dims.h + (dims.surfOffset || 0);
         }
         if (col) {
@@ -1709,7 +1715,7 @@
         foot.position.set(lp[0], 0.015, lp[1]);
         tg.add(leg, foot);
       });
-      var surf = { minX: tx - tw / 2 + 0.05, maxX: tx + tw / 2 - 0.05, minZ: tz - td / 2 + 0.05, maxZ: tz + td / 2 - 0.05, topY: floorY + th };
+      var surf = { minX: tx - tw / 2 + 0.02, maxX: tx + tw / 2 - 0.02, minZ: tz - td / 2 + 0.02, maxZ: tz + td / 2 - 0.02, topY: floorY + th };
       var col = { minX: tx - tw / 2 - 0.05, maxX: tx + tw / 2 + 0.05, minZ: tz - td / 2 - 0.05, maxZ: tz + td / 2 + 0.05, minY: floorY, maxY: floorY + th + 0.4 };
       supportSurfaces.push(surf);
       top.userData.supportSurface = surf;
@@ -3334,7 +3340,7 @@
       var sHits = raycaster.intersectObjects(supportMeshes, false);
       for (var si = 0; si < sHits.length; si++) {
         var sh = sHits[si];
-        if (sh.distance < 0.15 || sh.distance > 5.5) continue;
+        if (sh.distance < 0.02 || sh.distance > 5.5) continue;
         var sSurf = sh.object.userData.supportSurface;
         if (!sSurf) continue;
         if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === sSurf) continue;
@@ -3421,8 +3427,13 @@
     return false;
   }
 
+  var lastGravityCheckAt = 0;
+  var hasFallingItems = true;
   function dropUnsupportedItems() {
     var now = performance.now();
+    if (!hasFallingItems && now - lastGravityCheckAt < 180) return;
+    lastGravityCheckAt = now;
+    var anyFalling = false;
     pickableItems.forEach(function (item) {
       if (item.potItem && item.isAttached) {
         var pot = item.potItem;
@@ -3481,6 +3492,7 @@
         }
       }
       if (item.mesh.position.y > supportedY + 0.015) {
+        anyFalling = true;
         recentlyDropped[item.id] = now + 1500;
         item.mesh.position.y = Math.max(supportedY, item.mesh.position.y - 0.18);
         if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
@@ -3512,6 +3524,7 @@
         }
       }
     });
+    hasFallingItems = anyFalling;
   }
 
   // ---------------- Avatares Multiplayer ----------------
@@ -3918,8 +3931,10 @@
     }
   }
 
+  var lastPickupAt = 0;
   function handlePrimaryAction() {
     if (heldItem) {
+      if (performance.now() - lastPickupAt < 140) return;
       // Se estiver perto da lousa com giz ou apagador, o clique desenha/apaga em vez de soltar
       if (hoveredBoardHit && getHeldBoardToolColor()) {
         return;
@@ -4104,9 +4119,11 @@
       return;
     }
     if (hoveredSeat) {
+      if (isSeatOccupied(hoveredSeat)) return;
       seatedSeat = hoveredSeat;
       playerPos.set(seatedSeat.x, seatedSeat.y, seatedSeat.z);
       playerYaw = seatedSeat.yaw;
+      if (playerPitch < -0.06) playerPitch = -0.02;
       playerVelX = 0; playerVelZ = 0; playerVelY = 0;
       notifyWorldAction();
       return;
@@ -4173,11 +4190,25 @@
         if (idxInPot !== -1) cookerPots[cpIdx].contents.splice(idxInPot, 1);
       }
       heldItem = hoveredPickable;
+      lastPickupAt = performance.now();
       heldRotY = heldItem.mesh.rotation.y;
       setHeldTwoHandedGhost(heldItem, true);
       if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
       notifyWorldAction();
     }
+  }
+
+  function isSeatOccupied(seat) {
+    if (!seat) return false;
+    var ids = Object.keys(remoteAvatars);
+    for (var i = 0; i < ids.length; i++) {
+      var av = remoteAvatars[ids[i]];
+      if (!av || !av.targetPos) continue;
+      if (Math.hypot(av.targetPos.x - seat.x, av.targetPos.z - seat.z) < 0.48 && Math.abs(av.targetPos.y - seat.y) < 0.85) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function updateHoverRay(customNdc) {
@@ -4226,7 +4257,10 @@
           hoveredBoardHit = bHits[0];
           hoveredBoardIndex = bHits[0].object.userData.boardIndex || 0;
           if (placementGhost) placementGhost.visible = false;
-          prompt = toolCol === 'erase' ? '🧽 Segure o clique para apagar a lousa' : '✏️ Segure o clique para escrever na lousa';
+          var touchUi = isTouchDevice();
+          prompt = toolCol === 'erase'
+            ? (touchUi ? '🧽 Arraste na lousa para apagar' : '🧽 Segure o clique para apagar a lousa')
+            : (touchUi ? '✏️ Arraste na lousa para escrever' : '✏️ Segure o clique para escrever na lousa');
           if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
           return;
         }
@@ -4382,8 +4416,13 @@
     if (seatMeshes.length) {
       var stHits = raycaster.intersectObjects(seatMeshes, false);
       if (stHits.length > 0 && stHits[0].distance < 4.2) {
-        hoveredSeat = stHits[0].object.userData.seatInfo;
-        prompt = '🪑 Clique para sentar';
+        var candSeat = stHits[0].object.userData.seatInfo;
+        if (isSeatOccupied(candSeat)) {
+          prompt = '🚫 Assento ocupado (sente ao lado!)';
+        } else {
+          hoveredSeat = candSeat;
+          prompt = '🪑 Clique para sentar';
+        }
         if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
         return;
       }
@@ -4412,10 +4451,14 @@
         prompt = '🚪 ' + (hoveredDoorObj.open ? 'Fechar ' : 'Abrir ') + hoveredDoorObj.label;
       }
     }
+    var refX = inFps ? playerPos.x : camera.position.x;
+    var refZ = inFps ? playerPos.z : camera.position.z;
     if (!prompt) {
       for (var m = 0; m < wildMushrooms.length; m++) {
         var wm = wildMushrooms[m];
         if (!wm.active) continue;
+        var mdx = wm.group.position.x - refX, mdz = wm.group.position.z - refZ;
+        if (inFps && (mdx * mdx + mdz * mdz > 24)) continue;
         var mHits = raycaster.intersectObject(wm.group, true);
         if (mHits.length > 0 && mHits[0].distance < 4.5) {
           hoveredMushroom = wm;
@@ -4430,6 +4473,8 @@
       for (var i = 0; i < pickableItems.length; i++) {
         var item = pickableItems[i];
         if (isHeldByRemote(item.id)) continue;
+        var idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
+        if (inFps && (idx * idx + idz * idz > 26)) continue;
         var hits = raycaster.intersectObject(item.mesh, true).filter(function (h) { return !h.object.userData.ignoreRay; });
         if (hits.length > 0 && hits[0].distance < 4.5) {
           var dHit = hits[0].distance;
@@ -4768,13 +4813,12 @@
         walkBobPhase += dt * (4.5 + speedNow * 1.4);
         bobY = Math.sin(walkBobPhase) * 0.028 * Math.min(1, speedNow / 3.8);
       }
-      var eyeH = seatedSeat ? 1.18 : PLAYER_EYE;
+      var eyeH = seatedSeat ? 1.50 : PLAYER_EYE;
       if (seatedSeat) {
         playerPos.set(seatedSeat.x, seatedSeat.y, seatedSeat.z);
         playerVelY = 0;
       }
       camera.position.set(playerPos.x, playerPos.y + eyeH + bobY, playerPos.z);
-      camera.up.set(0, 1, 0);
       camera.up.set(0, 1, 0);
       camera.rotation.order = 'YXZ';
       camera.rotation.y = playerYaw;
@@ -4838,13 +4882,19 @@
         );
         localAvatar.group.rotation.y = playerYaw;
         if (seatedSeat) {
-          if (localAvatar.torso) localAvatar.torso.position.set(0, 0.60, 0);
+          if (localAvatar.torso) {
+            localAvatar.torso.visible = false;
+            localAvatar.torso.position.set(0, 0.60, 0);
+          }
           localAvatar.leftLeg.position.set(-0.11, 0.41, 0);
           localAvatar.rightLeg.position.set(0.11, 0.41, 0);
           localAvatar.leftLeg.rotation.x = Math.PI / 2;
           localAvatar.rightLeg.rotation.x = Math.PI / 2;
         } else {
-          if (localAvatar.torso) localAvatar.torso.position.set(0, 0.64, 0);
+          if (localAvatar.torso) {
+            localAvatar.torso.visible = true;
+            localAvatar.torso.position.set(0, 0.64, 0);
+          }
           localAvatar.leftLeg.position.set(-0.10, 0.38, 0);
           localAvatar.rightLeg.position.set(0.10, 0.38, 0);
           if (isWalking) {
@@ -4869,7 +4919,7 @@
     }
 
     if (!lobbyTourActive) {
-      if (!isTouchDevice() || isPrimaryDown || (now - lastMobileHoverAt > 75)) {
+      if (!isTouchDevice() || isPrimaryDown || (heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 260)) {
         lastMobileHoverAt = now;
         updateHoverRay();
       }
@@ -4929,7 +4979,8 @@
         }
       }
     }
-    if (scaleDevices.length) {
+    if (scaleDevices.length && (!animate._lastScaleAt || now - animate._lastScaleAt > 150)) {
+      animate._lastScaleAt = now;
       for (var sci = 0; sci < scaleDevices.length; sci++) {
         var scObj = scaleDevices[sci];
         var gross = 0;
@@ -5374,32 +5425,36 @@
       texWater.offset.x = (envTime * 0.045) % 1;
       texWater.offset.y = (Math.sin(envTime * 0.4) * 0.04) % 1;
     }
-    for (var ri = 0; ri < fountainRipples.length; ri++) {
-      var rp = fountainRipples[ri];
-      var rPhase = (envTime * 0.55 + rp.phase) % 1;
-      var rScale = 0.28 + rPhase * 0.85;
-      rp.mesh.scale.set(rScale, rScale, 1);
-      rp.mesh.material.opacity = (1 - rPhase) * 0.52;
-    }
-    if (fountainDropsAttr) {
-      var dArr = fountainDropsAttr.array;
-      for (var di = 0; di < dArr.length; di += 3) {
-        dArr[di + 1] -= dt * 1.65;
-        var dxF = dArr[di];
-        var dzF = dArr[di + 2] - 2.0;
-        var rDist = Math.hypot(dxF, dzF) || 0.01;
-        dArr[di] += (dxF / rDist) * dt * 0.52;
-        dArr[di + 2] += (dzF / rDist) * dt * 0.52;
-        if (dArr[di + 1] < 0.44) {
-          var nAng = Math.random() * Math.PI * 2;
-          var isTop = (di % 6 === 0);
-          var startR = isTop ? (0.35 + Math.random() * 0.25) : (1.28 + Math.random() * 0.22);
-          dArr[di] = Math.cos(nAng) * startR;
-          dArr[di + 1] = isTop ? (1.85 + Math.random() * 0.35) : (1.15 + Math.random() * 0.28);
-          dArr[di + 2] = 2.0 + Math.sin(nAng) * startR;
-        }
+    var camFX = inFps ? playerPos.x : camera.position.x;
+    var camFZ = (inFps ? playerPos.z : camera.position.z) - 2.0;
+    if (camFX * camFX + camFZ * camFZ < 1225) {
+      for (var ri = 0; ri < fountainRipples.length; ri++) {
+        var rp = fountainRipples[ri];
+        var rPhase = (envTime * 0.55 + rp.phase) % 1;
+        var rScale = 0.28 + rPhase * 0.85;
+        rp.mesh.scale.set(rScale, rScale, 1);
+        rp.mesh.material.opacity = (1 - rPhase) * 0.52;
       }
-      fountainDropsAttr.needsUpdate = true;
+      if (fountainDropsAttr) {
+        var dArr = fountainDropsAttr.array;
+        for (var di = 0; di < dArr.length; di += 3) {
+          dArr[di + 1] -= dt * 1.65;
+          var dxF = dArr[di];
+          var dzF = dArr[di + 2] - 2.0;
+          var rDist = Math.hypot(dxF, dzF) || 0.01;
+          dArr[di] += (dxF / rDist) * dt * 0.52;
+          dArr[di + 2] += (dzF / rDist) * dt * 0.52;
+          if (dArr[di + 1] < 0.44) {
+            var nAng = Math.random() * Math.PI * 2;
+            var isTop = (di % 6 === 0);
+            var startR = isTop ? (0.35 + Math.random() * 0.25) : (1.28 + Math.random() * 0.22);
+            dArr[di] = Math.cos(nAng) * startR;
+            dArr[di + 1] = isTop ? (1.85 + Math.random() * 0.35) : (1.15 + Math.random() * 0.28);
+            dArr[di + 2] = 2.0 + Math.sin(nAng) * startR;
+          }
+        }
+        fountainDropsAttr.needsUpdate = true;
+      }
     }
   }
 

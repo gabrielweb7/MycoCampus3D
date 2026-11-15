@@ -121,10 +121,35 @@
       .replace(/'/g, '&#39;');
   }
 
-  function isTouch() {
+  function getDeviceProfile() {
     var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    var hasTouch = (navigator.maxTouchPoints || 0) > 0 && window.innerWidth <= 1180;
-    return coarse || hasTouch;
+    var minDim = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+    var hasTouch = (navigator.maxTouchPoints || 0) > 0 && (window.innerWidth <= 1380 || minDim <= 1080);
+    if (!coarse && !hasTouch) return 'desktop';
+    return minDim >= 720 ? 'tablet' : 'phone';
+  }
+
+  function isTouch() {
+    return getDeviceProfile() !== 'desktop';
+  }
+
+  function applyDeviceUi() {
+    var profile = getDeviceProfile();
+    document.body.classList.remove('device-desktop', 'device-tablet', 'device-phone');
+    document.body.classList.add('device-' + profile);
+
+    var hint = $('fps-hint');
+    var chatInp = $('chat-input');
+    if (profile === 'desktop') {
+      if (hint) hint.textContent = 'WASD anda • Shift corre • Espaço pula • R gira item • Clique interage • E ou T abre o Chat';
+      if (chatInp) chatInp.placeholder = '💬 Aperte E ou T para digitar (Enter envia)...';
+    } else if (profile === 'tablet') {
+      if (hint) hint.textContent = 'Joystick anda • Arraste para olhar • Toque para interagir • 🔄 gira item';
+      if (chatInp) chatInp.placeholder = '💬 Toque para digitar no chat...';
+    } else {
+      if (hint) hint.textContent = 'Joystick anda • Arraste para olhar • Toque para interagir';
+      if (chatInp) chatInp.placeholder = '💬 Escreva no chat...';
+    }
   }
 
   function showFloatingToast(msg) {
@@ -686,6 +711,9 @@
   }
 
   function boot() {
+    applyDeviceUi();
+    window.addEventListener('resize', applyDeviceUi);
+    window.addEventListener('orientationchange', applyDeviceUi);
     renderSwatches();
     setupMobileJoystick();
     loadLobbyStats();
@@ -722,8 +750,7 @@
       onFpsChange: updateFpsUi,
       onHoverPrompt: function (txt) {
         var pill = $('interact-pill');
-        var isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-        if (isCoarse) {
+        if (getDeviceProfile() === 'phone') {
           pill.classList.add('hidden');
           return;
         }
