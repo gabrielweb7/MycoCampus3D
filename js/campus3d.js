@@ -3936,7 +3936,10 @@
         pendingMovedItems[heldItem.id] = {
           id: heldItem.id, x: heldItem.mesh.position.x, y: heldItem.mesh.position.y, z: heldItem.mesh.position.z, ry: heldItem.mesh.rotation.y
         };
-        recentlyDropped[heldItem.id] = performance.now() + 1500;
+        recentlyDropped[heldItem.id] = performance.now() + 5000;
+        if (heldItem.lidItem && heldItem.lidItem.isAttached) {
+          recentlyDropped[heldItem.lidItem.id] = performance.now() + 5000;
+        }
         heldItem = null;
         placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
@@ -4029,7 +4032,10 @@
           };
           recentlyDropped[attLid.id] = performance.now() + 1500;
         }
-        recentlyDropped[heldItem.id] = performance.now() + 1500;
+        recentlyDropped[heldItem.id] = performance.now() + 5000;
+        if (heldItem.lidItem && heldItem.lidItem.isAttached) {
+          recentlyDropped[heldItem.lidItem.id] = performance.now() + 5000;
+        }
         if (heldItem.mesh.userData.updateBounds) heldItem.mesh.userData.updateBounds(heldItem);
         setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
@@ -5626,7 +5632,19 @@
     pickableItems.forEach(function (item) {
       if (!item.mesh.userData.updateBounds) return;
       if (heldItem === item || isHeldByRemote(item.id)) return;
-      if (pendingMovedItems[item.id] || recentlyDropped[item.id] > now) return;
+      if (pendingMovedItems[item.id]) return;
+      if (recentlyDropped[item.id] > now) {
+        var svCheck = objectsMap[item.id];
+        if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.06 && Math.abs(svCheck.y - item.mesh.position.y) < 0.06) {
+          delete recentlyDropped[item.id];
+        } else if (recentlyDropped[item.id] - now < 3200) {
+          // Servidor ainda esta com posicao antiga: reenvia posicao local para nao voltar pro chao!
+          pendingMovedItems[item.id] = {
+            id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
+          };
+        }
+        return;
+      }
       var saved = objectsMap[item.id];
       if (saved) {
         item.mesh.position.set(saved.x, saved.y, saved.z);
@@ -5644,7 +5662,19 @@
     pickableItems.forEach(function (item) {
       if (item.mesh.userData.updateBounds) return;
       if (heldItem === item || isHeldByRemote(item.id)) return;
-      if (pendingMovedItems[item.id] || recentlyDropped[item.id] > now) return;
+      if (pendingMovedItems[item.id]) return;
+      if (recentlyDropped[item.id] > now) {
+        var svCheck = objectsMap[item.id];
+        if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.06 && Math.abs(svCheck.y - item.mesh.position.y) < 0.06) {
+          delete recentlyDropped[item.id];
+        } else if (recentlyDropped[item.id] - now < 3200) {
+          // Servidor ainda esta com posicao antiga: reenvia posicao local para nao voltar pro chao!
+          pendingMovedItems[item.id] = {
+            id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
+          };
+        }
+        return;
+      }
       if (item.potItem && item.isAttached) {
         var pRef = item.potItem;
         if (heldItem === pRef || isHeldByRemote(pRef.id) || pendingMovedItems[pRef.id] || recentlyDropped[pRef.id] > now) {
