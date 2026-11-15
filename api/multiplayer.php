@@ -12,7 +12,9 @@ const MP_CHAT_TTL_S = 7;
 const MP_SLIDE_COUNT = 5;
 const MP_WORLD_LIMIT = 220.0;
 const MP_ITEMS = [
-    'petri_clean', 'petri_contam', 'spawn_jar', 'liquid_culture',
+    'petri_clean', 'petri_contam', 'petri_empty', 'pda_bottle',
+    'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
+    'heat_sealer', 'liquid_culture',
     'substrate_bag', 'fruiting_block',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
     'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',

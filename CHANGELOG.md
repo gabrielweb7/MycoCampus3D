@@ -16,6 +16,13 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
 - **Atalho `E` / `T` / `Enter` para Chat no PC ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
   - Apertar `E`, `T` ou `Enter` foca imediatamente no `#chat-input` para digitar e zera as teclas de movimento (`clearCampusKeys()`); apertar `Enter` envia a mensagem na hora e devolve o foco ao jogo sem perder o Pointer Lock.
 
+## [v0.5.7] — 2026-11-15
+### Added & Improved
+- **Laboratório Completo de Micologia ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:
+  - Bancadas contínuas nas paredes Oeste e Norte + estante de 3 níveis para culturas sólidas na parede Sul + ilha central em aço inox (com mesas e Fluxo Laminar móveis em 2 mãos quando vazios).
+  - **Vidros 800ml** (vazio estéril + milho colonizado), **Bags 1,5kg** (vazio com filtro microporoso + colonizado com porta de injeção), **Seladora Térmica** e **Frasco PDA 500g** (Potato Dextrose Agar).
+  - **Placas de Petri transparentes realistas** com PDA estéril, micélio rizomórfico radial e placa contaminada.
+
 ## [v0.5.6] — 2026-11-15
 ### Added & Improved
 - **Panelas de Pressão 20L Profissionais com Tampa Removível ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php))**:

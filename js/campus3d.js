@@ -1437,8 +1437,41 @@
       registerPickable(id, label, tg, tx, floorY, tz, 0, Math.max(tw, td) * 0.5, th);
     }
 
-    // Fluxo Laminar Horizontal realista (movivel se vazio + botao de ligar/desligar + ar esteril!)
-    addMovableStainlessTable('table_hood_lab', 'Mesa Inox (Fluxo Laminar)', -22.2, 0.14, -9.8, 1.5, 0.90, 2.4);
+    // Bancadas fixas nas paredes do Laboratorio (Oeste e Norte) + Estante de Culturas Solidas (Sul)
+    function addWallLabBench(bx, bz, bw, bd) {
+      var cab = makeBox(bw, 0.82, bd, 0xe2e8f0, { roughness: 0.55 });
+      cab.position.set(bx, 0.14 + 0.41, bz);
+      var trim = makeBox(bw + 0.02, 0.72, bd + 0.02, 0x0284c7, { roughness: 0.5 });
+      trim.position.set(bx, 0.14 + 0.36, bz);
+      var top = makeBox(bw + 0.04, 0.06, bd + 0.04, 0x94a3b8, { roughness: 0.35, metalness: 0.25 });
+      top.position.set(bx, 0.14 + 0.85, bz);
+      scene.add(trim, cab, top);
+      solidColliders.push({ minX: bx - bw / 2 - 0.05, maxX: bx + bw / 2 + 0.05, minZ: bz - bd / 2 - 0.05, maxZ: bz + bd / 2 + 0.05, minY: 0.14, maxY: 1.3 });
+      supportSurfaces.push({ minX: bx - bw / 2 + 0.04, maxX: bx + bw / 2 - 0.04, minZ: bz - bd / 2 + 0.04, maxZ: bz + bd / 2 - 0.04, topY: 1.02 });
+    }
+    addWallLabBench(-23.15, -7.0, 1.2, 10.6); // Parede Oeste inteira
+    addWallLabBench(-18.5, -12.0, 8.1, 1.1);  // Parede Norte inteira
+
+    // Estante 3 niveis para Culturas Solidas (Parede Sul do Lab)
+    var rackX = -19.2, rackZ = -1.85;
+    var rackMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.65, roughness: 0.3 });
+    [0.62, 1.18, 1.74].forEach(function (sy) {
+      var sh = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.04, 0.68), rackMat);
+      sh.position.set(rackX, 0.14 + sy, rackZ);
+      scene.add(sh);
+      supportSurfaces.push({ minX: rackX - 1.55, maxX: rackX + 1.55, minZ: rackZ - 0.3, maxZ: rackZ + 0.3, topY: 0.14 + sy + 0.02 });
+    });
+    [-1.56, 1.56].forEach(function (pxOff) {
+      [-0.31, 0.31].forEach(function (pzOff) {
+        var post = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.9, 8), rackMat);
+        post.position.set(rackX + pxOff, 0.14 + 0.95, rackZ + pzOff);
+        scene.add(post);
+      });
+    });
+    solidColliders.push({ minX: rackX - 1.65, maxX: rackX + 1.65, minZ: rackZ - 0.38, maxZ: rackZ + 0.38, minY: 0.14, maxY: 2.1 });
+
+    // Ilha central em Inox com Fluxo Laminar Horizontal (movivel se vazio + botao Power/LED + ar esteril!)
+    addMovableStainlessTable('table_hood_lab', 'Mesa Inox (Fluxo Laminar)', -18.5, 0.14, -8.2, 1.5, 0.90, 2.4);
 
     var hoodGroup = new THREE.Group();
     var hoodBackBox = makeBox(0.32, 1.08, 2.34, 0x0f172a, { roughness: 0.45, metalness: 0.4 });
@@ -1505,7 +1538,7 @@
     hoodSwitchBox.userData.hoodSwitch = hoodAirData;
     hoodSwitchMeshes.push(hoodBtnMesh, hoodSwitchBox);
 
-    var hoodSurf = { minX: -22.8, maxX: -21.5, minZ: -10.85, maxZ: -8.75, topY: 1.07 };
+    var hoodSurf = { minX: -19.1, maxX: -17.8, minZ: -9.25, maxZ: -7.15, topY: 1.07 };
     supportSurfaces.push(hoodSurf);
     hoodGroup.userData.twoHanded = true;
     hoodGroup.userData.isHood = true;
@@ -1513,7 +1546,7 @@
     hoodGroup.userData.dynamicSurface = hoodSurf;
     hoodGroup.userData.updateBounds = updateItemBounds;
     hoodGroup.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(hoodSurf, item); };
-    registerPickable('laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -22.2, 1.04, -9.8, 0, 0.85, 1.1);
+    registerPickable('laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -18.5, 1.04, -8.2, 0, 0.85, 1.1);
 
     function createPressureCookerPair(potId, lidId, labelSuffix, px, py, pz) {
       var steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20 });
@@ -1567,34 +1600,148 @@
       potGroup.userData.lidItem = lidItem;
     }
 
-    addMovableStainlessTable('table_cooker_lab', 'Mesa Inox (Autoclave/Spawn)', -22.2, 0.14, -4.4, 1.5, 0.85, 2.4);
-    createPressureCookerPair('pressure_cooker_lab', 'pressure_lid_lab', 'Lab', -22.2, 0.99, -3.9);
+    addMovableStainlessTable('table_cooker_lab', 'Mesa Inox (Autoclave/Spawn)', -18.5, 0.14, -5.0, 1.5, 0.85, 2.4);
+    createPressureCookerPair('pressure_cooker_lab', 'pressure_lid_lab', 'Lab', -18.5, 0.99, -4.6);
 
-    addMovableStainlessTable('table_lc_lab', 'Mesa Inox (Cultura Líquida)', -16.8, 0.14, -4.2, 2.2, 0.79, 1.0);
+    addMovableStainlessTable('table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.14, -10.6, 2.0, 0.79, 1.0);
 
-    // Itens pegaveis do Lab
-    var petri1 = new THREE.Group();
-    var pDisk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.06, 16), new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0x38bdf8, emissiveIntensity: 0.2 }));
-    pDisk.position.y = 0.03; petri1.add(pDisk);
-    registerPickable('petri_clean', 'Placa de Petri (Micélio Saudável)', petri1, -22.0, 1.04, -10.2, 0, 0.22, 0.1);
+    // Texturas procedurais realistas para Placas de Petri (PDA, Micelio Rizomorfico, Contaminacao) e Spawn
+    function makePetriDish(mode) {
+      var pg = new THREE.Group();
+      var glassMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.08, metalness: 0.15 });
+      var rim = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.048, 22, 1, true), glassMat);
+      rim.position.y = 0.024;
+      var lid = new THREE.Mesh(new THREE.CylinderGeometry(0.172, 0.172, 0.012, 22), glassMat);
+      lid.position.y = 0.048;
 
-    var petri2 = new THREE.Group();
-    var pContam = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.06, 16), new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x16a34a, emissiveIntensity: 0.35 }));
-    pContam.position.y = 0.03; petri2.add(pContam);
-    registerPickable('petri_contam', 'Placa Contaminada (Tricoderma)', petri2, -22.0, 1.04, -9.2, 0, 0.22, 0.1);
+      var c = document.createElement('canvas');
+      c.width = 256; c.height = 256;
+      var ctx = c.getContext('2d');
+      ctx.fillStyle = mode === 'contam' ? '#d9b36c' : '#efe7d2';
+      ctx.fillRect(0, 0, 256, 256);
+      if (mode === 'clean') {
+        ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+        ctx.lineWidth = 1.6;
+        for (var a = 0; a < 110; a++) {
+          var ang = (a / 110) * Math.PI * 2;
+          var rEnd = 88 + Math.sin(a * 7) * 14;
+          ctx.beginPath();
+          ctx.moveTo(128, 128);
+          ctx.quadraticCurveTo(128 + Math.cos(ang + 0.12) * rEnd * 0.55, 128 + Math.sin(ang + 0.12) * rEnd * 0.55, 128 + Math.cos(ang) * rEnd, 128 + Math.sin(ang) * rEnd);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath(); ctx.moveTo(120, 120); ctx.lineTo(138, 122); ctx.lineTo(128, 138); ctx.closePath(); ctx.fill();
+      } else if (mode === 'contam') {
+        ctx.fillStyle = '#4a3f28';
+        ctx.beginPath(); ctx.arc(88, 132, 62, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1c1917';
+        ctx.beginPath(); ctx.arc(86, 134, 24, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e7dcc8';
+        ctx.beginPath(); ctx.arc(174, 118, 44, 0, Math.PI * 2); ctx.fill();
+      }
+      var agarTex = new THREE.CanvasTexture(c);
+      var agar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.156, 0.156, 0.022, 22),
+        new THREE.MeshStandardMaterial({ map: agarTex, roughness: 0.35 })
+      );
+      agar.position.y = 0.015;
+      pg.add(agar, rim, lid);
+      return pg;
+    }
 
-    var spawnJar = new THREE.Group();
-    var jGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.34, 14), new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.3 }));
-    jGlass.position.y = 0.17;
-    var jLid = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.05, 14), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7 }));
-    jLid.position.y = 0.36;
-    spawnJar.add(jGlass, jLid);
-    registerPickable('spawn_jar', 'Pote de Spawn de Grãos', spawnJar, -22.0, 0.99, -4.95, 0, 0.22, 0.4);
+    registerPickable('petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.3, 1.07, -8.6, 0, 0.20, 0.08);
+    registerPickable('petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 1.07, -7.8, 0, 0.20, 0.08);
+    registerPickable('petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, 0.20, 0.08);
+
+    // Frasco de Potato Dextrose Agar (PDA 500g) com tampa laranja e rotulo
+    var pdaGroup = new THREE.Group();
+    var pdaC = document.createElement('canvas'); pdaC.width = 256; pdaC.height = 128;
+    var pdaCtx = pdaC.getContext('2d');
+    pdaCtx.fillStyle = '#f8fafc'; pdaCtx.fillRect(0, 0, 256, 128);
+    pdaCtx.fillStyle = '#0284c7'; pdaCtx.fillRect(0, 14, 256, 10); pdaCtx.fillRect(0, 104, 256, 10);
+    pdaCtx.fillStyle = '#0f172a'; pdaCtx.font = 'bold 16px system-ui, sans-serif';
+    pdaCtx.fillText('POTATO DEXTROSE AGAR', 16, 56);
+    pdaCtx.font = '13px system-ui, sans-serif'; pdaCtx.fillText('Meio de Cultura • 500g', 16, 82);
+    var pdaBody = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.24, 16), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(pdaC), roughness: 0.45 }));
+    pdaBody.position.y = 0.12;
+    var pdaCap = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.085, 0.07, 16), new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.35 }));
+    pdaCap.position.y = 0.27;
+    pdaGroup.add(pdaBody, pdaCap);
+    registerPickable('pda_bottle', 'Frasco PDA 500g (Ágar Batata Dextrose)', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.32);
+
+    // Vidros 800ml de Spawn (Vazio e Colonizado com Milho)
+    function makeSpawnJar800(filled) {
+      var jg = new THREE.Group();
+      var glass = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.11, 0.24, 16),
+        new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.38, roughness: 0.1, metalness: 0.1 })
+      );
+      glass.position.y = 0.12;
+      var lid = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.035, 16), new THREE.MeshStandardMaterial({ color: filled ? 0xdc2626 : 0xf8fafc, roughness: 0.4 }));
+      lid.position.y = 0.255;
+      jg.add(glass, lid);
+      if (filled) {
+        var jc = document.createElement('canvas'); jc.width = 128; jc.height = 128;
+        var jctx = jc.getContext('2d');
+        jctx.fillStyle = '#e5e7eb'; jctx.fillRect(0, 0, 128, 128);
+        for (var k = 0; k < 140; k++) {
+          jctx.fillStyle = k % 3 === 0 ? '#eab308' : '#f8fafc';
+          jctx.beginPath(); jctx.arc(Math.random() * 128, Math.random() * 128, 4 + Math.random() * 3, 0, Math.PI * 2); jctx.fill();
+        }
+        var corn = new THREE.Mesh(new THREE.CylinderGeometry(0.098, 0.098, 0.20, 16), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(jc), roughness: 0.75 }));
+        corn.position.y = 0.11;
+        jg.add(corn);
+      }
+      return jg;
+    }
+    registerPickable('spawn_jar', 'Vidro 800ml Spawn (Milho Colonizado)', makeSpawnJar800(true), -23.1, 1.02, -4.5, 0, 0.16, 0.28);
+    registerPickable('spawn_jar_empty', 'Vidro 800ml Vazio (Estéril)', makeSpawnJar800(false), -23.1, 1.02, -3.7, 0, 0.16, 0.28);
+
+    // Bags de Semente 1.5kg (Vazio e Colonizado com Filtro Microporoso + Porta de Injecao)
+    function makeSpawnBag1500(filled) {
+      var bg = new THREE.Group();
+      var filmMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: filled ? 0.34 : 0.28, roughness: 0.2 });
+      var outer = makeBox(0.24, 0.36, 0.18, filmMat, { noShadow: true });
+      outer.position.y = 0.18;
+      var filterPatch = makeBox(0.09, 0.09, 0.012, 0xffffff, { noShadow: true });
+      filterPatch.position.set(0, 0.30, 0.092);
+      var injPort = makeBox(0.036, 0.036, 0.016, 0x64748b, { noShadow: true });
+      injPort.position.set(0, 0.11, 0.094);
+      bg.add(outer, filterPatch, injPort);
+      if (filled) {
+        var bc = document.createElement('canvas'); bc.width = 128; bc.height = 128;
+        var bctx = bc.getContext('2d');
+        bctx.fillStyle = '#f8fafc'; bctx.fillRect(0, 0, 128, 128);
+        for (var g = 0; g < 180; g++) {
+          bctx.fillStyle = g % 4 === 0 ? '#78350f' : '#e2e8f0';
+          bctx.fillRect(Math.random() * 124, Math.random() * 124, 3, 4);
+        }
+        var block = makeBox(0.22, 0.22, 0.16, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(bc), roughness: 0.85 }));
+        block.position.y = 0.115;
+        bg.add(block);
+      }
+      return bg;
+    }
+    registerPickable('spawn_bag_colonized', 'Bag 1,5kg Spawn Colonizado', makeSpawnBag1500(true), -23.1, 1.02, -8.5, 0, 0.22, 0.38);
+    registerPickable('spawn_bag_empty', 'Bag 1,5kg Vazio (Com Filtro)', makeSpawnBag1500(false), -23.1, 1.02, -7.8, 0, 0.22, 0.38);
+
+    // Seladora Termica de Bancada
+    var sealerGroup = new THREE.Group();
+    var sealerBase = makeBox(0.46, 0.08, 0.18, 0x1d4ed8, { roughness: 0.4, metalness: 0.35 });
+    sealerBase.position.y = 0.04;
+    var sealerArm = makeBox(0.44, 0.04, 0.05, 0x94a3b8, { metalness: 0.7, roughness: 0.25 });
+    sealerArm.position.set(0, 0.11, -0.02);
+    sealerArm.rotation.x = 0.18;
+    var sealerLed = makeBox(0.02, 0.02, 0.02, 0xef4444, { noShadow: true });
+    sealerLed.position.set(0.18, 0.085, 0.06);
+    sealerGroup.add(sealerBase, sealerArm, sealerLed);
+    registerPickable('heat_sealer', 'Seladora Térmica de Bags', sealerGroup, -23.1, 1.02, -6.2, Math.PI / 2, 0.28, 0.16);
 
     var lcFlask = new THREE.Group();
-    var lcBody = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.32, 14), new THREE.MeshStandardMaterial({ color: 0xfef08a, transparent: true, opacity: 0.85 }));
-    lcBody.position.y = 0.16; lcFlask.add(lcBody);
-    registerPickable('liquid_culture', 'Cultura Líquida (CL)', lcFlask, -16.8, 0.93, -4.2, 0, 0.2, 0.35);
+    var lcBody = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.28, 14), new THREE.MeshStandardMaterial({ color: 0xfef08a, transparent: true, opacity: 0.82 }));
+    lcBody.position.y = 0.14; lcFlask.add(lcBody);
+    registerPickable('liquid_culture', 'Cultura Líquida (CL)', lcFlask, -20.5, 0.93, -10.6, 0, 0.2, 0.35);
 
     // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
     // Bloco Leste-Norte (z: -12.8..-1.2): SUBSTRATOS & PASTEURIZACAO + 2o andar acessivel
