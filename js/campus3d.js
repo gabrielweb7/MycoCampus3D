@@ -1147,8 +1147,8 @@
           });
         });
       });
-      // Iluminação acolhedora e equilibrada (sem estourar branco no PC)
-      var fLight = new THREE.PointLight(0xfffbeb, isTouchDevice() ? 1.15 : 0.82, 22, 1.55);
+      // Iluminação fluorescente nítida e equilibrada nas salas
+      var fLight = new THREE.PointLight(0xfffbeb, 1.45, 26, 1.25);
       fLight.position.set(cx, ceilY - 0.30, cz);
       scene.add(fLight);
 
@@ -5450,7 +5450,7 @@
       hoveredSwitch.on = !hoveredSwitch.on;
       if (hoveredSwitch.light) {
         hoveredSwitch.light.visible = hoveredSwitch.on;
-        hoveredSwitch.light.intensity = hoveredSwitch.on ? (isTouchDevice() ? 1.15 : 0.82) : 0;
+        hoveredSwitch.light.intensity = hoveredSwitch.on ? 1.45 : 0;
       }
       if (hoveredSwitch.gLight) {
         hoveredSwitch.gLight.visible = hoveredSwitch.on;
@@ -7158,7 +7158,7 @@
       envSun.intensity = (isTouchDevice() ? Math.max(0.28, sunY * 0.75 + 0.35) : Math.max(0.20, sunY * 0.60 + 0.32)) * cloudDim;
     }
     if (envHemi) {
-      envHemi.intensity = isTouchDevice() ? Math.max(0.55, sunY * 0.35 + 0.55) : Math.max(0.30, sunY * 0.30 + 0.42);
+      envHemi.intensity = isTouchDevice() ? Math.max(0.68, sunY * 0.35 + 0.68) : Math.max(0.55, sunY * 0.32 + 0.62);
     }
 
     // Nuvens dinamicas: quantidade, cor e velocidade conforme o clima
@@ -7465,8 +7465,8 @@
     renderer.shadowMap.type = touch ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     if (THREE.ACESFilmicToneMapping) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      // Exposição equilibrada: suave e confortável no PC (0.95), nítida no Mobile (1.08)
-      renderer.toneMappingExposure = touch ? 1.08 : 0.95;
+      // Exposição nítida e equilibrada sem escurecer superfícies metálicas/laboratório
+      renderer.toneMappingExposure = touch ? 1.22 : 1.18;
     }
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
@@ -7478,8 +7478,8 @@
     controls.maxDistance = 65;
     controls.target.set(0, 4.5, -14);
 
-    // Iluminação ambiente suave com rebatimento neutro (sem estouro de branco e sem tom escuro)
-    var hemi = new THREE.HemisphereLight(0xe0f2fe, 0x334155, touch ? 0.90 : 0.72);
+    // Iluminação ambiente com rebatimento neutro para ambientes internos bem visíveis
+    var hemi = new THREE.HemisphereLight(0xe0f2fe, 0x64748b, touch ? 1.0 : 0.92);
     scene.add(hemi);
     envHemi = hemi;
     var sun = new THREE.DirectionalLight(0xfffbeb, touch ? 1.05 : 0.95);
@@ -7864,7 +7864,7 @@
         sw.on = wantLightOn;
         if (sw.light) {
           sw.light.visible = sw.on;
-          sw.light.intensity = sw.on ? (isTouchDevice() ? 1.15 : 0.82) : 0;
+          sw.light.intensity = sw.on ? 1.45 : 0;
         }
         if (sw.gLight) {
           sw.gLight.visible = sw.on;

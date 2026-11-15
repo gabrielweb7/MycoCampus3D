@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.13] — 2026-11-15
+### 💡 Melhoria de Iluminação Interna e Exposição (`ACESFilmicToneMapping`)
+- **Salas Mais Claras e Nítidas ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Elevada a exposição do renderer (`toneMappingExposure`) de `0.95`/`1.08` para `1.18` (PC) e `1.22` (Mobile) para evitar escurecimento de bancadas metálicas e equipamentos.
+  - Aumentadas as luzes de teto das salas (`PointLight` de `0.82` para `1.45`, alcance `26`, decay `1.25`) tanto na criação quanto no interruptor e na sincronização multiplayer.
+  - Ajustada a `HemisphereLight` (rebatimento `0x64748b`, intensidade mínima `0.55` no PC / `0.68` no Mobile em `updateDynamicEnvironment`) para manter interiores legíveis em qualquer horário ou clima.
+
 ## [v0.9.12] — 2026-11-15
 ### 🔊 Áudio Espacial na Panela de Pressão & Correção de `AudioContext`
 - **Atenuação por Distância ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [js/campus-audio.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-audio.js))**:
