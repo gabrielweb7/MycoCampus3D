@@ -1,27 +1,284 @@
-/* MycoCampus3D — utilitarios complementares ao tailwind.min.css (build herdado do projeto Grow) */
-.left-1\/2{left:50%}
-.top-16{top:4rem}
-.bottom-20{bottom:5rem}
-.z-20{z-index:20}
-.w-5{width:1.25rem}
-.max-w-\[92vw\]{max-width:92vw}
-.max-w-\[130px\]{max-width:130px}
-.min-w-\[60px\]{min-width:60px}
-.whitespace-nowrap{white-space:nowrap}
-.-translate-x-1\/2{--tw-translate-x:-50%;transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}
-.text-slate-950{color:#020617}
-.bg-slate-950\/45{background-color:rgba(2,6,23,.45)}
-.bg-slate-950\/75{background-color:rgba(2,6,23,.75)}
-.bg-slate-900\/75{background-color:rgba(15,23,42,.75)}
-.bg-rose-950\/60{background-color:rgba(76,5,25,.6)}
-.bg-amber-500\/25{background-color:rgba(245,158,11,.25)}
-.border-emerald-400\/30{border-color:rgba(52,211,153,.3)}
-.placeholder-slate-400::placeholder{color:#94a3b8}
-.hover\:bg-emerald-400:hover{background-color:#34d399}
-.hover\:bg-slate-800\/90:hover{background-color:rgba(30,41,59,.9)}
-.hover\:bg-amber-500\/35:hover{background-color:rgba(245,158,11,.35)}
-.hover\:text-emerald-300:hover{color:#6ee7b7}
-.focus\:border-emerald-400:focus{border-color:#34d399}
-.focus\:border-amber-400:focus{border-color:#fbbf24}
-button:disabled{opacity:.6;cursor:wait}
+/* ==========================================================================
+   MycoCampus3D — Estilos Principais, HUD, Modais & Controles Mobile
+   ========================================================================== */
 
+/* 1. Utilitários Complementares Tailwind */
+.left-1\/2 { left: 50%; }
+.top-16 { top: 4rem; }
+.bottom-20 { bottom: 5rem; }
+.z-20 { z-index: 20; }
+.w-5 { width: 1.25rem; }
+.max-w-\[92vw\] { max-width: 92vw; }
+.max-w-\[130px\] { max-width: 130px; }
+.min-w-\[60px\] { min-width: 60px; }
+.whitespace-nowrap { white-space: nowrap; }
+.-translate-x-1\/2 {
+  --tw-translate-x: -50%;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+.text-slate-950 { color: #020617; }
+.bg-slate-950\/45 { background-color: rgba(2, 6, 23, 0.45); }
+.bg-slate-950\/75 { background-color: rgba(2, 6, 23, 0.75); }
+.bg-slate-900\/75 { background-color: rgba(15, 23, 42, 0.75); }
+.bg-rose-950\/60 { background-color: rgba(76, 5, 25, 0.6); }
+.bg-amber-500\/25 { background-color: rgba(245, 158, 11, 0.25); }
+.border-emerald-400\/30 { border-color: rgba(52, 211, 153, 0.3); }
+.placeholder-slate-400::placeholder { color: #94a3b8; }
+.hover\:bg-emerald-400:hover { background-color: #34d399; }
+.hover\:bg-slate-800\/90:hover { background-color: rgba(30, 41, 59, 0.9); }
+.hover\:bg-amber-500\/35:hover { background-color: rgba(245, 158, 11, 0.35); }
+.hover\:text-emerald-300:hover { color: #6ee7b7; }
+.focus\:border-emerald-400:focus { border-color: #34d399; }
+.focus\:border-amber-400:focus { border-color: #fbbf24; }
+button:disabled { opacity: 0.6; cursor: wait; }
+
+/* 2. Base & Canvas 3D */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  background: #0b1220;
+  color: #f8fafc;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+#campus-canvas-wrap {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: 1;
+}
+
+#campus-canvas-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 3. Glassmorphism, Cards & Modais */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.84);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.lobby-card {
+  width: min(92vw, 420px);
+  max-height: 92dvh;
+  overflow-y: auto;
+  border-radius: 20px;
+  padding: 22px 24px;
+}
+
+.modal-card-lg {
+  width: min(94vw, 680px);
+  max-height: 88dvh;
+}
+
+.modal-card-md {
+  width: min(94vw, 500px);
+  max-height: 85dvh;
+}
+
+.chat-bar-wrap {
+  width: min(92vw, 380px);
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 640px) {
+  .lobby-card {
+    padding: 18px 16px;
+    border-radius: 16px;
+  }
+  .chat-bar-wrap {
+    width: min(56vw, 240px);
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.swatch-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.swatch-btn.active {
+  border-color: #ffffff;
+  transform: scale(1.15);
+}
+
+/* 4. Mira (Crosshair) & Dicas */
+#crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 25;
+  display: none;
+}
+
+#fps-hint {
+  transition: opacity 0.6s ease;
+}
+
+#fps-hint.faded {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 5. Perfis de Dispositivos (Desktop, Tablet, Smartphone) */
+body.device-phone #fps-hint {
+  top: 102px;
+}
+
+body.device-phone #crosshair {
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  margin-top: -6px;
+  border-width: 2px;
+}
+
+body.device-phone #chat-form {
+  max-width: min(220px, calc(100vw - 235px)) !important;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+body.device-phone #chat-input {
+  padding: 5px 10px !important;
+  font-size: 11px !important;
+}
+
+body.device-phone #chat-form button[type="submit"] {
+  padding: 5px 10px !important;
+  font-size: 11px !important;
+}
+
+body.device-tablet #chat-form {
+  max-width: min(360px, calc(100vw - 360px)) !important;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+body.device-tablet #mobile-joystick-zone {
+  width: 132px;
+  height: 132px;
+}
+
+body.device-desktop #mobile-joystick-zone,
+body.device-desktop #mobile-actions {
+  display: none !important;
+}
+
+/* 6. Joystick Analógico Virtual & Botões Touch */
+#mobile-joystick-zone {
+  position: fixed;
+  left: calc(18px + env(safe-area-inset-left, 0px));
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  width: 124px;
+  height: 124px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(6px);
+  z-index: 25;
+  touch-action: none;
+  display: none;
+}
+
+#mobile-joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin-left: -26px;
+  margin-top: -26px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.88);
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+#mobile-actions {
+  position: fixed;
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 25;
+  display: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  touch-action: none;
+}
+
+.touch-btn {
+  min-width: 68px;
+  height: 68px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.32);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  touch-action: none;
+  user-select: none;
+}
+
+#btn-mobile-action {
+  min-width: 74px;
+  height: 74px;
+  font-size: 30px;
+  background: rgba(16, 185, 129, 0.42);
+  border-color: rgba(52, 211, 153, 0.75);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+}
+
+#btn-mobile-action.action-active {
+  background: rgba(16, 185, 129, 0.92);
+  border-color: #6ee7b7;
+  transform: scale(0.92);
+  box-shadow: 0 0 24px rgba(52, 211, 153, 0.75);
+}
+
+#btn-mobile-jump {
+  min-width: 74px;
+  height: 74px;
+  font-size: 28px;
+  background: rgba(16, 185, 129, 0.38);
+  border-color: rgba(52, 211, 153, 0.7);
+}
+
+#btn-mobile-sprint.sprint-active {
+  background: rgba(245, 158, 11, 0.82);
+  border-color: #fde047;
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.55);
+}
+
+.touch-btn:active {
+  transform: scale(0.92);
+  background: rgba(16, 185, 129, 0.75);
+}

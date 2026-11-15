@@ -2,6 +2,18 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.2] — 2026-11-15
+### 🛡️ Prevenção Total de Penetração e Sobreposição de Itens no Mundo 3D
+- **Bloqueio Físico de Colisão Entre Itens (`isPlacementBlocked`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Implementada verificação física completa de sobreposição 3D (faixa vertical e pegada horizontal) entre todos os itens interativos do mundo (`pickableItems`).
+  - **Detecção Radial e Caixas AABB**: Vidros 800ml, frascos de cultura líquida, placas de Petri, sacos de spawn 1,5kg, seringas, béqueres e garrafas agora mantêm distância física de segurança (`minDist = (radA + radB) * 0.94`), impedindo que qualquer item penetre ou seja colocado dentro de outro nas estantes, bancadas ou chão.
+  - **Suporte Inteligente a Equipamentos e Mesas**: Móveis e aparelhos com superfícies de apoio (`dynamicSurface` em mesas inox, fogareiro elétrico, agitador magnético, balança digital e capela) continuam permitindo apoiar itens perfeitamente no tampo (`y >= surfTop - 0.04`), mas impedem atravessar o chassi ou empilhar dois frascos no mesmo prato.
+  - **Feedback Visual Holográfico Imediato**:
+    - O fantasma do item (`placementGhost`) muda dinamicamente para vermelho vibrante pulsante (`#ef4444`) quando o jogador aponta para um ponto onde já existe outro item.
+    - O prompt do HUD alerta com clareza: `🚫 Espaço ocupado por outro objeto`.
+    - O clique primário de soltar é estritamente bloqueado caso a posição esteja ocupada.
+
+
 ## [v0.9.0] — 2026-11-15
 ### 👑 Loja de Cosméticos, 💃 Emotes Multiplayer, 🎵 Áudio Procedural Web Audio & 🍄 Ciclo de Cultivo na Estufa
 - **👑 Loja de Cosméticos por XP & Chapéus Especiais ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php), [db.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/db.php))**:
