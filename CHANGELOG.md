@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.16] — 2026-11-15
+### 🐛 Correção da Trava da Panela de Pressão & Subida Gradual de PSI
+- **Trava Ativa na Tampa e na Panela ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Corrigido o retorno antecipado em `handlePrimaryAction` que permitia retirar a tampa antes de verificar `cpLock.psi >= 1.5`.
+  - Também bloqueia pegar o corpo da panela enquanto estiver pressurizada (`psi >= 1.5`), orientando a desligar o fogareiro primeiro.
+- **Pressurização Gradual & Texto Correto no HUD 3D ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - `cp.psi` agora sobe gradualmente (`3.8 PSI/s`) ao fechar a tampa com a panela ainda quente, sem salto instantâneo.
+  - HUD 3D diferencia `✅ 100% • Desligue o fogareiro!` (fogo ligado) de `❄️ Despressurizando... (< 1.5 PSI)` (fogo desligado).
+
 ## [v0.9.15] — 2026-11-15
 ### 🎨 Equilíbrio de Iluminação Natural (Bancadas em Destaque, Paredes sem Estouro)
 - **Contraste & Foco nos Equipamentos ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

@@ -5529,6 +5529,16 @@
         return;
       }
       if (hoveredPickable.potItem && hoveredPickable.isAttached) {
+        for (var cpLockIdx = 0; cpLockIdx < cookerPots.length; cpLockIdx++) {
+          var cpLock = cookerPots[cpLockIdx];
+          if (cpLock.lidItem === hoveredPickable && cpLock.psi >= 1.5) {
+            if (window.MycoAudio) window.MycoAudio.playClick();
+            if (callbacks.onToast) {
+              callbacks.onToast('🔒 Tampa travada pela pressão (' + cpLock.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar (< 1.5 PSI).');
+            }
+            return;
+          }
+        }
         var lidIt = hoveredPickable;
         lidIt.isAttached = false;
         heldItem = lidIt;
@@ -5539,13 +5549,13 @@
         notifyWorldAction();
         return;
       }
-      if (hoveredPickable.potItem && hoveredPickable.isAttached) {
-        for (var cpLockIdx = 0; cpLockIdx < cookerPots.length; cpLockIdx++) {
-          var cpLock = cookerPots[cpLockIdx];
-          if (cpLock.lidItem === hoveredPickable && cpLock.psi >= 1.5) {
+      if (hoveredPickable.lidItem) {
+        for (var cpPotIdx = 0; cpPotIdx < cookerPots.length; cpPotIdx++) {
+          var cpPot = cookerPots[cpPotIdx];
+          if (cpPot.potItem === hoveredPickable && cpPot.psi >= 1.5) {
             if (window.MycoAudio) window.MycoAudio.playClick();
             if (callbacks.onToast) {
-              callbacks.onToast('🔒 Tampa travada pela pressão (' + cpLock.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar (< 1.5 PSI).');
+              callbacks.onToast('🔒 Panela pressurizada (' + cpPot.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar.');
             }
             return;
           }
@@ -6825,7 +6835,12 @@
         }
         if (onActiveBurner && cp.lidItem.isAttached) {
           cp.temp = Math.min(121, cp.temp + dt * 5.2);
-          cp.psi = Math.max(0, ((cp.temp - 100) / 21) * 15);
+          if (cp.temp >= 100) {
+            var targetPsi = ((cp.temp - 100) / 21) * 15;
+            if (cp.psi < targetPsi) {
+              cp.psi = Math.min(targetPsi, cp.psi + dt * 3.8);
+            }
+          }
         } else {
           cp.temp = Math.max(25, cp.temp - dt * 2.8);
           cp.psi = Math.max(0, cp.psi - dt * 2.0);
@@ -6931,7 +6946,11 @@
               var subTxt = '';
               if (cp.progress >= 100) {
                 ctxHud.fillStyle = isLocked ? '#fde047' : '#86efac';
-                subTxt = isLocked ? '✅ 100% • Despressurizando...' : '✅ Esterilizado 100% (Pode abrir)';
+                if (isLocked) {
+                  subTxt = onActiveBurner ? '✅ 100% • Desligue o fogareiro!' : '❄️ Despressurizando... (< 1.5 PSI)';
+                } else {
+                  subTxt = '✅ Esterilizado 100% (Pode abrir)';
+                }
               } else if (cp.psi >= 14) {
                 ctxHud.fillStyle = '#86efac';
                 subTxt = '♨️ Esterilizando: ' + progInt + '% (' + Math.round(cp.temp) + '°C)';
