@@ -3,7 +3,10 @@
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
 ## [v0.8.1] — 2026-11-15
-### Mobile Controls & Continuous Action/Drawing
+### Mobile Controls & Holographic Placement Ghost
+- **Fantasma Holográfico com Cores Evidentes (Verde vs Vermelho) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - O fantasma que mostra onde o item será posicionado agora fica **claramente verde-esmeralda vivo (`#22c55e`)** com emissão neon (`#10b981`) quando o local é válido, e **claramente vermelho de alerta (`#ef4444`)** com emissão neon (`#dc2626`) quando o local estiver bloqueado ou não couber.
+  - O anel do piso, o ponto de ancoragem e o próprio modelo 3D do objeto agora pulsam holograficamente juntos, com aviso textual no HUD (`🚫 Local bloqueado (não cabe aqui)`).
 - **Sensibilidade Aumentada & Controle de Câmera em Toda a Tela ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
   - Sensibilidade do movimento de câmera no touch aumentada de `0.0045` para `0.0080` (1.8x mais ágil e natural para a mão direita).
   - O toque para girar a câmera agora funciona em qualquer parte da tela do celular/tablet (com filtro inteligente que exclui apenas a bolinha do joystick de andar e os botões de ação).
