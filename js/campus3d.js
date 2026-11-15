@@ -176,6 +176,11 @@
   var weatherPoints = null;
   var weatherPosAttr = null;
   var weatherMode = 'clear'; // 'clear' | 'partly' | 'overcast' | 'rain' | 'snow'
+  var lastWeatherMode = null;
+  var rainbowMesh = null;
+  var rainbowActive = false;
+  var rainbowTimer = 0;
+  var rainbowDuration = 68;
   var snowMix = 0;
   var snowableEntries = []; // { mat, baseColor }
   function registerSnowable(mat) {
@@ -6712,14 +6717,23 @@
     var sunY = Math.sin(sunAngle); // >0 dia (06h..18h), ~0 nascer/por do sol, <0 noite (18h..06h)
     var sunX = Math.cos(sunAngle);
 
-    // 5 condicoes climaticas sincronizadas (ciclo de 7.5 min):
-    // 0..110 Ensolarado, 110..200 Parcialmente nublado, 200..270 Nublado, 270..360 Chuva, 360..450 Neve
+    // 5 condicoes climaticas sincronizadas (ciclo de 7.5 min = 450s):
+    // 0..110 Ensolarado, 110..185 Parcialmente nublado, 185..250 Nublado, 250..330 Chuva, 330..390 Ceu limpo pos-chuva (Arco-iris sobre a montanha), 390..450 Neve
     var wCycle = (Date.now() / 1000) % 450;
     if (wCycle < 110) weatherMode = 'clear';
-    else if (wCycle < 200) weatherMode = 'partly';
-    else if (wCycle < 270) weatherMode = 'overcast';
-    else if (wCycle < 360) weatherMode = 'rain';
+    else if (wCycle < 185) weatherMode = 'partly';
+    else if (wCycle < 250) weatherMode = 'overcast';
+    else if (wCycle < 330) weatherMode = 'rain';
+    else if (wCycle < 390) weatherMode = 'clear';
     else weatherMode = 'snow';
+
+    // Deteccao de termino da chuva -> Disparo do Arco-iris majestoso sobre a montanha
+    if (lastWeatherMode === 'rain' && weatherMode !== 'rain') {
+      rainbowActive = true;
+      rainbowTimer = 0;
+      rainbowDuration = 68;
+    }
+    lastWeatherMode = weatherMode;
 
     var targetSnow = weatherMode === 'snow' ? 1 : 0;
     snowMix += (targetSnow - snowMix) * Math.min(1, dt * 0.25);
@@ -6835,6 +6849,35 @@
       }
     }
 
+    // Arco-iris sobre a montanha (aparecimento suave, brilho etereo e esvanecimento)
+    if (rainbowMesh) {
+      if (rainbowActive) {
+        rainbowTimer += dt;
+        var rOpacity = 0;
+        if (rainbowTimer < 8.0) {
+          // Aparecimento suave pos-chuva
+          rOpacity = (rainbowTimer / 8.0) * 0.78;
+        } else if (rainbowTimer > (rainbowDuration - 12.0)) {
+          // Desaparecimento suave
+          rOpacity = Math.max(0, (rainbowDuration - rainbowTimer) / 12.0) * 0.78;
+        } else {
+          // Brilho no ceu com sutil pulsacao atmosferica
+          rOpacity = 0.75 + Math.sin(envTime * 1.5) * 0.04;
+        }
+
+        if (rainbowTimer >= rainbowDuration || weatherMode === 'rain' || weatherMode === 'snow') {
+          rainbowActive = false;
+          rOpacity = 0;
+        }
+
+        rainbowMesh.material.opacity = rOpacity;
+        rainbowMesh.visible = rOpacity > 0.005;
+      } else if (rainbowMesh.visible) {
+        rainbowMesh.visible = false;
+        rainbowMesh.material.opacity = 0;
+      }
+    }
+
     // Animacao continua da agua da Fonte Central e Lagos (caustics + ondas de espuma + gotas de agua)
     if (texWater) {
       texWater.offset.x = (envTime * 0.045) % 1;
@@ -6873,6 +6916,97 @@
     }
   }
 
+  // ---------------- Arco-iris 3D sobre a Montanha ----------------
+
+  function createRainbowMesh() {
+    var c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    var ctx = c.getContext('2d');
+
+    // Gradiente espectral de 7 cores no eixo Y (interior ao topo)
+    var grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0.00, 'rgba(139, 92, 246, 0)');
+    grad.addColorStop(0.08, 'rgba(139, 92, 246, 0.85)'); // Violeta
+    grad.addColorStop(0.22, 'rgba(59, 130, 246, 0.88)');  // Azul
+    grad.addColorStop(0.36, 'rgba(6, 182, 212, 0.90)');   // Ciano
+    grad.addColorStop(0.50, 'rgba(34, 197, 94, 0.90)');   // Verde
+    grad.addColorStop(0.66, 'rgba(234, 179, 8, 0.92)');   // Amarelo
+    grad.addColorStop(0.80, 'rgba(249, 115, 22, 0.90)');  // Laranja
+    grad.addColorStop(0.92, 'rgba(239, 68, 68, 0.85)');   // Vermelho
+    grad.addColorStop(1.00, 'rgba(239, 68, 68, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Suavizacao das pontas que tocam o relevo/montanhas (eixo X)
+    var maskGrad = ctx.createLinearGradient(0, 0, 256, 0);
+    maskGrad.addColorStop(0.00, 'rgba(0,0,0,0)');
+    maskGrad.addColorStop(0.14, 'rgba(0,0,0,1)');
+    maskGrad.addColorStop(0.86, 'rgba(0,0,0,1)');
+    maskGrad.addColorStop(1.00, 'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fillStyle = maskGrad;
+    ctx.fillRect(0, 0, 256, 256);
+
+    var tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+
+    // Arco semicircular sobre as montanhas com coordenadas UV radiais
+    var innerR = 72;
+    var outerR = 92;
+    var segs = 64;
+    var geo = new THREE.BufferGeometry();
+    var positions = [];
+    var uvs = [];
+    var indices = [];
+    for (var i = 0; i <= segs; i++) {
+      var t = i / segs;
+      var angle = Math.PI * (1 - t); // de PI (esquerda) a 0 (direita)
+      var cos = Math.cos(angle);
+      var sin = Math.sin(angle);
+      positions.push(cos * innerR, sin * innerR, 0);
+      uvs.push(t, 0);
+      positions.push(cos * outerR, sin * outerR, 0);
+      uvs.push(t, 1);
+    }
+    for (var j = 0; j < segs; j++) {
+      var a = j * 2;
+      var b = j * 2 + 1;
+      var c = (j + 1) * 2;
+      var d = (j + 1) * 2 + 1;
+      indices.push(a, b, c);
+      indices.push(c, b, d);
+    }
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+
+    var mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      fog: false
+    });
+
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(12, 16, -145);
+    mesh.rotation.y = 0.12;
+    mesh.visible = false;
+    mesh.renderOrder = 2;
+    return mesh;
+  }
+
+  function triggerCampusRainbow(dur) {
+    rainbowActive = true;
+    rainbowTimer = 0;
+    rainbowDuration = (typeof dur === 'number' && dur > 0) ? dur : 68;
+    return 'Arco-íris ativado por ' + rainbowDuration + 's sobre a montanha!';
+  }
+
   // ---------------- Inicializacao & API Publica ----------------
 
   window.initCampus3D = function (containerId, cbs) {
@@ -6881,6 +7015,10 @@
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x60a5fa);
     scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0022);
+
+    // Arco-iris sobre as montanhas (aparece ao cessar da chuva)
+    rainbowMesh = createRainbowMesh();
+    scene.add(rainbowMesh);
 
     // Sol 3D + Halo, Lua 3D, Estrelas e 24 Nuvens dinamicas no ceu
     sunDisc = new THREE.Mesh(
@@ -7375,18 +7513,20 @@
     }
 
     // 6. Cogumelos silvestres colhidos (wild_0..wild_31)
+    // No servidor: '1' = ativo/disponível no mapa (pronto para colher); '0' = colhido (em cooldown)
     for (var mi = 0; mi < wildMushrooms.length; mi++) {
       var wm = wildMushrooms[mi];
       if (!wm.id || stateMap[wm.id] === undefined) continue;
       if (pendingStateChanges[wm.id] !== undefined || recentlyChangedState[wm.id] > now) continue;
-      var remSec = parseInt(stateMap[wm.id], 10);
-      if (remSec > 0 && wm.active) {
-        wm.active = false;
-        wm.group.visible = false;
-        wm.respawnAt = now + remSec * 1000;
-      } else if (remSec === 0 && !wm.active) {
+      var isAvailable = Number(stateMap[wm.id]) === 1;
+      if (isAvailable && !wm.active) {
         wm.active = true;
         wm.group.visible = true;
+        wm.respawnAt = 0;
+      } else if (!isAvailable && wm.active) {
+        wm.active = false;
+        wm.group.visible = false;
+        wm.respawnAt = now + 20000;
       }
     }
 
@@ -7569,6 +7709,7 @@
 
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;
   window.updateCampusPlayers = updateCampusPlayers;
+  window.triggerCampusRainbow = triggerCampusRainbow;
 
   // Namespace unificado MycoCampus para arquitetura limpa e escalabilidade
   window.MycoCampus = window.MycoCampus || {};
@@ -7579,4 +7720,5 @@
   window.MycoCampus.updatePlayers = updateCampusPlayers;
   window.MycoCampus.setColors = window.setCampusPlayerColors;
   window.MycoCampus.setFpsMode = window.setCampusFpsMode;
+  window.MycoCampus.triggerRainbow = triggerCampusRainbow;
 })();
