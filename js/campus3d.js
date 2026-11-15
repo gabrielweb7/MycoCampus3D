@@ -2578,7 +2578,7 @@
       }
     }, { passive: false });
 
-    var touchLookId = null, touchDrawId = null, lastTX = 0, lastTY = 0, touchMoved = false;
+    var touchLookId = null, lastTX = 0, lastTY = 0, touchMoved = false;
     function setNdcFromTouch(t) {
       var rect = renderer.domElement.getBoundingClientRect();
       pointerNdc.x = ((t.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2588,20 +2588,7 @@
     renderer.domElement.addEventListener('touchstart', function (e) {
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
-        // Se estiver segurando giz/apagador e tocar diretamente na lousa, desenha direto com o dedo!
-        if (!lobbyTourActive && heldItem && getHeldBoardToolColor() && chalkboardMeshes.length && touchDrawId === null) {
-          setNdcFromTouch(t);
-          raycaster.setFromCamera(pointerNdc, camera);
-          var bh = raycaster.intersectObjects(chalkboardMeshes, false);
-          if (bh.length > 0 && bh[0].distance < 5.0 && bh[0].uv) {
-            touchDrawId = t.identifier;
-            hoveredBoardHit = bh[0];
-            hoveredBoardIndex = bh[0].object.userData.boardIndex || 0;
-            isPrimaryDown = true;
-            return;
-          }
-        }
-        if (touchLookId === null && t.clientX > window.innerWidth * 0.28) {
+        if (touchLookId === null && t.clientX > window.innerWidth * 0.25) {
           touchLookId = t.identifier;
           lastTX = t.clientX; lastTY = t.clientY;
           touchMoved = false;
@@ -2613,16 +2600,6 @@
       if (!inFps) return;
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
-        if (t.identifier === touchDrawId) {
-          setNdcFromTouch(t);
-          raycaster.setFromCamera(pointerNdc, camera);
-          var bh = raycaster.intersectObjects(chalkboardMeshes, false);
-          if (bh.length > 0 && bh[0].distance < 5.0 && bh[0].uv) {
-            hoveredBoardHit = bh[0];
-            hoveredBoardIndex = bh[0].object.userData.boardIndex || 0;
-          }
-          continue;
-        }
         if (t.identifier === touchLookId) {
           var dx = t.clientX - lastTX, dy = t.clientY - lastTY;
           if (Math.hypot(dx, dy) > 5) touchMoved = true;
@@ -2636,12 +2613,6 @@
     renderer.domElement.addEventListener('touchend', function (e) {
       for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
-        if (t.identifier === touchDrawId) {
-          touchDrawId = null;
-          isPrimaryDown = false;
-          flushCurrentStroke();
-          continue;
-        }
         if (t.identifier === touchLookId) {
           if (!touchMoved && !lobbyTourActive) {
             setNdcFromTouch(t);
