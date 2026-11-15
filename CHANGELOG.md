@@ -2,6 +2,38 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.8.3] — 2026-11-15
+### Walk on Tables, Pressure Cooker Lid Snap, Laser Thermometer Gun & Syringe Puncture Animation
+- **Subir e Andar em Cima de Mesas, Bancadas e Móveis Sem Ejeção ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - `getGroundHeight(x, z, refY)` agora reconhece as superfícies de apoio (`supportSurfaces`) como pisos caminháveis quando o jogador pula ou está sobre elas.
+  - O sistema de colisão de paredes e corpos sólidos (`clampPosAgainstWalls`) foi refinado: quando o jogador está em pé no tampo (`pos.y >= surfY - 0.08`), a colisão horizontal do móvel é completamente ignorada, permitindo andar livremente sobre mesas inox, bancadas do laboratório, carteiras escolares, camas e estufas sem ser empurrado ou ejetado.
+- **Encaixe e Retirada da Tampa da Panela de Pressão ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - **Retirar a Tampa**: Ao olhar para a panela de pressão com tampa acoplada, o raio de mira prioriza diretamente a tampa (`lidItem`) com a legenda `🍲 Retirar Tampa da Panela de Pressão`. Um clique retira a tampa imediatamente para a mão do jogador sem mover a panela inteira.
+  - **Encaixar a Tampa**: Ao segurar a tampa e apontar para a panela de pressão aberta, ela faz o snap magnético perfeitamente alinhado na borda com fantasma verde e prompt `🍲 Encaixar Tampa na Panela de Pressão`. O clique trava e fecha a panela.
+- **Correção do Fogareiro Elétrico e Destravamento de Tela ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo de Cogu/index.html))**:
+  - O chassi do fogareiro não intercepta mais a chave liga/desliga (apenas o botão giratório termostato liga e desliga o aparelho), permitindo segurar ou mover o fogareiro livremente.
+  - Adicionado `pointer-events-none select-none` nos elementos HUD (`#interact-pill` e `#fps-hint`), eliminando o bug de perda de Pointer Lock do mouse.
+  - Adicionada legenda clara de aviso quando o fogareiro ou mesa possui objetos em cima (`🚫 Retire a panela de cima antes de mover o Fogareiro`), evitando sensação de tela congelada.
+  - Itens segurados agora são excluídos do raycast de hover (`item === heldItem`), eliminando auto-colisão fantasma na mira.
+- **Pistola de Medir Temperatura com Laser Infravermelho (`infrared_thermometer`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo de Cogu/api/multiplayer.php))**:
+  - Modelada a pistola industrial amarela com empunhadura preta ergonômica, gatilho vermelho, lente frontal e diodo emissor de laser.
+  - Visor LCD com textura Canvas 2D retroiluminada verde-esmeralda em tempo real, exibindo números digitais grandes, status SCAN/HOLD e emissividade `ε = 0.95`.
+  - Feixe laser vermelho tridimensional e ponto laser circular aderente às normais das superfícies.
+  - Simulação física de temperatura por material e equipamento em tempo real:
+    - Resistência incandescente do fogareiro: sobe até `240°C` quando ligado.
+    - Panela de pressão: sincronizada com aquecimento e esterilização de `25°C` a `121.5°C`.
+    - Agitador magnético: `33°C` aquecido / `24°C` desligado.
+    - Frasco de Cultura Líquida: `24.4°C` ideal para colonização.
+    - Câmara da estufa de frutificação: `20.8°C` fresca e úmida.
+    - Avatares de outros jogadores: `36.8°C` de temperatura corporal humana.
+    - Bancadas e paredes do ambiente: `23°C` com micro-flutuação térmica ambiente.
+- **Seringa: Animação de Inoculação, Furo no Septo e Bombeamento de 2 Segundos ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Ao segurar a seringa e apontar para a cultura líquida, o braço em primeira pessoa se estica suavemente e a agulha de aço inox perfura o septo vermelho da tampa da garrafa ("fincando ali").
+  - Animação contínua e suave de bombeamento de **2.0 segundos**:
+    - **Aspirar (0% a 100%)**: O êmbolo recua suavemente e o líquido dourado de micélio preenche o cilindro transparente até 10ml, enquanto o volume da garrafa diminui proporcionalmente.
+    - **Injetar / Esvaziar (100% a 0%)**: Ao clicar com a seringa cheia, o êmbolo avança suavemente ao longo de 2 segundos até esvaziar totalmente.
+  - Suporte a volumes fracionários fluidos para máxima imersão visual a 60/120 FPS.
+
 ## [v0.8.1] — 2026-11-15
 ### Mobile Controls & Holographic Placement Ghost
 - **Fantasma Holográfico com Cores Evidentes (Verde vs Vermelho) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

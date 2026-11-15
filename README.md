@@ -8,6 +8,7 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 - **Motor 3D (Front-end):** [Three.js r128](https://threejs.org/) puro, sem dependências de frameworks pesados (React/Vue/Angular), garantindo inicialização rápida e compatibilidade universal WebGL.
 - **Renderização & Shaders:** Gráficos procedurais, materiais PBR (`MeshStandardMaterial`), sombras dinâmicas, `InstancedMesh` para centenas de árvores e vegetação, ciclo de dia/noite em tempo real (40 minutos virtuais sincronizados com o Relógio da Torre) e 5 variações climáticas sincronizadas (Ensolarado, Parcialmente Nublado, Nublado, Chuva e Neve).
+- **Física & Interações Realistas:** Sistema de colisão com suporte a superfícies caminháveis (mesas inox, bancadas, carteiras e estufas), acoplamento magnético de tampa de panela de pressão, inoculação com agulha perfurando septos de borracha e simulação de temperatura física por material.
 - **Interface & HUD:** Glassmorphism responsivo com Tailwind CSS (v2 pré-compilado), suporte a Safe Area Inset (`env(safe-area-inset-*)`), joystick analógico virtual para mobile e modo Fullscreen automático.
 - **Back-end:** PHP 8.x nativo com PDO MySQL, arquitetura orientada a APIs RESTful leves com JSON, headers anti-cache e segurança nos cookies (`HttpOnly`, `SameSite=Lax`).
 - **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`schema_version 4`) e cache de flag local para evitar sobrecarga no servidor.
@@ -124,3 +125,12 @@ Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite
    - Todas as novidades devem ser testadas em telas de toque (joystick, área útil com safe-area, rotação e eventos passivos).
 5. **Namespace Limpo:**
    - Prefira expor novas capacidades no objeto `window.MycoCampus` para manter a arquitetura desacoplada e profissional.
+
+---
+
+## 🔬 7. Simulações Científicas e Mecânicas Laboratoriais
+
+- **Termômetro Infravermelho Laser (`infrared_thermometer`):** Ferramenta industrial com mira laser vermelha e display LCD funcional. Calcula temperatura física em tempo real via raycast considerando fontes de calor (fogareiro até 240°C, panela esterilizando a 121°C e 15 PSI, cultura líquida a 24.4°C, estufa a 20.8°C e calor metabólico de jogadores a 36.8°C).
+- **Inoculação & Bombeamento com Seringa (`syringe_10ml`):** Alinhamento procedural em primeira pessoa que projeta a agulha perfurando o septo de borracha vermelha do frasco de cultura líquida. Transição contínua de 2 segundos para aspiração (0 a 10ml) ou injeção/esvaziamento (10 a 0ml) com movimentação realista de êmbolo e nível de líquido.
+- **Autoclave / Panela de Pressão (`pressure_cooker` + `pressure_lid`):** Suporte a esterilização de grãos e substratos sob 15 PSI a 121°C. Encaixe magnético com fantasma verde e remoção direta da tampa pelo topo sem deslocar a panela base.
+- **Locomoção Tridimensional sobre Superfícies:** Suporte para pular e caminhar sobre mesas de inox, bancadas e carteiras escolares com zero ejeção horizontal.
