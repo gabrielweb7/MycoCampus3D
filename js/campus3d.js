@@ -19,10 +19,13 @@
   var pickableItems = [];    // { id, label, mesh, homePos, homeRy, radius, height, isMoved }
   var wildMushrooms = [];    // { id, group, capMesh, active, respawnAt }
 
-  // Portas, telao e relogio
-  var labDoorPivot = null;
-  var labDoorOpen = false;
-  var labDoorAngle = 0;
+  // Portas, persianas, telao e relogio
+  var campusDoors = [];      // { pivot, open, angle, frontX, minZ, maxZ, dir, label }
+  var doorHitMeshes = [];
+  var hoveredDoorObj = null;
+  var windowBlinds = [];     // { slats, bottomRail, tapes, cordKnob, open, progress, dropH, dir }
+  var blindHitMeshes = [];
+  var hoveredBlindObj = null;
   var auditoriumScreenMeshes = [];
   var screenActionMeshes = []; // botoes 3D [◀, ▶, 📚] presos aos teloes
   var auditoriumCanvas = null;
@@ -45,6 +48,10 @@
   var playerYaw = 0;
   var playerPitch = 0;
   var onGround = true;
+  var lastGroundedAt = 0;
+  var jumpBufferUntil = 0;
+  var jumpHeld = false;
+  var mobileSprint = false;
   var isWalking = false;
   var keys = {};
   var joyX = 0, joyY = 0;
@@ -56,7 +63,6 @@
   var heldRotY = 0;
   var hoveredPickable = null;
   var hoveredMushroom = null;
-  var hoveredDoor = false;
   var hoveredScreen = false;
   var hoveredScreenBtn = null; // { action: 'prev'|'next'|'lessons', mesh }
   var nearScreenState = false;
@@ -2667,8 +2673,9 @@
       var targetVX = 0, targetVZ = 0;
       if (mag > 0.08) {
         if (seatedSeat) seatedSeat = null; // levanta automaticamente ao andar!
-        if (mag > 1) { moveX /= mag; moveZ /= mag; }
-        var maxSpeed = keys['ShiftLeft'] ? 7.5 : 4.6;
+        var joyMag = Math.hypot(joyX, joyY);
+        var maxSpeed = keys['ShiftLeft'] ? 7.5 : (joyMag > 0.08 ? (2.0 + Math.min(1, joyMag) * 5.8) : 4.6);
+        moveX /= mag; moveZ /= mag;
         var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
         var rightX = Math.cos(playerYaw), rightZ = -Math.sin(playerYaw);
         targetVX = (fwdX * moveZ + rightX * moveX) * maxSpeed;

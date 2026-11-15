@@ -162,6 +162,20 @@
       opacity: 0;
       pointer-events: none;
     }
+    @media (pointer: coarse), (max-width: 768px) {
+      #chat-form {
+        max-width: min(220px, calc(100vw - 240px)) !important;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+      #chat-input {
+        padding: 5px 10px !important;
+        font-size: 11px !important;
+      }
+      #chat-form button[type="submit"] {
+        padding: 5px 10px !important;
+        font-size: 11px !important;
+      }
+    }
     /* Mobile analog joystick */
     #mobile-joystick-zone {
       position: fixed;
@@ -218,11 +232,16 @@
       user-select: none;
     }
     #btn-mobile-jump {
-      min-width: 76px;
-      height: 76px;
+      min-width: 74px;
+      height: 74px;
       font-size: 28px;
       background: rgba(16, 185, 129, 0.38);
       border-color: rgba(52, 211, 153, 0.7);
+    }
+    #btn-mobile-sprint.sprint-active {
+      background: rgba(245, 158, 11, 0.82);
+      border-color: #fde047;
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.55);
     }
     .touch-btn:active {
       transform: scale(0.92);
@@ -333,8 +352,8 @@
   <!-- MOBILE CONTROLS -->
   <div id="mobile-joystick-zone"><div id="mobile-joystick-knob"></div></div>
   <div id="mobile-actions">
-    <button id="btn-mobile-act" type="button" class="touch-btn">✋</button>
-    <button id="btn-mobile-jump" type="button" class="touch-btn">⬆️</button>
+    <button id="btn-mobile-sprint" type="button" class="touch-btn" title="Correr">🏃</button>
+    <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular">⬆️</button>
   </div>
 
   <!-- LESSONS MODAL -->
