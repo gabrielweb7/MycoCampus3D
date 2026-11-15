@@ -81,6 +81,7 @@
   var thermoCurrentTemp = 24.0;
   var thermoTargetTemp = 24.0;
   var thermoTargetLabel = '';
+  var thermoLaserOn = false;
   var syringePumping = null; // { target, fromVol, toVol, duration, elapsed, startJarVol }
   var syringePunctureProgress = 0;
 
@@ -1841,6 +1842,7 @@
       homePos: new THREE.Vector3(x, y, z), homeRy: ry || 0,
       radius: radius || 0.25, height: height || 0.4, isMoved: false, movedAt: 0
     };
+    mesh.userData.pickableRef = entry;
     pickableItems.push(entry);
     return entry;
   }
@@ -5155,6 +5157,7 @@
     recentlyDropped[heldItem.id] = performance.now() + 5000;
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
+    thermoLaserOn = false;
     if (placementGhost) placementGhost.visible = false;
     if (thermoLaserLine) thermoLaserLine.visible = false;
     if (thermoLaserDot) thermoLaserDot.visible = false;
@@ -5169,10 +5172,11 @@
       // Se estiver segurando o termômetro laser:
       // O clique aciona o gatilho da pistola de medição com bipe sonoro (não solta no chão)
       if (heldItem.mesh && heldItem.mesh.userData.isThermometer) {
+        thermoLaserOn = !thermoLaserOn;
         if (window.MycoAudio && window.MycoAudio.playLaserBeep) {
           window.MycoAudio.playLaserBeep();
         }
-        drawThermoScreen(thermoCurrentTemp, 'HOLD', true);
+        drawThermoScreen(thermoCurrentTemp, thermoLaserOn ? 'SCAN' : 'HOLD', true);
         return;
       }
       // Se estiver perto da lousa com giz ou apagador, o clique desenha/apaga no ponto em vez de soltar
@@ -5619,8 +5623,11 @@
       }
       if (heldItem.mesh.userData.isThermometer) {
         if (placementGhost) placementGhost.visible = false;
-        var modeStr = isPrimaryDown ? 'SCAN' : 'HOLD';
-        prompt = '🔫 ' + (thermoTargetLabel || 'Ambiente') + ': ' + thermoCurrentTemp.toFixed(1) + '°C [' + modeStr + '] (Clique: Medir • Tecla G ou clique dir.: Soltar)';
+        if (thermoLaserOn) {
+          prompt = '🔴 [SCAN] ' + (thermoTargetLabel || 'Ambiente') + ': ' + thermoCurrentTemp.toFixed(1) + '°C (Clique: Desligar Laser • Tecla G ou clique dir.: Soltar)';
+        } else {
+          prompt = '🔫 Laser DESLIGADO • Última: ' + thermoCurrentTemp.toFixed(1) + '°C [HOLD] (Clique: Ligar Laser • Tecla G ou clique dir.: Soltar)';
+        }
         if (callbacks.onHoverPrompt) callbacks.onHoverPrompt(prompt);
         return;
       }
@@ -6241,109 +6248,194 @@
           heldItem.mesh.rotation.order = 'YXZ';
           heldItem.mesh.rotation.set(playerPitch, playerYaw, 0);
 
-          // Feixe laser e leitura de temperatura em tempo real (otimizado sem travar o jogo)
-          _tmpMuzzlePos.set(0, 0.155, -0.09).applyEuler(heldItem.mesh.rotation).add(heldItem.mesh.position);
-          raycaster.setFromCamera(inFps ? _vZero2 : pointerNdc, camera);
+          // Feixe laser e leitura de temperatura em tempo real (somente quando o laser estiver ligado!)
+          if (!thermoLaserOn) {
+            thermoLaserLine.visible = false;
+            thermoLaserDot.visible = false;
+            drawThermoScreen(thermoCurrentTemp, 'HOLD');
+          } else {
+            _tmpMuzzlePos.set(0, 0.155, -0.09).applyEuler(heldItem.mesh.rotation).add(heldItem.mesh.position);
+            raycaster.setFromCamera(inFps ? _vZero2 : pointerNdc, camera);
 
-          if (!window._cachedLaserTargets || (now - (window._lastLaserCacheAt || 0) > 800)) {
-            window._lastLaserCacheAt = now;
-            var lTargets = [];
-            for (var pki = 0; pki < pickableItems.length; pki++) {
-              var pItem = pickableItems[pki];
-              if (pItem && pItem.mesh && pItem !== heldItem) lTargets.push(pItem.mesh);
+            if (!window._cachedLaserTargets || (now - (window._lastLaserCacheAt || 0) > 800)) {
+              window._lastLaserCacheAt = now;
+              var lTargets = [];
+              for (var pki = 0; pki < pickableItems.length; pki++) {
+                var pItem = pickableItems[pki];
+                if (pItem && pItem.mesh && pItem !== heldItem) lTargets.push(pItem.mesh);
+              }
+              for (var smi = 0; smi < supportMeshes.length; smi++) {
+                var sMesh = supportMeshes[smi];
+                if (sMesh && (!heldItem || sMesh !== heldItem.mesh)) lTargets.push(sMesh);
+              }
+              for (var dmi = 0; dmi < doorHitMeshes.length; dmi++) {
+                if (doorHitMeshes[dmi]) lTargets.push(doorHitMeshes[dmi]);
+              }
+              for (var gsi = 0; gsi < greenhouseSlots.length; gsi++) {
+                if (greenhouseSlots[gsi] && greenhouseSlots[gsi].group) lTargets.push(greenhouseSlots[gsi].group);
+              }
+              Object.keys(remoteAvatars).forEach(function (rId) {
+                var rAv = remoteAvatars[rId];
+                if (rAv && rAv.group) lTargets.push(rAv.group);
+              });
+              window._cachedLaserTargets = lTargets;
             }
-            for (var smi = 0; smi < supportMeshes.length; smi++) {
-              var sMesh = supportMeshes[smi];
-              if (sMesh && (!heldItem || sMesh !== heldItem.mesh)) lTargets.push(sMesh);
-            }
-            Object.keys(remoteAvatars).forEach(function (rId) {
-              var rAv = remoteAvatars[rId];
-              if (rAv && rAv.group) lTargets.push(rAv.group);
-            });
-            window._cachedLaserTargets = lTargets;
-          }
 
-          var rawHits = raycaster.intersectObjects(window._cachedLaserTargets, true);
-          var lHit = null;
-          for (var rhi = 0; rhi < rawHits.length; rhi++) {
-            var candH = rawHits[rhi];
-            if (!candH.object.userData.ignoreRay &&
-                candH.object !== heldItem.mesh &&
-                candH.object !== thermoLaserLine &&
-                candH.object !== thermoLaserDot) {
-              lHit = candH;
-              break;
-            }
-          }
-          if (lHit && lHit.distance < 35.0) {
-            var lArr = thermoLaserLine.geometry.attributes.position.array;
-            lArr[0] = _tmpMuzzlePos.x; lArr[1] = _tmpMuzzlePos.y; lArr[2] = _tmpMuzzlePos.z;
-            lArr[3] = lHit.point.x; lArr[4] = lHit.point.y; lArr[5] = lHit.point.z;
-            thermoLaserLine.geometry.attributes.position.needsUpdate = true;
-            thermoLaserLine.visible = true;
-
-            var lNorm = lHit.face ? lHit.face.normal.clone().transformDirection(lHit.object.matrixWorld) : new THREE.Vector3(0, 1, 0);
-            thermoLaserDot.position.copy(lHit.point).addScaledVector(lNorm, 0.005);
-            thermoLaserDot.lookAt(lHit.point.clone().add(lNorm));
-            thermoLaserDot.visible = true;
-
-            // Simulação física de temperatura por material / objeto
-            var sTemp = 23.4;
-            var sLbl = 'Ambiente';
-            var hObj = lHit.object;
-
-            var isBurnerHit = false;
-            for (var bi = 0; bi < burnerDevices.length; bi++) {
-              var bd = burnerDevices[bi];
-              if (hObj.userData.burnerSwitch || hObj.userData.supportSurface === bd.surface ||
-                  (lHit.point.x >= bd.surface.minX && lHit.point.x <= bd.surface.maxX &&
-                   lHit.point.z >= bd.surface.minZ && lHit.point.z <= bd.surface.maxZ &&
-                   Math.abs(lHit.point.y - bd.surface.topY) < 0.15)) {
-                sTemp = 24.0 + (bd.heat || 0) * 215.0;
-                sLbl = (bd.heat > 0.15) ? 'Fogareiro Incandescente (' + Math.round(sTemp) + '°C)' : 'Fogareiro Elétrico';
-                isBurnerHit = true; break;
+            var rawHits = raycaster.intersectObjects(window._cachedLaserTargets, true);
+            var lHit = null;
+            for (var rhi = 0; rhi < rawHits.length; rhi++) {
+              var candH = rawHits[rhi];
+              if (!candH.object.userData.ignoreRay &&
+                  candH.object !== heldItem.mesh &&
+                  candH.object !== thermoLaserLine &&
+                  candH.object !== thermoLaserDot) {
+                lHit = candH;
+                break;
               }
             }
-            if (!isBurnerHit) {
-              for (var cpi = 0; cpi < cookerPots.length; cpi++) {
-                var cp = cookerPots[cpi];
-                if (hObj === cp.potItem.mesh || hObj === cp.lidItem.mesh ||
-                    hObj.parent === cp.potItem.mesh || hObj.parent === cp.lidItem.mesh ||
-                    cp.contents.some(function (it) { return it.mesh === hObj || it.mesh.children.includes(hObj); })) {
-                  sTemp = cp.temp || 24.5;
-                  sLbl = cp.psi >= 14 ? 'Panela Esterilizando (' + Math.round(cp.psi) + ' PSI)' : (cp.temp > 35 ? 'Panela Aquecendo' : 'Panela de Pressão');
+
+            if (lHit && lHit.distance < 35.0) {
+              var lArr = thermoLaserLine.geometry.attributes.position.array;
+              lArr[0] = _tmpMuzzlePos.x; lArr[1] = _tmpMuzzlePos.y; lArr[2] = _tmpMuzzlePos.z;
+              lArr[3] = lHit.point.x; lArr[4] = lHit.point.y; lArr[5] = lHit.point.z;
+              thermoLaserLine.geometry.attributes.position.needsUpdate = true;
+              thermoLaserLine.visible = true;
+
+              var lNorm = lHit.face ? lHit.face.normal.clone().transformDirection(lHit.object.matrixWorld) : new THREE.Vector3(0, 1, 0);
+              thermoLaserDot.position.copy(lHit.point).addScaledVector(lNorm, 0.005);
+              thermoLaserDot.lookAt(lHit.point.clone().add(lNorm));
+              thermoLaserDot.visible = true;
+
+              // Simulação física de temperatura para cada objeto / material
+              var sTemp = 23.4;
+              var sLbl = '';
+              var hObj = lHit.object;
+
+              for (var bi = 0; bi < burnerDevices.length; bi++) {
+                var bd = burnerDevices[bi];
+                if (hObj.userData.burnerSwitch || hObj.userData.supportSurface === bd.surface ||
+                    (lHit.point.x >= bd.surface.minX && lHit.point.x <= bd.surface.maxX &&
+                     lHit.point.z >= bd.surface.minZ && lHit.point.z <= bd.surface.maxZ &&
+                     Math.abs(lHit.point.y - bd.surface.topY) < 0.15)) {
+                  sTemp = 24.0 + (bd.heat || 0) * 215.0;
+                  sLbl = (bd.heat > 0.15) ? 'Fogareiro Incandescente' : 'Fogareiro Elétrico';
                   break;
                 }
               }
-            }
-            if (!isBurnerHit && sLbl === 'Ambiente') {
-              if (hObj.userData.stirSwitch || hObj.parent && hObj.parent.userData.stirSwitch) {
-                sTemp = (stirrerDevices[0] && stirrerDevices[0].on) ? 33.5 : 23.8;
-                sLbl = 'Agitador Magnético';
-              } else if (hObj.userData.liquidCtrl || hObj.parent && hObj.parent.userData.liquidCtrl) {
-                sTemp = 24.4 + Math.sin(clock.elapsedTime * 2.0) * 0.2;
-                sLbl = 'Cultura Líquida (Inoculação)';
-              } else if (lHit.point.x > 18 && lHit.point.z > 5 && lHit.point.z < 11) {
-                sTemp = 20.8 + Math.cos(clock.elapsedTime * 1.5) * 0.3;
-                sLbl = 'Câmara de Frutificação (Estufa)';
-              } else if (hObj.userData.remotePlayer) {
-                sTemp = 36.8;
-                sLbl = 'Jogador (Temperatura Corporal)';
+              if (!sLbl) {
+                for (var cpi = 0; cpi < cookerPots.length; cpi++) {
+                  var cp = cookerPots[cpi];
+                  if (hObj === cp.potItem.mesh || hObj === cp.lidItem.mesh ||
+                      hObj.parent === cp.potItem.mesh || hObj.parent === cp.lidItem.mesh ||
+                      cp.contents.some(function (it) { return it.mesh === hObj || it.mesh.children.includes(hObj); })) {
+                    sTemp = cp.temp || 24.5;
+                    sLbl = cp.psi >= 14 ? 'Panela Esterilizando (' + Math.round(cp.psi) + ' PSI)' : (cp.temp > 35 ? 'Panela Aquecendo' : 'Panela de Pressão');
+                    break;
+                  }
+                }
+              }
+              if (!sLbl) {
+                if (hObj.userData.stirSwitch || (hObj.parent && hObj.parent.userData.stirSwitch)) {
+                  sTemp = (stirrerDevices[0] && stirrerDevices[0].on) ? 34.5 : 23.8;
+                  sLbl = 'Agitador Magnético';
+                } else if (hObj.userData.remotePlayer || (hObj.parent && hObj.parent.userData.remotePlayer)) {
+                  sTemp = 36.7 + Math.sin(clock.elapsedTime * 1.3) * 0.2;
+                  sLbl = 'Jogador (Corporal)';
+                } else if (hObj.userData.doorObj) {
+                  sTemp = 22.8;
+                  sLbl = hObj.userData.doorObj.label || 'Porta';
+                } else {
+                  var pWalk = hObj;
+                  var pRef = null;
+                  while (pWalk) {
+                    if (pWalk.userData && pWalk.userData.pickableRef) { pRef = pWalk.userData.pickableRef; break; }
+                    pWalk = pWalk.parent;
+                  }
+                  if (pRef) {
+                    var pid = pRef.id;
+                    sLbl = pRef.label;
+                    if (pid.indexOf('heat_sealer') === 0) sTemp = 165.0 + Math.sin(clock.elapsedTime * 2.5) * 1.2;
+                    else if (pid.indexOf('laminar_hood') === 0) sTemp = (hoodAirData && hoodAirData.on) ? 21.2 : 23.5;
+                    else if (pid.indexOf('precision_scale') === 0) sTemp = 24.1;
+                    else if (pid.indexOf('alcohol_spray') === 0) sTemp = 20.2;
+                    else if (pid.indexOf('liquid_culture') === 0) sTemp = 24.5 + Math.sin(clock.elapsedTime * 2.0) * 0.2;
+                    else if (pid === 'petri_contam') sTemp = 26.8;
+                    else if (pid.indexOf('petri_') === 0) sTemp = 25.0;
+                    else if (pid === 'spawn_bag_colonized' || (pRef.spawnCtrl && pRef.spawnCtrl.inoculated)) sTemp = 26.4;
+                    else if (pid.indexOf('spawn_') === 0) sTemp = 23.8;
+                    else if (pid.indexOf('fruiting_block') === 0) sTemp = 21.4;
+                    else if (pid.indexOf('substrate_') === 0) sTemp = 22.6;
+                    else if (pid.indexOf('pda_bottle') === 0) sTemp = 24.0;
+                    else if (pid.indexOf('syringe_') === 0) sTemp = 23.6;
+                    else if (pid.indexOf('beaker_') === 0) sTemp = 23.5;
+                    else if (pid.indexOf('table_') === 0) sTemp = 21.8;
+                    else sTemp = 23.3;
+                  } else if (lHit.point.x > 18 && lHit.point.z > 5 && lHit.point.z < 11) {
+                    sTemp = 20.5 + Math.cos(clock.elapsedTime * 1.5) * 0.3;
+                    sLbl = 'Estufa de Frutificação';
+                  } else {
+                    sTemp = 23.2 + Math.sin(lHit.point.x * 0.5 + lHit.point.z * 0.3) * 0.4;
+                    sLbl = lHit.point.y > 0.6 ? 'Bancada / Estrutura' : 'Piso';
+                  }
+                }
+              }
+              thermoTargetTemp = sTemp;
+              thermoTargetLabel = sLbl;
+            } else {
+              // Raycast matemático contra o terreno / lago / céu quando não acerta móveis/itens
+              var rOrig = raycaster.ray.origin;
+              var rDir = raycaster.ray.direction;
+              var gHitPt = null;
+              for (var stepD = 1.0; stepD <= 32.0; stepD += 1.0) {
+                var sx = rOrig.x + rDir.x * stepD;
+                var sy = rOrig.y + rDir.y * stepD;
+                var sz = rOrig.z + rDir.z * stepD;
+                var gy = getGroundHeight(sx, sz, sy + 1.0);
+                if (sy <= gy) {
+                  gHitPt = new THREE.Vector3(sx, gy, sz);
+                  break;
+                }
+              }
+              if (gHitPt) {
+                var lArrG = thermoLaserLine.geometry.attributes.position.array;
+                lArrG[0] = _tmpMuzzlePos.x; lArrG[1] = _tmpMuzzlePos.y; lArrG[2] = _tmpMuzzlePos.z;
+                lArrG[3] = gHitPt.x; lArrG[4] = gHitPt.y; lArrG[5] = gHitPt.z;
+                thermoLaserLine.geometry.attributes.position.needsUpdate = true;
+                thermoLaserLine.visible = true;
+                thermoLaserDot.position.set(gHitPt.x, gHitPt.y + 0.008, gHitPt.z);
+                thermoLaserDot.lookAt(gHitPt.x, gHitPt.y + 1, gHitPt.z);
+                thermoLaserDot.visible = true;
+
+                var isLake = (Math.hypot(gHitPt.x, gHitPt.z - 48) < 17) || gHitPt.y < 0.05;
+                if (isLake) {
+                  thermoTargetTemp = 19.2;
+                  thermoTargetLabel = 'Água do Lago';
+                } else if (weatherMode === 'snow') {
+                  thermoTargetTemp = 1.5;
+                  thermoTargetLabel = 'Solo com Neve';
+                } else if (weatherMode === 'rain') {
+                  thermoTargetTemp = 17.4;
+                  thermoTargetLabel = 'Solo Molhado';
+                } else {
+                  var sunBoost = Math.max(0, Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2)) * 8.5;
+                  thermoTargetTemp = 18.8 + sunBoost + Math.sin(gHitPt.x * 0.2 + gHitPt.z * 0.2) * 0.4;
+                  thermoTargetLabel = (Math.abs(gHitPt.x) < 13 && Math.abs(gHitPt.z) < 13) ? 'Piso da Praça' : 'Grama / Terreno';
+                }
               } else {
-                sTemp = 23.2 + Math.sin(lHit.point.x * 0.5 + lHit.point.z * 0.3) * 0.4;
-                sLbl = 'Ambiente / ' + (lHit.point.y > 0.6 ? 'Bancada' : 'Piso');
+                var skyEnd = rOrig.clone().addScaledVector(rDir, 22.0);
+                var lArrS = thermoLaserLine.geometry.attributes.position.array;
+                lArrS[0] = _tmpMuzzlePos.x; lArrS[1] = _tmpMuzzlePos.y; lArrS[2] = _tmpMuzzlePos.z;
+                lArrS[3] = skyEnd.x; lArrS[4] = skyEnd.y; lArrS[5] = skyEnd.z;
+                thermoLaserLine.geometry.attributes.position.needsUpdate = true;
+                thermoLaserLine.visible = true;
+                thermoLaserDot.visible = false;
+                thermoTargetTemp = weatherMode === 'snow' ? -6.5 : 4.2;
+                thermoTargetLabel = 'Céu Aberto';
               }
             }
-            thermoTargetTemp = sTemp;
-            thermoTargetLabel = sLbl;
-          } else {
-            thermoLaserLine.visible = false;
-            thermoLaserDot.visible = false;
-            thermoTargetTemp = 23.5;
-            thermoTargetLabel = 'Ar Ambiente';
+            thermoCurrentTemp += (thermoTargetTemp - thermoCurrentTemp) * Math.min(1, dt * 14);
+            drawThermoScreen(thermoCurrentTemp, 'SCAN');
           }
-          thermoCurrentTemp += (thermoTargetTemp - thermoCurrentTemp) * Math.min(1, dt * 14);
-          drawThermoScreen(thermoCurrentTemp, isPrimaryDown ? 'SCAN' : 'HOLD');
         } else {
           heldItem.mesh.rotation.set(0, heldRotY, 0);
         }
