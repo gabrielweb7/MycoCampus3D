@@ -102,6 +102,7 @@
   var currentStroke = null;
   var pendingBoardStrokes = [];
   var touchDrawingBoard = false;
+  window.touchDrawingBoard = false;
 
   // Painel 3D do Ranking na Torre do Relogio
   var rankingCanvas = null;
@@ -526,6 +527,30 @@
     }
 
     return h;
+  }
+
+  function getSupportSurfaceAt(x, z, margin) {
+    var m = (typeof margin === 'number') ? margin : 0.08;
+    var best = null;
+    for (var u = 0; u < supportSurfaces.length; u++) {
+      var ss = supportSurfaces[u];
+      if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
+      if (x >= ss.minX - m && x <= ss.maxX + m && z >= ss.minZ - m && z <= ss.maxZ + m) {
+        if (!best || ss.topY > best.topY) {
+          best = ss;
+        }
+      }
+    }
+    return best;
+  }
+
+  function getItemGroundHeight(x, z, refY) {
+    var gh = getGroundHeight(x, z, refY !== undefined ? refY : 3.0);
+    var ss = getSupportSurfaceAt(x, z, 0.08);
+    if (ss && ss.topY > gh) {
+      return ss.topY;
+    }
+    return gh;
   }
 
   function getSurfaceTypeAt(x, y, z) {
@@ -4264,10 +4289,13 @@
 
     // 1. Raycast direto nas meshes de prateleiras, bancadas e mesas (evita atravessar prateleiras de cima!)
     if (supportMeshes.length) {
+      for (var sm = 0; sm < supportMeshes.length; sm++) {
+        if (supportMeshes[sm]) supportMeshes[sm].updateWorldMatrix(true, false);
+      }
       var sHits = raycaster.intersectObjects(supportMeshes, false);
       for (var si = 0; si < sHits.length; si++) {
         var sh = sHits[si];
-        if (sh.distance < 0.02 || sh.distance > 5.5) continue;
+        if (sh.distance < 0.02 || sh.distance > 5.8) continue;
         if (sh.object.userData.ignoreRay) continue;
         var sSurf = sh.object.userData.supportSurface;
         if (!sSurf) continue;
@@ -4281,16 +4309,19 @@
       }
     }
 
-    // 1b. Fallback plano matematico para superficies sem mesh associada
-    if (dir.y < -0.005) {
-      for (var i = 0; i < supportSurfaces.length; i++) {
-        var s = supportSurfaces[i];
-        if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === s) continue;
-        var tPlane = (s.topY - origin.y) / dir.y;
-        if (tPlane >= 0.08 && tPlane <= 5.5 && tPlane < bestT) {
+    // 1b. Interseção matemática exata de raio com o plano e volume de cada mesa/bancada/estufa
+    for (var i = 0; i < supportSurfaces.length; i++) {
+      var s = supportSurfaces[i];
+      if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === s) continue;
+
+      // Teste de plano horizontal no topo (s.topY)
+      var dy = s.topY - origin.y;
+      if (Math.abs(dir.y) > 0.001) {
+        var tPlane = dy / dir.y;
+        if (tPlane >= 0.05 && tPlane <= 5.8 && tPlane < bestT) {
           var hx = origin.x + dir.x * tPlane;
           var hz = origin.z + dir.z * tPlane;
-          if (hx >= s.minX - 0.05 && hx <= s.maxX + 0.05 && hz >= s.minZ - 0.05 && hz <= s.maxZ + 0.05) {
+          if (hx >= s.minX - 0.12 && hx <= s.maxX + 0.12 && hz >= s.minZ - 0.12 && hz <= s.maxZ + 0.12) {
             var cx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, hx));
             var cz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, hz));
             bestT = tPlane;
@@ -4298,15 +4329,36 @@
           }
         }
       }
+
+      // Teste de volume 3D (AABB) da mesa (caso o jogador mire na borda frontal, pernas ou laterais)
+      var bMinX = s.minX - 0.05, bMaxX = s.maxX + 0.05;
+      var bMinZ = s.minZ - 0.05, bMaxZ = s.maxZ + 0.05;
+      var bMinY = Math.max(0.12, s.topY - 0.95), bMaxY = s.topY + 0.08;
+      var invDx = 1 / (Math.abs(dir.x) > 1e-6 ? dir.x : 1e-6);
+      var invDy = 1 / (Math.abs(dir.y) > 1e-6 ? dir.y : 1e-6);
+      var invDz = 1 / (Math.abs(dir.z) > 1e-6 ? dir.z : 1e-6);
+      var t1 = (bMinX - origin.x) * invDx, t2 = (bMaxX - origin.x) * invDx;
+      var t3 = (bMinY - origin.y) * invDy, t4 = (bMaxY - origin.y) * invDy;
+      var t5 = (bMinZ - origin.z) * invDz, t6 = (bMaxZ - origin.z) * invDz;
+      var tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
+      var tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+      if (tmax >= tmin && tmax >= 0.05 && tmin <= 5.5 && tmin < bestT) {
+        var boxHitX = origin.x + dir.x * Math.max(0.05, tmin);
+        var boxHitZ = origin.z + dir.z * Math.max(0.05, tmin);
+        var bcx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, boxHitX));
+        var bcz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, boxHitZ));
+        bestT = tmin;
+        bestPt = new THREE.Vector3(bcx, s.topY, bcz);
+      }
     }
     if (bestPt) return bestPt;
 
-    // 2. Intersecao fina com piso / terreno / escadas ao longo da mira
+    // 2. Intersecao fina com piso / terreno / tampos de mesa ao longo da mira
     for (var t = 0.45; t <= 5.0; t += 0.08) {
       var px = origin.x + dir.x * t;
       var py = origin.y + dir.y * t;
       var pz = origin.z + dir.z * t;
-      var gh = getGroundHeight(px, pz, playerPos.y);
+      var gh = getItemGroundHeight(px, pz, py);
       if (py <= gh + 0.04) {
         return new THREE.Vector3(px, gh, pz);
       }
@@ -4316,7 +4368,7 @@
     var hLen = Math.hypot(dir.x, dir.z) || 1;
     var fx = playerPos.x + (dir.x / hLen) * 1.8;
     var fz = playerPos.z + (dir.z / hLen) * 1.8;
-    return new THREE.Vector3(fx, getGroundHeight(fx, fz, playerPos.y), fz);
+    return new THREE.Vector3(fx, getItemGroundHeight(fx, fz, playerPos.y), fz);
   }
 
   var placementBlockedReason = '';
@@ -4477,15 +4529,15 @@
         };
         return;
       }
-      var supportedY = getGroundHeight(item.mesh.position.x, item.mesh.position.z, item.mesh.position.y);
+      var supportedY = getItemGroundHeight(item.mesh.position.x, item.mesh.position.z, item.mesh.position.y);
       if (!item.mesh.userData.isTable) {
         for (var i = 0; i < supportSurfaces.length; i++) {
           var s = supportSurfaces[i];
           if (s === item.mesh.userData.dynamicSurface) continue;
           if (item.mesh.userData.isHood && s.isHood) continue;
-          if (item.mesh.position.x >= s.minX && item.mesh.position.x <= s.maxX &&
-            item.mesh.position.z >= s.minZ && item.mesh.position.z <= s.maxZ &&
-            item.mesh.position.y >= s.topY - 0.15) {
+          if (item.mesh.position.x >= s.minX - 0.09 && item.mesh.position.x <= s.maxX + 0.09 &&
+            item.mesh.position.z >= s.minZ - 0.09 && item.mesh.position.z <= s.maxZ + 0.09 &&
+            item.mesh.position.y >= s.topY - 0.28) {
             supportedY = Math.max(supportedY, s.topY);
           }
         }
@@ -5088,7 +5140,9 @@
     var pt = findPlacementTarget(rayNdc);
     if (isPlacementBlocked(pt)) {
       var fwdX = -Math.sin(playerYaw), fwdZ = -Math.cos(playerYaw);
-      var altPt = new THREE.Vector3(playerPos.x + fwdX * 0.85, getGroundHeight(playerPos.x + fwdX * 0.85, playerPos.z + fwdZ * 0.85, playerPos.y), playerPos.z + fwdZ * 0.85);
+      var altX = playerPos.x + fwdX * 0.85;
+      var altZ = playerPos.z + fwdZ * 0.85;
+      var altPt = new THREE.Vector3(altX, getItemGroundHeight(altX, altZ, playerPos.y), altZ);
       if (!isPlacementBlocked(altPt)) pt = altPt;
     }
     heldItem.mesh.position.copy(pt);
@@ -5967,7 +6021,8 @@
               setNdcFromTouch(t);
               updateHoverRay(pointerNdc);
               // Se tocou no vazio, tenta tambem na mira central (crosshair) para facilitar no celular
-              var hasTarget = hoveredPickable || hoveredMushroom || hoveredDoorObj || hoveredBlindObj ||
+              var isHolding = !!heldItem;
+              var hasTarget = isHolding || hoveredPickable || hoveredMushroom || hoveredDoorObj || hoveredBlindObj ||
                 hoveredSeat || hoveredSwitch || hoveredHoodSwitch || hoveredStirSwitch ||
                 hoveredSyringeTarget || hoveredScaleTare || hoveredBurnerSwitch || hoveredPotInsert ||
                 hoveredSprayTarget || hoveredRankBtn || hoveredCinema || hoveredScreen || hoveredScreenBtn ||
@@ -6185,7 +6240,7 @@
           heldItem.mesh.rotation.set(playerPitch, playerYaw, 0);
 
           // Feixe laser e leitura de temperatura em tempo real (otimizado sem travar o jogo)
-          var muzzlePos = new THREE.Vector3(0, 0.155, -0.09).applyEuler(heldItem.mesh.rotation).add(heldItem.mesh.position);
+          _tmpMuzzlePos.set(0, 0.155, -0.09).applyEuler(heldItem.mesh.rotation).add(heldItem.mesh.position);
           raycaster.setFromCamera(inFps ? _vZero2 : pointerNdc, camera);
 
           if (!window._cachedLaserTargets || (now - (window._lastLaserCacheAt || 0) > 800)) {
@@ -6206,16 +6261,21 @@
             window._cachedLaserTargets = lTargets;
           }
 
-          var allLaserHits = raycaster.intersectObjects(window._cachedLaserTargets, true).filter(function (h) {
-            return !h.object.userData.ignoreRay &&
-                   h.object !== heldItem.mesh &&
-                   h.object !== thermoLaserLine &&
-                   h.object !== thermoLaserDot;
-          });
-          if (allLaserHits.length > 0 && allLaserHits[0].distance < 35.0) {
-            var lHit = allLaserHits[0];
+          var rawHits = raycaster.intersectObjects(window._cachedLaserTargets, true);
+          var lHit = null;
+          for (var rhi = 0; rhi < rawHits.length; rhi++) {
+            var candH = rawHits[rhi];
+            if (!candH.object.userData.ignoreRay &&
+                candH.object !== heldItem.mesh &&
+                candH.object !== thermoLaserLine &&
+                candH.object !== thermoLaserDot) {
+              lHit = candH;
+              break;
+            }
+          }
+          if (lHit && lHit.distance < 35.0) {
             var lArr = thermoLaserLine.geometry.attributes.position.array;
-            lArr[0] = muzzlePos.x; lArr[1] = muzzlePos.y; lArr[2] = muzzlePos.z;
+            lArr[0] = _tmpMuzzlePos.x; lArr[1] = _tmpMuzzlePos.y; lArr[2] = _tmpMuzzlePos.z;
             lArr[3] = lHit.point.x; lArr[4] = lHit.point.y; lArr[5] = lHit.point.z;
             thermoLaserLine.geometry.attributes.position.needsUpdate = true;
             thermoLaserLine.visible = true;
@@ -6389,7 +6449,8 @@
     }
 
     if (!lobbyTourActive) {
-      if (!touchDrawingBoard && (!isTouchDevice() || isPrimaryDown || (heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 260))) {
+      var isDrawingBoard = (typeof touchDrawingBoard !== 'undefined') ? touchDrawingBoard : false;
+      if (!isDrawingBoard && (!isTouchDevice() || isPrimaryDown || (heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 260))) {
         lastMobileHoverAt = now;
         updateHoverRay();
       }
@@ -7347,7 +7408,30 @@
       }
       var saved = objectsMap[item.id];
       if (saved) {
-        item.mesh.position.set(saved.x, saved.y, saved.z);
+        var suppY = getGroundHeight(saved.x, saved.z, saved.y);
+        for (var si = 0; si < supportSurfaces.length; si++) {
+          var s = supportSurfaces[si];
+          if (s === item.mesh.userData.dynamicSurface) continue;
+          if (saved.x >= s.minX && saved.x <= s.maxX && saved.z >= s.minZ && saved.z <= s.maxZ && saved.y >= s.topY - 0.15) {
+            suppY = Math.max(suppY, s.topY);
+          }
+        }
+        var finalY = saved.y;
+        if (item.id === 'burner_lab') {
+          // O fogareiro deve sempre estar assentado em sua bancada ou piso, nunca flutuando no ar
+          if (saved.y > suppY + 0.04 || saved.y < suppY - 0.05) {
+            finalY = suppY;
+            pendingMovedItems[item.id] = {
+              id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
+            };
+          }
+        } else if (!item.mesh.userData.isTable && (saved.y > suppY + 0.08 || saved.y < suppY - 0.08)) {
+          finalY = suppY;
+          pendingMovedItems[item.id] = {
+            id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
+          };
+        }
+        item.mesh.position.set(saved.x, finalY, saved.z);
         item.mesh.rotation.y = saved.ry || 0;
         item.isMoved = true;
         item.mesh.userData.updateBounds(item);
@@ -7407,6 +7491,12 @@
           }
         }
         var finalY = Math.abs(saved.y - suppY) < 0.06 ? suppY : saved.y;
+        if (saved.y > suppY + 0.08) {
+          finalY = suppY;
+          pendingMovedItems[item.id] = {
+            id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
+          };
+        }
         item.mesh.position.set(saved.x, finalY, saved.z);
         item.mesh.rotation.y = saved.ry || 0;
         item.isMoved = true;
@@ -7759,7 +7849,9 @@
     if (lobbyTourActive) return;
     isPrimaryDown = !!down;
     if (down) {
-      pointerNdc.set(0, 0);
+      if (!heldItem) {
+        pointerNdc.set(0, 0);
+      }
       updateHoverRay();
       handlePrimaryAction();
     } else {

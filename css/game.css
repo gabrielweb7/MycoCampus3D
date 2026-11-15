@@ -282,3 +282,14 @@ body.device-desktop #mobile-actions {
   transform: scale(0.92);
   background: rgba(16, 185, 129, 0.75);
 }
+
+/* HUD Top Actions & Professor Toolbar - Permanently Hidden per user request */
+#hud-quick-actions, #prof-toolbar {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}

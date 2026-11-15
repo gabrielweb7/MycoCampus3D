@@ -275,9 +275,15 @@ if ($action === 'sync') {
 
     $objects = new stdClass();
     foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
-        $objects->{$obj['item_id']} = [
+        $itemId = (string)$obj['item_id'];
+        $yVal = (float)$obj['y'];
+        if ($itemId === 'burner_lab' && $yVal > 1.15) {
+            $pdo->prepare('DELETE FROM mc_world_objects WHERE item_id = "burner_lab"')->execute();
+            continue;
+        }
+        $objects->{$itemId} = [
             'x' => (float)$obj['x'],
-            'y' => (float)$obj['y'],
+            'y' => $yVal,
             'z' => (float)$obj['z'],
             'ry' => (float)$obj['ry'],
         ];

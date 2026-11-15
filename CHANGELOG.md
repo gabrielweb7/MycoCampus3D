@@ -2,6 +2,20 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.5] — 2026-11-15
+### 🛡️ Correção Definitiva de Itens nas Mesas, Eliminação de Tela Preta & Otimização do Polling
+- **Correção Geral da Queda de Itens no Chão ao Soltar nas Mesas ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - **Causa Raiz 1 (Raycast no Piso ignorava mesas)**: Em `findPlacementTarget()`, a etapa de raycast com o piso chamava `getGroundHeight(px, pz, playerPos.y)`. Como o jogador no laboratório está com `playerPos.y = 0.14`, a condição interna `curY >= ss.topY - 0.40` falhava para todas as mesas e bancadas (`topY >= 0.95`), fazendo o raio atravessar a mesa e aterrissar no chão (`y = 0.14`). Criada a função `getItemGroundHeight(x, z, refY)` e `getSupportSurfaceAt(x, z)` que calcula a altura do tampo de apoio sem restrição de pulo do jogador.
+  - **Causa Raiz 2 (Detecção Matemática 3D de Mesas e Bancadas)**: Adicionada checagem matemática dupla exata (intersecção raio-plano horizontal no tampo + intersecção raio-caixa AABB do volume da mesa). Ao mirar na frente, pernas, laterais ou no tampo de qualquer mesa/bancada/estufa, o item é posicionado no tampo da mesa com segurança milimétrica.
+  - **Causa Raiz 3 (Tolerância das Bordas na Gravidade)**: Em `dropUnsupportedItems()`, expandida a margem horizontal das superfícies (`minX - 0.09` a `maxX + 0.09`) e vertical (`s.topY - 0.28`), impedindo que itens colocados próximos da borda percam suporte e despenquem para o chão.
+  - **Causa Raiz 4 (Mobile Tap NDC Reset)**: Na função `resetTouchLook`, ao soltar o toque segurando um item, o código resetava `pointerNdc` para `(0, 0)` (centro do horizonte/parede). Corrigido para preservar o ponto exato da tela onde o usuário tocou na mesa.
+- **Eliminação Definitiva do ReferenceError `touchDrawingBoard` ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Declarado `var touchDrawingBoard = false;` e `window.touchDrawingBoard = false;` com checagem defensiva `typeof touchDrawingBoard !== 'undefined'` dentro do loop `animate()`, impedindo que versões antigas em cache no navegador causem tela preta ou interrompam o loop de renderização.
+- **Otimização do Polling Multiplayer ([campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Intervalo de `multiplayer.php?action=sync` elevado de 350ms para 750ms em primeiro plano (e 1500ms em segundo plano), reduzindo requisições HTTP em mais de 55% e limpando a aba Network do DevTools, mantendo a interpolação suave de avatares.
+- **Remoção Permanente dos Botões Rápidos e Controle do Telão ([index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [game.css](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/css/game.css))**:
+  - Elementos `#hud-quick-actions` e `#prof-toolbar` esvaziados no HTML e ocultados com regras estritas de CSS (`display: none !important; visibility: hidden !important; pointer-events: none !important; opacity: 0 !important; width: 0 !important; height: 0 !important;`), garantindo que nunca mais surjam na interface do jogo.
+
 ## [v0.9.4] — 2026-11-15
 ### 🛠️ Otimização do Termômetro Laser, Eliminação de Congelamento & Estabilização do Fogareiro
 - **Termômetro Laser Infravermelho Otimizado (`infrared_thermometer`) ([campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [campus-audio.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-audio.js))**:

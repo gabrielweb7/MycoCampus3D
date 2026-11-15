@@ -92,7 +92,7 @@
   ];
 
   var APP_VERSION = window.MYCO_VERSION || 'dev';
-  var SYNC_INTERVAL_MS = 350;
+  var SYNC_INTERVAL_MS = 750;
 
   var sessionId = 'mc_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
   var currentUser = null;
