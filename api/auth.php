@@ -85,6 +85,15 @@ const MC_COSMETIC_TOYS = [
         'req_mushrooms' => 2,
         'icon' => '🏂',
     ],
+    'paraglider' => [
+        'id' => 'paraglider',
+        'category' => 'toy',
+        'name' => 'Paraglider MycoWing',
+        'desc' => 'Salte das montanhas, pegue correntes térmicas e voe pelo campus!',
+        'req_xp' => 150,
+        'req_mushrooms' => 3,
+        'icon' => '🪂',
+    ],
 ];
 
 function mc_clean_username(string $raw): string {

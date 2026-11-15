@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.22] — 2026-11-15
+### 🪂 Paraglider MycoWing, Correntes Térmicas & Visão Multiplayer dos Brinquedos
+- **Paraglider em 1ª Pessoa & Física de Voo ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
+  - Novo brinquedo na loja (`150 XP • 3 cogumelos`, atalho `P`): **Paraglider MycoWing**.
+  - Ao saltar de montanhas ou pular com `Espaço`, abre a vela arco-íris em 7 painéis acima da cabeça com tirantes/batoques visíveis e braços em 1ª pessoa segurando os comandos.
+  - **6 Correntes de Ar Térmicas** espalhadas entre as montanhas e o campus (`thermalColumns`): anéis ascendentes visíveis que dão sustentação vertical (`+8.5 m/s`) até `118m` de altitude.
+- **Multiplayer Sincronizado ([api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Outros jogadores agora veem o seu avatar descendo de **Snowboard** (`walking = 3`) ou voando de **Paraglider** (`walking = 4`), com limite de altitude `Y` ampliado para `180m` e suporte a `current_hat = 'none'`.
+
 ## [v0.9.21] — 2026-11-15
 ### 🚶 Caminhada Realista & Curva Hermite no Multiplayer
 - **Movimento Contínuo sem Saltos ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
