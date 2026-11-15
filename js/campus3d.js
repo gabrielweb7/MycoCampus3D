@@ -90,6 +90,7 @@
   var cinemaTime = 0;
   var hoveredCinema = false;
   var terrainSnowMat = null;
+  var roofZones = []; // { minX, maxX, minZ, maxZ, roofY } para impedir chuva/neve dentro dos predios
 
   // Ambiente dinamico (Dia / Por do Sol / Noite + Chuva / Neve)
   var envSun = null;
@@ -649,6 +650,7 @@
     var roofSlab = makeBox(w + 0.6, 0.32, d + 0.6, 0x94a3b8, { roughness: 0.5 });
     roofSlab.position.set(cx, yFloor2 + h2 + 0.16, cz);
     registerSnowable(roofSlab.material);
+    roofZones.push({ minX: cx - w / 2 - 0.5, maxX: cx + w / 2 + 0.5, minZ: cz - d / 2 - 0.5, maxZ: cz + d / 2 + 0.5, roofY: yFloor2 + h2 + 0.32 });
     scene.add(roofSlab);
     var parapet = makeBox(w + 0.72, 0.42, d + 0.72, 0x64748b, { roughness: 0.5 });
     parapet.position.set(cx, yFloor2 + h2 + 0.43, cz);
@@ -1324,6 +1326,7 @@
     var scRoof = makeBox(22.6, 0.4, 16.6, 0x64748b);
     scRoof.position.set(48, 6.7, -12);
     registerSnowable(scRoof.material);
+    roofZones.push({ minX: 36.5, maxX: 59.5, minZ: -20.5, maxZ: -3.5, roofY: 6.9 });
     scene.add(scRoof);
     // Paredes do Auditorio com entrada ampla no Sul (x: 46..50 aberta!)
     addSolidWall(37, -20, 59, -20, 0.14, 6.4, 0.35, brickMat(5, 2)); // Norte (fundo da tela)
@@ -1411,6 +1414,7 @@
       var dRoof = makeBox(14.6, 0.4, 10.6, 0x64748b);
       dRoof.position.set(dx, 5.4, dz);
       registerSnowable(dRoof.material);
+      roofZones.push({ minX: dx - 7.5, maxX: dx + 7.5, minZ: dz - 5.5, maxZ: dz + 5.5, roofY: 5.6 });
       scene.add(dRoof);
       addSolidWall(dx - 7, dz - 5, dx + 7, dz - 5, 0.14, 5.1, 0.3, brickMat(3, 2)); // Fundo
       addSolidWall(dx - 7, dz - 5, dx - 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2)); // Esq
@@ -2527,7 +2531,15 @@
         for (var p = 0; p < arr.length; p += 3) {
           arr[p] += drift * dt;
           arr[p + 1] -= fallSpeed * dt;
-          if (arr[p + 1] < 0) {
+          var hitRoof = false;
+          for (var rz = 0; rz < roofZones.length; rz++) {
+            var zBox = roofZones[rz];
+            if (arr[p] >= zBox.minX && arr[p] <= zBox.maxX && arr[p + 2] >= zBox.minZ && arr[p + 2] <= zBox.maxZ && arr[p + 1] <= zBox.roofY + 0.25) {
+              hitRoof = true;
+              break;
+            }
+          }
+          if (hitRoof || arr[p + 1] < 0) {
             arr[p] = cx + (Math.random() - 0.5) * 55;
             arr[p + 1] = 24 + Math.random() * 8;
             arr[p + 2] = cz + (Math.random() - 0.5) * 55;
