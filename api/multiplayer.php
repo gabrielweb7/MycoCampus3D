@@ -1,149 +1,155 @@
 <?php
 /**
- * MycoCampus3D - MySQL Multiplayer & Shared Auditorium Sync API
+ * MycoCampus3D - Sincronizacao multiplayer (polling), chat, objetos do lab e telao do auditorio.
+ * Identidade (nome, cargo, cores) vem sempre do MySQL via token, nunca do cliente.
  */
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store, no-cache, must-revalidate');
-
 require_once __DIR__ . '/db.php';
 
-function mp_json(array $data, int $code = 200): void {
-    http_response_code($code);
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
-    exit;
+const MP_SESSION_TIMEOUT_S = 12;
+const MP_CHAT_TTL_S = 7;
+const MP_SLIDE_COUNT = 5;
+const MP_WORLD_LIMIT = 100.0;
+const MP_ITEMS = ['petri_clean', 'petri_contam', 'spawn_jar', 'liquid_culture', 'substrate_bag', 'fruiting_block'];
+
+/** session_id interno ligado ao usuario: impede que alguem sobrescreva a sessao de outro jogador. */
+function mp_session_key(int $userId, string $clientSid): string {
+    return substr(hash('sha256', $userId . ':' . $clientSid), 0, 40);
 }
 
-try {
-    $pdo = mc_db();
-} catch (Throwable $e) {
-    mp_json(['ok' => false, 'error' => 'MySQL indisponivel.'], 500);
+function mp_public_id(string $sessionKey): string {
+    return substr(hash('sha256', 'pub:' . $sessionKey), 0, 12);
 }
 
-$raw = file_get_contents('php://input');
-$body = json_decode($raw ?: '', true);
-if (!is_array($body)) {
-    $body = $_POST ?: [];
+function mp_client_sid(array $body): string {
+    $sid = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($body['session_id'] ?? ''));
+    $sid = substr((string)$sid, 0, 64);
+    if ($sid === '') {
+        mc_json(['ok' => false, 'error' => 'session_id obrigatorio.'], 400);
+    }
+    return $sid;
 }
-$action = (string)($_GET['action'] ?? $body['action'] ?? 'sync');
 
-// Prune inactive sessions (> 12 seconds)
-$pdo->exec('DELETE FROM mc_sessions WHERE last_seen < (NOW() - INTERVAL 12 SECOND)');
+function mp_num($v, float $limit): float {
+    $f = is_numeric($v) ? (float)$v : 0.0;
+    if (!is_finite($f)) $f = 0.0;
+    return max(-$limit, min($limit, $f));
+}
+
+$pdo = mc_db_or_fail();
+$body = mc_body();
+$action = mc_action('sync');
 
 if ($action === 'leave') {
-    $sid = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($body['session_id'] ?? ''));
-    if ($sid !== '') {
-        $del = $pdo->prepare('DELETE FROM mc_sessions WHERE session_id = ?');
-        $del->execute([$sid]);
-    }
-    mp_json(['ok' => true]);
+    $user = mc_require_user($pdo);
+    $del = $pdo->prepare('DELETE FROM mc_sessions WHERE session_id = ?');
+    $del->execute([mp_session_key((int)$user['id'], mp_client_sid($body))]);
+    mc_json(['ok' => true]);
 }
 
 if ($action === 'reset_world') {
+    mc_require_user($pdo);
     $pdo->exec('DELETE FROM mc_world_objects');
-    mp_json(['ok' => true]);
+    mc_json(['ok' => true]);
 }
 
 if ($action === 'set_slide') {
-    $userId = (int)($body['user_id'] ?? 0);
-    $slideIndex = max(0, min(20, (int)($body['slide_index'] ?? 0)));
-    if ($userId <= 0) {
-        mp_json(['ok' => false, 'error' => 'Usuario invalido.'], 400);
+    $user = mc_require_user($pdo);
+    if (!mc_is_professor($user)) {
+        mc_json(['ok' => false, 'error' => 'Apenas professores podem controlar o telao ao vivo.'], 403);
     }
-    $uStmt = $pdo->prepare('SELECT display_name, role FROM mc_users WHERE id = ? LIMIT 1');
-    $uStmt->execute([$userId]);
-    $u = $uStmt->fetch();
-    if (!$u || !in_array($u['role'], ['professor', 'admin'], true)) {
-        mp_json(['ok' => false, 'error' => 'Apenas professores podem controlar o telao ao vivo.'], 403);
-    }
+    $slideIndex = max(0, min(MP_SLIDE_COUNT - 1, (int)($body['slide_index'] ?? 0)));
     $upsert = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');
     $upsert->execute(['auditorium_slide', (string)$slideIndex]);
-    $upsert->execute(['auditorium_presenter', (string)$u['display_name']]);
-    mp_json(['ok' => true, 'slide_index' => $slideIndex, 'presenter' => (string)$u['display_name']]);
+    $upsert->execute(['auditorium_presenter', (string)$user['display_name']]);
+    mc_json(['ok' => true, 'slide_index' => $slideIndex, 'presenter' => (string)$user['display_name']]);
 }
 
 if ($action === 'sync') {
-    $sid = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($body['session_id'] ?? ''));
-    if ($sid === '') {
-        mp_json(['ok' => false, 'error' => 'session_id obrigatorio.'], 400);
-    }
+    $user = mc_require_user($pdo);
+    $userId = (int)$user['id'];
+    $sessionKey = mp_session_key($userId, mp_client_sid($body));
 
-    $userId = isset($body['user_id']) && (int)$body['user_id'] > 0 ? (int)$body['user_id'] : null;
-    $displayName = mb_substr(trim((string)($body['display_name'] ?? 'Visitante')), 0, 48, 'UTF-8');
-    $role = in_array(($body['role'] ?? 'student'), ['student', 'professor', 'admin'], true) ? (string)$body['role'] : 'student';
-    $hatColor = preg_match('/^#[0-9a-fA-F]{6}$/', (string)($body['hat_color'] ?? '')) ? strtolower((string)$body['hat_color']) : '#d9534f';
-    $bodyColor = preg_match('/^#[0-9a-fA-F]{6}$/', (string)($body['body_color'] ?? '')) ? strtolower((string)$body['body_color']) : '#4f46e5';
+    // Limpa jogadores inativos
+    $pdo->exec('DELETE FROM mc_sessions WHERE last_seen < (NOW() - INTERVAL ' . MP_SESSION_TIMEOUT_S . ' SECOND)');
 
-    $x = (float)($body['x'] ?? 0);
-    $y = (float)($body['y'] ?? 0);
-    $z = (float)($body['z'] ?? 0);
-    $yaw = (float)($body['yaw'] ?? 0);
-    $pitch = (float)($body['pitch'] ?? 0);
-    $holding = substr(preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($body['holding_item'] ?? '')), 0, 64);
+    $x = mp_num($body['x'] ?? 0, MP_WORLD_LIMIT);
+    $y = mp_num($body['y'] ?? 0, 50.0);
+    $z = mp_num($body['z'] ?? 0, MP_WORLD_LIMIT);
+    $yaw = mp_num($body['yaw'] ?? 0, 1000.0);
+    $pitch = mp_num($body['pitch'] ?? 0, 2.0);
+    $holding = (string)($body['holding_item'] ?? '');
+    $holding = in_array($holding, MP_ITEMS, true) ? $holding : '';
     $walking = !empty($body['walking']) ? 1 : 0;
     $inFps = !empty($body['in_fps']) ? 1 : 0;
     $chatMsg = trim((string)($body['chat_msg'] ?? ''));
     $chatMsg = $chatMsg !== '' ? mb_substr($chatMsg, 0, 140, 'UTF-8') : null;
 
+    $params = [
+        $sessionKey, $userId, (string)$user['display_name'], (string)$user['role'],
+        mc_clean_hex($user['hat_color'], '#dc2626'), mc_clean_hex($user['body_color'], '#4f46e5'),
+        $x, $y, $z, $yaw, $pitch, $holding, $walking, $inFps,
+    ];
+    $baseCols = 'session_id, user_id, display_name, role, hat_color, body_color, x, y, z, yaw, pitch, holding_item, walking, in_fps';
+    $baseUpd = 'user_id=VALUES(user_id), display_name=VALUES(display_name), role=VALUES(role),
+                hat_color=VALUES(hat_color), body_color=VALUES(body_color),
+                x=VALUES(x), y=VALUES(y), z=VALUES(z), yaw=VALUES(yaw), pitch=VALUES(pitch),
+                holding_item=VALUES(holding_item), walking=VALUES(walking), in_fps=VALUES(in_fps), last_seen=NOW()';
+
     if ($chatMsg !== null) {
-        $sql = 'INSERT INTO mc_sessions (session_id, user_id, display_name, role, hat_color, body_color, x, y, z, yaw, pitch, holding_item, walking, in_fps, chat_msg, chat_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE
-                  user_id=VALUES(user_id), display_name=VALUES(display_name), role=VALUES(role),
-                  hat_color=VALUES(hat_color), body_color=VALUES(body_color),
-                  x=VALUES(x), y=VALUES(y), z=VALUES(z), yaw=VALUES(yaw), pitch=VALUES(pitch),
-                  holding_item=VALUES(holding_item), walking=VALUES(walking), in_fps=VALUES(in_fps),
-                  chat_msg=VALUES(chat_msg), chat_at=NOW(), last_seen=NOW()';
-        $pdo->prepare($sql)->execute([$sid, $userId, $displayName, $role, $hatColor, $bodyColor, $x, $y, $z, $yaw, $pitch, $holding, $walking, $inFps, $chatMsg]);
+        $sql = "INSERT INTO mc_sessions ($baseCols, chat_msg, chat_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE $baseUpd, chat_msg=VALUES(chat_msg), chat_at=NOW()";
+        $params[] = $chatMsg;
     } else {
-        $sql = 'INSERT INTO mc_sessions (session_id, user_id, display_name, role, hat_color, body_color, x, y, z, yaw, pitch, holding_item, walking, in_fps)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                  user_id=VALUES(user_id), display_name=VALUES(display_name), role=VALUES(role),
-                  hat_color=VALUES(hat_color), body_color=VALUES(body_color),
-                  x=VALUES(x), y=VALUES(y), z=VALUES(z), yaw=VALUES(yaw), pitch=VALUES(pitch),
-                  holding_item=VALUES(holding_item), walking=VALUES(walking), in_fps=VALUES(in_fps),
-                  chat_msg=IF(chat_at IS NOT NULL AND chat_at < (NOW() - INTERVAL 7 SECOND), NULL, chat_msg),
-                  last_seen=NOW()';
-        $pdo->prepare($sql)->execute([$sid, $userId, $displayName, $role, $hatColor, $bodyColor, $x, $y, $z, $yaw, $pitch, $holding, $walking, $inFps]);
+        $sql = "INSERT INTO mc_sessions ($baseCols, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE $baseUpd";
     }
+    $pdo->prepare($sql)->execute($params);
 
     if (!empty($body['moved_items']) && is_array($body['moved_items'])) {
         $itemUpsert = $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)');
-        foreach ($body['moved_items'] as $item) {
-            if (!is_array($item) || empty($item['id'])) continue;
-            $iid = substr(preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$item['id']), 0, 64);
-            if ($iid === '') continue;
-            $itemUpsert->execute([$iid, (float)($item['x'] ?? 0), (float)($item['y'] ?? 0), (float)($item['z'] ?? 0), (float)($item['ry'] ?? 0)]);
+        foreach (array_slice($body['moved_items'], 0, count(MP_ITEMS)) as $item) {
+            if (!is_array($item)) continue;
+            $iid = (string)($item['id'] ?? '');
+            if (!in_array($iid, MP_ITEMS, true)) continue;
+            $itemUpsert->execute([
+                $iid,
+                mp_num($item['x'] ?? 0, MP_WORLD_LIMIT),
+                mp_num($item['y'] ?? 0, 50.0),
+                mp_num($item['z'] ?? 0, MP_WORLD_LIMIT),
+                mp_num($item['ry'] ?? 0, 1000.0),
+            ]);
         }
     }
 
-    $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, x, y, z, yaw, pitch, holding_item, walking, in_fps, IF(chat_at IS NOT NULL AND chat_at >= (NOW() - INTERVAL 7 SECOND), chat_msg, NULL) AS chat_msg FROM mc_sessions WHERE session_id != ? ORDER BY session_id ASC');
-    $pStmt->execute([$sid]);
+    $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, x, y, z, yaw, pitch, holding_item, walking, in_fps,
+            IF(chat_at IS NOT NULL AND chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), chat_msg, NULL) AS chat_msg
+        FROM mc_sessions WHERE session_id != ? ORDER BY session_id ASC LIMIT 60');
+    $pStmt->execute([$sessionKey]);
     $players = [];
     foreach ($pStmt->fetchAll() as $p) {
         $players[] = [
-            'id' => $p['session_id'],
-            'name' => $p['display_name'],
-            'role' => $p['role'],
-            'hat_color' => $p['hat_color'],
-            'body_color' => $p['body_color'],
+            'id' => mp_public_id((string)$p['session_id']),
+            'name' => (string)$p['display_name'],
+            'role' => (string)$p['role'],
+            'hat_color' => mc_clean_hex($p['hat_color'], '#dc2626'),
+            'body_color' => mc_clean_hex($p['body_color'], '#4f46e5'),
             'x' => (float)$p['x'],
             'y' => (float)$p['y'],
             'z' => (float)$p['z'],
             'yaw' => (float)$p['yaw'],
             'pitch' => (float)$p['pitch'],
-            'holding' => $p['holding_item'],
+            'holding' => (string)$p['holding_item'],
             'walking' => (bool)$p['walking'],
             'in_fps' => (bool)$p['in_fps'],
             'chat' => $p['chat_msg'],
         ];
     }
 
-    $objects = [];
+    $objects = new stdClass();
     foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
-        $objects[$obj['item_id']] = [
+        $objects->{$obj['item_id']} = [
             'x' => (float)$obj['x'],
             'y' => (float)$obj['y'],
             'z' => (float)$obj['z'],
@@ -152,12 +158,12 @@ if ($action === 'sync') {
     }
 
     $state = ['auditorium_slide' => 0, 'auditorium_presenter' => ''];
-    foreach ($pdo->query('SELECT state_key, state_val FROM mc_world_state')->fetchAll() as $st) {
+    foreach ($pdo->query("SELECT state_key, state_val FROM mc_world_state WHERE state_key IN ('auditorium_slide', 'auditorium_presenter')")->fetchAll() as $st) {
         if ($st['state_key'] === 'auditorium_slide') $state['auditorium_slide'] = (int)$st['state_val'];
         if ($st['state_key'] === 'auditorium_presenter') $state['auditorium_presenter'] = (string)$st['state_val'];
     }
 
-    mp_json([
+    mc_json([
         'ok' => true,
         'online_count' => count($players) + 1,
         'players' => $players,
@@ -166,5 +172,4 @@ if ($action === 'sync') {
     ]);
 }
 
-mp_json(['ok' => false, 'error' => 'Acao desconhecida.'], 400);
-
+mc_json(['ok' => false, 'error' => 'Acao desconhecida.'], 400);

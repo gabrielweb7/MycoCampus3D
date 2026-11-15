@@ -1,6 +1,5 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home2/poder892/mycocampus3d.alquimistasmagicos.com.br/
-    - '[ "$(pwd)/" != "$DEPLOYPATH" ] && /bin/cp -R index.html css js api database "$DEPLOYPATH" || true'
-
+    - export DEPLOYPATH=/home2/poder692/mycocampus3d.alquimistasmagicos.com.br/
+    - '[ "$(pwd)/" != "$DEPLOYPATH" ] && /bin/cp -R index.html manifest.webmanifest robots.txt .htaccess VERSION assets css js api database "$DEPLOYPATH" || true'

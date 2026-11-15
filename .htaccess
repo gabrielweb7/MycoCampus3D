@@ -1,0 +1,51 @@
+# MycoCampus3D - Apache (HostGator)
+Options -Indexes
+DirectoryIndex index.html
+AddDefaultCharset UTF-8
+
+# Forca HTTPS
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  # Bloqueia arquivos internos
+  RewriteRule (^|/)\.git - [F,L]
+  RewriteRule ^(database|tools)(/|$) - [F,L]
+  RewriteRule ^(README\.md|CHANGELOG\.md|VERSION|\.cpanel\.yml|\.gitignore)$ - [F,L]
+</IfModule>
+
+<FilesMatch "^(config\.php|config\.example\.php|db\.php)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+</FilesMatch>
+
+AddType application/manifest+json .webmanifest
+
+# Compressao
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json application/manifest+json image/svg+xml
+</IfModule>
+
+# Cache: HTML sempre fresco; JS/CSS versionados (?v=) e imagens com cache longo
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 30 days"
+  ExpiresByType application/javascript "access plus 30 days"
+  ExpiresByType text/javascript "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType application/manifest+json "access plus 1 day"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+

@@ -4,7 +4,68 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>MycoCampus3D — Universidade 3D do Cultivo de Cogumelos</title>
-  <link rel="stylesheet" href="css/tailwind.min.css">
+  <meta name="description" content="Entre no campus 3D multiplayer e aprenda cultivo de cogumelos na prática: fluxo laminar, esterilização, spawn, contaminações e frutificação. Grátis, direto no navegador, no PC e no celular.">
+  <meta name="keywords" content="cultivo de cogumelos, micologia, jogo 3D, universidade virtual, fluxo laminar, spawn, cultura líquida, frutificação, multiplayer">
+  <meta name="author" content="Alquimistas Mágicos">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://mycocampus3d.alquimistasmagicos.com.br/">
+
+  <!-- Open Graph (WhatsApp, Facebook, Discord, Telegram) -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="MycoCampus3D">
+  <meta property="og:title" content="🍄 MycoCampus3D — Universidade 3D do Cultivo de Cogumelos">
+  <meta property="og:description" content="Campus 3D multiplayer no navegador: explore o laboratório, colha cogumelos, assista aulas ao vivo no auditório e suba no ranking.">
+  <meta property="og:url" content="https://mycocampus3d.alquimistasmagicos.com.br/">
+  <meta property="og:image" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
+  <meta property="og:image:secure_url" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Campus 3D com cogumelo gigante na praça, laboratório de vidro e auditório com telão">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="🍄 MycoCampus3D — Universidade 3D do Cultivo de Cogumelos">
+  <meta name="twitter:description" content="Campus 3D multiplayer no navegador para aprender cultivo de cogumelos na prática.">
+  <meta name="twitter:image" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
+
+  <!-- App / PWA -->
+  <meta name="theme-color" content="#0b1220">
+  <meta name="color-scheme" content="dark">
+  <meta name="application-name" content="MycoCampus3D">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MycoCampus3D">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "MycoCampus3D",
+    "description": "Universidade virtual 3D multiplayer para aprender cultivo de cogumelos na prática.",
+    "url": "https://mycocampus3d.alquimistasmagicos.com.br/",
+    "image": "https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg",
+    "inLanguage": "pt-BR",
+    "genre": ["Educacional", "Simulação", "Multiplayer"],
+    "gamePlatform": ["Web Browser", "PC", "Android", "iOS"],
+    "applicationCategory": "Game",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+    "publisher": { "@type": "Organization", "name": "Alquimistas Mágicos" }
+  }
+  </script>
+
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="css/tailwind.min.css?v=0.1.0">
+  <link rel="stylesheet" href="css/game.css?v=0.1.0">
   <style>
     html, body {
       margin: 0;
@@ -174,7 +235,7 @@
           🍄 Campus Virtual Multiplayer 3D
         </div>
         <h1 class="text-2xl font-extrabold tracking-tight text-white">MycoCampus3D</h1>
-        <p class="text-xs text-slate-300">Universidade do Cultivo de Cogumelos • Progresso salvo em MySQL</p>
+        <p class="text-xs text-slate-300">Universidade do Cultivo de Cogumelos • Seu progresso fica salvo</p>
       </div>
 
       <form id="lobby-form" class="space-y-3">
@@ -185,7 +246,7 @@
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1">PIN de Acesso (4 a 20 caracteres)</label>
-          <input id="input-pin" type="password" required minlength="4" maxlength="20" placeholder="Para entrar e salvar seu XP no MySQL"
+          <input id="input-pin" type="password" required minlength="4" maxlength="20" placeholder="Crie um PIN para salvar seu progresso"
             class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-400">
         </div>
 
@@ -217,8 +278,9 @@
       </form>
 
       <div id="lobby-stats" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
-        Conectando ao MySQL da Universidade...
+        Conectando ao servidor da Universidade...
       </div>
+      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.1.0</span> • Alquimistas Mágicos</div>
     </div>
   </div>
 
@@ -292,17 +354,24 @@
   <div id="ranking-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75">
     <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
-        <h2 class="text-base font-extrabold text-white">🏆 Ranking da Universidade (MySQL)</h2>
+        <h2 class="text-base font-extrabold text-white">🏆 Ranking da Universidade</h2>
         <button id="btn-close-ranking" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
       <div id="ranking-body" class="p-5 overflow-y-auto space-y-2 text-xs"></div>
     </div>
   </div>
 
+  <noscript>
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99;background:#0b1220;color:#fff;padding:24px;text-align:center">
+      🍄 O MycoCampus3D precisa de JavaScript ativado para carregar o campus 3D.
+    </div>
+  </noscript>
+
+  <script>window.MYCO_VERSION = '0.1.0';</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="js/campus3d.js"></script>
-  <script src="js/campus-app.js"></script>
+  <script src="js/campus3d.js?v=0.1.0"></script>
+  <script src="js/campus-app.js?v=0.1.0"></script>
 </body>
 </html>
 

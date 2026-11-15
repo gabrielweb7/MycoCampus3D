@@ -51,6 +51,7 @@
   var placementGhost = null;
   var placementValid = false;
   var pendingMovedItems = {};
+  var recentlyDropped = {};     // itemId -> timestamp ate quando ignorar o estado do servidor
 
   // Multiplayer avatars
   var remoteAvatars = {};
@@ -731,7 +732,7 @@
 
     ctx.fillStyle = '#38bdf8';
     ctx.font = 'bold 22px system-ui, sans-serif';
-    ctx.fillText('💡 Clique no telão ou abra "Aulas" para praticar e ganhar XP no MySQL!', 48, 520);
+    ctx.fillText('💡 Clique no telão ou abra "Aulas" para praticar e ganhar XP!', 48, 520);
 
     auditoriumTex.needsUpdate = true;
   }
@@ -894,7 +895,8 @@
 
     g.add(headGroup);
 
-    var labelSprite = makeTextSprite((data.role === 'professor' ? '👨‍🏫 ' : '') + (data.name || 'Aluno'), data.role === 'professor' ? '#fbbf24' : '#ffffff');
+    var isProf = data.role === 'professor' || data.role === 'admin';
+    var labelSprite = makeTextSprite((isProf ? '👨‍🏫 ' : '') + (data.name || 'Aluno'), isProf ? '#fbbf24' : '#ffffff');
     labelSprite.position.set(0, 1.85, 0);
     g.add(labelSprite);
 
@@ -913,11 +915,49 @@
       chatSprite: chatSprite,
       lastChat: '',
       targetPos: new THREE.Vector3(data.x || 0, data.y || 0, data.z || 0),
-      targetYaw: data.yaw || 0,
+      targetYaw: normalizeAngle(data.yaw || 0),
       targetPitch: data.pitch || 0,
+      holding: '',
       walking: false,
       walkPhase: 0
     };
+  }
+
+  // Fallback para navegadores sem CanvasRenderingContext2D.roundRect (Safari < 16, Chrome < 99)
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function normalizeAngle(a) {
+    a = a % (Math.PI * 2);
+    if (a > Math.PI) a -= Math.PI * 2;
+    if (a < -Math.PI) a += Math.PI * 2;
+    return a;
+  }
+
+  function isHeldByRemote(itemId) {
+    var ids = Object.keys(remoteAvatars);
+    for (var i = 0; i < ids.length; i++) {
+      if (remoteAvatars[ids[i]].holding === itemId) return true;
+    }
+    return false;
+  }
+
+  function findPickable(itemId) {
+    for (var i = 0; i < pickableItems.length; i++) {
+      if (pickableItems[i].id === itemId) return pickableItems[i];
+    }
+    return null;
   }
 
   function makeTextSprite(text, colorHex) {
@@ -942,8 +982,7 @@
       return;
     }
     ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
-    ctx.beginPath();
-    ctx.roundRect(16, 12, 480, 72, 24);
+    roundRectPath(ctx, 16, 12, 480, 72, 24);
     ctx.fill();
     ctx.fillStyle = colorHex || '#ffffff';
     ctx.font = 'bold 32px system-ui, sans-serif';
@@ -964,9 +1003,16 @@
         remoteAvatars[p.id] = av;
       }
       av.targetPos.set(p.x, p.y, p.z);
-      av.targetYaw = p.yaw || 0;
+      av.targetYaw = normalizeAngle(p.yaw || 0);
       av.targetPitch = p.pitch || 0;
       av.walking = !!p.walking;
+      av.holding = p.holding || '';
+      // Se outro jogador pegou o item que eu estava segurando, ele fica com o item
+      if (heldItem && av.holding === heldItem.id) {
+        heldItem = null;
+        if (placementGhost) placementGhost.visible = false;
+        if (callbacks.onHoldChange) callbacks.onHoldChange(null);
+      }
 
       if ((p.chat || '') !== av.lastChat) {
         av.lastChat = p.chat || '';
@@ -991,8 +1037,18 @@
     Object.keys(remoteAvatars).forEach(function (id) {
       var av = remoteAvatars[id];
       av.group.position.lerp(av.targetPos, Math.min(1, dt * 10));
-      av.group.rotation.y += (av.targetYaw - av.group.rotation.y) * Math.min(1, dt * 12);
+      // Interpola pelo menor caminho angular (evita giros de 360°)
+      var dYaw = normalizeAngle(av.targetYaw - av.group.rotation.y);
+      av.group.rotation.y = normalizeAngle(av.group.rotation.y + dYaw * Math.min(1, dt * 12));
       av.headGroup.rotation.x += (av.targetPitch - av.headGroup.rotation.x) * Math.min(1, dt * 12);
+      if (av.holding) {
+        var held = findPickable(av.holding);
+        if (held && held !== heldItem) {
+          var hand = new THREE.Vector3(0.28, 0.62, -0.32).applyAxisAngle(new THREE.Vector3(0, 1, 0), av.group.rotation.y);
+          held.mesh.position.copy(av.group.position).add(hand);
+          held.mesh.rotation.y = av.group.rotation.y;
+        }
+      }
       if (av.walking) {
         av.walkPhase += dt * 10;
         av.leftLeg.rotation.x = Math.sin(av.walkPhase) * 0.55;
@@ -1017,6 +1073,7 @@
           z: heldItem.mesh.position.z,
           ry: heldRotY
         };
+        recentlyDropped[heldItem.id] = performance.now() + 1500;
         heldItem = null;
         placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
@@ -1104,6 +1161,7 @@
     if (!prompt) {
       for (var i = 0; i < pickableItems.length; i++) {
         var item = pickableItems[i];
+        if (isHeldByRemote(item.id)) continue;
         var hits = raycaster.intersectObject(item.mesh, true);
         if (hits.length > 0 && hits[0].distance < 4.5) {
           hoveredPickable = item;
@@ -1399,10 +1457,18 @@
     return list;
   };
 
+  window.requeueCampusMovedItems = function (list) {
+    (list || []).forEach(function (it) {
+      if (it && it.id && !pendingMovedItems[it.id]) pendingMovedItems[it.id] = it;
+    });
+  };
+
   window.applyCampusWorldObjects = function (objectsMap) {
     if (!objectsMap) return;
     pickableItems.forEach(function (item) {
-      if (heldItem === item) return;
+      if (heldItem === item || isHeldByRemote(item.id)) return;
+      // Item que acabei de soltar e ainda nao foi enviado: mantem a posicao local
+      if (pendingMovedItems[item.id] || recentlyDropped[item.id] > performance.now()) return;
       var saved = objectsMap[item.id];
       if (saved) {
         item.mesh.position.set(saved.x, saved.y, saved.z);

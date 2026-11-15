@@ -91,17 +91,32 @@
     }
   ];
 
-  var sessionId = 'mc_' + Math.random().toString(36).slice(2, 12);
+  var APP_VERSION = window.MYCO_VERSION || 'dev';
+  var SYNC_INTERVAL_MS = 200;
+
+  var sessionId = 'mc_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
   var currentUser = null;
+  var authToken = '';
   var selectedHat = HAT_COLORS[0];
   var selectedBody = BODY_COLORS[0];
   var currentSlideIdx = 0;
   var currentPresenter = '';
   var pendingChatMsg = '';
   var syncTimer = null;
+  var syncInFlight = false;
+  var syncFailures = 0;
   var inFpsState = false;
 
   function $(id) { return document.getElementById(id); }
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   function isTouch() {
     var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -155,40 +170,75 @@
     }
   }
 
-  async function apiPost(url, payload) {
+  async function apiPost(url, payload, withAuth) {
+    var data = Object.assign({}, payload || {});
+    if (withAuth && currentUser) {
+      data.user_id = currentUser.id;
+      data.token = authToken;
+    }
     var res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload || {})
+      body: JSON.stringify(data),
+      credentials: 'same-origin'
     });
-    return res.json();
+    var json = await res.json();
+    if (res.status === 401 && json && json.auth === false && currentUser) {
+      handleSessionExpired(json.error);
+    }
+    return json;
+  }
+
+  function handleSessionExpired(msg) {
+    if (syncTimer) clearInterval(syncTimer);
+    syncTimer = null;
+    currentUser = null;
+    authToken = '';
+    window.updateCampusPlayers([]);
+    window.setCampusFpsMode(false);
+    $('campus-hud').classList.add('hidden');
+    $('lesson-modal').classList.add('hidden');
+    $('ranking-modal').classList.add('hidden');
+    $('campus-lobby').classList.remove('hidden');
+    var btn = $('btn-enter-campus');
+    btn.disabled = false;
+    btn.textContent = '🚀 Entrar no Campus 3D';
+    var errBox = $('lobby-error');
+    errBox.textContent = msg || 'Sessão expirada. Entre novamente.';
+    errBox.classList.remove('hidden');
   }
 
   async function loadLobbyStats() {
     try {
-      var res = await fetch('api/auth.php?action=leaderboard');
+      var res = await fetch('api/auth.php?action=leaderboard', { cache: 'no-store' });
       var data = await res.json();
       if (data.ok && data.stats) {
         $('lobby-stats').textContent =
-          'MySQL Conectado • ' + data.stats.total_users + ' estudantes • ' +
+          '🟢 Online • ' + data.stats.total_users + ' estudantes • ' +
           data.stats.total_xp + ' XP acumulados • ' + data.stats.total_harvests + ' cogus colhidos';
       } else {
         $('lobby-stats').textContent = data.error || 'Aguardando configuração do MySQL.';
       }
     } catch (err) {
-      $('lobby-stats').textContent = 'Servidor PHP/MySQL offline localmente (modo preview 3D disponível após configurar HostGator/XAMPP).';
+      $('lobby-stats').textContent = 'Servidor offline no momento. Tente novamente em instantes.';
     }
   }
 
-  async function awardProgress(xpDelta, harvestDelta, moduleSlug) {
+  async function harvestMushroom() {
     if (!currentUser) return;
     try {
-      var data = await apiPost('api/auth.php?action=add_progress', {
-        user_id: currentUser.id,
-        xp_delta: xpDelta || 0,
-        harvest_delta: harvestDelta || 0,
-        completed_module: moduleSlug || ''
-      });
+      var data = await apiPost('api/auth.php?action=harvest', {}, true);
+      if (data.ok && data.user) {
+        currentUser = data.user;
+        updateUserHud();
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  async function completeModule(slug) {
+    if (!currentUser) return;
+    try {
+      var data = await apiPost('api/auth.php?action=complete_module', { module: slug }, true);
       if (data.ok && data.user) {
         currentUser = data.user;
         updateUserHud();
@@ -218,8 +268,8 @@
       var header = document.createElement('div');
       header.className = 'flex items-center justify-between gap-2';
       header.innerHTML =
-        '<div><div class="font-bold text-white">' + (idx + 1) + '. ' + lesson.title + '</div>' +
-        '<div class="text-xs text-slate-400">' + lesson.subtitle + '</div></div>' +
+        '<div><div class="font-bold text-white">' + (idx + 1) + '. ' + escapeHtml(lesson.title) + '</div>' +
+        '<div class="text-xs text-slate-400">' + escapeHtml(lesson.subtitle) + '</div></div>' +
         '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ' +
         (isDone ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-300') + '">' +
         (isDone ? '✅ Concluído' : '+50 XP') + '</span>';
@@ -227,7 +277,7 @@
 
       var ul = document.createElement('div');
       ul.className = 'text-xs text-slate-300 space-y-1';
-      ul.innerHTML = lesson.bullets.map(function (b) { return '<div>' + b + '</div>'; }).join('');
+      ul.innerHTML = lesson.bullets.map(function (b) { return '<div>' + escapeHtml(b) + '</div>'; }).join('');
       card.appendChild(ul);
 
       if (isProf) {
@@ -258,9 +308,9 @@
           feedback.classList.remove('hidden');
           if (opt.ok) {
             feedback.className = 'text-xs font-bold text-emerald-300 pt-1';
-            feedback.textContent = isDone ? '✅ Correto! Módulo já registrado no MySQL.' : '🎉 Correto! +50 XP salvos no MySQL!';
+            feedback.textContent = isDone ? '✅ Correto! Módulo já concluído.' : '🎉 Correto! +50 XP salvos no seu perfil!';
             if (!isDone) {
-              awardProgress(50, 0, lesson.slug).then(renderLessonsModal);
+              completeModule(lesson.slug).then(renderLessonsModal);
             }
           } else {
             feedback.className = 'text-xs font-bold text-rose-300 pt-1';
@@ -278,30 +328,35 @@
   async function openRankingModal() {
     $('ranking-modal').classList.remove('hidden');
     var body = $('ranking-body');
-    body.innerHTML = '<div class="text-slate-400">Carregando ranking do MySQL...</div>';
+    body.innerHTML = '<div class="text-slate-400">Carregando ranking...</div>';
     try {
-      var res = await fetch('api/auth.php?action=leaderboard');
+      var res = await fetch('api/auth.php?action=leaderboard', { cache: 'no-store' });
       var data = await res.json();
       if (!data.ok) {
-        body.innerHTML = '<div class="text-rose-300">' + (data.error || 'Erro ao carregar') + '</div>';
+        body.innerHTML = '<div class="text-rose-300">' + escapeHtml(data.error || 'Erro ao carregar') + '</div>';
         return;
       }
+      var totalModules = data.total_modules || LESSONS.length;
       body.innerHTML = '';
+      if (!(data.leaders || []).length) {
+        body.innerHTML = '<div class="text-slate-400">Nenhum estudante ainda. Seja o primeiro! 🍄</div>';
+      }
       (data.leaders || []).forEach(function (u, i) {
         var row = document.createElement('div');
-        row.className = 'flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-800';
+        var isMe = currentUser && u.id === currentUser.id;
+        row.className = 'flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/80 border ' + (isMe ? 'border-emerald-400/30' : 'border-slate-800');
         var roleTag = (u.role === 'professor' || u.role === 'admin') ? '👨‍🏫 ' : '🎓 ';
         row.innerHTML =
           '<div class="flex items-center gap-2"><span class="font-extrabold text-amber-300 w-5">#' + (i + 1) + '</span>' +
-          '<span class="font-bold text-white">' + roleTag + u.display_name + '</span></div>' +
+          '<span class="font-bold text-white">' + roleTag + escapeHtml(u.display_name) + '</span></div>' +
           '<div class="flex items-center gap-3 text-slate-300">' +
-          '<span>📚 ' + (u.completed_modules || []).length + '/5</span>' +
-          '<span>🍄 ' + u.mushrooms_harvested + '</span>' +
-          '<span class="font-extrabold text-emerald-300">⭐ ' + u.xp + ' XP</span></div>';
+          '<span>📚 ' + (u.completed_modules || []).length + '/' + totalModules + '</span>' +
+          '<span>🍄 ' + (parseInt(u.mushrooms_harvested, 10) || 0) + '</span>' +
+          '<span class="font-extrabold text-emerald-300">⭐ ' + (parseInt(u.xp, 10) || 0) + ' XP</span></div>';
         body.appendChild(row);
       });
     } catch (e) {
-      body.innerHTML = '<div class="text-rose-300">Erro de conexão com o MySQL.</div>';
+      body.innerHTML = '<div class="text-rose-300">Erro de conexão com o servidor.</div>';
     }
   }
 
@@ -310,15 +365,13 @@
     applySlideTo3D(clamped, currentUser ? currentUser.display_name : '');
     if (!currentUser) return;
     try {
-      await apiPost('api/multiplayer.php?action=set_slide', {
-        user_id: currentUser.id,
-        slide_index: clamped
-      });
+      await apiPost('api/multiplayer.php?action=set_slide', { slide_index: clamped }, true);
     } catch (e) { /* silent */ }
   }
 
   async function syncMultiplayer() {
-    if (!currentUser) return;
+    if (!currentUser || syncInFlight) return;
+    syncInFlight = true;
     var pose = window.getCampusPlayerPose();
     var moved = window.consumeCampusMovedItems();
     var chatToSend = pendingChatMsg;
@@ -327,11 +380,6 @@
     try {
       var data = await apiPost('api/multiplayer.php?action=sync', {
         session_id: sessionId,
-        user_id: currentUser.id,
-        display_name: currentUser.display_name,
-        role: currentUser.role,
-        hat_color: currentUser.hat_color,
-        body_color: currentUser.body_color,
         x: pose.x,
         y: pose.y,
         z: pose.z,
@@ -342,8 +390,9 @@
         in_fps: pose.in_fps,
         chat_msg: chatToSend,
         moved_items: moved
-      });
+      }, true);
       if (data.ok) {
+        syncFailures = 0;
         $('hud-online').textContent = String(data.online_count || 1);
         window.updateCampusPlayers(data.players || []);
         window.applyCampusWorldObjects(data.objects || {});
@@ -353,8 +402,17 @@
             applySlideTo3D(data.world_state.auditorium_slide, data.world_state.auditorium_presenter || '');
           }
         }
+      } else if (data.auth !== false) {
+        throw new Error(data.error || 'sync');
       }
-    } catch (e) { /* keep running */ }
+    } catch (e) {
+      // Reenvia itens/chat que nao chegaram ao servidor
+      syncFailures++;
+      if (chatToSend && !pendingChatMsg) pendingChatMsg = chatToSend;
+      if (moved && moved.length) window.requeueCampusMovedItems(moved);
+    } finally {
+      syncInFlight = false;
+    }
   }
 
   function setupMobileJoystick() {
@@ -429,10 +487,12 @@
     renderSwatches();
     setupMobileJoystick();
     loadLobbyStats();
+    var verEl = $('app-version');
+    if (verEl) verEl.textContent = 'v' + APP_VERSION;
 
     window.initCampus3D('campus-canvas-wrap', {
       onHarvestMushroom: function () {
-        awardProgress(25, 1, '');
+        harvestMushroom();
       },
       onOpenLessons: function () {
         renderLessonsModal();
@@ -463,7 +523,7 @@
       errBox.classList.add('hidden');
       var btn = $('btn-enter-campus');
       btn.disabled = true;
-      btn.textContent = 'Conectando ao MySQL...';
+      btn.textContent = 'Entrando no campus...';
 
       try {
         var data = await apiPost('api/auth.php?action=login', {
@@ -481,6 +541,9 @@
           return;
         }
         currentUser = data.user;
+        authToken = data.token || '';
+        $('input-pin').value = '';
+        $('input-prof-key').value = '';
         updateUserHud();
         $('campus-lobby').classList.add('hidden');
         $('campus-hud').classList.remove('hidden');
@@ -488,9 +551,9 @@
         setTimeout(function () { $('fps-hint').classList.add('faded'); }, 4000);
         if (syncTimer) clearInterval(syncTimer);
         syncMultiplayer();
-        syncTimer = setInterval(syncMultiplayer, 150);
+        syncTimer = setInterval(syncMultiplayer, SYNC_INTERVAL_MS);
       } catch (err) {
-        errBox.textContent = 'Falha ao conectar em api/auth.php (verifique o MySQL e api/config.php).';
+        errBox.textContent = 'Falha ao conectar com o servidor. Tente novamente em instantes.';
         errBox.classList.remove('hidden');
         btn.disabled = false;
         btn.textContent = '🚀 Entrar no Campus 3D';
@@ -507,7 +570,7 @@
 
     $('btn-reset-lab').onclick = async function () {
       window.resetCampusWorldObjects();
-      try { await apiPost('api/multiplayer.php?action=reset_world', {}); } catch (e) { /* silent */ }
+      try { await apiPost('api/multiplayer.php?action=reset_world', {}, true); } catch (e) { /* silent */ }
     };
 
     $('chat-form').addEventListener('submit', function (e) {
@@ -515,17 +578,23 @@
       var inp = $('chat-input');
       var txt = inp.value.trim();
       if (txt) {
-        pendingChatMsg = txt;
+        pendingChatMsg = txt.slice(0, 140);
         inp.value = '';
         inp.blur();
       }
     });
 
-    window.addEventListener('beforeunload', function () {
-      if (currentUser && navigator.sendBeacon) {
-        navigator.sendBeacon('api/multiplayer.php?action=leave', JSON.stringify({ session_id: sessionId }));
+    function sendLeave() {
+      if (currentUser && authToken && navigator.sendBeacon) {
+        navigator.sendBeacon('api/multiplayer.php?action=leave', JSON.stringify({
+          session_id: sessionId,
+          user_id: currentUser.id,
+          token: authToken
+        }));
       }
-    });
+    }
+    window.addEventListener('pagehide', sendLeave);
+    window.addEventListener('beforeunload', sendLeave);
   }
 
   document.addEventListener('DOMContentLoaded', boot);
