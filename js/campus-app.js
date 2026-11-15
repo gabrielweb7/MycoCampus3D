@@ -92,7 +92,7 @@
   ];
 
   var APP_VERSION = window.MYCO_VERSION || 'dev';
-  var SYNC_INTERVAL_MS = 750;
+  var SYNC_INTERVAL_MS = 125;
 
   var sessionId = 'mc_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
   var currentUser = null;
@@ -103,6 +103,8 @@
   var currentPresenter = '';
   var pendingChatMsg = '';
   var boardLastId = 0;
+  var lastObjVer = '';
+  var lastStateVer = '';
   var syncTimer = null;
   var syncInFlight = false;
   var syncQueued = false;
@@ -436,9 +438,23 @@
       return;
     }
     var next = !(window.isCampusSnowboardActive && window.isCampusSnowboardActive());
+    if (next && window.setCampusParaglider) window.setCampusParaglider(false);
     if (window.setCampusSnowboard) window.setCampusSnowboard(next);
     if (window.MycoAudio) window.MycoAudio.playClick();
     showCampusToast(next ? '🏂 Snowboard ativado! Olhe para baixo para ver nos seus pés!' : '🏂 Snowboard guardado!');
+  };
+
+  window.toggleCampusParaglider = function () {
+    var unlocked = (currentUser && currentUser.unlocked_hats) || [];
+    if (unlocked.indexOf('paraglider') === -1) {
+      showCampusToast('🔒 Desbloqueie o Paraglider na 👑 Loja -> 🏂 Brinquedos!');
+      return;
+    }
+    var next = !(window.isCampusParagliderActive && window.isCampusParagliderActive());
+    if (next && window.setCampusSnowboard) window.setCampusSnowboard(false);
+    if (window.setCampusParaglider) window.setCampusParaglider(next);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    showCampusToast(next ? '🪂 Paraglider ativado! Salte de uma montanha e entre nas correntes de ar!' : '🪂 Paraglider guardado!');
   };
 
   var COSMETIC_TOYS = [
@@ -449,6 +465,14 @@
       req_xp: 100,
       req_mushrooms: 2,
       icon: '🏂'
+    },
+    {
+      id: 'paraglider',
+      name: 'Paraglider MycoWing',
+      desc: 'Salte das montanhas, pegue correntes térmicas e voe pelo campus! (Atalho: P)',
+      req_xp: 150,
+      req_mushrooms: 3,
+      icon: '🪂'
     }
   ];
   var activeShopTab = 'hats';
@@ -462,6 +486,7 @@
     var unlocked = (currentUser && currentUser.unlocked_hats) || ['default'];
     var currentHat = (currentUser && currentUser.current_hat) || 'default';
     var snowboardOn = !!(window.isCampusSnowboardActive && window.isCampusSnowboardActive());
+    var paragliderOn = !!(window.isCampusParagliderActive && window.isCampusParagliderActive());
 
     if ($('shop-user-xp')) $('shop-user-xp').textContent = String(userXp);
     if ($('shop-user-mushrooms')) $('shop-user-mushrooms').textContent = String(userMush);
@@ -478,7 +503,7 @@
     var list = activeShopTab === 'toys' ? COSMETIC_TOYS : COSMETIC_HATS;
     list.forEach(function (item) {
       var isToy = activeShopTab === 'toys';
-      var isEquipped = isToy ? snowboardOn : (currentHat === item.id);
+      var isEquipped = isToy ? (item.id === 'paraglider' ? paragliderOn : snowboardOn) : (currentHat === item.id);
       var isUnlocked = unlocked.indexOf(item.id) !== -1 || (!isToy && item.id === 'default');
       var canUnlock = userXp >= item.req_xp && userMush >= item.req_mushrooms;
 
@@ -507,12 +532,18 @@
       if (isEquipped) {
         var unequipBtn = document.createElement('button');
         unequipBtn.className = 'w-full py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition';
-        unequipBtn.textContent = isToy ? '❌ Desativar Snowboard' : '❌ Desativar Chapéu';
+        unequipBtn.textContent = isToy ? ('❌ Desativar ' + (item.id === 'paraglider' ? 'Paraglider' : 'Snowboard')) : '❌ Desativar Chapéu';
         unequipBtn.onclick = async function () {
           if (window.MycoAudio) window.MycoAudio.playClick();
           if (isToy) {
-            if (window.setCampusSnowboard) window.setCampusSnowboard(false);
-            showCampusToast('🏂 Snowboard guardado!');
+            if (item.id === 'paraglider') {
+              if (window.setCampusParaglider) window.setCampusParaglider(false);
+              showCampusToast('🪂 Paraglider guardado!');
+            } else {
+              if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+    if (window.setCampusParaglider) window.setCampusParaglider(false);
+              showCampusToast('🏂 Snowboard guardado!');
+            }
             renderShopModal();
           } else {
             try {
@@ -530,12 +561,20 @@
       } else if (isUnlocked) {
         var equipBtn = document.createElement('button');
         equipBtn.className = 'w-full py-1.5 rounded-lg ' + (isToy ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-purple-600 hover:bg-purple-500') + ' text-white font-bold text-xs shadow transition';
-        equipBtn.textContent = isToy ? '🏂 Ativar Snowboard' : 'Equipar';
+        equipBtn.textContent = isToy ? (item.id === 'paraglider' ? '🪂 Ativar Paraglider' : '🏂 Ativar Snowboard') : 'Equipar';
         equipBtn.onclick = async function () {
           if (window.MycoAudio) window.MycoAudio.playClick();
           if (isToy) {
-            if (window.setCampusSnowboard) window.setCampusSnowboard(true);
-            showCampusToast('🏂 Snowboard ativado! Olhe para baixo para ver nos seus pés ou suba a montanha! (B para alternar)');
+            if (item.id === 'paraglider') {
+              if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+    if (window.setCampusParaglider) window.setCampusParaglider(false);
+              if (window.setCampusParaglider) window.setCampusParaglider(true);
+              showCampusToast('🪂 Paraglider ativado! Salte de uma montanha e pegue as correntes de ar! (P para alternar)');
+            } else {
+              if (window.setCampusParaglider) window.setCampusParaglider(false);
+              if (window.setCampusSnowboard) window.setCampusSnowboard(true);
+              showCampusToast('🏂 Snowboard ativado! Olhe para baixo para ver nos seus pés ou suba a montanha! (B para alternar)');
+            }
             renderShopModal();
           } else {
             try {
@@ -561,8 +600,16 @@
             if (res.ok && res.user) {
               currentUser = res.user;
               if (isToy) {
-                if (window.setCampusSnowboard) window.setCampusSnowboard(true);
-                showCampusToast('🏂 Snowboard desbloqueado e ativado! Suba a montanha no 🗺️ Mapa!');
+                if (item.id === 'paraglider') {
+                  if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+    if (window.setCampusParaglider) window.setCampusParaglider(false);
+                  if (window.setCampusParaglider) window.setCampusParaglider(true);
+                  showCampusToast('🪂 Paraglider desbloqueado! Vá para as 🏔️ Montanhas no 🗺️ Mapa e salte!');
+                } else {
+                  if (window.setCampusParaglider) window.setCampusParaglider(false);
+                  if (window.setCampusSnowboard) window.setCampusSnowboard(true);
+                  showCampusToast('🏂 Snowboard desbloqueado e ativado! Suba a montanha no 🗺️ Mapa!');
+                }
               } else {
                 window.setLocalAvatarHat(item.id);
               }
@@ -709,6 +756,7 @@
     sessionId = 'mc_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
     if (window.resetCampusLocalSession) window.resetCampusLocalSession();
     if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+    if (window.setCampusParaglider) window.setCampusParaglider(false);
     window.updateCampusPlayers([]);
     window.setCampusFpsMode(false);
     $('campus-hud').classList.add('hidden');
@@ -1108,12 +1156,18 @@
     pendingChatMsg = '';
 
     try {
+      if (firstSync) {
+        lastObjVer = '';
+        lastStateVer = '';
+      }
       var data = await apiPost('api/multiplayer.php?action=sync', {
         session_id: sessionId,
         init_sync: firstSync ? 1 : 0,
         x: pose.x,
         y: pose.y,
         z: pose.z,
+        vx: pose.vx || 0,
+        vz: pose.vz || 0,
         yaw: pose.yaw,
         pitch: pose.pitch,
         holding_item: pose.holding_item,
@@ -1125,6 +1179,8 @@
         chat_msg: chatToSend,
         moved_items: moved,
         state_changes: stateChanges,
+        obj_ver: lastObjVer,
+        state_ver: lastStateVer,
         board_since: boardLastId,
         board_strokes: strokes
       }, true);
@@ -1164,8 +1220,12 @@
           }
         }
         $('hud-online').textContent = String(data.online_count || 1);
-        window.applyCampusWorldObjects(data.objects || {});
-        if (data.world_state && window.applyCampusWorldState) {
+        if (typeof data.obj_ver === 'string') lastObjVer = data.obj_ver;
+        if (typeof data.state_ver === 'string') lastStateVer = data.state_ver;
+        if (!data.objects_unchanged && data.objects) {
+          window.applyCampusWorldObjects(data.objects);
+        }
+        if (!data.state_unchanged && data.world_state && window.applyCampusWorldState) {
           window.applyCampusWorldState(data.world_state, firstSync);
         }
         if (firstSync && data.saved_pose && window.applyCampusSavedPose) {
@@ -1509,6 +1569,17 @@
         }
       },
       onFpsChange: updateFpsUi,
+      onQualityChange: function (info) {
+        var qBtn = $('btn-quality');
+        if (!qBtn || !info) return;
+        var labels = { high: 'Alto', medium: 'Méd', low: 'Desemp', min: 'Mín' };
+        var tierTxt = labels[info.tier] || info.tier;
+        var prefix = info.mode === 'auto' ? 'Auto (' + tierTxt + ')' : tierTxt;
+        var fpsTxt = info.fps > 0 ? ' • ' + info.fps + 'fps' : '';
+        qBtn.textContent = '⚡ ' + prefix + fpsTxt;
+        qBtn.className = 'px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 font-bold border whitespace-nowrap ' +
+          (info.tier === 'min' || info.tier === 'low' ? 'text-amber-300 border-amber-500/40' : 'text-cyan-300 border-cyan-500/40');
+      },
       onHoverPrompt: function (txt) {
         var pill = $('interact-pill');
         if (pill && Date.now() >= toastUntil) {
@@ -1588,6 +1659,19 @@
     }
     window.addEventListener('touchstart', onFirstGameGesture, { passive: true });
     window.addEventListener('mousedown', onFirstGameGesture, { passive: true });
+
+    var btnQuality = $('btn-quality');
+    if (btnQuality && window.setCampusQualityMode && window.getCampusQualityState) {
+      var qModes = ['auto', 'high', 'medium', 'low', 'min'];
+      btnQuality.onclick = function (e) {
+        e.stopPropagation();
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        var cur = window.getCampusQualityState();
+        var idx = qModes.indexOf(cur.mode);
+        var nextMode = qModes[(idx + 1) % qModes.length];
+        window.setCampusQualityMode(nextMode);
+      };
+    }
 
     var fsBtn = $('btn-fullscreen');
     if (fsBtn) {

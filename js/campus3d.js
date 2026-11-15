@@ -5013,23 +5013,48 @@
       targetPos: new THREE.Vector3(data.x || 0, data.y || 0, data.z || 0),
       targetYaw: normalizeAngle(data.yaw || 0),
       targetPitch: data.pitch || 0,
+      targetVelX: 0, targetVelZ: 0,
+      snapshots: [],
       holding: '', walking: false, seated: false, walkPhase: 0
     };
   }
 
+  var MP_INTERP_DELAY_MS = 135;
+
   function updateCampusPlayers(players) {
     var seen = {};
+    var nowMs = performance.now();
     (players || []).forEach(function (p) {
       seen[p.id] = true;
+      var nyaw = normalizeAngle(p.yaw || 0);
+      var npitch = p.pitch || 0;
       var av = remoteAvatars[p.id];
       if (!av) {
         av = buildCuteAvatar(p);
         av.group.position.set(p.x, p.y, p.z);
+        av.group.rotation.y = nyaw;
+        av.snapshots.push({ t: nowMs, x: p.x, y: p.y, z: p.z, yaw: nyaw, pitch: npitch, vx: Number(p.vx) || 0, vz: Number(p.vz) || 0 });
         remoteAvatars[p.id] = av;
+      } else {
+        var snaps = av.snapshots;
+        var prev = snaps.length ? snaps[snaps.length - 1] : null;
+        var vx = Number(p.vx) || 0;
+        var vz = Number(p.vz) || 0;
+        if (prev && vx === 0 && vz === 0) {
+          var dtSec = (nowMs - prev.t) / 1000;
+          if (dtSec > 0.03 && dtSec < 1.2) {
+            vx = (p.x - prev.x) / dtSec;
+            vz = (p.z - prev.z) / dtSec;
+          }
+        }
+        snaps.push({ t: nowMs, x: p.x, y: p.y, z: p.z, yaw: nyaw, pitch: npitch, vx: vx, vz: vz });
+        if (snaps.length > 6) snaps.shift();
       }
       av.targetPos.set(p.x, p.y, p.z);
-      av.targetYaw = normalizeAngle(p.yaw || 0);
-      av.targetPitch = p.pitch || 0;
+      av.targetYaw = nyaw;
+      av.targetPitch = npitch;
+      av.targetVelX = Number(p.vx) || 0;
+      av.targetVelZ = Number(p.vz) || 0;
       av.walking = !!p.walking;
       av.seated = !!p.seated;
       av.holding = p.holding || '';
@@ -5100,15 +5125,67 @@
     }
   }
 
+  var _tmpInterpPos = new THREE.Vector3();
+
   function stepMultiplayerAvatars(dt) {
     var tNow = clock.elapsedTime;
+    var renderTime = performance.now() - MP_INTERP_DELAY_MS;
+    var blend = 1 - Math.exp(-24 * dt);
+
     Object.keys(remoteAvatars).forEach(function (id) {
       var av = remoteAvatars[id];
-      animateAvatarAura(av, tNow);
-      av.group.position.lerp(av.targetPos, Math.min(1, dt * 10));
-      var dYaw = normalizeAngle(av.targetYaw - av.group.rotation.y);
-      av.group.rotation.y = normalizeAngle(av.group.rotation.y + dYaw * Math.min(1, dt * 12));
-      av.headGroup.rotation.x += (av.targetPitch - av.headGroup.rotation.x) * Math.min(1, dt * 12);
+      if (auraEnabled) animateAvatarAura(av, tNow);
+
+      var prevX = av.group.position.x;
+      var prevZ = av.group.position.z;
+      var snaps = av.snapshots;
+      var desiredYaw = av.targetYaw;
+      var desiredPitch = av.targetPitch;
+      _tmpInterpPos.copy(av.targetPos);
+
+      if (snaps && snaps.length >= 2) {
+        // Encontra o par de snapshots que envolve renderTime
+        var s0 = snaps[0], s1 = snaps[snaps.length - 1];
+        if (renderTime <= s0.t) {
+          _tmpInterpPos.set(s0.x, s0.y, s0.z);
+          desiredYaw = s0.yaw;
+          desiredPitch = s0.pitch;
+        } else if (renderTime >= s1.t) {
+          // Dead-reckoning suave limitado a 240ms se um pacote atrasar
+          var extrap = Math.min(0.24, (renderTime - s1.t) / 1000);
+          var damp = 1 - extrap * 1.5;
+          _tmpInterpPos.set(s1.x + s1.vx * extrap * damp, s1.y, s1.z + s1.vz * extrap * damp);
+          desiredYaw = s1.yaw;
+          desiredPitch = s1.pitch;
+        } else {
+          for (var si = 0; si < snaps.length - 1; si++) {
+            if (renderTime >= snaps[si].t && renderTime <= snaps[si + 1].t) {
+              var a = snaps[si], b = snaps[si + 1];
+              var span = Math.max(1, b.t - a.t);
+              var alpha = (renderTime - a.t) / span;
+              _tmpInterpPos.set(
+                a.x + (b.x - a.x) * alpha,
+                a.y + (b.y - a.y) * alpha,
+                a.z + (b.z - a.z) * alpha
+              );
+              desiredYaw = normalizeAngle(a.yaw + normalizeAngle(b.yaw - a.yaw) * alpha);
+              desiredPitch = a.pitch + (b.pitch - a.pitch) * alpha;
+              break;
+            }
+          }
+        }
+      }
+
+      if (av.group.position.distanceToSquared(_tmpInterpPos) > 100) {
+        av.group.position.copy(_tmpInterpPos);
+      } else {
+        av.group.position.lerp(_tmpInterpPos, blend);
+      }
+      var dYaw = normalizeAngle(desiredYaw - av.group.rotation.y);
+      av.group.rotation.y = normalizeAngle(av.group.rotation.y + dYaw * Math.min(1, dt * 16));
+      av.headGroup.rotation.x += (desiredPitch - av.headGroup.rotation.x) * Math.min(1, dt * 16);
+
+      var moveSpeed = Math.hypot(av.group.position.x - prevX, av.group.position.z - prevZ) / Math.max(dt, 0.001);
       var heldObj = null;
       if (av.holding) {
         heldObj = findPickable(av.holding);
@@ -5153,8 +5230,9 @@
         av.rightArm.position.set(0.28, 0.82, 0);
         if (av.labelSprite) av.labelSprite.position.y = 1.92;
         if (av.chatSprite) av.chatSprite.position.y = 2.28;
-        if (av.walking) {
-          av.walkPhase += dt * 10;
+        if (av.walking || moveSpeed > 0.35) {
+          var stepRate = moveSpeed > 0.35 ? Math.max(6, Math.min(14, moveSpeed * 2.1)) : 10;
+          av.walkPhase += dt * stepRate;
           av.leftLeg.rotation.x = Math.sin(av.walkPhase) * 0.55;
           av.rightLeg.rotation.x = -Math.sin(av.walkPhase) * 0.55;
           av.leftArm.rotation.x = twoH ? 1.05 : -Math.sin(av.walkPhase) * 0.45;
@@ -6251,11 +6329,104 @@
   var _cSunSunsetGlow = new THREE.Color(0xfdba74);
   var _cSnowWhite = new THREE.Color(0xf1f5f9);
 
+  var qualityMode = 'auto'; // 'auto' | 'high' | 'medium' | 'low' | 'min'
+  var qualityTier = 'high';
+  var qualityTiersOrder = ['high', 'medium', 'low', 'min'];
+  var auraEnabled = true;
+  var fpsFrames = 0;
+  var fpsLastSampleAt = 0;
+  var fpsLastFrameAt = 0;
+  var currentFps = 60;
+  var lowFpsStreak = 0;
+  var highFpsStreak = 0;
+
+  function applyQualityTier(tier) {
+    qualityTier = tier;
+    if (!renderer || !camera) return;
+    var dpr = window.devicePixelRatio || 1;
+    var cfg = {
+      high:   { ratio: Math.min(dpr, 1.5), shadows: true,  soft: true,  far: 420, aura: true,  weather: true },
+      medium: { ratio: Math.min(dpr, 1.0), shadows: true,  soft: false, far: 260, aura: true,  weather: true },
+      low:    { ratio: 0.75,               shadows: false, soft: false, far: 185, aura: true,  weather: true },
+      min:    { ratio: 0.55,               shadows: false, soft: false, far: 135, aura: false, weather: false }
+    }[tier] || { ratio: 1.0, shadows: false, soft: false, far: 220, aura: true, weather: true };
+
+    renderer.setPixelRatio(cfg.ratio);
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    if (renderer.shadowMap) {
+      renderer.shadowMap.enabled = cfg.shadows;
+      renderer.shadowMap.type = cfg.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+      renderer.shadowMap.needsUpdate = true;
+    }
+    if (envSun) envSun.castShadow = cfg.shadows;
+    if (camera.far !== cfg.far) {
+      camera.far = cfg.far;
+      camera.updateProjectionMatrix();
+    }
+    auraEnabled = cfg.aura;
+    if (weatherPoints && !cfg.weather) weatherPoints.visible = false;
+    if (callbacks.onQualityChange) {
+      callbacks.onQualityChange({ mode: qualityMode, tier: qualityTier, fps: currentFps });
+    }
+  }
+
+  function stepAutoQuality(now) {
+    if (document.hidden) {
+      fpsLastFrameAt = now;
+      fpsLastSampleAt = now;
+      fpsFrames = 0;
+      return;
+    }
+    if (fpsLastFrameAt > 0 && (now - fpsLastFrameAt) < 180) {
+      fpsFrames++;
+    }
+    fpsLastFrameAt = now;
+    if (!fpsLastSampleAt) {
+      fpsLastSampleAt = now;
+      return;
+    }
+    var elapsed = now - fpsLastSampleAt;
+    if (elapsed < 1500) return;
+
+    currentFps = Math.max(1, Math.round((fpsFrames * 1000) / elapsed));
+    fpsFrames = 0;
+    fpsLastSampleAt = now;
+
+    if (qualityMode === 'auto') {
+      var idx = qualityTiersOrder.indexOf(qualityTier);
+      var downThresholds = { high: 38, medium: 32, low: 24, min: 0 };
+      if (currentFps < (downThresholds[qualityTier] || 0) && idx < qualityTiersOrder.length - 1) {
+        lowFpsStreak++;
+        highFpsStreak = 0;
+        if (lowFpsStreak >= 2) {
+          lowFpsStreak = 0;
+          applyQualityTier(qualityTiersOrder[idx + 1]);
+          return;
+        }
+      } else if (currentFps >= 54 && idx > (isTouchDevice() ? 1 : 0)) {
+        highFpsStreak++;
+        lowFpsStreak = 0;
+        if (highFpsStreak >= 4) {
+          highFpsStreak = 0;
+          applyQualityTier(qualityTiersOrder[idx - 1]);
+          return;
+        }
+      } else {
+        lowFpsStreak = 0;
+        highFpsStreak = 0;
+      }
+    }
+    if (callbacks.onQualityChange) {
+      callbacks.onQualityChange({ mode: qualityMode, tier: qualityTier, fps: currentFps });
+    }
+  }
+
   var lastMobileHoverAt = 0;
   function animate() {
     requestAnimationFrame(animate);
     var dt = Math.min(0.05, clock.getDelta());
     var now = performance.now();
+    stepAutoQuality(now);
 
     updateClockTexture();
 
@@ -6854,7 +7025,7 @@
       }
       if (localAvatar) {
         localAvatar.group.visible = true;
-        animateAvatarAura(localAvatar, clock.elapsedTime);
+        if (auraEnabled) animateAvatarAura(localAvatar, clock.elapsedTime);
         // Desloca 0.14m para tras para enxergar as proprias pernas ao olhar para baixo e projetar sombra inteira!
         var backOff = seatedSeat ? 0.02 : 0.14;
         localAvatar.group.position.set(
@@ -7587,7 +7758,7 @@
 
     // Particulas de Chuva / Neve ao redor do jogador (bloqueadas por roofZones)
     if (weatherPoints && weatherPosAttr) {
-      weatherPoints.visible = weatherMode === 'rain' || weatherMode === 'snow';
+      weatherPoints.visible = (qualityTier !== 'min') && (weatherMode === 'rain' || weatherMode === 'snow');
       if (weatherPoints.visible) {
         weatherPoints.material.color.setHex(weatherMode === 'rain' ? 0x93c5fd : 0xffffff);
         weatherPoints.material.size = weatherMode === 'rain' ? 0.16 : 0.24;
@@ -7905,6 +8076,7 @@
     initConfettiSystem();
     initGreenhouseParticlePools();
     bindControls();
+    applyQualityTier(touch ? 'medium' : 'high');
     animate();
   };
 
@@ -7969,12 +8141,31 @@
   window.getCampusPlayerPose = function () {
     return {
       x: playerPos.x, y: playerPos.y, z: playerPos.z,
+      vx: Math.round(playerVelX * 100) / 100,
+      vz: Math.round(playerVelZ * 100) / 100,
       yaw: playerYaw, pitch: playerPitch,
       holding_item: heldItem ? heldItem.id : '',
       walking: isWalking, seated: !!seatedSeat, in_fps: inFps,
       current_hat: localHat,
       emote: localEmote
     };
+  };
+
+  window.setCampusQualityMode = function (mode) {
+    if (mode === 'auto' || qualityTiersOrder.indexOf(mode) !== -1) {
+      qualityMode = mode;
+      lowFpsStreak = 0;
+      highFpsStreak = 0;
+      if (mode === 'auto') {
+        applyQualityTier(isTouchDevice() ? 'medium' : 'high');
+      } else {
+        applyQualityTier(mode);
+      }
+    }
+  };
+
+  window.getCampusQualityState = function () {
+    return { mode: qualityMode, tier: qualityTier, fps: currentFps };
   };
 
   window.playCampusEmote = function (name) {

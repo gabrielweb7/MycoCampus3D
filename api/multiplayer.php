@@ -171,35 +171,57 @@ if ($action === 'sync') {
     }
 
     $x = $savedPose ? mp_num($savedPose['x'], MP_WORLD_LIMIT) : mp_num($body['x'] ?? 0, MP_WORLD_LIMIT);
-    $y = $savedPose ? mp_num($savedPose['y'], 50.0) : mp_num($body['y'] ?? 0, 50.0);
+    $y = $savedPose ? mp_num($savedPose['y'], 180.0) : mp_num($body['y'] ?? 0, 180.0);
     $z = $savedPose ? mp_num($savedPose['z'], MP_WORLD_LIMIT) : mp_num($body['z'] ?? 0, MP_WORLD_LIMIT);
     $yaw = $savedPose ? mp_num($savedPose['yaw'] ?? 0, 1000.0) : mp_num($body['yaw'] ?? 0, 1000.0);
     $pitch = $savedPose ? mp_num($savedPose['pitch'] ?? 0, 2.0) : mp_num($body['pitch'] ?? 0, 2.0);
     $holding = $savedPose ? (string)($savedPose['holding'] ?? '') : (string)($body['holding_item'] ?? '');
     $holding = in_array($holding, MP_ITEMS, true) ? $holding : '';
     $seated = $savedPose ? !empty($savedPose['seated']) : !empty($body['seated']);
-    $walking = $seated ? 2 : (!empty($body['walking']) ? 1 : 0);
+    $toyMode = (string)($body['toy_mode'] ?? '');
+    $walking = ($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0)));
     $inFps = !empty($body['in_fps']) ? 1 : 0;
+    $vx = mp_num($body['vx'] ?? 0, 25.0);
+    $vz = mp_num($body['vz'] ?? 0, 25.0);
+    $hasApcu = function_exists('apcu_fetch') && function_exists('apcu_store');
+
+    if ($hasApcu) {
+        apcu_store('mc_vel_' . $sessionKey, ['vx' => round($vx, 2), 'vz' => round($vz, 2), 'ts' => microtime(true)], 10);
+    }
 
     if (!$initSync) {
-        $poseJson = json_encode([
-            'x' => round($x, 2),
-            'y' => round($y, 2),
-            'z' => round($z, 2),
-            'yaw' => round($yaw, 3),
-            'pitch' => round($pitch, 3),
-            'holding' => $holding,
-            'seated' => $seated ? 1 : 0,
-        ]);
-        $pdo->prepare('INSERT INTO mc_user_poses (user_id, pose_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE pose_json = VALUES(pose_json)')
-            ->execute([$userId, $poseJson]);
+        $shouldSavePose = true;
+        if ($hasApcu) {
+            $poseKey = 'mc_pose_ts_' . $userId;
+            $lastSaved = (int)apcu_fetch($poseKey);
+            if ($walking === 1 && (time() - $lastSaved) < 4) {
+                $shouldSavePose = false;
+            } else {
+                apcu_store($poseKey, time(), 30);
+            }
+        } elseif ($walking === 1 && mt_rand(1, 12) !== 1) {
+            $shouldSavePose = false;
+        }
+        if ($shouldSavePose) {
+            $poseJson = json_encode([
+                'x' => round($x, 2),
+                'y' => round($y, 2),
+                'z' => round($z, 2),
+                'yaw' => round($yaw, 3),
+                'pitch' => round($pitch, 3),
+                'holding' => $holding,
+                'seated' => $seated ? 1 : 0,
+            ]);
+            $pdo->prepare('INSERT INTO mc_user_poses (user_id, pose_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE pose_json = VALUES(pose_json)')
+                ->execute([$userId, $poseJson]);
+        }
     }
 
     $chatMsg = trim((string)($body['chat_msg'] ?? ''));
     $chatMsg = $chatMsg !== '' ? mb_substr($chatMsg, 0, 140, 'UTF-8') : null;
 
     $currentHat = (string)($body['current_hat'] ?? ($user['current_hat'] ?? 'default'));
-    $validHats = ['default', 'golden_shroom', 'wizard_hood', 'grad_cap', 'flower_crown', 'beret'];
+    $validHats = ['default', 'none', 'golden_shroom', 'wizard_hood', 'grad_cap', 'flower_crown', 'beret'];
     if (!in_array($currentHat, $validHats, true)) {
         $currentHat = 'default';
     }
@@ -260,8 +282,18 @@ if ($action === 'sync') {
     $pStmt->execute([$sessionKey]);
     $players = [];
     foreach ($pStmt->fetchAll() as $p) {
+        $pSid = (string)$p['session_id'];
+        $pVx = 0.0;
+        $pVz = 0.0;
+        if ($hasApcu) {
+            $vel = apcu_fetch('mc_vel_' . $pSid);
+            if (is_array($vel)) {
+                $pVx = (float)($vel['vx'] ?? 0.0);
+                $pVz = (float)($vel['vz'] ?? 0.0);
+            }
+        }
         $players[] = [
-            'id' => mp_public_id((string)$p['session_id']),
+            'id' => mp_public_id($pSid),
             'name' => (string)$p['display_name'],
             'role' => (string)$p['role'],
             'hat_color' => mc_clean_hex($p['hat_color'], '#dc2626'),
@@ -271,6 +303,8 @@ if ($action === 'sync') {
             'x' => (float)$p['x'],
             'y' => (float)$p['y'],
             'z' => (float)$p['z'],
+            'vx' => $pVx,
+            'vz' => $pVz,
             'yaw' => (float)$p['yaw'],
             'pitch' => (float)$p['pitch'],
             'holding' => (string)$p['holding_item'],
@@ -281,15 +315,22 @@ if ($action === 'sync') {
         ];
     }
 
-    $objects = new stdClass();
-    foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
-        $itemId = (string)$obj['item_id'];
-        $objects->{$itemId} = [
-            'x' => (float)$obj['x'],
-            'y' => (float)$obj['y'],
-            'z' => (float)$obj['z'],
-            'ry' => (float)$obj['ry'],
-        ];
+    $clientObjVer = (string)($body['obj_ver'] ?? '');
+    $objMeta = $pdo->query('SELECT COUNT(*) AS c, COALESCE(MAX(updated_at), "") AS u FROM mc_world_objects')->fetch();
+    $objVer = $objMeta ? ((string)$objMeta['c'] . ':' . (string)$objMeta['u']) : '0:';
+    $objectsUnchanged = (!$initSync && $clientObjVer !== '' && $clientObjVer === $objVer);
+    $objects = null;
+    if (!$objectsUnchanged) {
+        $objects = new stdClass();
+        foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
+            $itemId = (string)$obj['item_id'];
+            $objects->{$itemId} = [
+                'x' => (float)$obj['x'],
+                'y' => (float)$obj['y'],
+                'z' => (float)$obj['z'],
+                'ry' => (float)$obj['ry'],
+            ];
+        }
     }
 
     // Salva mudancas de estado do mundo (portas, persianas, interruptores, fluxo laminar, cinema, cogumelos)
@@ -320,18 +361,26 @@ if ($action === 'sync') {
     }
 
     $nowTs = time();
-    $state = ['auditorium_slide' => 0, 'auditorium_presenter' => ''];
-    foreach ($pdo->query('SELECT state_key, state_val FROM mc_world_state')->fetchAll() as $st) {
-        $k = (string)$st['state_key'];
-        $v = (string)$st['state_val'];
-        if ($k === 'auditorium_slide') {
-            $state['auditorium_slide'] = (int)$v;
-        } elseif ($k === 'auditorium_presenter') {
-            $state['auditorium_presenter'] = $v;
-        } elseif (strpos($k, 'wild_') === 0) {
-            $state[$k] = ((int)$v > $nowTs) ? '0' : '1';
-        } elseif (mp_is_valid_state_key($k)) {
-            $state[$k] = $v;
+    $clientStateVer = (string)($body['state_ver'] ?? '');
+    $stMeta = $pdo->query('SELECT COUNT(*) AS c, COALESCE(MAX(updated_at), "") AS u FROM mc_world_state')->fetch();
+    // Inclui bucket de 2s para que respawns de wild_* (20s) sejam propagados sem polling pesado
+    $stateVer = ($stMeta ? ((string)$stMeta['c'] . ':' . (string)$stMeta['u']) : '0:') . ':' . (string)floor($nowTs / 2);
+    $stateUnchanged = (!$initSync && empty($body['state_changes']) && $clientStateVer !== '' && $clientStateVer === $stateVer);
+    $state = null;
+    if (!$stateUnchanged) {
+        $state = ['auditorium_slide' => 0, 'auditorium_presenter' => ''];
+        foreach ($pdo->query('SELECT state_key, state_val FROM mc_world_state')->fetchAll() as $st) {
+            $k = (string)$st['state_key'];
+            $v = (string)$st['state_val'];
+            if ($k === 'auditorium_slide') {
+                $state['auditorium_slide'] = (int)$v;
+            } elseif ($k === 'auditorium_presenter') {
+                $state['auditorium_presenter'] = $v;
+            } elseif (strpos($k, 'wild_') === 0) {
+                $state[$k] = ((int)$v > $nowTs) ? '0' : '1';
+            } elseif (mp_is_valid_state_key($k)) {
+                $state[$k] = $v;
+            }
         }
     }
 
@@ -388,18 +437,27 @@ if ($action === 'sync') {
         }
     }
 
-    mc_json([
+    $resp = [
         'ok' => true,
         'app_version' => $appVersion,
         'online_count' => count($players) + 1,
         'saved_pose' => $savedPose,
         'force_teleport' => $forceTeleport,
         'players' => $players,
-        'objects' => $objects,
-        'world_state' => $state,
+        'obj_ver' => $objVer,
+        'state_ver' => $stateVer,
+        'objects_unchanged' => $objectsUnchanged,
+        'state_unchanged' => $stateUnchanged,
         'board_strokes' => $boardStrokes,
         'board_last_id' => $lastBoardId,
-    ]);
+    ];
+    if (!$objectsUnchanged) {
+        $resp['objects'] = $objects;
+    }
+    if (!$stateUnchanged) {
+        $resp['world_state'] = $state;
+    }
+    mc_json($resp);
 }
 
 mc_json(['ok' => false, 'error' => 'Acao desconhecida.'], 400);

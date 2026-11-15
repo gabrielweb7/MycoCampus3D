@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.20] — 2026-11-15
+### ⚡ Multiplayer Fluido (125 ms + Interpolação/Predição) & Auto-FPS Dinâmico
+- **Multiplayer Ultra-Rápido e Suave ([api/multiplayer.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/multiplayer.php), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js), [js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:
+  - Intervalo de sincronização reduzido de `750 ms` para `125 ms` (6x mais rápido).
+  - Backend com **delta versioning** (`obj_ver`, `state_ver`) para não reenviar objetos/estado do mundo quando nada mudou, escrita em `mc_user_poses` com throttle (a cada ~4s durante caminhada) e cache de velocidade `(vx, vz)` em APCu.
+  - Cliente com **buffer de interpolação (135 ms)** + **dead-reckoning** por velocidade `(vx, vz)` e animação das pernas/braços guiada pela velocidade real, eliminando o efeito de "teleporte/travamento" ao andar.
+- **Auto-Detecção de FPS & Resolução Dinâmica ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html))**:
+  - Monitoramento contínuo de FPS com 4 níveis automáticos (`Alto`, `Médio`, `Desempenho`, `Mínimo`): reduz automaticamente `pixelRatio` (até `0.55`), sombras e distância de renderização (`camera.far`) quando o cliente cai de FPS, mantendo o HUD HTML/CSS 100% nítido e o mundo colorido/jogável.
+  - Novo botão `⚡ Auto` no HUD mostrando o nível atual + FPS ao vivo e permitindo alternar manualmente entre `Auto`, `Alto`, `Méd`, `Desemp` e `Mín`.
+
 ## [v0.9.19] — 2026-11-15
 ### 🏂 Snowboard Realista nas Montanhas & Loja com Categorias (Chapéus e Brinquedos)
 - **Loja com Abas, Troca e Desativação ([api/auth.php](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/api/auth.php), [index.html](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/index.html), [js/campus-app.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus-app.js))**:
