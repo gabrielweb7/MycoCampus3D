@@ -6,16 +6,217 @@ import { getItemGroundHeight } from '../engine/physics.js';
 import { greenhouseSlots, updateGreenhouseSlotMesh } from '../world/greenhouse.js';
 import { applyStrokeToBoard } from './chalkboard.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
+import { updateContainerVolume } from '../items/liquid-culture.js';
+import { updateSyringeVolume } from '../items/syringe.js';
+import { updateSpawnVisual } from '../items/spawn-containers.js';
+import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
+import { updateScalpelLabel } from '../items/scalpel.js';
+import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 
 export function consumeCampusMovedItems(sim) {
-  const list = Object.values(sim.pendingMovedItems);
+  const pending = sim.pendingMovedItems;
+  const byId = pending;
+  const now = performance.now();
+  if (!sim.nextItemStateSyncAt || now >= sim.nextItemStateSyncAt) {
+    sim.nextItemStateSyncAt = now + 1000;
+    sim.itemStateSignatures = sim.itemStateSignatures || {};
+    sim.pickableItems.forEach(function (item) {
+      if (sim.isHeldByRemote(item.id)) return;
+      const state = getReplicatedItemState(sim, item);
+      if (!state) return;
+      const signature = JSON.stringify(state);
+      if (sim.itemStateSignatures[item.id] === signature) return;
+      sim.itemStateSignatures[item.id] = signature;
+      const queued = byId[item.id] || (byId[item.id] = { id: item.id });
+      queued.state = state;
+    });
+  }
+  const list = Object.values(pending);
   sim.pendingMovedItems = {};
   return list;
 }
 
 export function requeueCampusMovedItems(sim, list) {
   (list || []).forEach(function (it) {
-    if (it && it.id && !sim.pendingMovedItems[it.id]) sim.pendingMovedItems[it.id] = it;
+    if (!it || !it.id) return;
+    const queued = sim.pendingMovedItems[it.id];
+    if (!queued) {
+      sim.pendingMovedItems[it.id] = it;
+    } else if (it.state && !queued.state) {
+      queued.state = it.state;
+    }
+  });
+}
+
+function getReplicatedItemState(sim, item) {
+  if (!item || !item.mesh) return null;
+  const state = {};
+  const meshData = item.mesh.userData || {};
+  const spawn = item.spawnCtrl || meshData.spawnCtrl;
+  if (spawn) {
+    state.spawn = {
+      filled: !!spawn.filled,
+      fillGrams: Math.round(spawn.fillGrams || 0),
+      substrateKind: spawn.substrateKind || '',
+      waterMl: Math.round(spawn.waterMl || 0),
+      sterilizeProgress: Math.round(spawn.sterilizeProgress || 0),
+      sterilized: !!spawn.sterilized,
+      sealed: !!spawn.sealed,
+      inoculated: !!spawn.inoculated,
+      colonized: !!spawn.colonized,
+      colonization: Math.round(spawn.colonization || 0),
+      contaminated: !!spawn.contaminated,
+      burned: !!spawn.burned
+    };
+  }
+  const liquid = meshData.liquidCtrl;
+  if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0) };
+  const syringe = meshData.syrCtrl;
+  if (syringe) state.syringe = { volMl: Math.round((syringe.volMl || 0) * 10) / 10 };
+  if (item.bowlCtrl) {
+    state.bowl = {
+      ingredients: {
+        flocao: Math.round(item.bowlCtrl.ingredients.flocao || 0),
+        water: Math.round(item.bowlCtrl.ingredients.water || 0),
+        corn: Math.round(item.bowlCtrl.ingredients.corn || 0),
+        sawdust: Math.round(item.bowlCtrl.ingredients.sawdust || 0)
+      },
+      mixed: !!item.bowlCtrl.mixed,
+      stirCount: Math.max(0, Math.min(3, item.bowlCtrl.stirCount || 0))
+    };
+  }
+  if (item.scalpelCtrl) {
+    state.scalpel = {
+      hasBlade: !!item.scalpelCtrl.hasBlade,
+      sterile: !!item.scalpelCtrl.sterile,
+      hasMycelium: !!item.scalpelCtrl.hasMycelium
+    };
+  }
+  const containingCooker = sim.cookerPots.find((cooker) => cooker.contents.indexOf(item) !== -1);
+  if (containingCooker) {
+    state.containerId = containingCooker.potItem.id;
+  } else if (Object.keys(state).length) {
+    state.containerId = '';
+  }
+  const cooker = sim.cookerPots.find((candidate) => candidate.potItem === item);
+  if (cooker) {
+    state.cooker = {
+      waterMl: Math.round(cooker.waterMl || 0),
+      mode: cooker.mode === 'pasteurize' ? 'pasteurize' : 'sterilize',
+      temp: Math.round(cooker.temp || 0),
+      psi: Math.round((cooker.psi || 0) * 10) / 10,
+      progress: Math.round(cooker.progress || 0),
+      sterilized: !!cooker.sterilized,
+      burned: !!cooker.burned,
+      overheatTimer: Math.round((cooker.overheatTimer || 0) * 10) / 10,
+      contents: cooker.contents.slice(0, 6).map((content) => content.id)
+    };
+  }
+  return Object.keys(state).length ? state : null;
+}
+
+function applyReplicatedItemState(sim, item, state) {
+  if (!item || !state || typeof state !== 'object') return;
+  const spawn = item.spawnCtrl || (item.mesh.userData && item.mesh.userData.spawnCtrl);
+  if (spawn && state.spawn && typeof state.spawn === 'object') {
+    const incoming = state.spawn;
+    ['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'contaminated', 'burned'].forEach(function (key) {
+      if (typeof incoming[key] === 'boolean') spawn[key] = incoming[key];
+    });
+    ['fillGrams', 'waterMl', 'sterilizeProgress', 'colonization'].forEach(function (key) {
+      if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
+        spawn[key] = Math.max(0, Math.min(key === 'colonization' || key === 'sterilizeProgress' ? 100 : 5000, incoming[key]));
+      }
+    });
+    if (['grain', 'sawdust', 'flocao', 'corn'].indexOf(incoming.substrateKind) !== -1) {
+      spawn.substrateKind = incoming.substrateKind;
+    }
+    if (spawn.fillMesh) spawn.fillMesh.visible = spawn.filled;
+    if (item.meta && item.meta.compatibilities) item.meta.compatibilities.receivesSyringe = spawn.filled;
+    if (spawn.isPP5) {
+      spawn.baseLabel = spawn.filled ? 'Potinho PP5 145ml (Flocão)' : 'Potinho PP5 145ml Vazio';
+    } else if (spawn.isBag) {
+      spawn.baseLabel = spawn.filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio';
+    } else {
+      spawn.baseLabel = spawn.filled ? 'Vidro 800ml (Milho)' : 'Vidro 800ml Vazio';
+    }
+    spawn.updateVisual ? spawn.updateVisual() : updateSpawnVisual(item);
+    if (spawn.isPP5 && spawn.fillGrams > 0 && spawn.waterMl === 0 && !spawn.inoculated) {
+      item.label = 'Potinho PP5 145ml (Flocão seco • Adicione água)';
+    }
+  }
+
+  const meshData = item.mesh.userData || {};
+  if (meshData.liquidCtrl && state.liquid && typeof state.liquid.volMl === 'number') {
+    updateContainerVolume(item, state.liquid.volMl);
+  }
+  if (meshData.syrCtrl && state.syringe && typeof state.syringe.volMl === 'number') {
+    updateSyringeVolume(item, state.syringe.volMl);
+  }
+  if (item.bowlCtrl && state.bowl && typeof state.bowl === 'object') {
+    const ingredients = state.bowl.ingredients || {};
+    ['flocao', 'water', 'corn', 'sawdust'].forEach(function (key) {
+      const value = ingredients[key];
+      item.bowlCtrl.ingredients[key] = typeof value === 'number' && Number.isFinite(value)
+        ? Math.max(0, Math.min(5000, value))
+        : 0;
+    });
+    if (typeof state.bowl.mixed === 'boolean') item.bowlCtrl.mixed = state.bowl.mixed;
+    if (typeof state.bowl.stirCount === 'number') item.bowlCtrl.stirCount = Math.max(0, Math.min(3, state.bowl.stirCount));
+    updateMixingBowlLabel(item);
+  }
+  if (item.scalpelCtrl && state.scalpel && typeof state.scalpel === 'object') {
+    ['hasBlade', 'sterile', 'hasMycelium'].forEach(function (key) {
+      if (typeof state.scalpel[key] === 'boolean') item.scalpelCtrl[key] = state.scalpel[key];
+    });
+    if (item.scalpelCtrl.bladeMesh) item.scalpelCtrl.bladeMesh.visible = item.scalpelCtrl.hasBlade;
+    updateScalpelLabel(item);
+  }
+
+  if (typeof state.containerId === 'string') {
+    sim.cookerPots.forEach(function (cooker) {
+      const idx = cooker.contents.indexOf(item);
+      if (idx !== -1) cooker.contents.splice(idx, 1);
+    });
+    const targetCooker = sim.cookerPots.find((cooker) => cooker.potItem.id === state.containerId);
+    if (targetCooker && targetCooker.contents.indexOf(item) === -1) targetCooker.contents.push(item);
+  }
+
+  if (item.lidItem) {
+    const cooker = sim.cookerPots.find((candidate) => candidate.potItem === item);
+    const incoming = state.cooker;
+    if (cooker && incoming && typeof incoming === 'object') {
+      if (typeof incoming.waterMl === 'number' && Number.isFinite(incoming.waterMl)) {
+        cooker.waterMl = Math.max(0, Math.min(cooker.maxWaterMl, incoming.waterMl));
+      }
+      if (incoming.mode === 'sterilize' || incoming.mode === 'pasteurize') cooker.mode = incoming.mode;
+      ['temp', 'psi', 'progress', 'overheatTimer'].forEach(function (key) {
+        if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) cooker[key] = Math.max(0, incoming[key]);
+      });
+      ['sterilized', 'burned'].forEach(function (key) {
+        if (typeof incoming[key] === 'boolean') cooker[key] = incoming[key];
+      });
+      cooker.lastHudKey = '';
+      if (Array.isArray(incoming.contents)) {
+        cooker.contents = incoming.contents.slice(0, 6)
+          .map((itemId) => sim.findPickable(itemId))
+          .filter(Boolean);
+      }
+      updateCookerWaterVisual(cooker);
+    }
+  }
+}
+
+export function applyCampusItemStates(sim, itemStates) {
+  if (!itemStates || typeof itemStates !== 'object') return;
+  const itemsById = new Map(sim.pickableItems.map((item) => [item.id, item]));
+  Object.keys(itemStates).forEach(function (itemId) {
+    const item = itemsById.get(itemId);
+    if (!item) return;
+    applyReplicatedItemState(sim, item, itemStates[itemId]);
+    sim.itemStateSignatures = sim.itemStateSignatures || {};
+    const currentState = getReplicatedItemState(sim, item);
+    if (currentState) sim.itemStateSignatures[itemId] = JSON.stringify(currentState);
   });
 }
 
@@ -273,6 +474,13 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
     }
   }
 
+  if (stateMap.hood_sanitized_until !== undefined &&
+      sim.pendingStateChanges.hood_sanitized_until === undefined &&
+      !(sim.recentlyChangedState.hood_sanitized_until > now)) {
+    const expiresAt = Number(stateMap.hood_sanitized_until);
+    if (Number.isFinite(expiresAt)) sim.hoodSanitizedUntil = Math.max(0, expiresAt) * 1000;
+  }
+
   if (sim.stirrerDevices.length && stateMap.stir_lab !== undefined) {
     if (sim.pendingStateChanges.stir_lab === undefined && !(sim.recentlyChangedState.stir_lab > now)) {
       const wantStirOn = Number(stateMap.stir_lab) === 1;
@@ -284,15 +492,26 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
     }
   }
 
-  if (sim.burnerDevices.length && stateMap.burner_lab !== undefined) {
-    if (sim.pendingStateChanges.burner_lab === undefined && !(sim.recentlyChangedState.burner_lab > now)) {
-      const wantBurnerOn = Number(stateMap.burner_lab) === 1;
+  const burnerSyncKey = stateMap.burner_level_lab !== undefined ? 'burner_level_lab' : 'burner_lab';
+  if (sim.burnerDevices.length && stateMap[burnerSyncKey] !== undefined) {
+    if (sim.pendingStateChanges[burnerSyncKey] === undefined && !(sim.recentlyChangedState[burnerSyncKey] > now)) {
       const bn0 = sim.burnerDevices[0];
-      if (bn0.on !== wantBurnerOn) {
-        bn0.on = wantBurnerOn;
-        bn0.ledMat.color.setHex(bn0.on ? 0x22c55e : 0xef4444);
-        if (bn0.knobGroup) bn0.knobGroup.rotation.z = bn0.on ? -1.45 : 0;
-      }
+      const savedValue = parseInt(stateMap[burnerSyncKey], 10) || 0;
+      const burnerLevel = burnerSyncKey === 'burner_level_lab'
+        ? Math.max(0, Math.min(3, savedValue))
+        : (savedValue === 1 ? 3 : 0);
+      if (bn0.level !== burnerLevel) setBurnerLevel(bn0, burnerLevel);
+    }
+  }
+
+  for (let ci = 0; ci < sim.cookerPots.length; ci++) {
+    const cooker = sim.cookerPots[ci];
+    const cookerKey = cooker.potItem.id === 'pressure_cooker_sub' ? 'cooker_mode_sub' : 'cooker_mode_lab';
+    if (stateMap[cookerKey] === undefined || sim.pendingStateChanges[cookerKey] !== undefined || sim.recentlyChangedState[cookerKey] > now) continue;
+    const mode = Number(stateMap[cookerKey]) === 1 ? 'pasteurize' : 'sterilize';
+    if (cooker.mode !== mode) {
+      cooker.mode = mode;
+      cooker.lastHudKey = '';
     }
   }
 

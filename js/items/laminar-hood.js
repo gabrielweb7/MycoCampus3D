@@ -13,7 +13,7 @@ export function isAsepticWorkArea(ctx, item) {
   const area = air && air.workArea;
   const pos = item && item.mesh && item.mesh.position;
   return !!(air && air.on && area && pos &&
-    performance.now() < ctx.hoodSanitizedUntil &&
+    Date.now() < ctx.hoodSanitizedUntil &&
     pos.x >= area.minX && pos.x <= area.maxX &&
     pos.z >= area.minZ && pos.z <= area.maxZ &&
     pos.y >= area.topY - 0.15 && pos.y <= area.topY + 0.6);

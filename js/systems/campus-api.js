@@ -9,6 +9,7 @@ import { getGroundHeight, clampPosAgainstWalls } from '../engine/physics.js';
 import { updateCampusAuditoriumSlide, setRankingList } from '../world/staircase-clock.js';
 import { triggerConfettiBurst } from '../entities/confetti.js';
 import { buildAvatarHat, updateCampusPlayers } from '../entities/avatars.js';
+import { getLabItemGuide } from '../items/item-registry.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
 import { applyQualityTier } from './game-loop.js';
 import * as worldSync from './world-sync.js';
@@ -142,6 +143,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.consumeCampusMovedItems = function () { return worldSync.consumeCampusMovedItems(sim); };
   window.requeueCampusMovedItems = function (list) { return worldSync.requeueCampusMovedItems(sim, list); };
   window.applyCampusWorldObjects = function (objectsMap) { return worldSync.applyCampusWorldObjects(sim, objectsMap); };
+  window.applyCampusItemStates = function (itemStates) { return worldSync.applyCampusItemStates(sim, itemStates); };
   window.resetCampusWorldObjects = function () { return worldSync.resetCampusWorldObjects(sim); };
   window.consumeCampusBoardStrokes = function () { return worldSync.consumeCampusBoardStrokes(sim); };
   window.requeueCampusBoardStrokes = function (strokes) { return worldSync.requeueCampusBoardStrokes(sim, strokes); };
@@ -253,6 +255,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.MycoCampus.updateRanking = window.updateCampusRanking;
   window.MycoCampus.updateSlide = updateCampusAuditoriumSlide;
   window.MycoCampus.updatePlayers = window.updateCampusPlayers;
+  window.MycoCampus.getLabItemGuide = function () { return getLabItemGuide(sim.pickableItems); };
   window.MycoCampus.setColors = window.setCampusPlayerColors;
   window.MycoCampus.setFpsMode = window.setCampusFpsMode;
   window.MycoCampus.triggerRainbow = triggerCampusRainbow;

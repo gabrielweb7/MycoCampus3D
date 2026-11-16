@@ -79,6 +79,10 @@ export function canSyringeTarget(item) {
   if (spawnCtrl && (
     !spawnCtrl.filled ||
     spawnCtrl.inoculated ||
+    !spawnCtrl.sterilized ||
+    spawnCtrl.burned ||
+    spawnCtrl.contaminated ||
+    (spawnCtrl.isBag && !spawnCtrl.sealed) ||
     (spawnCtrl.isPP5 && (spawnCtrl.waterMl || 0) < 35)
   )) {
     return false;
@@ -88,6 +92,80 @@ export function canSyringeTarget(item) {
     return !!meta.compatibilities.receivesSyringe;
   }
   return !!(item.mesh.userData.liquidCtrl || item.id.indexOf('spawn_') === 0 || (item.id.indexOf('petri_') === 0 && item.id.indexOf('petri_bare_') !== 0));
+}
+
+export function canSealSpawnBag(item) {
+  const sc = item && item.spawnCtrl;
+  return !!(sc && sc.isBag && sc.filled && !sc.sealed && !sc.sterilized && !sc.inoculated && !sc.burned && !sc.contaminated);
+}
+
+const compatibilityLabels = {
+  canEnterCooker: 'Pode ir à panela de pressão',
+  sealsBags: 'Pode selar bags de spawn',
+  receivesSyringe: 'Recebe cultura líquida pela seringa',
+  transfersLiquidCulture: 'Aspira e transfere cultura líquida',
+  stirsOnMagneticPlate: 'Pode ser agitado na placa magnética',
+  receivesIngredients: 'Recebe ingredientes para mistura',
+  receivesWater: 'Recebe água',
+  stirsMixingBowl: 'Mistura ingredientes no pote',
+  fillsPP5WithFlocao: 'Adiciona flocão ao PP5',
+  receivesFlocao: 'Recebe flocão',
+  receivesMyceliumCut: 'Recebe transferência de micélio',
+  acceptsContents: 'Recebe itens para processamento',
+  heatsOnBurner: 'Aquece sobre um fogareiro',
+  fillsFromSink: 'Pode ser preenchida na pia',
+  heatsCookerOnSurface: 'Aquece uma panela apoiada na superfície',
+  transfersMycelium: 'Corta e transfere micélio',
+  snapsToCookerPot: 'Encaixa na panela de pressão'
+};
+
+function getGuideItemName(item) {
+  const meshData = item.mesh && item.mesh.userData;
+  return (item.spawnCtrl && item.spawnCtrl.baseLabel) ||
+    (meshData && meshData.liquidCtrl && meshData.liquidCtrl.baseLabel) ||
+    item.label || item.id;
+}
+
+export function getLabItemGuide(items) {
+  const source = Array.isArray(items) ? items : [];
+  const groups = new Map();
+  source.forEach(function (item) {
+    if (!item || !item.meta) return;
+    const meta = item.meta;
+    const name = getGuideItemName(item);
+    const groupKey = [meta.category || 'tool', name, meta.purpose || ''].join('|');
+    let entry = groups.get(groupKey);
+    if (!entry) {
+      entry = {
+        category: meta.category || 'tool',
+        name,
+        purpose: meta.purpose || '',
+        compatibilities: Object.keys(meta.compatibilities || {})
+          .filter((key) => meta.compatibilities[key] === true && compatibilityLabels[key])
+          .map((key) => compatibilityLabels[key]),
+        connections: []
+      };
+      groups.set(groupKey, entry);
+    }
+
+    (meta.connections || []).forEach(function (connection) {
+      const connected = source.find(function (candidate) {
+        return candidate && (
+          candidate.id === connection ||
+          candidate.id.indexOf(connection + '_') === 0 ||
+          (connection === 'spawn_bag' && candidate.id.indexOf('spawn_bag_') === 0)
+        );
+      });
+      if (!connected) return;
+      const connectedName = getGuideItemName(connected);
+      if (connectedName !== name && entry.connections.indexOf(connectedName) === -1) {
+        entry.connections.push(connectedName);
+      }
+    });
+  });
+  return Array.from(groups.values()).sort(function (a, b) {
+    return a.category.localeCompare(b.category, 'pt-BR') || a.name.localeCompare(b.name, 'pt-BR');
+  });
 }
 
 export function updateItemBounds(item) {

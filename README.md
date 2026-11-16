@@ -11,18 +11,18 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 - **Física & Interações Realistas:** Sistema de colisão com suporte a superfícies caminháveis (mesas inox, bancadas, carteiras e estufas), acoplamento magnético de tampa de panela de pressão, inoculação com agulha perfurando septos de borracha e simulação de temperatura física por material.
 - **Interface & HUD:** Glassmorphism responsivo com Tailwind CSS (v2 pré-compilado), suporte a Safe Area Inset (`env(safe-area-inset-*)`), joystick analógico virtual para mobile e modo Fullscreen automático.
 - **Back-end:** PHP 8.x nativo com PDO MySQL, arquitetura orientada a APIs RESTful leves com JSON, headers anti-cache e segurança nos cookies (`HttpOnly`, `SameSite=Lax`).
-- **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`MC_SCHEMA_VERSION = 7`) e cache de flag local em `data/` para evitar sobrecarga no servidor.
-- **Sincronização Multiplayer:** Polling HTTP POST assíncrono a cada **250ms** por cliente ativo (reduzido para **1500ms** quando a aba fica em segundo plano para economizar bateria e CPU), com *batch inserts* para objetos e traços de lousa.
+- **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`MC_SCHEMA_VERSION = 8`) e cache de flag local em `data/` para evitar sobrecarga no servidor.
+- **Sincronização Multiplayer:** Polling HTTP POST assíncrono a cada **250ms** por cliente ativo (reduzido para **1500ms** quando a aba fica em segundo plano para economizar bateria e CPU), com *batch inserts* para objetos, estados de itens de laboratório e traços de lousa.
 
 ---
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.31"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.32"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.31)
-├── VERSION                    # Versão semântica atual do projeto (0.9.31)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.32)
+├── VERSION                    # Versão semântica atual do projeto (0.9.32)
 ├── error.php                  # Painel online privado para consultar erros recentes
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
@@ -32,13 +32,13 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 ├── api/                       # Back-end em PHP
 │   ├── config.php             # Credenciais do MySQL e PROFESSOR_KEY (ignorado pelo git)
 │   ├── config.example.php     # Template seguro para criação do config.php
-│   ├── db.php                 # Conexão PDO, migrações cacheadas (v7) e autenticação por token
+│   ├── db.php                 # Conexão PDO, migrações cacheadas (v8) e autenticação por token
 │   ├── auth.php               # Login/registro, XP, módulos, missão prática, cosméticos, ranking e Admin
 │   ├── error.php              # Recebe erros do navegador e lista relatórios para o Admin
 │   └── multiplayer.php        # Sincronização em tempo real (avatares, objetos em lote, lousas, chat)
 │
 ├── database/
-│   └── schema.sql             # Definição DDL completa das tabelas MySQL (schema_version 7)
+│   └── schema.sql             # Definição DDL completa das tabelas MySQL (schema_version 8)
 │
 ├── js/                        # Arquitetura ES Modules nativa + dependências self-hosted
 │   ├── main.js                # Ponto de entrada único (registra API pública e inicializa app)

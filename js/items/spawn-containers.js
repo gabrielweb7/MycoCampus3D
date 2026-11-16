@@ -32,6 +32,14 @@ export function fillSpawnWithSubstrate(item, kind) {
   sc.filled = true;
   sc.fillGrams = sc.isBag ? 1500 : 460;
   sc.substrateKind = kind || 'grain';
+  sc.sealed = false;
+  sc.sterilized = false;
+  sc.sterilizeProgress = 0;
+  sc.inoculated = false;
+  sc.colonized = false;
+  sc.colonization = 0;
+  sc.contaminated = false;
+  sc.burned = false;
   sc.baseLabel = sc.isBag ? 'Bag 1,5kg Spawn' : 'Vidro 800ml (Milho)';
   if (sc.fillMesh) sc.fillMesh.visible = true;
   if (sc.mycOverlay) sc.mycOverlay.visible = false;
@@ -45,6 +53,7 @@ export function fillSpawnWithSubstrate(item, kind) {
 export function updateSpawnVisual(item) {
   if (!item || !item.spawnCtrl) return;
   const sc = item.spawnCtrl;
+  if (sc.sealBand) sc.sealBand.visible = !!sc.sealed;
   if (sc.mycOverlay) {
     sc.mycOverlay.visible = sc.burned || sc.colonization > 0;
     const f = sc.burned ? 1 : Math.min(1, sc.colonization / 100);
@@ -62,6 +71,8 @@ export function updateSpawnVisual(item) {
     item.label = sc.baseLabel + ' (Colonizando ' + Math.floor(sc.colonization) + '%)';
   } else if (sc.sterilized) {
     item.label = sc.baseLabel + ' (Estéril • Pronto)';
+  } else if (sc.sealed) {
+    item.label = sc.baseLabel + ' (Selado • Pronto para esterilizar)';
   } else if (sc.sterilizeProgress > 0) {
     item.label = sc.baseLabel + ' (Mal esterilizado ' + Math.floor(sc.sterilizeProgress) + '% ⚠️)';
   } else {
@@ -140,7 +151,10 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   filterPatch.position.set(0, 0.30, 0.092);
   const injPort = makeBox(0.036, 0.036, 0.016, 0x64748b, { noShadow: true });
   injPort.position.set(0, 0.11, 0.094);
-  bg.add(outer, filterPatch, injPort);
+  const sealBand = makeBox(0.23, 0.016, 0.19, 0xf59e0b, { noShadow: true, roughness: 0.48 });
+  sealBand.position.y = 0.355;
+  sealBand.visible = !!filled;
+  bg.add(outer, filterPatch, injPort, sealBand);
   const bc = document.createElement('canvas'); bc.width = 128; bc.height = 128;
   const bctx = bc.getContext('2d');
   bctx.fillStyle = '#eab308'; bctx.fillRect(0, 0, 128, 128);
@@ -159,8 +173,10 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   item.spawnCtrl = {
     isBag: true,
     filled: !!filled,
+    sealed: !!filled,
     fillGrams: filled ? 1500 : 0,
     fillMesh: block,
+    sealBand,
     minSterilizeMin: 120, // 2h minimo para milho de pipoca
     sterilizeProgress: filled ? 100 : 0,
     baseLabel: filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio',

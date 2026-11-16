@@ -1,4 +1,4 @@
--- MycoCampus3D - Schema MySQL (schema_version 7)
+-- MycoCampus3D - Schema MySQL (schema_version 8)
 -- Criado/migrado automaticamente por api/db.php no primeiro acesso.
 
 CREATE TABLE IF NOT EXISTS mc_meta (
@@ -67,6 +67,12 @@ CREATE TABLE IF NOT EXISTS mc_world_objects (
     z DOUBLE NOT NULL,
     ry DOUBLE NOT NULL DEFAULT 0,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_world_item_states (
+    item_id VARCHAR(64) PRIMARY KEY,
+    state_json MEDIUMTEXT NOT NULL,
+    updated_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS mc_world_state (

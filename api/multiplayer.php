@@ -20,6 +20,7 @@ $mpBaseItems = [
     'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
     'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',
+    'mixing_bowl_01', 'lab_spoon_01', 'scalpel_01', 'flocao_500g_01', 'flocao_500g_02',
     'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser',
     'chalk_white_1', 'chalk_green_1', 'chalk_yellow_1', 'board_eraser_1',
     'chalk_white_2', 'chalk_green_2', 'chalk_yellow_2', 'board_eraser_2',
@@ -41,6 +42,14 @@ foreach (range(1, 4) as $n) {
     $mpBaseItems[] = "substrate_grain_$p";
     $mpBaseItems[] = "substrate_sawdust_$p";
     $mpBaseItems[] = "micropore_$p";
+    $mpBaseItems[] = "scalpel_blade_$p";
+    $mpBaseItems[] = "falcon_15ml_$p";
+}
+foreach (range(1, 8) as $n) {
+    $mpBaseItems[] = 'pp5_cup_' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+}
+foreach (range(1, 2) as $n) {
+    $mpBaseItems[] = 'falcon_50ml_' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
 }
 foreach (range(1, 3) as $n) {
     $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
@@ -73,6 +82,106 @@ function mp_num($v, float $limit): float {
     $f = is_numeric($v) ? (float)$v : 0.0;
     if (!is_finite($f)) $f = 0.0;
     return max(-$limit, min($limit, $f));
+}
+
+function mp_clean_item_state(string $itemId, $raw): ?string {
+    if (!is_array($raw)) return null;
+    $clean = [];
+
+    $hasItemState = strpos($itemId, 'spawn_') === 0 || strpos($itemId, 'pp5_cup_') === 0 ||
+        strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 ||
+        strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'syringe_10ml_') === 0 ||
+        strpos($itemId, 'mixing_bowl_') === 0 || strpos($itemId, 'scalpel_') === 0;
+    if ($hasItemState && array_key_exists('containerId', $raw) && is_string($raw['containerId']) &&
+        ($raw['containerId'] === '' || in_array($raw['containerId'], ['pressure_cooker_lab', 'pressure_cooker_sub'], true))) {
+        $clean['containerId'] = $raw['containerId'];
+    }
+
+    $isSpawn = strpos($itemId, 'spawn_') === 0 || strpos($itemId, 'pp5_cup_') === 0;
+    if ($isSpawn && isset($raw['spawn']) && is_array($raw['spawn'])) {
+        $src = $raw['spawn'];
+        $spawn = [];
+        foreach (['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'contaminated', 'burned'] as $key) {
+            if (array_key_exists($key, $src) && is_bool($src[$key])) $spawn[$key] = $src[$key];
+        }
+        foreach (['fillGrams' => 5000, 'waterMl' => 5000, 'sterilizeProgress' => 100, 'colonization' => 100] as $key => $limit) {
+            if (array_key_exists($key, $src) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
+                $spawn[$key] = max(0, min($limit, (int)round((float)$src[$key])));
+            }
+        }
+        if (in_array($src['substrateKind'] ?? '', ['grain', 'sawdust', 'flocao', 'corn'], true)) {
+            $spawn['substrateKind'] = $src['substrateKind'];
+        }
+        if ($spawn) $clean['spawn'] = $spawn;
+    }
+
+    if ((strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 || strpos($itemId, 'falcon_') === 0) &&
+        isset($raw['liquid']) && is_array($raw['liquid']) &&
+        isset($raw['liquid']['volMl']) && is_numeric($raw['liquid']['volMl']) && is_finite((float)$raw['liquid']['volMl'])) {
+        $clean['liquid'] = ['volMl' => max(0, min(5000, (int)round((float)$raw['liquid']['volMl'])))];
+    }
+
+    if (strpos($itemId, 'syringe_10ml_') === 0 && isset($raw['syringe']) && is_array($raw['syringe']) &&
+        isset($raw['syringe']['volMl']) && is_numeric($raw['syringe']['volMl']) && is_finite((float)$raw['syringe']['volMl'])) {
+        $clean['syringe'] = ['volMl' => max(0, min(10, round((float)$raw['syringe']['volMl'], 1)))];
+    }
+
+    if (strpos($itemId, 'mixing_bowl_') === 0 && isset($raw['bowl']) && is_array($raw['bowl'])) {
+        $src = $raw['bowl'];
+        $bowl = [];
+        if (isset($src['ingredients']) && is_array($src['ingredients'])) {
+            $ingredients = [];
+            foreach (['flocao', 'water', 'corn', 'sawdust'] as $key) {
+                $value = $src['ingredients'][$key] ?? 0;
+                if (is_numeric($value) && is_finite((float)$value)) {
+                    $ingredients[$key] = max(0, min(5000, (int)round((float)$value)));
+                }
+            }
+            $bowl['ingredients'] = $ingredients;
+        }
+        if (isset($src['mixed']) && is_bool($src['mixed'])) $bowl['mixed'] = $src['mixed'];
+        if (isset($src['stirCount']) && is_numeric($src['stirCount'])) {
+            $bowl['stirCount'] = max(0, min(3, (int)$src['stirCount']));
+        }
+        if ($bowl) $clean['bowl'] = $bowl;
+    }
+
+    if (strpos($itemId, 'scalpel_') === 0 && isset($raw['scalpel']) && is_array($raw['scalpel'])) {
+        $scalpel = [];
+        foreach (['hasBlade', 'sterile', 'hasMycelium'] as $key) {
+            if (isset($raw['scalpel'][$key]) && is_bool($raw['scalpel'][$key])) $scalpel[$key] = $raw['scalpel'][$key];
+        }
+        if ($scalpel) $clean['scalpel'] = $scalpel;
+    }
+
+    if (strpos($itemId, 'pressure_cooker_') === 0 && isset($raw['cooker']) && is_array($raw['cooker'])) {
+        $src = $raw['cooker'];
+        $cooker = [];
+        if (isset($src['waterMl']) && is_numeric($src['waterMl']) && is_finite((float)$src['waterMl'])) {
+            $cooker['waterMl'] = max(0, min(20000, (int)round((float)$src['waterMl'])));
+        }
+        if (in_array($src['mode'] ?? '', ['sterilize', 'pasteurize'], true)) $cooker['mode'] = $src['mode'];
+        foreach (['temp' => 200, 'psi' => 25, 'progress' => 100, 'overheatTimer' => 3600] as $key => $limit) {
+            if (isset($src[$key]) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
+                $cooker[$key] = max(0, min($limit, (float)$src[$key]));
+            }
+        }
+        foreach (['sterilized', 'burned'] as $key) {
+            if (isset($src[$key]) && is_bool($src[$key])) $cooker[$key] = $src[$key];
+        }
+        if (isset($src['contents']) && is_array($src['contents'])) {
+            $contents = [];
+            foreach (array_slice($src['contents'], 0, 6) as $contentId) {
+                if (is_string($contentId) && in_array($contentId, MP_ITEMS, true)) $contents[] = $contentId;
+            }
+            $cooker['contents'] = array_values(array_unique($contents));
+        }
+        if ($cooker) $clean['cooker'] = $cooker;
+    }
+
+    if (!$clean) return null;
+    $encoded = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    return is_string($encoded) ? $encoded : null;
 }
 
 $pdo = mc_db_or_fail();
@@ -112,7 +221,7 @@ if ($action === 'set_slide') {
 }
 
 function mp_is_valid_state_key(string $k): bool {
-    if (in_array($k, ['hood_lab', 'stir_lab', 'burner_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson', 'auditorium_slide'], true)) {
+    if (in_array($k, ['hood_lab', 'hood_sanitized_until', 'stir_lab', 'burner_lab', 'burner_level_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson', 'auditorium_slide', 'cooker_mode_lab', 'cooker_mode_sub'], true)) {
         return true;
     }
     if (preg_match('/^(door_[0-3]|light_[0-7])$/', $k)) return true;
@@ -258,21 +367,36 @@ if ($action === 'sync') {
     if (!empty($body['moved_items']) && is_array($body['moved_items'])) {
         $batchPlaceholders = [];
         $batchParams = [];
+        $statePlaceholders = [];
+        $stateParams = [];
         foreach (array_slice($body['moved_items'], 0, count(MP_ITEMS)) as $item) {
             if (!is_array($item)) continue;
             $iid = (string)($item['id'] ?? '');
             if (!in_array($iid, MP_ITEMS, true)) continue;
-            $batchPlaceholders[] = '(?, ?, ?, ?, ?)';
-            $batchParams[] = $iid;
-            $batchParams[] = mp_num($item['x'] ?? 0, MP_WORLD_LIMIT);
-            $batchParams[] = mp_num($item['y'] ?? 0, 50.0);
-            $batchParams[] = mp_num($item['z'] ?? 0, MP_WORLD_LIMIT);
-            $batchParams[] = mp_num($item['ry'] ?? 0, 1000.0);
+            if (array_key_exists('x', $item) && array_key_exists('y', $item) && array_key_exists('z', $item)) {
+                $batchPlaceholders[] = '(?, ?, ?, ?, ?)';
+                $batchParams[] = $iid;
+                $batchParams[] = mp_num($item['x'], MP_WORLD_LIMIT);
+                $batchParams[] = mp_num($item['y'], 50.0);
+                $batchParams[] = mp_num($item['z'], MP_WORLD_LIMIT);
+                $batchParams[] = mp_num($item['ry'] ?? 0, 1000.0);
+            }
+            $itemState = mp_clean_item_state($iid, $item['state'] ?? null);
+            if ($itemState !== null) {
+                $statePlaceholders[] = '(?, ?)';
+                $stateParams[] = $iid;
+                $stateParams[] = $itemState;
+            }
         }
         if ($batchPlaceholders) {
             $batchSql = 'INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES ' . implode(',', $batchPlaceholders)
                       . ' ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)';
             $pdo->prepare($batchSql)->execute($batchParams);
+        }
+        if ($statePlaceholders) {
+            $stateSql = 'INSERT INTO mc_world_item_states (item_id, state_json) VALUES ' . implode(',', $statePlaceholders)
+                      . ' ON DUPLICATE KEY UPDATE state_json=VALUES(state_json)';
+            $pdo->prepare($stateSql)->execute($stateParams);
         }
     }
 
@@ -317,10 +441,17 @@ if ($action === 'sync') {
     }
 
     $clientObjVer = (string)($body['obj_ver'] ?? '');
-    $objMeta = $pdo->query('SELECT COUNT(*) AS c, COALESCE(MAX(updated_at), "") AS u FROM mc_world_objects')->fetch();
-    $objVer = $objMeta ? ((string)$objMeta['c'] . ':' . (string)$objMeta['u']) : '0:';
+    $objMeta = $pdo->query('SELECT
+        (SELECT COUNT(*) FROM mc_world_objects) AS c,
+        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_objects) AS u,
+        (SELECT COUNT(*) FROM mc_world_item_states) AS sc,
+        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_item_states) AS su')->fetch();
+    $objVer = $objMeta
+        ? ((string)$objMeta['c'] . ':' . (string)$objMeta['u'] . '|' . (string)$objMeta['sc'] . ':' . (string)$objMeta['su'])
+        : '0:|0:';
     $objectsUnchanged = (!$initSync && $clientObjVer !== '' && $clientObjVer === $objVer);
     $objects = null;
+    $itemStates = null;
     if (!$objectsUnchanged) {
         $objects = new stdClass();
         foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
@@ -332,6 +463,14 @@ if ($action === 'sync') {
                 'ry' => (float)$obj['ry'],
             ];
         }
+        $itemStates = new stdClass();
+        foreach ($pdo->query('SELECT item_id, state_json FROM mc_world_item_states')->fetchAll() as $savedState) {
+            $decodedState = json_decode((string)$savedState['state_json'], true);
+            if (is_array($decodedState)) {
+                $itemStateId = (string)$savedState['item_id'];
+                $itemStates->{$itemStateId} = $decodedState;
+            }
+        }
     }
 
     // Salva mudancas de estado do mundo (portas, persianas, interruptores, fluxo laminar, cinema, cogumelos)
@@ -342,6 +481,10 @@ if ($action === 'sync') {
             if (!mp_is_valid_state_key($sKey)) continue;
             if (strpos($sKey, 'wild_') === 0) {
                 $cleanVal = (string)(time() + 20);
+            } elseif ($sKey === 'hood_sanitized_until') {
+                $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? (string)(time() + 90) : '0';
+            } elseif ($sKey === 'burner_level_lab') {
+                $cleanVal = (string)max(0, min(3, (int)$sVal));
             } elseif ($sKey === 'cinema_lesson') {
                 $cleanVal = (string)max(-1, min(10, (int)$sVal));
             } elseif ($sKey === 'auditorium_slide') {
@@ -354,6 +497,8 @@ if ($action === 'sync') {
                 $cleanVal = (string)max(0, min(100, (int)round((float)$sVal)));
             } elseif (preg_match('/^greenhouse_slot_[0-3]_stage$/', $sKey)) {
                 $cleanVal = (string)max(0, min(3, (int)$sVal));
+            } elseif (strpos($sKey, 'cooker_mode_') === 0) {
+                $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             } else {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             }
@@ -454,6 +599,7 @@ if ($action === 'sync') {
     ];
     if (!$objectsUnchanged) {
         $resp['objects'] = $objects;
+        $resp['item_states'] = $itemStates;
     }
     if (!$stateUnchanged) {
         $resp['world_state'] = $state;

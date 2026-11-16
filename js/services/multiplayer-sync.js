@@ -101,6 +101,9 @@ export async function syncMultiplayer() {
       if (!data.objects_unchanged && data.objects && window.applyCampusWorldObjects) {
         window.applyCampusWorldObjects(data.objects);
       }
+      if (data.item_states && window.applyCampusItemStates) {
+        window.applyCampusItemStates(data.item_states);
+      }
       if (!data.state_unchanged && data.world_state && window.applyCampusWorldState) {
         window.applyCampusWorldState(data.world_state, firstSync);
       }

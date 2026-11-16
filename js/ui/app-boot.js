@@ -28,6 +28,7 @@ import {
 import { completeLabStep, renderMapModal, renderQuestModal } from './quest-map.js';
 import { renderShopModal } from './modal-shop.js';
 import { broadcastSlide, renderLessonsModal } from './modal-lessons.js';
+import { renderLabGuideModal } from './modal-lab-guide.js';
 import {
   closeAdminModal,
   getAdminUsersCache,
@@ -38,6 +39,22 @@ import {
   showAdminNotice
 } from './modal-admin.js';
 import { setupMobileJoystick } from './mobile-controls.js';
+
+function getMobileActionIcon(prompt) {
+  const text = String(prompt || '').toLocaleLowerCase('pt-BR');
+  if (text.indexOf('selar') !== -1 || text.indexOf('seladora') !== -1) return '♨️';
+  if (text.indexOf('seringa') !== -1 || text.indexOf('inocular') !== -1) return '💉';
+  if (text.indexOf('bisturi') !== -1 || text.indexOf('micélio') !== -1) return '🔪';
+  if (text.indexOf('borrifar') !== -1 || text.indexOf('álcool') !== -1) return '💦';
+  if (text.indexOf('água') !== -1 || text.indexOf('despejar') !== -1 || text.indexOf('umedecer') !== -1) return '💧';
+  if (text.indexOf('misturar') !== -1 || text.indexOf('mistura') !== -1) return '🥄';
+  if (text.indexOf('colher') !== -1) return '🍄';
+  if (text.indexOf('sentar') !== -1) return '🪑';
+  if (text.indexOf('panela') !== -1 || text.indexOf('esteril') !== -1 || text.indexOf('fogo') !== -1) return '♨️';
+  if (text.indexOf('abrir') !== -1 || text.indexOf('fechar') !== -1) return '↔️';
+  if (text.indexOf('pegar') !== -1) return '✋';
+  return '✅';
+}
 
 async function harvestMushroom(mushId) {
   if (!appState.currentUser) return;
@@ -92,6 +109,17 @@ function bindModalsAndToolbar() {
   if (btnOpenLessons) btnOpenLessons.onclick = () => { releaseInputForModal(); renderLessonsModal(); $('lesson-modal')?.classList.remove('hidden'); };
   const btnCloseLessons = $('btn-close-lessons');
   if (btnCloseLessons) btnCloseLessons.onclick = () => $('lesson-modal')?.classList.add('hidden');
+
+  const btnOpenGuide = $('btn-open-guide');
+  if (btnOpenGuide) {
+    btnOpenGuide.onclick = () => {
+      releaseInputForModal();
+      renderLabGuideModal();
+      $('guide-modal')?.classList.remove('hidden');
+    };
+  }
+  const btnCloseGuide = $('btn-close-guide');
+  if (btnCloseGuide) btnCloseGuide.onclick = () => $('guide-modal')?.classList.add('hidden');
 
   const btnOpenRanking = $('btn-open-ranking');
   if (btnOpenRanking) btnOpenRanking.onclick = openRankingModal;
@@ -324,6 +352,10 @@ export function bootApp() {
           actBtn.style.display = 'flex';
           actBtn.textContent = '💉';
           actBtn.title = 'Usar Seringa';
+        } else if (label.indexOf('Seladora') !== -1) {
+          actBtn.style.display = 'flex';
+          actBtn.textContent = '♨️';
+          actBtn.title = 'Selar bag preenchido';
         } else {
           actBtn.style.display = 'flex';
           actBtn.textContent = '✋';
@@ -355,11 +387,12 @@ export function bootApp() {
       }
       const actBtn = $('btn-mobile-action');
       const isHolding = window.getCampusPlayerPose && window.getCampusPlayerPose().holding_item;
-      if (actBtn && !isHolding) {
+      if (actBtn) {
         if (isTouch() && txt && appState.currentUser) {
           actBtn.style.display = 'flex';
-          actBtn.textContent = '✋';
+          if (!isHolding) actBtn.textContent = getMobileActionIcon(txt);
           actBtn.title = txt;
+          actBtn.setAttribute('aria-label', txt);
         } else {
           actBtn.style.display = 'none';
         }

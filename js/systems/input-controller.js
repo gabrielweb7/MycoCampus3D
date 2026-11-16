@@ -35,6 +35,8 @@ export function bindControls(ctx) {
       if (targetCp) {
         targetCp.mode = targetCp.mode === 'pasteurize' ? 'sterilize' : 'pasteurize';
         targetCp.lastHudKey = '';
+        const cookerKey = targetCp.potItem.id === 'pressure_cooker_sub' ? 'cooker_mode_sub' : 'cooker_mode_lab';
+        if (ctx.queueWorldStateChange) ctx.queueWorldStateChange(cookerKey, targetCp.mode === 'pasteurize' ? 1 : 0);
         if (window.MycoAudio) window.MycoAudio.playSwitch();
         if (ctx.callbacks && ctx.callbacks.onToast) {
           ctx.callbacks.onToast(
@@ -126,6 +128,7 @@ export function bindControls(ctx) {
       el.closest('#lesson-modal') ||
       el.closest('#ranking-modal') ||
       el.closest('#admin-modal') ||
+      el.closest('#guide-modal') ||
       el.closest('#campus-lobby')
     );
   }

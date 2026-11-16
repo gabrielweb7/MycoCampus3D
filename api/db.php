@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 7;
+const MC_SCHEMA_VERSION = 8;
 const MC_TOKEN_TTL_DAYS = 30;
 
 header('Content-Type: application/json; charset=utf-8');

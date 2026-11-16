@@ -14,7 +14,7 @@ import {
 } from '../entities/placement-ghost.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { scrollRanking } from '../world/staircase-clock.js';
-import { canItemEnterCooker, canSyringeTarget } from '../items/item-registry.js';
+import { canItemEnterCooker, canSealSpawnBag, canSyringeTarget } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
@@ -25,6 +25,18 @@ import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../i
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
+
+function getSyringeTargetHint(spawn, syringeVolume) {
+  if (syringeVolume <= 0) return '💉 Seringa vazia • Aspire cultura líquida antes de inocular';
+  if (!spawn.filled) return '🌽 Adicione substrato antes de inocular';
+  if (spawn.burned) return '🔥 Este recipiente foi queimado e não pode ser inoculado';
+  if (spawn.contaminated) return '🦠 Este recipiente está contaminado';
+  if (spawn.inoculated) return '✅ Este recipiente já foi inoculado';
+  if (spawn.isPP5 && (spawn.waterMl || 0) < 35) return '💧 Hidrate o PP5 com 35ml de água antes de esterilizar';
+  if (spawn.isBag && !spawn.sealed) return '♨️ Sele o bag antes de esterilizar';
+  if (!spawn.sterilized) return '♨️ Esterilize o recipiente antes de inocular';
+  return '⚠️ Este recipiente ainda não está pronto';
+}
 
 export function setMeshGhostOpacity(root, active) {
   if (!root) return;
@@ -212,7 +224,8 @@ export function handlePrimaryAction(ctx) {
       if (window.MycoAudio) window.MycoAudio.playSpray();
       const nowMs = performance.now();
       if (ctx.hoveredSprayTarget === 'hood') {
-        ctx.hoodSanitizedUntil = nowMs + 90000;
+        ctx.hoodSanitizedUntil = Date.now() + 90000;
+        ctx.queueWorldStateChange('hood_sanitized_until', 1);
         if (ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('sanitize_hood');
       } else {
         ctx.hoveredSprayTarget.sanitizedUntil = nowMs + 90000;
@@ -233,6 +246,24 @@ export function handlePrimaryAction(ctx) {
       const spPts = new THREE.Points(spGeo, spMat);
       ctx.scene.add(spPts);
       ctx.sprayBursts.push({ pts: spPts, mat: spMat, attr: spAttr, dir: spDir, age: 0 });
+      return;
+    }
+    if (ctx.hoveredHeatSealerTarget && ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.sealsBags) {
+      const target = ctx.hoveredHeatSealerTarget;
+      if (canSealSpawnBag(target)) {
+        target.spawnCtrl.sealed = true;
+        target.spawnCtrl.updateVisual();
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('♨️ Bag selado! Leve-o à panela para esterilizar antes de inocular.');
+        ctx.notifyWorldAction();
+      } else if (ctx.callbacks.onToast) {
+        const sc = target.spawnCtrl;
+        const reason = !sc.filled ? 'preencha o bag com substrato primeiro'
+          : (sc.sealed ? 'este bag já está selado'
+            : (sc.sterilized || sc.inoculated ? 'este bag já foi processado; sele apenas antes da esterilização'
+              : (sc.burned ? 'este bag foi queimado' : 'este bag está contaminado')));
+        ctx.callbacks.onToast('⚠️ Não foi possível selar: ' + reason + '.');
+      }
       return;
     }
     if (ctx.hoveredSyringeTarget && ctx.heldItem.mesh.userData.isSyringe) {
@@ -646,6 +677,7 @@ export function handlePrimaryAction(ctx) {
     if (window.MycoAudio) window.MycoAudio.playSwitch();
     if (ctx.hoveredBurnerSwitch.id === 'burner_lab') {
       ctx.queueWorldStateChange('burner_lab', ctx.hoveredBurnerSwitch.on ? 1 : 0);
+      ctx.queueWorldStateChange('burner_level_lab', ctx.hoveredBurnerSwitch.level || 0);
     }
     if (ctx.callbacks.onToast) {
       ctx.callbacks.onToast('🔥 ' + (ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé a Gás' : 'Fogareiro') + ': ' + BURNER_LEVEL_NAMES[nextLvl]);
@@ -743,6 +775,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredHoodSwitch = null;
   ctx.hoveredStirSwitch = null;
   ctx.hoveredSyringeTarget = null;
+  ctx.hoveredHeatSealerTarget = null;
   ctx.hoveredScaleTare = null;
   ctx.hoveredBurnerSwitch = null;
   ctx.hoveredPotInsert = null;
@@ -790,6 +823,32 @@ export function updateHoverRay(ctx, customNdc) {
           if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🧴 Borrifar Álcool 70% (' + aCand.label + ')');
           return;
         }
+      }
+    }
+    if (ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.sealsBags) {
+      const hsRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const hsRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      for (let hi = 0; hi < ctx.pickableItems.length; hi++) {
+        const hCand = ctx.pickableItems[hi];
+        if (!hCand.spawnCtrl || !hCand.spawnCtrl.isBag || hCand === ctx.heldItem || ctx.isHeldByRemote(hCand.id)) continue;
+        const hdx = hCand.mesh.position.x - hsRefX, hdz = hCand.mesh.position.z - hsRefZ;
+        if (hdx * hdx + hdz * hdz > 100) continue;
+        const hHit = firstValidRayHit(ctx.raycaster.intersectObject(hCand.mesh, true));
+        if (!hHit || hHit.distance >= 3.5) continue;
+        ctx.hoveredHeatSealerTarget = hCand;
+        if (ctx.placementGhost) ctx.placementGhost.visible = false;
+        const hSc = hCand.spawnCtrl;
+        const hPrompt = canSealSpawnBag(hCand)
+          ? '♨️ Selar ' + hCand.label + ' antes da esterilização'
+          : (!hSc.filled
+            ? '🌾 Preencha o bag com substrato antes de selar'
+            : (hSc.sealed
+              ? '✅ Este bag já está selado'
+              : (hSc.sterilized || hSc.inoculated
+                ? '⚠️ O bag deve ser selado antes da esterilização'
+                : (hSc.burned ? '🔥 Este bag foi queimado' : '🦠 Este bag está contaminado'))));
+        if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(hPrompt);
+        return;
       }
     }
     if (canItemEnterCooker(ctx.heldItem)) {
@@ -975,18 +1034,17 @@ export function updateHoverRay(ctx, customNdc) {
               if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Seringa cheia (' + Math.round(sc.volMl) + 'ml) • Clique para esvaziar de volta (2s)');
               return;
             }
-          } else if (sc.volMl > 0 && canSyringeTarget(cand)) {
-            ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
-            if (ctx.placementGhost) ctx.placementGhost.visible = false;
-            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Inocular ' + Math.round(sc.volMl) + 'ml em ' + cand.label + ' (2s)');
+          } else if (canSyringeTarget(cand)) {
+            if (sc.volMl > 0) {
+              ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
+              if (ctx.placementGhost) ctx.placementGhost.visible = false;
+              if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Inocular ' + Math.round(sc.volMl) + 'ml em ' + cand.label + ' (2s)');
+            } else if (ctx.callbacks.onHoverPrompt) {
+              ctx.callbacks.onHoverPrompt('💉 Seringa vazia • Aspire cultura líquida antes de inocular');
+            }
             return;
-          } else if (sc.volMl > 0 && cand.spawnCtrl && cand.spawnCtrl.isPP5) {
-            const sp = cand.spawnCtrl;
-            const prompt = !sp.filled
-              ? '🌽 Adicione substrato antes de inocular este PP5'
-              : ((sp.waterMl || 0) < 35
-                ? '💧 Hidrate o PP5 com 35ml de água antes de inocular'
-                : '✅ Este recipiente já foi inoculado');
+          } else if (cand.spawnCtrl) {
+            const prompt = getSyringeTargetHint(cand.spawnCtrl, sc.volMl);
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
             return;
           }

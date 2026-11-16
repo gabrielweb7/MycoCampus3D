@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.32] — 2026-11-16
+### 📖 Guia, Seladora e Estado Compartilhado do Laboratório
+- Adicionado ao HUD um guia com controles para PC/celular, compatibilidade dos itens cadastrados e tutorial opcional em etapas.
+- O botão de ação mobile agora usa ícones contextuais para indicar melhor o que o toque fará.
+- A Seladora Térmica agora sela bags preenchidos antes da esterilização, com indicador visual no bag; recipientes queimados, contaminados, não esterilizados ou bags sem selo não podem ser inoculados.
+- O multiplayer agora compartilha volumes, receitas, estado de inoculação/esterilização, lâmina do bisturi e conteúdo/andamento das panelas, com validação dos dados recebidos pelo servidor.
+- O nível do fogareiro e o modo das panelas também são sincronizados para os jogadores da sessão.
+
 ## [v0.9.31] — 2026-11-16
 ### 💉 Validação de Alvos da Seringa
 - A seringa não pode inocular recipientes vazios, PP5 sem hidratação ou recipientes já inoculados.

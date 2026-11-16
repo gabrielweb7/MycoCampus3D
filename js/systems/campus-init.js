@@ -173,6 +173,7 @@ const sim = {
   hoveredSink: null,
   hoveredPourTarget: null,
   hoveredFillPot: null,
+  hoveredHeatSealerTarget: null,
   hoveredGrainTarget: null,
   hoveredFlocaoTarget: null,
   hoveredScalpelTarget: null,
