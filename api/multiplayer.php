@@ -89,6 +89,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     $clean = [];
 
     $hasItemState = strpos($itemId, 'spawn_') === 0 || strpos($itemId, 'pp5_cup_') === 0 ||
+        strpos($itemId, 'petri_') === 0 ||
         strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 ||
         strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'syringe_10ml_') === 0 ||
         strpos($itemId, 'mixing_bowl_') === 0 || strpos($itemId, 'scalpel_') === 0;
@@ -113,6 +114,11 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
             $spawn['substrateKind'] = $src['substrateKind'];
         }
         if ($spawn) $clean['spawn'] = $spawn;
+    }
+
+    if (strpos($itemId, 'petri_') === 0 && isset($raw['petri']) && is_array($raw['petri']) &&
+        in_array($raw['petri']['mode'] ?? '', ['bare', 'empty', 'clean', 'contam'], true)) {
+        $clean['petri'] = ['mode' => $raw['petri']['mode']];
     }
 
     if ((strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 || strpos($itemId, 'falcon_') === 0) &&

@@ -196,9 +196,17 @@ export function stepSpawnColonization(ctx, dt) {
   for (let sgi = 0; sgi < ctx.spawnGrowItems.length; sgi++) {
     const sgIt = ctx.spawnGrowItems[sgi];
     const sc = sgIt.spawnCtrl;
-    if (sc && sc.inoculated && sc.colonization < 100) {
-      sc.colonization = Math.min(100, sc.colonization + dt * 4.2);
-      sc.updateVisual();
+    if (sc && sc.inoculated && !sc.contaminated && !sc.burned) {
+      let changed = false;
+      if (sc.colonization < 100) {
+        sc.colonization = Math.min(100, sc.colonization + dt * 4.2);
+        changed = true;
+      }
+      if (sc.colonization >= 100 && !sc.colonized) {
+        sc.colonized = true;
+        changed = true;
+      }
+      if (changed) sc.updateVisual();
     }
   }
 }

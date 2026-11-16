@@ -971,7 +971,8 @@ export function updateHoverRay(ctx, customNdc) {
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🔪 Trocar por lâmina #24 estéril');
             return;
           }
-          if (!sc.hasMycelium && (sCand.id === 'petri_clean' || (sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60))) {
+          const petriCtrl = sCand.mesh.userData.petriCtrl;
+          if (!sc.hasMycelium && ((petriCtrl && petriCtrl.mode === 'clean') || (sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60))) {
             ctx.hoveredScalpelTarget = { mode: 'cut', item: sCand };
             if (ctx.placementGhost) ctx.placementGhost.visible = false;
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🔪 Cortar fragmento de micélio (' + sCand.label + ')');
@@ -1045,6 +1046,15 @@ export function updateHoverRay(ctx, customNdc) {
             return;
           } else if (cand.spawnCtrl) {
             const prompt = getSyringeTargetHint(cand.spawnCtrl, sc.volMl);
+            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
+            return;
+          } else if (cand.mesh.userData.isPetri) {
+            const petriMode = cand.mesh.userData.petriCtrl && cand.mesh.userData.petriCtrl.mode;
+            const prompt = petriMode === 'bare'
+              ? '🧫 Adicione meio PDA antes de inocular esta placa'
+              : (petriMode === 'empty'
+                ? '🧫 Placa estéril pronta para inocular'
+                : '🧫 Esta placa já contém cultura; use o bisturi para transferir micélio');
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
             return;
           }

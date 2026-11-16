@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.33] — 2026-11-16
+### 🧫 Inoculação de Petri e Colonização
+- A placa estéril com PDA agora aceita cultura líquida, mostra o estado de cultura/contaminação e pode fornecer micélio ao bisturi; o estado também sincroniza no multiplayer.
+- Placas já inoculadas ou contaminadas não aceitam novas injeções, e placas vazias sem PDA informam o requisito.
+- Recipientes contaminados ou queimados não avançam mais a colonização.
+- O estado do recipiente passa a ser marcado como colonizado ao atingir 100%.
+
 ## [v0.9.32] — 2026-11-16
 ### 📖 Guia, Seladora e Estado Compartilhado do Laboratório
 - Adicionado ao HUD um guia com controles para PC/celular, compatibilidade dos itens cadastrados e tutorial opcional em etapas.

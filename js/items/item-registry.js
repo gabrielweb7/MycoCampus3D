@@ -75,6 +75,10 @@ export function canItemEnterCooker(item) {
 
 export function canSyringeTarget(item) {
   if (!item || !item.mesh) return false;
+  if (item.mesh.userData.isPetri) {
+    const petriCtrl = item.mesh.userData.petriCtrl;
+    return !!(petriCtrl && petriCtrl.mode === 'empty');
+  }
   const spawnCtrl = item.spawnCtrl;
   if (spawnCtrl && (
     !spawnCtrl.filled ||

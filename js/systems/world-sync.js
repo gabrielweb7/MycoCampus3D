@@ -11,6 +11,7 @@ import { updateSyringeVolume } from '../items/syringe.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
 import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
+import { updatePetriVisual } from '../items/petri-dish.js';
 import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 
 export function consumeCampusMovedItems(sim) {
@@ -68,6 +69,10 @@ function getReplicatedItemState(sim, item) {
       contaminated: !!spawn.contaminated,
       burned: !!spawn.burned
     };
+  }
+  const petri = meshData.petriCtrl;
+  if (petri && ['bare', 'empty', 'clean', 'contam'].indexOf(petri.mode) !== -1) {
+    state.petri = { mode: petri.mode };
   }
   const liquid = meshData.liquidCtrl;
   if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0) };
@@ -131,6 +136,9 @@ function applyReplicatedItemState(sim, item, state) {
     if (['grain', 'sawdust', 'flocao', 'corn'].indexOf(incoming.substrateKind) !== -1) {
       spawn.substrateKind = incoming.substrateKind;
     }
+    if (spawn.inoculated && spawn.colonization >= 100 && !spawn.contaminated && !spawn.burned) {
+      spawn.colonized = true;
+    }
     if (spawn.fillMesh) spawn.fillMesh.visible = spawn.filled;
     if (item.meta && item.meta.compatibilities) item.meta.compatibilities.receivesSyringe = spawn.filled;
     if (spawn.isPP5) {
@@ -147,6 +155,11 @@ function applyReplicatedItemState(sim, item, state) {
   }
 
   const meshData = item.mesh.userData || {};
+  if (meshData.petriCtrl && state.petri && typeof state.petri.mode === 'string' &&
+      ['bare', 'empty', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
+    meshData.petriCtrl.mode = state.petri.mode;
+    updatePetriVisual(item);
+  }
   if (meshData.liquidCtrl && state.liquid && typeof state.liquid.volMl === 'number') {
     updateContainerVolume(item, state.liquid.volMl);
   }
