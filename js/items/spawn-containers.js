@@ -76,9 +76,24 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
     new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.34, roughness: 0.1, metalness: 0.1, depthWrite: false })
   );
   glass.position.y = 0.12;
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.035, 16), new THREE.MeshStandardMaterial({ color: filled ? 0xdc2626 : 0xf8fafc, roughness: 0.4 }));
-  lid.position.y = 0.255;
-  jg.add(glass, lid);
+  // Folha de TNT branca entre o gargalo e a tampa
+  const tntCloth = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.098, 0.116, 0.036, 16, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.92, side: THREE.DoubleSide })
+  );
+  tntCloth.position.y = 0.242;
+  // Tampa preta com furo central para troca gasosa (TNT visivel no furo)
+  const lid = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.096, 0.096, 0.026, 16),
+    new THREE.MeshStandardMaterial({ color: filled ? 0x111827 : 0x334155, roughness: 0.4, metalness: 0.25 })
+  );
+  lid.position.y = 0.258;
+  const lidHole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.022, 0.022, 0.028, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 })
+  );
+  lidHole.position.y = 0.258;
+  jg.add(glass, tntCloth, lid, lidHole);
   const jc = document.createElement('canvas'); jc.width = 128; jc.height = 128;
   const jctx = jc.getContext('2d');
   jctx.fillStyle = filled ? '#eab308' : '#d97706'; jctx.fillRect(0, 0, 128, 128);

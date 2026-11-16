@@ -30,6 +30,7 @@ import { makeGasTripodBurner } from '../items/gas-tripod.js';
 import { makeScalpel, makeScalpelBladePack } from '../items/scalpel.js';
 import { makePP5Cup145ml } from '../items/pp5-cup.js';
 import { makeFlocao500g } from '../items/flocao-corn.js';
+import { makeMixingBowl, makeLabSpoon } from '../items/mixing-bowl.js';
 import {
   addStoragePortaPalletRack,
   makeSubstrateBag5kg,
@@ -85,6 +86,8 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeSpawnBag1500(ctx, 'spawn_bag_colonized', true, -23.1, 1.02, -8.5);
   makeSpawnBag1500(ctx, 'spawn_bag_empty', false, -23.1, 1.02, -7.8);
   createPrecisionScale(ctx, 'precision_scale', -23.1, 1.02, -9.6);
+  makeMixingBowl(ctx, 'mixing_bowl_01', -23.1, 1.02, -10.1);
+  makeLabSpoon(ctx, 'lab_spoon_01', -23.1, 1.02, -10.35);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray', -23.1, 1.02, -7.1);
   createHeatSealer(ctx, 'heat_sealer', -23.1, 1.02, -6.2);
 

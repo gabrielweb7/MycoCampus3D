@@ -175,6 +175,7 @@ const sim = {
   hoveredGrainTarget: null,
   hoveredFlocaoTarget: null,
   hoveredScalpelTarget: null,
+  hoveredBowlTarget: null,
   sportBalls: [],
   cookerPots: [],
   spawnGrowItems: [],

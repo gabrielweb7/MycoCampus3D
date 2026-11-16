@@ -20,6 +20,7 @@ import { updateContainerVolume } from '../items/liquid-culture.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
+import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -310,6 +311,15 @@ export function handlePrimaryAction(ctx) {
           if (window.MycoAudio) window.MycoAudio.playSpray();
           if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
         }
+      } else if (dstItem.bowlCtrl) {
+        const pourAmt = Math.min(srcLc.volMl, 50);
+        if (pourAmt > 0) {
+          updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
+          addIngredientToBowl(dstItem, 'water', pourAmt);
+          if (window.MycoAudio) window.MycoAudio.playSpray();
+          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 +' + pourAmt + 'g água no Pote de Mistura!');
+        }
       } else if (dstItem.spawnCtrl && dstItem.spawnCtrl.isPP5 && dstItem.spawnCtrl.filled && (dstItem.spawnCtrl.waterMl || 0) < 35) {
         const pourAmt = Math.min(srcLc.volMl, 35 - (dstItem.spawnCtrl.waterMl || 0));
         if (pourAmt > 0) {
@@ -323,6 +333,12 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (ctx.hoveredFlocaoTarget && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isFlocao) {
+      if (ctx.hoveredFlocaoTarget.bowlCtrl) {
+        addIngredientToBowl(ctx.hoveredFlocaoTarget, 'flocao', 50);
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 +50g de Flocão no Pote de Mistura! (' + ctx.hoveredFlocaoTarget.label + ')');
+        return;
+      }
       const ppSc = ctx.hoveredFlocaoTarget.spawnCtrl;
       if (ppSc && !ppSc.filled) {
         ppSc.filled = true;
@@ -334,6 +350,39 @@ export function handlePrimaryAction(ctx) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 45g de Flocão colocados no Potinho PP5! Adicione água e esterilize por 1h20m.');
       }
       return;
+    }
+    if (ctx.hoveredBowlTarget) {
+      if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isLabSpoon) {
+        const res = stirMixingBowl(ctx.hoveredBowlTarget);
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast(res.empty ? '🥄 Pote de Mistura está vazio!' : (res.done ? '✅ Receita homogênea pronta para porcionar!' : '🥄 Misturando (' + res.stirCount + '/3)...'));
+        }
+        return;
+      }
+      if (ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed && ctx.hoveredBowlTarget.spawnCtrl) {
+        const dstSc = ctx.hoveredBowlTarget.spawnCtrl;
+        const bc = ctx.heldItem.bowlCtrl;
+        const needSolid = dstSc.isPP5 ? 45 : 250;
+        const needWater = dstSc.isPP5 ? 35 : 150;
+        const solidKey = bc.ingredients.flocao > 0 ? 'flocao' : (bc.ingredients.corn > 0 ? 'corn' : 'sawdust');
+        if ((bc.ingredients[solidKey] || 0) >= needSolid) {
+          bc.ingredients[solidKey] -= needSolid;
+          bc.ingredients.water = Math.max(0, (bc.ingredients.water || 0) - Math.min(needWater, bc.ingredients.water || 0));
+          updateMixingBowlLabel(ctx.heldItem);
+          dstSc.filled = true;
+          dstSc.fillGrams = needSolid;
+          dstSc.waterMl = needWater;
+          if (dstSc.fillMesh) dstSc.fillMesh.visible = true;
+          dstSc.updateVisual();
+          if (window.MycoAudio) window.MycoAudio.playClick();
+          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🥣 Receita porcionada em ' + dstSc.baseLabel + '!');
+        } else if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('⚠️ Mistura insuficiente no pote!');
+        }
+        return;
+      }
     }
     if (ctx.hoveredScalpelTarget && ctx.heldItem.scalpelCtrl) {
       const sc = ctx.heldItem.scalpelCtrl;
@@ -373,6 +422,12 @@ export function handlePrimaryAction(ctx) {
     }
     if (ctx.hoveredGrainTarget && ctx.heldItem.id.indexOf('substrate_') === 0) {
       const kind = ctx.heldItem.id.indexOf('grain') !== -1 ? 'grain' : 'sawdust';
+      if (ctx.hoveredGrainTarget.bowlCtrl) {
+        addIngredientToBowl(ctx.hoveredGrainTarget, kind === 'grain' ? 'corn' : 'sawdust', 100);
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 +100g no Pote de Mistura!');
+        return;
+      }
       if (fillSpawnWithSubstrate(ctx.hoveredGrainTarget, kind)) {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 ' + ctx.hoveredGrainTarget.label + ' preenchido!');
@@ -694,6 +749,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredGrainTarget = null;
   ctx.hoveredFlocaoTarget = null;
   ctx.hoveredScalpelTarget = null;
+  ctx.hoveredBowlTarget = null;
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
@@ -779,7 +835,8 @@ export function updateHoverRay(ctx, customNdc) {
         if (pCand === ctx.heldItem || ctx.isHeldByRemote(pCand.id)) continue;
         const isPourableLc = !!(pCand.mesh && pCand.mesh.userData.liquidCtrl && pCand.mesh.userData.liquidCtrl.volMl < pCand.mesh.userData.liquidCtrl.maxMl);
         const isPourablePP5 = !!(pCand.spawnCtrl && pCand.spawnCtrl.isPP5 && pCand.spawnCtrl.filled && (pCand.spawnCtrl.waterMl || 0) < 35);
-        if (!isPourableLc && !isPourablePP5) continue;
+        const isPourableBowl = !!pCand.bowlCtrl;
+        if (!isPourableLc && !isPourablePP5 && !isPourableBowl) continue;
         const pdx = pCand.mesh.position.x - pRefX, pdz = pCand.mesh.position.z - pRefZ;
         if (pdx * pdx + pdz * pdz > 100) continue;
         const pHit = firstValidRayHit(ctx.raycaster.intersectObject(pCand.mesh, true));
@@ -796,14 +853,40 @@ export function updateHoverRay(ctx, customNdc) {
       const fRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
         const fCand = ctx.pickableItems[fi];
-        if (!fCand.spawnCtrl || !fCand.spawnCtrl.isPP5 || fCand.spawnCtrl.filled || ctx.isHeldByRemote(fCand.id)) continue;
+        const canFlocaoPP5 = !!(fCand.spawnCtrl && fCand.spawnCtrl.isPP5 && !fCand.spawnCtrl.filled);
+        const canFlocaoBowl = !!fCand.bowlCtrl;
+        if ((!canFlocaoPP5 && !canFlocaoBowl) || ctx.isHeldByRemote(fCand.id)) continue;
         const fdx = fCand.mesh.position.x - fRefX, fdz = fCand.mesh.position.z - fRefZ;
         if (fdx * fdx + fdz * fdz > 100) continue;
         const fHit = firstValidRayHit(ctx.raycaster.intersectObject(fCand.mesh, true));
         if (fHit && fHit.distance < 3.5) {
           ctx.hoveredFlocaoTarget = fCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🌽 Colocar 45g de Flocão em ' + fCand.label);
+          if (ctx.callbacks.onHoverPrompt) {
+            ctx.callbacks.onHoverPrompt(canFlocaoBowl ? '🌽 Adicionar +50g de Flocão no Pote de Mistura' : '🌽 Colocar 45g de Flocão em ' + fCand.label);
+          }
+          return;
+        }
+      }
+    }
+    if ((ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isLabSpoon) || (ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed)) {
+      const bRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const bRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      for (let bi = 0; bi < ctx.pickableItems.length; bi++) {
+        const bCand = ctx.pickableItems[bi];
+        if (bCand === ctx.heldItem || ctx.isHeldByRemote(bCand.id)) continue;
+        const isSpoonTarget = ctx.heldItem.mesh.userData.isLabSpoon && !!bCand.bowlCtrl;
+        const isPortionTarget = ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed && bCand.spawnCtrl && !bCand.spawnCtrl.filled;
+        if (!isSpoonTarget && !isPortionTarget) continue;
+        const bdx = bCand.mesh.position.x - bRefX, bdz = bCand.mesh.position.z - bRefZ;
+        if (bdx * bdx + bdz * bdz > 100) continue;
+        const bHit = firstValidRayHit(ctx.raycaster.intersectObject(bCand.mesh, true));
+        if (bHit && bHit.distance < 3.5) {
+          ctx.hoveredBowlTarget = bCand;
+          if (ctx.placementGhost) ctx.placementGhost.visible = false;
+          if (ctx.callbacks.onHoverPrompt) {
+            ctx.callbacks.onHoverPrompt(isSpoonTarget ? '🥄 Misturar ingredientes no Pote' : '🥣 Porcionar receita em ' + bCand.label);
+          }
           return;
         }
       }
