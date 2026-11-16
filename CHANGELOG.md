@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.30] — 2026-11-15
+### 🧪 Correções de Interações de Laboratório
+- A aspiração pela seringa agora respeita o volume disponível no recipiente e a capacidade restante da seringa.
+- A esterilidade por fluxo laminar higienizado só se aplica quando o recipiente inoculado está sobre a área de trabalho da capela.
+- O pote de mistura agora exige as quantidades mínimas de sólido e água antes de porcionar uma receita.
+
 ## [v0.9.29] — 2026-11-15
 ### 📱 FPS Adaptativo para Celulares
 - O modo automático inicia em qualidade reduzida em aparelhos com pouca memória ou até quatro núcleos, sem sombras em nenhum nível mobile.

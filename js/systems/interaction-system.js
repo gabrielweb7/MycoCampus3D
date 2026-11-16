@@ -19,6 +19,7 @@ import { triggerSinkStream } from '../items/lab-sink.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
+import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 
@@ -239,12 +240,13 @@ export function handlePrimaryAction(ctx) {
       const tgt = ctx.hoveredSyringeTarget;
       if (ctx.syringePumping) return;
       const fromVol = syrCtrl.volMl;
-      let toVol;
-      if (tgt.mode === 'draw') toVol = 10;
-      else toVol = 0;
-      if (fromVol >= 9.9) toVol = 0;
-      else if (fromVol <= 0.1) toVol = 10;
-      else toVol = (fromVol >= 5 ? 0 : 10);
+      const sourceVol = tgt.mode === 'draw' && tgt.item && tgt.item.mesh.userData.liquidCtrl
+        ? tgt.item.mesh.userData.liquidCtrl.volMl
+        : 0;
+      const toVol = tgt.mode === 'draw'
+        ? Math.min(10, fromVol + sourceVol)
+        : 0;
+      if (Math.abs(toVol - fromVol) < 0.01) return;
 
       ctx.syringePumping = {
         target: tgt,
@@ -366,9 +368,11 @@ export function handlePrimaryAction(ctx) {
         const needSolid = dstSc.isPP5 ? 45 : 250;
         const needWater = dstSc.isPP5 ? 35 : 150;
         const solidKey = bc.ingredients.flocao > 0 ? 'flocao' : (bc.ingredients.corn > 0 ? 'corn' : 'sawdust');
-        if ((bc.ingredients[solidKey] || 0) >= needSolid) {
+        const solidAvailable = bc.ingredients[solidKey] || 0;
+        const waterAvailable = bc.ingredients.water || 0;
+        if (solidAvailable >= needSolid && waterAvailable >= needWater) {
           bc.ingredients[solidKey] -= needSolid;
-          bc.ingredients.water = Math.max(0, (bc.ingredients.water || 0) - Math.min(needWater, bc.ingredients.water || 0));
+          bc.ingredients.water -= needWater;
           updateMixingBowlLabel(ctx.heldItem);
           dstSc.filled = true;
           dstSc.fillGrams = needSolid;
@@ -379,7 +383,7 @@ export function handlePrimaryAction(ctx) {
           if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('🥣 Receita porcionada em ' + dstSc.baseLabel + '!');
         } else if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('⚠️ Mistura insuficiente no pote!');
+          ctx.callbacks.onToast('⚠️ Mistura insuficiente: precisa de ' + needSolid + 'g de sólido e ' + needWater + 'ml de água.');
         }
         return;
       }
@@ -404,7 +408,7 @@ export function handlePrimaryAction(ctx) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Leve até um potinho PP5 estéril.');
       } else if (tgt.mode === 'transfer' && tgt.item && tgt.item.spawnCtrl) {
         const dstSc = tgt.item.spawnCtrl;
-        const isAseptic = !!(ctx.hoodAirData && ctx.hoodAirData.on && performance.now() < ctx.hoodSanitizedUntil);
+        const isAseptic = isAsepticWorkArea(ctx, tgt.item);
         dstSc.inoculated = true;
         if (!sc.sterile || !dstSc.sterilized || (!isAseptic && Math.random() < 0.45)) {
           dstSc.contaminated = true;

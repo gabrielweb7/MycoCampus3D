@@ -8,6 +8,17 @@ import { addMovableStainlessTable } from './stainless-table.js';
 
 const THREE = window.THREE;
 
+export function isAsepticWorkArea(ctx, item) {
+  const air = ctx.hoodAirData;
+  const area = air && air.workArea;
+  const pos = item && item.mesh && item.mesh.position;
+  return !!(air && air.on && area && pos &&
+    performance.now() < ctx.hoodSanitizedUntil &&
+    pos.x >= area.minX && pos.x <= area.maxX &&
+    pos.z >= area.minZ && pos.z <= area.maxZ &&
+    pos.y >= area.topY - 0.15 && pos.y <= area.topY + 0.6);
+}
+
 export const LAMINAR_HOOD_META = {
   category: 'equipment',
   purpose: 'Cabine de fluxo laminar HEPA para trabalho asséptico e inoculação estéril',
@@ -126,13 +137,13 @@ export function buildLaminarHoodAndBenches(ctx) {
   hoodLight.position.set(-18.5, 1.82, -8.2);
   scene.add(hoodLight);
 
-  const hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat, ledMat: hoodLedMat, workLight: hoodLight };
+  const hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.065, isHood: true };
+  const hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat, ledMat: hoodLedMat, workLight: hoodLight, workArea: hoodSurf };
   if (ctx.setHoodAirData) ctx.setHoodAirData(hoodAirData);
   hoodBtnMesh.userData.hoodSwitch = hoodAirData;
   hoodSwitchBox.userData.hoodSwitch = hoodAirData;
   ctx.hoodSwitchMeshes.push(hoodBtnMesh, hoodSwitchBox);
 
-  const hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.065, isHood: true };
   supportSurfaces.push(hoodSurf);
   hoodBase.userData.supportSurface = hoodSurf;
   hoodWorkMat.userData.supportSurface = hoodSurf;

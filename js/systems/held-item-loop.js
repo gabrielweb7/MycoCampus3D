@@ -8,6 +8,7 @@ import { getVirtualDayFrac } from '../world/staircase-clock.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateSyringeVolume } from '../items/syringe.js';
 import { getItemBaseTempC } from '../items/item-registry.js';
+import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { greenhouseSlots } from '../world/greenhouse.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 
@@ -327,7 +328,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       } else if (ctx.syringePumping.target.item && ctx.syringePumping.target.item.spawnCtrl) {
         const spTarget = ctx.syringePumping.target.item;
         const spCtrl = spTarget.spawnCtrl;
-        const isAseptic = !!(ctx.hoodAirData && ctx.hoodAirData.on && performance.now() < ctx.hoodSanitizedUntil);
+        const isAseptic = isAsepticWorkArea(ctx, spTarget);
         spCtrl.inoculated = true;
         if (!spCtrl.sterilized && Math.random() < 0.85) {
           spCtrl.contaminated = true;
