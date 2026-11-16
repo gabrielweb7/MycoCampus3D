@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.27] — 2026-11-15
+### ⚡ Menos Raycasts e Tráfego Multiplayer
+- Limitada a atualização do raycast de interação no desktop a 30 Hz fora de ações contínuas, reduzindo trabalho repetido no loop de renderização.
+- Aumentado o intervalo de sincronização multiplayer de 125 ms para 250 ms (8 para 4 requisições por segundo por jogador), mantendo a interpolação dos avatares.
+- Aplicada a constante existente de intervalo em segundo plano e atualizadas as referências de versão.
+
 ## [v0.9.26] — 2026-11-15
 ### 🐛 Correção da Tela Preta na Inicialização do Campus
 - Corrigidas as chamadas de `addWalkableSlab` e `addSolidWall` nos construtores do campus para corresponder às assinaturas atuais, evitando que a construção do mundo 3D seja interrompida.

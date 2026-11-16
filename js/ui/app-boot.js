@@ -1,7 +1,7 @@
 /**
  * MycoCampus3D — Bootstrap da Aplicação, Bindings de HUD, Chat & Eventos
  */
-import { SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
+import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
 import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
 import { apiPost } from '../services/api-client.js';
@@ -448,7 +448,7 @@ export function bootApp() {
     if (!appState.currentUser) return;
     if (document.hidden) {
       if (appState.syncTimer) clearInterval(appState.syncTimer);
-      appState.syncTimer = setInterval(syncMultiplayer, 1200);
+      appState.syncTimer = setInterval(syncMultiplayer, SYNC_BACKGROUND_INTERVAL_MS);
     } else {
       if (appState.syncTimer) clearInterval(appState.syncTimer);
       syncMultiplayer();

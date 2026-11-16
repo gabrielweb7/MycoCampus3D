@@ -12,17 +12,17 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 - **Interface & HUD:** Glassmorphism responsivo com Tailwind CSS (v2 pré-compilado), suporte a Safe Area Inset (`env(safe-area-inset-*)`), joystick analógico virtual para mobile e modo Fullscreen automático.
 - **Back-end:** PHP 8.x nativo com PDO MySQL, arquitetura orientada a APIs RESTful leves com JSON, headers anti-cache e segurança nos cookies (`HttpOnly`, `SameSite=Lax`).
 - **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`MC_SCHEMA_VERSION = 7`) e cache de flag local em `data/` para evitar sobrecarga no servidor.
-- **Sincronização Multiplayer:** Polling HTTP POST assíncrono a cada **750ms** por cliente ativo (reduzido automaticamente para **1500ms** quando a aba fica em segundo plano para economizar bateria e CPU), com *batch inserts* para objetos e traços de lousa.
+- **Sincronização Multiplayer:** Polling HTTP POST assíncrono a cada **250ms** por cliente ativo (reduzido para **1500ms** quando a aba fica em segundo plano para economizar bateria e CPU), com *batch inserts* para objetos e traços de lousa.
 
 ---
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.26"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.27"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.26)
-├── VERSION                    # Versão semântica atual do projeto (0.9.26)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.27)
+├── VERSION                    # Versão semântica atual do projeto (0.9.27)
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
 ├── .cpanel.yml                # Script de deploy automatizado no cPanel / HostGator

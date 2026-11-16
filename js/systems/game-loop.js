@@ -33,6 +33,7 @@ import { stepLabSinks } from '../items/lab-sink.js';
 import { stepGreenhouse } from '../world/greenhouse.js';
 
 let lastMobileHoverAt = 0;
+let lastDesktopHoverAt = 0;
 let animationStarted = false;
 let frameErrorLogged = false;
 
@@ -179,8 +180,13 @@ function stepHoverAndChalkboard(ctx, now) {
   if (ctx.lobbyTourActive) return;
 
   const isDrawingBoard = !!ctx.touchDrawingBoard || !!window.touchDrawingBoard;
-  if (!isDrawingBoard && (!ctx.isTouchDevice() || ctx.isPrimaryDown || (ctx.heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 260))) {
+  const isTouch = ctx.isTouchDevice();
+  const shouldUpdateHover = isTouch
+    ? (ctx.isPrimaryDown || (ctx.heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 260))
+    : (ctx.isPrimaryDown || now - lastDesktopHoverAt >= 33);
+  if (!isDrawingBoard && shouldUpdateHover) {
     lastMobileHoverAt = now;
+    if (!isTouch) lastDesktopHoverAt = now;
     updateHoverRay(ctx.interactionCtx);
   }
   const toolColor = getHeldBoardToolColor(ctx.heldItem);
