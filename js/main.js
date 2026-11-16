@@ -14,6 +14,8 @@ import * as quality from './core/quality.js';
 import * as rainbow from './engine/rainbow.js';
 import * as cinema from './engine/cinema.js';
 import * as environment from './engine/environment.js';
+import * as naturePlaza from './world/nature-plaza.js';
+import * as buildings from './world/buildings.js';
 import { bootApp } from './ui/app-boot.js';
 
 // Ponte de módulos para o motor 3D durante a migração incremental
@@ -23,7 +25,9 @@ window.__MYCO_MODULES__ = {
   quality,
   rainbow,
   cinema,
-  environment
+  environment,
+  naturePlaza,
+  buildings
 };
 
 // Ponte de depuração inspecionável via DevTools
