@@ -194,13 +194,9 @@
   var rainbowTimer = 0;
   var rainbowDuration = 68;
   var snowMix = 0;
-  var snowableEntries = []; // { mat, baseColor }
+  var snowableEntries = (window.__MYCO_MODULES__ && window.__MYCO_MODULES__.textures.snowableEntries) || [];
   function registerSnowable(mat) {
-    if (mat && mat.color && !mat._snowRegistered) {
-      mat._snowRegistered = true;
-      snowableEntries.push({ mat: mat, base: mat.color.clone() });
-    }
-    return mat;
+    return window.__MYCO_MODULES__.textures.registerSnowable(mat);
   }
 
   // Áudio centralizado em window.MycoAudio (js/campus-audio.js)
@@ -239,264 +235,42 @@
     return coarse || hasTouch;
   }
 
-  // ---------------- Texturas Procedurais ----------------
+  // ---------------- Texturas Procedurais & Física (delegado para js/engine/) ----------------
 
   function createProceduralTextures() {
-    // 1. Tijolinho a vista
-    var bc = document.createElement('canvas');
-    bc.width = 256; bc.height = 256;
-    var bctx = bc.getContext('2d');
-    bctx.fillStyle = '#9e9589'; // argamassa
-    bctx.fillRect(0, 0, 256, 256);
-    var brickPalette = ['#8c4632', '#7a3b29', '#994e38', '#6f3424', '#85422f'];
-    var rows = 8, cols = 4, bh = 256 / rows, bw = 256 / cols;
-    for (var r = 0; r < rows; r++) {
-      var off = (r % 2) * (bw / 2);
-      for (var c = -1; c <= cols; c++) {
-        bctx.fillStyle = brickPalette[(r * 5 + c + 10) % brickPalette.length];
-        bctx.fillRect(c * bw + off + 2, r * bh + 2, bw - 4, bh - 4);
-      }
-    }
-    texBrick = new THREE.CanvasTexture(bc);
-    texBrick.wrapS = THREE.RepeatWrapping;
-    texBrick.wrapT = THREE.RepeatWrapping;
-
-    // 2. Bloquete da praca
-    var pc = document.createElement('canvas');
-    pc.width = 256; pc.height = 256;
-    var pctx = pc.getContext('2d');
-    pctx.fillStyle = '#8b8175';
-    pctx.fillRect(0, 0, 256, 256);
-    var pavePalette = ['#bfb1a0', '#b2a392', '#c8bba9', '#a89a8a'];
-    for (var pr = 0; pr < 16; pr++) {
-      var poff = (pr % 2) * 16;
-      for (var pcCol = -1; pcCol < 9; pcCol++) {
-        pctx.fillStyle = pavePalette[(pr * 3 + pcCol + 20) % pavePalette.length];
-        pctx.fillRect(pcCol * 32 + poff + 1.5, pr * 16 + 1.5, 29, 13);
-      }
-    }
-    texPaving = new THREE.CanvasTexture(pc);
-    texPaving.wrapS = THREE.RepeatWrapping;
-    texPaving.wrapT = THREE.RepeatWrapping;
-    texPaving.repeat.set(16, 18);
-
-    // 3. Madeira ripada
-    var wc = document.createElement('canvas');
-    wc.width = 128; wc.height = 128;
-    var wctx = wc.getContext('2d');
-    wctx.fillStyle = '#6b4226';
-    wctx.fillRect(0, 0, 128, 128);
-    var woodCols = ['#8b5a2b', '#7a4b22', '#966332', '#6f421d'];
-    for (var i = 0; i < 8; i++) {
-      wctx.fillStyle = woodCols[i % woodCols.length];
-      wctx.fillRect(i * 16 + 1, 0, 14, 128);
-    }
-    texWood = new THREE.CanvasTexture(wc);
-    texWood.wrapS = THREE.RepeatWrapping;
-    texWood.wrapT = THREE.RepeatWrapping;
-
-    // 4. Agua cristalina com caustics / ondulacoes suaves
-    var watC = document.createElement('canvas');
-    watC.width = 256; watC.height = 256;
-    var watCtx = watC.getContext('2d');
-    watCtx.fillStyle = '#0369a1';
-    watCtx.fillRect(0, 0, 256, 256);
-    // Causticas organicas sem emendas (seamless wrap 256x256)
-    for (var wi = 0; wi < 48; wi++) {
-      var wx = (wi * 53 + 17) % 256;
-      var wy = (wi * 79 + 29) % 256;
-      var wr = 14 + (wi % 5) * 7;
-      watCtx.strokeStyle = wi % 2 === 0 ? 'rgba(186, 230, 253, 0.26)' : 'rgba(56, 189, 248, 0.30)';
-      watCtx.lineWidth = 2.0;
-      [-256, 0, 256].forEach(function (ox) {
-        [-256, 0, 256].forEach(function (oy) {
-          if (wx + ox < -50 || wx + ox > 306 || wy + oy < -50 || wy + oy > 306) return;
-          watCtx.beginPath();
-          watCtx.ellipse(wx + ox, wy + oy, wr * 1.25, wr * 0.62, (wi % 4) * 0.45, 0, Math.PI * 2);
-          watCtx.stroke();
-        });
-      });
-    }
-    for (var wj = 0; wj < 24; wj++) {
-      var bx = (wj * 67 + 11) % 256;
-      var by = (wj * 43 + 19) % 256;
-      var br = 3 + (wj % 3) * 2.5;
-      watCtx.fillStyle = 'rgba(224, 242, 254, 0.18)';
-      watCtx.beginPath();
-      watCtx.arc(bx, by, br, 0, Math.PI * 2);
-      watCtx.fill();
-    }
-    texWater = new THREE.CanvasTexture(watC);
-    texWater.wrapS = THREE.RepeatWrapping;
-    texWater.wrapT = THREE.RepeatWrapping;
-    texWater.repeat.set(4, 4);
+    var T = window.__MYCO_MODULES__.textures;
+    snowableEntries = T.snowableEntries;
+    var res = T.createProceduralTextures();
+    texBrick = res.texBrick;
+    texPaving = res.texPaving;
+    texWood = res.texWood;
+    texWater = res.texWater;
   }
 
-  function brickMat(repX, repY) {
-    var t = texBrick.clone();
-    t.needsUpdate = true;
-    t.repeat.set(repX || 2, repY || 2);
-    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.86, metalness: 0.04 });
+  function brickMat(repX, repY) { return window.__MYCO_MODULES__.textures.brickMat(repX, repY); }
+  function woodMat(repX, repY) { return window.__MYCO_MODULES__.textures.woodMat(repX, repY); }
+  function makeBox(w, h, d, colorOrMat, opts) { return window.__MYCO_MODULES__.textures.makeBox(w, h, d, colorOrMat, opts); }
+
+  function getPhysCtx() {
+    return {
+      playerPos: playerPos,
+      stairsList: stairsList,
+      walkableFloors: walkableFloors,
+      supportSurfaces: supportSurfaces,
+      heldItem: heldItem,
+      wallSegments: wallSegments,
+      campusDoors: campusDoors,
+      solidColliders: solidColliders
+    };
   }
 
-  function woodMat(repX, repY) {
-    var t = texWood.clone();
-    t.needsUpdate = true;
-    t.repeat.set(repX || 2, repY || 1);
-    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.78, metalness: 0.05 });
-  }
-
-  function makeBox(w, h, d, colorOrMat, opts) {
-    opts = opts || {};
-    var geo = new THREE.BoxGeometry(w, h, d);
-    var mat = (colorOrMat && colorOrMat.isMaterial) ? colorOrMat : new THREE.MeshStandardMaterial({
-      color: colorOrMat,
-      roughness: opts.roughness !== undefined ? opts.roughness : 0.7,
-      metalness: opts.metalness !== undefined ? opts.metalness : 0.1,
-      transparent: !!opts.transparent,
-      opacity: opts.opacity !== undefined ? opts.opacity : 1.0,
-      emissive: opts.emissive || 0x000000,
-      emissiveIntensity: opts.emissiveIntensity || 0
-    });
-    var m = new THREE.Mesh(geo, mat);
-    m.castShadow = !opts.noShadow;
-    m.receiveShadow = true;
-    return m;
-  }
-
-  // ---------------- Altura do Terreno & Pisos Elevados ----------------
-
-  function terrainHeight(x, z) {
-    // Plato plano amplo para todo o mega-campus (-78..78, -50..52)
-    var distCenter = Math.max(Math.abs(x) - 76, Math.abs(z - 1) - 50);
-    if (distCenter <= 0) return 0;
-    var blend = Math.min(1, distCenter / 24);
-
-    // Anel de montanhas distantes ao redor do horizonte (r > 125m)
-    var r = Math.hypot(x, z);
-    var mtn = 0;
-    if (r > 120) {
-      var mt = Math.min(1, (r - 120) / 55);
-      var ridge = Math.abs(Math.sin(x * 0.032 + z * 0.021) * Math.cos(z * 0.028 - x * 0.017));
-      mtn = mt * mt * (14 + ridge * 26);
-    }
-
-    var hills = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 2.4 + Math.sin(x * 0.11 + z * 0.09) * 0.7;
-    return blend * hills + mtn;
-  }
-
-  function getGroundHeight(x, z, refY, ignoreSurf) {
-    var h = terrainHeight(x, z);
-    var curY = refY !== undefined ? refY : playerPos.y;
-
-    // Escadas automaticas
-    for (var s = 0; s < stairsList.length; s++) {
-      var st = stairsList[s];
-      if (x >= st.minX && x <= st.maxX && z <= Math.max(st.zStart, st.zEnd) && z >= Math.min(st.zStart, st.zEnd)) {
-        var t = (z - st.zStart) / (st.zEnd - st.zStart);
-        t = Math.max(0, Math.min(1, t));
-        var sy = st.yStart + t * (st.yEnd - st.yStart);
-        if (curY >= sy - 1.2) h = Math.max(h, sy);
-      }
-    }
-
-    // Lajes caminhaveis automaticas (2o andar, passarela, terraco, terreo)
-    for (var f = 0; f < walkableFloors.length; f++) {
-      var fl = walkableFloors[f];
-      if (x >= fl.minX && x <= fl.maxX && z >= fl.minZ && z <= fl.maxZ) {
-        if (curY >= fl.topY - 1.1) {
-          h = Math.max(h, fl.topY);
-        }
-      }
-    }
-
-    // Superfícies de apoio e tampos de mesas caminháveis (mesas inox, bancadas, estufas, carteiras, etc.)
-    for (var u = 0; u < supportSurfaces.length; u++) {
-      var ss = supportSurfaces[u];
-      if (ignoreSurf && ss === ignoreSurf) continue;
-      if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
-      var sW = ss.maxX - ss.minX;
-      var sD = ss.maxZ - ss.minZ;
-      if (sW < 0.35 || sD < 0.35) continue; // ignora pequenos pratos ou suportes minúsculos
-      if (x >= ss.minX - 0.08 && x <= ss.maxX + 0.08 && z >= ss.minZ - 0.08 && z <= ss.maxZ + 0.08) {
-        if (curY >= ss.topY - 0.40) {
-          h = Math.max(h, ss.topY);
-        }
-      }
-    }
-
-    return h;
-  }
-
-  function getSupportSurfaceAt(x, z, margin, ignoreSurf, maxTopY) {
-    var m = (typeof margin === 'number') ? margin : 0.08;
-    var best = null;
-    for (var u = 0; u < supportSurfaces.length; u++) {
-      var ss = supportSurfaces[u];
-      if (ignoreSurf && ss === ignoreSurf) continue;
-      if (typeof maxTopY === 'number' && ss.topY > maxTopY) continue;
-      if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
-      if (x >= ss.minX - m && x <= ss.maxX + m && z >= ss.minZ - m && z <= ss.maxZ + m) {
-        if (!best || ss.topY > best.topY) {
-          best = ss;
-        }
-      }
-    }
-    return best;
-  }
-
-  function getItemGroundHeight(x, z, refY, ignoreSurf, maxTopY) {
-    var gh = getGroundHeight(x, z, refY !== undefined ? refY : 3.0, ignoreSurf);
-    var ss = getSupportSurfaceAt(x, z, 0.08, ignoreSurf, maxTopY);
-    if (ss && ss.topY > gh) {
-      return ss.topY;
-    }
-    return gh;
-  }
-
-  function getSurfaceTypeAt(x, y, z) {
-    // Pontes de madeira e decks
-    if ((x >= 8 && x <= 14 && z >= 30 && z <= 55) || (z >= 34 && z <= 52 && Math.abs(x) < 18)) {
-      return 'wood';
-    }
-    // Interiores de edifícios (Lab, Estufa, Auditório, Salas de Aula)
-    if ((x >= -24 && x <= 26 && z >= -24 && z <= 24 && y >= 0.12) || (x >= 40 && x <= 65 && z >= -20 && z <= 30)) {
-      return 'lab';
-    }
-    // Calçadas da praça central e avenidas
-    if ((Math.abs(x) < 24 && Math.abs(z) < 24) || Math.abs(x) > 60 || Math.abs(z) > 60) {
-      return 'stone';
-    }
-    return 'grass';
-  }
-
-  function addWalkableSlab(cx, topY, cz, w, thickness, d, colorOrMat, opts) {
-    var mesh = makeBox(w, thickness, d, colorOrMat, opts);
-    mesh.position.set(cx, topY - thickness / 2, cz);
-    scene.add(mesh);
-    walkableFloors.push({
-      minX: cx - w / 2, maxX: cx + w / 2,
-      minZ: cz - d / 2, maxZ: cz + d / 2,
-      topY: topY
-    });
-    return mesh;
-  }
-
-  function addSolidWall(x1, z1, x2, z2, minY, height, thickness, colorOrMat, opts) {
-    var dx = x2 - x1, dz = z2 - z1;
-    var len = Math.hypot(dx, dz);
-    if (len < 0.01) return null;
-    var mesh = makeBox(len, height, thickness, colorOrMat, opts);
-    mesh.position.set((x1 + x2) / 2, minY + height / 2, (z1 + z2) / 2);
-    mesh.rotation.y = -Math.atan2(dz, dx);
-    scene.add(mesh);
-    wallSegments.push({
-      x1: x1, z1: z1, x2: x2, z2: z2,
-      halfThick: thickness / 2 + 0.06,
-      minY: minY, maxY: minY + height
-    });
-    return mesh;
-  }
+  function terrainHeight(x, z) { return window.__MYCO_MODULES__.physics.terrainHeight(x, z); }
+  function getGroundHeight(x, z, refY, ignoreSurf) { return window.__MYCO_MODULES__.physics.getGroundHeight(getPhysCtx(), x, z, refY, ignoreSurf); }
+  function getSupportSurfaceAt(x, z, margin, ignoreSurf, maxTopY) { return window.__MYCO_MODULES__.physics.getSupportSurfaceAt(getPhysCtx(), x, z, margin, ignoreSurf, maxTopY); }
+  function getItemGroundHeight(x, z, refY, ignoreSurf, maxTopY) { return window.__MYCO_MODULES__.physics.getItemGroundHeight(getPhysCtx(), x, z, refY, ignoreSurf, maxTopY); }
+  function getSurfaceTypeAt(x, y, z) { return window.__MYCO_MODULES__.physics.getSurfaceTypeAt(x, y, z); }
+  function addWalkableSlab(cx, topY, cz, w, thickness, d, colorOrMat, opts) { return window.__MYCO_MODULES__.physics.addWalkableSlab(scene, walkableFloors, cx, topY, cz, w, thickness, d, colorOrMat, opts); }
+  function addSolidWall(x1, z1, x2, z2, minY, height, thickness, colorOrMat, opts) { return window.__MYCO_MODULES__.physics.addSolidWall(scene, wallSegments, x1, z1, x2, z2, minY, height, thickness, colorOrMat, opts); }
 
   // ---------------- Mundo Natural & Lago ----------------
 
@@ -3961,47 +3735,7 @@
   // ---------------- Colisao & Posicionamento de Itens ----------------
 
   function clampPosAgainstWalls(pos, radius) {
-    for (var i = 0; i < wallSegments.length; i++) {
-      var w = wallSegments[i];
-      if (w.minY !== undefined && (pos.y + 1.4 < w.minY || pos.y > w.maxY - 0.15)) continue;
-      var vx = w.x2 - w.x1, vz = w.z2 - w.z1;
-      var len2 = vx * vx + vz * vz;
-      if (len2 === 0) continue;
-      var t = Math.max(0, Math.min(1, ((pos.x - w.x1) * vx + (pos.z - w.z1) * vz) / len2));
-      var cx = w.x1 + t * vx, cz = w.z1 + t * vz;
-      var dx = pos.x - cx, dz = pos.z - cz;
-      var dist = Math.hypot(dx, dz);
-      var minD = radius + w.halfThick;
-      if (dist < minD) {
-        if (dist < 0.0001) { dx = 1; dz = 0; dist = 1; }
-        pos.x = cx + (dx / dist) * minD;
-        pos.z = cz + (dz / dist) * minD;
-      }
-    }
-    for (var dIdx = 0; dIdx < campusDoors.length; dIdx++) {
-      var dr = campusDoors[dIdx];
-      if (!dr.open && pos.y < 3.4 && pos.z > dr.minZ - 0.1 && pos.z < dr.maxZ + 0.1 && Math.abs(pos.x - dr.frontX) < radius + 0.18) {
-        pos.x = pos.x >= dr.frontX ? dr.frontX + radius + 0.18 : dr.frontX - radius - 0.18;
-      }
-    }
-    for (var j = 0; j < solidColliders.length; j++) {
-      var c = solidColliders[j];
-      var surfY = (c.surfaceTopY !== undefined) ? c.surfaceTopY : c.maxY;
-      if (pos.y >= surfY - 0.08 || pos.y + 1.5 < c.minY) continue;
-      var nearX = Math.max(c.minX, Math.min(pos.x, c.maxX));
-      var nearZ = Math.max(c.minZ, Math.min(pos.z, c.maxZ));
-      var cdx = pos.x - nearX, cdz = pos.z - nearZ;
-      var cdist = Math.hypot(cdx, cdz);
-      if (cdist < radius) {
-        if (cdist < 0.0001) { pos.x = c.minX - radius; }
-        else {
-          pos.x = nearX + (cdx / cdist) * radius;
-          pos.z = nearZ + (cdz / cdist) * radius;
-        }
-      }
-    }
-    pos.x = Math.max(-200, Math.min(200, pos.x));
-    pos.z = Math.max(-200, Math.min(200, pos.z));
+    return window.__MYCO_MODULES__.physics.clampPosAgainstWalls(getPhysCtx(), pos, radius);
   }
 
   function buildFirstPersonArm() {
@@ -6636,92 +6370,33 @@
   var qualityTier = 'high';
   var qualityTiersOrder = ['high', 'medium', 'low', 'min'];
   var auraEnabled = true;
-  var fpsFrames = 0;
-  var fpsLastSampleAt = 0;
-  var fpsLastFrameAt = 0;
-  var currentFps = 60;
-  var lowFpsStreak = 0;
-  var highFpsStreak = 0;
 
   function applyQualityTier(tier) {
-    qualityTier = tier;
-    if (!renderer || !camera) return;
-    var dpr = window.devicePixelRatio || 1;
-    var cfg = {
-      high:   { ratio: Math.min(dpr, 1.5), shadows: true,  soft: true,  far: 420, aura: true,  weather: true },
-      medium: { ratio: Math.min(dpr, 1.0), shadows: true,  soft: false, far: 260, aura: true,  weather: true },
-      low:    { ratio: 0.75,               shadows: false, soft: false, far: 185, aura: true,  weather: true },
-      min:    { ratio: 0.55,               shadows: false, soft: false, far: 135, aura: false, weather: false }
-    }[tier] || { ratio: 1.0, shadows: false, soft: false, far: 220, aura: true, weather: true };
-
-    renderer.setPixelRatio(cfg.ratio);
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-    if (renderer.shadowMap) {
-      renderer.shadowMap.enabled = cfg.shadows;
-      renderer.shadowMap.type = cfg.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
-      renderer.shadowMap.needsUpdate = true;
-    }
-    if (envSun) envSun.castShadow = cfg.shadows;
-    if (camera.far !== cfg.far) {
-      camera.far = cfg.far;
-      camera.updateProjectionMatrix();
-    }
-    auraEnabled = cfg.aura;
-    if (weatherPoints && !cfg.weather) weatherPoints.visible = false;
-    if (callbacks.onQualityChange) {
-      callbacks.onQualityChange({ mode: qualityMode, tier: qualityTier, fps: currentFps });
-    }
+    var Q = window.__MYCO_MODULES__.quality;
+    Q.qualityState.mode = qualityMode;
+    Q.applyQualityTier(tier, {
+      renderer: renderer,
+      camera: camera,
+      envSun: envSun,
+      weatherPoints: weatherPoints,
+      onQualityChange: callbacks.onQualityChange
+    });
+    qualityTier = Q.qualityState.tier;
+    auraEnabled = Q.qualityState.auraEnabled;
   }
 
   function stepAutoQuality(now) {
-    if (document.hidden) {
-      fpsLastFrameAt = now;
-      fpsLastSampleAt = now;
-      fpsFrames = 0;
-      return;
-    }
-    if (fpsLastFrameAt > 0 && (now - fpsLastFrameAt) < 180) {
-      fpsFrames++;
-    }
-    fpsLastFrameAt = now;
-    if (!fpsLastSampleAt) {
-      fpsLastSampleAt = now;
-      return;
-    }
-    var elapsed = now - fpsLastSampleAt;
-    if (elapsed < 1500) return;
-
-    currentFps = Math.max(1, Math.round((fpsFrames * 1000) / elapsed));
-    fpsFrames = 0;
-    fpsLastSampleAt = now;
-
-    if (qualityMode === 'auto') {
-      var idx = qualityTiersOrder.indexOf(qualityTier);
-      var downThresholds = { high: 38, medium: 32, low: 24, min: 0 };
-      if (currentFps < (downThresholds[qualityTier] || 0) && idx < qualityTiersOrder.length - 1) {
-        lowFpsStreak++;
-        highFpsStreak = 0;
-        if (lowFpsStreak >= 2) {
-          lowFpsStreak = 0;
-          applyQualityTier(qualityTiersOrder[idx + 1]);
-          return;
-        }
-      } else if (currentFps >= 54 && idx > (isTouchDevice() ? 1 : 0)) {
-        highFpsStreak++;
-        lowFpsStreak = 0;
-        if (highFpsStreak >= 4) {
-          highFpsStreak = 0;
-          applyQualityTier(qualityTiersOrder[idx - 1]);
-          return;
-        }
-      } else {
-        lowFpsStreak = 0;
-        highFpsStreak = 0;
-      }
-    }
-    if (callbacks.onQualityChange) {
-      callbacks.onQualityChange({ mode: qualityMode, tier: qualityTier, fps: currentFps });
-    }
+    var Q = window.__MYCO_MODULES__.quality;
+    Q.qualityState.mode = qualityMode;
+    Q.stepAutoQuality(now, isTouchDevice(), {
+      renderer: renderer,
+      camera: camera,
+      envSun: envSun,
+      weatherPoints: weatherPoints,
+      onQualityChange: callbacks.onQualityChange
+    });
+    qualityTier = Q.qualityState.tier;
+    auraEnabled = Q.qualityState.auraEnabled;
   }
 
   var lastMobileHoverAt = 0;
@@ -8570,7 +8245,8 @@
   };
 
   window.getCampusQualityState = function () {
-    return { mode: qualityMode, tier: qualityTier, fps: currentFps };
+    var q = window.__MYCO_MODULES__.quality.qualityState;
+    return { mode: qualityMode, tier: qualityTier, fps: q.currentFps };
   };
 
   window.playCampusEmote = function (name) {

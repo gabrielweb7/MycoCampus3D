@@ -8,7 +8,17 @@ import { events } from './core/events.js';
 import * as mathPool from './core/math-pool.js';
 import { AudioEngine } from './services/audio-engine.js';
 import * as apiClient from './services/api-client.js';
+import * as textures from './engine/textures.js';
+import * as physics from './engine/physics.js';
+import * as quality from './core/quality.js';
 import { bootApp } from './ui/app-boot.js';
+
+// Ponte de módulos para o motor 3D durante a migração incremental
+window.__MYCO_MODULES__ = {
+  textures,
+  physics,
+  quality
+};
 
 // Ponte de depuração inspecionável via DevTools
 window.__MYCO_DEBUG__ = {
@@ -18,7 +28,8 @@ window.__MYCO_DEBUG__ = {
   events,
   mathPool,
   audio: AudioEngine,
-  api: apiClient
+  api: apiClient,
+  modules: window.__MYCO_MODULES__
 };
 
 if (document.readyState === 'loading') {
