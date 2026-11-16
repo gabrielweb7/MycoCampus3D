@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.31] — 2026-11-16
+### 💉 Validação de Alvos da Seringa
+- A seringa não pode inocular recipientes vazios, PP5 sem hidratação ou recipientes já inoculados.
+- Ao mirar em um PP5 que ainda não está pronto, o jogo informa o que falta para continuar.
+
 ## [v0.9.30] — 2026-11-15
 ### 🧪 Correções de Interações de Laboratório
 - A aspiração pela seringa agora respeita o volume disponível no recipiente e a capacidade restante da seringa.

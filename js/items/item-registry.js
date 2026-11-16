@@ -75,6 +75,14 @@ export function canItemEnterCooker(item) {
 
 export function canSyringeTarget(item) {
   if (!item || !item.mesh) return false;
+  const spawnCtrl = item.spawnCtrl;
+  if (spawnCtrl && (
+    !spawnCtrl.filled ||
+    spawnCtrl.inoculated ||
+    (spawnCtrl.isPP5 && (spawnCtrl.waterMl || 0) < 35)
+  )) {
+    return false;
+  }
   const meta = item.meta || item.mesh.userData.itemMeta;
   if (meta && meta.compatibilities && meta.compatibilities.receivesSyringe !== undefined) {
     return !!meta.compatibilities.receivesSyringe;

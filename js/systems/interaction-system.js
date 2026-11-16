@@ -980,6 +980,15 @@ export function updateHoverRay(ctx, customNdc) {
             if (ctx.placementGhost) ctx.placementGhost.visible = false;
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Inocular ' + Math.round(sc.volMl) + 'ml em ' + cand.label + ' (2s)');
             return;
+          } else if (sc.volMl > 0 && cand.spawnCtrl && cand.spawnCtrl.isPP5) {
+            const sp = cand.spawnCtrl;
+            const prompt = !sp.filled
+              ? '🌽 Adicione substrato antes de inocular este PP5'
+              : ((sp.waterMl || 0) < 35
+                ? '💧 Hidrate o PP5 com 35ml de água antes de inocular'
+                : '✅ Este recipiente já foi inoculado');
+            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
+            return;
           }
         }
       }
