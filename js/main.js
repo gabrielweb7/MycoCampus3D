@@ -20,6 +20,8 @@ import * as staircaseClock from './world/staircase-clock.js';
 import * as confetti from './entities/confetti.js';
 import * as greenhouse from './world/greenhouse.js';
 import * as outerCampus from './world/outer-campus.js';
+import * as labTools from './world/lab-tools.js';
+import * as labSterilization from './world/lab-sterilization.js';
 import { bootApp } from './ui/app-boot.js';
 
 // Ponte de módulos para o motor 3D durante a migração incremental
@@ -35,7 +37,9 @@ window.__MYCO_MODULES__ = {
   staircaseClock,
   confetti,
   greenhouse,
-  outerCampus
+  outerCampus,
+  labTools,
+  labSterilization
 };
 
 // Ponte de depuração inspecionável via DevTools
