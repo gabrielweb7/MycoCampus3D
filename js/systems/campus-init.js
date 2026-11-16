@@ -5,6 +5,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
+import { getInitialQualityTier } from '../core/quality.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
@@ -561,7 +562,7 @@ export function initCampus3D(containerId, cbs) {
     initConfettiSystem(sim.scene);
     initGreenhouseParticlePools(sim.scene);
     bindControls(sim);
-    applyQualityTier(sim, touch ? 'medium' : 'high');
+    applyQualityTier(sim, getInitialQualityTier(touch));
     startAnimationLoop(sim);
     logger.info('campus-init', 'Campus 3D inicializado com sucesso');
   });

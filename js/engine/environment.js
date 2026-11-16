@@ -128,7 +128,8 @@ export function updateDynamicEnvironment(dt, env) {
   }
 
   if (env.weatherPoints && env.weatherPosAttr) {
-    env.weatherPoints.visible = (env.qualityTier !== 'min') && (weatherMode === 'rain' || weatherMode === 'snow');
+    const particleCount = env.weatherPoints.geometry.drawRange.count;
+    env.weatherPoints.visible = particleCount > 0 && (weatherMode === 'rain' || weatherMode === 'snow');
     if (env.weatherPoints.visible) {
       env.weatherPoints.material.color.setHex(weatherMode === 'rain' ? 0x93c5fd : 0xffffff);
       env.weatherPoints.material.size = weatherMode === 'rain' ? 0.16 : 0.24;
@@ -137,7 +138,7 @@ export function updateDynamicEnvironment(dt, env) {
       const drift = weatherMode === 'rain' ? 2.5 : Math.sin(env.envTime * 1.5) * 1.2;
       const cx = env.inFps ? env.playerPos.x : env.camera.position.x;
       const cz = env.inFps ? env.playerPos.z : env.camera.position.z;
-      for (let p = 0; p < arr.length; p += 3) {
+      for (let p = 0; p < particleCount * 3; p += 3) {
         arr[p] += drift * dt;
         arr[p + 1] -= fallSpeed * dt;
         let hitRoof = false;

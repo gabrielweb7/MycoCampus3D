@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.29] — 2026-11-15
+### 📱 FPS Adaptativo para Celulares
+- O modo automático inicia em qualidade reduzida em aparelhos com pouca memória ou até quatro núcleos, sem sombras em nenhum nível mobile.
+- No PC, o modo automático inicia em qualidade média sem sombras dinâmicas e sobe para alta quando mantém FPS estável, evitando começar com o custo da sombra direcional de 1536 px e renderização a até 1,5x.
+- Ajustados resolução, distância de renderização e quantidade de partículas de chuva/neve por nível; celulares capazes podem subir automaticamente até a qualidade alta após manter FPS estável.
+- A atualização de partículas de clima agora processa somente as partículas visíveis no nível atual.
+
 ## [v0.9.28] — 2026-11-15
 ### 🧰 Relatório Centralizado de Erros
 - Erros JavaScript são enviados ao servidor com limite e deduplicação no navegador; o servidor limita frequência e tamanho dos relatórios.

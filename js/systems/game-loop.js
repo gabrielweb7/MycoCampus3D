@@ -44,6 +44,7 @@ export function applyQualityTier(ctx, tier) {
     camera: ctx.camera,
     envSun: ctx.envSun,
     weatherPoints: ctx.weatherPoints,
+    isTouchDevice: ctx.isTouchDevice(),
     onQualityChange: ctx.callbacks.onQualityChange
   });
   ctx.qualityTier = qualityMod.qualityState.tier;
@@ -52,11 +53,12 @@ export function applyQualityTier(ctx, tier) {
 
 export function stepAutoQuality(ctx, now) {
   qualityMod.qualityState.mode = ctx.qualityMode;
-  qualityMod.stepAutoQuality(now, ctx.isTouchDevice(), {
+  qualityMod.stepAutoQuality(now, {
     renderer: ctx.renderer,
     camera: ctx.camera,
     envSun: ctx.envSun,
     weatherPoints: ctx.weatherPoints,
+    isTouchDevice: ctx.isTouchDevice(),
     onQualityChange: ctx.callbacks.onQualityChange
   });
   ctx.qualityTier = qualityMod.qualityState.tier;

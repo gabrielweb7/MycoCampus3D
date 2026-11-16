@@ -6,10 +6,18 @@ const THREE = window.THREE;
 export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
 
 const TIER_CONFIGS = {
-  high:   { ratioCap: 1.5, shadows: true,  soft: true,  far: 420, aura: true,  weather: true },
-  medium: { ratioCap: 1.0, shadows: true,  soft: false, far: 260, aura: true,  weather: true },
-  low:    { ratioCap: 0.75, fixedRatio: 0.75, shadows: false, soft: false, far: 185, aura: true,  weather: true },
-  min:    { ratioCap: 0.55, fixedRatio: 0.55, shadows: false, soft: false, far: 135, aura: false, weather: false }
+  desktop: {
+    high:   { ratioCap: 1.5, shadows: true,  soft: true,  far: 420, aura: true,  weatherParticles: 800 },
+    medium: { ratioCap: 1.0, shadows: false, soft: false, far: 260, aura: true,  weatherParticles: 400 },
+    low:    { fixedRatio: 0.75, shadows: false, soft: false, far: 185, aura: true,  weatherParticles: 300 },
+    min:    { fixedRatio: 0.55, shadows: false, soft: false, far: 135, aura: false, weatherParticles: 0 }
+  },
+  mobile: {
+    high:   { ratioCap: 1.25, shadows: false, soft: false, far: 300, aura: true,  weatherParticles: 360 },
+    medium: { ratioCap: 0.9, shadows: false, soft: false, far: 220, aura: true,  weatherParticles: 180 },
+    low:    { fixedRatio: 0.68, shadows: false, soft: false, far: 165, aura: true,  weatherParticles: 0 },
+    min:    { fixedRatio: 0.5, shadows: false, soft: false, far: 125, aura: false, weatherParticles: 0 }
+  }
 };
 
 export const qualityState = {
@@ -24,13 +32,26 @@ export const qualityState = {
   highFpsStreak: 0
 };
 
+export function getInitialQualityTier(isTouchDevice) {
+  if (!isTouchDevice) return 'medium';
+
+  const memory = navigator.deviceMemory;
+  const cores = navigator.hardwareConcurrency;
+  if ((typeof memory === 'number' && memory <= 3) ||
+      (typeof cores === 'number' && cores <= 4)) {
+    return 'low';
+  }
+  return 'medium';
+}
+
 export function applyQualityTier(tier, deps) {
   qualityState.tier = tier;
-  const { renderer, camera, envSun, weatherPoints, onQualityChange } = deps || {};
+  const { renderer, camera, envSun, weatherPoints, isTouchDevice, onQualityChange } = deps || {};
   if (!renderer || !camera) return qualityState;
 
   const dpr = window.devicePixelRatio || 1;
-  const cfg = TIER_CONFIGS[tier] || { fixedRatio: 1.0, shadows: false, soft: false, far: 220, aura: true, weather: true };
+  const profile = isTouchDevice ? TIER_CONFIGS.mobile : TIER_CONFIGS.desktop;
+  const cfg = profile[tier] || profile.medium;
   const ratio = cfg.fixedRatio !== undefined ? cfg.fixedRatio : Math.min(dpr, cfg.ratioCap);
 
   renderer.setPixelRatio(ratio);
@@ -41,19 +62,22 @@ export function applyQualityTier(tier, deps) {
     renderer.shadowMap.needsUpdate = true;
   }
   if (envSun) envSun.castShadow = cfg.shadows;
+  if (weatherPoints && weatherPoints.geometry) {
+    weatherPoints.geometry.setDrawRange(0, cfg.weatherParticles);
+    if (!cfg.weatherParticles) weatherPoints.visible = false;
+  }
   if (camera.far !== cfg.far) {
     camera.far = cfg.far;
     camera.updateProjectionMatrix();
   }
   qualityState.auraEnabled = cfg.aura;
-  if (weatherPoints && !cfg.weather) weatherPoints.visible = false;
   if (onQualityChange) {
     onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps: qualityState.currentFps });
   }
   return qualityState;
 }
 
-export function stepAutoQuality(now, isTouchDevice, deps) {
+export function stepAutoQuality(now, deps) {
   if (document.hidden) {
     qualityState.fpsLastFrameAt = now;
     qualityState.fpsLastSampleAt = now;
@@ -77,7 +101,7 @@ export function stepAutoQuality(now, isTouchDevice, deps) {
 
   if (qualityState.mode === 'auto') {
     const idx = QUALITY_TIERS_ORDER.indexOf(qualityState.tier);
-    const downThresholds = { high: 38, medium: 32, low: 24, min: 0 };
+    const downThresholds = { high: 45, medium: 40, low: 32, min: 0 };
     if (qualityState.currentFps < (downThresholds[qualityState.tier] || 0) && idx < QUALITY_TIERS_ORDER.length - 1) {
       qualityState.lowFpsStreak++;
       qualityState.highFpsStreak = 0;
@@ -86,7 +110,7 @@ export function stepAutoQuality(now, isTouchDevice, deps) {
         applyQualityTier(QUALITY_TIERS_ORDER[idx + 1], deps);
         return;
       }
-    } else if (qualityState.currentFps >= 54 && idx > (isTouchDevice ? 1 : 0)) {
+    } else if (qualityState.currentFps >= 55 && idx > 0) {
       qualityState.highFpsStreak++;
       qualityState.lowFpsStreak = 0;
       if (qualityState.highFpsStreak >= 4) {
