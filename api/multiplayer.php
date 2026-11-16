@@ -10,7 +10,12 @@ require_once __DIR__ . '/db.php';
 const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
 const MP_SLIDE_COUNT = 5;
-const MP_WORLD_LIMIT = 220.0;
+const MP_WORLD_LIMIT = 1000.0;
+const MP_SPACE_WORLD_LIMIT = 32000.0;
+const MP_SPACE_BOUND_START_ALTITUDE = 75000.0;
+const MP_SPACE_ALTITUDE = 100000.0;
+const MP_PLAYER_ALTITUDE_LIMIT = 120000.0;
+const MP_PLAYER_SPEED_LIMIT = 300.0;
 $mpBaseItems = [
     'petri_clean', 'petri_contam', 'petri_empty', 'pda_bottle', 'pda_bottle_02', 'pda_bottle_03',
     'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
@@ -19,7 +24,7 @@ $mpBaseItems = [
     'infrared_thermometer', 'lab_tray_01', 'lab_tray_02', 'lab_tray_03',
     'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
-    'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',
+    'table_cooker_lab', 'table_sub_east', 'laminar_hood_lab',
     'mixing_bowl_01', 'lab_spoon_01', 'scalpel_01', 'flocao_500g_01', 'flocao_500g_02',
     'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser',
     'chalk_white_1', 'chalk_green_1', 'chalk_yellow_1', 'board_eraser_1',
@@ -317,9 +322,15 @@ if ($action === 'sync') {
         }
     }
 
-    $x = $savedPose ? mp_num($savedPose['x'], MP_WORLD_LIMIT) : mp_num($body['x'] ?? 0, MP_WORLD_LIMIT);
-    $y = $savedPose ? mp_num($savedPose['y'], 180.0) : mp_num($body['y'] ?? 0, 180.0);
-    $z = $savedPose ? mp_num($savedPose['z'], MP_WORLD_LIMIT) : mp_num($body['z'] ?? 0, MP_WORLD_LIMIT);
+    $y = $savedPose
+        ? mp_num($savedPose['y'], MP_PLAYER_ALTITUDE_LIMIT)
+        : mp_num($body['y'] ?? 0, MP_PLAYER_ALTITUDE_LIMIT);
+    $spaceBlend = max(0.0, min(1.0,
+        ($y - MP_SPACE_BOUND_START_ALTITUDE) / (MP_SPACE_ALTITUDE - MP_SPACE_BOUND_START_ALTITUDE)
+    ));
+    $playerWorldLimit = MP_WORLD_LIMIT + (MP_SPACE_WORLD_LIMIT - MP_WORLD_LIMIT) * $spaceBlend;
+    $x = $savedPose ? mp_num($savedPose['x'], $playerWorldLimit) : mp_num($body['x'] ?? 0, $playerWorldLimit);
+    $z = $savedPose ? mp_num($savedPose['z'], $playerWorldLimit) : mp_num($body['z'] ?? 0, $playerWorldLimit);
     $yaw = $savedPose ? mp_num($savedPose['yaw'] ?? 0, 1000.0) : mp_num($body['yaw'] ?? 0, 1000.0);
     $pitch = $savedPose ? mp_num($savedPose['pitch'] ?? 0, 2.0) : mp_num($body['pitch'] ?? 0, 2.0);
     $holding = $savedPose ? (string)($savedPose['holding'] ?? '') : (string)($body['holding_item'] ?? '');
@@ -328,8 +339,8 @@ if ($action === 'sync') {
     $toyMode = (string)($body['toy_mode'] ?? '');
     $walking = ($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0)));
     $inFps = !empty($body['in_fps']) ? 1 : 0;
-    $vx = mp_num($body['vx'] ?? 0, 25.0);
-    $vz = mp_num($body['vz'] ?? 0, 25.0);
+    $vx = mp_num($body['vx'] ?? 0, MP_PLAYER_SPEED_LIMIT);
+    $vz = mp_num($body['vz'] ?? 0, MP_PLAYER_SPEED_LIMIT);
     $hasApcu = function_exists('apcu_fetch') && function_exists('apcu_store');
 
     if ($hasApcu) {

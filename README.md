@@ -7,7 +7,8 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 ## 🏗️ 1. Arquitetura Técnica & Stack
 
 - **Motor 3D (Front-end):** [Three.js r128](https://threejs.org/) puro, sem dependências de frameworks pesados (React/Vue/Angular), garantindo inicialização rápida e compatibilidade universal WebGL.
-- **Renderização & Shaders:** Gráficos procedurais, materiais PBR (`MeshStandardMaterial`), sombras dinâmicas, `InstancedMesh` para centenas de árvores e vegetação, ciclo de dia/noite em tempo real (40 minutos virtuais sincronizados com o Relógio da Torre) e 5 variações climáticas sincronizadas (Ensolarado, Parcialmente Nublado, Nublado, Chuva e Neve).
+- **Renderização & Exploração:** Mundo natural processual de 2 km, montanhas, rios, cavernas e cogumelos; `InstancedMesh` para árvores, vegetação e correntes térmicas. O voo atravessa camadas atmosféricas até um sistema solar navegável com órbitas comprimidas e distâncias informadas em AU.
+- **Clima & Gráficos:** Materiais PBR (`MeshStandardMaterial`), sombras dinâmicas, ciclo de dia/noite em tempo real (40 minutos virtuais sincronizados com o Relógio da Torre) e 5 variações climáticas sincronizadas (Ensolarado, Parcialmente Nublado, Nublado, Chuva e Neve), com densidade gráfica ajustada para celulares.
 - **Física & Interações Realistas:** Sistema de colisão com suporte a superfícies caminháveis (mesas inox, bancadas, carteiras e estufas), acoplamento magnético de tampa de panela de pressão, inoculação com agulha perfurando septos de borracha e simulação de temperatura física por material.
 - **Interface & HUD:** Glassmorphism responsivo com Tailwind CSS (v2 pré-compilado), suporte a Safe Area Inset (`env(safe-area-inset-*)`), joystick analógico virtual para mobile e modo Fullscreen automático.
 - **Back-end:** PHP 8.x nativo com PDO MySQL, arquitetura orientada a APIs RESTful leves com JSON, headers anti-cache e segurança nos cookies (`HttpOnly`, `SameSite=Lax`).
@@ -18,11 +19,11 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.40"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Posicionamento fica em `systems/held-item-placement.js`; ações de cultura (flocão, mistura e bisturi) ficam em `systems/lab-culture-actions.js`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.43"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Perfil do terreno e rios ficam em `engine/terrain-profile.js`; floresta, cavernas e sistema solar ficam em módulos de `world/`. Posicionamento fica em `systems/held-item-placement.js`; ações de cultura (flocão, mistura e bisturi) ficam em `systems/lab-culture-actions.js`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.40)
-├── VERSION                    # Versão semântica atual do projeto (0.9.40)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.43)
+├── VERSION                    # Versão semântica atual do projeto (0.9.43)
 ├── error.php                  # Painel online privado para consultar erros recentes
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
@@ -45,8 +46,8 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 │   ├── vendor/                # Three.js r128 e OrbitControls.js (100% self-hosted, zero CDN)
 │   ├── core/                  # Config (config.js), logger/erros (logger.js), constantes, lições, eventos, estado, math-pool, qualidade
 │   ├── services/              # AudioEngine (Web Audio), api-client, multiplayer-sync
-│   ├── engine/                # Texturas procedurais, física/colisão, cinema, clima/arco-íris
-│   ├── world/                 # Natureza/praça, prédios, escadaria/relógio, estufa, layout de alas, campus externo
+│   ├── engine/                # Texturas procedurais, perfil do terreno, física/colisão, cinema, clima/arco-íris
+│   ├── world/                 # Floresta/cavernas/rios, sistema solar, prédios, escadaria/relógio, estufa e campus externo
 │   ├── items/                 # Itens/equipamentos e ciclo compartilhado em culture-lifecycle.js
 │   ├── entities/              # Avatares MP, braço 1ª pessoa, termômetro laser, ghost, confete, veículos
 │   ├── systems/               # Campus init, API pública, world-sync, game loop, movimento, input, interações, lousa, lobby tour

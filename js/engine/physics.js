@@ -2,23 +2,10 @@
  * MycoCampus3D — Motor de Física, Terreno, Superfícies & Colisões
  */
 import { makeBox } from './textures.js';
+import { terrainHeight } from './terrain-profile.js';
+import { GAME_CONFIG } from '../core/config.js';
 
-export function terrainHeight(x, z) {
-  const distCenter = Math.max(Math.abs(x) - 76, Math.abs(z - 1) - 50);
-  if (distCenter <= 0) return 0;
-  const blend = Math.min(1, distCenter / 24);
-
-  const r = Math.hypot(x, z);
-  let mtn = 0;
-  if (r > 120) {
-    const mt = Math.min(1, (r - 120) / 55);
-    const ridge = Math.abs(Math.sin(x * 0.032 + z * 0.021) * Math.cos(z * 0.028 - x * 0.017));
-    mtn = mt * mt * (14 + ridge * 26);
-  }
-
-  const hills = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 2.4 + Math.sin(x * 0.11 + z * 0.09) * 0.7;
-  return blend * hills + mtn;
-}
+export { terrainHeight } from './terrain-profile.js';
 
 export function getGroundHeight(ctx, x, z, refY, ignoreSurf) {
   let h = terrainHeight(x, z);
@@ -161,6 +148,13 @@ export function clampPosAgainstWalls(ctx, pos, radius) {
     }
   }
 
-  pos.x = Math.max(-200, Math.min(200, pos.x));
-  pos.z = Math.max(-200, Math.min(200, pos.z));
+  const atmosphere = GAME_CONFIG.atmosphere;
+  const spaceBlend = Math.max(0, Math.min(1,
+    (pos.y - atmosphere.spaceTransitionAltitude)
+      / (atmosphere.spaceAltitude - atmosphere.spaceTransitionAltitude)
+  ));
+  const worldBound = GAME_CONFIG.player.worldBound
+    + (GAME_CONFIG.player.spaceBound - GAME_CONFIG.player.worldBound) * spaceBlend;
+  pos.x = Math.max(-worldBound, Math.min(worldBound, pos.x));
+  pos.z = Math.max(-worldBound, Math.min(worldBound, pos.z));
 }

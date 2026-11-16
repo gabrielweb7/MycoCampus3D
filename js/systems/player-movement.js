@@ -12,8 +12,56 @@ import {
 import { animateAvatarAura } from '../entities/avatars.js';
 import { getHeldBoardToolColor } from './chalkboard.js';
 
+const THREE = window.THREE;
 const P = GAME_CONFIG.player;
 const V = GAME_CONFIG.vehicles;
+const A = GAME_CONFIG.atmosphere;
+const thermalDummy = new THREE.Object3D();
+
+function getHorizontalWorldBound(altitude) {
+  const spaceBlend = Math.max(0, Math.min(1,
+    (altitude - A.spaceTransitionAltitude) / (A.spaceAltitude - A.spaceTransitionAltitude)
+  ));
+  return P.worldBound + (P.spaceBound - P.worldBound) * spaceBlend;
+}
+
+function altitudeLayer(altitude) {
+  if (altitude >= A.spaceAltitude) return 'Espaço';
+  if (altitude >= A.thermosphere) return 'Termosfera';
+  if (altitude >= A.mesosphere) return 'Mesosfera';
+  if (altitude >= A.stratosphere) return 'Estratosfera';
+  return 'Troposfera';
+}
+
+function updateFlightHud(ctx, altitude, inThermal, now) {
+  if (!ctx.flightHud) return;
+  const isFlying = ctx.inFps && ctx.paragliderActive;
+  ctx.flightHud.classList.toggle('hidden', !isFlying);
+  if (!isFlying || now - ctx.lastFlightHudUpdate < 140) return;
+  ctx.lastFlightHudUpdate = now;
+
+  if (ctx.flightHudAltitude) {
+    ctx.flightHudAltitude.textContent = altitude >= 1000
+      ? (altitude / 1000).toFixed(2) + ' km'
+      : Math.round(altitude) + ' m';
+  }
+  if (ctx.flightHudLayer) ctx.flightHudLayer.textContent = altitudeLayer(altitude);
+  if (ctx.flightHudWind) {
+    if (altitude >= A.spaceAltitude && Math.abs(ctx.playerVelY) < 1) {
+      ctx.flightHudWind.textContent = 'Flutuando';
+    } else {
+      const windSpeed = altitude >= A.spaceAltitude
+        ? Math.abs(ctx.playerVelY)
+        : (inThermal
+          ? (altitude < 1500 ? 24 : (altitude < A.stratosphere ? 65 : (altitude < A.mesosphere ? 350 : 1000)))
+          : 2.2);
+      ctx.flightHudWind.textContent = Math.round(windSpeed) + ' m/s' + (inThermal ? ' • ascendente' : '');
+    }
+  }
+  if (ctx.flightHudSpaceHint) {
+    ctx.flightHudSpaceHint.classList.toggle('hidden', altitude < A.spaceAltitude);
+  }
+}
 
 export function stepPlayerMovement(ctx, dt, now) {
   let moveZ = (ctx.keys['KeyW'] || ctx.keys['ArrowUp'] ? 1 : 0) - (ctx.keys['KeyS'] || ctx.keys['ArrowDown'] ? 1 : 0) - ctx.joyY;
@@ -92,14 +140,24 @@ export function stepPlayerMovement(ctx, dt, now) {
     if (ctx.seatedSeat) ctx.seatedSeat = null;
     const fwdX = -Math.sin(ctx.playerYaw), fwdZ = -Math.cos(ctx.playerYaw);
     const rightX = Math.cos(ctx.playerYaw), rightZ = -Math.sin(ctx.playerYaw);
-    const glideSpeed = moveZ > 0.1 ? V.paragliderFastSpeed : (moveZ < -0.1 ? V.paragliderBrakeSpeed : V.paragliderCruiseSpeed);
-    const targetVX = (fwdX * glideSpeed) + (rightX * moveX * 3.8);
-    const targetVZ = (fwdZ * glideSpeed) + (rightZ * moveX * 3.8);
+    const inSpace = ctx.playerPos.y >= A.spaceAltitude;
+    const descendWithJoystick = inSpace && ctx.isTouchDevice() && moveZ < -0.75;
+    const horizontalMoveZ = descendWithJoystick ? 0 : moveZ;
+    const glideSpeed = inSpace
+      ? ((ctx.keys['ShiftLeft'] || ctx.keys['ShiftRight'] || ctx.mobileSprint) ? V.spaceBoostSpeed : V.spaceCruiseSpeed)
+      : (moveZ > 0.1 ? V.paragliderFastSpeed : (moveZ < -0.1 ? V.paragliderBrakeSpeed : V.paragliderCruiseSpeed));
+    const targetVX = inSpace
+      ? (fwdX * horizontalMoveZ * glideSpeed) + (rightX * moveX * V.spaceCruiseSpeed * 0.72)
+      : (fwdX * glideSpeed) + (rightX * moveX * 3.8);
+    const targetVZ = inSpace
+      ? (fwdZ * horizontalMoveZ * glideSpeed) + (rightZ * moveX * V.spaceCruiseSpeed * 0.72)
+      : (fwdZ * glideSpeed) + (rightZ * moveX * 3.8);
     const airBlend = 1 - Math.exp(-3.2 * dt);
     ctx.playerVelX += (targetVX - ctx.playerVelX) * airBlend;
     ctx.playerVelZ += (targetVZ - ctx.playerVelZ) * airBlend;
-    ctx.playerPos.x = Math.max(-P.worldBound, Math.min(P.worldBound, ctx.playerPos.x + ctx.playerVelX * dt));
-    ctx.playerPos.z = Math.max(-P.worldBound, Math.min(P.worldBound, ctx.playerPos.z + ctx.playerVelZ * dt));
+    const horizontalBound = getHorizontalWorldBound(ctx.playerPos.y);
+    ctx.playerPos.x = Math.max(-horizontalBound, Math.min(horizontalBound, ctx.playerPos.x + ctx.playerVelX * dt));
+    ctx.playerPos.z = Math.max(-horizontalBound, Math.min(horizontalBound, ctx.playerPos.z + ctx.playerVelZ * dt));
     clampPosAgainstWalls(ctx.physCtx, ctx.playerPos, P.radius);
 
     const targetPgRoll = -moveX * 0.28;
@@ -138,13 +196,21 @@ export function stepPlayerMovement(ctx, dt, now) {
   let inThermal = false;
   for (let tci = 0; tci < ctx.thermalColumns.length; tci++) {
     const tc = ctx.thermalColumns[tci];
-    for (let tri = 0; tri < tc.rings.length; tri++) {
-      const tr = tc.rings[tri];
-      const relH = ((ctx.clock.elapsedTime * 7.5 + tr.offset) % 84);
-      tr.mesh.position.y = tc.baseY + 2 + relH;
-      tr.mesh.rotation.z = ctx.clock.elapsedTime * 1.2 + tri;
+    for (let tri = 0; tri < tc.ringOffsets.length; tri++) {
+      const offset = tc.ringOffsets[tri];
+      thermalDummy.position.set(
+        tc.x,
+        tc.baseY + offset + Math.sin(ctx.clock.elapsedTime * 1.2 + tri) * Math.min(18, 3 + offset * 0.00015),
+        tc.z
+      );
+      thermalDummy.rotation.set(-Math.PI / 2, 0, ctx.clock.elapsedTime * 0.35 + tri);
+      thermalDummy.scale.setScalar(1 + tri * 0.04);
+      thermalDummy.updateMatrix();
+      tc.ringMesh.setMatrixAt(tri, thermalDummy.matrix);
     }
-    if (ctx.paragliderActive && !ctx.onGround && ctx.playerPos.y < tc.maxH) {
+    tc.ringMesh.instanceMatrix.needsUpdate = true;
+    if (ctx.paragliderActive && !ctx.onGround
+      && ctx.playerPos.y < Math.min(tc.maxH, A.spaceAltitude)) {
       if (Math.hypot(ctx.playerPos.x - tc.x, ctx.playerPos.z - tc.z) < tc.radius) {
         inThermal = true;
       }
@@ -152,16 +218,30 @@ export function stepPlayerMovement(ctx, dt, now) {
   }
 
   if (ctx.paragliderActive && !ctx.onGround) {
-    if (inThermal) {
-      ctx.playerVelY += (V.thermalLiftVelocity - ctx.playerVelY) * Math.min(1, dt * 3.5);
+    if (ctx.playerPos.y >= A.spaceAltitude) {
+      const ascend = (ctx.keys['Space'] || ctx.jumpHeld) ? 1 : 0;
+      const descend = (ctx.keys['ControlLeft'] || ctx.keys['ControlRight']
+        || (ctx.isTouchDevice() && moveZ < -0.75)) ? 1 : 0;
+      const targetVerticalSpeed = (ascend - descend) * V.spaceVerticalSpeed;
+      ctx.playerVelY += (targetVerticalSpeed - ctx.playerVelY) * Math.min(1, dt * 3.5);
+    } else if (inThermal) {
+      const altitude = ctx.playerPos.y;
+      const liftSpeed = altitude < 1500
+        ? Math.max(V.thermalLiftVelocity, 24)
+        : (altitude < A.stratosphere ? 65 : (altitude < A.mesosphere ? 350 : 1000));
+      ctx.playerVelY += (liftSpeed - ctx.playerVelY) * Math.min(1, dt * 3.5);
     } else {
       const sinkRate = moveZ < -0.1 ? -5.2 : (moveZ > 0.1 ? -2.15 : -1.55);
       ctx.playerVelY += (sinkRate - ctx.playerVelY) * Math.min(1, dt * 4.5);
     }
   } else {
-    ctx.playerVelY -= P.gravity * dt;
+    if (ctx.playerPos.y < A.spaceAltitude) ctx.playerVelY -= P.gravity * dt;
   }
   ctx.playerPos.y += ctx.playerVelY * dt;
+  if (ctx.playerPos.y > A.spaceAltitudeLimit) {
+    ctx.playerPos.y = A.spaceAltitudeLimit;
+    ctx.playerVelY = Math.min(0, ctx.playerVelY);
+  }
   if (ctx.playerPos.y <= groundY) {
     ctx.playerPos.y = groundY;
     ctx.playerVelY = 0;
@@ -205,7 +285,8 @@ export function stepPlayerMovement(ctx, dt, now) {
     }
   }
   if (ctx.paragliderGroup) {
-    ctx.paragliderGroup.visible = ctx.paragliderActive && !ctx.onGround && ctx.inFps;
+    ctx.paragliderGroup.visible = ctx.paragliderActive && !ctx.onGround
+      && ctx.inFps && ctx.playerPos.y < A.spaceAltitude;
     if (ctx.paragliderGroup.visible) {
       ctx.paragliderGroup.position.set(ctx.playerPos.x, ctx.playerPos.y + 0.45, ctx.playerPos.z);
       ctx.paragliderGroup.rotation.order = 'YXZ';
@@ -214,6 +295,19 @@ export function stepPlayerMovement(ctx, dt, now) {
     }
   }
   ctx.camera.position.set(ctx.playerPos.x, ctx.playerPos.y + eyeH + bobY, ctx.playerPos.z);
+  const altitude = Math.max(0, ctx.playerPos.y);
+  const targetCameraFar = altitude >= A.spaceTransitionAltitude
+    ? 32000
+    : (altitude >= A.mesosphere
+      ? 22000
+      : (altitude >= A.stratosphere
+        ? 10000
+        : (altitude >= 2000 ? 3500 : (ctx.isTouchDevice() ? 1100 : 1800))));
+  if (Math.abs(ctx.camera.far - targetCameraFar) > 1) {
+    ctx.camera.far = targetCameraFar;
+    ctx.camera.updateProjectionMatrix();
+  }
+  updateFlightHud(ctx, altitude, inThermal, now);
   ctx.camera.up.set(0, 1, 0);
   ctx.camera.rotation.order = 'YXZ';
   ctx.camera.rotation.y = ctx.playerYaw;

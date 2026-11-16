@@ -16,6 +16,48 @@ import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 
+const LEGACY_LAB_HOME_POSITIONS = {
+  laminar_hood_lab: [{ x: -18.5, y: 1.02, z: -8.2, ry: 0 }],
+  culture_fridge_lab: [{ x: -15.55, y: 0.12, z: -10.7, ry: 0 }],
+  distilled_jug_5l: [{ x: -21.95, y: 1.02, z: -11.9, ry: 0 }],
+  pda_bottle: [
+    { x: -19.6, y: 1.02, z: -12.0, ry: 0 },
+    { x: -20.4, y: 1.02, z: -11.9, ry: 0 }
+  ],
+  petri_clean: [{ x: -18.3, y: 1.065, z: -8.6, ry: 0 }],
+  petri_contam: [{ x: -18.3, y: 1.065, z: -7.8, ry: 0 }],
+  magnetic_stirrer: [{ x: -20.95, y: 0.91, z: -10.55, ry: 0 }],
+  liquid_culture: [{ x: -20.95, y: 1.015, z: -10.59, ry: 0 }],
+  pda_media_bottle_1l: [{ x: -21.3, y: 0.91, z: -10.55, ry: 0 }],
+  beaker_1l_a: [{ x: -20.42, y: 0.91, z: -10.55, ry: 0 }],
+  beaker_1l_b: [{ x: -20.08, y: 0.91, z: -10.55, ry: 0 }],
+  lab_tray_01: [{ x: -19.7, y: 0.91, z: -10.57, ry: 0 }],
+  lab_tray_02: [{ x: -18.3, y: 1.065, z: -8.2, ry: 0 }],
+  lab_tray_03: [{ x: -20.42, y: 0.91, z: -10.18, ry: 0 }],
+  syringe_10ml_a: [{ x: -19.7, y: 0.918, z: -10.5, ry: 0 }],
+  syringe_10ml_b: [{ x: -19.7, y: 0.918, z: -10.64, ry: 0 }],
+  infrared_thermometer: [{ x: -20.0, y: 0.91, z: -10.2, ry: 0 }],
+  falcon_15ml_01: [{ x: -19.31, y: 0.92, z: -10.39, ry: 0 }],
+  falcon_15ml_02: [{ x: -19.26, y: 0.92, z: -10.39, ry: 0 }],
+  falcon_15ml_03: [{ x: -19.21, y: 0.92, z: -10.39, ry: 0 }],
+  falcon_15ml_04: [{ x: -19.16, y: 0.92, z: -10.39, ry: 0 }],
+  falcon_50ml_01: [{ x: -19.3, y: 0.92, z: -10.3, ry: 0 }],
+  falcon_50ml_02: [{ x: -19.2, y: 0.92, z: -10.3, ry: 0 }],
+  scalpel_01: [{ x: -18.25, y: 1.065, z: -8.9, ry: 0 }],
+  scalpel_blade_01: [{ x: -18.12, y: 1.065, z: -8.92, ry: 0 }],
+  scalpel_blade_02: [{ x: -18.08, y: 1.065, z: -8.92, ry: 0 }],
+  scalpel_blade_03: [{ x: -18.04, y: 1.065, z: -8.92, ry: 0 }],
+  scalpel_blade_04: [{ x: -18.0, y: 1.065, z: -8.92, ry: 0 }],
+  pp5_cup_01: [{ x: -18.18, y: 1.065, z: -7.45, ry: 0 }],
+  pp5_cup_02: [{ x: -18.06, y: 1.065, z: -7.45, ry: 0 }],
+  pp5_cup_03: [{ x: -17.94, y: 1.065, z: -7.45, ry: 0 }],
+  pp5_cup_04: [{ x: -17.82, y: 1.065, z: -7.45, ry: 0 }],
+  pp5_cup_05: [{ x: -18.18, y: 1.065, z: -7.33, ry: 0 }],
+  pp5_cup_06: [{ x: -18.06, y: 1.065, z: -7.33, ry: 0 }],
+  pp5_cup_07: [{ x: -17.94, y: 1.065, z: -7.33, ry: 0 }],
+  pp5_cup_08: [{ x: -17.82, y: 1.065, z: -7.33, ry: 0 }]
+};
+
 export function consumeCampusMovedItems(sim) {
   const pending = sim.pendingMovedItems;
   const byId = pending;
@@ -339,6 +381,31 @@ export function applyCampusItemStates(sim, itemStates) {
   });
 }
 
+function migrateLegacyLabHomePosition(sim, item, saved) {
+  const legacyHomes = LEGACY_LAB_HOME_POSITIONS[item.id];
+  if (!legacyHomes || !legacyHomes.some(function (legacyHome) {
+    return Math.abs(saved.x - legacyHome.x) <= 0.02 &&
+      Math.abs(saved.y - legacyHome.y) <= 0.02 &&
+      Math.abs(saved.z - legacyHome.z) <= 0.02 &&
+      Math.abs((saved.ry || 0) - legacyHome.ry) <= 0.02;
+  })) {
+    return false;
+  }
+
+  item.mesh.position.copy(item.homePos);
+  item.mesh.rotation.y = item.homeRy;
+  item.isMoved = true;
+  if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+  sim.pendingMovedItems[item.id] = {
+    id: item.id,
+    x: item.homePos.x,
+    y: item.homePos.y,
+    z: item.homePos.z,
+    ry: item.homeRy
+  };
+  return true;
+}
+
 export function applyCampusWorldObjects(sim, objectsMap) {
   if (!objectsMap) return;
   const now = performance.now();
@@ -360,6 +427,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
     }
     const saved = objectsMap[item.id];
     if (saved) {
+      if (migrateLegacyLabHomePosition(sim, item, saved)) return;
       let finalY = saved.y;
       if (!item.mesh.userData.isTable && !item.mesh.userData.isHood) {
         let suppY = getItemGroundHeight(sim.physCtx, saved.x, saved.z, saved.y, item.mesh.userData.dynamicSurface, saved.y + 0.18);
@@ -414,6 +482,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
     }
     const saved = objectsMap[item.id];
     if (saved) {
+      if (migrateLegacyLabHomePosition(sim, item, saved)) return;
       if (item.potItem) {
         const pot = item.potItem;
         const potSaved = objectsMap[pot.id];

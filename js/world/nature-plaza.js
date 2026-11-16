@@ -3,33 +3,140 @@
  */
 import { makeBox, getTextures } from '../engine/textures.js';
 import { terrainHeight } from '../engine/physics.js';
+import {
+  CAVE_TUNNELS,
+  getRiverDistance,
+  WILDLANDS_SIZE
+} from '../engine/terrain-profile.js';
 
 const THREE = window.THREE;
 
+function addTreeInstances(scene, treePositions, castShadow) {
+  if (!treePositions.length) return;
+  const count = treePositions.length;
+  const trunkInst = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.24, 0.38, 3.2, 7),
+    new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 }),
+    count
+  );
+  const cone1Inst = new THREE.InstancedMesh(
+    new THREE.ConeGeometry(2.1, 3.2, 8),
+    new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 }),
+    count
+  );
+  const cone2Inst = new THREE.InstancedMesh(
+    new THREE.ConeGeometry(1.5, 2.6, 8),
+    new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 }),
+    count
+  );
+  trunkInst.castShadow = castShadow;
+  cone1Inst.castShadow = castShadow;
+  cone2Inst.castShadow = castShadow;
+  trunkInst.frustumCulled = false;
+  cone1Inst.frustumCulled = false;
+  cone2Inst.frustumCulled = false;
+
+  const dummy = new THREE.Object3D();
+  treePositions.forEach((tp, i) => {
+    dummy.scale.setScalar(tp.s);
+    dummy.position.set(tp.x, tp.y + 1.6 * tp.s, tp.z);
+    dummy.updateMatrix();
+    trunkInst.setMatrixAt(i, dummy.matrix);
+
+    dummy.position.set(tp.x, tp.y + 3.6 * tp.s, tp.z);
+    dummy.updateMatrix();
+    cone1Inst.setMatrixAt(i, dummy.matrix);
+
+    dummy.position.set(tp.x, tp.y + 5.2 * tp.s, tp.z);
+    dummy.updateMatrix();
+    cone2Inst.setMatrixAt(i, dummy.matrix);
+  });
+  trunkInst.instanceMatrix.needsUpdate = true;
+  cone1Inst.instanceMatrix.needsUpdate = true;
+  cone2Inst.instanceMatrix.needsUpdate = true;
+  scene.add(trunkInst, cone1Inst, cone2Inst);
+}
+
+function addForestMushrooms(scene, isTouch) {
+  const count = isTouch ? 350 : 900;
+  const stemMesh = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.06, 0.11, 0.26, 6),
+    new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.8 }),
+    count
+  );
+  const capMesh = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(0.24, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.76 }),
+    count
+  );
+  stemMesh.frustumCulled = false;
+  capMesh.frustumCulled = false;
+  const colors = [0xc2410c, 0x7c3aed, 0x15803d, 0xb45309, 0x9f1239].map((hex) => new THREE.Color(hex));
+  const dummy = new THREE.Object3D();
+  let seed = 19357;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  let placed = 0;
+  let attempts = 0;
+  while (placed < count && attempts < count * 4) {
+    attempts++;
+    const angle = random() * Math.PI * 2;
+    const radius = 210 + random() * 730;
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius;
+    if (getRiverDistance(x, z) < 30) continue;
+    const scale = 0.55 + random() * 0.95;
+    const y = terrainHeight(x, z);
+    dummy.scale.setScalar(scale);
+    dummy.position.set(x, y + 0.13 * scale, z);
+    dummy.updateMatrix();
+    stemMesh.setMatrixAt(placed, dummy.matrix);
+    dummy.position.y = y + 0.28 * scale;
+    dummy.updateMatrix();
+    capMesh.setMatrixAt(placed, dummy.matrix);
+    capMesh.setColorAt(placed, colors[Math.floor(random() * colors.length)]);
+    placed++;
+  }
+  stemMesh.count = placed;
+  capMesh.count = placed;
+  stemMesh.instanceMatrix.needsUpdate = true;
+  capMesh.instanceMatrix.needsUpdate = true;
+  if (capMesh.instanceColor) capMesh.instanceColor.needsUpdate = true;
+  scene.add(stemMesh, capMesh);
+}
+
 export function buildNatureWorld(ctx) {
   const { scene, solidColliders, wildMushrooms } = ctx;
-  const size = 480;
-  const segs = 140;
+  const isTouch = ctx.isTouchDevice ? ctx.isTouchDevice() : false;
+  const size = WILDLANDS_SIZE;
+  const segs = isTouch ? 180 : 256;
   const geo = new THREE.PlaneGeometry(size, size, segs, segs);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
-  const colors = [];
+  const colors = new Float32Array(pos.count * 3);
+  const color = new THREE.Color();
   const cGrass = new THREE.Color(0x2f7038);
   const cGrassAlt = new THREE.Color(0x3c8444);
   const cMtn = new THREE.Color(0x1e462a);
   const cRock = new THREE.Color(0x475569);
+  const cSnow = new THREE.Color(0xd1d5db);
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
     const y = terrainHeight(x, z);
     pos.setY(i, y);
-    const col = ((Math.sin(x * 0.14) + Math.cos(z * 0.14)) > 0 ? cGrass : cGrassAlt).clone();
-    if (y > 6) col.lerp(cMtn, Math.min(1, (y - 6) / 14));
-    if (y > 22) col.lerp(cRock, Math.min(0.65, (y - 22) / 16));
-    colors.push(col.r, col.g, col.b);
+    color.copy((Math.sin(x * 0.14) + Math.cos(z * 0.14)) > 0 ? cGrass : cGrassAlt);
+    if (y > 6) color.lerp(cMtn, Math.min(1, (y - 6) / 14));
+    if (y > 22) color.lerp(cRock, Math.min(0.65, (y - 22) / 16));
+    if (y > 620) color.lerp(cSnow, Math.min(0.72, (y - 620) / 360));
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
   }
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
   const terrainSnowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0.02 });
   const terrain = new THREE.Mesh(geo, terrainSnowMat);
@@ -56,41 +163,30 @@ export function buildNatureWorld(ctx) {
     treePositions.push({ x: et[0], y: 0, z: et[1], s: 0.95 + (k % 3) * 0.15 });
   });
 
-  const count = treePositions.length;
-  const trunkGeo = new THREE.CylinderGeometry(0.24, 0.38, 3.2, 7);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
-  const cone1Geo = new THREE.ConeGeometry(2.1, 3.2, 8);
-  const cone1Mat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 });
-  const cone2Geo = new THREE.ConeGeometry(1.5, 2.6, 8);
-  const cone2Mat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 });
-
-  const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
-  const cone1Inst = new THREE.InstancedMesh(cone1Geo, cone1Mat, count);
-  const cone2Inst = new THREE.InstancedMesh(cone2Geo, cone2Mat, count);
-  trunkInst.castShadow = true;
-  cone1Inst.castShadow = true;
-  cone2Inst.castShadow = true;
-
-  const dummy = new THREE.Object3D();
-  treePositions.forEach((tp, i) => {
-    dummy.scale.setScalar(tp.s);
-    dummy.position.set(tp.x, tp.y + 1.6 * tp.s, tp.z);
-    dummy.updateMatrix();
-    trunkInst.setMatrixAt(i, dummy.matrix);
-
-    dummy.position.set(tp.x, tp.y + 3.6 * tp.s, tp.z);
-    dummy.updateMatrix();
-    cone1Inst.setMatrixAt(i, dummy.matrix);
-
-    dummy.position.set(tp.x, tp.y + 5.2 * tp.s, tp.z);
-    dummy.updateMatrix();
-    cone2Inst.setMatrixAt(i, dummy.matrix);
-
+  treePositions.forEach((tp) => {
     if (Math.abs(tp.x) < 90 && Math.abs(tp.z) < 70) {
       solidColliders.push({ minX: tp.x - 0.5, maxX: tp.x + 0.5, minZ: tp.z - 0.5, maxZ: tp.z + 0.5, minY: tp.y, maxY: tp.y + 5 });
     }
   });
-  scene.add(trunkInst, cone1Inst, cone2Inst);
+  addTreeInstances(scene, treePositions, !isTouch);
+
+  const outerTreePositions = [];
+  const outerTreeCount = isTouch ? 1800 : 4800;
+  for (let idx = 0; idx < outerTreeCount; idx++) {
+    const angle = idx * 2.39996 + ((idx * 104729) % 97) / 97 * 0.35;
+    const radius = 190 + Math.sqrt((idx + 0.5) / outerTreeCount) * 770;
+    const tx = Math.cos(angle) * radius;
+    const tz = Math.sin(angle) * radius;
+    if (getRiverDistance(tx, tz) < 34) continue;
+    outerTreePositions.push({
+      x: tx,
+      y: terrainHeight(tx, tz),
+      z: tz,
+      s: 0.82 + ((idx * 7) % 8) * 0.12
+    });
+  }
+  addTreeInstances(scene, outerTreePositions, false);
+  addForestMushrooms(scene, isTouch);
 
   const mushCoords = [
     [-11.5, 15.5], [11.5, 15.5], [-26, 8], [-27, -6], [26, 8], [27, -6],
@@ -100,6 +196,25 @@ export function buildNatureWorld(ctx) {
     [-64, 16], [-68, -12], [-58, -42], [-24, -42], [24, -42], [44, -40],
     [-74, 2], [74, 10]
   ];
+  let mushroomSeed = 84271;
+  const nextMushroomRandom = () => {
+    mushroomSeed = (mushroomSeed * 1664525 + 1013904223) >>> 0;
+    return mushroomSeed / 4294967296;
+  };
+  while (mushCoords.length < 48) {
+    const angle = nextMushroomRandom() * Math.PI * 2;
+    const radius = 220 + nextMushroomRandom() * 660;
+    const mx = Math.cos(angle) * radius;
+    const mz = Math.sin(angle) * radius;
+    const nearCave = CAVE_TUNNELS.some((cave) => {
+      const dx = cave.endX - cave.startX;
+      const dz = cave.endZ - cave.startZ;
+      const t = Math.max(0, Math.min(1, ((mx - cave.startX) * dx + (mz - cave.startZ) * dz) / (dx * dx + dz * dz)));
+      return Math.hypot(mx - cave.startX - dx * t, mz - cave.startZ - dz * t) < 24;
+    });
+    if (getRiverDistance(mx, mz) < 28 || nearCave) continue;
+    mushCoords.push([mx, mz]);
+  }
   const capColors = [0xef4444, 0xf59e0b, 0xa855f7, 0xec4899, 0x10b981];
   mushCoords.forEach((mc, idx) => {
     const mx = mc[0], mz = mc[1];

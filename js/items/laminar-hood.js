@@ -4,7 +4,6 @@
 
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
-import { addMovableStainlessTable } from './stainless-table.js';
 
 const THREE = window.THREE;
 
@@ -49,7 +48,7 @@ export function buildLaminarHoodAndBenches(ctx) {
     supportMeshes.push(top);
   }
   addWallLabBench(-23.15, -7.0, 1.2, 10.6);
-  addWallLabBench(-18.5, -12.0, 8.1, 1.1);
+  addWallLabBench(-18.5, -11.85, 8.1, 1.5);
 
   const rackX = -19.2, rackZ = -1.85;
   const rackMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.65, roughness: 0.3 });
@@ -70,8 +69,6 @@ export function buildLaminarHoodAndBenches(ctx) {
     });
   });
   solidColliders.push({ minX: rackX - 1.65, maxX: rackX + 1.65, minZ: rackZ - 0.38, maxZ: rackZ + 0.38, minY: 0.14, maxY: 2.1 });
-
-  addMovableStainlessTable(ctx, 'table_hood_lab', 'Mesa Inox (Fluxo Laminar)', -18.5, 0.12, -8.2, 1.5, 0.90, 2.4);
 
   const hoodGroup = new THREE.Group();
   const hoodBackBox = makeBox(0.32, 1.08, 2.34, 0x0f172a, { roughness: 0.45, metalness: 0.4 });
@@ -134,10 +131,10 @@ export function buildLaminarHoodAndBenches(ctx) {
   hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLedBezel, hoodLed, airPoints);
 
   const hoodLight = new THREE.PointLight(0xe0f2fe, 0.95, 4.0, 1.8);
-  hoodLight.position.set(-18.5, 1.82, -8.2);
+  hoodLight.position.set(-18.5, 1.82, -11.85);
   scene.add(hoodLight);
 
-  const hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.065, isHood: true };
+  const hoodSurf = { minX: -19.62, maxX: -17.38, minZ: -12.35, maxZ: -11.12, topY: 1.065, isHood: true };
   const hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat, ledMat: hoodLedMat, workLight: hoodLight, workArea: hoodSurf };
   if (ctx.setHoodAirData) ctx.setHoodAirData(hoodAirData);
   hoodBtnMesh.userData.hoodSwitch = hoodAirData;
@@ -154,7 +151,7 @@ export function buildLaminarHoodAndBenches(ctx) {
   hoodGroup.userData.dynamicSurface = hoodSurf;
   hoodGroup.userData.updateBounds = updateItemBounds;
   hoodGroup.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(ctx, hoodSurf, item); };
-  return registerPickable(ctx, 'laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -18.5, 1.02, -8.2, 0, 0.85, 1.1, LAMINAR_HOOD_META);
+  return registerPickable(ctx, 'laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -18.5, 1.02, -11.85, -Math.PI / 2, 0.85, 1.1, LAMINAR_HOOD_META);
 }
 
 export function stepLaminarHood(ctx, dt) {

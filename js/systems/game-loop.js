@@ -10,6 +10,7 @@ import {
   drawCinemaVideoFrame as cinemaDrawFrame
 } from '../engine/cinema.js';
 import { updateDynamicEnvironment as envUpdate } from '../engine/environment.js';
+import { stepSolarSystem } from '../world/solar-system.js';
 import {
   getVirtualDayFrac,
   updateClockTexture
@@ -95,6 +96,7 @@ export function drawCinemaVideoFrame(ctx, dt) {
 }
 
 export function updateDynamicEnvironment(ctx, dt) {
+  stepSolarSystem(ctx.solarSystemGroup, ctx.inFps ? Math.max(0, ctx.playerPos.y) : 0);
   const env = {
     envTime: ctx.envTime,
     getVirtualDayFrac,
