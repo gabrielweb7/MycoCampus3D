@@ -6,6 +6,8 @@ api/config.php
 # Dados temporários / runtime
 data/*.json
 data/.migrated_*
+data/.error-rate.json
+data/game-errors.jsonl
 *.log
 
 # Sistema / IDE

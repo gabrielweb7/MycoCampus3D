@@ -6,6 +6,54 @@
 const MAX_LOGS = 120;
 const logBuffer = [];
 let globalHandlersInstalled = false;
+let reportWindowStartedAt = Date.now();
+let reportsInWindow = 0;
+const recentErrorReports = new Map();
+
+function reportError(entry) {
+  if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+
+  const now = Date.now();
+  if (now - reportWindowStartedAt >= 60000) {
+    reportWindowStartedAt = now;
+    reportsInWindow = 0;
+    recentErrorReports.clear();
+  }
+  if (reportsInWindow >= 10) return;
+
+  const fingerprint = `${entry.scope}:${entry.message}`;
+  const previousAt = recentErrorReports.get(fingerprint);
+  if (previousAt && now - previousAt < 30000) return;
+  recentErrorReports.set(fingerprint, now);
+  reportsInWindow++;
+
+  let detail = '';
+  try {
+    detail = JSON.stringify(entry.detail);
+  } catch (e) {
+    detail = String(entry.detail || '');
+  }
+
+  const payload = {
+    client_time: entry.ts,
+    scope: entry.scope,
+    message: entry.message,
+    detail: String(detail || '').slice(0, 8000),
+    app_version: window.MYCO_VERSION || 'unknown'
+  };
+
+  fetch('api/error.php?action=report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'omit',
+    keepalive: true
+  }).then((res) => {
+    if (!res.ok) console.warn('[Myco] Falha ao enviar erro para o servidor:', res.status);
+  }).catch((err) => {
+    console.warn('[Myco] Falha de rede ao enviar erro para o servidor:', err);
+  });
+}
 
 function pushEntry(level, scope, message, detail) {
   const entry = {
@@ -35,6 +83,7 @@ export const logger = {
     const detail = err && err.stack ? { message: err.message, stack: err.stack } : err;
     const entry = pushEntry('error', scope, message, detail);
     console.error(`[Myco:${entry.scope}] ${entry.message}`, err || '');
+    reportError(entry);
     return entry;
   },
 

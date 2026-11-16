@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.28] — 2026-11-15
+### 🧰 Relatório Centralizado de Erros
+- Erros JavaScript são enviados ao servidor com limite e deduplicação no navegador; o servidor limita frequência e tamanho dos relatórios.
+- Criado `api/error.php` para guardar relatórios em `data/game-errors.jsonl` e permitir listagem somente por Administrador Master.
+- Criada a página `error.php` para consultar os erros recentes usando a sessão de administrador já autenticada.
+- A requisição não inclui token, ID do usuário nem cabeçalhos; valores identificados como credenciais são redigidos e o painel exibe conteúdo como texto.
+
 ## [v0.9.27] — 2026-11-15
 ### ⚡ Menos Raycasts e Tráfego Multiplayer
 - Limitada a atualização do raycast de interação no desktop a 30 Hz fora de ações contínuas, reduzindo trabalho repetido no loop de renderização.

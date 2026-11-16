@@ -18,11 +18,12 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.27"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.28"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.27)
-├── VERSION                    # Versão semântica atual do projeto (0.9.27)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.28)
+├── VERSION                    # Versão semântica atual do projeto (0.9.28)
+├── error.php                  # Painel online privado para consultar erros recentes
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
 ├── .cpanel.yml                # Script de deploy automatizado no cPanel / HostGator
@@ -33,6 +34,7 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 │   ├── config.example.php     # Template seguro para criação do config.php
 │   ├── db.php                 # Conexão PDO, migrações cacheadas (v7) e autenticação por token
 │   ├── auth.php               # Login/registro, XP, módulos, missão prática, cosméticos, ranking e Admin
+│   ├── error.php              # Recebe erros do navegador e lista relatórios para o Admin
 │   └── multiplayer.php        # Sincronização em tempo real (avatares, objetos em lote, lousas, chat)
 │
 ├── database/
@@ -119,6 +121,11 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 - `action=reset_world`: *(Professor/Admin)* Limpa `mc_world_objects`, restaurando posições originais.
 - `action=set_slide`: *(Professor/Admin)* Altera o slide do telão do auditório para todos.
 
+### `api/error.php`
+- `action=report` *(POST)*: Recebe mensagens e stacks de erros do navegador, com limite de tamanho e frequência; não recebe token nem ID do usuário.
+- `action=list` *(GET, Admin)*: Lista até 200 relatórios recentes. O painel fica em `/error.php` e requer uma sessão de Administrador Master.
+- Os relatórios ficam em `data/game-errors.jsonl`, área bloqueada para acesso HTTP direto, com tamanho máximo controlado.
+
 ---
 
 ## ⚡ 6. Boas Práticas & Diretrizes para IAs e Desenvolvedores
@@ -128,9 +135,10 @@ Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite
 1. **Zero Garbage Collection nos Loops de Renderização:**
    - Nunca use `new THREE.Vector3()`, `new THREE.Color()` ou `new THREE.Matrix4()` dentro de `animate()` ou funções chamadas a cada quadro (como `updateDynamicEnvironment`). Use sempre variáveis pré-alocadas (`_tmpHandPos`, etc.).
 2. **Proteção do Banco de Dados:**
-   - O jogo faz polling a cada 750ms por jogador. **Nunca** coloque queries pesadas de `information_schema`, `ALTER TABLE` ou varreduras sem índice no fluxo de `sync`. Use *batch inserts* e cache de flag em `data/`.
+   - O jogo faz polling a cada 250ms por jogador. **Nunca** coloque queries pesadas de `information_schema`, `ALTER TABLE` ou varreduras sem índice no fluxo de `sync`. Use *batch inserts* e cache de flag em `data/`.
 3. **Segurança & Persistência Exclusiva no MySQL:**
-   - Nunca confie em XP, cargo ou respostas vindas do cliente; todo o estado canônico reside no MySQL e ações de escrita exigem `POST` + token válido.
+   - Nunca confie em XP, cargo ou respostas vindas do cliente; o estado canônico reside no MySQL e alterações no estado do jogo exigem `POST` + token válido.
+   - Relatórios enviados por `api/error.php` têm limite de frequência; a listagem exige sessão de Administrador Master. Não inclua credenciais ou dados pessoais nos erros.
 4. **Respeito aos Dispositivos Móveis:**
    - Todas as novidades devem ser testadas em telas de toque (joystick, `#interact-pill`, `#btn-mobile-action`, área útil com `safe-area-inset` e eventos passivos).
 5. **Áudio Centralizado & Versionamento:**
