@@ -29,6 +29,7 @@ import { stepPrecisionScales } from '../items/precision-scale.js';
 import { stepPressureCookers } from '../items/pressure-cooker.js';
 import { stepSpawnColonization } from '../items/spawn-containers.js';
 import { stepSprayBursts } from '../items/alcohol-spray.js';
+import { stepLabSinks } from '../items/lab-sink.js';
 import { stepGreenhouse } from '../world/greenhouse.js';
 
 let lastMobileHoverAt = 0;
@@ -244,6 +245,7 @@ export function startAnimationLoop(ctx) {
       stepPressureCookers(ctx, dt);
       stepSpawnColonization(ctx, dt);
       stepSprayBursts(ctx, dt);
+      stepLabSinks(ctx);
       stepGreenhouse(ctx, dt);
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);

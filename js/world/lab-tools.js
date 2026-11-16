@@ -22,6 +22,14 @@ import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
 import { makeSyringe10ml } from '../items/syringe.js';
 import { makeInfraredThermometer } from '../items/thermometer.js';
 import { makeLabTray } from '../items/lab-tray.js';
+import { buildLabSink } from '../items/lab-sink.js';
+import { makeDistilledJug5L } from '../items/distilled-jug.js';
+import { makeFalconTube, makeFalconRack } from '../items/falcon-tubes.js';
+import { makeCookerBase } from '../items/cooker-base.js';
+import { makeGasTripodBurner } from '../items/gas-tripod.js';
+import { makeScalpel, makeScalpelBladePack } from '../items/scalpel.js';
+import { makePP5Cup145ml } from '../items/pp5-cup.js';
+import { makeFlocao500g } from '../items/flocao-corn.js';
 import {
   addStoragePortaPalletRack,
   makeSubstrateBag5kg,
@@ -51,10 +59,15 @@ export function buildCampusWingsAndEquipment(ctx) {
   // Bancadas, Estante e Capela de Fluxo Laminar
   buildLaminarHoodAndBenches(ctx);
 
-  // Autoclave & Fogareiro
+  // Autoclave, Base Perfurada & Fogareiro
   addMovableStainlessTable(ctx, 'table_cooker_lab', 'Mesa Inox (Autoclave/Spawn)', -18.5, 0.12, -5.0, 1.5, 0.85, 2.4);
   makeElectricBurner(ctx, 'burner_lab', -18.5, 0.97, -4.6);
   createPressureCookerPair(ctx, 'pressure_cooker_lab', 'pressure_lid_lab', 'Lab', -18.5, 1.058, -4.6);
+  makeCookerBase(ctx, 'cooker_base_lab', -18.5, 0.97, -5.5);
+
+  // Pia Inox com Torneira + Garrafao 5L Agua Destilada
+  buildLabSink(ctx, -23.15, 1.02, -10.8);
+  makeDistilledJug5L(ctx, 'distilled_jug_5l', -21.95, 1.02, -11.9, 5000);
 
   // Mesa de Cultura Liquida & Placas de Petri
   addMovableStainlessTable(ctx, 'table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);
@@ -86,6 +99,28 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeSyringe10ml(ctx, 'syringe_10ml_a', -19.70, 0.918, -10.50);
   makeSyringe10ml(ctx, 'syringe_10ml_b', -19.70, 0.918, -10.64);
   makeInfraredThermometer(ctx, 'infrared_thermometer', -20.0, 0.91, -10.2);
+
+  // Estante azul + Tubos Falcon 15ml (azul) e 50ml (laranja)
+  makeFalconRack(ctx, -19.25, 0.91, -10.35);
+  makeFalconTube(ctx, 'falcon_15ml_01', 15, -19.31, 0.92, -10.39, 0);
+  makeFalconTube(ctx, 'falcon_15ml_02', 15, -19.26, 0.92, -10.39, 10);
+  makeFalconTube(ctx, 'falcon_15ml_03', 15, -19.21, 0.92, -10.39, 0);
+  makeFalconTube(ctx, 'falcon_15ml_04', 15, -19.16, 0.92, -10.39, 0);
+  makeFalconTube(ctx, 'falcon_50ml_01', 50, -19.30, 0.92, -10.30, 0);
+  makeFalconTube(ctx, 'falcon_50ml_02', 50, -19.20, 0.92, -10.30, 35);
+
+  // Bisturi Inox, Saches de Lamina #24, Flocao de Milho 500g e Potinhos PP5 145ml
+  makeScalpel(ctx, 'scalpel_01', -18.25, 1.065, -8.90);
+  for (let bpi = 0; bpi < 4; bpi++) {
+    makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi + 1), -18.12 + bpi * 0.04, 1.065, -8.92);
+  }
+  makeFlocao500g(ctx, 'flocao_500g_01', -23.10, 1.02, -5.30);
+  makeFlocao500g(ctx, 'flocao_500g_02', -23.10, 1.02, -5.05);
+  for (let ppIdx = 0; ppIdx < 8; ppIdx++) {
+    const ppRow = Math.floor(ppIdx / 4);
+    const ppCol = ppIdx % 4;
+    makePP5Cup145ml(ctx, 'pp5_cup_' + pad2(ppIdx + 1), false, -18.18 + ppCol * 0.12, 1.065, -7.45 + ppRow * 0.12);
+  }
 
   // Estantes Porta-Pallet & Estoque do Deposito
   addStoragePortaPalletRack(ctx, -23.05, 8.0, 7.6, 0.86, Math.PI / 2);
@@ -151,9 +186,11 @@ export function buildCampusWingsAndEquipment(ctx) {
   createBanner(scene, 13.85, 5.1, -11.6, -Math.PI / 2, '#0284c7', '🧪');
   createBanner(scene, 13.85, 5.1, 3.6, -Math.PI / 2, '#15803d', '🍄');
 
-  // Equipamentos de Substratos (Leste-Norte)
+  // Equipamentos de Substratos (Leste-Norte): Tripe a Gas + Panela + Base Perfurada
   addMovableStainlessTable(ctx, 'table_sub_east', 'Mesa Inox (Substratos)', 21.2, 0.12, -5.2, 1.5, 0.82, 3.2);
-  createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.2, 0.94, -4.3);
+  makeCookerBase(ctx, 'cooker_base_sub', 21.2, 0.94, -5.3);
+  makeGasTripodBurner(ctx, 'gas_tripod_sub', 21.2, 0.12, -3.1);
+  createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.2, 0.74, -3.1);
 
   // Equipamentos da Estufa (Leste-Sul)
   const rack = makeBox(1.6, 0.72, 4.0, 0x1e293b);

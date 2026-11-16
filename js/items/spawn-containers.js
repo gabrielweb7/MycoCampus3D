@@ -14,11 +14,32 @@ export function getSpawnMeta(kind, filled) {
     purpose: isBag
       ? 'Bag autoclavável 1,5kg com filtro HEPA e porto de inoculação'
       : 'Vidro 800ml com milho hidratado para colonização de micélio',
-    weightGrams: isBag ? (filled ? 1525 : 25) : (filled ? 780 : 320),
+    getWeightGrams: (item) => {
+      const sc = item && item.spawnCtrl;
+      if (!sc) return isBag ? 25 : 320;
+      const baseTare = isBag ? 25 : 320;
+      return baseTare + (sc.fillGrams || (sc.filled ? (isBag ? 1500 : 460) : 0));
+    },
     getTempC: (item) => (item && item.spawnCtrl && item.spawnCtrl.inoculated) ? 26.4 : 23.8,
-    compatibilities: { canEnterCooker: true, receivesSyringe: true },
-    connections: ['pressure_cooker', 'syringe', 'laminar_hood', 'heat_sealer']
+    compatibilities: { canEnterCooker: true, receivesSyringe: !!filled },
+    connections: ['pressure_cooker', 'syringe', 'laminar_hood', 'heat_sealer', 'substrate_5kg']
   };
+}
+
+export function fillSpawnWithSubstrate(item, kind) {
+  if (!item || !item.spawnCtrl || item.spawnCtrl.filled) return false;
+  const sc = item.spawnCtrl;
+  sc.filled = true;
+  sc.fillGrams = sc.isBag ? 1500 : 460;
+  sc.substrateKind = kind || 'grain';
+  sc.baseLabel = sc.isBag ? 'Bag 1,5kg Spawn' : 'Vidro 800ml (Milho)';
+  if (sc.fillMesh) sc.fillMesh.visible = true;
+  if (sc.mycOverlay) sc.mycOverlay.visible = false;
+  if (item.meta && item.meta.compatibilities) {
+    item.meta.compatibilities.receivesSyringe = true;
+  }
+  updateSpawnVisual(item);
+  return true;
 }
 
 export function updateSpawnVisual(item) {
@@ -41,6 +62,8 @@ export function updateSpawnVisual(item) {
     item.label = sc.baseLabel + ' (Colonizando ' + Math.floor(sc.colonization) + '%)';
   } else if (sc.sterilized) {
     item.label = sc.baseLabel + ' (Estéril • Pronto)';
+  } else if (sc.sterilizeProgress > 0) {
+    item.label = sc.baseLabel + ' (Mal esterilizado ' + Math.floor(sc.sterilizeProgress) + '% ⚠️)';
   } else {
     item.label = sc.baseLabel + ' (Não Esterilizado)';
   }
@@ -71,13 +94,20 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
   );
   mycOverlay.position.y = 0.108;
   if (filled) jg.add(corn, mycOverlay);
+  else { corn.visible = false; mycOverlay.visible = false; jg.add(corn, mycOverlay); }
 
   const item = registerPickable(ctx, id, 'Vidro 800ml', jg, px, py, pz, 0, 0.16, 0.28, getSpawnMeta('jar', filled));
   item.spawnCtrl = {
+    isBag: false,
+    filled: !!filled,
+    fillGrams: filled ? 460 : 0,
+    fillMesh: corn,
+    minSterilizeMin: 120, // 2h minimo para milho de pipoca
+    sterilizeProgress: filled ? 100 : 0,
     baseLabel: filled ? 'Vidro 800ml (Milho)' : 'Vidro 800ml Vazio',
     sterilized: filled, inoculated: filled, colonized: filled,
     colonization: filled ? 100 : 0, contaminated: false,
-    mycOverlay: filled ? mycOverlay : null,
+    mycOverlay,
     updateVisual: function () { updateSpawnVisual(item); }
   };
   item.mesh.userData.spawnCtrl = item.spawnCtrl;
@@ -108,13 +138,20 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   const mycOverlay = makeBox(0.222, 0.22, 0.162, new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 }));
   mycOverlay.position.y = 0.115;
   if (filled) bg.add(block, mycOverlay);
+  else { block.visible = false; mycOverlay.visible = false; bg.add(block, mycOverlay); }
 
   const item = registerPickable(ctx, id, 'Bag 1,5kg', bg, px, py, pz, 0, 0.22, 0.38, getSpawnMeta('bag', filled));
   item.spawnCtrl = {
+    isBag: true,
+    filled: !!filled,
+    fillGrams: filled ? 1500 : 0,
+    fillMesh: block,
+    minSterilizeMin: 120, // 2h minimo para milho de pipoca
+    sterilizeProgress: filled ? 100 : 0,
     baseLabel: filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio',
     sterilized: filled, inoculated: filled, colonized: filled,
     colonization: filled ? 100 : 0, contaminated: false,
-    mycOverlay: filled ? mycOverlay : null,
+    mycOverlay,
     updateVisual: function () { updateSpawnVisual(item); }
   };
   item.mesh.userData.spawnCtrl = item.spawnCtrl;

@@ -1,5 +1,5 @@
 /**
- * Panela de Pressao 20L (Autoclave), Fogareiro Eletrico e Simulacao Termica (MycoCampus3D)
+ * Panela de Pressao 20L (Autoclave), Fogareiro Eletrico Multi-Nivel e Simulacao Termica (MycoCampus3D)
  */
 
 import { GAME_CONFIG } from '../core/config.js';
@@ -11,12 +11,19 @@ const LAB = GAME_CONFIG.lab;
 
 export const PRESSURE_COOKER_META = {
   category: 'sterilization',
-  purpose: 'Esterilizar substratos, grãos e cultura líquida a 121°C / 15 PSI',
+  purpose: 'Ferver, pasteurizar (80°C) ou esterilizar (121°C / 15 PSI) com água e base perfurada',
   weightGrams: 5200,
   baseTempC: 25.0,
-  maxContents: 4,
-  compatibilities: { canEnterCooker: false, acceptsContents: true, heatsOnBurner: true },
-  connections: ['electric_burner', 'spawn_jar', 'spawn_bag', 'liquid_culture', 'pda_bottle', 'substrate_5kg']
+  maxContents: 6,
+  maxVolumeMl: 20000,
+  compatibilities: {
+    canEnterCooker: false,
+    acceptsContents: true,
+    heatsOnBurner: true,
+    fillsFromSink: true,
+    receivesWater: true
+  },
+  connections: ['electric_burner', 'gas_tripod', 'cooker_base', 'lab_sink', 'distilled_jug', 'spawn_jar', 'spawn_bag', 'liquid_culture']
 };
 
 export const PRESSURE_LID_META = {
@@ -30,12 +37,14 @@ export const PRESSURE_LID_META = {
 
 export const ELECTRIC_BURNER_META = {
   category: 'heating',
-  purpose: 'Aquecer a panela de pressão até atingir 121°C e 15 PSI',
+  purpose: 'Fogareiro elétrico com 3 níveis de potência (Baixo / Médio / Alto)',
   weightGrams: 3400,
   baseTempC: 24.0,
   compatibilities: { canEnterCooker: false, heatsCookerOnSurface: true },
   connections: ['pressure_cooker']
 };
+
+export const BURNER_LEVEL_NAMES = ['Desligado', 'Fogo Baixo', 'Fogo Médio', 'Fogo Alto'];
 
 export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py, pz) {
   const steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20 });
@@ -52,14 +61,29 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   potBottomIn.rotation.x = -Math.PI / 2; potBottomIn.position.y = 0.034;
   const potRim = new THREE.Mesh(new THREE.TorusGeometry(0.242, 0.018, 10, 24), steelMat);
   potRim.rotation.x = Math.PI / 2; potRim.position.y = 0.36;
+
+  // Nivel visivel de agua dentro da panela aberta
+  const waterMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.218, 0.214, 0.28, 20),
+    new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45, roughness: 0.1 })
+  );
+  waterMesh.position.y = 0.04;
+  waterMesh.userData.ignoreRay = true;
+
   [-1, 1].forEach(function (side) {
     const hdl = makeBox(0.09, 0.065, 0.11, darkMat, { noShadow: true });
     hdl.position.set(side * 0.275, 0.29, 0);
     potGroup.add(hdl);
   });
-  potGroup.add(potBody, potBase, potBottomIn, potRim);
+  potGroup.add(potBody, potBase, potBottomIn, potRim, waterMesh);
   potGroup.userData.twoHanded = true;
-  const potItem = registerPickable(ctx, potId, 'Panela de Pressão 20L (' + labelSuffix + ')', potGroup, px, py, pz, 0, 0.30, 0.42, PRESSURE_COOKER_META);
+
+  const potMeta = Object.assign({}, PRESSURE_COOKER_META, {
+    getWeightGrams: function () {
+      return 5200 + (cpState ? Math.round(cpState.waterMl) : 0);
+    }
+  });
+  const potItem = registerPickable(ctx, potId, 'Panela de Pressão 20L (' + labelSuffix + ')', potGroup, px, py, pz, 0, 0.30, 0.42, potMeta);
 
   const lidGroup = new THREE.Group();
   const lidRim = new THREE.Mesh(new THREE.CylinderGeometry(0.248, 0.256, 0.045, 22), steelMat);
@@ -85,6 +109,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
     lidGroup.add(clasp);
   });
   lidGroup.add(lidRim, lidDome, weight, weightTop);
+
   const sCount = 24;
   const sPos = new Float32Array(sCount * 3);
   for (let si = 0; si < sCount; si++) {
@@ -106,24 +131,58 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   potItem.lidItem = lidItem;
 
   const pCanvas = document.createElement('canvas');
-  pCanvas.width = 320; pCanvas.height = 112;
+  pCanvas.width = 360; pCanvas.height = 128;
   const pCtx = pCanvas.getContext('2d');
   const pTex = new THREE.CanvasTexture(pCanvas);
   const pSpriteMat = new THREE.SpriteMaterial({ map: pTex, transparent: true, depthTest: false });
   const pSprite = new THREE.Sprite(pSpriteMat);
-  pSprite.scale.set(0.95, 0.33, 1);
-  pSprite.position.set(0, 0.78, 0);
+  pSprite.scale.set(1.05, 0.37, 1);
+  pSprite.position.set(0, 0.80, 0);
   pSprite.visible = false;
   pSprite.userData.ignoreRay = true;
   potGroup.add(pSprite);
 
-  ctx.cookerPots.push({
-    potItem, lidItem, weight, weightTop, safetyPins,
-    steamPoints, steamAttr: sAttr, contents: [],
-    statusSprite: pSprite, statusCtx: pCtx, statusTex: pTex, lastHudKey: '',
-    psi: 0, temp: 25, progress: 0, sterilized: false,
-    overheatTimer: 0, burned: false
-  });
+  var cpState = {
+    potItem,
+    lidItem,
+    weight,
+    weightTop,
+    safetyPins,
+    waterMesh,
+    steamPoints,
+    steamAttr: sAttr,
+    contents: [],
+    hasBase: false,
+    waterMl: 2500,
+    maxWaterMl: 20000,
+    mode: 'sterilize', // 'sterilize' | 'pasteurize'
+    statusSprite: pSprite,
+    statusCtx: pCtx,
+    statusTex: pTex,
+    lastHudKey: '',
+    psi: 0,
+    temp: 25,
+    progress: 0,
+    sterilized: false,
+    overheatTimer: 0,
+    burned: false
+  };
+  updateCookerWaterVisual(cpState);
+  ctx.cookerPots.push(cpState);
+  return cpState;
+}
+
+export function updateCookerWaterVisual(cp) {
+  if (!cp || !cp.waterMesh) return;
+  const frac = Math.max(0, Math.min(1, cp.waterMl / cp.maxWaterMl));
+  if (cp.waterMl <= 15) {
+    cp.waterMesh.visible = false;
+  } else {
+    cp.waterMesh.visible = true;
+    const visFrac = Math.max(0.03, frac);
+    cp.waterMesh.scale.y = visFrac;
+    cp.waterMesh.position.y = 0.035 + (0.28 * visFrac) * 0.5;
+  }
 }
 
 export function makeElectricBurner(ctx, id, px, py, pz) {
@@ -217,7 +276,7 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   bg.userData.updateBounds = updateItemBounds;
   bg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(ctx, bSurf, it); };
 
-  const bState = { on: false, heat: 0, coilMat, reflectorMat, ledMat, knobGroup, surface: bSurf };
+  const bState = { id, kind: 'electric', on: false, level: 0, heat: 0, coilMat, reflectorMat, ledMat, knobGroup, surface: bSurf };
   const bIdx = ctx.burnerDevices.length;
   knobBase.userData.burnerSwitchIdx = bIdx;
   knobPointer.userData.burnerSwitchIdx = bIdx;
@@ -226,18 +285,50 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   return registerPickable(ctx, id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12, ELECTRIC_BURNER_META);
 }
 
+export function setBurnerLevel(burner, level) {
+  if (!burner) return;
+  const lvl = Math.max(0, Math.min(3, level | 0));
+  burner.level = lvl;
+  burner.on = lvl > 0;
+  if (burner.ledMat) {
+    burner.ledMat.color.setHex(lvl === 0 ? 0xef4444 : (lvl === 1 ? 0x38bdf8 : (lvl === 2 ? 0xf59e0b : 0x22c55e)));
+  }
+  if (burner.knobGroup) {
+    if (burner.kind === 'gas_tripod') {
+      burner.knobGroup.rotation.x = lvl * 0.6;
+    } else {
+      burner.knobGroup.rotation.z = -lvl * 0.65;
+    }
+  }
+}
+
 export function stepPressureCookers(ctx, dt) {
   if (!ctx.cookerPots.length) return;
 
   let anyPotSteaming = false;
   for (let bni = 0; bni < ctx.burnerDevices.length; bni++) {
     const bnd = ctx.burnerDevices[bni];
-    bnd.heat = bnd.on ? Math.min(1, (bnd.heat || 0) + dt * 0.55) : Math.max(0, (bnd.heat || 0) - dt * 0.25);
+    const lvl = bnd.on ? (bnd.level || 3) : 0;
+    const targetHeat = lvl === 0 ? 0 : (lvl === 1 ? 0.38 : (lvl === 2 ? 0.68 : 1.0));
+    if (bnd.heat < targetHeat) {
+      bnd.heat = Math.min(targetHeat, (bnd.heat || 0) + dt * 0.55);
+    } else {
+      bnd.heat = Math.max(targetHeat, (bnd.heat || 0) - dt * 0.30);
+    }
     const h = bnd.heat;
-    const pulse = h > 0.2 ? Math.sin(ctx.clock.elapsedTime * 5.0) * 0.08 * h : 0;
-    bnd.coilMat.emissiveIntensity = h * 2.2 + pulse;
-    bnd.coilMat.color.setRGB(0.39 + h * 0.55, 0.45 - h * 0.30, 0.55 - h * 0.48);
-    if (bnd.reflectorMat) bnd.reflectorMat.emissiveIntensity = h * 0.28;
+    const pulse = h > 0.15 ? Math.sin(ctx.clock.elapsedTime * 5.0) * 0.08 * h : 0;
+    if (bnd.kind === 'gas_tripod') {
+      if (bnd.flameRing) {
+        bnd.flameRing.visible = h > 0.05;
+        const sc = 0.65 + h * 0.45 + pulse * 0.4;
+        bnd.flameRing.scale.set(sc, sc, 1);
+      }
+      bnd.coilMat.opacity = Math.min(0.95, h * 0.92 + pulse);
+    } else {
+      bnd.coilMat.emissiveIntensity = h * 2.2 + pulse;
+      bnd.coilMat.color.setRGB(0.39 + h * 0.55, 0.45 - h * 0.30, 0.55 - h * 0.48);
+      if (bnd.reflectorMat) bnd.reflectorMat.emissiveIntensity = h * 0.28;
+    }
   }
 
   let nearestSteamDist = Infinity;
@@ -245,18 +336,61 @@ export function stepPressureCookers(ctx, dt) {
   for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
     const cp = ctx.cookerPots[cpi];
     const potP = cp.potItem.mesh.position;
-    let onActiveBurner = false;
+
+    // Verifica se possui base perfurada dentro
+    cp.hasBase = cp.contents.some((it) => it && it.mesh && it.mesh.userData && it.mesh.userData.isCookerBase);
+
+    let activeBurner = null;
     for (let bi = 0; bi < ctx.burnerDevices.length; bi++) {
       const bn = ctx.burnerDevices[bi];
-      if (bn.on && potP.x >= bn.surface.minX && potP.x <= bn.surface.maxX && potP.z >= bn.surface.minZ && potP.z <= bn.surface.maxZ && Math.abs(potP.y - bn.surface.topY) < 0.08) {
-        onActiveBurner = true; break;
+      if (bn.on && potP.x >= bn.surface.minX && potP.x <= bn.surface.maxX && potP.z >= bn.surface.minZ && potP.z <= bn.surface.maxZ && Math.abs(potP.y - bn.surface.topY) < 0.09) {
+        activeBurner = bn; break;
       }
     }
-    if (onActiveBurner && cp.lidItem.isAttached) {
-      if (cp.temp < LAB.autoclaveTargetTempC) {
-        cp.temp = Math.min(LAB.autoclaveTargetTempC, cp.temp + dt * 6.5);
-      } else if (cp.psi < LAB.autoclaveTargetPsi && cp.progress < 100) {
-        cp.psi = Math.min(LAB.autoclaveTargetPsi, cp.psi + dt * 3.0);
+
+    const heatLvl = activeBurner ? (activeBurner.level || 3) : 0;
+    const hasWater = cp.waterMl > 5;
+    const heatRate = heatLvl === 1 ? 2.8 : (heatLvl === 2 ? 4.8 : (heatLvl === 3 ? 7.5 : 0));
+
+    // Evaporacao da agua conforme fogo & temperatura
+    let evapRateMl = 0;
+    if (activeBurner && hasWater && cp.temp >= 96) {
+      const baseEvap = heatLvl === 1 ? 4.5 : (heatLvl === 2 ? 10.0 : 26.0);
+      evapRateMl = cp.lidItem.isAttached ? baseEvap : baseEvap * 1.85;
+      cp.waterMl = Math.max(0, cp.waterMl - evapRateMl * dt);
+      updateCookerWaterVisual(cp);
+    }
+
+    if (activeBurner && !hasWater && !cp.burned) {
+      cp.burned = true;
+      cp.sterilized = false;
+      cp.contents.forEach((bIt) => {
+        if (bIt.spawnCtrl) { bIt.spawnCtrl.burned = true; bIt.spawnCtrl.sterilized = false; bIt.spawnCtrl.updateVisual(); }
+      });
+      if (ctx.callbacks.onToast) {
+        ctx.callbacks.onToast('🔥 A água da panela secou! Tudo queimou lá dentro :(');
+      }
+    }
+
+    if (activeBurner && hasWater) {
+      if (!cp.lidItem.isAttached) {
+        // Fervura aberta a 100°C
+        cp.temp = Math.min(100, cp.temp + dt * heatRate);
+        cp.psi = Math.max(0, cp.psi - dt * 4.0);
+      } else if (cp.mode === 'pasteurize') {
+        const targetPastTemp = heatLvl === 1 ? 76 : (heatLvl === 2 ? 84 : 96);
+        if (cp.temp < targetPastTemp) cp.temp = Math.min(targetPastTemp, cp.temp + dt * heatRate);
+        else cp.temp = Math.max(targetPastTemp, cp.temp - dt * 2.0);
+        cp.psi = Math.max(0, cp.psi - dt * 2.0);
+      } else {
+        const targetTemp = heatLvl === 1 ? 108 : LAB.autoclaveTargetTempC;
+        if (cp.temp < targetTemp) {
+          cp.temp = Math.min(targetTemp, cp.temp + dt * heatRate);
+        } else if (heatLvl >= 2 && cp.psi < LAB.autoclaveTargetPsi && cp.progress < 100) {
+          cp.psi = Math.min(LAB.autoclaveTargetPsi, cp.psi + dt * (heatLvl === 3 ? 3.2 : 1.8));
+        } else if (heatLvl === 1 && cp.psi > 6.0) {
+          cp.psi = Math.max(6.0, cp.psi - dt * 0.8);
+        }
       }
     } else {
       if (cp.psi > 0) {
@@ -280,7 +414,11 @@ export function stepPressureCookers(ctx, dt) {
       }
     }
 
-    const steamFactor = (cp.lidItem.isAttached && cp.psi >= 10.0) ? Math.min(1, (cp.psi - 10.0) / 5.0) : 0;
+    const openBoiling = !cp.lidItem.isAttached && cp.temp >= 98 && hasWater;
+    const steamFactor = (cp.lidItem.isAttached && cp.psi >= 10.0)
+      ? Math.min(1, (cp.psi - 10.0) / 5.0)
+      : (openBoiling ? 0.45 : 0);
+
     if (steamFactor > 0.02) {
       anyPotSteaming = true;
       const sDist = Math.hypot(potP.x - ctx.playerPos.x, potP.z - ctx.playerPos.z);
@@ -300,12 +438,14 @@ export function stepPressureCookers(ctx, dt) {
         }
       }
       cp.steamAttr.needsUpdate = true;
-      const wobble = Math.sin(ctx.clock.elapsedTime * (20 + steamFactor * 20));
-      const lift = Math.abs(wobble) * (0.008 * steamFactor);
-      cp.weight.position.y = 0.13 + lift;
-      cp.weightTop.position.y = 0.16 + lift;
-      cp.weight.rotation.z = wobble * 0.10 * steamFactor;
-      cp.weightTop.rotation.z = wobble * 0.10 * steamFactor;
+      if (cp.lidItem.isAttached) {
+        const wobble = Math.sin(ctx.clock.elapsedTime * (20 + steamFactor * 20));
+        const lift = Math.abs(wobble) * (0.008 * steamFactor);
+        cp.weight.position.y = 0.13 + lift;
+        cp.weightTop.position.y = 0.16 + lift;
+        cp.weight.rotation.z = wobble * 0.10 * steamFactor;
+        cp.weightTop.rotation.z = wobble * 0.10 * steamFactor;
+      }
     } else {
       cp.steamPoints.visible = false;
       cp.weight.position.y = 0.13;
@@ -314,22 +454,42 @@ export function stepPressureCookers(ctx, dt) {
       cp.weightTop.rotation.z = 0;
     }
 
-    if (onActiveBurner && cp.lidItem.isAttached && cp.psi >= 14.9 && !cp.burned) {
+    const canAdvanceProcess = activeBurner && hasWater && cp.lidItem.isAttached && !cp.burned && (
+      (cp.mode === 'sterilize' && cp.psi >= 14.2) ||
+      (cp.mode === 'pasteurize' && cp.temp >= 74 && cp.temp <= 90)
+    );
+
+    if (canAdvanceProcess) {
       if (cp.progress < 100) {
-        cp.progress = Math.min(100, cp.progress + dt * 8.5);
+        const baseMin = cp.mode === 'pasteurize' ? 45 : 80;
+        let maxMin = baseMin;
+        for (let ci = 0; ci < cp.contents.length; ci++) {
+          const cIt = cp.contents[ci];
+          if (cIt && cIt.spawnCtrl && cIt.spawnCtrl.minSterilizeMin > maxMin) {
+            maxMin = cIt.spawnCtrl.minSterilizeMin;
+          }
+        }
+        // ~12s para 80m (1h20m flocao/PP5), ~18s para 120m (2h milho de pipoca)
+        const potRate = (680 / maxMin);
+        cp.progress = Math.min(100, cp.progress + dt * potRate);
+        for (let ci = 0; ci < cp.contents.length; ci++) {
+          const cIt = cp.contents[ci];
+          if (cIt && cIt.spawnCtrl) {
+            const itemMin = cIt.spawnCtrl.minSterilizeMin || 80;
+            const itemRate = 680 / itemMin;
+            cIt.spawnCtrl.sterilizeProgress = Math.min(100, (cIt.spawnCtrl.sterilizeProgress || 0) + dt * itemRate);
+            if (cIt.spawnCtrl.sterilizeProgress >= 100) {
+              cIt.spawnCtrl.sterilized = true;
+            }
+            cIt.spawnCtrl.updateVisual();
+          }
+        }
         if (cp.progress >= 100) {
           cp.sterilized = true;
           cp.overheatTimer = 0;
-          for (let ci = 0; ci < cp.contents.length; ci++) {
-            const cIt = cp.contents[ci];
-            if (cIt.spawnCtrl) {
-              cIt.spawnCtrl.sterilized = true;
-              cIt.spawnCtrl.updateVisual();
-            }
-          }
         }
       } else {
-        cp.overheatTimer += dt;
+        cp.overheatTimer += dt * (heatLvl === 3 ? 1.35 : (heatLvl === 2 ? 0.65 : 0.35));
         if (cp.overheatTimer >= LAB.autoclaveOverheatSec) {
           cp.burned = true;
           cp.sterilized = false;
@@ -350,30 +510,59 @@ export function stepPressureCookers(ctx, dt) {
 
     if (cp.statusSprite) {
       const pDist = Math.hypot(potP.x - ctx.playerPos.x, potP.z - ctx.playerPos.z);
-      const showHud = pDist < 10.5 && (cp.burned || cp.temp > 26 || cp.psi > 0.1 || cp.progress > 0);
+      const showHud = pDist < 10.5 && (cp.burned || cp.temp > 26 || cp.psi > 0.1 || cp.progress > 0 || activeBurner);
       cp.statusSprite.visible = showHud;
       if (showHud) {
         let stageTitle = '', stageSub = '', barPct = 0, barCol = '#38bdf8', borderCol = '#38bdf8';
+        const waterLit = (cp.waterMl / 1000).toFixed(1) + 'L';
+        const waterEta = evapRateMl > 0 ? (' • ~' + Math.ceil(cp.waterMl / evapRateMl) + 's água') : '';
+        const fireTag = activeBurner ? (' • ' + BURNER_LEVEL_NAMES[heatLvl]) : '';
 
         if (cp.burned) {
           stageTitle = '🔥 Tudo queimado :(';
           stageSub = 'Jogue fora o conteúdo!';
           barPct = 100; barCol = '#ef4444'; borderCol = '#ef4444';
-        } else if (onActiveBurner && cp.lidItem.isAttached) {
-          if (cp.temp < LAB.autoclaveTargetTempC) {
+        } else if (!hasWater) {
+          stageTitle = '⚠️ Panela sem água!';
+          stageSub = 'Encha na Pia ou Garrafão 5L';
+          barPct = 100; barCol = '#ef4444'; borderCol = '#ef4444';
+        } else if (activeBurner && !cp.lidItem.isAttached) {
+          barPct = Math.min(100, Math.round(((cp.temp - 25) / 75) * 100));
+          stageTitle = cp.temp >= 98 ? '♨️ Fervendo (sem tampa)' : '🔥 Aquecendo água...';
+          stageSub = Math.round(cp.temp) + '°C • Água ' + waterLit + waterEta;
+          barCol = cp.temp >= 98 ? '#38bdf8' : '#f97316';
+          borderCol = barCol;
+        } else if (activeBurner && cp.lidItem.isAttached) {
+          if (cp.mode === 'pasteurize') {
+            if (cp.temp < 74) {
+              barPct = Math.min(100, Math.round(((cp.temp - 25) / 50) * 100));
+              stageTitle = '🔥 Aquecendo p/ Pasteurizar...';
+              stageSub = Math.round(cp.temp) + '°C / 78°C • ' + waterLit + fireTag;
+              barCol = '#f97316'; borderCol = '#f97316';
+            } else if (cp.progress < 100) {
+              barPct = Math.floor(cp.progress);
+              stageTitle = '🌡️ Pasteurizando... (' + Math.round(cp.temp) + '°C)';
+              stageSub = barPct + '% • Água ' + waterLit + waterEta;
+              barCol = '#10b981'; borderCol = '#10b981';
+            } else {
+              stageTitle = '✅ Pasteurização 100%!';
+              stageSub = 'Desligue o fogo • ' + waterLit;
+              barPct = 100; barCol = '#22c55e'; borderCol = '#22c55e';
+            }
+          } else if (cp.temp < LAB.autoclaveTargetTempC) {
             barPct = Math.min(100, Math.round(((cp.temp - 25) / 96) * 100));
-            stageTitle = '🔥 Aquecendo...';
-            stageSub = Math.round(cp.temp) + '°C / ' + LAB.autoclaveTargetTempC + '°C (' + barPct + '%)';
+            stageTitle = '🔥 Aquecendo... (' + BURNER_LEVEL_NAMES[heatLvl] + ')';
+            stageSub = Math.round(cp.temp) + '°C / 121°C • ' + waterLit + waterEta;
             barCol = '#f97316'; borderCol = '#f97316';
-          } else if (cp.psi < LAB.autoclaveTargetPsi && cp.progress < 100) {
+          } else if (cp.psi < 14.2 && cp.progress < 100) {
             barPct = Math.min(100, Math.round((cp.psi / LAB.autoclaveTargetPsi) * 100));
             stageTitle = '🔒 PSI aumentando...';
-            stageSub = cp.psi.toFixed(1) + ' / ' + LAB.autoclaveTargetPsi + ' PSI (' + barPct + '%)';
+            stageSub = cp.psi.toFixed(1) + '/15 PSI • ' + waterLit + waterEta;
             barCol = '#f59e0b'; borderCol = '#f59e0b';
           } else if (cp.progress < 100) {
             barPct = Math.floor(cp.progress);
-            stageTitle = '♨️ Esterilizando...';
-            stageSub = barPct + '% concluído (15 PSI)';
+            stageTitle = '♨️ Esterilizando (15 PSI)...';
+            stageSub = barPct + '% • ' + waterLit + waterEta + (heatLvl === 3 ? ' (Baixe p/ Médio!)' : '');
             barCol = '#22c55e'; borderCol = '#22c55e';
           } else {
             const secLeft = Math.max(0, Math.ceil(LAB.autoclaveOverheatSec - cp.overheatTimer));
@@ -387,18 +576,18 @@ export function stepPressureCookers(ctx, dt) {
           if (cp.psi >= LAB.autoclaveLockPsi) {
             barPct = Math.min(100, Math.round((cp.psi / LAB.autoclaveTargetPsi) * 100));
             stageTitle = '🔒 Perdendo pressão...';
-            stageSub = cp.psi.toFixed(1) + ' / ' + LAB.autoclaveTargetPsi + ' PSI (aguarde < ' + LAB.autoclaveLockPsi + ')';
+            stageSub = cp.psi.toFixed(1) + ' / 15 PSI (aguarde < 1.5)';
             barCol = '#fb923c'; borderCol = '#f59e0b';
           } else if (cp.temp > 30) {
             barPct = Math.max(0, Math.min(100, Math.round(((cp.temp - 25) / 96) * 100)));
-            stageTitle = '❄️ Temperatura caindo...';
-            stageSub = Math.round(cp.temp) + '°C → ambiente (🔓 Destravada)';
+            stageTitle = '❄️ Esfriando... (🔓 Destravada)';
+            stageSub = Math.round(cp.temp) + '°C • Água ' + waterLit;
             barCol = '#38bdf8'; borderCol = '#38bdf8';
           } else if (cp.progress >= 100) {
-            barPct = 100; stageTitle = '✅ 100% Esterilizado'; stageSub = 'Pronto para uso! :)';
+            barPct = 100; stageTitle = '✅ 100% Esterilizado'; stageSub = 'Pronto para uso! • Água ' + waterLit;
             barCol = '#22c55e'; borderCol = '#22c55e';
           } else {
-            barPct = 0; stageTitle = '🔓 Tampa destravada'; stageSub = Math.round(cp.temp) + '°C';
+            barPct = 0; stageTitle = '🔓 Tampa destravada'; stageSub = Math.round(cp.temp) + '°C • Água ' + waterLit;
             barCol = '#94a3b8'; borderCol = '#64748b';
           }
         }
@@ -407,10 +596,10 @@ export function stepPressureCookers(ctx, dt) {
         if (cp.lastHudKey !== hudKey) {
           cp.lastHudKey = hudKey;
           const ctxHud = cp.statusCtx;
-          ctxHud.clearRect(0, 0, 320, 112);
+          ctxHud.clearRect(0, 0, 360, 128);
           ctxHud.fillStyle = 'rgba(15, 23, 42, 0.90)';
           ctxHud.beginPath();
-          ctxHud.roundRect(4, 4, 312, 104, 16);
+          ctxHud.roundRect(4, 4, 352, 120, 16);
           ctxHud.fill();
           ctxHud.lineWidth = 2.5;
           ctxHud.strokeStyle = borderCol;
@@ -419,21 +608,22 @@ export function stepPressureCookers(ctx, dt) {
           ctxHud.font = 'bold 21px sans-serif';
           ctxHud.fillStyle = '#f8fafc';
           ctxHud.textAlign = 'left';
-          ctxHud.fillText(stageTitle, 16, 35);
+          ctxHud.fillText(stageTitle, 16, 36);
 
           ctxHud.fillStyle = '#1e293b';
-          ctxHud.fillRect(16, 48, 288, 16);
+          ctxHud.fillRect(16, 52, 328, 16);
           ctxHud.fillStyle = barCol;
-          ctxHud.fillRect(16, 48, Math.round(2.88 * barPct), 16);
+          ctxHud.fillRect(16, 52, Math.round(3.28 * barPct), 16);
 
-          ctxHud.font = 'bold 17px sans-serif';
+          ctxHud.font = 'bold 16px sans-serif';
           ctxHud.fillStyle = cp.burned ? '#fca5a5' : '#e2e8f0';
-          ctxHud.fillText(stageSub, 16, 90);
+          ctxHud.fillText(stageSub, 16, 98);
           cp.statusTex.needsUpdate = true;
         }
       }
     }
   }
+
   if (window.MycoAudio) {
     const lobbyEl = document.getElementById('campus-lobby');
     const inLobby = lobbyEl && !lobbyEl.classList.contains('hidden');

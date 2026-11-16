@@ -15,6 +15,11 @@ import {
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { scrollRanking } from '../world/staircase-clock.js';
 import { canItemEnterCooker, canSyringeTarget } from '../items/item-registry.js';
+import { triggerSinkStream } from '../items/lab-sink.js';
+import { updateContainerVolume } from '../items/liquid-culture.js';
+import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
+import { updateScalpelLabel } from '../items/scalpel.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -250,6 +255,130 @@ export function handlePrimaryAction(ctx) {
       };
       return;
     }
+    if (ctx.hoveredSink) {
+      let filledSomething = false;
+      if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
+        const lc = ctx.heldItem.mesh.userData.liquidCtrl;
+        const addAmt = lc.maxMl >= 4000 ? 1000 : (lc.maxMl >= 500 ? 250 : lc.maxMl);
+        if (lc.volMl < lc.maxMl) {
+          updateContainerVolume(ctx.heldItem, Math.min(lc.maxMl, lc.volMl + addAmt));
+          filledSomething = true;
+        }
+      } else {
+        for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
+          const cp = ctx.cookerPots[cpi];
+          if (cp.potItem === ctx.heldItem && cp.waterMl < cp.maxWaterMl) {
+            cp.waterMl = Math.min(cp.maxWaterMl, cp.waterMl + 1000);
+            updateCookerWaterVisual(cp);
+            filledSomething = true;
+            break;
+          }
+        }
+      }
+      if (filledSomething) {
+        triggerSinkStream(ctx.hoveredSink, 900);
+        if (window.MycoAudio) window.MycoAudio.playSpray();
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+      } else if (ctx.callbacks.onToast) {
+        ctx.callbacks.onToast('💧 Recipiente já está cheio!');
+      }
+      return;
+    }
+    if (ctx.hoveredFillPot && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
+      const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
+      const cp = ctx.hoveredFillPot;
+      const pourAmt = Math.min(srcLc.volMl, 500, cp.maxWaterMl - cp.waterMl);
+      if (pourAmt > 0) {
+        updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
+        cp.waterMl += pourAmt;
+        updateCookerWaterVisual(cp);
+        if (window.MycoAudio) window.MycoAudio.playSpray();
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+      }
+      return;
+    }
+    if (ctx.hoveredPourTarget && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
+      const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
+      const dstItem = ctx.hoveredPourTarget;
+      const dstLc = dstItem.mesh && dstItem.mesh.userData.liquidCtrl;
+      if (dstLc) {
+        const stepAmt = dstLc.maxMl <= 50 ? 15 : 250;
+        const pourAmt = Math.min(srcLc.volMl, stepAmt, dstLc.maxMl - dstLc.volMl);
+        if (pourAmt > 0) {
+          updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
+          updateContainerVolume(dstItem, dstLc.volMl + pourAmt);
+          if (window.MycoAudio) window.MycoAudio.playSpray();
+          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        }
+      } else if (dstItem.spawnCtrl && dstItem.spawnCtrl.isPP5 && dstItem.spawnCtrl.filled && (dstItem.spawnCtrl.waterMl || 0) < 35) {
+        const pourAmt = Math.min(srcLc.volMl, 35 - (dstItem.spawnCtrl.waterMl || 0));
+        if (pourAmt > 0) {
+          updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
+          dstItem.spawnCtrl.waterMl = (dstItem.spawnCtrl.waterMl || 0) + pourAmt;
+          dstItem.spawnCtrl.updateVisual();
+          if (window.MycoAudio) window.MycoAudio.playSpray();
+          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        }
+      }
+      return;
+    }
+    if (ctx.hoveredFlocaoTarget && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isFlocao) {
+      const ppSc = ctx.hoveredFlocaoTarget.spawnCtrl;
+      if (ppSc && !ppSc.filled) {
+        ppSc.filled = true;
+        ppSc.fillGrams = 45;
+        ppSc.baseLabel = 'Potinho PP5 145ml (Flocão)';
+        if (ppSc.fillMesh) ppSc.fillMesh.visible = true;
+        ppSc.updateVisual();
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 45g de Flocão colocados no Potinho PP5! Adicione água e esterilize por 1h20m.');
+      }
+      return;
+    }
+    if (ctx.hoveredScalpelTarget && ctx.heldItem.scalpelCtrl) {
+      const sc = ctx.heldItem.scalpelCtrl;
+      const tgt = ctx.hoveredScalpelTarget;
+      if (tgt.mode === 'blade') {
+        sc.hasBlade = true;
+        sc.sterile = true;
+        sc.hasMycelium = false;
+        if (sc.bladeMesh) sc.bladeMesh.visible = true;
+        updateScalpelLabel(ctx.heldItem);
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada no bisturi!');
+      } else if (tgt.mode === 'cut') {
+        sc.hasMycelium = true;
+        updateScalpelLabel(ctx.heldItem);
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Leve até um potinho PP5 estéril.');
+      } else if (tgt.mode === 'transfer' && tgt.item && tgt.item.spawnCtrl) {
+        const dstSc = tgt.item.spawnCtrl;
+        const isAseptic = !!(ctx.hoodAirData && ctx.hoodAirData.on && performance.now() < ctx.hoodSanitizedUntil);
+        dstSc.inoculated = true;
+        if (!sc.sterile || !dstSc.sterilized || (!isAseptic && Math.random() < 0.45)) {
+          dstSc.contaminated = true;
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Contaminação na transferência! Use lâmina estéril, substrato esterilizado (1h20m) e Fluxo Laminar higienizado!');
+        } else if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🍄 Micélio transferido com sucesso para ' + dstSc.baseLabel + '!');
+        }
+        dstSc.updateVisual();
+        sc.hasMycelium = false;
+        sc.sterile = false;
+        updateScalpelLabel(ctx.heldItem);
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+      }
+      return;
+    }
+    if (ctx.hoveredGrainTarget && ctx.heldItem.id.indexOf('substrate_') === 0) {
+      const kind = ctx.heldItem.id.indexOf('grain') !== -1 ? 'grain' : 'sawdust';
+      if (fillSpawnWithSubstrate(ctx.hoveredGrainTarget, kind)) {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 ' + ctx.hoveredGrainTarget.label + ' preenchido!');
+      }
+      return;
+    }
     if (ctx.placementValid && ctx.placementGhost) {
       if (isPlacementBlocked(ctx.entityCtx, ctx.placementGhost.position)) {
         ctx.placementValid = false;
@@ -302,6 +431,27 @@ export function handlePrimaryAction(ctx) {
         }
       }
       ctx.recentlyDropped[ctx.heldItem.id] = performance.now() + 15000;
+      if (ctx.heldItem.trayContents && ctx.heldItem.trayContents.length) {
+        const cRy = Math.cos(ctx.heldRotY), sRy = Math.sin(ctx.heldRotY);
+        const dropPt = ctx.heldItem.mesh.position;
+        ctx.heldItem.trayContents.forEach(function (tc) {
+          const ci = tc.item;
+          if (!ci || !ci.mesh) return;
+          ci.mesh.position.set(
+            dropPt.x + tc.lx * cRy + tc.lz * sRy,
+            dropPt.y + tc.ly,
+            dropPt.z - tc.lx * sRy + tc.lz * cRy
+          );
+          ci.mesh.rotation.set(0, ctx.heldRotY + tc.lry, 0);
+          ci.isMoved = true;
+          if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
+          ctx.pendingMovedItems[ci.id] = {
+            id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
+          };
+          ctx.recentlyDropped[ci.id] = performance.now() + 15000;
+        });
+        ctx.heldItem.trayContents = null;
+      }
       setHeldTwoHandedGhost(ctx.heldItem, false);
       ctx.heldItem = null;
       ctx.placementGhost.visible = false;
@@ -432,12 +582,15 @@ export function handlePrimaryAction(ctx) {
     return;
   }
   if (ctx.hoveredBurnerSwitch) {
-    ctx.hoveredBurnerSwitch.on = !ctx.hoveredBurnerSwitch.on;
-    ctx.hoveredBurnerSwitch.ledMat.color.setHex(ctx.hoveredBurnerSwitch.on ? 0x22c55e : 0xef4444);
-    if (ctx.hoveredBurnerSwitch.knobGroup) {
-      ctx.hoveredBurnerSwitch.knobGroup.rotation.z = ctx.hoveredBurnerSwitch.on ? -1.45 : 0;
+    const nextLvl = ((ctx.hoveredBurnerSwitch.level || (ctx.hoveredBurnerSwitch.on ? 3 : 0)) + 1) % 4;
+    setBurnerLevel(ctx.hoveredBurnerSwitch, nextLvl);
+    if (window.MycoAudio) window.MycoAudio.playSwitch();
+    if (ctx.hoveredBurnerSwitch.id === 'burner_lab') {
+      ctx.queueWorldStateChange('burner_lab', ctx.hoveredBurnerSwitch.on ? 1 : 0);
     }
-    ctx.queueWorldStateChange('burner_lab', ctx.hoveredBurnerSwitch.on ? 1 : 0);
+    if (ctx.callbacks.onToast) {
+      ctx.callbacks.onToast('🔥 ' + (ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé a Gás' : 'Fogareiro') + ': ' + BURNER_LEVEL_NAMES[nextLvl]);
+    }
     if (ctx.hoveredBurnerSwitch.on && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('cooker_heat');
     return;
   }
@@ -535,6 +688,12 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredBurnerSwitch = null;
   ctx.hoveredPotInsert = null;
   ctx.hoveredSprayTarget = null;
+  ctx.hoveredSink = null;
+  ctx.hoveredPourTarget = null;
+  ctx.hoveredFillPot = null;
+  ctx.hoveredGrainTarget = null;
+  ctx.hoveredFlocaoTarget = null;
+  ctx.hoveredScalpelTarget = null;
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
@@ -576,12 +735,124 @@ export function updateHoverRay(ctx, customNdc) {
     if (canItemEnterCooker(ctx.heldItem)) {
       for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
         const cp = ctx.cookerPots[ci];
-        if (cp.lidItem.isAttached || cp.contents.length >= 4) continue;
+        if (cp.lidItem.isAttached || cp.contents.length >= 6) continue;
         const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
         if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
           ctx.hoveredPotInsert = cp;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
           if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🍲 Colocar ' + ctx.heldItem.label + ' dentro da Panela');
+          return;
+        }
+      }
+    }
+    if (ctx.labSinkMeshes && ctx.labSinkMeshes.length) {
+      const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !cp.lidItem.isAttached);
+      const isLiquidHeld = !!(ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl);
+      if (isPotHeld || isLiquidHeld) {
+        const sHits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
+        if (sHits.length > 0 && sHits[0].distance < 3.5) {
+          ctx.hoveredSink = sHits[0].object.userData.labSink;
+          if (ctx.placementGhost) ctx.placementGhost.visible = false;
+          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🚰 Encher ' + ctx.heldItem.label + ' com água na Pia');
+          return;
+        }
+      }
+    }
+    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl && ctx.heldItem.mesh.userData.liquidCtrl.volMl > 0) {
+      for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
+        const cp = ctx.cookerPots[ci];
+        if (cp.lidItem.isAttached || cp.waterMl >= cp.maxWaterMl) continue;
+        const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
+        if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
+          ctx.hoveredFillPot = cp;
+          if (ctx.placementGhost) ctx.placementGhost.visible = false;
+          if (ctx.callbacks.onHoverPrompt) {
+            ctx.callbacks.onHoverPrompt('💧 Despejar água na Panela (' + (cp.waterMl / 1000).toFixed(1) + 'L / 20L)');
+          }
+          return;
+        }
+      }
+      const pRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const pRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
+        const pCand = ctx.pickableItems[pi];
+        if (pCand === ctx.heldItem || ctx.isHeldByRemote(pCand.id)) continue;
+        const isPourableLc = !!(pCand.mesh && pCand.mesh.userData.liquidCtrl && pCand.mesh.userData.liquidCtrl.volMl < pCand.mesh.userData.liquidCtrl.maxMl);
+        const isPourablePP5 = !!(pCand.spawnCtrl && pCand.spawnCtrl.isPP5 && pCand.spawnCtrl.filled && (pCand.spawnCtrl.waterMl || 0) < 35);
+        if (!isPourableLc && !isPourablePP5) continue;
+        const pdx = pCand.mesh.position.x - pRefX, pdz = pCand.mesh.position.z - pRefZ;
+        if (pdx * pdx + pdz * pdz > 100) continue;
+        const pHit = firstValidRayHit(ctx.raycaster.intersectObject(pCand.mesh, true));
+        if (pHit && pHit.distance < 3.5) {
+          ctx.hoveredPourTarget = pCand;
+          if (ctx.placementGhost) ctx.placementGhost.visible = false;
+          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💧 Umedecer / Despejar água em ' + pCand.label);
+          return;
+        }
+      }
+    }
+    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isFlocao) {
+      const fRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const fRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
+        const fCand = ctx.pickableItems[fi];
+        if (!fCand.spawnCtrl || !fCand.spawnCtrl.isPP5 || fCand.spawnCtrl.filled || ctx.isHeldByRemote(fCand.id)) continue;
+        const fdx = fCand.mesh.position.x - fRefX, fdz = fCand.mesh.position.z - fRefZ;
+        if (fdx * fdx + fdz * fdz > 100) continue;
+        const fHit = firstValidRayHit(ctx.raycaster.intersectObject(fCand.mesh, true));
+        if (fHit && fHit.distance < 3.5) {
+          ctx.hoveredFlocaoTarget = fCand;
+          if (ctx.placementGhost) ctx.placementGhost.visible = false;
+          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🌽 Colocar 45g de Flocão em ' + fCand.label);
+          return;
+        }
+      }
+    }
+    if (ctx.heldItem.scalpelCtrl) {
+      const sc = ctx.heldItem.scalpelCtrl;
+      const sRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const sRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      for (let si = 0; si < ctx.pickableItems.length; si++) {
+        const sCand = ctx.pickableItems[si];
+        if (sCand === ctx.heldItem || ctx.isHeldByRemote(sCand.id)) continue;
+        const sdx = sCand.mesh.position.x - sRefX, sdz = sCand.mesh.position.z - sRefZ;
+        if (sdx * sdx + sdz * sdz > 100) continue;
+        const sHit = firstValidRayHit(ctx.raycaster.intersectObject(sCand.mesh, true));
+        if (sHit && sHit.distance < 3.5) {
+          if (sCand.mesh.userData.isScalpelBladePack) {
+            ctx.hoveredScalpelTarget = { mode: 'blade', item: sCand };
+            if (ctx.placementGhost) ctx.placementGhost.visible = false;
+            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🔪 Trocar por lâmina #24 estéril');
+            return;
+          }
+          if (!sc.hasMycelium && (sCand.id === 'petri_clean' || (sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60))) {
+            ctx.hoveredScalpelTarget = { mode: 'cut', item: sCand };
+            if (ctx.placementGhost) ctx.placementGhost.visible = false;
+            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🔪 Cortar fragmento de micélio (' + sCand.label + ')');
+            return;
+          }
+          if (sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.filled && !sCand.spawnCtrl.inoculated) {
+            ctx.hoveredScalpelTarget = { mode: 'transfer', item: sCand };
+            if (ctx.placementGhost) ctx.placementGhost.visible = false;
+            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🍄 Transferir micélio para ' + sCand.label);
+            return;
+          }
+        }
+      }
+    }
+    if (ctx.heldItem.id.indexOf('substrate_') === 0) {
+      const gRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const gRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      for (let gi = 0; gi < ctx.pickableItems.length; gi++) {
+        const gCand = ctx.pickableItems[gi];
+        if (!gCand.spawnCtrl || gCand.spawnCtrl.filled || ctx.isHeldByRemote(gCand.id)) continue;
+        const gdx = gCand.mesh.position.x - gRefX, gdz = gCand.mesh.position.z - gRefZ;
+        if (gdx * gdx + gdz * gdz > 100) continue;
+        const gHit = firstValidRayHit(ctx.raycaster.intersectObject(gCand.mesh, true));
+        if (gHit && gHit.distance < 3.5) {
+          ctx.hoveredGrainTarget = gCand;
+          if (ctx.placementGhost) ctx.placementGhost.visible = false;
+          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🌾 Encher ' + gCand.label + ' com grãos/substrato');
           return;
         }
       }
@@ -697,7 +968,9 @@ export function updateHoverRay(ctx, customNdc) {
     const bHits = ctx.raycaster.intersectObjects(ctx.burnerSwitchMeshes, false);
     if (bHits.length > 0 && bHits[0].distance < 4.0) {
       ctx.hoveredBurnerSwitch = ctx.burnerDevices[bHits[0].object.userData.burnerSwitchIdx];
-      prompt = ctx.hoveredBurnerSwitch.on ? '🔥 Desligar Fogareiro' : '🔥 Ligar Fogareiro';
+      const curL = ctx.hoveredBurnerSwitch.level || (ctx.hoveredBurnerSwitch.on ? 3 : 0);
+      const nxtL = (curL + 1) % 4;
+      prompt = '🔥 ' + BURNER_LEVEL_NAMES[curL] + ' → Mudar para ' + BURNER_LEVEL_NAMES[nxtL];
       if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
       return;
     }

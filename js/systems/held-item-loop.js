@@ -329,7 +329,12 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         const spCtrl = spTarget.spawnCtrl;
         const isAseptic = !!(ctx.hoodAirData && ctx.hoodAirData.on && performance.now() < ctx.hoodSanitizedUntil);
         spCtrl.inoculated = true;
-        if (!isAseptic && Math.random() < 0.45) {
+        if (!spCtrl.sterilized && Math.random() < 0.85) {
+          spCtrl.contaminated = true;
+          if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast('🦠 Contaminação! O substrato não completou o tempo mínimo de esterilização (' + (spCtrl.minSterilizeMin || 80) + ' min)!');
+          }
+        } else if (!isAseptic && Math.random() < 0.45) {
           spCtrl.contaminated = true;
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Contaminação! Lembre de ligar e higienizar o Fluxo Laminar com Álcool 70% antes de inocular!');
         } else {

@@ -64,5 +64,6 @@ export function makeLabTray(ctx, id, label, px, py, pz) {
   tg.userData.tableDims = { w: 0.36, h: 0.009, d: 0.24, surfOffset: 0 };
   tg.userData.dynamicSurface = traySurf;
   tg.userData.updateBounds = updateItemBounds;
+
   return registerPickable(ctx, id, label, tg, px, py, pz, 0, 0.22, 0.03, LAB_TRAY_META);
 }

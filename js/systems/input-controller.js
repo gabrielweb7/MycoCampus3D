@@ -24,6 +24,27 @@ export function bindControls(ctx) {
     if (e.code === 'KeyP' && window.toggleCampusParaglider) {
       window.toggleCampusParaglider();
     }
+    if (e.code === 'KeyM' && ctx.cookerPots && ctx.cookerPots.length) {
+      let targetCp = null;
+      let bestD = 4.5;
+      for (let i = 0; i < ctx.cookerPots.length; i++) {
+        const cp = ctx.cookerPots[i];
+        const d = cp.potItem.mesh.position.distanceTo(ctx.playerPos);
+        if (d < bestD) { bestD = d; targetCp = cp; }
+      }
+      if (targetCp) {
+        targetCp.mode = targetCp.mode === 'pasteurize' ? 'sterilize' : 'pasteurize';
+        targetCp.lastHudKey = '';
+        if (window.MycoAudio) window.MycoAudio.playSwitch();
+        if (ctx.callbacks && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast(
+            targetCp.mode === 'pasteurize'
+              ? '🌡️ Modo da Panela: PASTEURIZAR (75–85°C)'
+              : '♨️ Modo da Panela: ESTERILIZAR (121°C / 15 PSI)'
+          );
+        }
+      }
+    }
   });
   window.addEventListener('keyup', function (e) { ctx.keys[e.code] = false; });
 
