@@ -11,13 +11,19 @@ import * as apiClient from './services/api-client.js';
 import * as textures from './engine/textures.js';
 import * as physics from './engine/physics.js';
 import * as quality from './core/quality.js';
+import * as rainbow from './engine/rainbow.js';
+import * as cinema from './engine/cinema.js';
+import * as environment from './engine/environment.js';
 import { bootApp } from './ui/app-boot.js';
 
 // Ponte de módulos para o motor 3D durante a migração incremental
 window.__MYCO_MODULES__ = {
   textures,
   physics,
-  quality
+  quality,
+  rainbow,
+  cinema,
+  environment
 };
 
 // Ponte de depuração inspecionável via DevTools

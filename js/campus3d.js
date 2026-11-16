@@ -6349,23 +6349,6 @@
   var _tmpAvatarYAxis = new THREE.Vector3(0, 1, 0);
   var _tmpAvatarHandOffset = new THREE.Vector3();
 
-  var _cSkyDay = new THREE.Color(0x60a5fa);
-  var _cSkySunset = new THREE.Color(0xf97316);
-  var _cSkyNight = new THREE.Color(0x0b132b);
-  var _cSkyWork = new THREE.Color();
-  var _cPartly = new THREE.Color(0x93c5fd);
-  var _cOvercast = new THREE.Color(0x94a3b8);
-  var _cRain = new THREE.Color(0x475569);
-  var _cSnow = new THREE.Color(0xcbd5e1);
-  var _cSunDay = new THREE.Color(0xfffbeb);
-  var _cSunSet = new THREE.Color(0xfb923c);
-  var _cSunNight = new THREE.Color(0x93c5fd);
-  var _cCloudRain = new THREE.Color(0x64748b);
-  var _cCloudOvercast = new THREE.Color(0xcbd5e1);
-  var _cCloudWhite = new THREE.Color(0xffffff);
-  var _cSunSunsetGlow = new THREE.Color(0xfdba74);
-  var _cSnowWhite = new THREE.Color(0xf1f5f9);
-
   var qualityMode = 'auto'; // 'auto' | 'high' | 'medium' | 'low' | 'min'
   var qualityTier = 'high';
   var qualityTiersOrder = ['high', 'medium', 'low', 'min'];
@@ -7539,481 +7522,76 @@
   }
 
   function getCinemaHitTarget(uv) {
-    if (!cinemaPower) return { type: 'power_on' };
-    var px = (uv ? uv.x : 0.5) * 768;
-    var py = (uv ? uv.y : 0.5) * 384;
-    if (px >= 624 && px <= 752 && py >= 10 && py <= 46) return { type: 'power_off' };
-    if (cinemaLessonIdx === -1) {
-      var count = cinemaLessons.length || 6;
-      for (var i = 0; i < count; i++) {
-        var col = i % 2;
-        var row = Math.floor(i / 2);
-        var x0 = col === 0 ? 20 : 394;
-        var y0 = 70 + row * 100;
-        if (px >= x0 && px <= x0 + 354 && py >= y0 && py <= y0 + 88) {
-          return { type: 'lesson', idx: i };
-        }
-      }
-      return { type: 'idle' };
-    }
-    if (px >= 16 && px <= 130 && py >= 10 && py <= 46) return { type: 'menu' };
-    return { type: 'toggle_play' };
+    return window.__MYCO_MODULES__.cinema.getCinemaHitTarget(uv, {
+      power: cinemaPower,
+      lessonIdx: cinemaLessonIdx,
+      lessons: cinemaLessons
+    });
   }
 
-  var cinemaFrameAccum = 0, cinemaDrawnOnce = false;
   function drawCinemaVideoFrame(dt) {
-    if (!cinemaCtx || !cinemaTex) return;
-    if (cinemaPower && cinemaLessonIdx >= 0 && cinemaPlaying) cinemaTime += dt;
-    cinemaFrameAccum += dt;
-    if (!cinemaDirty) {
-      if (!cinemaPower || cinemaLessonIdx === -1 || !cinemaPlaying) return;
-      if (cinemaFrameAccum < 0.09) return;
-      if (camera && Math.hypot(camera.position.x - 48, camera.position.z + 12) > 65) return;
-    }
-    cinemaFrameAccum = 0;
-    cinemaDirty = false;
-    cinemaDrawnOnce = true;
-    var ctx = cinemaCtx;
-    var W = 768, H = 384;
-
-    // 1) TELA DESLIGADA (preto / cinza escuro com LED standby)
-    if (!cinemaPower) {
-      ctx.fillStyle = '#090d14';
-      ctx.fillRect(0, 0, W, H);
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(4, 4, W - 8, H - 8);
-      ctx.fillStyle = '#dc2626';
-      ctx.beginPath();
-      ctx.arc(W - 24, H - 20, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#334155';
-      ctx.font = 'bold 14px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('⏻ TELA DESLIGADA — Clique para ligar', W / 2, H / 2 + 4);
-      ctx.textAlign = 'left';
-      cinemaTex.needsUpdate = true;
-      return;
-    }
-
-    // Fundo ligado
-    var g = ctx.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, '#0f172a');
-    g.addColorStop(1, '#1e1b4b');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-
-    var hoverTarget = hoveredCinema ? getCinemaHitTarget(hoveredCinemaUv) : { type: 'none' };
-
-    // Barra superior
-    ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
-    ctx.fillRect(0, 0, W, 56);
-    // Botao Desligar (sempre visivel no topo direito)
-    ctx.fillStyle = hoverTarget.type === 'power_off' ? '#ef4444' : '#991b1b';
-    ctx.fillRect(624, 10, 128, 36);
-    ctx.strokeStyle = '#fca5a5';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(624, 10, 128, 36);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('⏻ DESLIGAR', 688, 33);
-    ctx.textAlign = 'left';
-
-    // 2) MENU DE MODULOS & AULAS
-    if (cinemaLessonIdx === -1) {
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 19px system-ui, sans-serif';
-      ctx.fillText('🎬 AUDITÓRIO MYCOCAMPUS — MÓDULOS & AULAS', 22, 35);
-
-      var list = cinemaLessons.length ? cinemaLessons : [
-        { title: '1. Fluxo Laminar & Técnica Asséptica', subtitle: 'Controle de contaminação no laboratório' }
-      ];
-      for (var i = 0; i < Math.min(list.length, 6); i++) {
-        var mod = list[i];
-        var col = i % 2;
-        var row = Math.floor(i / 2);
-        var bx = col === 0 ? 20 : 394;
-        var by = 70 + row * 100;
-        var isHov = hoverTarget.type === 'lesson' && hoverTarget.idx === i;
-        ctx.fillStyle = isHov ? 'rgba(14, 116, 144, 0.72)' : 'rgba(15, 23, 42, 0.85)';
-        ctx.fillRect(bx, by, 354, 88);
-        ctx.strokeStyle = isHov ? '#38bdf8' : '#334155';
-        ctx.lineWidth = isHov ? 2.5 : 1.5;
-        ctx.strokeRect(bx, by, 354, 88);
-
-        ctx.fillStyle = '#10b981';
-        ctx.font = 'bold 12px system-ui, sans-serif';
-        ctx.fillText('MÓDULO ' + (i + 1) + '  •  ▶ ASSISTIR', bx + 14, by + 22);
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 15px system-ui, sans-serif';
-        var tTxt = mod.title || ('Módulo ' + (i + 1));
-        if (tTxt.length > 36) tTxt = tTxt.slice(0, 35) + '…';
-        ctx.fillText(tTxt, bx + 14, by + 46);
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '12px system-ui, sans-serif';
-        var sTxt = mod.subtitle || '';
-        if (sTxt.length > 46) sTxt = sTxt.slice(0, 45) + '…';
-        ctx.fillText(sTxt, bx + 14, by + 68);
-      }
-      cinemaTex.needsUpdate = true;
-      return;
-    }
-
-    // 3) REPRODUZINDO AULA SELECIONADA
-    var lesson = cinemaLessons[cinemaLessonIdx] || { title: 'Aula', subtitle: '', bullets: [] };
-    ctx.fillStyle = hoverTarget.type === 'menu' ? '#0284c7' : '#1e293b';
-    ctx.fillRect(16, 10, 114, 36);
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(16, 10, 114, 36);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('⬅️ MENU', 73, 33);
-    ctx.textAlign = 'left';
-
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 17px system-ui, sans-serif';
-    var headTitle = lesson.title || ('Módulo ' + (cinemaLessonIdx + 1));
-    if (headTitle.length > 44) headTitle = headTitle.slice(0, 43) + '…';
-    ctx.fillText(headTitle, 146, 35);
-
-    // Conteudo da aula (esquerda)
-    ctx.fillStyle = '#34d399';
-    ctx.font = 'bold 15px system-ui, sans-serif';
-    ctx.fillText(lesson.subtitle || '', 26, 86);
-    var bullets = lesson.bullets || [];
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '15px system-ui, sans-serif';
-    for (var bIdx = 0; bIdx < Math.min(bullets.length, 4); bIdx++) {
-      ctx.fillText('• ' + bullets[bIdx], 26, 128 + bIdx * 42);
-    }
-
-    // Animacao micelial / cogumelo (direita)
-    var t = cinemaTime;
-    var cxA = 615, cyA = 195;
-    ctx.strokeStyle = 'rgba(52, 211, 153, 0.55)';
-    ctx.lineWidth = 2.5;
-    for (var k = 0; k < 9; k++) {
-      var ang = (k / 9) * Math.PI * 2 + t * 0.25;
-      var r = 34 + ((Math.sin(t * 1.1 + k) + 1) * 0.5) * 68;
-      ctx.beginPath();
-      ctx.moveTo(cxA, cyA);
-      ctx.quadraticCurveTo(cxA + Math.cos(ang + 0.4) * r * 0.6, cyA + Math.sin(ang + 0.4) * r * 0.6, cxA + Math.cos(ang) * r, cyA + Math.sin(ang) * r);
-      ctx.stroke();
-    }
-    var grow = 0.6 + 0.4 * Math.sin(t * 0.9);
-    ctx.fillStyle = '#fef3c7';
-    ctx.fillRect(cxA - 10, cyA - 36 * grow, 20, 40 * grow);
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath();
-    ctx.arc(cxA, cyA - 36 * grow, 30 * grow, Math.PI, 0);
-    ctx.fill();
-
-    // Barra inferior
-    ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
-    ctx.fillRect(0, H - 44, W, 44);
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '14px system-ui, sans-serif';
-    ctx.fillText(cinemaPlaying ? '⏸️ Clique na aula para pausar' : '▶️ PAUSADO (clique para continuar)', 22, H - 17);
-    var prog = (t % 20) / 20;
-    ctx.fillStyle = '#334155';
-    ctx.fillRect(420, H - 25, 320, 8);
-    ctx.fillStyle = '#10b981';
-    ctx.fillRect(420, H - 25, 320 * prog, 8);
-    cinemaTex.needsUpdate = true;
+    var st = {
+      ctx: cinemaCtx,
+      tex: cinemaTex,
+      camera: camera,
+      power: cinemaPower,
+      lessonIdx: cinemaLessonIdx,
+      lessons: cinemaLessons,
+      playing: cinemaPlaying,
+      dirty: cinemaDirty,
+      time: cinemaTime,
+      hovered: hoveredCinema,
+      hoveredUv: hoveredCinemaUv
+    };
+    window.__MYCO_MODULES__.cinema.drawCinemaVideoFrame(dt, st);
+    cinemaTime = st.time;
+    cinemaDirty = st.dirty;
   }
 
   function updateDynamicEnvironment(dt) {
-    envTime += dt;
-    // Ciclo completo de 40 min reais (20 min dia + 20 min noite), sincronizado com o Relogio da Torre
-    var dayFrac = getVirtualDayFrac();
-    var sunAngle = (dayFrac - 0.25) * Math.PI * 2;
-    var sunY = Math.sin(sunAngle); // >0 dia (06h..18h), ~0 nascer/por do sol, <0 noite (18h..06h)
-    var sunX = Math.cos(sunAngle);
-
-    // 5 condicoes climaticas sincronizadas (ciclo de 7.5 min = 450s):
-    // 0..110 Ensolarado, 110..185 Parcialmente nublado, 185..250 Nublado, 250..330 Chuva, 330..390 Ceu limpo pos-chuva (Arco-iris sobre a montanha), 390..450 Neve
-    var wCycle = (Date.now() / 1000) % 450;
-    if (wCycle < 110) weatherMode = 'clear';
-    else if (wCycle < 185) weatherMode = 'partly';
-    else if (wCycle < 250) weatherMode = 'overcast';
-    else if (wCycle < 330) weatherMode = 'rain';
-    else if (wCycle < 390) weatherMode = 'clear';
-    else weatherMode = 'snow';
-
-    // Deteccao de termino da chuva -> Disparo do Arco-iris majestoso sobre a montanha
-    if (lastWeatherMode === 'rain' && weatherMode !== 'rain') {
-      rainbowActive = true;
-      rainbowTimer = 0;
-      rainbowDuration = 68;
-    }
-    lastWeatherMode = weatherMode;
-
-    var targetSnow = weatherMode === 'snow' ? 1 : 0;
-    snowMix += (targetSnow - snowMix) * Math.min(1, dt * 0.25);
-
-    // Cores do ceu conforme Nascer do Sol, Dia, Por do Sol, Noite e Clima (zero alocacao)
-    var skyCol = _cSkyWork.copy(_cSkyDay);
-    if (sunY < 0.24 && sunY > -0.18) {
-      var sT = 1 - Math.abs(sunY - 0.03) / 0.21;
-      skyCol.lerp(_cSkySunset, Math.max(0, Math.min(1, sT)));
-    } else if (sunY <= -0.18) {
-      skyCol.lerp(_cSkyNight, Math.min(1, (-sunY - 0.18) / 0.25));
-    }
-    if (weatherMode === 'partly') skyCol.lerp(_cPartly, 0.2);
-    if (weatherMode === 'overcast') skyCol.lerp(_cOvercast, 0.45);
-    if (weatherMode === 'rain') skyCol.lerp(_cRain, 0.65);
-    if (weatherMode === 'snow') skyCol.lerp(_cSnow, 0.5);
-    scene.background.copy(skyCol);
-    if (scene.fog) scene.fog.color.copy(skyCol);
-
-    // Sol 3D, Halo, Lua 3D e Estrelas
-    if (sunDisc && sunHalo) {
-      sunDisc.position.set(sunX * 165, sunY * 145, -45);
-      sunHalo.position.copy(sunDisc.position);
-      var sunVis = sunY > -0.08 && weatherMode !== 'rain';
-      sunDisc.visible = sunVis;
-      sunHalo.visible = sunVis;
-      var sunOrbCol = sunY < 0.22 ? 0xfb923c : 0xfef08a;
-      sunDisc.material.color.setHex(sunOrbCol);
-      sunHalo.material.color.setHex(sunOrbCol);
-      sunHalo.material.opacity = weatherMode === 'overcast' ? 0.16 : 0.36;
-    }
-    if (moonDisc) {
-      moonDisc.position.set(-sunX * 165, -sunY * 145, -45);
-      moonDisc.visible = sunY < 0.08;
-    }
-    if (starPoints) {
-      var starOp = Math.max(0, Math.min(0.9, (-sunY - 0.02) * 2.4)) * (weatherMode === 'rain' || weatherMode === 'overcast' ? 0.2 : 1);
-      starPoints.visible = starOp > 0.02;
-      starPoints.material.opacity = starOp;
-    }
-
-    if (envSun) {
-      envSun.position.set(sunX * 75, Math.max(8, sunY * 75 + 12), 38);
-      if (sunY > 0.22) envSun.color.copy(_cSunDay);
-      else if (sunY > -0.15) envSun.color.copy(_cSunSet);
-      else envSun.color.copy(_cSunNight);
-      var cloudDim = weatherMode === 'rain' ? 0.52 : (weatherMode === 'overcast' ? 0.72 : (weatherMode === 'partly' ? 0.88 : 1));
-      envSun.intensity = (isTouchDevice() ? Math.max(0.28, sunY * 0.75 + 0.35) : Math.max(0.20, sunY * 0.60 + 0.32)) * cloudDim;
-    }
-    if (envHemi) {
-      envHemi.intensity = isTouchDevice() ? Math.max(0.45, sunY * 0.28 + 0.45) : Math.max(0.36, sunY * 0.25 + 0.38);
-    }
-
-    // Nuvens dinamicas: quantidade, cor e velocidade conforme o clima
-    var targetClouds = weatherMode === 'clear' ? 8 : (weatherMode === 'partly' ? 15 : (weatherMode === 'snow' ? 20 : 24));
-    var cloudSpeed = weatherMode === 'rain' ? 2.6 : (weatherMode === 'overcast' ? 1.8 : 1.0);
-    if (envCloudMat) {
-      var cCol = weatherMode === 'rain' ? _cCloudRain : (weatherMode === 'overcast' ? _cCloudOvercast : _cCloudWhite);
-      if (sunY < 0.22 && sunY > -0.15 && weatherMode !== 'rain') {
-        _cSkyWork.copy(cCol).lerp(_cSunSunsetGlow, 0.35);
-        envCloudMat.color.copy(_cSkyWork);
-      } else {
-        envCloudMat.color.copy(cCol);
-      }
-    }
-    for (var ci = 0; ci < envClouds.length; ci++) {
-      envClouds[ci].visible = ci < targetClouds;
-      envClouds[ci].position.x += dt * cloudSpeed * (0.8 + (ci % 3) * 0.25);
-      if (envClouds[ci].position.x > 155) envClouds[ci].position.x = -155;
-    }
-
-    // Acumulo de neve no terreno e telhados (so atualiza quando snowMix muda)
-    if (terrainSnowMat) {
-      terrainSnowMat.emissive.setHex(0xe2e8f0);
-      terrainSnowMat.emissiveIntensity = snowMix * 0.42;
-    }
-    if (Math.abs(snowMix - (updateDynamicEnvironment._lastSnowMix || -1)) > 0.005) {
-      updateDynamicEnvironment._lastSnowMix = snowMix;
-      for (var si = 0; si < snowableEntries.length; si++) {
-        snowableEntries[si].mat.color.copy(snowableEntries[si].base).lerp(_cSnowWhite, snowMix * 0.85);
-      }
-    }
-
-    // Particulas de Chuva / Neve ao redor do jogador (bloqueadas por roofZones)
-    if (weatherPoints && weatherPosAttr) {
-      weatherPoints.visible = (qualityTier !== 'min') && (weatherMode === 'rain' || weatherMode === 'snow');
-      if (weatherPoints.visible) {
-        weatherPoints.material.color.setHex(weatherMode === 'rain' ? 0x93c5fd : 0xffffff);
-        weatherPoints.material.size = weatherMode === 'rain' ? 0.16 : 0.24;
-        var arr = weatherPosAttr.array;
-        var fallSpeed = weatherMode === 'rain' ? 24 : 3.2;
-        var drift = weatherMode === 'rain' ? 2.5 : Math.sin(envTime * 1.5) * 1.2;
-        var cx = inFps ? playerPos.x : camera.position.x;
-        var cz = inFps ? playerPos.z : camera.position.z;
-        for (var p = 0; p < arr.length; p += 3) {
-          arr[p] += drift * dt;
-          arr[p + 1] -= fallSpeed * dt;
-          var hitRoof = false;
-          for (var rz = 0; rz < roofZones.length; rz++) {
-            var zBox = roofZones[rz];
-            if (arr[p] >= zBox.minX && arr[p] <= zBox.maxX && arr[p + 2] >= zBox.minZ && arr[p + 2] <= zBox.maxZ && arr[p + 1] <= zBox.roofY + 0.25) {
-              hitRoof = true;
-              break;
-            }
-          }
-          if (hitRoof || arr[p + 1] < 0) {
-            arr[p] = cx + (Math.random() - 0.5) * 55;
-            arr[p + 1] = 24 + Math.random() * 8;
-            arr[p + 2] = cz + (Math.random() - 0.5) * 55;
-          }
-        }
-        weatherPosAttr.needsUpdate = true;
-      }
-    }
-
-    // Arco-iris sobre a montanha (aparecimento suave, brilho etereo e esvanecimento)
-    if (rainbowMesh) {
-      if (rainbowActive) {
-        rainbowTimer += dt;
-        var rOpacity = 0;
-        if (rainbowTimer < 8.0) {
-          // Aparecimento suave pos-chuva
-          rOpacity = (rainbowTimer / 8.0) * 0.78;
-        } else if (rainbowTimer > (rainbowDuration - 12.0)) {
-          // Desaparecimento suave
-          rOpacity = Math.max(0, (rainbowDuration - rainbowTimer) / 12.0) * 0.78;
-        } else {
-          // Brilho no ceu com sutil pulsacao atmosferica
-          rOpacity = 0.75 + Math.sin(envTime * 1.5) * 0.04;
-        }
-
-        if (rainbowTimer >= rainbowDuration || weatherMode === 'rain' || weatherMode === 'snow') {
-          rainbowActive = false;
-          rOpacity = 0;
-        }
-
-        rainbowMesh.material.opacity = rOpacity;
-        rainbowMesh.visible = rOpacity > 0.005;
-      } else if (rainbowMesh.visible) {
-        rainbowMesh.visible = false;
-        rainbowMesh.material.opacity = 0;
-      }
-    }
-
-    // Animacao continua da agua da Fonte Central e Lagos (caustics + ondas de espuma + gotas de agua)
-    if (texWater) {
-      texWater.offset.x = (envTime * 0.045) % 1;
-      texWater.offset.y = (Math.sin(envTime * 0.4) * 0.04) % 1;
-    }
-    var camFX = inFps ? playerPos.x : camera.position.x;
-    var camFZ = (inFps ? playerPos.z : camera.position.z) - 2.0;
-    if (camFX * camFX + camFZ * camFZ < 1225) {
-      for (var ri = 0; ri < fountainRipples.length; ri++) {
-        var rp = fountainRipples[ri];
-        var rPhase = (envTime * 0.55 + rp.phase) % 1;
-        var rScale = 0.28 + rPhase * 0.85;
-        rp.mesh.scale.set(rScale, rScale, 1);
-        rp.mesh.material.opacity = (1 - rPhase) * 0.52;
-      }
-      if (fountainDropsAttr) {
-        var dArr = fountainDropsAttr.array;
-        for (var di = 0; di < dArr.length; di += 3) {
-          dArr[di + 1] -= dt * 1.65;
-          var dxF = dArr[di];
-          var dzF = dArr[di + 2] - 2.0;
-          var rDist = Math.hypot(dxF, dzF) || 0.01;
-          dArr[di] += (dxF / rDist) * dt * 0.52;
-          dArr[di + 2] += (dzF / rDist) * dt * 0.52;
-          if (dArr[di + 1] < 0.44) {
-            var nAng = Math.random() * Math.PI * 2;
-            var isTop = (di % 6 === 0);
-            var startR = isTop ? (0.35 + Math.random() * 0.25) : (1.28 + Math.random() * 0.22);
-            dArr[di] = Math.cos(nAng) * startR;
-            dArr[di + 1] = isTop ? (1.85 + Math.random() * 0.35) : (1.15 + Math.random() * 0.28);
-            dArr[di + 2] = 2.0 + Math.sin(nAng) * startR;
-          }
-        }
-        fountainDropsAttr.needsUpdate = true;
-      }
-    }
+    var env = {
+      envTime: envTime,
+      getVirtualDayFrac: getVirtualDayFrac,
+      lastWeatherMode: lastWeatherMode,
+      weatherMode: weatherMode,
+      snowMix: snowMix,
+      rainbow: { active: rainbowActive, timer: rainbowTimer, duration: rainbowDuration },
+      scene: scene,
+      sunDisc: sunDisc,
+      sunHalo: sunHalo,
+      moonDisc: moonDisc,
+      starPoints: starPoints,
+      envSun: envSun,
+      envHemi: envHemi,
+      isTouch: isTouchDevice(),
+      envCloudMat: envCloudMat,
+      envClouds: envClouds,
+      terrainSnowMat: terrainSnowMat,
+      weatherPoints: weatherPoints,
+      weatherPosAttr: weatherPosAttr,
+      qualityTier: qualityTier,
+      inFps: inFps,
+      playerPos: playerPos,
+      camera: camera,
+      roofZones: roofZones,
+      rainbowMesh: rainbowMesh,
+      fountainRipples: fountainRipples,
+      fountainDropsAttr: fountainDropsAttr
+    };
+    window.__MYCO_MODULES__.environment.updateDynamicEnvironment(dt, env);
+    envTime = env.envTime;
+    lastWeatherMode = env.lastWeatherMode;
+    weatherMode = env.weatherMode;
+    snowMix = env.snowMix;
+    rainbowActive = env.rainbow.active;
+    rainbowTimer = env.rainbow.timer;
+    rainbowDuration = env.rainbow.duration;
   }
 
   // ---------------- Arco-iris 3D sobre a Montanha ----------------
 
   function createRainbowMesh() {
-    var c = document.createElement('canvas');
-    c.width = 256;
-    c.height = 256;
-    var ctx = c.getContext('2d');
-
-    // Gradiente espectral de 7 cores no eixo Y (interior ao topo)
-    var grad = ctx.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0.00, 'rgba(139, 92, 246, 0)');
-    grad.addColorStop(0.08, 'rgba(139, 92, 246, 0.85)'); // Violeta
-    grad.addColorStop(0.22, 'rgba(59, 130, 246, 0.88)');  // Azul
-    grad.addColorStop(0.36, 'rgba(6, 182, 212, 0.90)');   // Ciano
-    grad.addColorStop(0.50, 'rgba(34, 197, 94, 0.90)');   // Verde
-    grad.addColorStop(0.66, 'rgba(234, 179, 8, 0.92)');   // Amarelo
-    grad.addColorStop(0.80, 'rgba(249, 115, 22, 0.90)');  // Laranja
-    grad.addColorStop(0.92, 'rgba(239, 68, 68, 0.85)');   // Vermelho
-    grad.addColorStop(1.00, 'rgba(239, 68, 68, 0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 256, 256);
-
-    // Suavizacao das pontas que tocam o relevo/montanhas (eixo X)
-    var maskGrad = ctx.createLinearGradient(0, 0, 256, 0);
-    maskGrad.addColorStop(0.00, 'rgba(0,0,0,0)');
-    maskGrad.addColorStop(0.14, 'rgba(0,0,0,1)');
-    maskGrad.addColorStop(0.86, 'rgba(0,0,0,1)');
-    maskGrad.addColorStop(1.00, 'rgba(0,0,0,0)');
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.fillStyle = maskGrad;
-    ctx.fillRect(0, 0, 256, 256);
-
-    var tex = new THREE.CanvasTexture(c);
-    tex.wrapS = THREE.ClampToEdgeWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-
-    // Arco semicircular sobre as montanhas com coordenadas UV radiais
-    var innerR = 72;
-    var outerR = 92;
-    var segs = 64;
-    var geo = new THREE.BufferGeometry();
-    var positions = [];
-    var uvs = [];
-    var indices = [];
-    for (var i = 0; i <= segs; i++) {
-      var t = i / segs;
-      var angle = Math.PI * (1 - t); // de PI (esquerda) a 0 (direita)
-      var cos = Math.cos(angle);
-      var sin = Math.sin(angle);
-      positions.push(cos * innerR, sin * innerR, 0);
-      uvs.push(t, 0);
-      positions.push(cos * outerR, sin * outerR, 0);
-      uvs.push(t, 1);
-    }
-    for (var j = 0; j < segs; j++) {
-      var a = j * 2;
-      var b = j * 2 + 1;
-      var c = (j + 1) * 2;
-      var d = (j + 1) * 2 + 1;
-      indices.push(a, b, c);
-      indices.push(c, b, d);
-    }
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    geo.setIndex(indices);
-
-    var mat = new THREE.MeshBasicMaterial({
-      map: tex,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      fog: false
-    });
-
-    var mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(12, 16, -145);
-    mesh.rotation.y = 0.12;
-    mesh.visible = false;
-    mesh.renderOrder = 2;
-    return mesh;
+    return window.__MYCO_MODULES__.rainbow.createRainbowMesh();
   }
 
   function triggerCampusRainbow(dur) {
