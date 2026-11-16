@@ -4612,6 +4612,7 @@
       if (heldItem.lidItem && other === heldItem.lidItem) continue;
       if (heldItem.potItem && other === heldItem.potItem) continue;
       if (other.isAttached && other.potItem) continue; // Tampa acoplada na panela é coberta pelo corpo da panela
+      if (heldItem.trayContents && heldItem.trayContents.some(function (tc) { return tc.item === other; })) continue;
       if (isHeldByRemote(other.id)) continue; // Item sendo carregado no ar por outro jogador
 
       var oPos = other.mesh.position;
@@ -5274,26 +5275,7 @@
         }
       }
       if (heldItem && av.holding === heldItem.id) {
-        if (heldItem.trayContents && heldItem.trayContents.length) {
-      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
-      heldItem.trayContents.forEach(function (tc) {
-        var ci = tc.item;
-        if (!ci || !ci.mesh) return;
-        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
-        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
-        var wy = pt.y + tc.ly;
-        ci.mesh.position.set(wx, wy, wz);
-        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
-        ci.isMoved = true;
-        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
-        pendingMovedItems[ci.id] = {
-          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
-        };
-        recentlyDropped[ci.id] = dropTs;
-      });
-      heldItem.trayContents = null;
-    }
-    setHeldTwoHandedGhost(heldItem, false);
+        setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
         if (placementGhost) placementGhost.visible = false;
         if (callbacks.onHoldChange) callbacks.onHoldChange(null);
@@ -5830,26 +5812,6 @@
           }
         }
         recentlyDropped[heldItem.id] = performance.now() + 15000;
-        if (heldItem.mesh.userData.updateBounds) heldItem.mesh.userData.updateBounds(heldItem);
-        if (heldItem.trayContents && heldItem.trayContents.length) {
-      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
-      heldItem.trayContents.forEach(function (tc) {
-        var ci = tc.item;
-        if (!ci || !ci.mesh) return;
-        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
-        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
-        var wy = pt.y + tc.ly;
-        ci.mesh.position.set(wx, wy, wz);
-        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
-        ci.isMoved = true;
-        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
-        pendingMovedItems[ci.id] = {
-          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
-        };
-        recentlyDropped[ci.id] = dropTs;
-      });
-      heldItem.trayContents = null;
-    }
     setHeldTwoHandedGhost(heldItem, false);
         heldItem = null;
         placementGhost.visible = false;
@@ -6011,26 +5973,6 @@
         lidIt.isAttached = false;
         heldItem = lidIt;
         lastPickupAt = performance.now();
-        heldRotY = heldItem.mesh.rotation.y;
-        if (heldItem.trayContents && heldItem.trayContents.length) {
-      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
-      heldItem.trayContents.forEach(function (tc) {
-        var ci = tc.item;
-        if (!ci || !ci.mesh) return;
-        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
-        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
-        var wy = pt.y + tc.ly;
-        ci.mesh.position.set(wx, wy, wz);
-        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
-        ci.isMoved = true;
-        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
-        pendingMovedItems[ci.id] = {
-          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
-        };
-        recentlyDropped[ci.id] = dropTs;
-      });
-      heldItem.trayContents = null;
-    }
     setHeldTwoHandedGhost(heldItem, false);
         if (callbacks.onHoldChange) callbacks.onHoldChange(heldItem.label);
         notifyWorldAction();
@@ -8801,26 +8743,6 @@
   };
 
   window.resetCampusWorldObjects = function () {
-    syringePumping = null;
-    if (heldItem.trayContents && heldItem.trayContents.length) {
-      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
-      heldItem.trayContents.forEach(function (tc) {
-        var ci = tc.item;
-        if (!ci || !ci.mesh) return;
-        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
-        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
-        var wy = pt.y + tc.ly;
-        ci.mesh.position.set(wx, wy, wz);
-        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
-        ci.isMoved = true;
-        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
-        pendingMovedItems[ci.id] = {
-          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
-        };
-        recentlyDropped[ci.id] = dropTs;
-      });
-      heldItem.trayContents = null;
-    }
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
     pendingMovedItems = {};
@@ -8856,26 +8778,6 @@
   window.resetCampusLocalSession = function () {
     syringePumping = null;
     syringePunctureProgress = 0;
-    lastSyringeTargetItem = null;
-    if (heldItem.trayContents && heldItem.trayContents.length) {
-      var cRy = Math.cos(heldRotY), sRy = Math.sin(heldRotY);
-      heldItem.trayContents.forEach(function (tc) {
-        var ci = tc.item;
-        if (!ci || !ci.mesh) return;
-        var wx = pt.x + tc.lx * cRy + tc.lz * sRy;
-        var wz = pt.z - tc.lx * sRy + tc.lz * cRy;
-        var wy = pt.y + tc.ly;
-        ci.mesh.position.set(wx, wy, wz);
-        ci.mesh.rotation.set(0, heldRotY + tc.lry, 0);
-        ci.isMoved = true;
-        if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
-        pendingMovedItems[ci.id] = {
-          id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
-        };
-        recentlyDropped[ci.id] = dropTs;
-      });
-      heldItem.trayContents = null;
-    }
     setHeldTwoHandedGhost(heldItem, false);
     heldItem = null;
     thermoLaserOn = false;
