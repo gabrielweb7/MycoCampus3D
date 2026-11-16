@@ -30,6 +30,8 @@ import { stepPressureCookers } from '../items/pressure-cooker.js';
 import { stepSpawnColonization } from '../items/spawn-containers.js';
 import { stepSprayBursts } from '../items/alcohol-spray.js';
 import { stepLabSinks } from '../items/lab-sink.js';
+import { stepCultureFridges } from '../items/culture-fridge.js';
+import { stepPetriCultures } from '../items/petri-dish.js';
 import { stepGreenhouse } from '../world/greenhouse.js';
 
 let lastMobileHoverAt = 0;
@@ -248,6 +250,8 @@ export function startAnimationLoop(ctx) {
 
       stepHoverAndChalkboard(ctx, now);
       stepLaminarHood(ctx, dt);
+      stepCultureFridges(ctx, dt);
+      stepPetriCultures(ctx, dt);
       stepMagneticStirrers(ctx, dt);
       stepPrecisionScales(ctx, now);
       stepPressureCookers(ctx, dt);

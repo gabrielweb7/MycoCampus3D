@@ -77,7 +77,7 @@ export function canSyringeTarget(item) {
   if (!item || !item.mesh) return false;
   if (item.mesh.userData.isPetri) {
     const petriCtrl = item.mesh.userData.petriCtrl;
-    return !!(petriCtrl && petriCtrl.mode === 'empty');
+    return !!(petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.lidOpen && petriCtrl.sterilized);
   }
   const spawnCtrl = item.spawnCtrl;
   if (item.pdaMediumCtrl && hasPdaContents(item) &&

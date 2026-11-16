@@ -12,6 +12,7 @@ import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { buildLaminarHoodAndBenches } from '../items/laminar-hood.js';
 import { createPressureCookerPair, makeElectricBurner } from '../items/pressure-cooker.js';
 import { makePetriDish, getPetriMeta, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, PETRI_STACK_SPACING } from '../items/petri-dish.js';
+import { makeCultureFridge } from '../items/culture-fridge.js';
 import { createPdaBottleGroup, PDA_BOTTLE_META } from '../items/pda-bottle.js';
 import { attachPdaMediumCtrl, attachPdaReagentCtrl, makePdaMediaBottle1L } from '../items/pda-mix.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
@@ -70,6 +71,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   // Pia Inox com Torneira + Garrafao 5L Agua Destilada
   buildLabSink(ctx, -23.15, 1.02, -10.8);
   makeDistilledJug5L(ctx, 'distilled_jug_5l', -21.95, 1.02, -11.9, 5000);
+  makeCultureFridge(ctx, 'culture_fridge_lab', -15.55, 0.12, -10.7);
 
   // Mesa de Cultura Liquida & Placas de Petri
   addMovableStainlessTable(ctx, 'table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);

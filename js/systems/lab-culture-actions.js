@@ -2,6 +2,7 @@ import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
+import { inoculatePetri, togglePetriLid } from '../items/petri-dish.js';
 
 export function handleFlocaoTargetAction(ctx) {
   const target = ctx.hoveredFlocaoTarget;
@@ -89,11 +90,40 @@ export function handleScalpelTargetAction(ctx) {
     if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada no bisturi!');
     ctx.notifyWorldAction();
   } else if (target.mode === 'cut') {
+    const petri = target.item && target.item.mesh.userData.petriCtrl;
+    if (petri && (!petri.lidOpen || petri.mode !== 'clean' || !scalpel.hasBlade || !scalpel.sterile ||
+        !isAsepticWorkArea(ctx, target.item))) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Para retirar micélio, use uma placa colonizada aberta e uma lâmina estéril no Fluxo Laminar higienizado.');
+      return;
+    }
     scalpel.hasMycelium = true;
     updateScalpelLabel(ctx.heldItem);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Leve até um potinho PP5 estéril.');
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Leve-o a uma placa estéril aberta no Fluxo Laminar.');
+    ctx.notifyWorldAction();
+  } else if (target.mode === 'open' && target.item && target.item.mesh.userData.isPetri) {
+    togglePetriLid(ctx, target.item);
+  } else if (target.mode === 'transfer' && target.item && target.item.mesh.userData.petriCtrl) {
+    const petri = target.item.mesh.userData.petriCtrl;
+    const receivesMyceliumCut = target.item.meta && target.item.meta.compatibilities &&
+      target.item.meta.compatibilities.receivesMyceliumCut;
+    if (!receivesMyceliumCut || !petri.lidOpen || petri.mode !== 'empty' || !petri.sterilized) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A placa de destino precisa estar estéril, aberta e dentro da área asséptica.');
+      return;
+    }
+    const sterileTransfer = scalpel.sterile && isAsepticWorkArea(ctx, target.item);
+    if (!inoculatePetri(target.item, 'mycelium', sterileTransfer)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir o fragmento para esta placa.');
+      return;
+    }
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast(sterileTransfer
+      ? '🍄 Fragmento transferido! Acompanhe o crescimento do micélio branco.'
+      : '🦠 A transferência contaminou a placa; higienize o Fluxo Laminar e use uma lâmina estéril.');
+    scalpel.hasMycelium = false;
+    scalpel.sterile = false;
+    updateScalpelLabel(ctx.heldItem);
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
     ctx.notifyWorldAction();
   } else if (target.mode === 'transfer' && target.item && target.item.spawnCtrl) {
     const spawn = target.item.spawnCtrl;

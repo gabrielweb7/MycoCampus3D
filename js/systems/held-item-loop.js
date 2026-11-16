@@ -9,7 +9,7 @@ import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateSyringeVolume } from '../items/syringe.js';
 import { getItemBaseTempC } from '../items/item-registry.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
-import { updatePetriVisual } from '../items/petri-dish.js';
+import { inoculatePetri } from '../items/petri-dish.js';
 import { greenhouseSlots } from '../world/greenhouse.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 
@@ -349,14 +349,14 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       } else if (syringeTarget && syringeTarget.mesh.userData.isPetri) {
         const petriTarget = syringeTarget;
         const petriCtrl = petriTarget.mesh.userData.petriCtrl;
-        if (petriCtrl && petriCtrl.mode === 'empty') {
-          const contaminated = !isAsepticWorkArea(ctx, petriTarget) && Math.random() < 0.45;
-          petriCtrl.mode = contaminated ? 'contam' : 'clean';
-          updatePetriVisual(petriTarget);
+        const doseMl = ctx.syringePumping.amountMl || 1;
+        if (petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.lidOpen && petriCtrl.sterilized) {
+          const aseptic = isAsepticWorkArea(ctx, petriTarget);
+          inoculatePetri(petriTarget, 'liquid', aseptic);
           if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast(contaminated
-              ? '🦠 A placa foi contaminada. Higienize e ligue o Fluxo Laminar antes de inocular.'
-              : '🧫 Placa inoculada com sucesso! O micélio já pode ser transferido com o bisturi.');
+            ctx.callbacks.onToast(aseptic
+              ? '💉 ' + doseMl + 'ml inoculado. O micélio branco começará a crescer na placa.'
+              : '🦠 ' + doseMl + 'ml aplicado fora da área asséptica; a placa foi contaminada.');
           }
         } else if (ctx.callbacks.onToast) {
           ctx.callbacks.onToast('⚠️ Esta placa não está mais vazia e estéril para inoculação.');

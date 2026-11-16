@@ -22,9 +22,11 @@ import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { scrollRanking } from '../world/staircase-clock.js';
 import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
+import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
-import { fillPetriWithPda } from '../items/petri-dish.js';
+import { fillPetriWithPda, togglePetriLid } from '../items/petri-dish.js';
+import { getCultureFridgeStorageTarget, isPetriAccessibleFromFridge, toggleCultureFridgeDoor } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
 import { addIngredientToBowl } from '../items/mixing-bowl.js';
 import {
@@ -273,6 +275,10 @@ export function handlePrimaryAction(ctx) {
       const syrCtrl = ctx.heldItem.mesh.userData.syrCtrl;
       const tgt = ctx.hoveredSyringeTarget;
       if (ctx.syringePumping) return;
+      if (tgt.mode === 'open' && tgt.item && tgt.item.mesh.userData.isPetri) {
+        togglePetriLid(ctx, tgt.item);
+        return;
+      }
       if (tgt.mode === 'draw' && !canSyringeSource(tgt.item)) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Aspire apenas cultura líquida do frasco próprio; água e meio PDA/BDA não são cultura.');
         return;
@@ -282,18 +288,24 @@ export function handlePrimaryAction(ctx) {
         return;
       }
       const fromVol = syrCtrl.volMl;
+      const isPetriInjection = tgt.mode === 'inject' && tgt.item && tgt.item.mesh.userData.isPetri;
+      if (isPetriInjection && fromVol < 1) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A seringa precisa conter pelo menos 1ml para inocular a placa.');
+        return;
+      }
       const sourceVol = tgt.mode === 'draw' && tgt.item && tgt.item.mesh.userData.liquidCtrl
         ? tgt.item.mesh.userData.liquidCtrl.volMl
         : 0;
       const toVol = tgt.mode === 'draw'
         ? Math.min(10, fromVol + sourceVol)
-        : 0;
+        : (isPetriInjection ? fromVol - 1 : 0);
       if (Math.abs(toVol - fromVol) < 0.01) return;
 
       ctx.syringePumping = {
         target: tgt,
         fromVol: fromVol,
         toVol: toVol,
+        amountMl: isPetriInjection ? 1 : 0,
         duration: 2.0,
         elapsed: 0,
         startJarVol: (tgt.item && tgt.item.mesh && tgt.item.mesh.userData.liquidCtrl) ? tgt.item.mesh.userData.liquidCtrl.volMl : 0
@@ -377,6 +389,14 @@ export function handlePrimaryAction(ctx) {
       const petriAcceptsPda = !!(dstItem.meta && dstItem.meta.compatibilities &&
         dstItem.meta.compatibilities.acceptsPdaMedium);
       if (sourceHasPda && petriAcceptsPda && dstPetri && dstPetri.mode === 'bare') {
+        if (!dstPetri.lidOpen) {
+          togglePetriLid(ctx, dstItem);
+          return;
+        }
+        if (!isAsepticWorkArea(ctx, dstItem)) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ O Fluxo Laminar precisa estar ligado e higienizado para despejar PDA na placa.');
+          return;
+        }
         if (srcLc.volMl < 20) {
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ São necessários 20ml de meio preparado para preencher uma placa de Petri.');
           return;
@@ -521,6 +541,26 @@ export function handlePrimaryAction(ctx) {
       handleSubstrateTargetAction(ctx);
       return;
     }
+    if (ctx.hoveredFridgeTarget && ctx.heldItem.mesh.userData.isPetri) {
+      const fridgeTarget = ctx.hoveredFridgeTarget;
+      if (!fridgeTarget.fridge.fridgeCtrl.doorOpen) {
+        toggleCultureFridgeDoor(fridgeTarget.fridge);
+        ctx.queueWorldStateChange(fridgeTarget.fridge.id, fridgeTarget.fridge.fridgeCtrl.doorOpen ? 1 : 0);
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira aberta. Clique novamente para guardar a placa.');
+        return;
+      }
+      if (!fridgeTarget.slotPosition) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Não há espaço livre nas prateleiras.');
+        return;
+      }
+      if (ctx.heldItem.mesh.userData.petriCtrl.lidOpen) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Feche a placa antes de guardá-la na geladeira.');
+        return;
+      }
+      commitHeldItemPlacement(ctx, fridgeTarget.slotPosition, false);
+      ctx.queueWorldStateChange(fridgeTarget.fridge.id, fridgeTarget.fridge.fridgeCtrl.doorOpen ? 1 : 0);
+      return;
+    }
     if (ctx.placementMode && ctx.placementValid && ctx.placementGhost) {
       if (isPlacementBlocked(ctx.entityCtx, ctx.placementGhost.position)) {
         ctx.placementValid = false;
@@ -528,6 +568,10 @@ export function handlePrimaryAction(ctx) {
         return;
       }
       commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
+    }
+    if (ctx.heldItem && ctx.heldItem.mesh.userData.isPetri && !ctx.placementMode) {
+      togglePetriLid(ctx, ctx.heldItem);
+      return;
     }
     return;
   }
@@ -667,6 +711,12 @@ export function handlePrimaryAction(ctx) {
     return;
   }
   if (ctx.hoveredPickable) {
+    if (ctx.hoveredPickable.fridgeCtrl) {
+      toggleCultureFridgeDoor(ctx.hoveredPickable);
+      ctx.queueWorldStateChange(ctx.hoveredPickable.id, ctx.hoveredPickable.fridgeCtrl.doorOpen ? 1 : 0);
+      if (window.MycoAudio) window.MycoAudio.playDoor(ctx.hoveredPickable.fridgeCtrl.doorOpen);
+      return;
+    }
     if (ctx.hoveredPickable.mesh.userData.isBlockedPickup && ctx.hoveredPickable.mesh.userData.isBlockedPickup(ctx.hoveredPickable)) {
       return;
     }
@@ -771,6 +821,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredFlocaoTarget = null;
   ctx.hoveredScalpelTarget = null;
   ctx.hoveredBowlTarget = null;
+  ctx.hoveredFridgeTarget = null;
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
@@ -925,7 +976,7 @@ export function updateHoverRay(ctx, customNdc) {
       const pRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
         const pCand = ctx.pickableItems[pi];
-        if (pCand === ctx.heldItem || ctx.isHeldByRemote(pCand.id)) continue;
+        if (pCand === ctx.heldItem || ctx.isHeldByRemote(pCand.id) || !isPetriAccessibleFromFridge(ctx, pCand)) continue;
         const isPourableLc = !!(pCand.mesh && pCand.mesh.userData.liquidCtrl &&
           pCand.mesh.userData.liquidCtrl.volMl < pCand.mesh.userData.liquidCtrl.maxMl &&
           !(pCand.spawnCtrl && pCand.spawnCtrl.isPP5) &&
@@ -953,7 +1004,9 @@ export function updateHoverRay(ctx, customNdc) {
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
           if (ctx.callbacks.onHoverPrompt) {
             const prompt = isPourablePetri
-              ? '🧫 Despejar 20ml de PDA/BDA em ' + pCand.label
+              ? (petriCtrl.lidOpen
+                ? '🧫 Despejar 20ml de PDA/BDA em ' + pCand.label
+                : '🧫 Abrir a placa no Fluxo Laminar para adicionar 20ml de PDA/BDA')
               : (isPourablePP5 && sourceHasPda
                 ? '🧪 Transferir meio PDA/BDA para ' + pCand.label
                 : '💧 Umedecer / Despejar água em ' + pCand.label);
@@ -1016,7 +1069,7 @@ export function updateHoverRay(ctx, customNdc) {
       const sRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let si = 0; si < ctx.pickableItems.length; si++) {
         const sCand = ctx.pickableItems[si];
-        if (sCand === ctx.heldItem || ctx.isHeldByRemote(sCand.id)) continue;
+        if (sCand === ctx.heldItem || ctx.isHeldByRemote(sCand.id) || !isPetriAccessibleFromFridge(ctx, sCand)) continue;
         const sdx = sCand.mesh.position.x - sRefX, sdz = sCand.mesh.position.z - sRefZ;
         if (sdx * sdx + sdz * sdz > 100) continue;
         const sHit = firstValidRayHit(ctx.raycaster.intersectObject(sCand.mesh, true));
@@ -1028,10 +1081,26 @@ export function updateHoverRay(ctx, customNdc) {
             return;
           }
           const petriCtrl = sCand.mesh.userData.petriCtrl;
-          if (!sc.hasMycelium && ((petriCtrl && petriCtrl.mode === 'clean') || (sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60))) {
+          if (!sc.hasMycelium && petriCtrl && petriCtrl.mode === 'clean' && petriCtrl.colonization >= 60) {
+            ctx.hoveredScalpelTarget = { mode: petriCtrl.lidOpen ? 'cut' : 'open', item: sCand };
+            if (ctx.placementGhost) ctx.placementGhost.visible = false;
+            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(petriCtrl.lidOpen
+              ? '🔪 Cortar fragmento de micélio da placa colonizada'
+              : '🧫 Abrir a placa colonizada dentro do Fluxo Laminar');
+            return;
+          }
+          if (!sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60) {
             ctx.hoveredScalpelTarget = { mode: 'cut', item: sCand };
             if (ctx.placementGhost) ctx.placementGhost.visible = false;
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🔪 Cortar fragmento de micélio (' + sCand.label + ')');
+            return;
+          }
+          if (sc.hasMycelium && petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.sterilized) {
+            ctx.hoveredScalpelTarget = { mode: petriCtrl.lidOpen ? 'transfer' : 'open', item: sCand };
+            if (ctx.placementGhost) ctx.placementGhost.visible = false;
+            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(petriCtrl.lidOpen
+              ? '🍄 Transferir o fragmento para ' + sCand.label
+              : '🧫 Abrir a placa estéril no Fluxo Laminar');
             return;
           }
           if (sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.filled && !sCand.spawnCtrl.inoculated &&
@@ -1076,7 +1145,7 @@ export function updateHoverRay(ctx, customNdc) {
       const syRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let si = 0; si < ctx.pickableItems.length; si++) {
         const cand = ctx.pickableItems[si];
-        if (cand === ctx.heldItem || ctx.isHeldByRemote(cand.id)) continue;
+        if (cand === ctx.heldItem || ctx.isHeldByRemote(cand.id) || !isPetriAccessibleFromFridge(ctx, cand)) continue;
         const sydx = cand.mesh.position.x - syRefX, sydz = cand.mesh.position.z - syRefZ;
         if (sydx * sydx + sydz * sydz > 100) continue;
         const sHit = firstValidRayHit(ctx.raycaster.intersectObject(cand.mesh, true));
@@ -1107,6 +1176,30 @@ export function updateHoverRay(ctx, customNdc) {
               ctx.callbacks.onHoverPrompt('⚠️ Este recipiente não recebe cultura pela seringa');
               return;
             }
+          } else if (cand.mesh.userData.isPetri) {
+            const petriCtrl = cand.mesh.userData.petriCtrl;
+            if (petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.sterilized) {
+              if (!petriCtrl.lidOpen) {
+                ctx.hoveredSyringeTarget = { item: cand, mode: 'open' };
+                if (ctx.placementGhost) ctx.placementGhost.visible = false;
+                if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🧫 Clique para abrir a placa no Fluxo Laminar');
+              } else if (sc.volMl >= 1) {
+                ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
+                if (ctx.placementGhost) ctx.placementGhost.visible = false;
+                if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Inocular exatamente 1ml de cultura em ' + cand.label + ' (2s)');
+              } else if (ctx.callbacks.onHoverPrompt) {
+                ctx.callbacks.onHoverPrompt('💉 Aspire cultura líquida até ter pelo menos 1ml para a placa');
+              }
+            } else {
+              const petriMode = petriCtrl && petriCtrl.mode;
+              const hint = petriMode === 'bare'
+                ? '🧫 Adicione PDA e esterilize esta placa antes de inocular'
+                : (petriMode === 'filled'
+                  ? '♨️ Feche a tampa e esterilize o meio PDA/BDA na panela'
+                  : '🧫 Placa com cultura; use bisturi estéril para transferir micélio');
+              if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(hint);
+            }
+            return;
           } else if (canSyringeTarget(cand)) {
             if (sc.volMl > 0) {
               ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
@@ -1122,19 +1215,31 @@ export function updateHoverRay(ctx, customNdc) {
             const prompt = getSyringeTargetHint(cand.spawnCtrl, sc.volMl, pdaAgarReady, cand.pdaMediumCtrl);
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
             return;
-          } else if (cand.mesh.userData.isPetri) {
-            const petriMode = cand.mesh.userData.petriCtrl && cand.mesh.userData.petriCtrl.mode;
-            const prompt = petriMode === 'bare'
-              ? '🧫 Adicione meio PDA antes de inocular esta placa'
-              : (petriMode === 'filled'
-                ? '♨️ Esterilize o meio PDA/BDA na panela antes de inocular'
-              : (petriMode === 'empty'
-                ? '🧫 Placa estéril pronta para inocular'
-                : '🧫 Esta placa já contém cultura; use o bisturi para transferir micélio'));
-            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
-            return;
           }
         }
+      }
+    }
+    if (ctx.heldItem.mesh.userData.isPetri && !ctx.placementMode) {
+      const fridgeTarget = getCultureFridgeStorageTarget(ctx);
+      if (fridgeTarget) {
+        ctx.hoveredFridgeTarget = fridgeTarget;
+        if (ctx.placementGhost) ctx.placementGhost.visible = false;
+        const prompt = !fridgeTarget.fridge.fridgeCtrl.doorOpen
+          ? '🧊 Abra a geladeira para guardar a placa'
+          : (fridgeTarget.slotPosition
+            ? '🧊 Guardar placa na prateleira • conservação a 4°C'
+            : '🧊 Geladeira cheia • retire uma placa antes');
+        if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
+        return;
+      }
+      const petriCtrl = ctx.heldItem.mesh.userData.petriCtrl;
+      if (petriCtrl) {
+        if (ctx.callbacks.onHoverPrompt) {
+          ctx.callbacks.onHoverPrompt(petriCtrl.lidOpen
+            ? '🧫 Clique para fechar a tampa da placa'
+            : '🧫 Clique para abrir a tampa (Fluxo Laminar ligado e higienizado)');
+        }
+        return;
       }
     }
     if (ctx.heldItem.mesh.userData.isThermometer && !ctx.placementMode) {
@@ -1289,7 +1394,8 @@ export function updateHoverRay(ctx, customNdc) {
     let bestBlocked = null, bestBlockedDist = Infinity;
     for (let i = 0; i < ctx.pickableItems.length; i++) {
       let item = ctx.pickableItems[i];
-      if (item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem)) continue;
+      if (item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem) ||
+          !isPetriAccessibleFromFridge(ctx, item)) continue;
       if (ctx.isHeldByRemote(item.id)) continue;
       const idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
       if (idx * idx + idz * idz > maxPickSq) continue;
@@ -1347,6 +1453,10 @@ export function updateHoverRay(ctx, customNdc) {
         } else {
           prompt = '🍲 Retirar Tampa da Panela de Pressão';
         }
+      } else if (ctx.hoveredPickable.fridgeCtrl) {
+        prompt = ctx.hoveredPickable.fridgeCtrl.doorOpen
+          ? '🧊 Fechar Geladeira de Culturas (4°C)'
+          : '🧊 Abrir Geladeira de Culturas (4°C)';
       } else if (ctx.hoveredPickable.mesh.userData.twoHanded) {
         prompt = '🙌 Pegar ' + ctx.hoveredPickable.label + ' (2 mãos)';
       } else {

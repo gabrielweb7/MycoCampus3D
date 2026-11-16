@@ -6,7 +6,7 @@ import { GAME_CONFIG } from '../core/config.js';
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { isPdaRecipeBalanced, updatePdaMediumVisual } from './pda-mix.js';
-import { updatePetriVisual } from './petri-dish.js';
+import { contaminatePetri, sterilizePetri } from './petri-dish.js';
 
 const THREE = window.THREE;
 const LAB = GAME_CONFIG.lab;
@@ -369,8 +369,7 @@ export function stepPressureCookers(ctx, dt) {
       cp.contents.forEach((bIt) => {
         if (bIt.spawnCtrl) { bIt.spawnCtrl.burned = true; bIt.spawnCtrl.sterilized = false; bIt.spawnCtrl.updateVisual(); }
         if (bIt.mesh.userData.petriCtrl && bIt.mesh.userData.petriCtrl.mode === 'filled') {
-          bIt.mesh.userData.petriCtrl.mode = 'contam';
-          updatePetriVisual(bIt);
+          contaminatePetri(bIt);
         }
         if (bIt.pdaMediumCtrl) {
           bIt.pdaMediumCtrl.burned = true;
@@ -514,8 +513,7 @@ export function stepPressureCookers(ctx, dt) {
           }
           if (cIt && cIt.mesh.userData.petriCtrl && cIt.mesh.userData.petriCtrl.mode === 'filled' &&
               cp.mode === 'sterilize' && cp.progress >= 100) {
-            cIt.mesh.userData.petriCtrl.mode = 'empty';
-            updatePetriVisual(cIt);
+            sterilizePetri(cIt);
           }
         }
         if (cp.progress >= 100) {
@@ -535,8 +533,7 @@ export function stepPressureCookers(ctx, dt) {
               bIt.spawnCtrl.updateVisual();
             }
             if (bIt.mesh.userData.petriCtrl && bIt.mesh.userData.petriCtrl.mode === 'filled') {
-              bIt.mesh.userData.petriCtrl.mode = 'contam';
-              updatePetriVisual(bIt);
+              contaminatePetri(bIt);
             }
             if (bIt.pdaMediumCtrl) {
               bIt.pdaMediumCtrl.burned = true;

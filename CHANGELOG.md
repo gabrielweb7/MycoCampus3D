@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.39] — 2026-11-16
+### 🧫 Ciclo Completo de Culturas em Placas
+- Tampa da Petri articulada e animada; abrir, despejar meio e inocular exige Fluxo Laminar ligado, higienizado e placa dentro da área de trabalho.
+- PDA/BDA mantém cor bege e só pode ser esterilizado na panela com a tampa fechada; seringa aplica exatamente 1ml, e bisturi estéril transfere um fragmento de uma placa colonizada.
+- Micélio branco cresce progressivamente sobre o ágar e o progresso é sincronizado no multiplayer.
+- Nova geladeira de culturas a 4°C, com 15 espaços e porta animada; conserva as placas por até 60 dias de jogo contra 14 dias fora da refrigeração (1 dia de jogo = 10 segundos reais).
+
 ## [v0.9.38] — 2026-11-16
 ### 🧫 Proporção das Placas e Ações de Cultura
 - Reduzido o diâmetro da placa de Petri para ficar apenas um pouco maior que o PP5; espessura, colisão e espaçamento de empilhamento acompanham a nova escala.

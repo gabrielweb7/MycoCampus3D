@@ -11,7 +11,8 @@ import { updateSyringeVolume } from '../items/syringe.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
 import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
-import { updatePetriVisual, PETRI_STACK_SPACING, PETRI_STACK_ALIGNMENT_RADIUS } from '../items/petri-dish.js';
+import { setPetriLidOpen, updatePetriVisual, PETRI_STACK_SPACING, PETRI_STACK_ALIGNMENT_RADIUS } from '../items/petri-dish.js';
+import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 
@@ -72,9 +73,20 @@ function getReplicatedItemState(sim, item) {
     };
   }
   const petri = meshData.petriCtrl;
-  if (petri && ['bare', 'filled', 'empty', 'clean', 'contam'].indexOf(petri.mode) !== -1) {
-    state.petri = { mode: petri.mode };
+  if (petri && ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam'].indexOf(petri.mode) !== -1) {
+    state.petri = {
+      mode: petri.mode,
+      lidOpen: !!petri.lidOpen,
+      sterilized: !!petri.sterilized,
+      inoculated: !!petri.inoculated,
+      inoculationMethod: petri.inoculationMethod === 'mycelium' ? 'mycelium' : (petri.inoculationMethod === 'liquid' ? 'liquid' : ''),
+      colonization: Math.round((petri.colonization || 0) * 10) / 10,
+      ageGameDays: Math.round((petri.ageGameDays || 0) * 10) / 10,
+      shelfLifeAgeDays: Math.round((petri.shelfLifeAgeDays || 0) * 10) / 10,
+      expired: !!petri.expired
+    };
   }
+  if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
   const liquid = meshData.liquidCtrl;
   if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0) };
   if (item.pdaReagentCtrl) {
@@ -181,9 +193,32 @@ function applyReplicatedItemState(sim, item, state) {
 
   const meshData = item.mesh.userData || {};
   if (meshData.petriCtrl && state.petri && typeof state.petri.mode === 'string' &&
-      ['bare', 'filled', 'empty', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
-    meshData.petriCtrl.mode = state.petri.mode;
+      ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
+    const petri = meshData.petriCtrl;
+    const incomingPetri = state.petri;
+    petri.mode = incomingPetri.mode;
+    ['sterilized', 'inoculated', 'expired'].forEach(function (key) {
+      if (typeof incomingPetri[key] === 'boolean') petri[key] = incomingPetri[key];
+    });
+    if (typeof incomingPetri.colonization === 'number' && Number.isFinite(incomingPetri.colonization)) {
+      petri.colonization = Math.max(0, Math.min(100, incomingPetri.colonization));
+    }
+    if (typeof incomingPetri.ageGameDays === 'number' && Number.isFinite(incomingPetri.ageGameDays)) {
+      petri.ageGameDays = Math.max(0, Math.min(1000, incomingPetri.ageGameDays));
+    }
+    if (typeof incomingPetri.shelfLifeAgeDays === 'number' && Number.isFinite(incomingPetri.shelfLifeAgeDays)) {
+      petri.shelfLifeAgeDays = Math.max(0, Math.min(1000, incomingPetri.shelfLifeAgeDays));
+    }
+    if (incomingPetri.inoculationMethod === 'liquid' || incomingPetri.inoculationMethod === 'mycelium') {
+      petri.inoculationMethod = incomingPetri.inoculationMethod;
+    } else {
+      petri.inoculationMethod = '';
+    }
+    if (typeof incomingPetri.lidOpen === 'boolean') setPetriLidOpen(item, incomingPetri.lidOpen, false);
     updatePetriVisual(item);
+  }
+  if (item.fridgeCtrl && state.fridge && typeof state.fridge.doorOpen === 'boolean') {
+    setCultureFridgeDoorOpen(item, state.fridge.doorOpen, false);
   }
   if (meshData.liquidCtrl && state.liquid && typeof state.liquid.volMl === 'number') {
     updateContainerVolume(item, state.liquid.volMl);
@@ -510,6 +545,12 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
     const wantBlindOpen = Number(stateMap[b.id]) === 1;
     if (b.open !== wantBlindOpen) b.open = wantBlindOpen;
   }
+
+  sim.pickableItems.forEach(function (item) {
+    if (!item.fridgeCtrl || stateMap[item.id] === undefined) return;
+    if (sim.pendingStateChanges[item.id] !== undefined || sim.recentlyChangedState[item.id] > now) return;
+    setCultureFridgeDoorOpen(item, Number(stateMap[item.id]) === 1, !!isInitial);
+  });
 
   for (let li = 0; li < sim.campusLightSwitches.length; li++) {
     const sw = sim.campusLightSwitches[li];

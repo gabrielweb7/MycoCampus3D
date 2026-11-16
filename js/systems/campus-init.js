@@ -88,6 +88,7 @@ const sim = {
   lastPickupAt: 0,
   placementMode: false,
   hoveredPickable: null,
+  hoveredFridgeTarget: null,
   hoveredMushroom: null,
   hoveredScreen: false,
   hoveredScreenBtn: null,
