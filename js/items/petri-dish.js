@@ -10,11 +10,13 @@ export function getPetriMeta(mode) {
     category: 'culture_plate',
     purpose: isBare
       ? 'Placa de Petri vazia aguardando meio PDA'
-      : (mode === 'empty' ? 'Placa estéril com PDA pronta para inoculação' : 'Cultivo de micélio em meio sólido BDA/PDA'),
+      : (mode === 'filled'
+        ? 'Placa com meio PDA/BDA aguardando esterilização'
+        : (mode === 'empty' ? 'Placa estéril com PDA pronta para inoculação' : 'Cultivo de micélio em meio sólido BDA/PDA')),
     weightGrams: isBare ? 18 : 38,
     baseTempC: mode === 'contam' ? 26.8 : 25.0,
-    compatibilities: { canEnterCooker: true, receivesSyringe: mode === 'empty' },
-    connections: ['laminar_hood', 'syringe', 'pda_bottle']
+    compatibilities: { canEnterCooker: true, receivesSyringe: mode === 'empty', acceptsPdaMedium: isBare },
+    connections: ['laminar_hood', 'syringe', 'beaker_1l', 'pda_media_bottle']
   };
 }
 
@@ -75,18 +77,40 @@ export function makePetriDish(mode) {
 export function updatePetriVisual(item) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl) return;
+  if (ctrl.mode === 'bare') {
+    if (ctrl.agarMesh) {
+      item.mesh.remove(ctrl.agarMesh);
+      ctrl.agarMesh = null;
+    }
+  } else {
+    if (!ctrl.texture) ctrl.texture = new THREE.CanvasTexture(ctrl.canvas);
+    if (!ctrl.agarMesh) {
+      ctrl.agarMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.156, 0.156, 0.022, 22),
+        new THREE.MeshStandardMaterial({ map: ctrl.texture, roughness: 0.35 })
+      );
+      ctrl.agarMesh.position.y = 0.015;
+      item.mesh.add(ctrl.agarMesh);
+    } else if (ctrl.agarMesh.material.map !== ctrl.texture) {
+      ctrl.agarMesh.material.map = ctrl.texture;
+      ctrl.agarMesh.material.needsUpdate = true;
+    }
+  }
   drawAgarTexture(ctrl.context, ctrl.mode);
   if (ctrl.texture) ctrl.texture.needsUpdate = true;
   if (item.meta && item.meta.compatibilities) {
     item.meta.compatibilities.receivesSyringe = ctrl.mode === 'empty';
+    item.meta.compatibilities.acceptsPdaMedium = ctrl.mode === 'bare';
   }
   if (item.meta) {
     item.meta.baseTempC = ctrl.mode === 'contam' ? 26.8 : 25.0;
     item.meta.purpose = ctrl.mode === 'bare'
       ? 'Placa de Petri vazia aguardando meio PDA'
-      : (ctrl.mode === 'empty'
-        ? 'Placa estéril com PDA pronta para inoculação'
-        : (ctrl.mode === 'contam' ? 'Cultivo contaminado por mofo ou bactéria' : 'Cultivo de micélio em meio sólido BDA/PDA'));
+      : (ctrl.mode === 'filled'
+        ? 'Placa com meio PDA/BDA aguardando esterilização'
+        : (ctrl.mode === 'empty'
+          ? 'Placa estéril com PDA pronta para inoculação'
+          : (ctrl.mode === 'contam' ? 'Cultivo contaminado por mofo ou bactéria' : 'Cultivo de micélio em meio sólido BDA/PDA')));
   }
   if (ctrl.mode === 'clean') {
     item.label = 'Placa de Petri (Micélio Rizomórfico)';
@@ -94,7 +118,17 @@ export function updatePetriVisual(item) {
     item.label = 'Placa Contaminada (Mofo/Bactéria)';
   } else if (ctrl.mode === 'bare') {
     item.label = 'Placa de Petri Vazia';
+  } else if (ctrl.mode === 'filled') {
+    item.label = 'Placa de Petri com PDA/BDA (Não esterilizada)';
   } else {
     item.label = 'Placa de Petri Estéril (PDA)';
   }
+}
+
+export function fillPetriWithPda(item) {
+  const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
+  if (!ctrl || ctrl.mode !== 'bare') return false;
+  ctrl.mode = 'filled';
+  updatePetriVisual(item);
+  return true;
 }

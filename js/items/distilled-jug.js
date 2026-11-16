@@ -16,11 +16,11 @@ export const DISTILLED_JUG_META = {
   getWeightGrams: (item) => 180 + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
   compatibilities: {
     canEnterCooker: false,
-    fillsFromSink: true,
+    fillsFromSink: false,
     poursWater: true,
     receivesWater: true
   },
-  connections: ['lab_sink', 'liquid_culture', 'beaker_1l', 'pressure_cooker', 'falcon_tube']
+  connections: ['liquid_culture', 'beaker_1l', 'pressure_cooker', 'falcon_tube']
 };
 
 export function makeDistilledJug5L(ctx, id, px, py, pz, initMl) {

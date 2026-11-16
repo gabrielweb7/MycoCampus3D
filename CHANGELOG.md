@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.36] — 2026-11-16
+### 🧪 Compatibilidade de Recipientes e Meio PDA/BDA
+- Béqueres e o frasco autoclavável de 1L podem receber água da torneira; garrafão destilado e frasco de cultura líquida não podem mais ser preenchidos pela pia.
+- Meio PDA/BDA preparado pode ser distribuído em placas de Petri e PP5 vazios; Petri só fica pronto para inoculação após esterilização, e PP5 mantém o fluxo de preparo próprio.
+- Transferências de água, flocão, substrato e micélio agora respeitam as compatibilidades e o estado atual do recipiente, evitando alvos incompatíveis no HUD.
+- Estados de volume e PDA/BDA dos PP5 são sincronizados no multiplayer, e a seringa só aspira de fontes de cultura líquida.
+
 ## [v0.9.35] — 2026-11-16
 ### 🧴 Escala do Frasco PDA/BDA
 - Redimensionado o frasco autoclavável de 1L para ficar proporcional ao béquer graduado de 1L, preservando sua capacidade e as interações.

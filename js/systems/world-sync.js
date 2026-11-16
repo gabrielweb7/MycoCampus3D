@@ -72,7 +72,7 @@ function getReplicatedItemState(sim, item) {
     };
   }
   const petri = meshData.petriCtrl;
-  if (petri && ['bare', 'empty', 'clean', 'contam'].indexOf(petri.mode) !== -1) {
+  if (petri && ['bare', 'filled', 'empty', 'clean', 'contam'].indexOf(petri.mode) !== -1) {
     state.petri = { mode: petri.mode };
   }
   const liquid = meshData.liquidCtrl;
@@ -146,16 +146,28 @@ function applyReplicatedItemState(sim, item, state) {
         spawn[key] = Math.max(0, Math.min(key === 'colonization' || key === 'sterilizeProgress' ? 100 : 5000, incoming[key]));
       }
     });
-    if (['grain', 'sawdust', 'flocao', 'corn'].indexOf(incoming.substrateKind) !== -1) {
+    const validSubstrates = spawn.isPP5
+      ? ['grain', 'sawdust', 'flocao', 'corn', 'pda']
+      : ['grain', 'sawdust', 'flocao', 'corn'];
+    if (validSubstrates.indexOf(incoming.substrateKind) !== -1) {
       spawn.substrateKind = incoming.substrateKind;
     }
     if (spawn.inoculated && spawn.colonization >= 100 && !spawn.contaminated && !spawn.burned) {
       spawn.colonized = true;
     }
-    if (spawn.fillMesh) spawn.fillMesh.visible = spawn.filled;
-    if (item.meta && item.meta.compatibilities) item.meta.compatibilities.receivesSyringe = spawn.filled;
+    if (spawn.fillMesh) spawn.fillMesh.visible = spawn.filled && spawn.substrateKind !== 'pda';
+    if (item.meta && item.meta.compatibilities) {
+      item.meta.compatibilities.receivesSyringe = spawn.filled;
+      item.meta.compatibilities.receivesSubstrate = !spawn.filled && !spawn.isPP5;
+      if (spawn.isPP5) {
+        item.meta.compatibilities.acceptsPdaMedium = !spawn.filled;
+        item.meta.compatibilities.receivesFlocao = !spawn.filled;
+      }
+    }
     if (spawn.isPP5) {
-      spawn.baseLabel = spawn.filled ? 'Potinho PP5 145ml (Flocão)' : 'Potinho PP5 145ml Vazio';
+      spawn.baseLabel = spawn.substrateKind === 'pda'
+        ? 'Potinho PP5 145ml (PDA/BDA)'
+        : (spawn.filled ? 'Potinho PP5 145ml (Flocão)' : 'Potinho PP5 145ml Vazio');
     } else if (spawn.isBag) {
       spawn.baseLabel = spawn.filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio';
     } else {
@@ -169,7 +181,7 @@ function applyReplicatedItemState(sim, item, state) {
 
   const meshData = item.mesh.userData || {};
   if (meshData.petriCtrl && state.petri && typeof state.petri.mode === 'string' &&
-      ['bare', 'empty', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
+      ['bare', 'filled', 'empty', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
     meshData.petriCtrl.mode = state.petri.mode;
     updatePetriVisual(item);
   }
@@ -184,7 +196,8 @@ function applyReplicatedItemState(sim, item, state) {
   if (item.pdaMediumCtrl && state.pdaMedium && typeof state.pdaMedium === 'object') {
     const medium = item.pdaMediumCtrl;
     if (typeof state.pdaMedium.powderGrams === 'number' && Number.isFinite(state.pdaMedium.powderGrams)) {
-      medium.powderGrams = Math.max(0, Math.min(500, state.pdaMedium.powderGrams));
+      const maxPowderGrams = item.spawnCtrl && item.spawnCtrl.isPP5 ? 4 : 500;
+      medium.powderGrams = Math.max(0, Math.min(maxPowderGrams, state.pdaMedium.powderGrams));
     }
     if (typeof state.pdaMedium.stirProgress === 'number' && Number.isFinite(state.pdaMedium.stirProgress)) {
       medium.stirProgress = Math.max(0, Math.min(4, state.pdaMedium.stirProgress));

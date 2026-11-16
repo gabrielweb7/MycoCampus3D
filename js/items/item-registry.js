@@ -80,6 +80,11 @@ export function canSyringeTarget(item) {
     return !!(petriCtrl && petriCtrl.mode === 'empty');
   }
   const spawnCtrl = item.spawnCtrl;
+  if (item.pdaMediumCtrl && hasPdaContents(item) &&
+      (!spawnCtrl || spawnCtrl.substrateKind !== 'pda')) return false;
+  const liquid = item.mesh.userData.liquidCtrl;
+  const pdaAgarReady = item.pdaMediumCtrl && item.pdaMediumCtrl.powderGrams > 0 &&
+    liquid && liquid.volMl > 0;
   if (spawnCtrl && (
     !spawnCtrl.filled ||
     spawnCtrl.inoculated ||
@@ -87,15 +92,39 @@ export function canSyringeTarget(item) {
     spawnCtrl.burned ||
     spawnCtrl.contaminated ||
     (spawnCtrl.isBag && !spawnCtrl.sealed) ||
-    (spawnCtrl.isPP5 && (spawnCtrl.waterMl || 0) < 35)
+    (spawnCtrl.isPP5 && (spawnCtrl.waterMl || 0) < 35 && !pdaAgarReady)
   )) {
     return false;
   }
-  const meta = item.meta || item.mesh.userData.itemMeta;
-  if (meta && meta.compatibilities && meta.compatibilities.receivesSyringe !== undefined) {
-    return !!meta.compatibilities.receivesSyringe;
+  if (spawnCtrl && spawnCtrl.substrateKind === 'pda') {
+    const medium = item.pdaMediumCtrl;
+    if (!medium || !medium.mixed || !medium.sterilized || medium.burned) return false;
   }
+  const meta = item.meta || item.mesh.userData.itemMeta;
+  if (meta && meta.compatibilities) return !!meta.compatibilities.receivesSyringe;
   return !!(item.mesh.userData.liquidCtrl || item.id.indexOf('spawn_') === 0 || (item.id.indexOf('petri_') === 0 && item.id.indexOf('petri_bare_') !== 0));
+}
+
+export function canFillFromSink(item) {
+  if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return false;
+  const medium = item.pdaMediumCtrl;
+  if ((medium && medium.burned) || hasPdaContents(item)) return false;
+  const meta = item.meta || item.mesh.userData.itemMeta;
+  const compatibilities = meta && meta.compatibilities;
+  return !compatibilities || compatibilities.fillsFromSink !== false;
+}
+
+export function canSyringeSource(item) {
+  if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return false;
+  const meta = item.meta || item.mesh.userData.itemMeta;
+  return !!(meta && meta.compatibilities && meta.compatibilities.providesLiquidCulture);
+}
+
+export function hasPdaContents(item) {
+  const medium = item && item.pdaMediumCtrl;
+  const liquid = item && item.mesh && item.mesh.userData && item.mesh.userData.liquidCtrl;
+  return !!(medium && (medium.powderGrams > 0 ||
+    (liquid && liquid.volMl > 0 && (medium.mixed || medium.sterilized || medium.burned))));
 }
 
 export function canSealSpawnBag(item) {
@@ -108,13 +137,23 @@ const compatibilityLabels = {
   acceptsPdaMedium: 'Recebe meio PDA/BDA preparado',
   addsPdaPowder: 'Adiciona pó PDA/BDA ao béquer',
   receivesPdaPowder: 'Recebe pó PDA/BDA para preparo',
-  receivesDistilledWater: 'Recebe água destilada na proporção da receita',
-  poursWater: 'Despeja água destilada',
+  receivesPdaWater: 'Recebe água para preparo de PDA/BDA',
+  poursWater: 'Pode despejar água ou solução',
   sealsBags: 'Pode selar bags de spawn',
   receivesSyringe: 'Recebe cultura líquida pela seringa',
+  providesLiquidCulture: 'Fornece cultura líquida para aspiração',
   transfersLiquidCulture: 'Aspira e transfere cultura líquida',
   stirsOnMagneticPlate: 'Pode ser agitado na placa magnética',
+  stirsLiquidContainers: 'Agita recipientes com barra magnética',
+  canSanitizeHood: 'Higieniza o fluxo laminar',
+  canSanitizeItems: 'Higieniza equipamentos e itens',
+  canHydrateGreenhouse: 'Hidrata a estufa',
+  requiresSanitization: 'Requer higienização antes do uso',
+  carriesItemsOnSurface: 'Transporta itens em sua superfície',
+  supportsItemsOnSurface: 'Oferece superfície de apoio',
+  weighsItemsOnSurface: 'Pesa itens colocados na plataforma',
   receivesIngredients: 'Recebe ingredientes para mistura',
+  receivesSubstrate: 'Recebe grãos ou substrato',
   receivesWater: 'Recebe água',
   stirsMixingBowl: 'Mistura ingredientes no pote',
   fillsPP5WithFlocao: 'Adiciona flocão ao PP5',
@@ -125,6 +164,8 @@ const compatibilityLabels = {
   fillsFromSink: 'Pode ser preenchida na pia',
   heatsCookerOnSurface: 'Aquece uma panela apoiada na superfície',
   transfersMycelium: 'Corta e transfere micélio',
+  scansTemperature: 'Mede a temperatura por laser',
+  isScalpelBladePack: 'Fornece lâminas para o bisturi',
   snapsToCookerPot: 'Encaixa na panela de pressão'
 };
 

@@ -111,26 +111,30 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
                 $spawn[$key] = max(0, min($limit, (int)round((float)$src[$key])));
             }
         }
-        if (in_array($src['substrateKind'] ?? '', ['grain', 'sawdust', 'flocao', 'corn'], true)) {
+        $validSubstrates = ['grain', 'sawdust', 'flocao', 'corn'];
+        if (strpos($itemId, 'pp5_cup_') === 0) $validSubstrates[] = 'pda';
+        if (in_array($src['substrateKind'] ?? '', $validSubstrates, true)) {
             $spawn['substrateKind'] = $src['substrateKind'];
         }
         if ($spawn) $clean['spawn'] = $spawn;
     }
 
     if (strpos($itemId, 'petri_') === 0 && isset($raw['petri']) && is_array($raw['petri']) &&
-        in_array($raw['petri']['mode'] ?? '', ['bare', 'empty', 'clean', 'contam'], true)) {
+        in_array($raw['petri']['mode'] ?? '', ['bare', 'filled', 'empty', 'clean', 'contam'], true)) {
         $clean['petri'] = ['mode' => $raw['petri']['mode']];
     }
 
     if ((strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 ||
-        strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'pda_media_bottle_') === 0) &&
+        strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'pda_media_bottle_') === 0 ||
+        strpos($itemId, 'pp5_cup_') === 0) &&
         isset($raw['liquid']) && is_array($raw['liquid']) &&
         isset($raw['liquid']['volMl']) && is_numeric($raw['liquid']['volMl']) && is_finite((float)$raw['liquid']['volMl'])) {
-        $clean['liquid'] = ['volMl' => max(0, min(5000, (int)round((float)$raw['liquid']['volMl'])))];
+        $maxVolumeMl = strpos($itemId, 'pp5_cup_') === 0 ? 100 : 5000;
+        $clean['liquid'] = ['volMl' => max(0, min($maxVolumeMl, (int)round((float)$raw['liquid']['volMl'])))];
     }
 
     if ((strpos($itemId, 'beaker_1l_') === 0 || strpos($itemId, 'falcon_') === 0 ||
-        strpos($itemId, 'pda_media_bottle_') === 0) &&
+        strpos($itemId, 'pda_media_bottle_') === 0 || strpos($itemId, 'pp5_cup_') === 0) &&
         isset($raw['pdaMedium']) && is_array($raw['pdaMedium'])) {
         $src = $raw['pdaMedium'];
         $medium = [];
@@ -138,6 +142,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
             if (isset($src[$key]) && is_bool($src[$key])) $medium[$key] = $src[$key];
         }
         foreach (['powderGrams' => 500, 'stirProgress' => 4] as $key => $limit) {
+            if ($key === 'powderGrams' && strpos($itemId, 'pp5_cup_') === 0) $limit = 4;
             if (isset($src[$key]) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
                 $medium[$key] = max(0, min($limit, round((float)$src[$key], 1)));
             }

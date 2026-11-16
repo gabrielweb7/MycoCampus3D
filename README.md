@@ -18,11 +18,11 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.35"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.36"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.35)
-├── VERSION                    # Versão semântica atual do projeto (0.9.35)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.36)
+├── VERSION                    # Versão semântica atual do projeto (0.9.36)
 ├── error.php                  # Painel online privado para consultar erros recentes
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
@@ -72,6 +72,7 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 | `mc_sessions` | Estado volátil dos jogadores online (posição $X,Y,Z$, rotação, item segurado, caminhada, chat em balão). |
 | `mc_user_poses` | Posição e rotação salvas da última sessão do jogador para retorno contínuo. |
 | `mc_world_objects` | Posições em tempo real de equipamentos e itens móveis do laboratório. |
+| `mc_world_item_states` | Volumes e estados internos de preparo/esterilização compartilhados no laboratório. |
 | `mc_world_state` | Estados globais do mundo (portas, persianas, interruptores, fluxo laminar, cinema e slide do auditório). |
 | `mc_admin_events` | Fila de ações pendentes disparadas pelo Master Admin (teletransporte forçado e desconexão de usuários). |
 | `mc_board_strokes` | Histórico compartilhado de traços vetoriais das 4 lousas interativas. |

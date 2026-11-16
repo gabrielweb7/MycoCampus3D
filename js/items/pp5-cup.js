@@ -5,28 +5,35 @@
 
 import { registerPickable } from './item-registry.js';
 import { updateSpawnVisual } from './spawn-containers.js';
+import { attachPdaMediumCtrl } from './pda-mix.js';
 
 const THREE = window.THREE;
 
-export function getPP5Meta() {
+export function getPP5Meta(filled) {
   return {
     category: 'solid_culture',
-    purpose: 'Potinho PP5 145ml para cultura sólida com flocão de milho úmido (esterilizar 1h20m)',
+    purpose: 'Potinho PP5 145ml para flocão de milho ou meio PDA/BDA (esterilizar 1h20m)',
     minSterilizeMin: 80,
     getWeightGrams: (item) => {
       const sc = item && item.spawnCtrl;
       if (!sc) return 12;
-      return 12 + (sc.fillGrams || 0) + (sc.waterMl || 0);
+      const liquid = item.mesh && item.mesh.userData.liquidCtrl;
+      const medium = item.pdaMediumCtrl;
+      return 12 + (sc.fillGrams || 0) + (sc.waterMl || 0) +
+        (liquid ? liquid.volMl : 0) + (medium ? medium.powderGrams : 0);
     },
     getTempC: (item) => (item && item.spawnCtrl && item.spawnCtrl.inoculated) ? 26.1 : 23.5,
     compatibilities: {
       canEnterCooker: true,
-      receivesSyringe: true,
-      receivesFlocao: true,
-      receivesWater: true,
+      receivesSyringe: !!filled,
+      receivesSubstrate: false,
+      receivesFlocao: !filled,
+      receivesWater: !!filled,
+      fillsFromSink: false,
+      acceptsPdaMedium: !filled,
       receivesMyceliumCut: true
     },
-    connections: ['flocao_500g', 'lab_sink', 'pressure_cooker', 'scalpel', 'syringe', 'laminar_hood']
+    connections: ['flocao_500g', 'beaker_1l', 'pda_media_bottle', 'pressure_cooker', 'scalpel', 'syringe', 'laminar_hood']
   };
 }
 
@@ -64,14 +71,30 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
   mycOverlay.position.y = 0.019;
   mycOverlay.visible = false;
 
-  cg.add(flocaoMesh, mycOverlay, body, bottom, lid);
+  const liquidMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.032, 0.030, 0.034, 16),
+    new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.62, roughness: 0.14 })
+  );
+  liquidMesh.visible = false;
+  cg.add(flocaoMesh, liquidMesh, mycOverlay, body, bottom, lid);
+  cg.userData.liquidCtrl = {
+    volMl: 0,
+    maxMl: 100,
+    baseY: 0.002,
+    maxH: 0.034,
+    liqMesh: liquidMesh,
+    mycCloud: null,
+    stirBar: null,
+    baseLabel: 'Potinho PP5 145ml'
+  };
 
-  const item = registerPickable(ctx, id, 'Potinho PP5 145ml (Vazio)', cg, px, py, pz, 0, 0.06, 0.065, getPP5Meta());
+  const item = registerPickable(ctx, id, 'Potinho PP5 145ml (Vazio)', cg, px, py, pz, 0, 0.06, 0.065, getPP5Meta(!!filled));
   item.spawnCtrl = {
     isPP5: true,
     filled: !!filled,
     fillGrams: filled ? 45 : 0,
     waterMl: filled ? 35 : 0,
+    substrateKind: filled ? 'flocao' : '',
     fillMesh: flocaoMesh,
     minSterilizeMin: 80, // 1h20m
     sterilizeProgress: filled ? 100 : 0,
@@ -84,13 +107,47 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
     mycOverlay,
     updateVisual: function () {
       updateSpawnVisual(item);
-      if (item.spawnCtrl.fillGrams > 0 && item.spawnCtrl.waterMl === 0 && !item.spawnCtrl.inoculated) {
+      if (item.meta && item.meta.compatibilities) {
+        item.meta.compatibilities.receivesSyringe = item.spawnCtrl.filled;
+        item.meta.compatibilities.receivesFlocao = !item.spawnCtrl.filled;
+        item.meta.compatibilities.receivesWater = item.spawnCtrl.filled &&
+          item.spawnCtrl.substrateKind !== 'pda' && (item.spawnCtrl.waterMl || 0) < 35;
+        item.meta.compatibilities.acceptsPdaMedium = !item.spawnCtrl.filled;
+      }
+      if (item.spawnCtrl.substrateKind === 'flocao' && item.spawnCtrl.fillGrams > 0 &&
+          item.spawnCtrl.waterMl === 0 && !item.spawnCtrl.inoculated) {
         item.label = 'Potinho PP5 145ml (Flocão seco • Adicione água)';
       }
     }
   };
   item.mesh.userData.spawnCtrl = item.spawnCtrl;
+  attachPdaMediumCtrl(item, 'pp5', false);
   item.spawnCtrl.updateVisual();
   ctx.spawnGrowItems.push(item);
   return item;
+}
+
+export function preparePP5ForPda(item) {
+  const spawn = item && item.spawnCtrl;
+  if (!spawn || !spawn.isPP5 || spawn.filled || !item.pdaMediumCtrl) return false;
+  spawn.filled = true;
+  spawn.fillGrams = 0;
+  spawn.waterMl = 0;
+  spawn.substrateKind = 'pda';
+  spawn.baseLabel = 'Potinho PP5 145ml (PDA/BDA)';
+  spawn.sealed = false;
+  spawn.sterilized = false;
+  spawn.sterilizeProgress = 0;
+  spawn.inoculated = false;
+  spawn.colonized = false;
+  spawn.colonization = 0;
+  spawn.contaminated = false;
+  spawn.burned = false;
+  if (spawn.fillMesh) spawn.fillMesh.visible = false;
+  if (item.meta && item.meta.compatibilities) {
+    item.meta.compatibilities.acceptsPdaMedium = false;
+    item.meta.compatibilities.receivesFlocao = false;
+  }
+  spawn.updateVisual();
+  return true;
 }

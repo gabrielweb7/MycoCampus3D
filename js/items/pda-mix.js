@@ -18,8 +18,14 @@ export const PDA_MEDIA_BOTTLE_META = {
   getWeightGrams: (item) => 380 +
     ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0) +
     ((item && item.pdaMediumCtrl) ? item.pdaMediumCtrl.powderGrams : 0),
-  compatibilities: { canEnterCooker: true, acceptsPdaMedium: true },
-  connections: ['beaker_1l', 'falcon_15ml', 'pressure_cooker']
+  compatibilities: {
+    canEnterCooker: true,
+    fillsFromSink: true,
+    poursWater: true,
+    receivesWater: true,
+    acceptsPdaMedium: true
+  },
+  connections: ['beaker_1l', 'falcon_15ml', 'petri_dish', 'pp5_cup', 'pressure_cooker', 'lab_sink']
 };
 
 export function isPdaRecipeBalanced(ctrl, volumeMl) {
@@ -67,7 +73,11 @@ export function updatePdaReagentLabel(item) {
 export function addPdaPowder(source, target) {
   const reagent = source && source.pdaReagentCtrl;
   const medium = target && target.pdaMediumCtrl;
-  if (!reagent || !medium || medium.kind !== 'beaker') return { ok: false, reason: 'Use o reagente no béquer de preparo.' };
+  const compatibilities = target && target.meta && target.meta.compatibilities;
+  if (!reagent || !medium || medium.kind !== 'beaker' ||
+      !compatibilities || !compatibilities.receivesPdaPowder) {
+    return { ok: false, reason: 'Use o reagente no béquer de preparo.' };
+  }
   if (medium.burned || medium.sterilized) return { ok: false, reason: 'Este meio já foi processado; use um béquer limpo.' };
   if (reagent.remainingGrams < PDA_POWDER_DOSE_GRAMS) return { ok: false, reason: 'O frasco de PDA/BDA está vazio.' };
 
@@ -108,6 +118,12 @@ export function updatePdaMediumVisual(item) {
     }
   }
 
+  if (ctrl.kind === 'pp5' && item.spawnCtrl &&
+      (item.spawnCtrl.substrateKind === 'pda' || (ctrl.powderGrams <= 0 && liquid.volMl <= 0))) {
+    item.spawnCtrl.updateVisual();
+    return;
+  }
+
   if (ctrl.powderGrams <= 0) {
     item.label = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml)';
     return;
@@ -116,7 +132,7 @@ export function updatePdaMediumVisual(item) {
   let status;
   if (ctrl.burned) status = 'meio queimado';
   else if (ctrl.sterilized) status = 'esterilizado';
-  else if (liquid.volMl <= 0) status = 'adicione água destilada';
+  else if (liquid.volMl <= 0) status = 'adicione água';
   else if (!isPdaRecipeBalanced(ctrl, liquid.volMl)) status = 'ajuste para 40g/L';
   else if (ctrl.mixed) status = ctrl.isSlant ? 'slant homogêneo' : 'homogêneo';
   else if (ctrl.stirProgress > 0) status = 'agitando ' + Math.floor(ctrl.stirProgress / PDA_MIX_TIME_SECONDS * 100) + '%';

@@ -6,6 +6,7 @@ import { GAME_CONFIG } from '../core/config.js';
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { isPdaRecipeBalanced, updatePdaMediumVisual } from './pda-mix.js';
+import { updatePetriVisual } from './petri-dish.js';
 
 const THREE = window.THREE;
 const LAB = GAME_CONFIG.lab;
@@ -367,9 +368,18 @@ export function stepPressureCookers(ctx, dt) {
       cp.sterilized = false;
       cp.contents.forEach((bIt) => {
         if (bIt.spawnCtrl) { bIt.spawnCtrl.burned = true; bIt.spawnCtrl.sterilized = false; bIt.spawnCtrl.updateVisual(); }
+        if (bIt.mesh.userData.petriCtrl && bIt.mesh.userData.petriCtrl.mode === 'filled') {
+          bIt.mesh.userData.petriCtrl.mode = 'contam';
+          updatePetriVisual(bIt);
+        }
         if (bIt.pdaMediumCtrl) {
           bIt.pdaMediumCtrl.burned = true;
           bIt.pdaMediumCtrl.sterilized = false;
+          if (bIt.spawnCtrl && bIt.spawnCtrl.substrateKind === 'pda') {
+            bIt.spawnCtrl.burned = true;
+            bIt.spawnCtrl.sterilized = false;
+            bIt.spawnCtrl.updateVisual();
+          }
           updatePdaMediumVisual(bIt);
         }
       });
@@ -494,8 +504,18 @@ export function stepPressureCookers(ctx, dt) {
             if (cp.mode === 'sterilize' && cp.progress >= 100 && medium.mixed && !medium.burned &&
                 isPdaRecipeBalanced(medium, cIt.mesh.userData.liquidCtrl.volMl)) {
               medium.sterilized = true;
+              if (cIt.spawnCtrl && cIt.spawnCtrl.substrateKind === 'pda') {
+                cIt.spawnCtrl.sterilized = true;
+                cIt.spawnCtrl.sterilizeProgress = 100;
+                cIt.spawnCtrl.updateVisual();
+              }
               updatePdaMediumVisual(cIt);
             }
+          }
+          if (cIt && cIt.mesh.userData.petriCtrl && cIt.mesh.userData.petriCtrl.mode === 'filled' &&
+              cp.mode === 'sterilize' && cp.progress >= 100) {
+            cIt.mesh.userData.petriCtrl.mode = 'empty';
+            updatePetriVisual(cIt);
           }
         }
         if (cp.progress >= 100) {
@@ -514,9 +534,18 @@ export function stepPressureCookers(ctx, dt) {
               bIt.spawnCtrl.sterilized = false;
               bIt.spawnCtrl.updateVisual();
             }
+            if (bIt.mesh.userData.petriCtrl && bIt.mesh.userData.petriCtrl.mode === 'filled') {
+              bIt.mesh.userData.petriCtrl.mode = 'contam';
+              updatePetriVisual(bIt);
+            }
             if (bIt.pdaMediumCtrl) {
               bIt.pdaMediumCtrl.burned = true;
               bIt.pdaMediumCtrl.sterilized = false;
+              if (bIt.spawnCtrl && bIt.spawnCtrl.substrateKind === 'pda') {
+                bIt.spawnCtrl.burned = true;
+                bIt.spawnCtrl.sterilized = false;
+                bIt.spawnCtrl.updateVisual();
+              }
               updatePdaMediumVisual(bIt);
             }
           }

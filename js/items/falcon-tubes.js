@@ -26,7 +26,7 @@ export function getFalconMeta(maxMl) {
       fillsFromSink: true,
       poursWater: true,
       receivesWater: true,
-      acceptsPdaMedium: true
+      acceptsPdaMedium: !is50
     },
     connections: ['syringe', 'liquid_culture', 'lab_sink', 'pressure_cooker', 'laminar_hood']
   };

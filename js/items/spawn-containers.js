@@ -21,13 +21,19 @@ export function getSpawnMeta(kind, filled) {
       return baseTare + (sc.fillGrams || (sc.filled ? (isBag ? 1500 : 460) : 0));
     },
     getTempC: (item) => (item && item.spawnCtrl && item.spawnCtrl.inoculated) ? 26.4 : 23.8,
-    compatibilities: { canEnterCooker: true, receivesSyringe: !!filled },
+    compatibilities: {
+      canEnterCooker: true,
+      receivesSyringe: !!filled,
+      receivesSubstrate: !filled,
+      receivesMyceliumCut: true
+    },
     connections: ['pressure_cooker', 'syringe', 'laminar_hood', 'heat_sealer', 'substrate_5kg']
   };
 }
 
 export function fillSpawnWithSubstrate(item, kind) {
-  if (!item || !item.spawnCtrl || item.spawnCtrl.filled) return false;
+  if (!item || !item.spawnCtrl || item.spawnCtrl.filled ||
+      !item.meta || !item.meta.compatibilities || !item.meta.compatibilities.receivesSubstrate) return false;
   const sc = item.spawnCtrl;
   sc.filled = true;
   sc.fillGrams = sc.isBag ? 1500 : 460;
@@ -45,6 +51,8 @@ export function fillSpawnWithSubstrate(item, kind) {
   if (sc.mycOverlay) sc.mycOverlay.visible = false;
   if (item.meta && item.meta.compatibilities) {
     item.meta.compatibilities.receivesSyringe = true;
+    item.meta.compatibilities.receivesSubstrate = false;
+    item.meta.compatibilities.acceptsPdaMedium = false;
   }
   updateSpawnVisual(item);
   return true;
@@ -60,6 +68,24 @@ export function updateSpawnVisual(item) {
     sc.mycOverlay.material.opacity = sc.burned ? 0.85 : (sc.contaminated ? 0.72 : (0.15 + f * 0.78));
     sc.mycOverlay.material.color.setHex(sc.burned ? 0x1c1917 : (sc.contaminated ? 0x15803d : 0xf8fafc));
     sc.mycOverlay.scale.set(1, Math.max(0.15, f), 1);
+  }
+  if (sc.substrateKind === 'pda') {
+    if (sc.burned) {
+      item.label = sc.baseLabel + ' (Queimado 🔥 Jogue fora)';
+    } else if (sc.contaminated) {
+      item.label = sc.baseLabel + ' (Contaminado ⚠️)';
+    } else if (sc.colonization >= 100) {
+      item.label = sc.baseLabel + ' (100% Colonizado ✅)';
+    } else if (sc.inoculated) {
+      item.label = sc.baseLabel + ' (Colonizando ' + Math.floor(sc.colonization) + '%)';
+    } else if (sc.sterilized) {
+      item.label = sc.baseLabel + ' (Estéril • Pronto)';
+    } else if (sc.sterilizeProgress > 0) {
+      item.label = sc.baseLabel + ' (Esterilizando ' + Math.floor(sc.sterilizeProgress) + '%)';
+    } else {
+      item.label = sc.baseLabel + ' (Não Esterilizado)';
+    }
+    return;
   }
   if (sc.burned) {
     item.label = sc.baseLabel + ' (Queimado 🔥 Jogue fora)';

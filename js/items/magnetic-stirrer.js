@@ -101,7 +101,7 @@ export function stepMagneticStirrers(ctx, dt) {
           if (medium.stirProgress >= PDA_MIX_TIME_SECONDS) {
             medium.mixed = true;
             updatePdaMediumVisual(liqIt);
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧪 Meio PDA/BDA homogêneo! Transfira para os Falcon ou para o frasco de 1L.');
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧪 Meio PDA/BDA homogêneo! Transfira para Falcon, frasco de 1L, Petri ou PP5.');
             ctx.notifyWorldAction();
           } else {
             updatePdaMediumVisual(liqIt);

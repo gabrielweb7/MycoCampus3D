@@ -12,7 +12,13 @@ export const LIQUID_JAR_META = {
   maxVolumeMl: 800,
   getWeightGrams: (item) => 260 + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
   getTempC: (item, ctx) => 24.5 + Math.sin(((ctx && ctx.clock && ctx.clock.elapsedTime) || 0) * 2.0) * 0.2,
-  compatibilities: { canEnterCooker: true, receivesSyringe: true, stirsOnMagneticPlate: true },
+  compatibilities: {
+    canEnterCooker: true,
+    fillsFromSink: false,
+    receivesSyringe: true,
+    providesLiquidCulture: true,
+    stirsOnMagneticPlate: true
+  },
   connections: ['magnetic_stirrer', 'syringe', 'pressure_cooker']
 };
 
@@ -26,12 +32,18 @@ export const BEAKER_META = {
     ((item && item.pdaMediumCtrl) ? item.pdaMediumCtrl.powderGrams : 0),
   compatibilities: {
     canEnterCooker: true,
+    fillsFromSink: true,
     receivesSyringe: true,
     stirsOnMagneticPlate: true,
+    poursWater: true,
+    receivesWater: true,
     receivesPdaPowder: true,
-    receivesDistilledWater: true
+    receivesPdaWater: true
   },
-  connections: ['magnetic_stirrer', 'precision_scale', 'syringe', 'pda_bottle', 'distilled_jug', 'pda_media_bottle']
+  connections: [
+    'magnetic_stirrer', 'precision_scale', 'syringe', 'pda_bottle', 'distilled_jug',
+    'pda_media_bottle', 'petri_dish', 'pp5_cup'
+  ]
 };
 
 export function updateContainerVolume(item, newVol) {

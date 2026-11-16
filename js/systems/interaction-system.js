@@ -14,13 +14,15 @@ import {
 } from '../entities/placement-ghost.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { scrollRanking } from '../world/staircase-clock.js';
-import { canItemEnterCooker, canSealSpawnBag, canSyringeTarget } from '../items/item-registry.js';
+import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
+import { fillPetriWithPda } from '../items/petri-dish.js';
+import { preparePP5ForPda } from '../items/pp5-cup.js';
 import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import {
   addPdaPowder,
@@ -28,19 +30,23 @@ import {
   markPdaVolumeChanged,
   PDA_GRAMS_PER_LITER,
   PDA_POWDER_DOSE_GRAMS,
-  transferPdaGrams
+  transferPdaGrams,
+  updatePdaMediumVisual
 } from '../items/pda-mix.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
 
-function getSyringeTargetHint(spawn, syringeVolume) {
+function getSyringeTargetHint(spawn, syringeVolume, pdaAgarReady, pdaMedium) {
   if (syringeVolume <= 0) return '💉 Seringa vazia • Aspire cultura líquida antes de inocular';
   if (!spawn.filled) return '🌽 Adicione substrato antes de inocular';
   if (spawn.burned) return '🔥 Este recipiente foi queimado e não pode ser inoculado';
   if (spawn.contaminated) return '🦠 Este recipiente está contaminado';
   if (spawn.inoculated) return '✅ Este recipiente já foi inoculado';
-  if (spawn.isPP5 && (spawn.waterMl || 0) < 35) return '💧 Hidrate o PP5 com 35ml de água antes de esterilizar';
+  if (spawn.substrateKind === 'pda' && (!pdaMedium || !pdaMedium.mixed || !pdaMedium.sterilized || pdaMedium.burned)) {
+    return '♨️ Misture o PDA/BDA e esterilize o PP5 antes de inocular';
+  }
+  if (spawn.isPP5 && (spawn.waterMl || 0) < 35 && !pdaAgarReady) return '💧 Hidrate o PP5 com 35ml de água antes de esterilizar';
   if (spawn.isBag && !spawn.sealed) return '♨️ Sele o bag antes de esterilizar';
   if (!spawn.sterilized) return '♨️ Esterilize o recipiente antes de inocular';
   return '⚠️ Este recipiente ainda não está pronto';
@@ -206,15 +212,18 @@ export function handlePrimaryAction(ctx) {
       const sourceLiquid = ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl;
       const targetLiquid = target.mesh && target.mesh.userData.liquidCtrl;
       const medium = target.pdaMediumCtrl;
-      const canPourDistilledWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
-        ctx.heldItem.meta.compatibilities.poursWater;
-      if (sourceLiquid && targetLiquid && medium && canPourDistilledWater) {
+      const sourceHasPda = hasPdaContents(ctx.heldItem);
+      const canPourWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+        ctx.heldItem.meta.compatibilities.poursWater && !sourceHasPda;
+      const targetCanReceivePdaWater = target.meta && target.meta.compatibilities &&
+        target.meta.compatibilities.receivesPdaWater;
+      if (sourceLiquid && targetLiquid && medium && canPourWater && targetCanReceivePdaWater) {
         if (medium.burned || medium.sterilized) {
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este meio já foi processado; use um béquer limpo.');
           return;
         }
         if (medium.powderGrams <= 0) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Adicione o pó PDA/BDA antes da água destilada.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Adicione o pó PDA/BDA antes da água.');
           return;
         }
         const expectedMl = medium.powderGrams * 1000 / PDA_GRAMS_PER_LITER;
@@ -228,7 +237,7 @@ export function handlePrimaryAction(ctx) {
         markPdaVolumeChanged(target);
         if (window.MycoAudio) window.MycoAudio.playSpray();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 +' + addMl + 'ml de água destilada. Proporção: 40g/L.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 +' + addMl + 'ml de água. Proporção: 40g/L.');
         ctx.notifyWorldAction();
         return;
       }
@@ -319,10 +328,20 @@ export function handlePrimaryAction(ctx) {
       }
       return;
     }
-    if (ctx.hoveredSyringeTarget && ctx.heldItem.mesh.userData.isSyringe) {
+    if (ctx.hoveredSyringeTarget && ctx.heldItem.mesh.userData.isSyringe &&
+        ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+        ctx.heldItem.meta.compatibilities.transfersLiquidCulture) {
       const syrCtrl = ctx.heldItem.mesh.userData.syrCtrl;
       const tgt = ctx.hoveredSyringeTarget;
       if (ctx.syringePumping) return;
+      if (tgt.mode === 'draw' && !canSyringeSource(tgt.item)) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Aspire apenas cultura líquida do frasco próprio; água e meio PDA/BDA não são cultura.');
+        return;
+      }
+      if (tgt.mode === 'inject' && !canSyringeTarget(tgt.item)) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não está preparado para receber cultura pela seringa.');
+        return;
+      }
       const fromVol = syrCtrl.volMl;
       const sourceVol = tgt.mode === 'draw' && tgt.item && tgt.item.mesh.userData.liquidCtrl
         ? tgt.item.mesh.userData.liquidCtrl.volMl
@@ -343,8 +362,14 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (ctx.hoveredSink) {
-      if (ctx.heldItem.pdaMediumCtrl) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não encha um recipiente com meio PDA/BDA pela pia; use o garrafão de água destilada no béquer.');
+      const medium = ctx.heldItem.pdaMediumCtrl;
+      const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !cp.lidItem.isAttached);
+      if (hasPdaContents(ctx.heldItem)) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente já contém ou processou meio PDA/BDA; use um recipiente limpo.');
+        return;
+      }
+      if (!isPotHeld && !canFillFromSink(ctx.heldItem)) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode ser preenchido pela pia.');
         return;
       }
       let filledSomething = false;
@@ -353,6 +378,7 @@ export function handlePrimaryAction(ctx) {
         const addAmt = lc.maxMl >= 4000 ? 1000 : (lc.maxMl >= 500 ? 250 : lc.maxMl);
         if (lc.volMl < lc.maxMl) {
           updateContainerVolume(ctx.heldItem, Math.min(lc.maxMl, lc.volMl + addAmt));
+          if (medium) markPdaVolumeChanged(ctx.heldItem);
           filledSomething = true;
         }
       } else {
@@ -370,14 +396,17 @@ export function handlePrimaryAction(ctx) {
         triggerSinkStream(ctx.hoveredSink, 900);
         if (window.MycoAudio) window.MycoAudio.playSpray();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        ctx.notifyWorldAction();
       } else if (ctx.callbacks.onToast) {
         ctx.callbacks.onToast('💧 Recipiente já está cheio!');
       }
       return;
     }
     if (ctx.hoveredFillPot && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
-      if (ctx.heldItem.pdaMediumCtrl) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Transfira o meio para o frasco ou Falcon antes de levar à panela.');
+      const sourceCanPourWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+        ctx.heldItem.meta.compatibilities.poursWater;
+      if (!sourceCanPourWater || hasPdaContents(ctx.heldItem)) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A panela recebe água, não cultura líquida ou meio PDA/BDA.');
         return;
       }
       const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
@@ -389,6 +418,7 @@ export function handlePrimaryAction(ctx) {
         updateCookerWaterVisual(cp);
         if (window.MycoAudio) window.MycoAudio.playSpray();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        ctx.notifyWorldAction();
       }
       return;
     }
@@ -396,16 +426,72 @@ export function handlePrimaryAction(ctx) {
       const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
       const dstItem = ctx.hoveredPourTarget;
       const dstLc = dstItem.mesh && dstItem.mesh.userData.liquidCtrl;
+      const srcPda = ctx.heldItem.pdaMediumCtrl;
+      const sourceHasPda = hasPdaContents(ctx.heldItem);
+      const sourceCanPourWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+        ctx.heldItem.meta.compatibilities.poursWater;
+      if (!sourceHasPda && !sourceCanPourWater) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode despejar água ou solução.');
+        return;
+      }
+      const dstPetri = dstItem.mesh && dstItem.mesh.userData.petriCtrl;
+      const petriAcceptsPda = !!(dstItem.meta && dstItem.meta.compatibilities &&
+        dstItem.meta.compatibilities.acceptsPdaMedium);
+      if (sourceHasPda && petriAcceptsPda && dstPetri && dstPetri.mode === 'bare') {
+        if (srcLc.volMl < 20) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ São necessários 20ml de meio preparado para preencher uma placa de Petri.');
+          return;
+        }
+        if (srcPda.burned || srcPda.sterilized || !srcPda.mixed ||
+            !isPdaRecipeBalanced(srcPda, srcLc.volMl)) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Misture o meio PDA/BDA na proporção de 40g/L antes de preencher a placa.');
+          return;
+        }
+        const pourAmt = 20;
+        const sourceVolumeMl = srcLc.volMl;
+        const transferredGrams = srcPda.powderGrams * pourAmt / sourceVolumeMl;
+        srcPda.powderGrams = Math.max(0, srcPda.powderGrams - transferredGrams);
+        updateContainerVolume(ctx.heldItem, sourceVolumeMl - pourAmt);
+        updatePdaMediumVisual(ctx.heldItem);
+        fillPetriWithPda(dstItem);
+        if (window.MycoAudio) window.MycoAudio.playSpray();
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧫 ' + pourAmt + 'ml de meio PDA/BDA colocados na placa. Leve para esterilizar.');
+        ctx.notifyWorldAction();
+        return;
+      }
+      if (dstItem.spawnCtrl && dstItem.spawnCtrl.isPP5 && !sourceHasPda) {
+        const spawn = dstItem.spawnCtrl;
+        const receivesWater = dstItem.meta && dstItem.meta.compatibilities &&
+          dstItem.meta.compatibilities.receivesWater;
+        if (!receivesWater || !spawn.filled || spawn.substrateKind === 'pda' || spawn.waterMl >= 35) return;
+        const pourAmt = Math.min(srcLc.volMl, 35 - (spawn.waterMl || 0));
+        if (pourAmt > 0) {
+          updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
+          spawn.waterMl = (spawn.waterMl || 0) + pourAmt;
+          spawn.updateVisual();
+          if (window.MycoAudio) window.MycoAudio.playSpray();
+          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+          ctx.notifyWorldAction();
+        }
+        return;
+      }
       if (dstLc) {
-        const srcPda = ctx.heldItem.pdaMediumCtrl;
-        if (srcPda) {
+        if (sourceHasPda) {
           const dstPda = dstItem.pdaMediumCtrl;
           if (srcPda.burned || srcPda.sterilized || !srcPda.mixed || !isPdaRecipeBalanced(srcPda, srcLc.volMl)) {
             if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Misture o meio PDA/BDA na proporção de 40g/L antes de transferir.');
             return;
           }
-          if (!dstPda || (dstPda.kind !== 'media_bottle' && !(dstPda.kind === 'falcon' && dstPda.isSlant))) {
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Transfira o meio preparado para um Falcon de 15ml ou para o frasco de 1L.');
+          const canReceivePda = !!(dstPda && (
+            dstItem.meta && dstItem.meta.compatibilities &&
+            dstItem.meta.compatibilities.acceptsPdaMedium &&
+            (dstPda.kind === 'media_bottle' ||
+              (dstPda.kind === 'falcon' && dstPda.isSlant) ||
+              (dstPda.kind === 'pp5' && dstItem.spawnCtrl && dstItem.spawnCtrl.isPP5 && !dstItem.spawnCtrl.filled))
+          ));
+          if (!canReceivePda) {
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Transfira o meio para um Falcon slant, frasco de 1L ou PP5 vazio.');
             return;
           }
           if (dstPda.burned || dstPda.sterilized) {
@@ -423,6 +509,10 @@ export function handlePrimaryAction(ctx) {
             updateContainerVolume(ctx.heldItem, sourceVolMl - pourAmt);
             updateContainerVolume(dstItem, dstLc.volMl + pourAmt);
             transferPdaGrams(ctx.heldItem, dstItem, pourAmt, sourceVolMl);
+            if (dstPda.kind === 'pp5') {
+              preparePP5ForPda(dstItem);
+              updatePdaMediumVisual(dstItem);
+            }
             if (window.MycoAudio) window.MycoAudio.playSpray();
             if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
             if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧪 Meio transferido para ' + dstItem.label + '. Leve à panela para esterilizar.');
@@ -431,10 +521,15 @@ export function handlePrimaryAction(ctx) {
           return;
         }
 
-        if (dstItem.pdaMediumCtrl &&
-            (dstItem.pdaMediumCtrl.kind === 'beaker' || dstItem.pdaMediumCtrl.kind === 'media_bottle') &&
-            !ctx.heldItem.pdaMediumCtrl) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Use água destilada no béquer ou transfira um meio PDA/BDA já preparado.');
+        const receivesWater = dstItem.meta && dstItem.meta.compatibilities &&
+          dstItem.meta.compatibilities.receivesWater;
+        if (!receivesWater) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode receber água por transferência.');
+          return;
+        }
+        const destinationHasPda = hasPdaContents(dstItem);
+        if (destinationHasPda && !sourceHasPda) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não dilua um meio PDA/BDA em preparo; use água no próprio béquer ou transfira outro meio preparado.');
           return;
         }
 
@@ -449,6 +544,13 @@ export function handlePrimaryAction(ctx) {
           ctx.notifyWorldAction();
         }
       } else if (dstItem.bowlCtrl) {
+        const receivesWater = dstItem.meta && dstItem.meta.compatibilities &&
+          dstItem.meta.compatibilities.receivesWater;
+        if (!receivesWater) return;
+        if (hasPdaContents(ctx.heldItem)) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Meio PDA/BDA não pode ser adicionado como água da receita; use água limpa.');
+          return;
+        }
         const pourAmt = Math.min(srcLc.volMl, 50);
         if (pourAmt > 0) {
           updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
@@ -456,35 +558,41 @@ export function handlePrimaryAction(ctx) {
           if (window.MycoAudio) window.MycoAudio.playSpray();
           if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 +' + pourAmt + 'g água no Pote de Mistura!');
-        }
-      } else if (dstItem.spawnCtrl && dstItem.spawnCtrl.isPP5 && dstItem.spawnCtrl.filled && (dstItem.spawnCtrl.waterMl || 0) < 35) {
-        const pourAmt = Math.min(srcLc.volMl, 35 - (dstItem.spawnCtrl.waterMl || 0));
-        if (pourAmt > 0) {
-          updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
-          dstItem.spawnCtrl.waterMl = (dstItem.spawnCtrl.waterMl || 0) + pourAmt;
-          dstItem.spawnCtrl.updateVisual();
-          if (window.MycoAudio) window.MycoAudio.playSpray();
-          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+          ctx.notifyWorldAction();
         }
       }
       return;
     }
-    if (ctx.hoveredFlocaoTarget && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isFlocao) {
+    if (ctx.hoveredFlocaoTarget && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isFlocao &&
+        ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+        ctx.heldItem.meta.compatibilities.fillsPP5WithFlocao) {
       if (ctx.hoveredFlocaoTarget.bowlCtrl) {
+        const receivesIngredients = ctx.hoveredFlocaoTarget.meta && ctx.hoveredFlocaoTarget.meta.compatibilities &&
+          ctx.hoveredFlocaoTarget.meta.compatibilities.receivesIngredients;
+        if (!receivesIngredients) return;
         addIngredientToBowl(ctx.hoveredFlocaoTarget, 'flocao', 50);
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 +50g de Flocão no Pote de Mistura! (' + ctx.hoveredFlocaoTarget.label + ')');
+        ctx.notifyWorldAction();
         return;
       }
       const ppSc = ctx.hoveredFlocaoTarget.spawnCtrl;
-      if (ppSc && !ppSc.filled) {
+      const receivesFlocao = ctx.hoveredFlocaoTarget.meta && ctx.hoveredFlocaoTarget.meta.compatibilities &&
+        ctx.hoveredFlocaoTarget.meta.compatibilities.receivesFlocao;
+      if (ppSc && receivesFlocao && !ppSc.filled) {
         ppSc.filled = true;
         ppSc.fillGrams = 45;
+        ppSc.substrateKind = 'flocao';
         ppSc.baseLabel = 'Potinho PP5 145ml (Flocão)';
+        if (ctx.hoveredFlocaoTarget.meta && ctx.hoveredFlocaoTarget.meta.compatibilities) {
+          ctx.hoveredFlocaoTarget.meta.compatibilities.acceptsPdaMedium = false;
+          ctx.hoveredFlocaoTarget.meta.compatibilities.receivesFlocao = false;
+        }
         if (ppSc.fillMesh) ppSc.fillMesh.visible = true;
         ppSc.updateVisual();
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 45g de Flocão colocados no Potinho PP5! Adicione água e esterilize por 1h20m.');
+        ctx.notifyWorldAction();
       }
       return;
     }
@@ -495,6 +603,7 @@ export function handlePrimaryAction(ctx) {
         if (ctx.callbacks.onToast) {
           ctx.callbacks.onToast(res.empty ? '🥄 Pote de Mistura está vazio!' : (res.done ? '✅ Receita homogênea pronta para porcionar!' : '🥄 Misturando (' + res.stirCount + '/3)...'));
         }
+        if (!res.empty) ctx.notifyWorldAction();
         return;
       }
       if (ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed && ctx.hoveredBowlTarget.spawnCtrl) {
@@ -517,13 +626,16 @@ export function handlePrimaryAction(ctx) {
           if (window.MycoAudio) window.MycoAudio.playClick();
           if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('🥣 Receita porcionada em ' + dstSc.baseLabel + '!');
+          ctx.notifyWorldAction();
         } else if (ctx.callbacks.onToast) {
           ctx.callbacks.onToast('⚠️ Mistura insuficiente: precisa de ' + needSolid + 'g de sólido e ' + needWater + 'ml de água.');
         }
         return;
       }
     }
-    if (ctx.hoveredScalpelTarget && ctx.heldItem.scalpelCtrl) {
+    if (ctx.hoveredScalpelTarget && ctx.heldItem.scalpelCtrl &&
+        ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+        ctx.heldItem.meta.compatibilities.transfersMycelium) {
       const sc = ctx.heldItem.scalpelCtrl;
       const tgt = ctx.hoveredScalpelTarget;
       if (tgt.mode === 'blade') {
@@ -535,14 +647,22 @@ export function handlePrimaryAction(ctx) {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada no bisturi!');
+        ctx.notifyWorldAction();
       } else if (tgt.mode === 'cut') {
         sc.hasMycelium = true;
         updateScalpelLabel(ctx.heldItem);
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Leve até um potinho PP5 estéril.');
+        ctx.notifyWorldAction();
       } else if (tgt.mode === 'transfer' && tgt.item && tgt.item.spawnCtrl) {
         const dstSc = tgt.item.spawnCtrl;
+        const receivesMyceliumCut = tgt.item.meta && tgt.item.meta.compatibilities &&
+          tgt.item.meta.compatibilities.receivesMyceliumCut;
+        if (!receivesMyceliumCut || !dstSc.filled || dstSc.inoculated) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode receber outro corte de micélio.');
+          return;
+        }
         const isAseptic = isAsepticWorkArea(ctx, tgt.item);
         dstSc.inoculated = true;
         if (!sc.sterile || !dstSc.sterilized || (!isAseptic && Math.random() < 0.45)) {
@@ -556,20 +676,26 @@ export function handlePrimaryAction(ctx) {
         sc.sterile = false;
         updateScalpelLabel(ctx.heldItem);
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        ctx.notifyWorldAction();
       }
       return;
     }
     if (ctx.hoveredGrainTarget && ctx.heldItem.id.indexOf('substrate_') === 0) {
       const kind = ctx.heldItem.id.indexOf('grain') !== -1 ? 'grain' : 'sawdust';
       if (ctx.hoveredGrainTarget.bowlCtrl) {
+        const receivesIngredients = ctx.hoveredGrainTarget.meta && ctx.hoveredGrainTarget.meta.compatibilities &&
+          ctx.hoveredGrainTarget.meta.compatibilities.receivesIngredients;
+        if (!receivesIngredients) return;
         addIngredientToBowl(ctx.hoveredGrainTarget, kind === 'grain' ? 'corn' : 'sawdust', 100);
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 +100g no Pote de Mistura!');
+        ctx.notifyWorldAction();
         return;
       }
       if (fillSpawnWithSubstrate(ctx.hoveredGrainTarget, kind)) {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 ' + ctx.hoveredGrainTarget.label + ' preenchido!');
+        ctx.notifyWorldAction();
       }
       return;
     }
@@ -936,6 +1062,7 @@ export function updateHoverRay(ctx, customNdc) {
       for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
         const pCand = ctx.pickableItems[pi];
         if (pCand === ctx.heldItem || !pCand.pdaMediumCtrl || pCand.pdaMediumCtrl.kind !== 'beaker' ||
+            !pCand.meta || !pCand.meta.compatibilities || !pCand.meta.compatibilities.receivesPdaWater ||
             ctx.isHeldByRemote(pCand.id)) continue;
         const dx = pCand.mesh.position.x - pdaRefX, dz = pCand.mesh.position.z - pdaRefZ;
         if (dx * dx + dz * dz > 100) continue;
@@ -989,24 +1116,29 @@ export function updateHoverRay(ctx, customNdc) {
     }
     if (ctx.labSinkMeshes && ctx.labSinkMeshes.length) {
       const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !cp.lidItem.isAttached);
-      const isLiquidHeld = !!(ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl);
+      const isLiquidHeld = canFillFromSink(ctx.heldItem);
       if (isPotHeld || isLiquidHeld) {
         const sHits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
         if (sHits.length > 0 && sHits[0].distance < 3.5) {
           ctx.hoveredSink = sHits[0].object.userData.labSink;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🚰 Encher ' + ctx.heldItem.label + ' com água na Pia');
+          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🚰 Encher ' + ctx.heldItem.label + ' com água da torneira');
           return;
         }
       }
     }
     if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl && ctx.heldItem.mesh.userData.liquidCtrl.volMl > 0) {
-      if (ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.poursWater) {
+      const sourceHasPda = hasPdaContents(ctx.heldItem);
+      const sourceCanPourWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+        ctx.heldItem.meta.compatibilities.poursWater;
+      if (ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+          ctx.heldItem.meta.compatibilities.poursWater && !sourceHasPda) {
         const pdaRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
         const pdaRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
         for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
           const pCand = ctx.pickableItems[pi];
           if (pCand === ctx.heldItem || !pCand.pdaMediumCtrl || pCand.pdaMediumCtrl.kind !== 'beaker' ||
+              !pCand.meta || !pCand.meta.compatibilities || !pCand.meta.compatibilities.receivesPdaPowder ||
               ctx.isHeldByRemote(pCand.id)) continue;
           const dx = pCand.mesh.position.x - pdaRefX, dz = pCand.mesh.position.z - pdaRefZ;
           if (dx * dx + dz * dz > 100) continue;
@@ -1015,14 +1147,15 @@ export function updateHoverRay(ctx, customNdc) {
             ctx.hoveredPdaTarget = pCand;
             if (ctx.placementGhost) ctx.placementGhost.visible = false;
             const hint = pCand.pdaMediumCtrl.powderGrams > 0
-              ? '💧 Completar o preparo do PDA/BDA com água destilada'
-              : '🧪 Adicione o pó PDA/BDA antes da água destilada';
+              ? '💧 Completar o preparo do PDA/BDA com água'
+              : '🧪 Adicione o pó PDA/BDA antes da água';
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(hint);
             return;
           }
         }
       }
       for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
+        if (!sourceCanPourWater || sourceHasPda) break;
         const cp = ctx.cookerPots[ci];
         if (cp.lidItem.isAttached || cp.waterMl >= cp.maxWaterMl) continue;
         const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
@@ -1040,17 +1173,39 @@ export function updateHoverRay(ctx, customNdc) {
       for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
         const pCand = ctx.pickableItems[pi];
         if (pCand === ctx.heldItem || ctx.isHeldByRemote(pCand.id)) continue;
-        const isPourableLc = !!(pCand.mesh && pCand.mesh.userData.liquidCtrl && pCand.mesh.userData.liquidCtrl.volMl < pCand.mesh.userData.liquidCtrl.maxMl);
-        const isPourablePP5 = !!(pCand.spawnCtrl && pCand.spawnCtrl.isPP5 && pCand.spawnCtrl.filled && (pCand.spawnCtrl.waterMl || 0) < 35);
-        const isPourableBowl = !!pCand.bowlCtrl;
-        if (!isPourableLc && !isPourablePP5 && !isPourableBowl) continue;
+        const isPourableLc = !!(pCand.mesh && pCand.mesh.userData.liquidCtrl &&
+          pCand.mesh.userData.liquidCtrl.volMl < pCand.mesh.userData.liquidCtrl.maxMl &&
+          !(pCand.spawnCtrl && pCand.spawnCtrl.isPP5) &&
+          pCand.meta && pCand.meta.compatibilities &&
+          (sourceHasPda
+            ? pCand.meta.compatibilities.acceptsPdaMedium
+            : sourceCanPourWater && pCand.meta.compatibilities.receivesWater));
+        const isPourablePP5 = !!(pCand.spawnCtrl && pCand.spawnCtrl.isPP5 &&
+          (sourceHasPda
+            ? !pCand.spawnCtrl.filled && pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.acceptsPdaMedium
+            : sourceCanPourWater && pCand.spawnCtrl.filled && (pCand.spawnCtrl.waterMl || 0) < 35 &&
+              pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.receivesWater));
+        const isPourableBowl = !!(!sourceHasPda && sourceCanPourWater && pCand.bowlCtrl &&
+          pCand.meta && pCand.meta.compatibilities &&
+          pCand.meta.compatibilities.receivesWater);
+        const petriCtrl = pCand.mesh && pCand.mesh.userData.petriCtrl;
+        const isPourablePetri = !!(sourceHasPda && petriCtrl && petriCtrl.mode === 'bare' &&
+          pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.acceptsPdaMedium);
+        if (!isPourableLc && !isPourablePP5 && !isPourableBowl && !isPourablePetri) continue;
         const pdx = pCand.mesh.position.x - pRefX, pdz = pCand.mesh.position.z - pRefZ;
         if (pdx * pdx + pdz * pdz > 100) continue;
         const pHit = firstValidRayHit(ctx.raycaster.intersectObject(pCand.mesh, true));
         if (pHit && pHit.distance < 3.5) {
           ctx.hoveredPourTarget = pCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💧 Umedecer / Despejar água em ' + pCand.label);
+          if (ctx.callbacks.onHoverPrompt) {
+            const prompt = isPourablePetri
+              ? '🧫 Despejar 20ml de PDA/BDA em ' + pCand.label
+              : (isPourablePP5 && sourceHasPda
+                ? '🧪 Transferir meio PDA/BDA para ' + pCand.label
+                : '💧 Umedecer / Despejar água em ' + pCand.label);
+            ctx.callbacks.onHoverPrompt(prompt);
+          }
           return;
         }
       }
@@ -1060,8 +1215,12 @@ export function updateHoverRay(ctx, customNdc) {
       const fRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
         const fCand = ctx.pickableItems[fi];
-        const canFlocaoPP5 = !!(fCand.spawnCtrl && fCand.spawnCtrl.isPP5 && !fCand.spawnCtrl.filled);
-        const canFlocaoBowl = !!fCand.bowlCtrl;
+        const heldCanAddFlocao = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+          ctx.heldItem.meta.compatibilities.fillsPP5WithFlocao;
+        const canFlocaoPP5 = !!(heldCanAddFlocao && fCand.spawnCtrl && fCand.spawnCtrl.isPP5 &&
+          !fCand.spawnCtrl.filled && fCand.meta && fCand.meta.compatibilities && fCand.meta.compatibilities.receivesFlocao);
+        const canFlocaoBowl = !!(fCand.bowlCtrl && fCand.meta && fCand.meta.compatibilities &&
+          fCand.meta.compatibilities.receivesIngredients);
         if ((!canFlocaoPP5 && !canFlocaoBowl) || ctx.isHeldByRemote(fCand.id)) continue;
         const fdx = fCand.mesh.position.x - fRefX, fdz = fCand.mesh.position.z - fRefZ;
         if (fdx * fdx + fdz * fdz > 100) continue;
@@ -1122,7 +1281,8 @@ export function updateHoverRay(ctx, customNdc) {
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🔪 Cortar fragmento de micélio (' + sCand.label + ')');
             return;
           }
-          if (sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.filled && !sCand.spawnCtrl.inoculated) {
+          if (sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.filled && !sCand.spawnCtrl.inoculated &&
+              sCand.meta && sCand.meta.compatibilities && sCand.meta.compatibilities.receivesMyceliumCut) {
             ctx.hoveredScalpelTarget = { mode: 'transfer', item: sCand };
             if (ctx.placementGhost) ctx.placementGhost.visible = false;
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🍄 Transferir micélio para ' + sCand.label);
@@ -1136,19 +1296,28 @@ export function updateHoverRay(ctx, customNdc) {
       const gRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let gi = 0; gi < ctx.pickableItems.length; gi++) {
         const gCand = ctx.pickableItems[gi];
-        if (!gCand.spawnCtrl || gCand.spawnCtrl.filled || ctx.isHeldByRemote(gCand.id)) continue;
+        const receivesSubstrate = !!(gCand.spawnCtrl && !gCand.spawnCtrl.filled &&
+          gCand.meta && gCand.meta.compatibilities && gCand.meta.compatibilities.receivesSubstrate);
+        const receivesIngredients = !!(gCand.bowlCtrl && gCand.meta && gCand.meta.compatibilities &&
+          gCand.meta.compatibilities.receivesIngredients);
+        if ((!receivesSubstrate && !receivesIngredients) || ctx.isHeldByRemote(gCand.id)) continue;
         const gdx = gCand.mesh.position.x - gRefX, gdz = gCand.mesh.position.z - gRefZ;
         if (gdx * gdx + gdz * gdz > 100) continue;
         const gHit = firstValidRayHit(ctx.raycaster.intersectObject(gCand.mesh, true));
         if (gHit && gHit.distance < 3.5) {
           ctx.hoveredGrainTarget = gCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🌾 Encher ' + gCand.label + ' com grãos/substrato');
+          if (ctx.callbacks.onHoverPrompt) {
+            ctx.callbacks.onHoverPrompt(receivesIngredients
+              ? '🌾 Adicionar +100g de grãos/substrato no Pote de Mistura'
+              : '🌾 Encher ' + gCand.label + ' com grãos/substrato');
+          }
           return;
         }
       }
     }
-    if (ctx.heldItem.mesh.userData.isSyringe) {
+    if (ctx.heldItem.mesh.userData.isSyringe && ctx.heldItem.meta &&
+        ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.transfersLiquidCulture) {
       const sc = ctx.heldItem.mesh.userData.syrCtrl;
       const syRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
       const syRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
@@ -1159,7 +1328,7 @@ export function updateHoverRay(ctx, customNdc) {
         if (sydx * sydx + sydz * sydz > 100) continue;
         const sHit = firstValidRayHit(ctx.raycaster.intersectObject(cand.mesh, true));
         if (sHit && sHit.distance < 4.2) {
-          if (cand.mesh.userData.liquidCtrl) {
+          if (cand.mesh.userData.liquidCtrl && !(cand.spawnCtrl && cand.spawnCtrl.isPP5)) {
             const lc = cand.mesh.userData.liquidCtrl;
             if (ctx.syringePumping) {
               ctx.hoveredSyringeTarget = { item: cand, mode: ctx.syringePumping.toVol > ctx.syringePumping.fromVol ? 'draw' : 'inject' };
@@ -1168,15 +1337,21 @@ export function updateHoverRay(ctx, customNdc) {
               if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('⏳ ' + (ctx.syringePumping.toVol > ctx.syringePumping.fromVol ? 'Aspirando Micélio' : 'Injetando de volta') + ' (' + pPct + '%)...');
               return;
             }
-            if (sc.volMl < 9.9 && lc.volMl > 0) {
+            if (sc.volMl < 9.9 && lc.volMl > 0 && canSyringeSource(cand)) {
               ctx.hoveredSyringeTarget = { item: cand, mode: 'draw' };
               if (ctx.placementGhost) ctx.placementGhost.visible = false;
               if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Furando Septo • Clique para aspirar cultura líquida (2s)');
               return;
-            } else if (sc.volMl > 0.1) {
+            } else if (sc.volMl > 0.1 && canSyringeTarget(cand)) {
               ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
               if (ctx.placementGhost) ctx.placementGhost.visible = false;
               if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Seringa cheia (' + Math.round(sc.volMl) + 'ml) • Clique para esvaziar de volta (2s)');
+              return;
+            } else if (sc.volMl < 9.9 && lc.volMl > 0 && ctx.callbacks.onHoverPrompt) {
+              ctx.callbacks.onHoverPrompt('⚠️ Aspiração disponível apenas em frasco de cultura líquida');
+              return;
+            } else if (sc.volMl > 0.1 && ctx.callbacks.onHoverPrompt) {
+              ctx.callbacks.onHoverPrompt('⚠️ Este recipiente não recebe cultura pela seringa');
               return;
             }
           } else if (canSyringeTarget(cand)) {
@@ -1189,16 +1364,20 @@ export function updateHoverRay(ctx, customNdc) {
             }
             return;
           } else if (cand.spawnCtrl) {
-            const prompt = getSyringeTargetHint(cand.spawnCtrl, sc.volMl);
+            const pdaAgarReady = cand.pdaMediumCtrl && cand.pdaMediumCtrl.powderGrams > 0 &&
+              cand.mesh.userData.liquidCtrl && cand.mesh.userData.liquidCtrl.volMl > 0;
+            const prompt = getSyringeTargetHint(cand.spawnCtrl, sc.volMl, pdaAgarReady, cand.pdaMediumCtrl);
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
             return;
           } else if (cand.mesh.userData.isPetri) {
             const petriMode = cand.mesh.userData.petriCtrl && cand.mesh.userData.petriCtrl.mode;
             const prompt = petriMode === 'bare'
               ? '🧫 Adicione meio PDA antes de inocular esta placa'
+              : (petriMode === 'filled'
+                ? '♨️ Esterilize o meio PDA/BDA na panela antes de inocular'
               : (petriMode === 'empty'
                 ? '🧫 Placa estéril pronta para inocular'
-                : '🧫 Esta placa já contém cultura; use o bisturi para transferir micélio');
+                : '🧫 Esta placa já contém cultura; use o bisturi para transferir micélio'));
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
             return;
           }
