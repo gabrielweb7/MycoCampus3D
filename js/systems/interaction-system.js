@@ -14,6 +14,7 @@ import {
 } from '../entities/placement-ghost.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { scrollRanking } from '../world/staircase-clock.js';
+import { canItemEnterCooker, canSyringeTarget } from '../items/item-registry.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -572,7 +573,7 @@ export function updateHoverRay(ctx, customNdc) {
         }
       }
     }
-    if (!ctx.heldItem.mesh.userData.twoHanded && !ctx.heldItem.mesh.userData.isSyringe && !ctx.heldItem.mesh.userData.isAlcoholSpray) {
+    if (canItemEnterCooker(ctx.heldItem)) {
       for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
         const cp = ctx.cookerPots[ci];
         if (cp.lidItem.isAttached || cp.contents.length >= 4) continue;
@@ -616,7 +617,7 @@ export function updateHoverRay(ctx, customNdc) {
               if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Seringa cheia (' + Math.round(sc.volMl) + 'ml) • Clique para esvaziar de volta (2s)');
               return;
             }
-          } else if (sc.volMl > 0 && (cand.id.indexOf('spawn_') === 0 || (cand.id.indexOf('petri_') === 0 && cand.id.indexOf('petri_bare_') !== 0))) {
+          } else if (sc.volMl > 0 && canSyringeTarget(cand)) {
             ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
             if (ctx.placementGhost) ctx.placementGhost.visible = false;
             if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Inocular ' + Math.round(sc.volMl) + 'ml em ' + cand.label + ' (2s)');

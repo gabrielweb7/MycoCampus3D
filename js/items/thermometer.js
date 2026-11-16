@@ -7,6 +7,15 @@ import { registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
 
+export const THERMOMETER_META = {
+  category: 'instrument',
+  purpose: 'Medir temperatura superficial por laser infravermelho sem contato',
+  weightGrams: 190,
+  baseTempC: 23.5,
+  compatibilities: { canEnterCooker: false, scansTemperature: true },
+  connections: ['burner', 'pressure_cooker', 'laminar_hood', 'greenhouse_slot', 'liquid_culture']
+};
+
 export function makeInfraredThermometer(ctx, id, px, py, pz) {
   const thermoTex = ctx.ensureThermoTex ? ctx.ensureThermoTex() : null;
   const tg = new THREE.Group();
@@ -61,5 +70,5 @@ export function makeInfraredThermometer(ctx, id, px, py, pz) {
 
   tg.add(head, topCap, snout, lens, laserDiode, backBezel, screenMesh, handle, trigger, sticker);
   tg.userData.isThermometer = true;
-  return registerPickable(ctx, id, 'Termômetro Laser Infravermelho', tg, px, py, pz, 0, 0.18, 0.22);
+  return registerPickable(ctx, id, 'Termômetro Laser Infravermelho', tg, px, py, pz, 0, 0.18, 0.22, THERMOMETER_META);
 }

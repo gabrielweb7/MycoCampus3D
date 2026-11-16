@@ -1,20 +1,31 @@
 /**
- * Utilitarios Compartilhados de Itens Pegaveis (MycoCampus3D)
+ * Registro e Metadados Compartilhados de Itens (MycoCampus3D)
+ * Cada item define seu objetivo, configs, peso, temperatura base, compatibilidades e conexoes.
  */
 
 const THREE = window.THREE;
 
-export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, height) {
+export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, height, meta) {
   mesh.position.set(x, y, z);
   mesh.rotation.y = ry || 0;
   if (ctx.isTouchDevice && ctx.isTouchDevice() && !mesh.userData.twoHanded) {
     mesh.traverse(function (ch) { if (ch.isMesh) ch.castShadow = false; });
   }
   ctx.scene.add(mesh);
+  const resolvedMeta = Object.assign({
+    category: 'tool',
+    purpose: '',
+    weightGrams: 150,
+    baseTempC: 23.3,
+    compatibilities: {},
+    connections: []
+  }, meta || {});
+
   const entry = {
     id,
     label,
     mesh,
+    meta: resolvedMeta,
     homePos: new THREE.Vector3(x, y, z),
     homeRy: ry || 0,
     radius: radius || 0.25,
@@ -24,8 +35,51 @@ export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, heig
   };
   mesh.userData.pickableId = id;
   mesh.userData.pickableLabel = label;
+  mesh.userData.itemMeta = resolvedMeta;
   ctx.pickableItems.push(entry);
   return entry;
+}
+
+export function getItemWeightGrams(item) {
+  if (!item) return 0;
+  const meta = item.meta || (item.mesh && item.mesh.userData && item.mesh.userData.itemMeta);
+  if (meta && typeof meta.getWeightGrams === 'function') {
+    return meta.getWeightGrams(item);
+  }
+  if (meta && typeof meta.weightGrams === 'number') {
+    return meta.weightGrams;
+  }
+  return 150;
+}
+
+export function getItemBaseTempC(item, ctx) {
+  if (!item) return 23.3;
+  const meta = item.meta || (item.mesh && item.mesh.userData && item.mesh.userData.itemMeta);
+  if (meta && typeof meta.getTempC === 'function') {
+    return meta.getTempC(item, ctx);
+  }
+  if (meta && typeof meta.baseTempC === 'number') {
+    return meta.baseTempC;
+  }
+  return 23.3;
+}
+
+export function canItemEnterCooker(item) {
+  if (!item || !item.mesh) return false;
+  const meta = item.meta || item.mesh.userData.itemMeta;
+  if (meta && meta.compatibilities && meta.compatibilities.canEnterCooker !== undefined) {
+    return !!meta.compatibilities.canEnterCooker;
+  }
+  return !item.mesh.userData.twoHanded && !item.mesh.userData.isSyringe && !item.mesh.userData.isAlcoholSpray;
+}
+
+export function canSyringeTarget(item) {
+  if (!item || !item.mesh) return false;
+  const meta = item.meta || item.mesh.userData.itemMeta;
+  if (meta && meta.compatibilities && meta.compatibilities.receivesSyringe !== undefined) {
+    return !!meta.compatibilities.receivesSyringe;
+  }
+  return !!(item.mesh.userData.liquidCtrl || item.id.indexOf('spawn_') === 0 || (item.id.indexOf('petri_') === 0 && item.id.indexOf('petri_bare_') !== 0));
 }
 
 export function updateItemBounds(item) {

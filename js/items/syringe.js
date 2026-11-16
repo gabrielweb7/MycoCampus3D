@@ -6,6 +6,16 @@ import { registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
 
+export const SYRINGE_META = {
+  category: 'inoculation',
+  purpose: 'Aspirar cultura líquida e inocular vidros, bags e placas de Petri',
+  maxVolumeMl: 10,
+  baseTempC: 23.6,
+  getWeightGrams: (item) => 12 + ((item && item.mesh && item.mesh.userData.syrCtrl) ? item.mesh.userData.syrCtrl.volMl : 0),
+  compatibilities: { canEnterCooker: false, transfersLiquidCulture: true },
+  connections: ['liquid_culture', 'spawn_jar', 'spawn_bag', 'petri_dish']
+};
+
 export function updateSyringeVolume(item, newVol) {
   if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
   const sc = item.mesh.userData.syrCtrl;
@@ -58,7 +68,7 @@ export function makeSyringe10ml(ctx, id, px, py, pz) {
   sg.add(layWrap);
   sg.userData.isSyringe = true;
   sg.userData.syrCtrl = { volMl: 0, liqMesh, plunger };
-  const item = registerPickable(ctx, id, 'Seringa 10ml (Vazia)', sg, px, py, pz, 0, 0.14, 0.06);
+  const item = registerPickable(ctx, id, 'Seringa 10ml (Vazia)', sg, px, py, pz, 0, 0.14, 0.06, SYRINGE_META);
   item.setVolume = function (v) { updateSyringeVolume(item, v); };
   updateSyringeVolume(item, 0);
   return item;

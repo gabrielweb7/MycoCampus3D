@@ -4,6 +4,15 @@
 
 const THREE = window.THREE;
 
+export const PDA_BOTTLE_META = {
+  category: 'reagent',
+  purpose: 'Meio sólido Ágar Batata Dextrose (BDA/PDA) para placas de Petri',
+  weightGrams: 540,
+  baseTempC: 24.0,
+  compatibilities: { canEnterCooker: true },
+  connections: ['petri_dish', 'precision_scale', 'pressure_cooker']
+};
+
 export function createPdaBottleGroup() {
   const pdaGroup = new THREE.Group();
   const hdpeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35, metalness: 0.05 });

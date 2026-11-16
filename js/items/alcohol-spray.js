@@ -7,6 +7,20 @@ import { registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
 
+export const ALCOHOL_SPRAY_META = {
+  category: 'sanitization',
+  purpose: 'Higienizar superfícies, fluxo laminar e hidratar a estufa',
+  weightGrams: 380,
+  baseTempC: 20.2,
+  compatibilities: {
+    canEnterCooker: false,
+    canSanitizeHood: true,
+    canSanitizeItems: true,
+    canHydrateGreenhouse: true
+  },
+  connections: ['laminar_hood', 'greenhouse_slot', 'table', 'petri']
+};
+
 export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
   const ag = new THREE.Group();
   const bottle = new THREE.Mesh(
@@ -25,7 +39,7 @@ export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
   trig.position.set(0, 0.212, 0.042);
   ag.add(bottle, neck, nozzle, trig);
   ag.userData.isAlcoholSpray = true;
-  return registerPickable(ctx, id, 'Borrifador Álcool 70%', ag, px, py, pz, Math.PI / 2, 0.12, 0.26);
+  return registerPickable(ctx, id, 'Borrifador Álcool 70%', ag, px, py, pz, Math.PI / 2, 0.12, 0.26, ALCOHOL_SPRAY_META);
 }
 
 export function stepSprayBursts(ctx, dt) {

@@ -7,6 +7,15 @@ import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-re
 
 const THREE = window.THREE;
 
+export const MAGNETIC_STIRRER_META = {
+  category: 'equipment',
+  purpose: 'Agitar homogeneamente frascos de cultura líquida com peixinho magnético',
+  weightGrams: 1650,
+  baseTempC: 23.8,
+  compatibilities: { canEnterCooker: false, stirsLiquidContainers: true },
+  connections: ['liquid_culture', 'beaker_1l']
+};
+
 export function makeMagneticStirrer(ctx, id, px, py, pz) {
   const sg = new THREE.Group();
   const baseMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.35, metalness: 0.12 });
@@ -69,7 +78,7 @@ export function makeMagneticStirrer(ctx, id, px, py, pz) {
   knob2.children.forEach(function (c) { c.userData.stirSwitch = stirState; ctx.stirSwitchMeshes.push(c); });
   ctx.stirSwitchMeshes.push(frontPanel);
   ctx.stirrerDevices.push(stirState);
-  return registerPickable(ctx, id, 'Agitador Magnético (MYCO-MAG)', sg, px, py, pz, 0, 0.24, 0.14);
+  return registerPickable(ctx, id, 'Agitador Magnético (MYCO-MAG)', sg, px, py, pz, 0, 0.24, 0.14, MAGNETIC_STIRRER_META);
 }
 
 export function stepMagneticStirrers(ctx, dt) {

@@ -7,6 +7,7 @@ import { getGroundHeight } from '../engine/physics.js';
 import { getVirtualDayFrac } from '../world/staircase-clock.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateSyringeVolume } from '../items/syringe.js';
+import { getItemBaseTempC } from '../items/item-registry.js';
 import { greenhouseSlots } from '../world/greenhouse.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 
@@ -134,23 +135,9 @@ function updateThermometerLaser(ctx, dt, now) {
         }
         if (pNode) {
           const pid = pNode.userData.pickableId;
-          sLbl = pNode.userData.pickableLabel || pid;
-          if (pid.indexOf('heat_sealer') === 0) sTemp = 165.0 + Math.sin(ctx.clock.elapsedTime * 2.5) * 1.2;
-          else if (pid.indexOf('laminar_hood') === 0) sTemp = (ctx.hoodAirData && ctx.hoodAirData.on) ? 21.2 : 23.5;
-          else if (pid.indexOf('precision_scale') === 0) sTemp = 24.1;
-          else if (pid.indexOf('alcohol_spray') === 0) sTemp = 20.2;
-          else if (pid.indexOf('liquid_culture') === 0) sTemp = 24.5 + Math.sin(ctx.clock.elapsedTime * 2.0) * 0.2;
-          else if (pid === 'petri_contam') sTemp = 26.8;
-          else if (pid.indexOf('petri_') === 0) sTemp = 25.0;
-          else if (pid === 'spawn_bag_colonized' || (pNode.userData.spawnCtrl && pNode.userData.spawnCtrl.inoculated)) sTemp = 26.4;
-          else if (pid.indexOf('spawn_') === 0) sTemp = 23.8;
-          else if (pid.indexOf('fruiting_block') === 0) sTemp = 21.4;
-          else if (pid.indexOf('substrate_') === 0) sTemp = 22.6;
-          else if (pid.indexOf('pda_bottle') === 0) sTemp = 24.0;
-          else if (pid.indexOf('syringe_') === 0) sTemp = 23.6;
-          else if (pid.indexOf('beaker_') === 0) sTemp = 23.5;
-          else if (pid.indexOf('table_') === 0) sTemp = 21.8;
-          else sTemp = 23.3;
+          const pItem = ctx.findPickable ? ctx.findPickable(pid) : null;
+          sLbl = (pItem && pItem.label) || pNode.userData.pickableLabel || pid;
+          sTemp = pItem ? getItemBaseTempC(pItem, ctx) : 23.3;
         } else if (lHit.point.x > 18 && lHit.point.z > 5 && lHit.point.z < 11) {
           sTemp = 20.5 + Math.cos(ctx.clock.elapsedTime * 1.5) * 0.3;
           sLbl = 'Estufa de Frutificação';

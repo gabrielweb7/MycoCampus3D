@@ -9,6 +9,34 @@ import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-re
 const THREE = window.THREE;
 const LAB = GAME_CONFIG.lab;
 
+export const PRESSURE_COOKER_META = {
+  category: 'sterilization',
+  purpose: 'Esterilizar substratos, grãos e cultura líquida a 121°C / 15 PSI',
+  weightGrams: 5200,
+  baseTempC: 25.0,
+  maxContents: 4,
+  compatibilities: { canEnterCooker: false, acceptsContents: true, heatsOnBurner: true },
+  connections: ['electric_burner', 'spawn_jar', 'spawn_bag', 'liquid_culture', 'pda_bottle', 'substrate_5kg']
+};
+
+export const PRESSURE_LID_META = {
+  category: 'sterilization',
+  purpose: 'Vedação com válvula de segurança e trava de pressão (>= 1.5 PSI)',
+  weightGrams: 1100,
+  baseTempC: 25.0,
+  compatibilities: { canEnterCooker: false, snapsToCookerPot: true },
+  connections: ['pressure_cooker']
+};
+
+export const ELECTRIC_BURNER_META = {
+  category: 'heating',
+  purpose: 'Aquecer a panela de pressão até atingir 121°C e 15 PSI',
+  weightGrams: 3400,
+  baseTempC: 24.0,
+  compatibilities: { canEnterCooker: false, heatsCookerOnSurface: true },
+  connections: ['pressure_cooker']
+};
+
 export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py, pz) {
   const steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.55, metalness: 0.2 });
@@ -31,7 +59,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   });
   potGroup.add(potBody, potBase, potBottomIn, potRim);
   potGroup.userData.twoHanded = true;
-  const potItem = registerPickable(ctx, potId, 'Panela de Pressão 20L (' + labelSuffix + ')', potGroup, px, py, pz, 0, 0.30, 0.42);
+  const potItem = registerPickable(ctx, potId, 'Panela de Pressão 20L (' + labelSuffix + ')', potGroup, px, py, pz, 0, 0.30, 0.42, PRESSURE_COOKER_META);
 
   const lidGroup = new THREE.Group();
   const lidRim = new THREE.Mesh(new THREE.CylinderGeometry(0.248, 0.256, 0.045, 22), steelMat);
@@ -72,7 +100,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   steamPoints.userData.ignoreRay = true;
   lidGroup.add(steamPoints);
 
-  const lidItem = registerPickable(ctx, lidId, 'Tampa da Panela (' + labelSuffix + ')', lidGroup, px, py + 0.36, pz, 0, 0.26, 0.16);
+  const lidItem = registerPickable(ctx, lidId, 'Tampa da Panela (' + labelSuffix + ')', lidGroup, px, py + 0.36, pz, 0, 0.26, 0.16, PRESSURE_LID_META);
   lidItem.potItem = potItem;
   lidItem.isAttached = true;
   potItem.lidItem = lidItem;
@@ -195,7 +223,7 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   knobPointer.userData.burnerSwitchIdx = bIdx;
   ctx.burnerSwitchMeshes.push(knobBase, knobPointer);
   ctx.burnerDevices.push(bState);
-  return registerPickable(ctx, id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12);
+  return registerPickable(ctx, id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12, ELECTRIC_BURNER_META);
 }
 
 export function stepPressureCookers(ctx, dt) {

@@ -6,6 +6,15 @@ import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-re
 
 const THREE = window.THREE;
 
+export const STAINLESS_TABLE_META = {
+  category: 'furniture',
+  purpose: 'Bancada móvel em aço inox para equipamentos e manipulação',
+  weightGrams: 18000,
+  baseTempC: 21.8,
+  compatibilities: { canEnterCooker: false, supportsItemsOnSurface: true },
+  connections: ['pressure_cooker', 'burner', 'laminar_hood', 'magnetic_stirrer', 'lab_tray']
+};
+
 export function addMovableStainlessTable(ctx, id, label, tx, floorY, tz, tw, th, td) {
   const inoxMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.22 });
   const legMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.9, roughness: 0.15 });
@@ -40,5 +49,5 @@ export function addMovableStainlessTable(ctx, id, label, tx, floorY, tz, tw, th,
   tg.userData.dynamicCollider = col;
   tg.userData.updateBounds = updateItemBounds;
   tg.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(ctx, surf, item); };
-  return registerPickable(ctx, id, label, tg, tx, floorY, tz, 0, Math.max(tw, td) * 0.5, th);
+  return registerPickable(ctx, id, label, tg, tx, floorY, tz, 0, Math.max(tw, td) * 0.5, th, STAINLESS_TABLE_META);
 }

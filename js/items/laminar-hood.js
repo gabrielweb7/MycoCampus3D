@@ -8,6 +8,15 @@ import { addMovableStainlessTable } from './stainless-table.js';
 
 const THREE = window.THREE;
 
+export const LAMINAR_HOOD_META = {
+  category: 'equipment',
+  purpose: 'Cabine de fluxo laminar HEPA para trabalho asséptico e inoculação estéril',
+  weightGrams: 45000,
+  getTempC: (item, ctx) => (ctx && ctx.hoodAirData && ctx.hoodAirData.on) ? 21.2 : 23.5,
+  compatibilities: { canEnterCooker: false, requiresSanitization: true, supportsItemsOnSurface: true },
+  connections: ['alcohol_spray', 'petri_dish', 'syringe', 'spawn_jar', 'spawn_bag']
+};
+
 export function buildLaminarHoodAndBenches(ctx) {
   const scene = ctx.scene;
   const solidColliders = ctx.solidColliders;
@@ -134,7 +143,7 @@ export function buildLaminarHoodAndBenches(ctx) {
   hoodGroup.userData.dynamicSurface = hoodSurf;
   hoodGroup.userData.updateBounds = updateItemBounds;
   hoodGroup.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(ctx, hoodSurf, item); };
-  return registerPickable(ctx, 'laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -18.5, 1.02, -8.2, 0, 0.85, 1.1);
+  return registerPickable(ctx, 'laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -18.5, 1.02, -8.2, 0, 0.85, 1.1, LAMINAR_HOOD_META);
 }
 
 export function stepLaminarHood(ctx, dt) {

@@ -4,7 +4,16 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { makeBox } from '../engine/textures.js';
-import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
+import { registerPickable, updateItemBounds, isSurfaceOccupied, getItemWeightGrams } from './item-registry.js';
+
+export const PRECISION_SCALE_META = {
+  category: 'instrument',
+  purpose: 'Pesar substratos, grãos e reagentes com função TARE',
+  weightGrams: 1200,
+  baseTempC: 24.1,
+  compatibilities: { canEnterCooker: false, weighsItemsOnSurface: true },
+  connections: ['substrate_5kg', 'pda_bottle', 'beaker_1l', 'spawn_jar', 'spawn_bag']
+};
 
 const THREE = window.THREE;
 let lastScaleAt = 0;
@@ -54,7 +63,7 @@ export function createPrecisionScale(ctx, id, sx, sy, sz) {
   tareBtn.userData.scaleObj = scaleObj;
   ctx.scaleTareMeshes.push(tareBtn);
   ctx.scaleDevices.push(scaleObj);
-  return registerPickable(ctx, id, 'Balança de Precisão Digital', sg, sx, sy, sz, Math.PI / 2, 0.24, 0.12);
+  return registerPickable(ctx, id, 'Balança de Precisão Digital', sg, sx, sy, sz, Math.PI / 2, 0.24, 0.12, PRECISION_SCALE_META);
 }
 
 export function stepPrecisionScales(ctx, now) {
@@ -69,21 +78,7 @@ export function stepPrecisionScales(ctx, now) {
       if (ctx.heldItem === pIt || pIt.mesh.userData.tableDims || pIt.potItem) continue;
       const px0 = pIt.mesh.position.x, py0 = pIt.mesh.position.y, pz0 = pIt.mesh.position.z;
       if (px0 >= scObj.surface.minX && px0 <= scObj.surface.maxX && pz0 >= scObj.surface.minZ && pz0 <= scObj.surface.maxZ && py0 >= scObj.surface.topY - 0.04 && py0 <= scObj.surface.topY + 0.45) {
-        if (pIt.mesh.userData.liquidCtrl) gross += 260 + pIt.mesh.userData.liquidCtrl.volMl;
-        else if (pIt.id.indexOf('spawn_jar_empty') === 0) gross += 320;
-        else if (pIt.id.indexOf('spawn_jar') === 0) gross += 780;
-        else if (pIt.id.indexOf('spawn_bag_empty') === 0) gross += 25;
-        else if (pIt.id.indexOf('spawn_bag') === 0) gross += 1525;
-        else if (pIt.id.indexOf('pda_bottle') === 0) gross += 540;
-        else if (pIt.id.indexOf('petri_bare_') === 0) gross += 18;
-        else if (pIt.id.indexOf('petri_') === 0) gross += 38;
-        else if (pIt.mesh.userData.isSyringe) gross += 12 + pIt.mesh.userData.syrCtrl.volMl;
-        else if (pIt.mesh.userData.isAlcoholSpray) gross += 380;
-        else if (pIt.id.indexOf('substrate_') === 0) gross += 5000;
-        else if (pIt.id.indexOf('gloves_box_') === 0) gross += 420;
-        else if (pIt.id.indexOf('foil_roll_') === 0) gross += 260;
-        else if (pIt.id.indexOf('micropore_') === 0 || pIt.id.indexOf('parafilm_') === 0) gross += 65;
-        else gross += 150;
+        gross += getItemWeightGrams(pIt);
       }
     }
     scObj.lastGross = gross;

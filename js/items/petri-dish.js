@@ -4,6 +4,18 @@
 
 const THREE = window.THREE;
 
+export function getPetriMeta(mode) {
+  const isBare = mode === 'bare';
+  return {
+    category: 'culture_plate',
+    purpose: isBare ? 'Placa de Petri vazia aguardando meio PDA' : 'Cultivo de micélio em meio sólido BDA/PDA',
+    weightGrams: isBare ? 18 : 38,
+    baseTempC: mode === 'contam' ? 26.8 : 25.0,
+    compatibilities: { canEnterCooker: true, receivesSyringe: !isBare },
+    connections: ['laminar_hood', 'syringe', 'pda_bottle']
+  };
+}
+
 export function makePetriDish(mode) {
   const pg = new THREE.Group();
   const glassMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.08, metalness: 0.15 });

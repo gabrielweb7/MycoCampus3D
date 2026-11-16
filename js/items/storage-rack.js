@@ -121,7 +121,14 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
   lbl.position.set(0, 0.24, 0.112);
   sg.add(bag, lbl);
   const label = isGrain ? 'Saco de Grãos/Milho 5kg' : 'Saco de Substrato (Serragem/Coco) 5kg';
-  return registerPickable(ctx, id, label, sg, px, py, pz, 0, 0.26, 0.42);
+  return registerPickable(ctx, id, label, sg, px, py, pz, 0, 0.26, 0.42, {
+    category: 'substrate',
+    purpose: isGrain ? 'Grãos de milho para preparo de spawn/semente' : 'Substrato bulk (serragem + fibra de coco) para frutificação',
+    weightGrams: 5000,
+    baseTempC: 22.6,
+    compatibilities: { canEnterCooker: true },
+    connections: ['precision_scale', 'spawn_bag', 'pressure_cooker']
+  });
 }
 
 export function makeGlovesBox(ctx, id, px, py, pz) {
@@ -133,7 +140,14 @@ export function makeGlovesBox(ctx, id, px, py, pz) {
   const strip = makeBox(0.242, 0.04, 0.132, 0xf8fafc, { noShadow: true });
   strip.position.y = 0.085;
   gg.add(box, slot, strip);
-  return registerPickable(ctx, id, 'Caixa de Luvas Nitrílicas Estéreis', gg, px, py, pz, 0, 0.18, 0.14);
+  return registerPickable(ctx, id, 'Caixa de Luvas Nitrílicas Estéreis', gg, px, py, pz, 0, 0.18, 0.14, {
+    category: 'ppe',
+    purpose: 'Equipamento de proteção individual para manipulação asséptica',
+    weightGrams: 420,
+    baseTempC: 22.5,
+    compatibilities: { canEnterCooker: false },
+    connections: ['laminar_hood']
+  });
 }
 
 export function makeTapeRoll(ctx, id, kind, px, py, pz) {
@@ -151,7 +165,14 @@ export function makeTapeRoll(ctx, id, kind, px, py, pz) {
   core.position.y = outer.position.y;
   tg.add(outer, core);
   const lbl = isMicro ? 'Rolo de Fita Micropore (Troca Gasosa)' : 'Rolo de Parafilm M (Vedação Petri)';
-  return registerPickable(ctx, id, lbl, tg, px, py, pz, 0, 0.08, 0.06);
+  return registerPickable(ctx, id, lbl, tg, px, py, pz, 0, 0.08, 0.06, {
+    category: 'consumable',
+    purpose: isMicro ? 'Permitir troca gasosa estéril em frascos e bags' : 'Vedar placas de Petri contra contaminação',
+    weightGrams: 65,
+    baseTempC: 22.5,
+    compatibilities: { canEnterCooker: false },
+    connections: [isMicro ? 'spawn_jar' : 'petri_dish']
+  });
 }
 
 export function makeFoilRoll(ctx, id, px, py, pz) {
@@ -161,5 +182,12 @@ export function makeFoilRoll(ctx, id, px, py, pz) {
   const band = makeBox(0.322, 0.025, 0.067, 0xfef08a, { noShadow: true });
   band.position.y = 0.04;
   fg.add(box, band);
-  return registerPickable(ctx, id, 'Papel Alumínio (Autoclave)', fg, px, py, pz, 0, 0.18, 0.08);
+  return registerPickable(ctx, id, 'Papel Alumínio (Autoclave)', fg, px, py, pz, 0, 0.18, 0.08, {
+    category: 'consumable',
+    purpose: 'Proteger tampas e gargalos contra umidade na autoclave',
+    weightGrams: 260,
+    baseTempC: 22.5,
+    compatibilities: { canEnterCooker: false },
+    connections: ['pressure_cooker', 'spawn_jar', 'liquid_culture']
+  });
 }

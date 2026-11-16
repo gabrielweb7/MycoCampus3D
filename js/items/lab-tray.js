@@ -55,5 +55,14 @@ export function makeLabTray(ctx, id, label, px, py, pz) {
   tg.userData.tableDims = { w: 0.36, h: 0.009, d: 0.24, surfOffset: 0 };
   tg.userData.dynamicSurface = traySurf;
   tg.userData.updateBounds = updateItemBounds;
-  return registerPickable(ctx, id, label, tg, px, py, pz, 0, 0.22, 0.03);
+export const LAB_TRAY_META = {
+  category: 'carrier',
+  purpose: 'Transportar múltiplos frascos, seringas e placas juntos com organização',
+  weightGrams: 420,
+  baseTempC: 21.8,
+  compatibilities: { canEnterCooker: false, carriesItemsOnSurface: true },
+  connections: ['syringe', 'petri_dish', 'liquid_culture', 'table']
+};
+
+  return registerPickable(ctx, id, label, tg, px, py, pz, 0, 0.22, 0.03, LAB_TRAY_META);
 }

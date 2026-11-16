@@ -7,6 +7,20 @@ import { registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
 
+export function getSpawnMeta(kind, filled) {
+  const isBag = kind === 'bag';
+  return {
+    category: 'spawn_container',
+    purpose: isBag
+      ? 'Bag autoclavável 1,5kg com filtro HEPA e porto de inoculação'
+      : 'Vidro 800ml com milho hidratado para colonização de micélio',
+    weightGrams: isBag ? (filled ? 1525 : 25) : (filled ? 780 : 320),
+    getTempC: (item) => (item && item.spawnCtrl && item.spawnCtrl.inoculated) ? 26.4 : 23.8,
+    compatibilities: { canEnterCooker: true, receivesSyringe: true },
+    connections: ['pressure_cooker', 'syringe', 'laminar_hood', 'heat_sealer']
+  };
+}
+
 export function updateSpawnVisual(item) {
   if (!item || !item.spawnCtrl) return;
   const sc = item.spawnCtrl;
@@ -58,7 +72,7 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
   mycOverlay.position.y = 0.108;
   if (filled) jg.add(corn, mycOverlay);
 
-  const item = registerPickable(ctx, id, 'Vidro 800ml', jg, px, py, pz, 0, 0.16, 0.28);
+  const item = registerPickable(ctx, id, 'Vidro 800ml', jg, px, py, pz, 0, 0.16, 0.28, getSpawnMeta('jar', filled));
   item.spawnCtrl = {
     baseLabel: filled ? 'Vidro 800ml (Milho)' : 'Vidro 800ml Vazio',
     sterilized: filled, inoculated: filled, colonized: filled,
@@ -95,7 +109,7 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   mycOverlay.position.y = 0.115;
   if (filled) bg.add(block, mycOverlay);
 
-  const item = registerPickable(ctx, id, 'Bag 1,5kg', bg, px, py, pz, 0, 0.22, 0.38);
+  const item = registerPickable(ctx, id, 'Bag 1,5kg', bg, px, py, pz, 0, 0.22, 0.38, getSpawnMeta('bag', filled));
   item.spawnCtrl = {
     baseLabel: filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio',
     sterilized: filled, inoculated: filled, colonized: filled,

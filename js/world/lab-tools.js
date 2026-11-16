@@ -11,8 +11,8 @@ import { registerPickable } from '../items/item-registry.js';
 import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { buildLaminarHoodAndBenches } from '../items/laminar-hood.js';
 import { createPressureCookerPair, makeElectricBurner } from '../items/pressure-cooker.js';
-import { makePetriDish } from '../items/petri-dish.js';
-import { createPdaBottleGroup } from '../items/pda-bottle.js';
+import { makePetriDish, getPetriMeta } from '../items/petri-dish.js';
+import { createPdaBottleGroup, PDA_BOTTLE_META } from '../items/pda-bottle.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
 import { createPrecisionScale } from '../items/precision-scale.js';
 import { makeAlcoholSprayBottle } from '../items/alcohol-spray.js';
@@ -58,13 +58,13 @@ export function buildCampusWingsAndEquipment(ctx) {
 
   // Mesa de Cultura Liquida & Placas de Petri
   addMovableStainlessTable(ctx, 'table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);
-  registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.3, 1.065, -8.6, 0, 0.20, 0.08);
-  registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 1.065, -7.8, 0, 0.20, 0.08);
-  registerPickable(ctx, 'petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, 0.20, 0.08);
+  registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.3, 1.065, -8.6, 0, 0.20, 0.08, getPetriMeta('clean'));
+  registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 1.065, -7.8, 0, 0.20, 0.08, getPetriMeta('contam'));
+  registerPickable(ctx, 'petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, 0.20, 0.08, getPetriMeta('empty'));
 
   // Frasco PDA 500g
   const pdaGroup = createPdaBottleGroup();
-  registerPickable(ctx, 'pda_bottle', 'Frasco PDA 500g (Ágar Batata Dextrose)', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.34);
+  registerPickable(ctx, 'pda_bottle', 'Frasco PDA 500g (Ágar Batata Dextrose)', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.34, PDA_BOTTLE_META);
 
   // Spawn, Balanca, Borrifador & Seladora
   makeSpawnJar800(ctx, 'spawn_jar', true, -23.1, 1.02, -4.5);
@@ -112,11 +112,12 @@ export function buildCampusWingsAndEquipment(ctx) {
       -21.3 + stackIdx * 0.56,
       1.798 + stackLvl * 0.055,
       3.05,
-      0, 0.20, 0.08
+      0, 0.20, 0.08,
+      getPetriMeta('bare')
     );
   }
-  registerPickable(ctx, 'pda_bottle_02', 'Ágar PDA / BDA (500g)', pdaGroup.clone(), -17.55, 1.798, 3.05, 0, 0.14, 0.31);
-  registerPickable(ctx, 'pda_bottle_03', 'Ágar PDA / BDA (500g)', pdaGroup.clone(), -17.15, 1.798, 3.05, 0, 0.14, 0.31);
+  registerPickable(ctx, 'pda_bottle_02', 'Ágar PDA / BDA (500g)', pdaGroup.clone(), -17.55, 1.798, 3.05, 0, 0.14, 0.31, PDA_BOTTLE_META);
+  registerPickable(ctx, 'pda_bottle_03', 'Ágar PDA / BDA (500g)', pdaGroup.clone(), -17.15, 1.798, 3.05, 0, 0.14, 0.31, PDA_BOTTLE_META);
 
   for (let ji = 0; ji < 15; ji++) {
     const jRow = Math.floor(ji / 8);

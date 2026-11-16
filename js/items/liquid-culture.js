@@ -6,6 +6,26 @@ import { registerPickable, makeScaleTex } from './item-registry.js';
 
 const THREE = window.THREE;
 
+export const LIQUID_JAR_META = {
+  category: 'liquid_culture',
+  purpose: 'Cultura líquida com septo de borracha para aspiração estéril via seringa',
+  maxVolumeMl: 800,
+  getWeightGrams: (item) => 260 + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
+  getTempC: (item, ctx) => 24.5 + Math.sin(((ctx && ctx.clock && ctx.clock.elapsedTime) || 0) * 2.0) * 0.2,
+  compatibilities: { canEnterCooker: true, receivesSyringe: true, stirsOnMagneticPlate: true },
+  connections: ['magnetic_stirrer', 'syringe', 'pressure_cooker']
+};
+
+export const BEAKER_META = {
+  category: 'glassware',
+  purpose: 'Béquer graduado 1L para preparo e mistura de soluções nutritivas',
+  maxVolumeMl: 1000,
+  baseTempC: 23.5,
+  getWeightGrams: (item) => 260 + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
+  compatibilities: { canEnterCooker: true, receivesSyringe: true, stirsOnMagneticPlate: true },
+  connections: ['magnetic_stirrer', 'precision_scale', 'syringe']
+};
+
 export function updateContainerVolume(item, newVol) {
   if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return;
   const ctrl = item.mesh.userData.liquidCtrl;
@@ -64,7 +84,7 @@ export function makeLiquidJar800(ctx, id, px, py, pz, initMl) {
     liqMesh, mycCloud, stirBar,
     baseLabel: 'Cultura Líquida 800ml'
   };
-  const item = registerPickable(ctx, id, 'Cultura Líquida 800ml', jg, px, py, pz, 0, 0.14, 0.30);
+  const item = registerPickable(ctx, id, 'Cultura Líquida 800ml', jg, px, py, pz, 0, 0.14, 0.30, LIQUID_JAR_META);
   item.setVolume = function (v) { updateContainerVolume(item, v); };
   updateContainerVolume(item, initMl);
   return item;
@@ -95,7 +115,7 @@ export function makeBeaker1L(ctx, id, px, py, pz, initMl) {
     liqMesh, mycCloud: null, stirBar,
     baseLabel: 'Béquer 1L'
   };
-  const item = registerPickable(ctx, id, 'Béquer 1L', bg, px, py, pz, 0, 0.14, 0.24);
+  const item = registerPickable(ctx, id, 'Béquer 1L', bg, px, py, pz, 0, 0.14, 0.24, BEAKER_META);
   item.setVolume = function (v) { updateContainerVolume(item, v); };
   updateContainerVolume(item, initMl);
   return item;
