@@ -302,6 +302,19 @@
       box-shadow: 0 0 24px rgba(52, 211, 153, 0.75);
     }
 
+    #btn-mobile-place {
+      min-width: 58px;
+      height: 58px;
+      font-size: 24px;
+      background: rgba(30, 41, 59, 0.88);
+      border-color: rgba(148, 163, 184, 0.72);
+    }
+
+    #btn-mobile-place.placement-active {
+      background: rgba(16, 185, 129, 0.92);
+      border-color: #6ee7b7;
+    }
+
     #btn-mobile-jump {
       min-width: 74px;
       height: 74px;
@@ -474,6 +487,7 @@
   </div>
   <div id="mobile-actions">
     <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
+    <button id="btn-mobile-place" type="button" class="touch-btn" title="Posicionar item" style="display:none">📦</button>
     <button id="btn-mobile-action" type="button" class="touch-btn" title="Ação" style="display:none">🧽</button>
     <button id="btn-mobile-sprint" type="button" class="touch-btn" title="Correr">🏃</button>
     <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular">⬆️</button>
@@ -662,10 +676,10 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.9.36';</script>
+  <script>window.MYCO_VERSION = '0.9.37';</script>
   <script src="js/vendor/three.min.js?v=r128"></script>
   <script src="js/vendor/OrbitControls.js?v=r128"></script>
-  <script type="module" src="js/main.js?v=0.9.36"></script>
+  <script type="module" src="js/main.js?v=0.9.37"></script>
 </body>
 
 </html>

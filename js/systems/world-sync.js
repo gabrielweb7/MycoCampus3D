@@ -398,6 +398,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
 }
 
 export function resetCampusWorldObjects(sim) {
+  if (sim.cancelHeldItemPlacement) sim.cancelHeldItemPlacement();
   setHeldTwoHandedGhost(sim.heldItem, false);
   sim.heldItem = null;
   sim.pendingMovedItems = {};

@@ -20,6 +20,10 @@ import { initThermoDisplay, createThermoLaserFx } from '../entities/thermo-laser
 import { createPlacementGhost } from '../entities/placement-ghost.js';
 import { buildCuteAvatar } from '../entities/avatars.js';
 import { dropHeldItem, handlePrimaryAction, updateHoverRay } from './interaction-system.js';
+import {
+  cancelHeldItemPlacement,
+  toggleHeldItemPlacement
+} from './held-item-placement.js';
 import { bindControls } from './input-controller.js';
 import { applyQualityTier, getCinemaHitTarget, startAnimationLoop } from './game-loop.js';
 import { registerCampusPublicApi as bindPublicApi } from './campus-api.js';
@@ -82,6 +86,7 @@ const sim = {
   heldItem: null,
   heldRotY: 0,
   lastPickupAt: 0,
+  placementMode: false,
   hoveredPickable: null,
   hoveredMushroom: null,
   hoveredScreen: false,
@@ -306,6 +311,8 @@ const sim = {
 
   getCinemaHitTarget: function (uv) { return getCinemaHitTarget(sim, uv); },
   dropHeldItem: function () { return dropHeldItem(sim); },
+  toggleHeldItemPlacement: function () { return toggleHeldItemPlacement(sim); },
+  cancelHeldItemPlacement: function () { return cancelHeldItemPlacement(sim); },
   handlePrimaryAction: function () { return handlePrimaryAction(sim); },
   updateHoverRay: function (customNdc) { return updateHoverRay(sim, customNdc); }
 };

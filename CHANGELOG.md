@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.37] — 2026-11-16
+### 📦 Posicionamento de Itens e Organização
+- O fantasma de posicionamento só aparece depois de escolher posicionar: G/Q ou clique direito no PC; botão 📦 dedicado no celular. Clique/tap confirma e Esc ou o botão cancela.
+- Preview e confirmação do posicionamento foram extraídos para `held-item-placement.js`; o fluxo de soltar e posicionar agora compartilha a mesma rotina de atualização/sincronização.
+- O jogo deixa de calcular o alvo de posicionamento enquanto o jogador apenas segura um item, reduzindo trabalho de raycast durante esse estado.
+
 ## [v0.9.36] — 2026-11-16
 ### 🧪 Compatibilidade de Recipientes e Meio PDA/BDA
 - Béqueres e o frasco autoclavável de 1L podem receber água da torneira; garrafão destilado e frasco de cultura líquida não podem mais ser preenchidos pela pia.

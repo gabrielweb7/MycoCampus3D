@@ -15,8 +15,12 @@ export function bindControls(ctx) {
     }
     if (e.code === 'KeyG' || e.code === 'KeyQ') {
       if (ctx.heldItem) {
-        ctx.dropHeldItem();
+        ctx.toggleHeldItemPlacement();
       }
+    }
+    if (e.code === 'Escape' && ctx.placementMode) {
+      e.preventDefault();
+      ctx.cancelHeldItemPlacement();
     }
     if (e.code === 'KeyB' && window.toggleCampusSnowboard) {
       window.toggleCampusSnowboard();
@@ -49,6 +53,10 @@ export function bindControls(ctx) {
     }
   });
   window.addEventListener('keyup', function (e) { ctx.keys[e.code] = false; });
+  ctx.renderer.domElement.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    if (ctx.heldItem) ctx.toggleHeldItemPlacement();
+  });
 
   function clearAllInputKeys() {
     Object.keys(ctx.keys).forEach(function (k) { ctx.keys[k] = false; });

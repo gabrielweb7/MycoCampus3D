@@ -138,6 +138,10 @@ export function setupMobileJoystick() {
 
   const actionBtn = $('btn-mobile-action');
   if (actionBtn) {
+    function activateActionButton() {
+      if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true);
+    }
+
     let actionTouchId = null;
     let lastActionX = 0;
     let lastActionY = 0;
@@ -151,7 +155,7 @@ export function setupMobileJoystick() {
       lastActionX = t.clientX;
       lastActionY = t.clientY;
       actionBtn.classList.add('action-active');
-      if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true);
+      activateActionButton();
     }, { passive: false });
 
     window.addEventListener('touchmove', (e) => {
@@ -186,7 +190,7 @@ export function setupMobileJoystick() {
     actionBtn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       actionBtn.classList.add('action-active');
-      if (window.setCampusMobilePrimary) window.setCampusMobilePrimary(true);
+      activateActionButton();
       let lastMX = e.clientX;
       let lastMY = e.clientY;
       function onMouseMove(ev) {
@@ -206,6 +210,15 @@ export function setupMobileJoystick() {
       window.addEventListener('mousemove', onMouseMove);
       window.addEventListener('mouseup', onMouseUp);
       window.addEventListener('blur', onMouseUp);
+    });
+  }
+
+  const placeBtn = $('btn-mobile-place');
+  if (placeBtn) {
+    placeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
     });
   }
 }

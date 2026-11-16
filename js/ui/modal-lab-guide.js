@@ -21,7 +21,7 @@ const categoryLabels = {
 const tutorialSteps = [
   {
     title: '1. Aprenda os controles',
-    text: 'No PC, use WASD para andar, mouse para olhar, clique para agir, R ou roda do mouse para girar um item e G/Q para soltá-lo. No celular, use o joystick, arraste a tela para olhar e toque no botão de ação.'
+    text: 'No PC, use WASD para andar, mouse para olhar e clique para agir; R ou a roda giram um item. Para posicionar, pressione G/Q ou clique direito, mire e clique para confirmar; Esc cancela. No celular, use o joystick, arraste a tela para olhar, toque em 📦 para escolher o local e toque no mundo para confirmar.'
   },
   {
     title: '2. Siga as dicas ao mirar',

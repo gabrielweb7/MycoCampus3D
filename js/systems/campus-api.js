@@ -156,6 +156,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.resetCampusLocalSession = function () {
     sim.syringePumping = null;
     sim.syringePunctureProgress = 0;
+    sim.cancelHeldItemPlacement();
     setHeldTwoHandedGhost(sim.heldItem, false);
     sim.heldItem = null;
     sim.thermoLaserOn = false;
@@ -237,6 +238,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       remoteAvatars: sim.remoteAvatars,
       heldItem: sim.heldItem,
       onDropStolenHeld: function () {
+        sim.cancelHeldItemPlacement();
         setHeldTwoHandedGhost(sim.heldItem, false);
         sim.heldItem = null;
         if (sim.placementGhost) sim.placementGhost.visible = false;
@@ -248,6 +250,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;
   window.triggerCampusRainbow = triggerCampusRainbow;
   window.dropCampusHeldItem = sim.dropHeldItem;
+  window.toggleCampusHeldPlacement = sim.toggleHeldItemPlacement;
 
   window.MycoCampus = window.MycoCampus || {};
   window.MycoCampus.teleportPlayer = window.teleportCampusPlayer;
@@ -260,4 +263,5 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.MycoCampus.setFpsMode = window.setCampusFpsMode;
   window.MycoCampus.triggerRainbow = triggerCampusRainbow;
   window.MycoCampus.dropHeldItem = sim.dropHeldItem;
+  window.MycoCampus.toggleHeldItemPlacement = sim.toggleHeldItemPlacement;
 }

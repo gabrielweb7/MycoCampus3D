@@ -307,6 +307,7 @@ export function bootApp() {
 
   const verEl = $('app-version');
   if (verEl) verEl.textContent = 'v' + getAppVersion();
+  let mobilePlacementModeActive = false;
   if (window.location.search.indexOf('preview=1') !== -1) {
     $('campus-lobby')?.classList.add('hidden');
   }
@@ -328,40 +329,67 @@ export function bootApp() {
     onHoldChange: (label) => {
       const rotBtn = $('btn-mobile-rotate');
       if (rotBtn) rotBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
+      const placeBtn = $('btn-mobile-place');
+      if (placeBtn) {
+        placeBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
+        placeBtn.textContent = mobilePlacementModeActive ? '✅' : '📦';
+        placeBtn.title = mobilePlacementModeActive
+          ? 'Mire e toque no local para confirmar; toque aqui para cancelar'
+          : 'Posicionar item';
+        placeBtn.classList.toggle('placement-active', mobilePlacementModeActive);
+      }
       const actBtn = $('btn-mobile-action');
       if (actBtn) {
         if (!isTouch() || !label) {
           actBtn.style.display = 'none';
+          actBtn.dataset.action = '';
         } else if (label.indexOf('Giz') !== -1 || label.indexOf('chalk') !== -1) {
           actBtn.style.display = 'flex';
+          actBtn.dataset.action = 'use';
           actBtn.textContent = '✏️';
           actBtn.title = 'Desenhar na Lousa (segure e arraste o dedo para pintar)';
         } else if (label.indexOf('Apagador') !== -1 || label.indexOf('eraser') !== -1) {
           actBtn.style.display = 'flex';
+          actBtn.dataset.action = 'use';
           actBtn.textContent = '🧽';
           actBtn.title = 'Apagar Lousa (segure e arraste o dedo para apagar)';
         } else if (label.indexOf('Borrifador') !== -1 || label.indexOf('Álcool') !== -1) {
           actBtn.style.display = 'flex';
+          actBtn.dataset.action = 'use';
           actBtn.textContent = '💦';
           actBtn.title = 'Borrifar / Soltar';
         } else if (label.indexOf('Termômetro') !== -1) {
           actBtn.style.display = 'flex';
+          actBtn.dataset.action = 'use';
           actBtn.textContent = '🌡️';
           actBtn.title = 'Medir Temperatura';
         } else if (label.indexOf('Seringa') !== -1) {
           actBtn.style.display = 'flex';
+          actBtn.dataset.action = 'use';
           actBtn.textContent = '💉';
           actBtn.title = 'Usar Seringa';
         } else if (label.indexOf('Seladora') !== -1) {
           actBtn.style.display = 'flex';
+          actBtn.dataset.action = 'use';
           actBtn.textContent = '♨️';
           actBtn.title = 'Selar bag preenchido';
         } else {
           actBtn.style.display = 'flex';
+          actBtn.dataset.action = 'use';
           actBtn.textContent = '✋';
-          actBtn.title = 'Soltar / Usar Item';
+          actBtn.title = 'Agir no alvo destacado';
         }
       }
+    },
+    onPlacementModeChange: (active) => {
+      mobilePlacementModeActive = active;
+      const placeBtn = $('btn-mobile-place');
+      if (!placeBtn) return;
+      placeBtn.textContent = active ? '✅' : '📦';
+      placeBtn.title = active
+        ? 'Mire e toque no local para confirmar; toque aqui para cancelar'
+        : 'Posicionar item';
+      placeBtn.classList.toggle('placement-active', active);
     },
     onFpsChange: updateFpsUi,
     onQualityChange: (info) => {

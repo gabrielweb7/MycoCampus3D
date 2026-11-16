@@ -12,6 +12,12 @@ import {
   getPlacementBlockedReason,
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
+import {
+  cancelHeldItemPlacement,
+  commitHeldItemPlacement,
+  setHeldTwoHandedGhost,
+  updateHeldItemPlacementPreview
+} from './held-item-placement.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { scrollRanking } from '../world/staircase-clock.js';
 import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
@@ -74,17 +80,7 @@ export function setMeshGhostOpacity(root, active) {
   });
 }
 
-export function setHeldTwoHandedGhost(item, active) {
-  if (!item || !item.mesh || !item.mesh.userData.twoHanded) return;
-  item.mesh.visible = !active;
-  if (item.lidItem) {
-    if (active && item.lidItem.isAttached) {
-      item.lidItem.mesh.visible = false;
-    } else if (!active) {
-      item.lidItem.mesh.visible = true;
-    }
-  }
-}
+export { setHeldTwoHandedGhost };
 
 export function isSeatOccupied(remoteAvatars, seat) {
   if (!seat) return false;
@@ -119,74 +115,13 @@ export function dropHeldItem(ctx) {
     }
     return;
   }
-  const dropTs = performance.now() + 15000;
-  const held = ctx.heldItem;
-  held.mesh.position.copy(pt);
-  held.mesh.rotation.set(0, ctx.heldRotY, 0);
-  held.isMoved = true;
-  if (held.mesh.userData.updateBounds) held.mesh.userData.updateBounds(held);
-  ctx.pendingMovedItems[held.id] = {
-    id: held.id, x: held.mesh.position.x, y: held.mesh.position.y, z: held.mesh.position.z, ry: held.mesh.rotation.y
-  };
-  ctx.recentlyDropped[held.id] = dropTs;
-  if (held.lidItem && held.lidItem.isAttached) {
-    const lid = held.lidItem;
-    lid.mesh.position.set(pt.x, pt.y + 0.36, pt.z);
-    lid.mesh.rotation.copy(held.mesh.rotation);
-    lid.isMoved = true;
-    ctx.pendingMovedItems[lid.id] = {
-      id: lid.id, x: lid.mesh.position.x, y: lid.mesh.position.y, z: lid.mesh.position.z, ry: lid.mesh.rotation.y
-    };
-    ctx.recentlyDropped[lid.id] = dropTs;
-  }
-  for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
-    if (ctx.cookerPots[cpi].potItem === held) {
-      ctx.cookerPots[cpi].contents.forEach(function (cItem, cIdx) {
-        const ox = (cIdx % 2 === 0 ? -0.06 : 0.06);
-        const oz = (cIdx < 2 ? -0.05 : 0.05);
-        cItem.mesh.position.set(pt.x + ox, pt.y + 0.045, pt.z + oz);
-        cItem.isMoved = true;
-        ctx.pendingMovedItems[cItem.id] = {
-          id: cItem.id, x: cItem.mesh.position.x, y: cItem.mesh.position.y, z: cItem.mesh.position.z, ry: cItem.mesh.rotation.y
-        };
-        ctx.recentlyDropped[cItem.id] = dropTs;
-      });
-      break;
-    }
-  }
-  if (held.trayContents && held.trayContents.length) {
-    const cRy = Math.cos(ctx.heldRotY), sRy = Math.sin(ctx.heldRotY);
-    held.trayContents.forEach(function (tc) {
-      const ci = tc.item;
-      if (!ci || !ci.mesh) return;
-      const wx = pt.x + tc.lx * cRy + tc.lz * sRy;
-      const wz = pt.z - tc.lx * sRy + tc.lz * cRy;
-      const wy = pt.y + tc.ly;
-      ci.mesh.position.set(wx, wy, wz);
-      ci.mesh.rotation.set(0, ctx.heldRotY + tc.lry, 0);
-      ci.isMoved = true;
-      if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
-      ctx.pendingMovedItems[ci.id] = {
-        id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
-      };
-      ctx.recentlyDropped[ci.id] = dropTs;
-    });
-    held.trayContents = null;
-  }
-  setHeldTwoHandedGhost(held, false);
-  ctx.heldItem = null;
-  ctx.thermoLaserOn = false;
-  if (ctx.placementGhost) ctx.placementGhost.visible = false;
-  if (ctx.thermoLaserLine) ctx.thermoLaserLine.visible = false;
-  if (ctx.thermoLaserDot) ctx.thermoLaserDot.visible = false;
-  if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
-  ctx.notifyWorldAction();
+  commitHeldItemPlacement(ctx, pt, false);
 }
 
 export function handlePrimaryAction(ctx) {
   if (ctx.heldItem) {
     if (performance.now() - ctx.lastPickupAt < 140) return;
-    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer) {
+    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer && !ctx.placementMode) {
       ctx.thermoLaserOn = !ctx.thermoLaserOn;
       if (window.MycoAudio && window.MycoAudio.playLaserBeep) {
         window.MycoAudio.playLaserBeep();
@@ -275,6 +210,7 @@ export function handlePrimaryAction(ctx) {
       if (ctx.heldItem.lidItem && ctx.heldItem.lidItem.isAttached) {
         ctx.recentlyDropped[ctx.heldItem.lidItem.id] = performance.now() + 15000;
       }
+      cancelHeldItemPlacement(ctx);
       ctx.heldItem = null;
       if (ctx.placementGhost) ctx.placementGhost.visible = false;
       if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
@@ -699,84 +635,13 @@ export function handlePrimaryAction(ctx) {
       }
       return;
     }
-    if (ctx.placementValid && ctx.placementGhost) {
+    if (ctx.placementMode && ctx.placementValid && ctx.placementGhost) {
       if (isPlacementBlocked(ctx.entityCtx, ctx.placementGhost.position)) {
         ctx.placementValid = false;
         updatePlacementGhostVisual(ctx.heldItem, false, ctx.heldRotY, ctx.clock.elapsedTime);
         return;
       }
-      ctx.heldItem.mesh.position.copy(ctx.placementGhost.position);
-      ctx.heldItem.mesh.rotation.set(0, ctx.heldRotY, 0);
-      ctx.heldItem.isMoved = true;
-      if (ctx.heldItem.potItem && ctx.snapClosePot) {
-        ctx.heldItem.isAttached = true;
-        ctx.heldItem.potItem = ctx.snapClosePot;
-        ctx.snapClosePot.lidItem = ctx.heldItem;
-        ctx.heldItem.mesh.position.set(ctx.snapClosePot.mesh.position.x, ctx.snapClosePot.mesh.position.y + 0.36, ctx.snapClosePot.mesh.position.z);
-        ctx.heldItem.mesh.rotation.copy(ctx.snapClosePot.mesh.rotation);
-        ctx.snapClosePot = null;
-      }
-      ctx.pendingMovedItems[ctx.heldItem.id] = {
-        id: ctx.heldItem.id,
-        x: ctx.heldItem.mesh.position.x,
-        y: ctx.heldItem.mesh.position.y,
-        z: ctx.heldItem.mesh.position.z,
-        ry: ctx.heldItem.mesh.rotation.y
-      };
-      if (ctx.heldItem.lidItem && ctx.heldItem.lidItem.isAttached) {
-        const attLid = ctx.heldItem.lidItem;
-        attLid.mesh.position.set(ctx.heldItem.mesh.position.x, ctx.heldItem.mesh.position.y + 0.36, ctx.heldItem.mesh.position.z);
-        attLid.mesh.rotation.copy(ctx.heldItem.mesh.rotation);
-        attLid.isMoved = true;
-        ctx.pendingMovedItems[attLid.id] = {
-          id: attLid.id, x: attLid.mesh.position.x, y: attLid.mesh.position.y, z: attLid.mesh.position.z, ry: attLid.mesh.rotation.y
-        };
-        ctx.recentlyDropped[attLid.id] = performance.now() + 15000;
-      }
-      for (let cpiDrop = 0; cpiDrop < ctx.cookerPots.length; cpiDrop++) {
-        const cpDrop = ctx.cookerPots[cpiDrop];
-        if (cpDrop.potItem === ctx.heldItem && cpDrop.contents.length > 0) {
-          for (let ciDrop = 0; ciDrop < cpDrop.contents.length; ciDrop++) {
-            const cItem = cpDrop.contents[ciDrop];
-            if (!cItem || !cItem.mesh) continue;
-            const cox = (ciDrop % 2 === 0 ? -0.06 : 0.06);
-            const coz = (ciDrop < 2 ? -0.05 : 0.05);
-            cItem.mesh.position.set(ctx.heldItem.mesh.position.x + cox, ctx.heldItem.mesh.position.y + 0.045, ctx.heldItem.mesh.position.z + coz);
-            cItem.isMoved = true;
-            ctx.pendingMovedItems[cItem.id] = {
-              id: cItem.id, x: cItem.mesh.position.x, y: cItem.mesh.position.y, z: cItem.mesh.position.z, ry: cItem.mesh.rotation.y
-            };
-            ctx.recentlyDropped[cItem.id] = performance.now() + 15000;
-          }
-        }
-      }
-      ctx.recentlyDropped[ctx.heldItem.id] = performance.now() + 15000;
-      if (ctx.heldItem.trayContents && ctx.heldItem.trayContents.length) {
-        const cRy = Math.cos(ctx.heldRotY), sRy = Math.sin(ctx.heldRotY);
-        const dropPt = ctx.heldItem.mesh.position;
-        ctx.heldItem.trayContents.forEach(function (tc) {
-          const ci = tc.item;
-          if (!ci || !ci.mesh) return;
-          ci.mesh.position.set(
-            dropPt.x + tc.lx * cRy + tc.lz * sRy,
-            dropPt.y + tc.ly,
-            dropPt.z - tc.lx * sRy + tc.lz * cRy
-          );
-          ci.mesh.rotation.set(0, ctx.heldRotY + tc.lry, 0);
-          ci.isMoved = true;
-          if (ci.mesh.userData.updateBounds) ci.mesh.userData.updateBounds(ci);
-          ctx.pendingMovedItems[ci.id] = {
-            id: ci.id, x: ci.mesh.position.x, y: ci.mesh.position.y, z: ci.mesh.position.z, ry: ci.mesh.rotation.y
-          };
-          ctx.recentlyDropped[ci.id] = performance.now() + 15000;
-        });
-        ctx.heldItem.trayContents = null;
-      }
-      setHeldTwoHandedGhost(ctx.heldItem, false);
-      ctx.heldItem = null;
-      ctx.placementGhost.visible = false;
-      if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
-      ctx.notifyWorldAction();
+      commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
     }
     return;
   }
@@ -983,6 +848,7 @@ export function handlePrimaryAction(ctx) {
       if (carried.length) ctx.hoveredPickable.trayContents = carried;
     }
     ctx.heldItem = ctx.hoveredPickable;
+    cancelHeldItemPlacement(ctx);
     ctx.lastPickupAt = performance.now();
     ctx.heldRotY = ctx.heldItem.mesh.rotation.y;
     setHeldTwoHandedGhost(ctx.heldItem, true);
@@ -992,6 +858,7 @@ export function handlePrimaryAction(ctx) {
 }
 
 export function updateHoverRay(ctx, customNdc) {
+  if (!ctx.heldItem && ctx.placementMode) cancelHeldItemPlacement(ctx);
   ctx.hoveredPickable = null;
   ctx.hoveredMushroom = null;
   ctx.hoveredDoorObj = null;
@@ -1384,27 +1251,24 @@ export function updateHoverRay(ctx, customNdc) {
         }
       }
     }
-    if (ctx.heldItem.mesh.userData.isThermometer) {
+    if (ctx.heldItem.mesh.userData.isThermometer && !ctx.placementMode) {
       if (ctx.placementGhost) ctx.placementGhost.visible = false;
       if (ctx.thermoLaserOn) {
-        prompt = '🔴 [SCAN] ' + (ctx.thermoTargetLabel || 'Ambiente') + ': ' + ctx.thermoCurrentTemp.toFixed(1) + '°C (Clique: Desligar Laser • Tecla G ou clique dir.: Soltar)';
+        prompt = '🔴 [SCAN] ' + (ctx.thermoTargetLabel || 'Ambiente') + ': ' + ctx.thermoCurrentTemp.toFixed(1) + '°C (Clique: Desligar Laser • G/Q ou clique dir.: posicionar)';
       } else {
-        prompt = '🔫 Laser DESLIGADO • Última: ' + ctx.thermoCurrentTemp.toFixed(1) + '°C [HOLD] (Clique: Ligar Laser • Tecla G ou clique dir.: Soltar)';
+        prompt = '🔫 Laser DESLIGADO • Última: ' + ctx.thermoCurrentTemp.toFixed(1) + '°C [HOLD] (Clique: Ligar Laser • G/Q ou clique dir.: posicionar)';
       }
       if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
       return;
     }
-    const pt = findPlacementTarget(ctx.entityCtx, rayNdc);
-    ctx.placementValid = !isPlacementBlocked(ctx.entityCtx, pt);
-    ctx.placementGhost.position.copy(pt);
-    updatePlacementGhostVisual(ctx.heldItem, ctx.placementValid, ctx.heldRotY, ctx.clock.elapsedTime);
-    ctx.placementGhost.visible = true;
-    if (ctx.snapClosePot) {
-      prompt = '🍲 Fechar tampa na Panela de Pressão';
-    } else {
-      prompt = ctx.placementValid ? 'Soltar: ' + ctx.heldItem.label : (getPlacementBlockedReason() || '🚫 Local bloqueado (espaço ocupado)');
+    if (!ctx.placementMode) {
+      ctx.placementValid = false;
+      if (ctx.placementGhost) ctx.placementGhost.visible = false;
+      prompt = '📦 Pressione G/Q para posicionar este item';
+      if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
+      return;
     }
-    if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
+    updateHeldItemPlacementPreview(ctx, rayNdc);
     return;
   }
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
