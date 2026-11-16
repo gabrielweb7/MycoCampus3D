@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.40] — 2026-11-17
+### 🧊 Conservação de Culturas e Vapor da Panela
+- O vapor da fervura sem tampa sai da boca da panela; a válvula só libera vapor quando a tampa está encaixada.
+- Petri, PP5, frascos/bags de spawn e cultura líquida só entram na geladeira após 100% de colonização; o frio a 4°C conserva, mas pausa o crescimento.
+- A validade começa após a colonização completa: até 30 dias em temperatura de incubação ou 60 dias refrigerada (1 dia de jogo = 10 segundos reais).
+- Progresso de colonização, validade e estado de cultura líquida/spawn são sincronizados no multiplayer.
+
 ## [v0.9.39] — 2026-11-16
 ### 🧫 Ciclo Completo de Culturas em Placas
 - Tampa da Petri articulada e animada; abrir, despejar meio e inocular exige Fluxo Laminar ligado, higienizado e placa dentro da área de trabalho.

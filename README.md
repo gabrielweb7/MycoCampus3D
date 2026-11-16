@@ -18,11 +18,11 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.39"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Posicionamento fica em `systems/held-item-placement.js`; ações de cultura (flocão, mistura e bisturi) ficam em `systems/lab-culture-actions.js`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.40"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Posicionamento fica em `systems/held-item-placement.js`; ações de cultura (flocão, mistura e bisturi) ficam em `systems/lab-culture-actions.js`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.39)
-├── VERSION                    # Versão semântica atual do projeto (0.9.39)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.40)
+├── VERSION                    # Versão semântica atual do projeto (0.9.40)
 ├── error.php                  # Painel online privado para consultar erros recentes
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
@@ -47,7 +47,7 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 │   ├── services/              # AudioEngine (Web Audio), api-client, multiplayer-sync
 │   ├── engine/                # Texturas procedurais, física/colisão, cinema, clima/arco-íris
 │   ├── world/                 # Natureza/praça, prédios, escadaria/relógio, estufa, layout de alas, campus externo
-│   ├── items/                 # Um módulo por item/equipamento (panela/fogareiro, fluxo laminar, geladeira, balança, agitador, seringa, petri, spawn, spray, termômetro, etc.)
+│   ├── items/                 # Itens/equipamentos e ciclo compartilhado em culture-lifecycle.js
 │   ├── entities/              # Avatares MP, braço 1ª pessoa, termômetro laser, ghost, confete, veículos
 │   ├── systems/               # Campus init, API pública, world-sync, game loop, movimento, input, interações, lousa, lobby tour
 │   └── ui/                    # Boot UI, HUD/lobby, mapa/missão, controles mobile e modais
@@ -152,7 +152,7 @@ Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite
 
 - **Termômetro Infravermelho Laser (`infrared_thermometer`):** Ferramenta industrial com mira laser vermelha e display LCD funcional. Calcula temperatura física em tempo real via raycast considerando fontes de calor (fogareiro até 240°C, panela esterilizando a 121°C e 15 PSI, cultura líquida a 24.4°C, estufa a 20.8°C e calor metabólico de jogadores a 36.8°C).
 - **Inoculação & Bombeamento com Seringa (`syringe_10ml`):** Alinhamento procedural em primeira pessoa que projeta a agulha perfurando o septo de borracha vermelha do frasco de cultura líquida. Transição contínua de 2 segundos para aspiração (0 a 10ml) ou injeção/esvaziamento (10 a 0ml) com movimentação realista de êmbolo e nível de líquido.
-- **Ciclo das Placas de Petri:** Tampa articulada com animação; preparo com 20ml de PDA/BDA, fechamento e esterilização na panela, inoculação asséptica com 1ml de cultura líquida ou fragmento de micélio retirado com bisturi estéril, e crescimento visual gradual do micélio branco. A geladeira de culturas opera a 4°C e conserva as placas por até 60 dias de jogo (um dia de jogo equivale a 10 segundos reais; fora da geladeira, a validade é de 14 dias).
+- **Ciclo de Culturas:** Petri, PP5, frascos/bags de spawn e cultura líquida colonizam em temperatura adequada; a refrigeração a 4°C pausa a colonização e só é necessária para conservação após 100%. A validade começa ao atingir 100%: até 30 dias fora da geladeira ou 60 dias refrigerada (um dia de jogo equivale a 10 segundos reais). A geladeira tem 12 posições para placas/PP5 e 3 espaços para frascos/bags de spawn ou cultura líquida.
 - **Autoclave / Panela de Pressão (`pressure_cooker` + `pressure_lid`):** Suporte a esterilização de grãos e substratos sob 15 PSI a 121°C. Encaixe magnético com fantasma verde e remoção direta da tampa pelo topo sem deslocar a panela base.
 - **Locomoção Tridimensional sobre Superfícies:** Suporte para pular e caminhar sobre mesas de inox, bancadas e carteiras escolares com zero ejeção horizontal.
 - **Prevenção Física de Sobreposição / Anti-Clipping (`isPlacementBlocked`):** Verificação física contínua no espaço 3D (radial e caixas AABB) que impede colocar itens atravessando ou por dentro de outros itens em estantes, bancadas ou pisos. O fantasma holográfico pulsa em vermelho (`#ef4444`) com o aviso `🚫 Espaço ocupado por outro objeto`, bloqueando a soltura até que o jogador aponte para um local desobstruído.

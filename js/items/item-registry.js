@@ -115,7 +115,9 @@ export function canFillFromSink(item) {
 }
 
 export function canSyringeSource(item) {
-  if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return false;
+  if (!item || !item.mesh || !item.mesh.userData.liquidCtrl || item.mesh.userData.liquidCtrl.volMl <= 0) return false;
+  const culture = item.cultureCtrl || item.mesh.userData.cultureCtrl;
+  if (culture && (!culture.colonized || culture.contaminated || culture.expired)) return false;
   const meta = item.meta || item.mesh.userData.itemMeta;
   return !!(meta && meta.compatibilities && meta.compatibilities.providesLiquidCulture);
 }

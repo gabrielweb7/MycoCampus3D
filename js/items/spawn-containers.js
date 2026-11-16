@@ -4,6 +4,12 @@
 
 import { makeBox } from '../engine/textures.js';
 import { registerPickable } from './item-registry.js';
+import {
+  createCultureLifecycleState,
+  getCultureRemainingDays,
+  isCultureIncubationTemperatureSuitable,
+  stepCultureShelfLife
+} from './culture-lifecycle.js';
 
 const THREE = window.THREE;
 
@@ -20,7 +26,11 @@ export function getSpawnMeta(kind, filled) {
       const baseTare = isBag ? 25 : 320;
       return baseTare + (sc.fillGrams || (sc.filled ? (isBag ? 1500 : 460) : 0));
     },
-    getTempC: (item) => (item && item.spawnCtrl && item.spawnCtrl.inoculated) ? 26.4 : 23.8,
+    getTempC: (item) => {
+      const sc = item && item.spawnCtrl;
+      if (sc && sc.refrigerated) return 4;
+      return sc && sc.inoculated ? 26.4 : 23.8;
+    },
     compatibilities: {
       canEnterCooker: true,
       receivesSyringe: !!filled,
@@ -42,8 +52,8 @@ export function fillSpawnWithSubstrate(item, kind) {
   sc.sterilized = false;
   sc.sterilizeProgress = 0;
   sc.inoculated = false;
-  sc.colonized = false;
   sc.colonization = 0;
+  Object.assign(sc, createCultureLifecycleState(false));
   sc.contaminated = false;
   sc.burned = false;
   sc.baseLabel = sc.isBag ? 'Bag 1,5kg Spawn' : 'Vidro 800ml (Milho)';
@@ -56,6 +66,26 @@ export function fillSpawnWithSubstrate(item, kind) {
   }
   updateSpawnVisual(item);
   return true;
+}
+
+function getSpawnCultureStatus(item) {
+  const sc = item.spawnCtrl;
+  const measuredTemperatureC = sc.refrigerated
+    ? 4
+    : (item.meta && typeof item.meta.getTempC === 'function'
+      ? item.meta.getTempC(item)
+      : (item.meta && item.meta.baseTempC) || 23.3);
+  const temperatureC = Number.isFinite(measuredTemperatureC) ? measuredTemperatureC : 23.3;
+  const temperatureLabel = temperatureC.toFixed(1).replace('.', ',') + '°C';
+  if (sc.expired) return ' • Cultura vencida ⚠️';
+  if (sc.colonized) {
+    return ' • ' + temperatureLabel + ' • validade ' + getCultureRemainingDays(sc) + ' dias';
+  }
+  if (sc.inoculated) {
+    return ' (Colonizando ' + Math.floor(sc.colonization) + '% • ' + temperatureLabel +
+      (sc.refrigerated ? ' • pausada)' : ')');
+  }
+  return '';
 }
 
 export function updateSpawnVisual(item) {
@@ -75,9 +105,9 @@ export function updateSpawnVisual(item) {
     } else if (sc.contaminated) {
       item.label = sc.baseLabel + ' (Contaminado ⚠️)';
     } else if (sc.colonization >= 100) {
-      item.label = sc.baseLabel + ' (100% Colonizado ✅)';
+      item.label = sc.baseLabel + ' (100% Colonizado ✅)' + getSpawnCultureStatus(item);
     } else if (sc.inoculated) {
-      item.label = sc.baseLabel + ' (Colonizando ' + Math.floor(sc.colonization) + '%)';
+      item.label = sc.baseLabel + getSpawnCultureStatus(item);
     } else if (sc.sterilized) {
       item.label = sc.baseLabel + ' (Estéril • Pronto)';
     } else if (sc.sterilizeProgress > 0) {
@@ -92,9 +122,9 @@ export function updateSpawnVisual(item) {
   } else if (sc.contaminated) {
     item.label = sc.baseLabel + ' (Contaminado ⚠️)';
   } else if (sc.colonization >= 100) {
-    item.label = sc.baseLabel + ' (100% Colonizado ✅)';
+    item.label = sc.baseLabel + ' (100% Colonizado ✅)' + getSpawnCultureStatus(item);
   } else if (sc.inoculated) {
-    item.label = sc.baseLabel + ' (Colonizando ' + Math.floor(sc.colonization) + '%)';
+    item.label = sc.baseLabel + getSpawnCultureStatus(item);
   } else if (sc.sterilized) {
     item.label = sc.baseLabel + ' (Estéril • Pronto)';
   } else if (sc.sealed) {
@@ -157,8 +187,9 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
     minSterilizeMin: 120, // 2h minimo para milho de pipoca
     sterilizeProgress: filled ? 100 : 0,
     baseLabel: filled ? 'Vidro 800ml (Milho)' : 'Vidro 800ml Vazio',
-    sterilized: filled, inoculated: filled, colonized: filled,
+    sterilized: filled, inoculated: filled,
     colonization: filled ? 100 : 0, contaminated: false,
+    ...createCultureLifecycleState(filled),
     mycOverlay,
     updateVisual: function () { updateSpawnVisual(item); }
   };
@@ -206,8 +237,9 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
     minSterilizeMin: 120, // 2h minimo para milho de pipoca
     sterilizeProgress: filled ? 100 : 0,
     baseLabel: filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio',
-    sterilized: filled, inoculated: filled, colonized: filled,
+    sterilized: filled, inoculated: filled,
     colonization: filled ? 100 : 0, contaminated: false,
+    ...createCultureLifecycleState(filled),
     mycOverlay,
     updateVisual: function () { updateSpawnVisual(item); }
   };
@@ -224,15 +256,27 @@ export function stepSpawnColonization(ctx, dt) {
     const sc = sgIt.spawnCtrl;
     if (sc && sc.inoculated && !sc.contaminated && !sc.burned) {
       let changed = false;
-      if (sc.colonization < 100) {
+      if (sc.colonization < 100 && !sc.refrigerated && isCultureIncubationTemperatureSuitable(sgIt, ctx)) {
         sc.colonization = Math.min(100, sc.colonization + dt * 4.2);
         changed = true;
       }
       if (sc.colonization >= 100 && !sc.colonized) {
         sc.colonized = true;
+        sc.ageGameDays = 0;
+        sc.shelfLifeAgeDays = 0;
         changed = true;
       }
+      if (sc.colonized) {
+        const lifeStep = stepCultureShelfLife(sc, dt);
+        if (lifeStep > 0) changed = true;
+        if (lifeStep === 2 && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🕒 Uma cultura de spawn venceu; prepare uma nova transferência.');
+        }
+      }
+      if (sc.refrigerated !== sc.lastRenderedRefrigerated) changed = true;
       if (changed) sc.updateVisual();
+      sc.lastRenderedRefrigerated = sc.refrigerated;
+      sc.lastRenderedAgeDay = Math.floor(sc.ageGameDays);
     }
   }
 }

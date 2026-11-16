@@ -3,6 +3,10 @@
  */
 
 import { registerPickable, makeScaleTex } from './item-registry.js';
+import {
+  createCultureLifecycleState,
+  getCultureRemainingDays
+} from './culture-lifecycle.js';
 
 const THREE = window.THREE;
 
@@ -11,7 +15,9 @@ export const LIQUID_JAR_META = {
   purpose: 'Cultura líquida com septo de borracha para aspiração estéril via seringa',
   maxVolumeMl: 800,
   getWeightGrams: (item) => 260 + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
-  getTempC: (item, ctx) => 24.5 + Math.sin(((ctx && ctx.clock && ctx.clock.elapsedTime) || 0) * 2.0) * 0.2,
+  getTempC: (item, ctx) => item && item.cultureCtrl && item.cultureCtrl.refrigerated
+    ? 4
+    : 24.5 + Math.sin(((ctx && ctx.clock && ctx.clock.elapsedTime) || 0) * 2.0) * 0.2,
   compatibilities: {
     canEnterCooker: true,
     fillsFromSink: false,
@@ -46,11 +52,30 @@ export const BEAKER_META = {
   ]
 };
 
+export function updateCultureLiquidLabel(item) {
+  const liquid = item && item.mesh && item.mesh.userData.liquidCtrl;
+  const culture = item && item.cultureCtrl;
+  if (!liquid || !culture) return;
+  const volumeLabel = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml)';
+  if (liquid.volMl <= 0) {
+    item.label = volumeLabel + ' • sem cultura líquida';
+  } else if (culture.expired) {
+    item.label = volumeLabel + ' • cultura vencida';
+  } else if (culture.colonized) {
+    const temperature = culture.refrigerated ? '4°C' : '24,5°C';
+    item.label = volumeLabel + ' • 100% colonizada • ' + temperature +
+      ' • validade ' + getCultureRemainingDays(culture) + ' dias';
+  } else {
+    item.label = volumeLabel + ' • colonizando • 24,5°C';
+  }
+}
+
 export function updateContainerVolume(item, newVol) {
   if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return;
   const ctrl = item.mesh.userData.liquidCtrl;
   const clamped = Math.max(0, Math.min(ctrl.maxMl, Math.round(newVol)));
   ctrl.volMl = clamped;
+  if (item.cultureCtrl && clamped <= 0) item.cultureCtrl.colonized = false;
   const frac = clamped / ctrl.maxMl;
   if (clamped <= 0) {
     ctrl.liqMesh.visible = false;
@@ -66,6 +91,8 @@ export function updateContainerVolume(item, newVol) {
   }
   if (item.pdaMediumCtrl && item.pdaMediumCtrl.updateVisual) {
     item.pdaMediumCtrl.updateVisual();
+  } else if (item.cultureCtrl) {
+    updateCultureLiquidLabel(item);
   } else {
     item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml)';
   }
@@ -110,6 +137,8 @@ export function makeLiquidJar800(ctx, id, px, py, pz, initMl) {
   };
   const item = registerPickable(ctx, id, 'Cultura Líquida 800ml', jg, px, py, pz, 0, 0.14, 0.30, LIQUID_JAR_META);
   item.setVolume = function (v) { updateContainerVolume(item, v); };
+  item.cultureCtrl = createCultureLifecycleState(initMl > 0);
+  jg.userData.cultureCtrl = item.cultureCtrl;
   updateContainerVolume(item, initMl);
   return item;
 }

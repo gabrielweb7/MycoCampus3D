@@ -5,6 +5,7 @@
 
 import { registerPickable } from './item-registry.js';
 import { updateSpawnVisual } from './spawn-containers.js';
+import { createCultureLifecycleState } from './culture-lifecycle.js';
 import { attachPdaMediumCtrl } from './pda-mix.js';
 
 const THREE = window.THREE;
@@ -101,8 +102,8 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
     baseLabel: filled ? 'Potinho PP5 145ml (Flocão)' : 'Potinho PP5 145ml Vazio',
     sterilized: false,
     inoculated: false,
-    colonized: false,
     colonization: 0,
+    ...createCultureLifecycleState(false),
     contaminated: false,
     mycOverlay,
     updateVisual: function () {
@@ -139,8 +140,8 @@ export function preparePP5ForPda(item) {
   spawn.sterilized = false;
   spawn.sterilizeProgress = 0;
   spawn.inoculated = false;
-  spawn.colonized = false;
   spawn.colonization = 0;
+  Object.assign(spawn, createCultureLifecycleState(false));
   spawn.contaminated = false;
   spawn.burned = false;
   if (spawn.fillMesh) spawn.fillMesh.visible = false;

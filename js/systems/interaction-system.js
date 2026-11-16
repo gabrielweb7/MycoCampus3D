@@ -26,7 +26,7 @@ import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { fillPetriWithPda, togglePetriLid } from '../items/petri-dish.js';
-import { getCultureFridgeStorageTarget, isPetriAccessibleFromFridge, toggleCultureFridgeDoor } from '../items/culture-fridge.js';
+import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge, toggleCultureFridgeDoor } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
 import { addIngredientToBowl } from '../items/mixing-bowl.js';
 import {
@@ -280,7 +280,7 @@ export function handlePrimaryAction(ctx) {
         return;
       }
       if (tgt.mode === 'draw' && !canSyringeSource(tgt.item)) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Aspire apenas cultura líquida do frasco próprio; água e meio PDA/BDA não são cultura.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Só é possível aspirar uma cultura líquida colonizada e dentro da validade.');
         return;
       }
       if (tgt.mode === 'inject' && !canSyringeTarget(tgt.item)) {
@@ -541,19 +541,23 @@ export function handlePrimaryAction(ctx) {
       handleSubstrateTargetAction(ctx);
       return;
     }
-    if (ctx.hoveredFridgeTarget && ctx.heldItem.mesh.userData.isPetri) {
+    if (ctx.hoveredFridgeTarget && ctx.heldItem) {
       const fridgeTarget = ctx.hoveredFridgeTarget;
+      if (!fridgeTarget.ready) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⏳ Espere a cultura atingir 100% de colonização antes de refrigerá-la.');
+        return;
+      }
       if (!fridgeTarget.fridge.fridgeCtrl.doorOpen) {
         toggleCultureFridgeDoor(fridgeTarget.fridge);
         ctx.queueWorldStateChange(fridgeTarget.fridge.id, fridgeTarget.fridge.fridgeCtrl.doorOpen ? 1 : 0);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira aberta. Clique novamente para guardar a placa.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira aberta. Clique novamente para guardar a cultura.');
         return;
       }
       if (!fridgeTarget.slotPosition) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Não há espaço livre nas prateleiras.');
         return;
       }
-      if (ctx.heldItem.mesh.userData.petriCtrl.lidOpen) {
+      if (fridgeTarget.lidOpen) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Feche a placa antes de guardá-la na geladeira.');
         return;
       }
@@ -976,7 +980,7 @@ export function updateHoverRay(ctx, customNdc) {
       const pRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
         const pCand = ctx.pickableItems[pi];
-        if (pCand === ctx.heldItem || ctx.isHeldByRemote(pCand.id) || !isPetriAccessibleFromFridge(ctx, pCand)) continue;
+        if (pCand === ctx.heldItem || ctx.isHeldByRemote(pCand.id) || !isCultureAccessibleFromFridge(ctx, pCand)) continue;
         const isPourableLc = !!(pCand.mesh && pCand.mesh.userData.liquidCtrl &&
           pCand.mesh.userData.liquidCtrl.volMl < pCand.mesh.userData.liquidCtrl.maxMl &&
           !(pCand.spawnCtrl && pCand.spawnCtrl.isPP5) &&
@@ -1069,7 +1073,7 @@ export function updateHoverRay(ctx, customNdc) {
       const sRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let si = 0; si < ctx.pickableItems.length; si++) {
         const sCand = ctx.pickableItems[si];
-        if (sCand === ctx.heldItem || ctx.isHeldByRemote(sCand.id) || !isPetriAccessibleFromFridge(ctx, sCand)) continue;
+        if (sCand === ctx.heldItem || ctx.isHeldByRemote(sCand.id) || !isCultureAccessibleFromFridge(ctx, sCand)) continue;
         const sdx = sCand.mesh.position.x - sRefX, sdz = sCand.mesh.position.z - sRefZ;
         if (sdx * sdx + sdz * sdz > 100) continue;
         const sHit = firstValidRayHit(ctx.raycaster.intersectObject(sCand.mesh, true));
@@ -1145,7 +1149,7 @@ export function updateHoverRay(ctx, customNdc) {
       const syRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
       for (let si = 0; si < ctx.pickableItems.length; si++) {
         const cand = ctx.pickableItems[si];
-        if (cand === ctx.heldItem || ctx.isHeldByRemote(cand.id) || !isPetriAccessibleFromFridge(ctx, cand)) continue;
+        if (cand === ctx.heldItem || ctx.isHeldByRemote(cand.id) || !isCultureAccessibleFromFridge(ctx, cand)) continue;
         const sydx = cand.mesh.position.x - syRefX, sydz = cand.mesh.position.z - syRefZ;
         if (sydx * sydx + sydz * sydz > 100) continue;
         const sHit = firstValidRayHit(ctx.raycaster.intersectObject(cand.mesh, true));
@@ -1219,19 +1223,24 @@ export function updateHoverRay(ctx, customNdc) {
         }
       }
     }
-    if (ctx.heldItem.mesh.userData.isPetri && !ctx.placementMode) {
+    if (!ctx.placementMode) {
       const fridgeTarget = getCultureFridgeStorageTarget(ctx);
       if (fridgeTarget) {
         ctx.hoveredFridgeTarget = fridgeTarget;
         if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        const prompt = !fridgeTarget.fridge.fridgeCtrl.doorOpen
-          ? '🧊 Abra a geladeira para guardar a placa'
-          : (fridgeTarget.slotPosition
-            ? '🧊 Guardar placa na prateleira • conservação a 4°C'
-            : '🧊 Geladeira cheia • retire uma placa antes');
+        const cultureLabel = fridgeTarget.displayLabel;
+        const prompt = !fridgeTarget.ready
+          ? '⏳ Aguarde 100% de colonização antes de refrigerar'
+          : (!fridgeTarget.fridge.fridgeCtrl.doorOpen
+            ? '🧊 Abra a geladeira para guardar o ' + cultureLabel
+            : (fridgeTarget.slotPosition
+              ? '🧊 Guardar ' + cultureLabel + ' • conservar a 4°C'
+              : '🧊 Geladeira cheia • retire uma cultura antes'));
         if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
         return;
       }
+    }
+    if (ctx.heldItem.mesh.userData.isPetri && !ctx.placementMode) {
       const petriCtrl = ctx.heldItem.mesh.userData.petriCtrl;
       if (petriCtrl) {
         if (ctx.callbacks.onHoverPrompt) {
@@ -1395,7 +1404,7 @@ export function updateHoverRay(ctx, customNdc) {
     for (let i = 0; i < ctx.pickableItems.length; i++) {
       let item = ctx.pickableItems[i];
       if (item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem) ||
-          !isPetriAccessibleFromFridge(ctx, item)) continue;
+          !isCultureAccessibleFromFridge(ctx, item)) continue;
       if (ctx.isHeldByRemote(item.id)) continue;
       const idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
       if (idx * idx + idz * idz > maxPickSq) continue;

@@ -3,6 +3,15 @@
  */
 
 import { isAsepticWorkArea } from './laminar-hood.js';
+import {
+  CULTURE_GAME_DAY_SECONDS,
+  CULTURE_REFRIGERATED_SHELF_LIFE_DAYS,
+  CULTURE_ROOM_SHELF_LIFE_DAYS,
+  createCultureLifecycleState,
+  getCultureRemainingDays,
+  isCultureIncubationTemperatureSuitable,
+  stepCultureShelfLife
+} from './culture-lifecycle.js';
 
 const THREE = window.THREE;
 const PETRI_SIDE_RADIUS = 0.06;
@@ -17,9 +26,9 @@ export const PETRI_OPEN_HEIGHT = 0.085;
 export const PETRI_STACK_SPACING = 0.026;
 export const PETRI_STACK_ALIGNMENT_RADIUS = 0.08;
 export const PETRI_STACK_AIM_DISTANCE_SQ = 0.0064;
-export const PETRI_GAME_DAY_SECONDS = 10;
-export const PETRI_ROOM_SHELF_LIFE_DAYS = 14;
-export const PETRI_REFRIGERATED_SHELF_LIFE_DAYS = 60;
+export const PETRI_GAME_DAY_SECONDS = CULTURE_GAME_DAY_SECONDS;
+export const PETRI_ROOM_SHELF_LIFE_DAYS = CULTURE_ROOM_SHELF_LIFE_DAYS;
+export const PETRI_REFRIGERATED_SHELF_LIFE_DAYS = CULTURE_REFRIGERATED_SHELF_LIFE_DAYS;
 
 export function getPetriMeta(mode) {
   const isBare = mode === 'bare';
@@ -109,15 +118,9 @@ export function makePetriDish(mode) {
     inoculated: isColonized,
     inoculationMethod: isColonized ? 'mycelium' : '',
     colonization: isColonized ? 100 : 0,
-    ageGameDays: 0,
-    shelfLifeAgeDays: 0,
-    refrigerated: false,
-    inFridge: false,
-    fridgeId: '',
-    expired: false,
-    lastRenderedColonization: -1,
-    lastRenderedRefrigerated: false,
-    lastRenderedAgeDay: -1
+    ...createCultureLifecycleState(isColonized),
+    contaminated: mode === 'contam',
+    lastRenderedColonization: -1
   };
   drawAgarTexture(pctx, ctrl);
   if (mode !== 'bare') {
@@ -189,6 +192,8 @@ export function stepPetriCultures(ctx, dt) {
       ctrl.mode = 'contam';
       ctrl.sterilized = false;
       ctrl.inoculated = true;
+      ctrl.colonized = false;
+      ctrl.contaminated = true;
       ctrl.expired = false;
       updatePetriVisual(item);
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 A placa aberta fora do Fluxo Laminar foi contaminada.');
@@ -199,25 +204,27 @@ export function stepPetriCultures(ctx, dt) {
     if (ctrl.mode === 'colonizing' && !ctrl.expired) {
       const previousProgress = Math.floor(ctrl.colonization);
       const previousMode = ctrl.mode;
-      const growthRate = ctrl.refrigerated ? 0.2 : 0.8;
+      const growthRate = !ctrl.refrigerated && isCultureIncubationTemperatureSuitable(item, ctx) ? 0.8 : 0;
       ctrl.colonization = Math.min(100, ctrl.colonization + dt * growthRate);
-      if (ctrl.colonization >= 100) ctrl.mode = 'clean';
-      if (Math.floor(ctrl.colonization) !== previousProgress || ctrl.mode !== previousMode) {
+      if (ctrl.colonization >= 100) {
+        ctrl.mode = 'clean';
+        ctrl.colonized = true;
+        ctrl.ageGameDays = 0;
+        ctrl.shelfLifeAgeDays = 0;
+      }
+      if (Math.floor(ctrl.colonization) !== previousProgress || ctrl.mode !== previousMode ||
+          ctrl.refrigerated !== ctrl.lastRenderedRefrigerated) {
         updatePetriVisual(item);
       }
     }
-    if (ctrl.inoculated && !ctrl.expired) {
-      ctrl.ageGameDays += dt / PETRI_GAME_DAY_SECONDS;
-      ctrl.shelfLifeAgeDays += (dt / PETRI_GAME_DAY_SECONDS) *
-        (ctrl.refrigerated ? PETRI_ROOM_SHELF_LIFE_DAYS / PETRI_REFRIGERATED_SHELF_LIFE_DAYS : 1);
-      if (ctrl.shelfLifeAgeDays >= PETRI_ROOM_SHELF_LIFE_DAYS) {
+    if (ctrl.colonized && !ctrl.expired) {
+      const lifeStep = stepCultureShelfLife(ctrl, dt);
+      if (lifeStep === 2) {
         ctrl.mode = 'contam';
-        ctrl.expired = true;
         updatePetriVisual(item);
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🕒 Uma cultura venceu: descarte a placa ou prepare uma nova transferência.');
         ctx.notifyWorldAction();
-      } else if (ctrl.refrigerated !== ctrl.lastRenderedRefrigerated ||
-                 Math.floor(ctrl.ageGameDays) !== ctrl.lastRenderedAgeDay) {
+      } else if (ctrl.refrigerated !== ctrl.lastRenderedRefrigerated || lifeStep === 1) {
         updatePetriVisual(item);
       }
     }
@@ -279,8 +286,10 @@ export function updatePetriVisual(item) {
   } else {
     item.label = 'Placa de Petri Estéril (PDA)';
   }
-  if (ctrl.refrigerated && ctrl.inoculated && !ctrl.expired) {
-    item.label += ' • 4°C (' + Math.floor(ctrl.ageGameDays) + '/' + PETRI_REFRIGERATED_SHELF_LIFE_DAYS + ' dias)';
+  if (ctrl.colonized && !ctrl.expired) {
+    item.label += ' • ' + (ctrl.refrigerated ? '4°C' : '25°C') + ' • validade ' + getCultureRemainingDays(ctrl) + ' dias';
+  } else if (ctrl.mode === 'colonizing') {
+    item.label += ' • ' + (ctrl.refrigerated ? '4°C • colonização pausada' : '25°C');
   }
   ctrl.lastRenderedColonization = Math.floor(ctrl.colonization);
   ctrl.lastRenderedRefrigerated = ctrl.refrigerated;
@@ -296,7 +305,11 @@ export function fillPetriWithPda(item) {
   ctrl.sterilized = false;
   ctrl.inoculated = false;
   ctrl.expired = false;
+  ctrl.colonized = false;
+  ctrl.contaminated = false;
   ctrl.colonization = 0;
+  ctrl.ageGameDays = 0;
+  ctrl.shelfLifeAgeDays = 0;
   updatePetriVisual(item);
   return true;
 }
@@ -308,7 +321,11 @@ export function sterilizePetri(item) {
   ctrl.sterilized = true;
   ctrl.inoculated = false;
   ctrl.expired = false;
+  ctrl.colonized = false;
+  ctrl.contaminated = false;
   ctrl.colonization = 0;
+  ctrl.ageGameDays = 0;
+  ctrl.shelfLifeAgeDays = 0;
   updatePetriVisual(item);
   return true;
 }
@@ -317,6 +334,8 @@ export function inoculatePetri(item, method, sterile) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl || ctrl.mode !== 'empty' || !ctrl.lidOpen || !ctrl.sterilized) return false;
   ctrl.inoculated = true;
+  ctrl.colonized = false;
+  ctrl.contaminated = false;
   ctrl.inoculationMethod = method === 'mycelium' ? 'mycelium' : 'liquid';
   ctrl.ageGameDays = 0;
   ctrl.shelfLifeAgeDays = 0;
@@ -329,6 +348,7 @@ export function inoculatePetri(item, method, sterile) {
     ctrl.mode = 'colonizing';
     ctrl.colonization = 2;
   }
+  ctrl.contaminated = !sterile;
   updatePetriVisual(item);
   return true;
 }
@@ -339,6 +359,8 @@ export function contaminatePetri(item) {
   ctrl.mode = 'contam';
   ctrl.sterilized = false;
   ctrl.inoculated = true;
+  ctrl.colonized = false;
+  ctrl.contaminated = true;
   ctrl.expired = false;
   updatePetriVisual(item);
   return true;

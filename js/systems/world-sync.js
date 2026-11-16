@@ -68,6 +68,9 @@ function getReplicatedItemState(sim, item) {
       inoculated: !!spawn.inoculated,
       colonized: !!spawn.colonized,
       colonization: Math.round(spawn.colonization || 0),
+      ageGameDays: Math.round((spawn.ageGameDays || 0) * 10) / 10,
+      shelfLifeAgeDays: Math.round((spawn.shelfLifeAgeDays || 0) * 10) / 10,
+      expired: !!spawn.expired,
       contaminated: !!spawn.contaminated,
       burned: !!spawn.burned
     };
@@ -89,6 +92,16 @@ function getReplicatedItemState(sim, item) {
   if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
   const liquid = meshData.liquidCtrl;
   if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0) };
+  const culture = item.cultureCtrl || meshData.cultureCtrl;
+  if (culture) {
+    state.culture = {
+      colonized: !!culture.colonized,
+      contaminated: !!culture.contaminated,
+      ageGameDays: Math.round((culture.ageGameDays || 0) * 10) / 10,
+      shelfLifeAgeDays: Math.round((culture.shelfLifeAgeDays || 0) * 10) / 10,
+      expired: !!culture.expired
+    };
+  }
   if (item.pdaReagentCtrl) {
     state.pdaReagent = { remainingGrams: Math.round(item.pdaReagentCtrl.remainingGrams || 0) };
   }
@@ -150,12 +163,13 @@ function applyReplicatedItemState(sim, item, state) {
   const spawn = item.spawnCtrl || (item.mesh.userData && item.mesh.userData.spawnCtrl);
   if (spawn && state.spawn && typeof state.spawn === 'object') {
     const incoming = state.spawn;
-    ['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'contaminated', 'burned'].forEach(function (key) {
+    ['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'expired', 'contaminated', 'burned'].forEach(function (key) {
       if (typeof incoming[key] === 'boolean') spawn[key] = incoming[key];
     });
-    ['fillGrams', 'waterMl', 'sterilizeProgress', 'colonization'].forEach(function (key) {
+    ['fillGrams', 'waterMl', 'sterilizeProgress', 'colonization', 'ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
       if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
-        spawn[key] = Math.max(0, Math.min(key === 'colonization' || key === 'sterilizeProgress' ? 100 : 5000, incoming[key]));
+        const maxValue = key === 'colonization' || key === 'sterilizeProgress' ? 100 : 1000;
+        spawn[key] = Math.max(0, Math.min(maxValue, incoming[key]));
       }
     });
     const validSubstrates = spawn.isPP5
@@ -209,6 +223,8 @@ function applyReplicatedItemState(sim, item, state) {
     if (typeof incomingPetri.shelfLifeAgeDays === 'number' && Number.isFinite(incomingPetri.shelfLifeAgeDays)) {
       petri.shelfLifeAgeDays = Math.max(0, Math.min(1000, incomingPetri.shelfLifeAgeDays));
     }
+    petri.colonized = petri.mode === 'clean' || petri.colonization >= 100;
+    petri.contaminated = petri.mode === 'contam' && !petri.expired;
     if (incomingPetri.inoculationMethod === 'liquid' || incomingPetri.inoculationMethod === 'mycelium') {
       petri.inoculationMethod = incomingPetri.inoculationMethod;
     } else {
@@ -219,6 +235,17 @@ function applyReplicatedItemState(sim, item, state) {
   }
   if (item.fridgeCtrl && state.fridge && typeof state.fridge.doorOpen === 'boolean') {
     setCultureFridgeDoorOpen(item, state.fridge.doorOpen, false);
+  }
+  const culture = item.cultureCtrl || (meshData && meshData.cultureCtrl);
+  if (culture && state.culture && typeof state.culture === 'object') {
+    ['colonized', 'contaminated', 'expired'].forEach(function (key) {
+      if (typeof state.culture[key] === 'boolean') culture[key] = state.culture[key];
+    });
+    ['ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
+      if (typeof state.culture[key] === 'number' && Number.isFinite(state.culture[key])) {
+        culture[key] = Math.max(0, Math.min(1000, state.culture[key]));
+      }
+    });
   }
   if (meshData.liquidCtrl && state.liquid && typeof state.liquid.volMl === 'number') {
     updateContainerVolume(item, state.liquid.volMl);
@@ -461,6 +488,7 @@ export function resetCampusWorldObjects(sim) {
     cp.overheatTimer = 0;
     cp.burned = false;
     if (cp.steamPoints) cp.steamPoints.visible = false;
+    if (cp.openPotSteam) cp.openPotSteam.points.visible = false;
     if (cp.statusSprite) cp.statusSprite.visible = false;
     cp.lastHudKey = '';
     if (cp.weight) { cp.weight.position.y = 0.13; cp.weight.rotation.set(0, 0, 0); }

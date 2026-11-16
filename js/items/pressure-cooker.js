@@ -48,6 +48,46 @@ export const ELECTRIC_BURNER_META = {
 
 export const BURNER_LEVEL_NAMES = ['Desligado', 'Fogo Baixo', 'Fogo Médio', 'Fogo Alto'];
 
+function createSteamEmitter(parent, startY) {
+  const count = 24;
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 0.04;
+    positions[i * 3 + 1] = startY + Math.random() * 0.35;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 0.04;
+  }
+  const geometry = new THREE.BufferGeometry();
+  const attribute = new THREE.BufferAttribute(positions, 3);
+  geometry.setAttribute('position', attribute);
+  const points = new THREE.Points(
+    geometry,
+    new THREE.PointsMaterial({ color: 0xf8fafc, size: 0.06, transparent: true, opacity: 0.65 })
+  );
+  points.visible = false;
+  points.userData.ignoreRay = true;
+  parent.add(points);
+  return { points, attribute, startY, endY: startY + 0.43 };
+}
+
+function stepSteamEmitter(emitter, dt, steamFactor) {
+  if (!emitter || steamFactor <= 0.02) {
+    if (emitter) emitter.points.visible = false;
+    return;
+  }
+  emitter.points.visible = true;
+  const positions = emitter.attribute.array;
+  const riseSpeed = 0.35 + steamFactor * 0.45;
+  for (let i = 0; i < positions.length; i += 3) {
+    positions[i + 1] += dt * riseSpeed;
+    if (positions[i + 1] > emitter.endY) {
+      positions[i] = (Math.random() - 0.5) * 0.04;
+      positions[i + 1] = emitter.startY;
+      positions[i + 2] = (Math.random() - 0.5) * 0.04;
+    }
+  }
+  emitter.attribute.needsUpdate = true;
+}
+
 export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py, pz) {
   const steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.55, metalness: 0.2 });
@@ -112,20 +152,8 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   });
   lidGroup.add(lidRim, lidDome, weight, weightTop);
 
-  const sCount = 24;
-  const sPos = new Float32Array(sCount * 3);
-  for (let si = 0; si < sCount; si++) {
-    sPos[si * 3] = (Math.random() - 0.5) * 0.04;
-    sPos[si * 3 + 1] = 0.17 + Math.random() * 0.35;
-    sPos[si * 3 + 2] = (Math.random() - 0.5) * 0.04;
-  }
-  const sGeo = new THREE.BufferGeometry();
-  const sAttr = new THREE.BufferAttribute(sPos, 3);
-  sGeo.setAttribute('position', sAttr);
-  const steamPoints = new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0xf8fafc, size: 0.06, transparent: true, opacity: 0.65 }));
-  steamPoints.visible = false;
-  steamPoints.userData.ignoreRay = true;
-  lidGroup.add(steamPoints);
+  const valveSteam = createSteamEmitter(lidGroup, 0.17);
+  const openPotSteam = createSteamEmitter(potGroup, 0.37);
 
   const lidItem = registerPickable(ctx, lidId, 'Tampa da Panela (' + labelSuffix + ')', lidGroup, px, py + 0.36, pz, 0, 0.26, 0.16, PRESSURE_LID_META);
   lidItem.potItem = potItem;
@@ -151,8 +179,9 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
     weightTop,
     safetyPins,
     waterMesh,
-    steamPoints,
-    steamAttr: sAttr,
+    steamPoints: valveSteam.points,
+    valveSteam,
+    openPotSteam,
     contents: [],
     hasBase: false,
     waterMl: 2500,
@@ -430,9 +459,11 @@ export function stepPressureCookers(ctx, dt) {
     }
 
     const openBoiling = !cp.lidItem.isAttached && cp.temp >= 98 && hasWater;
-    const steamFactor = (cp.lidItem.isAttached && cp.psi >= 10.0)
+    const pressureSteamFactor = (cp.lidItem.isAttached && cp.psi >= 10.0)
       ? Math.min(1, (cp.psi - 10.0) / 5.0)
-      : (openBoiling ? 0.45 : 0);
+      : 0;
+    const openSteamFactor = openBoiling ? 0.45 : 0;
+    const steamFactor = Math.max(pressureSteamFactor, openSteamFactor);
 
     if (steamFactor > 0.02) {
       anyPotSteaming = true;
@@ -441,28 +472,24 @@ export function stepPressureCookers(ctx, dt) {
         nearestSteamDist = sDist;
         bestSteamFactor = steamFactor;
       }
-      cp.steamPoints.visible = true;
-      const sa = cp.steamAttr.array;
-      const riseSpd = 0.35 + steamFactor * 0.45;
-      for (let si = 0; si < sa.length; si += 3) {
-        sa[si + 1] += dt * riseSpd;
-        if (sa[si + 1] > 0.60) {
-          sa[si] = (Math.random() - 0.5) * 0.04;
-          sa[si + 1] = 0.17;
-          sa[si + 2] = (Math.random() - 0.5) * 0.04;
-        }
-      }
-      cp.steamAttr.needsUpdate = true;
-      if (cp.lidItem.isAttached) {
+      stepSteamEmitter(cp.valveSteam, dt, pressureSteamFactor);
+      stepSteamEmitter(cp.openPotSteam, dt, openSteamFactor);
+      if (pressureSteamFactor > 0.02) {
         const wobble = Math.sin(ctx.clock.elapsedTime * (20 + steamFactor * 20));
         const lift = Math.abs(wobble) * (0.008 * steamFactor);
         cp.weight.position.y = 0.13 + lift;
         cp.weightTop.position.y = 0.16 + lift;
         cp.weight.rotation.z = wobble * 0.10 * steamFactor;
         cp.weightTop.rotation.z = wobble * 0.10 * steamFactor;
+      } else {
+        cp.weight.position.y = 0.13;
+        cp.weightTop.position.y = 0.16;
+        cp.weight.rotation.z = 0;
+        cp.weightTop.rotation.z = 0;
       }
     } else {
-      cp.steamPoints.visible = false;
+      stepSteamEmitter(cp.valveSteam, dt, 0);
+      stepSteamEmitter(cp.openPotSteam, dt, 0);
       cp.weight.position.y = 0.13;
       cp.weightTop.position.y = 0.16;
       cp.weight.rotation.z = 0;
