@@ -29,6 +29,8 @@ import * as thermoLaser from './entities/thermo-laser.js';
 import * as placementGhost from './entities/placement-ghost.js';
 import * as chalkboard from './systems/chalkboard.js';
 import * as avatars from './entities/avatars.js';
+import * as lobbyTour from './systems/lobby-tour.js';
+import * as interactionSystem from './systems/interaction-system.js';
 import { bootApp } from './ui/app-boot.js';
 
 // Ponte de módulos para o motor 3D durante a migração incremental
@@ -53,7 +55,9 @@ window.__MYCO_MODULES__ = {
   thermoLaser,
   placementGhost,
   chalkboard,
-  avatars
+  avatars,
+  lobbyTour,
+  interactionSystem
 };
 
 // Ponte de depuração inspecionável via DevTools
