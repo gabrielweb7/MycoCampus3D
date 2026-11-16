@@ -296,9 +296,18 @@
       campusLightSwitches: campusLightSwitches,
       roofZones: roofZones,
       fountainRipples: fountainRipples,
+      rankingBtnMeshes: rankingBtnMeshes,
+      sportBalls: sportBalls,
       registerPickable: registerPickable,
       setTerrainSnowMat: function (m) { terrainSnowMat = m; },
-      setFountainDropsAttr: function (a) { fountainDropsAttr = a; }
+      setFountainDropsAttr: function (a) { fountainDropsAttr = a; },
+      setCinemaRefs: function (refs) {
+        cinemaCanvas = refs.cinemaCanvas;
+        cinemaCtx = refs.cinemaCtx;
+        cinemaTex = refs.cinemaTex;
+        cinemaScreenMesh = refs.cinemaScreenMesh;
+        cinemaBeam = refs.cinemaBeam;
+      }
     };
   }
 
@@ -307,304 +316,14 @@
   function buildPlaza() { return window.__MYCO_MODULES__.naturePlaza.buildPlaza(getWorldBuilderCtx()); }
   function buildCampusBuildingWing(opts) { return window.__MYCO_MODULES__.buildings.buildCampusBuildingWing(getWorldBuilderCtx(), opts); }
 
-  // ---------------- Escadaria, Passarela Elevada & Torre do Relogio ----------------
+  // ---------------- Escadaria, Passarela Elevada & Torre do Relogio (delegado para js/world/staircase-clock.js) ----------------
 
-  // Ciclo completo de 40 minutos reais (20 min dia + 20 min noite) sincronizado para todos via UTC
-  function getVirtualDayFrac() {
-    return ((Date.now() / 1000) % 2400) / 2400; // 0.0=00h, 0.25=06h, 0.50=12h, 0.75=18h
-  }
-
-  function updateClockTexture() {
-    if (!clockCtx || !clockTex) return;
-    var totalMin = Math.floor(getVirtualDayFrac() * 1440);
-    var m = totalMin % 60;
-    if (m === lastClockMin) return;
-    lastClockMin = m;
-    var h = Math.floor(totalMin / 60) % 12;
-
-    var ctx = clockCtx;
-    ctx.clearRect(0, 0, 256, 256);
-    ctx.fillStyle = '#f8fafc';
-    ctx.beginPath(); ctx.arc(128, 128, 118, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 10; ctx.stroke();
-
-    for (var i = 0; i < 12; i++) {
-      var a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-      ctx.beginPath();
-      ctx.moveTo(128 + Math.cos(a) * 90, 128 + Math.sin(a) * 90);
-      ctx.lineTo(128 + Math.cos(a) * 106, 128 + Math.sin(a) * 106);
-      ctx.lineWidth = i % 3 === 0 ? 6 : 3;
-      ctx.stroke();
-    }
-
-    var hAng = ((h + m / 60) / 12) * Math.PI * 2 - Math.PI / 2;
-    var mAng = (m / 60) * Math.PI * 2 - Math.PI / 2;
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineCap = 'round';
-    ctx.lineWidth = 8;
-    ctx.beginPath(); ctx.moveTo(128, 128); ctx.lineTo(128 + Math.cos(hAng) * 58, 128 + Math.sin(hAng) * 58); ctx.stroke();
-    ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(128, 128); ctx.lineTo(128 + Math.cos(mAng) * 86, 128 + Math.sin(mAng) * 86); ctx.stroke();
-
-    clockTex.needsUpdate = true;
-  }
-
-  function buildStaircaseAndBridge() {
-    var yTop = 3.80;
-    // 14 degraus arquitetonicos de z=-11.5 ate z=-18.5 (subindo de y=0 ate y=3.80)
-    var steps = 14;
-    var stepD = 7.0 / steps;
-    var stepH = yTop / steps;
-    var riserMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.78 });
-    var treadMat = new THREE.MeshStandardMaterial({ map: texPaving, color: 0xe2e8f0, roughness: 0.65 });
-    var noseMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.45, metalness: 0.25 });
-    for (var i = 0; i < steps; i++) {
-      var sy = (i + 1) * stepH;
-      var sz = -11.5 - (i + 0.5) * stepD;
-      var riserH = Math.max(0.05, sy - 0.06);
-      var riser = new THREE.Mesh(new THREE.BoxGeometry(8.2, riserH, stepD), riserMat);
-      riser.position.set(0, riserH / 2, sz);
-      riser.castShadow = true; riser.receiveShadow = true;
-      var tread = new THREE.Mesh(new THREE.BoxGeometry(8.36, 0.06, stepD + 0.03), treadMat);
-      tread.position.set(0, sy - 0.03, sz + 0.015);
-      tread.castShadow = true; tread.receiveShadow = true;
-      var nose = new THREE.Mesh(new THREE.BoxGeometry(8.36, 0.025, 0.04), noseMat);
-      nose.position.set(0, sy - 0.012, sz + stepD / 2 + 0.015);
-      scene.add(riser, tread, nose);
-    }
-    stairsList.push({ minX: -4.15, maxX: 4.15, zStart: -11.5, zEnd: -18.5, yStart: 0, yEnd: yTop });
-
-    // Guarda-corpo inclinado profissional com viga lateral, vidro temperado, postes e corrimao metalico
-    var slopeLen = Math.hypot(7.0, yTop);
-    var slopeAng = Math.atan2(yTop, 7.0);
-    var steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.65 });
-    var railMetalMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.22, metalness: 0.8 });
-    var stairGlassMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.34, roughness: 0.1, metalness: 0.2 });
-    [-4.25, 4.25].forEach(function (rx) {
-      var stringer = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.42, slopeLen + 0.3), steelMat);
-      stringer.position.set(rx, yTop / 2 - 0.08, -15.0);
-      stringer.rotation.x = slopeAng;
-      stringer.castShadow = true;
-      var glassPanel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.88, slopeLen), stairGlassMat);
-      glassPanel.position.set(rx, yTop / 2 + 0.52, -15.0);
-      glassPanel.rotation.x = slopeAng;
-      var handrail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, slopeLen + 0.2, 12), railMetalMat);
-      handrail.position.set(rx, yTop / 2 + 1.0, -15.0);
-      handrail.rotation.x = Math.PI / 2 + slopeAng;
-      scene.add(stringer, glassPanel, handrail);
-
-      for (var pIdx = 0; pIdx <= 3; pIdx++) {
-        var frac = pIdx / 3;
-        var post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.02, 0.08), steelMat);
-        post.position.set(rx, frac * yTop + 0.51, -11.5 - frac * 7.0);
-        scene.add(post);
-      }
-      solidColliders.push({ minX: rx - 0.22, maxX: rx + 0.22, minZ: -18.55, maxZ: -11.45, minY: 0, maxY: 5.0 });
-    });
-
-    // Patamar Superior atras do topo da escada (z = -22.5 .. -18.5, livre dos degraus e conectado ao Relogio e as duas alas!)
-    addWalkableSlab(0, yTop, -20.5, 5.6, 0.34, 4.0, 0x475569, { roughness: 0.6 });
-    addWalkableSlab(-12.0, yTop, -20.5, 18.4, 0.34, 4.0, 0x475569, { roughness: 0.6 });
-    addWalkableSlab(12.0, yTop, -20.5, 18.4, 0.34, 4.0, 0x475569, { roughness: 0.6 });
-
-    // Pontes laterais ligando o Patamar (-18.5) direto as portas do 2o andar (-12.975) dos dois lados (x = +-19)
-    [-19, 19].forEach(function (ax) {
-      addWalkableSlab(ax, yTop, -15.7375, 4.4, 0.34, 5.525, 0x475569, { roughness: 0.6 });
-      addSolidWall(ax - 2.12, -18.5, ax - 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
-      addSolidWall(ax + 2.12, -18.5, ax + 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
-    });
-
-    // Pilares estruturais sustentando o patamar superior e as pontes laterais
-    [-19, -11, 11, 19].forEach(function (px) {
-      var col = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, yTop - 0.34, 14), steelMat);
-      col.position.set(px, (yTop - 0.34) / 2, -20.5);
-      col.castShadow = true; col.receiveShadow = true;
-      scene.add(col);
-    });
-    [-19, 19].forEach(function (px) {
-      var colS = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, yTop - 0.34, 14), steelMat);
-      colS.position.set(px, (yTop - 0.34) / 2, -15.5);
-      colS.castShadow = true; colS.receiveShadow = true;
-      scene.add(colS);
-    });
-
-    // Guarda-corpo de vidro + corrimao metalico no patamar superior (sem bloquear a saida da escada nem a Ponte Norte)
-    [-1, 1].forEach(function (side) {
-      addSolidWall(side * 4.25, -18.55, side * 16.85, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
-      var railS = new THREE.Mesh(new THREE.BoxGeometry(12.6, 0.06, 0.1), railMetalMat);
-      railS.position.set(side * 10.55, yTop + 1.03, -18.55);
-      scene.add(railS);
-
-      addSolidWall(side * 2.8, -22.45, side * 21.15, -22.45, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
-      var railN = new THREE.Mesh(new THREE.BoxGeometry(18.35, 0.06, 0.1), railMetalMat);
-      railN.position.set(side * 11.975, yTop + 1.03, -22.45);
-      scene.add(railN);
-
-      addSolidWall(side * 21.15, -22.45, side * 21.15, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
-    });
-
-    // Pontes ligando Bloco Norte <-> Bloco Sul no 2o andar (x = +-19, z = -1.025 .. 2.025, y = 3.80, encontro exato sem z-fighting)
-    [-19, 19].forEach(function (ax) {
-      addWalkableSlab(ax, yTop, 0.5, 4.4, 0.28, 3.05, 0x475569, { roughness: 0.6 });
-      addSolidWall(ax - 2.1, -1.025, ax - 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
-      addSolidWall(ax + 2.1, -1.025, ax + 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
-    });
-
-    // Terraco Norte (y = 3.80, x: -24..24, z: -29.5 .. -42.0) — separado da passarela por um Lago Norte organico
-    addWalkableSlab(0, yTop, -35.75, 48.0, 3.80, 12.5, 0x94a3b8, { roughness: 0.8 });
-
-    // Ponte Norte sobre o lago ligando o Patamar (-22.5) ate o Terraco da Torre do Relogio (-29.5)
-    addWalkableSlab(0, yTop, -26.0, 5.6, 0.34, 7.0, 0x64748b, { roughness: 0.65 });
-    [-2.75, 2.75].forEach(function (bx) {
-      addSolidWall(bx, -29.5, bx, -22.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45 });
-    });
-
-    // Lago Norte organico com borda de pedras dos dois lados da Ponte Norte
-    var nLakeMat = new THREE.MeshStandardMaterial({ color: 0x0369a1, roughness: 0.1, metalness: 0.35, transparent: true, opacity: 0.88 });
-    var nRimMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 });
-    [-7.2, 7.2].forEach(function (lx) {
-      var pond = new THREE.Mesh(new THREE.CircleGeometry(4.6, 26), nLakeMat);
-      pond.rotation.x = -Math.PI / 2;
-      pond.scale.set(1.2, 0.9, 1);
-      pond.position.set(lx, 0.06, -24.0);
-      scene.add(pond);
-      var rim = new THREE.Mesh(new THREE.RingGeometry(4.5, 5.05, 26), nRimMat);
-      rim.rotation.x = -Math.PI / 2;
-      rim.scale.set(1.2, 0.9, 1);
-      rim.position.set(lx, 0.055, -24.0);
-      scene.add(rim);
-    });
-  }
-
-  function buildClockTowerAndAuditorium() {
-    var baseY = 3.80;
-
-    // Alas laterais simetricas da Reitoria caminhaveis com porta aberta (z = -40.2..-33.8)
-    [-9.5, 9.5].forEach(function (ax) {
-      addWalkableSlab(ax, baseY, -37.0, 11.0, 0.2, 6.4, 0x334155);
-      var rRoof = makeBox(11.4, 0.45, 6.8, 0x64748b);
-      rRoof.position.set(ax, baseY + 6.3, -37.0);
-      registerSnowable(rRoof.material);
-      roofZones.push({ minX: ax - 5.7, maxX: ax + 5.7, minZ: -40.4, maxZ: -33.6, roofY: baseY + 6.5 });
-      scene.add(rRoof);
-
-      addSolidWall(ax - 5.5, -40.2, ax + 5.5, -40.2, baseY, 6.1, 0.28, brickMat(3, 2)); // Fundo
-      addSolidWall(ax - 5.5, -40.2, ax - 5.5, -33.8, baseY, 6.1, 0.28, brickMat(2, 2)); // Esq
-      addSolidWall(ax + 5.5, -40.2, ax + 5.5, -33.8, baseY, 6.1, 0.28, brickMat(2, 2)); // Dir
-      // Fachada frontal (z = -33.8) com porta aberta de 2.4m no centro e janelas laterais
-      addSolidWall(ax - 5.5, -33.8, ax - 1.2, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
-      addSolidWall(ax + 1.2, -33.8, ax + 5.5, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
-      var doorHeader = makeBox(2.5, 3.1, 0.28, brickMat(1, 1));
-      doorHeader.position.set(ax, baseY + 4.55, -33.8);
-      var rDesk = makeBox(2.6, 0.78, 1.1, 0x92400e, { roughness: 0.65 });
-      rDesk.position.set(ax, baseY + 0.39, -38.2);
-      scene.add(doorHeader, rDesk);
-      solidColliders.push({ minX: ax - 1.35, maxX: ax + 1.35, minZ: -38.8, maxZ: -37.6, minY: baseY, maxY: baseY + 1.0 });
-      supportSurfaces.push({ minX: ax - 1.25, maxX: ax + 1.25, minZ: -38.7, maxZ: -37.7, topY: baseY + 0.78 });
-    });
-
-    // Torre Central do Relogio
-    var tower = makeBox(5.6, 12.6, 6.8, 0x64748b, { roughness: 0.55 });
-    tower.position.set(0, baseY + 6.3, -37.0);
-    scene.add(tower);
-    var towerFrame = makeBox(3.6, 7.6, 0.16, 0x0f172a);
-    towerFrame.position.set(0, baseY + 4.3, -33.52);
-    scene.add(towerFrame);
-
-    // Painel 3D Interativo de Ranking logo abaixo do Relogio
-    rankingCanvas = document.createElement('canvas');
-    rankingCanvas.width = 512; rankingCanvas.height = 1024;
-    rankingCtx = rankingCanvas.getContext('2d');
-    rankingTex = new THREE.CanvasTexture(rankingCanvas);
-    var rankBoard = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.2, 6.6),
-      new THREE.MeshBasicMaterial({ map: rankingTex })
-    );
-    rankBoard.position.set(0, baseY + 4.5, -33.42);
-    scene.add(rankBoard);
-
-    // Botoes 3D de rolagem (▲ Subir / ▼ Descer) no rodape do painel
-    [['▲', -0.75, 'up'], ['▼', 0.75, 'down']].forEach(function (rb) {
-      var bc = document.createElement('canvas');
-      bc.width = 128; bc.height = 96;
-      var bctx = bc.getContext('2d');
-      bctx.fillStyle = '#1e293b'; bctx.fillRect(0, 0, 128, 96);
-      bctx.strokeStyle = '#38bdf8'; bctx.lineWidth = 6; bctx.strokeRect(4, 4, 120, 88);
-      bctx.fillStyle = '#f8fafc'; bctx.font = 'bold 48px system-ui, sans-serif';
-      bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
-      bctx.fillText(rb[0], 64, 48);
-      var btn = new THREE.Mesh(
-        new THREE.BoxGeometry(0.95, 0.62, 0.1),
-        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(bc) })
-      );
-      btn.position.set(rb[1], baseY + 0.85, -33.36);
-      btn.userData.rankAction = rb[2];
-      scene.add(btn);
-      rankingBtnMeshes.push(btn);
-    });
-    drawRankingBoard();
-    solidColliders.push({ minX: -2.9, maxX: 2.9, minZ: -40.5, maxZ: -33.5, minY: baseY, maxY: baseY + 13 });
-
-    // Relogio funcional no topo da torre
-    clockCanvas = document.createElement('canvas');
-    clockCanvas.width = 256; clockCanvas.height = 256;
-    clockCtx = clockCanvas.getContext('2d');
-    clockTex = new THREE.CanvasTexture(clockCanvas);
-    updateClockTexture();
-    var clockMesh = new THREE.Mesh(
-      new THREE.CircleGeometry(1.35, 28),
-      new THREE.MeshBasicMaterial({ map: clockTex })
-    );
-    clockMesh.position.set(0, baseY + 10.4, -33.5);
-    scene.add(clockMesh);
-
-    // Banners da Reitoria
-    createBanner(-4.6, baseY + 4.0, -33.6, 0, '#1d4ed8', '🎓');
-    createBanner(4.6, baseY + 4.0, -33.6, 0, '#4338ca', '🍄');
-  }
-
+  function getVirtualDayFrac() { return window.__MYCO_MODULES__.staircaseClock.getVirtualDayFrac(); }
+  function updateClockTexture() { return window.__MYCO_MODULES__.staircaseClock.updateClockTexture(); }
+  function buildStaircaseAndBridge() { return window.__MYCO_MODULES__.staircaseClock.buildStaircaseAndBridge(getWorldBuilderCtx()); }
+  function buildClockTowerAndAuditorium() { return window.__MYCO_MODULES__.staircaseClock.buildClockTowerAndAuditorium(getWorldBuilderCtx()); }
   function updateCampusAuditoriumSlide(slideIndex, title, subtitle, bullets, presenter) {
-    if (!auditoriumCtx || !auditoriumTex) return;
-    var ctx = auditoriumCtx;
-    var grad = ctx.createLinearGradient(0, 0, 1024, 576);
-    grad.addColorStop(0, '#0f172a');
-    grad.addColorStop(1, '#064e3b');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 1024, 576);
-
-    ctx.strokeStyle = '#34d399';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(18, 18, 988, 540);
-
-    ctx.fillStyle = '#34d399';
-    ctx.font = 'bold 26px system-ui, sans-serif';
-    ctx.fillText('🎓 MYCOCAMPUS 3D  •  SLIDE ' + (slideIndex + 1), 48, 72);
-
-    if (presenter) {
-      ctx.fillStyle = '#fbbf24';
-      ctx.font = 'bold 22px system-ui, sans-serif';
-      ctx.fillText('👨‍🏫 Ao vivo: ' + presenter, 660, 72);
-    }
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 42px system-ui, sans-serif';
-    ctx.fillText(title || '', 48, 150);
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '26px system-ui, sans-serif';
-    ctx.fillText(subtitle || '', 48, 198);
-
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '29px system-ui, sans-serif';
-    (bullets || []).forEach(function (line, i) {
-      ctx.fillText(line, 60, 275 + i * 68);
-    });
-
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 22px system-ui, sans-serif';
-    ctx.fillText('💡 Clique no telão ou abra "Aulas" para praticar e ganhar XP!', 48, 520);
-
-    auditoriumTex.needsUpdate = true;
+    return window.__MYCO_MODULES__.staircaseClock.updateCampusAuditoriumSlide(slideIndex, title, subtitle, bullets, presenter);
   }
 
   // ---------------- Itens Pegaveis & Equipamentos das Alas ----------------
@@ -2039,805 +1758,31 @@
     buildGreenhouseBench(estufaSurf);
   }
 
-  // ---------------- Bancada de Cultivo Interativo da Estufa (Ciclo Completo) ----------------
+  // ---------------- Bancada de Cultivo Interativo da Estufa & Confetes & Mega Campus (delegado) ----------------
 
-  var greenhouseSlots = [
-    {
-      id: 0,
-      name: 'Shimeji Dourado',
-      sci: 'Pleurotus citrinopileatus',
-      x: 21.0, y: 0.86, z: 6.65,
-      stage: 1,
-      humidity: 82,
-      growth: 20,
-      color: 0xfacc15,
-      group: null,
-      mushGroup: null,
-      badgeSprite: null
-    },
-    {
-      id: 1,
-      name: 'Shiitake',
-      sci: 'Lentinula edodes',
-      x: 21.0, y: 0.86, z: 7.55,
-      stage: 2,
-      humidity: 78,
-      growth: 50,
-      color: 0x78350f,
-      group: null,
-      mushGroup: null,
-      badgeSprite: null
-    },
-    {
-      id: 2,
-      name: 'Juba de Leão',
-      sci: 'Hericium erinaceus',
-      x: 21.0, y: 0.86, z: 8.45,
-      stage: 0,
-      humidity: 88,
-      growth: 10,
-      color: 0xf8fafc,
-      group: null,
-      mushGroup: null,
-      badgeSprite: null
-    },
-    {
-      id: 3,
-      name: 'Golden Teacher',
-      sci: 'Psilocybe cubensis',
-      x: 21.0, y: 0.86, z: 9.35,
-      stage: 3,
-      humidity: 92,
-      growth: 100,
-      color: 0xd97706,
-      group: null,
-      mushGroup: null,
-      badgeSprite: null
-    }
-  ];
-  var greenhouseHitMeshes = [];
   var hoveredGreenhouseSlot = null;
-  var sporeParticles = [];
-  var waterSprayParticles = [];
+  function getGreenhouseSlots() { return window.__MYCO_MODULES__.greenhouse.greenhouseSlots; }
+  function getGreenhouseHitMeshes() { return window.__MYCO_MODULES__.greenhouse.greenhouseHitMeshes; }
 
-  // ---------------- Confetes Dinâmicos de Celebração (Emotes) ----------------
-  var confettiParticles = [];
-  function initConfettiSystem() {
-    var geo = new THREE.PlaneGeometry(0.09, 0.09);
-    var colors = [0xf43f5e, 0x3b82f6, 0x10b981, 0xfbbf24, 0xa855f7, 0x06b6d4, 0xf97316];
-    for (var i = 0; i < 48; i++) {
-      var mat = new THREE.MeshBasicMaterial({
-        color: colors[i % colors.length],
-        side: THREE.DoubleSide
-      });
-      var mesh = new THREE.Mesh(geo, mat);
-      mesh.visible = false;
-      scene.add(mesh);
-      confettiParticles.push({
-        mesh: mesh,
-        vx: 0, vy: 0, vz: 0,
-        vrx: 0, vry: 0,
-        life: 0, maxLife: 2.2
-      });
-    }
-  }
+  function initConfettiSystem() { return window.__MYCO_MODULES__.confetti.initConfettiSystem(scene); }
+  function triggerConfettiBurst(x, y, z) { return window.__MYCO_MODULES__.confetti.triggerConfettiBurst(x, y, z); }
+  function stepConfetti(dt) { return window.__MYCO_MODULES__.confetti.stepConfetti(dt); }
 
-  function triggerConfettiBurst(x, y, z) {
-    var spawnCount = 0;
-    for (var i = 0; i < confettiParticles.length && spawnCount < 36; i++) {
-      var p = confettiParticles[i];
-      if (p.mesh.visible && p.life < p.maxLife) continue;
-      p.mesh.position.set(
-        x + (Math.random() - 0.5) * 0.45,
-        y + 1.25 + Math.random() * 0.35,
-        z + (Math.random() - 0.5) * 0.45
-      );
-      var ang = Math.random() * Math.PI * 2;
-      var speed = 1.6 + Math.random() * 2.8;
-      p.vx = Math.cos(ang) * speed;
-      p.vy = 2.4 + Math.random() * 2.8;
-      p.vz = Math.sin(ang) * speed;
-      p.vrx = (Math.random() - 0.5) * 12;
-      p.vry = (Math.random() - 0.5) * 12;
-      p.life = 0;
-      p.maxLife = 1.8 + Math.random() * 0.8;
-      p.mesh.visible = true;
-      spawnCount++;
-    }
-  }
-
-  function stepConfetti(dt) {
-    for (var i = 0; i < confettiParticles.length; i++) {
-      var p = confettiParticles[i];
-      if (!p.mesh.visible) continue;
-      p.life += dt;
-      if (p.life >= p.maxLife) {
-        p.mesh.visible = false;
-        continue;
-      }
-      p.vy -= 9.8 * dt * 0.65;
-      p.vx *= 0.98;
-      p.vz *= 0.98;
-      p.mesh.position.x += p.vx * dt;
-      p.mesh.position.y += p.vy * dt;
-      p.mesh.position.z += p.vz * dt;
-      p.mesh.rotation.x += p.vrx * dt;
-      p.mesh.rotation.y += p.vry * dt;
-    }
-  }
-
-  function initGreenhouseParticlePools() {
-    var sGeo = new THREE.SphereGeometry(0.025, 6, 6);
-    for (var i = 0; i < 30; i++) {
-      var sMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.85 });
-      var sMesh = new THREE.Mesh(sGeo, sMat);
-      sMesh.visible = false;
-      scene.add(sMesh);
-      sporeParticles.push({
-        mesh: sMesh,
-        vel: new THREE.Vector3(),
-        life: 0,
-        maxLife: 2.0
-      });
-    }
-    var wGeo = new THREE.SphereGeometry(0.018, 6, 6);
-    for (var j = 0; j < 30; j++) {
-      var wMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
-      var wMesh = new THREE.Mesh(wGeo, wMat);
-      wMesh.visible = false;
-      scene.add(wMesh);
-      waterSprayParticles.push({
-        mesh: wMesh,
-        vel: new THREE.Vector3(),
-        life: 0,
-        maxLife: 1.2
-      });
-    }
-  }
-
-  function triggerSporeBurst(ox, oy, oz, col) {
-    sporeParticles.forEach(function (sp) {
-      sp.mesh.position.set(ox + (Math.random() - 0.5) * 0.25, oy, oz + (Math.random() - 0.5) * 0.25);
-      if (col) sp.mesh.material.color.setHex(col);
-      sp.mesh.visible = true;
-      sp.vel.set((Math.random() - 0.5) * 1.5, Math.random() * 1.8 + 0.5, (Math.random() - 0.5) * 1.5);
-      sp.life = 0;
-      sp.maxLife = 1.5 + Math.random() * 0.8;
-    });
-  }
-
-  function triggerWaterSprayFx(ox, oy, oz) {
-    waterSprayParticles.forEach(function (wp) {
-      wp.mesh.position.set(ox + (Math.random() - 0.5) * 0.35, oy + 0.65, oz + (Math.random() - 0.5) * 0.35);
-      wp.mesh.visible = true;
-      wp.vel.set((Math.random() - 0.5) * 0.4, -(Math.random() * 1.5 + 1.2), (Math.random() - 0.5) * 0.4);
-      wp.life = 0;
-      wp.maxLife = 0.8 + Math.random() * 0.4;
-    });
-  }
-
-  function stepGreenhouseParticles(dt) {
-    for (var i = 0; i < sporeParticles.length; i++) {
-      var sp = sporeParticles[i];
-      if (!sp.mesh.visible) continue;
-      sp.life += dt;
-      if (sp.life >= sp.maxLife) {
-        sp.mesh.visible = false;
-        continue;
-      }
-      sp.vel.y -= 0.6 * dt;
-      sp.mesh.position.x += sp.vel.x * dt;
-      sp.mesh.position.y += sp.vel.y * dt;
-      sp.mesh.position.z += sp.vel.z * dt;
-      sp.mesh.material.opacity = Math.max(0, 1 - sp.life / sp.maxLife);
-    }
-    for (var j = 0; j < waterSprayParticles.length; j++) {
-      var wp = waterSprayParticles[j];
-      if (!wp.mesh.visible) continue;
-      wp.life += dt;
-      if (wp.life >= wp.maxLife) {
-        wp.mesh.visible = false;
-        continue;
-      }
-      wp.mesh.position.x += wp.vel.x * dt;
-      wp.mesh.position.y += wp.vel.y * dt;
-      wp.mesh.position.z += wp.vel.z * dt;
-    }
-  }
-
-  function updateGreenhouseSlotMesh(slot) {
-    if (!slot.mushGroup) return;
-    while (slot.mushGroup.children.length > 0) {
-      slot.mushGroup.remove(slot.mushGroup.children[0]);
-    }
-
-    var stage = slot.stage;
-    var col = slot.color;
-
-    if (stage === 0) {
-      var fuzzMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.95 });
-      for (var fz = -2; fz <= 2; fz++) {
-        var dot = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), fuzzMat);
-        dot.scale.set(1.4, 0.35, 1.2);
-        dot.position.set(fz * 0.05, 0.14, (fz % 2) * 0.04);
-        slot.mushGroup.add(dot);
-      }
-    } else if (stage === 1) {
-      var pinMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 });
-      var stemMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.8 });
-      for (var p = -2; p <= 2; p++) {
-        var pStem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.05, 6), stemMat);
-        pStem.position.set(p * 0.05, 0.15, ((p * 3) % 4) * 0.025);
-        var pCap = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 6), pinMat);
-        pCap.position.set(p * 0.05, 0.18, ((p * 3) % 4) * 0.025);
-        slot.mushGroup.add(pStem, pCap);
-      }
-    } else if (stage === 2) {
-      var medMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.45 });
-      var medStemMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.7 });
-      for (var m = -1; m <= 1; m++) {
-        var mStem = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.12, 8), medStemMat);
-        mStem.position.set(m * 0.08, 0.18, (m % 2) * 0.03);
-        var mCap = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), medMat);
-        mCap.position.set(m * 0.08, 0.24, (m % 2) * 0.03);
-        slot.mushGroup.add(mStem, mCap);
-      }
-    } else {
-      var matureMat = new THREE.MeshStandardMaterial({
-        color: col, roughness: 0.38,
-        emissive: slot.id === 3 ? 0xf59e0b : 0x000000,
-        emissiveIntensity: slot.id === 3 ? 0.35 : 0
-      });
-      var matureStemMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.65 });
-
-      if (slot.id === 0) {
-        for (var sb = -2; sb <= 2; sb++) {
-          var sStem = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.026, 0.20, 8), matureStemMat);
-          sStem.position.set(sb * 0.055, 0.22, ((sb * 2) % 3) * 0.035);
-          sStem.rotation.z = sb * 0.12;
-          var sCap = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), matureMat);
-          sCap.position.set(sb * 0.07, 0.32, ((sb * 2) % 3) * 0.035);
-          slot.mushGroup.add(sStem, sCap);
-        }
-      } else if (slot.id === 1) {
-        for (var sh = -1; sh <= 1; sh++) {
-          var shStem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.18, 8), matureStemMat);
-          shStem.position.set(sh * 0.10, 0.21, 0);
-          var shCap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.04, 12), matureMat);
-          shCap.position.set(sh * 0.10, 0.30, 0);
-          slot.mushGroup.add(shStem, shCap);
-        }
-      } else if (slot.id === 2) {
-        var jStem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.12, 8), matureStemMat);
-        jStem.position.set(0, 0.18, 0);
-        var lionBall = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
-        lionBall.position.set(0, 0.28, 0);
-        lionBall.scale.set(1.2, 0.9, 1.1);
-        slot.mushGroup.add(jStem, lionBall);
-      } else {
-        for (var gt = -1; gt <= 1; gt++) {
-          var gtStem = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.032, 0.26, 8), matureStemMat);
-          gtStem.position.set(gt * 0.085, 0.25, gt * 0.03);
-          var gtVeil = new THREE.Mesh(new THREE.RingGeometry(0.022, 0.045, 10), new THREE.MeshBasicMaterial({ color: 0x1e1b4b, side: THREE.DoubleSide }));
-          gtVeil.rotation.x = Math.PI / 2;
-          gtVeil.position.set(gt * 0.085, 0.30, gt * 0.03);
-          var gtCap = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.09, 12), matureMat);
-          gtCap.position.set(gt * 0.085, 0.38, gt * 0.03);
-          slot.mushGroup.add(gtStem, gtVeil, gtCap);
-        }
-      }
-    }
-
-    if (slot.badgeSprite) {
-      var sNames = ['Micélio', 'Primórdios', 'Crescendo', '✨ MADURO!'];
-      var sColors = ['#94a3b8', '#38bdf8', '#fbbf24', '#34d399'];
-      var infoText = slot.name + ' • ' + Math.round(slot.humidity) + '% UR\n' + sNames[slot.stage];
-      updateTextSprite(slot.badgeSprite, infoText, sColors[slot.stage]);
-    }
-  }
-
-  function buildGreenhouseBench(estufaSurf) {
-    greenhouseSlots.forEach(function (slot) {
-      var g = new THREE.Group();
-      g.position.set(slot.x, slot.y, slot.z);
-
-      var blockMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.9 });
-      var blockMesh = makeBox(0.36, 0.18, 0.28, blockMat);
-      blockMesh.position.y = 0.09;
-      blockMesh.castShadow = true;
-      blockMesh.userData.greenhouseSlot = slot;
-      g.add(blockMesh);
-      greenhouseHitMeshes.push(blockMesh);
-
-      var ledColor = slot.humidity >= 70 ? 0x10b981 : (slot.humidity >= 45 ? 0xf59e0b : 0xef4444);
-      var ledStrip = makeBox(0.32, 0.02, 0.02, ledColor, { emissive: ledColor, emissiveIntensity: 0.8 });
-      ledStrip.position.set(0, 0.02, 0.145);
-      g.add(ledStrip);
-
-      var mg = new THREE.Group();
-      g.add(mg);
-      slot.group = g;
-      slot.mushGroup = mg;
-
-      var badge = makeTextSprite(slot.name, '#34d399');
-      badge.position.set(0, 0.54, 0);
-      badge.scale.set(1.2, 0.30, 1);
-      g.add(badge);
-      slot.badgeSprite = badge;
-
-      updateGreenhouseSlotMesh(slot);
-      scene.add(g);
-    });
-  }
-
+  function initGreenhouseParticlePools() { return window.__MYCO_MODULES__.greenhouse.initGreenhouseParticlePools(scene); }
+  function triggerSporeBurst(ox, oy, oz, col) { return window.__MYCO_MODULES__.greenhouse.triggerSporeBurst(ox, oy, oz, col); }
+  function triggerWaterSprayFx(ox, oy, oz) { return window.__MYCO_MODULES__.greenhouse.triggerWaterSprayFx(ox, oy, oz); }
+  function stepGreenhouseParticles(dt) { return window.__MYCO_MODULES__.greenhouse.stepGreenhouseParticles(dt); }
+  function updateGreenhouseSlotMesh(slot) { return window.__MYCO_MODULES__.greenhouse.updateGreenhouseSlotMesh(slot); }
+  function buildGreenhouseBench() { return window.__MYCO_MODULES__.greenhouse.buildGreenhouseBench(scene); }
   function interactGreenhouseSlot(slot) {
-    var isHoldingSpray = heldItem && (heldItem.id.indexOf('alcohol_spray') !== -1 || heldItem.id.indexOf('spray') !== -1);
-    if (slot.stage === 3) {
-      if (window.MycoAudio) window.MycoAudio.playHarvest();
-      triggerSporeBurst(slot.x, slot.y + 0.35, slot.z, slot.color);
-      if (callbacks.onHarvestGreenhouse) {
-        callbacks.onHarvestGreenhouse(slot);
-      }
-      slot.stage = 0;
-      slot.growth = 0;
-      slot.humidity = 70;
-      updateGreenhouseSlotMesh(slot);
-      queueWorldStateChange('greenhouse_slot_' + slot.id + '_stage', 0);
-      queueWorldStateChange('greenhouse_slot_' + slot.id + '_humidity', 70);
-      if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
-      return;
-    }
-
-    if (isHoldingSpray) {
-      slot.humidity = Math.min(100, slot.humidity + 25);
-      if (window.MycoAudio) window.MycoAudio.playSpray();
-      triggerWaterSprayFx(slot.x, slot.y + 0.30, slot.z);
-      updateGreenhouseSlotMesh(slot);
-      queueWorldStateChange('greenhouse_slot_' + slot.id + '_humidity', Math.round(slot.humidity));
-      if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
-      return;
-    }
-
-    if (window.MycoAudio) window.MycoAudio.playClick();
-    if (callbacks.onToast) {
-      var stageNames = ['Micélio colonizando', 'Primórdios (Pins)', 'Crescimento médio', 'Maduro para colheita'];
-      var stLabel = stageNames[slot.stage] || 'Em cultivo';
-      var hum = Math.round(slot.humidity);
-      callbacks.onToast('🍄 ' + slot.name + ' • ' + stLabel + ' (' + hum + '% UR) — Use o Borrifador para hidratar ou aguarde amadurecer!');
-    }
-  }
-
-  // ---------------- Mega Campus: Lago em 8, Esportes, Student Center, Dormitorios & Avenidas ----------------
-
-  function buildOuterCampus() {
-    // 1. Avenidas asfaltadas com faixas de pedestres
-    var roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.88 });
-    var roadSouth = makeBox(140, 0.03, 7.0, roadMat, { noShadow: true });
-    roadSouth.position.set(0, 0.015, 39.5);
-    var roadEast = makeBox(7.0, 0.03, 62, roadMat, { noShadow: true });
-    roadEast.position.set(30.5, 0.015, 8.5);
-    scene.add(roadSouth, roadEast);
-
-    // Faixas de pedestres
-    for (var s = -2; s <= 2; s++) {
-      var st1 = makeBox(0.65, 0.04, 4.8, 0xf8fafc, { noShadow: true });
-      st1.position.set(-42 + s * 1.3, 0.02, 39.5);
-      var st2 = makeBox(4.8, 0.04, 0.65, 0xf8fafc, { noShadow: true });
-      st2.position.set(30.5, 0.02, 12 + s * 1.3);
-      scene.add(st1, st2);
-    }
-
-    // Calcada em bloquetes ligando a Praca Central ate a ponte e continuando do outro lado do Lago em 8!
-    var walkS = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 5.2), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-    walkS.rotation.x = -Math.PI / 2; walkS.position.set(0, 0.022, 18.4); walkS.receiveShadow = true;
-    var walkSouthEnd = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 6.5), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-    walkSouthEnd.rotation.x = -Math.PI / 2; walkSouthEnd.position.set(0, 0.022, 38.6); walkSouthEnd.receiveShadow = true;
-    var walkE = new THREE.Mesh(new THREE.PlaneGeometry(14, 8), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-    walkE.rotation.x = -Math.PI / 2; walkE.position.set(27, 0.022, 12); walkE.receiveShadow = true;
-    scene.add(walkS, walkSouthEnd, walkE);
-
-    // 2. Lago Duplo (formato de 8) com profundidade em camadas + agua cristalina animada + Ponte de Madeira Arqueada
-    var lakeMat = new THREE.MeshStandardMaterial({
-      map: texWater,
-      color: 0x38bdf8,
-      emissive: 0x0284c7,
-      emissiveIntensity: 0.16,
-      roughness: 0.06,
-      metalness: 0.32,
-      transparent: true,
-      opacity: 0.78,
-      depthWrite: false
-    });
-    var lakeShallowMat = new THREE.MeshStandardMaterial({ color: 0x0c4a6e, roughness: 0.92 });
-    var lakeMidMat = new THREE.MeshStandardMaterial({ color: 0x082f49, roughness: 0.95 });
-    var lakeDeepMat = new THREE.MeshStandardMaterial({ color: 0x021724, roughness: 0.98 });
-    var lakeBedMat = lakeDeepMat;
-    var lakeStoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.88 });
-    [-6.5, 6.5].forEach(function (lx) {
-      var bed1 = new THREE.Mesh(new THREE.CircleGeometry(7.55, 36), lakeShallowMat);
-      bed1.rotation.x = -Math.PI / 2; bed1.position.set(lx, 0.015, 28.0);
-      var bed2 = new THREE.Mesh(new THREE.CircleGeometry(5.8, 32), lakeMidMat);
-      bed2.rotation.x = -Math.PI / 2; bed2.position.set(lx, 0.018, 28.0);
-      var bed3 = new THREE.Mesh(new THREE.CircleGeometry(3.7, 28), lakeDeepMat);
-      bed3.rotation.x = -Math.PI / 2; bed3.position.set(lx, 0.021, 28.0);
-      var lobe = new THREE.Mesh(new THREE.CircleGeometry(7.55, 36), lakeMat);
-      lobe.rotation.x = -Math.PI / 2; lobe.position.set(lx, 0.11, 28.0);
-      var rim = new THREE.Mesh(new THREE.RingGeometry(7.42, 8.28, 36), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.82 }));
-      rim.rotation.x = -Math.PI / 2; rim.position.set(lx, 0.045, 28.0);
-      scene.add(bed1, bed2, bed3, lobe, rim);
-      // Algumas pedras submersas e na margem para dar sensacao de profundidade real
-      for (var st = 0; st < 8; st++) {
-        var sang = (st / 8) * Math.PI * 2 + (lx > 0 ? 0.3 : 0);
-        var srad = 3.2 + (st % 3) * 1.4;
-        var rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32 + (st % 2) * 0.14, 0), lakeStoneMat);
-        rock.scale.set(1.2, 0.45, 1.0);
-        rock.position.set(lx + Math.cos(sang) * srad, 0.03, 28.0 + Math.sin(sang) * srad);
-        scene.add(rock);
-      }
-    });
-
-    // Ponte de Madeira Arqueada (z: 20.6 .. 35.4, ligando os dois lados do lago!)
-    (function buildArchedWoodBridge() {
-      var bg = new THREE.Group();
-      var bridgeW = 3.2;
-      var zStart = 20.6, zEnd = 35.4;
-      var zMid = (zStart + zEnd) * 0.5;
-      var halfSpan = (zEnd - zStart) * 0.5; // 7.4m
-      var archHeight = 0.88;
-      var baseDeckY = 0.14;
-      function deckYAt(z) {
-        var u = Math.max(-1, Math.min(1, (z - zMid) / halfSpan));
-        return baseDeckY + archHeight * (1 - u * u);
-      }
-
-      var plankMat = woodMat(1, 1);
-      var railMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.78 });
-      var postMat = new THREE.MeshStandardMaterial({ color: 0x5c2d0c, roughness: 0.82 });
-
-      // 38 Tabuas individuais seguindo o arco suave da ponte + segmentos caminhaveis
-      var plankCount = 38;
-      var stepZ = (zEnd - zStart) / plankCount;
-      for (var pi = 0; pi < plankCount; pi++) {
-        var pz = zStart + (pi + 0.5) * stepZ;
-        var py = deckYAt(pz);
-        var slope = Math.atan2(deckYAt(pz + 0.15) - deckYAt(pz - 0.15), 0.30);
-        var plank = makeBox(bridgeW, 0.09, stepZ * 0.88, plankMat);
-        plank.position.set(0, py - 0.045, pz);
-        plank.rotation.x = -slope;
-        bg.add(plank);
-        if (pi % 2 === 0) {
-          var segZ = zStart + (pi + 1) * stepZ;
-          var segY = deckYAt(segZ);
-          walkableFloors.push({
-            minX: -bridgeW / 2 + 0.12, maxX: bridgeW / 2 - 0.12,
-            minZ: pz - stepZ * 0.6, maxZ: pz + stepZ * 1.6,
-            topY: segY
-          });
-        }
-      }
-
-      // Vigas longitudinais curvas e postes + trelicas em X + escoras diagonais externas (estilo da foto!)
-      var postCount = 10;
-      var postStep = (zEnd - zStart) / postCount;
-      var sideX = bridgeW / 2 - 0.10;
-      for (var k = 0; k <= postCount; k++) {
-        var kz = zStart + k * postStep;
-        var ky = deckYAt(kz);
-        [-sideX, sideX].forEach(function (sx) {
-          // Estaca submersa indo ate o fundo do lago
-          if (k > 0 && k < postCount) {
-            var pile = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, ky + 0.2, 10), postMat);
-            pile.position.set(sx * 0.92, (ky - 0.1) * 0.5, kz);
-            pile.castShadow = true;
-            bg.add(pile);
-          }
-          // Poste vertical do guarda-corpo
-          var post = makeBox(0.11, 0.98, 0.11, postMat);
-          post.position.set(sx, ky + 0.46, kz);
-          bg.add(post);
-          // Escora diagonal externa nos postes (fiel a referencia!)
-          if (k % 2 === 0) {
-            var dirSign = sx > 0 ? 1 : -1;
-            var brace = makeBox(0.07, 0.88, 0.07, railMat);
-            brace.position.set(sx + dirSign * 0.24, ky + 0.34, kz);
-            brace.rotation.z = dirSign * 0.52;
-            bg.add(brace);
-          }
-        });
-
-        if (k < postCount) {
-          var nz = zStart + (k + 1) * postStep;
-          var ny = deckYAt(nz);
-          var mz = (kz + nz) * 0.5;
-          var my = (ky + ny) * 0.5;
-          var dz = nz - kz;
-          var dy = ny - ky;
-          var spanLen = Math.hypot(dz, dy);
-          var ang = Math.atan2(dy, dz);
-          var crossLen = Math.hypot(dz, 0.72);
-          var crossAng = Math.atan2(0.72, dz);
-
-          [-sideX, sideX].forEach(function (sx) {
-            // Corrimao superior e travessa inferior
-            var topRail = makeBox(0.11, 0.08, spanLen + 0.04, railMat);
-            topRail.position.set(sx, my + 0.92, mz);
-            topRail.rotation.x = -ang;
-            var botRail = makeBox(0.08, 0.06, spanLen + 0.02, railMat);
-            botRail.position.set(sx, my + 0.14, mz);
-            botRail.rotation.x = -ang;
-            // Trelica em X entre os postes
-            var x1 = makeBox(0.055, 0.055, crossLen, railMat);
-            x1.position.set(sx, my + 0.52, mz);
-            x1.rotation.x = crossAng - ang;
-            var x2 = makeBox(0.055, 0.055, crossLen, railMat);
-            x2.position.set(sx, my + 0.52, mz);
-            x2.rotation.x = -crossAng - ang;
-            bg.add(topRail, botRail, x1, x2);
-          });
-        }
-      }
-
-      // Colisoes laterais invisiveis para o jogador nao cair pelas laterais da ponte
-      [-sideX, sideX].forEach(function (sx) {
-        solidColliders.push({
-          minX: sx - 0.10, maxX: sx + 0.10,
-          minZ: zStart + 0.2, maxZ: zEnd - 0.2,
-          minY: 0, maxY: 2.4
-        });
-      });
-
-      scene.add(bg);
-    })();
-
-    // 3. Complexo Esportivo Oeste
-    // 3a. Campo de Futebol + Pista de Atletismo vermelha (x: -54, z: -15)
-    var track = makeBox(30, 0.04, 19, 0xb91c1c, { roughness: 0.85, noShadow: true });
-    track.position.set(-50, 0.02, -15);
-    var field = makeBox(24, 0.05, 14, 0x16a34a, { roughness: 0.9, noShadow: true });
-    field.position.set(-50, 0.025, -15);
-    scene.add(track, field);
-    var midLine = makeBox(0.14, 0.06, 13.8, 0xffffff, { noShadow: true });
-    midLine.position.set(-50, 0.03, -15);
-    scene.add(midLine);
-    [-61.5, -38.5].forEach(function (gx) {
-      var goal = makeBox(0.3, 2.0, 4.2, 0xf8fafc, { transparent: true, opacity: 0.75 });
-      goal.position.set(gx, 1.0, -15);
-      scene.add(goal);
-    });
-    // Arquibancada
-    for (var b = 0; b < 3; b++) {
-      var bleacher = makeBox(18, 0.45, 1.1, 0x94a3b8);
-      bleacher.position.set(-50, 0.22 + b * 0.45, -26 - b * 1.1);
-      scene.add(bleacher);
-    }
-
-    // 3b. Quadra de Basquete (x: -48, z: 6)
-    var bball = makeBox(18, 0.04, 12, 0x0f766e, { roughness: 0.8, noShadow: true });
-    bball.position.set(-48, 0.02, 6);
-    var bballIn = makeBox(15, 0.05, 9.5, 0x15803d, { roughness: 0.8, noShadow: true });
-    bballIn.position.set(-48, 0.025, 6);
-    scene.add(bball, bballIn);
-    [-55.5, -40.5].forEach(function (hx) {
-      var post = makeBox(0.16, 3.0, 0.16, 0x1e293b);
-      post.position.set(hx, 1.5, 6);
-      var boardB = makeBox(0.12, 1.0, 1.6, 0xf8fafc);
-      boardB.position.set(hx + (hx < -48 ? 0.35 : -0.35), 2.8, 6);
-      scene.add(post, boardB);
-    });
-
-    // Bolas interativas do Complexo Esportivo (Futebol + Basquete)
-    (function createSportBalls() {
-      function makeBallTex(bg, lineCol, isSoccer) {
-        var c = document.createElement('canvas');
-        c.width = 128; c.height = 64;
-        var ctx = c.getContext('2d');
-        ctx.fillStyle = bg; ctx.fillRect(0, 0, 128, 64);
-        ctx.strokeStyle = lineCol; ctx.fillStyle = lineCol;
-        if (isSoccer) {
-          for (var sx = 16; sx < 128; sx += 32) {
-            for (var sy = 16; sy < 64; sy += 32) {
-              ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI * 2); ctx.fill();
-            }
-          }
-        } else {
-          ctx.lineWidth = 3;
-          ctx.beginPath(); ctx.moveTo(0, 32); ctx.lineTo(128, 32); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(64, 0); ctx.lineTo(64, 64); ctx.stroke();
-          ctx.beginPath(); ctx.arc(32, 32, 22, -1.1, 1.1); ctx.stroke();
-          ctx.beginPath(); ctx.arc(96, 32, 22, Math.PI - 1.1, Math.PI + 1.1); ctx.stroke();
-        }
-        return new THREE.CanvasTexture(c);
-      }
-
-      var soccerMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.24, 16, 12),
-        new THREE.MeshStandardMaterial({ map: makeBallTex('#f8fafc', '#0f172a', true), roughness: 0.55 })
-      );
-      soccerMesh.position.set(-50, 0.29, -15);
-      soccerMesh.castShadow = true;
-      scene.add(soccerMesh);
-      sportBalls.push({
-        kind: 'soccer', mesh: soccerMesh, r: 0.24,
-        vx: 0, vy: 0, vz: 0,
-        homeX: -50, homeZ: -15, groundY: 0.05,
-        minX: -61.8, maxX: -38.2, minZ: -21.8, maxZ: -8.2,
-        bounceUp: 3.2, goalCooldown: 0
-      });
-
-      var bballMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.22, 16, 12),
-        new THREE.MeshStandardMaterial({ map: makeBallTex('#ea580c', '#1e293b', false), roughness: 0.65 })
-      );
-      bballMesh.position.set(-48, 0.27, 6);
-      bballMesh.castShadow = true;
-      scene.add(bballMesh);
-      sportBalls.push({
-        kind: 'basketball', mesh: bballMesh, r: 0.22,
-        vx: 0, vy: 0, vz: 0,
-        homeX: -48, homeZ: 6, groundY: 0.05,
-        minX: -55.3, maxX: -40.7, minZ: 1.4, maxZ: 10.6,
-        bounceUp: 4.5, goalCooldown: 0
-      });
-    })();
-
-    // 3c. Quadras de Tenis azuis (x: -48, z: -36)
-    [-54, -42].forEach(function (tx) {
-      var tCourt = makeBox(10, 0.04, 15, 0x1d4ed8, { roughness: 0.8, noShadow: true });
-      tCourt.position.set(tx, 0.02, -36);
-      var tNet = makeBox(9.2, 0.9, 0.1, 0xf8fafc, { transparent: true, opacity: 0.85 });
-      tNet.position.set(tx, 0.45, -36);
-      scene.add(tCourt, tNet);
-    });
-
-    // 3d. Estacionamento Sudoeste com carros
-    var lot = makeBox(24, 0.03, 18, roadMat, { noShadow: true });
-    lot.position.set(-48, 0.015, 24);
-    scene.add(lot);
-    var carCols = [0xef4444, 0x3b82f6, 0xfacc15, 0xf8fafc, 0x10b981, 0x64748b];
-    for (var c = 0; c < 6; c++) {
-      var car = makeBox(2.0, 1.1, 3.6, carCols[c], { roughness: 0.35, metalness: 0.3 });
-      car.position.set(-55 + (c % 3) * 6.5, 0.55, 19 + Math.floor(c / 3) * 9.5);
-      scene.add(car);
-      solidColliders.push({
-        minX: car.position.x - 1.1, maxX: car.position.x + 1.1,
-        minZ: car.position.z - 1.9, maxZ: car.position.z + 1.9, minY: 0, maxY: 1.4
-      });
-    }
-
-    // 4. Setor Leste: Student Center + 2a Praca Circular + Dormitorios
-    // 4a. Student Center (x: 48, z: -12) com terraco aberto no 2o andar
-    // 4a. Student Center -> GRANDE AUDITORIO / CINEMA CAMINHÁVEL (x: 48, z: -12)
-    addWalkableSlab(48, 0.14, -12, 22, 0.14, 16, 0x334155);
-    var scRoof = makeBox(22.6, 0.4, 16.6, 0x64748b);
-    scRoof.position.set(48, 6.7, -12);
-    registerSnowable(scRoof.material);
-    roofZones.push({ minX: 36.5, maxX: 59.5, minZ: -20.5, maxZ: -3.5, roofY: 6.9 });
-    scene.add(scRoof);
-    // Paredes do Auditorio com entrada ampla no Sul (x: 46..50 aberta!)
-    addSolidWall(37, -20, 59, -20, 0.14, 6.4, 0.35, brickMat(5, 2)); // Norte (fundo da tela)
-    addSolidWall(37, -20, 37, -4, 0.14, 6.4, 0.35, brickMat(4, 2));  // Oeste
-    addSolidWall(59, -20, 59, -4, 0.14, 6.4, 0.35, brickMat(4, 2));  // Leste
-    addSolidWall(37, -4, 46, -4, 0.14, 6.4, 0.35, brickMat(2.2, 2)); // Sul esq
-    addSolidWall(50, -4, 59, -4, 0.14, 6.4, 0.35, brickMat(2.2, 2)); // Sul dir
-    var scHeader = makeBox(4.2, 2.8, 0.35, brickMat(1.2, 0.8));
-    scHeader.position.set(48, 5.1, -4);
-    scene.add(scHeader);
-
-    // Letreiro 3D Student Center / Auditorio
-    var scSignC = document.createElement('canvas');
-    scSignC.width = 512; scSignC.height = 96;
-    var scCtx = scSignC.getContext('2d');
-    scCtx.fillStyle = '#0f172a'; scCtx.fillRect(0, 0, 512, 96);
-    scCtx.fillStyle = '#38bdf8'; scCtx.font = 'bold 34px system-ui, sans-serif';
-    scCtx.textAlign = 'center'; scCtx.textBaseline = 'middle';
-    scCtx.fillText('STUDENT CENTER • AUDITÓRIO', 256, 48);
-    var scSign = new THREE.Mesh(new THREE.PlaneGeometry(8.6, 1.4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(scSignC) }));
-    scSign.position.set(48, 5.2, -3.78);
-    scene.add(scSign);
-
-    // Tela gigante do Projetor na parede Norte (z = -19.65)
-    cinemaCanvas = document.createElement('canvas');
-    cinemaCanvas.width = 768; cinemaCanvas.height = 384;
-    cinemaCtx = cinemaCanvas.getContext('2d');
-    cinemaTex = new THREE.CanvasTexture(cinemaCanvas);
-    var cinemaFrame = makeBox(11.6, 5.4, 0.18, 0x0f172a);
-    cinemaFrame.position.set(48, 3.6, -19.72);
-    scene.add(cinemaFrame);
-    cinemaScreenMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(11.0, 5.0),
-      new THREE.MeshBasicMaterial({ map: cinemaTex })
-    );
-    cinemaScreenMesh.position.set(48, 3.6, -19.6);
-    scene.add(cinemaScreenMesh);
-
-    // Projetor no teto + Feixe de luz volumetrico
-    var projBody = makeBox(0.85, 0.38, 1.0, 0x1e293b, { metalness: 0.6 });
-    projBody.position.set(48, 5.7, -8.5);
-    var projLens = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.14, 0.16, 0.25, 16),
-      new THREE.MeshStandardMaterial({ color: 0xe0f2fe, emissive: 0x38bdf8, emissiveIntensity: 1.4 })
-    );
-    projLens.rotation.x = Math.PI / 2;
-    projLens.position.set(48, 5.65, -9.05);
-    var beamMat = new THREE.MeshBasicMaterial({
-      color: 0xbae6fd, transparent: true, opacity: 0.11,
-      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
-    });
-    cinemaBeam = new THREE.Mesh(new THREE.ConeGeometry(4.2, 10.6, 24, 1, true), beamMat);
-    cinemaBeam.position.set(48, 4.65, -14.3);
-    cinemaBeam.rotation.x = Math.PI / 2 - 0.19;
-    scene.add(projBody, projLens, cinemaBeam);
-
-    // 3 fileiras de poltronas do Auditorio (clicaveis para sentar e assistir!)
-    [-14.5, -12.2, -9.9].forEach(function (rz, rIdx) {
-      var rowBench = makeBox(11.0, 0.45, 0.85, 0x991b1b, { roughness: 0.7 });
-      rowBench.position.set(48, 0.38 + rIdx * 0.18, rz);
-      var rowBack = makeBox(11.0, 0.55, 0.16, 0x7f1d1d, { roughness: 0.7 });
-      rowBack.position.set(48, 0.78 + rIdx * 0.18, rz + 0.36);
-      scene.add(rowBench, rowBack);
-      solidColliders.push({ minX: 42.4, maxX: 53.6, minZ: rz - 0.45, maxZ: rz + 0.45, minY: 0, maxY: 1.4 });
-      [-4.4, -2.2, 0, 2.2, 4.4].forEach(function (sx) {
-        var audSeatHit = new THREE.Mesh(
-          new THREE.BoxGeometry(2.0, 0.65, 0.85),
-          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
-        );
-        audSeatHit.position.set(48 + sx, 0.52 + rIdx * 0.18, rz);
-        audSeatHit.userData.seatInfo = { x: 48 + sx, y: 0.14 + rIdx * 0.18, z: rz - 0.04, yaw: 0 };
-        scene.add(audSeatHit);
-        seatMeshes.push(audSeatHit);
-      });
-    });
-
-    // Quadra poliesportiva livre (sem guarda-sois)
-
-    // 4b. 2a Praca Circular Leste com Fonte (x: 42, z: 12, sem z-fighting!)
-    var plazaE = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 8.5, 0.04, 28), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-    plazaE.position.set(42, 0.025, 12);
-    var bedE = new THREE.Mesh(new THREE.CylinderGeometry(2.15, 2.15, 0.10, 28), lakeBedMat);
-    bedE.position.set(42, 0.08, 12);
-    var wallE = new THREE.Mesh(new THREE.CylinderGeometry(2.45, 2.58, 0.44, 28, 1, true), new THREE.MeshStandardMaterial({ color: 0xcbd5e1, side: THREE.DoubleSide }));
-    wallE.position.set(42, 0.24, 12);
-    var rimTorusE = new THREE.Mesh(new THREE.TorusGeometry(2.32, 0.18, 12, 32), new THREE.MeshStandardMaterial({ color: 0xdbe4ee, roughness: 0.6 }));
-    rimTorusE.rotation.x = Math.PI / 2;
-    rimTorusE.scale.set(1, 1, 0.45);
-    rimTorusE.position.set(42, 0.45, 12);
-    var waterE = new THREE.Mesh(new THREE.CircleGeometry(2.18, 28), lakeMat);
-    waterE.rotation.x = -Math.PI / 2;
-    waterE.position.set(42, 0.39, 12);
-    scene.add(plazaE, bedE, wallE, rimTorusE, waterE);
-    solidColliders.push({ minX: 39.5, maxX: 44.5, minZ: 9.5, maxZ: 14.5, minY: 0, maxY: 1.2 });
-
-    // 4c. 2 Dormitorios Caminhaveis no Sudeste (com porta aberta, piso, cama e mesa!)
-    [[58, 12, 0xfacc15], [50, 28, 0x38bdf8]].forEach(function (dm) {
-      var dx = dm[0], dz = dm[1];
-      addWalkableSlab(dx, 0.14, dz, 14, 0.14, 10, 0x475569);
-      var dRoof = makeBox(14.6, 0.4, 10.6, 0x64748b);
-      dRoof.position.set(dx, 5.4, dz);
-      registerSnowable(dRoof.material);
-      roofZones.push({ minX: dx - 7.5, maxX: dx + 7.5, minZ: dz - 5.5, maxZ: dz + 5.5, roofY: 5.6 });
-      scene.add(dRoof);
-      addSolidWall(dx - 7, dz - 5, dx + 7, dz - 5, 0.14, 5.1, 0.3, brickMat(3, 2)); // Fundo
-      addSolidWall(dx - 7, dz - 5, dx - 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2)); // Esq
-      addSolidWall(dx + 7, dz - 5, dx + 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2)); // Dir
-      // Frente (dz + 5) com porta aberta em dx - 4.0 (largura 2.4m)
-      addSolidWall(dx - 7, dz + 5, dx - 5.2, dz + 5, 0.14, 5.1, 0.3, brickMat(1, 2));
-      addSolidWall(dx - 2.8, dz + 5, dx + 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2));
-      var dHeader = makeBox(2.5, 2.3, 0.3, brickMat(1, 1));
-      dHeader.position.set(dx - 4.0, 4.1, dz + 5);
-      var awning = makeBox(2.8, 0.25, 1.3, dm[2]);
-      awning.position.set(dx - 4.0, 2.95, dz + 5.65);
-      // Cama & escrivaninha interna
-      var bed = makeBox(2.2, 0.55, 1.3, 0x3b82f6, { roughness: 0.7 });
-      bed.position.set(dx + 3.5, 0.42, dz - 2.5);
-      var dDesk = makeBox(1.8, 0.75, 0.9, 0xd97706, { roughness: 0.65 });
-      dDesk.position.set(dx + 3.5, 0.52, dz + 2.5);
-      scene.add(dHeader, awning, bed, dDesk);
-      solidColliders.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, minY: 0, maxY: 0.69, surfaceTopY: 0.69 });
-      solidColliders.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, minY: 0, maxY: 0.89, surfaceTopY: 0.89 });
-      supportSurfaces.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, topY: 0.69 });
-      supportSurfaces.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, topY: 0.89 });
+    return window.__MYCO_MODULES__.greenhouse.interactGreenhouseSlot(slot, {
+      heldItem: heldItem,
+      callbacks: callbacks,
+      queueWorldStateChange: queueWorldStateChange
     });
   }
+
+  function buildOuterCampus() { return window.__MYCO_MODULES__.outerCampus.buildOuterCampus(getWorldBuilderCtx()); }
 
   // ---------------- Colisao & Posicionamento de Itens ----------------
 
@@ -4720,10 +3665,7 @@
       return;
     }
     if (hoveredRankBtn) {
-      var maxStart = Math.max(0, rankingList.length - 8);
-      if (hoveredRankBtn === 'up') rankingScroll = Math.max(0, rankingScroll - 1);
-      else rankingScroll = Math.min(maxStart, rankingScroll + 1);
-      drawRankingBoard();
+      window.__MYCO_MODULES__.staircaseClock.scrollRanking(hoveredRankBtn);
       return;
     }
     if (hoveredSeat) {
@@ -5228,8 +4170,9 @@
       }
     }
     hoveredGreenhouseSlot = null;
-    if (!prompt && greenhouseHitMeshes.length > 0) {
-      var ghHits = raycaster.intersectObjects(greenhouseHitMeshes, true);
+    var ghHitsMeshes = getGreenhouseHitMeshes();
+    if (!prompt && ghHitsMeshes.length > 0) {
+      var ghHits = raycaster.intersectObjects(ghHitsMeshes, true);
       if (ghHits.length > 0 && ghHits[0].distance < 4.8) {
         var hSlot = ghHits[0].object.userData.greenhouseSlot;
         if (hSlot) {
@@ -5843,8 +4786,9 @@
               for (var dmi = 0; dmi < doorHitMeshes.length; dmi++) {
                 if (doorHitMeshes[dmi]) lTargets.push(doorHitMeshes[dmi]);
               }
-              for (var gsi = 0; gsi < greenhouseSlots.length; gsi++) {
-                if (greenhouseSlots[gsi] && greenhouseSlots[gsi].group) lTargets.push(greenhouseSlots[gsi].group);
+              var ghSlotsLaser = getGreenhouseSlots();
+              for (var gsi = 0; gsi < ghSlotsLaser.length; gsi++) {
+                if (ghSlotsLaser[gsi] && ghSlotsLaser[gsi].group) lTargets.push(ghSlotsLaser[gsi].group);
               }
               Object.keys(remoteAvatars).forEach(function (rId) {
                 var rAv = remoteAvatars[rId];
@@ -6600,8 +5544,9 @@
     dropUnsupportedItems();
 
     // Ciclo de cultivo e umidade da Estufa
-    for (var gi = 0; gi < greenhouseSlots.length; gi++) {
-      var gSlot = greenhouseSlots[gi];
+    var ghSlotsLoop = getGreenhouseSlots();
+    for (var gi = 0; gi < ghSlotsLoop.length; gi++) {
+      var gSlot = ghSlotsLoop[gi];
       gSlot.humidity = Math.max(20, gSlot.humidity - dt * 0.12);
       if (gSlot.humidity >= 60 && gSlot.stage < 3) {
         gSlot.growth += dt * (gSlot.humidity / 100) * 1.6;
@@ -7346,8 +6291,9 @@
     }
 
     // 7. Bancada de Cultivo da Estufa (greenhouse_slot_0..3)
-    for (var gi = 0; gi < greenhouseSlots.length; gi++) {
-      var slot = greenhouseSlots[gi];
+    var ghSlotsSync = getGreenhouseSlots();
+    for (var gi = 0; gi < ghSlotsSync.length; gi++) {
+      var slot = ghSlotsSync[gi];
       var kStage = 'greenhouse_slot_' + slot.id + '_stage';
       var kHum = 'greenhouse_slot_' + slot.id + '_humidity';
       if (stateMap[kStage] !== undefined && pendingStateChanges[kStage] === undefined && !(recentlyChangedState[kStage] > now)) {
@@ -7429,63 +6375,7 @@
   };
 
   function drawRankingBoard() {
-    if (!rankingCtx || !rankingTex) return;
-    var ctx = rankingCtx;
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, 512, 1024);
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(14, 14, 484, 90);
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 34px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('🏆 RANKING DO CAMPUS', 256, 70);
-
-    var perPage = 8;
-    var maxStart = Math.max(0, rankingList.length - perPage);
-    if (rankingScroll > maxStart) rankingScroll = maxStart;
-
-    if (!rankingList.length) {
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '24px system-ui, sans-serif';
-      ctx.fillText('Carregando ranking...', 256, 260);
-    } else {
-      for (var i = 0; i < perPage; i++) {
-        var idx = rankingScroll + i;
-        if (idx >= rankingList.length) break;
-        var row = rankingList[idx];
-        var y = 128 + i * 102;
-        var isProf = row.role === 'professor' || row.role === 'admin';
-        ctx.fillStyle = idx === 0 ? 'rgba(251, 191, 36, 0.18)' : 'rgba(30, 41, 59, 0.9)';
-        ctx.fillRect(20, y, 472, 88);
-
-        // Posicao (#1, #2, #3...)
-        ctx.textAlign = 'left';
-        ctx.fillStyle = idx === 0 ? '#fbbf24' : (idx === 1 ? '#e2e8f0' : (idx === 2 ? '#fb923c' : '#94a3b8'));
-        ctx.font = 'bold 30px system-ui, sans-serif';
-        var medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : '#' + (idx + 1)));
-        ctx.fillText(medal, 32, y + 54);
-
-        // Cargo + Nome
-        ctx.fillStyle = isProf ? '#fbbf24' : '#34d399';
-        ctx.font = 'bold 20px system-ui, sans-serif';
-        ctx.fillText(isProf ? 'PROF.' : 'ALUNO', 105, y + 32);
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 24px system-ui, sans-serif';
-        var nm = String(row.display_name || row.name || 'Explorador').slice(0, 16);
-        ctx.fillText(nm, 105, y + 66);
-
-        // XP
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#fde047';
-        ctx.font = 'bold 26px system-ui, sans-serif';
-        ctx.fillText((row.xp || 0) + ' XP', 476, y + 54);
-      }
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '20px system-ui, sans-serif';
-      ctx.fillText((rankingScroll + 1) + '–' + Math.min(rankingList.length, rankingScroll + perPage) + ' de ' + rankingList.length, 256, 985);
-    }
-    rankingTex.needsUpdate = true;
+    return window.__MYCO_MODULES__.staircaseClock.drawRankingBoard();
   }
 
 
@@ -7512,8 +6402,7 @@
   };
 
   window.updateCampusRanking = function (list) {
-    rankingList = Array.isArray(list) ? list : [];
-    drawRankingBoard();
+    window.__MYCO_MODULES__.staircaseClock.setRankingList(list);
   };
 
   window.setCampusCinemaLessons = function (list) {

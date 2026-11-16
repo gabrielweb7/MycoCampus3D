@@ -143,3 +143,45 @@ export function makeBox(w, h, d, colorOrMat, opts = {}) {
   m.receiveShadow = true;
   return m;
 }
+
+export function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+export function updateTextSprite(sp, text, colorHex) {
+  var tex = sp.material.map;
+  var canvas = tex.image;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!text) { tex.needsUpdate = true; return; }
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+  roundRectPath(ctx, 16, 12, 480, 72, 24);
+  ctx.fill();
+  ctx.fillStyle = colorHex || '#ffffff';
+  ctx.font = 'bold 32px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text.slice(0, 30), 256, 48);
+  tex.needsUpdate = true;
+}
+
+export function makeTextSprite(text, colorHex) {
+  var canvas = document.createElement('canvas');
+  canvas.width = 512; canvas.height = 96;
+  var tex = new THREE.CanvasTexture(canvas);
+  var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  var sp = new THREE.Sprite(mat);
+  sp.scale.set(2.2, 0.42, 1);
+  updateTextSprite(sp, text, colorHex);
+  return sp;
+}

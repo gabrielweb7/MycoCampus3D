@@ -16,6 +16,10 @@ import * as cinema from './engine/cinema.js';
 import * as environment from './engine/environment.js';
 import * as naturePlaza from './world/nature-plaza.js';
 import * as buildings from './world/buildings.js';
+import * as staircaseClock from './world/staircase-clock.js';
+import * as confetti from './entities/confetti.js';
+import * as greenhouse from './world/greenhouse.js';
+import * as outerCampus from './world/outer-campus.js';
 import { bootApp } from './ui/app-boot.js';
 
 // Ponte de módulos para o motor 3D durante a migração incremental
@@ -27,7 +31,11 @@ window.__MYCO_MODULES__ = {
   cinema,
   environment,
   naturePlaza,
-  buildings
+  buildings,
+  staircaseClock,
+  confetti,
+  greenhouse,
+  outerCampus
 };
 
 // Ponte de depuração inspecionável via DevTools
