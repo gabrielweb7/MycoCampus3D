@@ -18,11 +18,11 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ⚠️ **Atenção:** O arquivo `index.html` em produção carrega **exclusivamente** os 3 scripts principais abaixo (`js/campus-audio.js`, `js/campus3d.js` e `js/campus-app.js`), além de `js/vendor/`. As pastas `js/app/`, `js/audio/`, `js/config/`, `js/engine/`, `js/entities/` e `js/world/` contêm um rascunho modular congelado na `v0.9.0` e **NÃO são carregadas em produção**. Sempre edite os arquivos ativos listados abaixo.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.25"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.9)
-├── VERSION                    # Versão semântica atual do projeto (0.9.9)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.25)
+├── VERSION                    # Versão semântica atual do projeto (0.9.25)
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
 ├── .cpanel.yml                # Script de deploy automatizado no cPanel / HostGator
@@ -38,11 +38,16 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 ├── database/
 │   └── schema.sql             # Definição DDL completa das tabelas MySQL (schema_version 7)
 │
-├── js/                        # Scripts ativos em produção + dependências self-hosted
+├── js/                        # Arquitetura ES Modules nativa + dependências self-hosted
+│   ├── main.js                # Ponto de entrada único (registra API pública e inicializa app)
 │   ├── vendor/                # Three.js r128 e OrbitControls.js (100% self-hosted, zero CDN)
-│   ├── campus-audio.js        # Motor procedural Web Audio API (window.MycoAudio)
-│   ├── campus3d.js            # Motor 3D completo, física, clima, lab, estufa, esportes e avatares
-│   └── campus-app.js          # Lobby, HUD, modais (Aulas, Mapa, Missão, Loja, Ranking, Admin) e sync
+│   ├── core/                  # Constantes, lições, eventos, estado, math-pool (Zero-GC), qualidade
+│   ├── services/              # AudioEngine (Web Audio), api-client, multiplayer-sync
+│   ├── engine/                # Texturas procedurais, física/colisão, cinema, clima/arco-íris
+│   ├── world/                 # Natureza/praça, prédios, escadaria/relógio, estufa, lab, campus externo
+│   ├── entities/              # Avatares MP, braço 1ª pessoa, termômetro laser, ghost, confete, veículos
+│   ├── systems/               # Campus init, game loop, input controller, interações, lousa, lobby tour
+│   └── ui/                    # Boot UI, HUD/lobby, mapa/missão, controles mobile e modais
 │
 ├── css/
 │   ├── game.css               # Estilos principais, HUD, glassmorphism e regras mobile/tablet

@@ -12,7 +12,7 @@ import {
   getPlacementBlockedReason,
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
-import { getGreenhouseHitMeshes } from '../world/greenhouse.js';
+import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { scrollRanking } from '../world/staircase-clock.js';
 
 const THREE = window.THREE;
@@ -851,9 +851,8 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   ctx.hoveredGreenhouseSlot = null;
-  const ghHitsMeshes = getGreenhouseHitMeshes();
-  if (!prompt && ghHitsMeshes.length > 0) {
-    const ghHits = ctx.raycaster.intersectObjects(ghHitsMeshes, true);
+  if (!prompt && greenhouseHitMeshes.length > 0) {
+    const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
     if (ghHits.length > 0 && ghHits[0].distance < 4.8) {
       const hSlot = ghHits[0].object.userData.greenhouseSlot;
       if (hSlot) {
