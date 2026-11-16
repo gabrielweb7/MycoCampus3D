@@ -1,0 +1,65 @@
+/**
+ * Seringa 10ml com Agulha e Embolo Animado (MycoCampus3D)
+ */
+
+import { registerPickable } from './item-registry.js';
+
+const THREE = window.THREE;
+
+export function updateSyringeVolume(item, newVol) {
+  if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
+  const sc = item.mesh.userData.syrCtrl;
+  const clamped = Math.max(0, Math.min(10, Number(newVol) || 0));
+  sc.volMl = clamped;
+  const frac = clamped / 10;
+  if (clamped <= 0.05) {
+    sc.liqMesh.visible = false;
+  } else {
+    sc.liqMesh.visible = true;
+    sc.liqMesh.scale.y = Math.max(0.02, frac);
+    sc.liqMesh.position.y = 0.085 + (0.09 * frac) * 0.5;
+  }
+  sc.plunger.position.y = 0.095 + 0.09 * frac;
+  const dispVal = Math.round(clamped * 10) / 10;
+  item.label = clamped > 0.1
+    ? 'Seringa 10ml (' + (dispVal % 1 === 0 ? dispVal.toFixed(0) : dispVal.toFixed(1)) + 'ml CL)'
+    : 'Seringa 10ml (Vazia)';
+}
+
+export function makeSyringe10ml(ctx, id, px, py, pz) {
+  const sg = new THREE.Group();
+  const barrelMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.12, depthWrite: false });
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12, 14, 1, true), barrelMat);
+  barrel.position.y = 0.135;
+  const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.005, 14), barrelMat);
+  flange.position.y = 0.195;
+  const liqMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.012, 0.012, 0.09, 12),
+    new THREE.MeshStandardMaterial({ color: 0xfef08a, transparent: true, opacity: 0.78 })
+  );
+  liqMesh.visible = false;
+  const plunger = new THREE.Group();
+  const stopper = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.014, 12), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+  stopper.position.y = 0;
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.11, 8), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+  rod.position.y = 0.06;
+  const thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.005, 12), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+  thumb.position.y = 0.115;
+  plunger.add(stopper, rod, thumb);
+  plunger.position.y = 0.095;
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.009, 0.018, 10), new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.35 }));
+  hub.position.y = 0.068;
+  const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.0016, 0.001, 0.058, 8), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 }));
+  needle.position.y = 0.030;
+  const layWrap = new THREE.Group();
+  layWrap.add(liqMesh, plunger, barrel, flange, hub, needle);
+  layWrap.rotation.z = Math.PI / 2;
+  layWrap.position.set(0.12, 0.022, 0);
+  sg.add(layWrap);
+  sg.userData.isSyringe = true;
+  sg.userData.syrCtrl = { volMl: 0, liqMesh, plunger };
+  const item = registerPickable(ctx, id, 'Seringa 10ml (Vazia)', sg, px, py, pz, 0, 0.14, 0.06);
+  item.setVolume = function (v) { updateSyringeVolume(item, v); };
+  updateSyringeVolume(item, 0);
+  return item;
+}

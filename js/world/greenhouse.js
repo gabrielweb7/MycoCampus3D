@@ -305,3 +305,20 @@ export function interactGreenhouseSlot(slot, ctx) {
     callbacks.onToast('🍄 ' + slot.name + ' • ' + stLabel + ' (' + hum + '% UR) — Use o Borrifador para hidratar ou aguarde amadurecer!');
   }
 }
+
+export function stepGreenhouse(ctx, dt) {
+  for (let gi = 0; gi < greenhouseSlots.length; gi++) {
+    const gSlot = greenhouseSlots[gi];
+    gSlot.humidity = Math.max(20, gSlot.humidity - dt * 0.12);
+    if (gSlot.humidity >= 60 && gSlot.stage < 3) {
+      gSlot.growth += dt * (gSlot.humidity / 100) * 1.6;
+      if (gSlot.growth >= 100) {
+        gSlot.stage++;
+        gSlot.growth = 0;
+        updateGreenhouseSlotMesh(gSlot);
+        ctx.queueWorldStateChange('greenhouse_slot_' + gSlot.id + '_stage', gSlot.stage);
+      }
+    }
+  }
+  stepGreenhouseParticles(dt);
+}

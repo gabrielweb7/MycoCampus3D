@@ -41,12 +41,13 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 ├── js/                        # Arquitetura ES Modules nativa + dependências self-hosted
 │   ├── main.js                # Ponto de entrada único (registra API pública e inicializa app)
 │   ├── vendor/                # Three.js r128 e OrbitControls.js (100% self-hosted, zero CDN)
-│   ├── core/                  # Constantes, lições, eventos, estado, math-pool (Zero-GC), qualidade
+│   ├── core/                  # Config (config.js), logger/erros (logger.js), constantes, lições, eventos, estado, math-pool, qualidade
 │   ├── services/              # AudioEngine (Web Audio), api-client, multiplayer-sync
 │   ├── engine/                # Texturas procedurais, física/colisão, cinema, clima/arco-íris
-│   ├── world/                 # Natureza/praça, prédios, escadaria/relógio, estufa, lab, campus externo
+│   ├── world/                 # Natureza/praça, prédios, escadaria/relógio, estufa, layout de alas, campus externo
+│   ├── items/                 # Um módulo por item/equipamento (panela/fogareiro, fluxo laminar, balança, agitador, seringa, petri, spawn, spray, termômetro, etc.)
 │   ├── entities/              # Avatares MP, braço 1ª pessoa, termômetro laser, ghost, confete, veículos
-│   ├── systems/               # Campus init, game loop, input controller, interações, lousa, lobby tour
+│   ├── systems/               # Campus init, API pública, world-sync, game loop, movimento, input, interações, lousa, lobby tour
 │   └── ui/                    # Boot UI, HUD/lobby, mapa/missão, controles mobile e modais
 │
 ├── css/

@@ -23,7 +23,13 @@ import { updateHoverRay } from './interaction-system.js';
 import { stepPlayerMovement } from './player-movement.js';
 import { stepHeldItemAndSyringe } from './held-item-loop.js';
 import { stepSportBalls } from './sports-physics.js';
-import { stepLabAndGreenhouse } from './lab-simulation.js';
+import { stepLaminarHood } from '../items/laminar-hood.js';
+import { stepMagneticStirrers } from '../items/magnetic-stirrer.js';
+import { stepPrecisionScales } from '../items/precision-scale.js';
+import { stepPressureCookers } from '../items/pressure-cooker.js';
+import { stepSpawnColonization } from '../items/spawn-containers.js';
+import { stepSprayBursts } from '../items/alcohol-spray.js';
+import { stepGreenhouse } from '../world/greenhouse.js';
 
 let lastMobileHoverAt = 0;
 let animationStarted = false;
@@ -232,7 +238,13 @@ export function startAnimationLoop(ctx) {
       }
 
       stepHoverAndChalkboard(ctx, now);
-      stepLabAndGreenhouse(ctx, dt, now);
+      stepLaminarHood(ctx, dt);
+      stepMagneticStirrers(ctx, dt);
+      stepPrecisionScales(ctx, now);
+      stepPressureCookers(ctx, dt);
+      stepSpawnColonization(ctx, dt);
+      stepSprayBursts(ctx, dt);
+      stepGreenhouse(ctx, dt);
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);
       dropUnsupportedItems(ctx.entityCtx);

@@ -1,0 +1,106 @@
+/**
+ * Utilitarios Compartilhados de Itens Pegaveis (MycoCampus3D)
+ */
+
+const THREE = window.THREE;
+
+export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, height) {
+  mesh.position.set(x, y, z);
+  mesh.rotation.y = ry || 0;
+  if (ctx.isTouchDevice && ctx.isTouchDevice() && !mesh.userData.twoHanded) {
+    mesh.traverse(function (ch) { if (ch.isMesh) ch.castShadow = false; });
+  }
+  ctx.scene.add(mesh);
+  const entry = {
+    id,
+    label,
+    mesh,
+    homePos: new THREE.Vector3(x, y, z),
+    homeRy: ry || 0,
+    radius: radius || 0.25,
+    height: height || 0.4,
+    isMoved: false,
+    movedAt: 0
+  };
+  mesh.userData.pickableId = id;
+  mesh.userData.pickableLabel = label;
+  ctx.pickableItems.push(entry);
+  return entry;
+}
+
+export function updateItemBounds(item) {
+  if (!item || !item.mesh) return;
+  const px = item.mesh.position.x, py = item.mesh.position.y, pz = item.mesh.position.z;
+  const surf = item.mesh.userData.dynamicSurface;
+  const col = item.mesh.userData.dynamicCollider;
+  const dims = item.mesh.userData.tableDims;
+  if (dims) {
+    const cRot = Math.abs(Math.cos(item.mesh.rotation.y));
+    const sRot = Math.abs(Math.sin(item.mesh.rotation.y));
+    const hw = (dims.w * cRot + dims.d * sRot) / 2;
+    const hd = (dims.w * sRot + dims.d * cRot) / 2;
+    if (surf) {
+      surf.minX = px - hw + 0.02; surf.maxX = px + hw - 0.02;
+      surf.minZ = pz - hd + 0.02; surf.maxZ = pz + hd - 0.02;
+      surf.topY = py + dims.h + (dims.surfOffset || 0);
+    }
+    if (col) {
+      col.minX = px - hw - 0.05; col.maxX = px + hw + 0.05;
+      col.minZ = pz - hd - 0.05; col.maxZ = pz + hd + 0.05;
+      col.minY = py; col.maxY = py + dims.h; col.surfaceTopY = py + dims.h;
+    }
+  }
+}
+
+export function isSurfaceOccupied(ctx, surf, ignoreItem) {
+  if (!surf) return false;
+  const heldItem = ctx.getHeldItem ? ctx.getHeldItem() : null;
+  for (let i = 0; i < ctx.pickableItems.length; i++) {
+    const o = ctx.pickableItems[i];
+    if (o === ignoreItem || o === heldItem || (ctx.isHeldByRemote && ctx.isHeldByRemote(o.id))) continue;
+    const p = o.mesh.position;
+    if (p.x >= surf.minX - 0.08 && p.x <= surf.maxX + 0.08 &&
+      p.z >= surf.minZ - 0.08 && p.z <= surf.maxZ + 0.08 &&
+      p.y >= surf.topY - 0.12 && p.y <= surf.topY + 0.55) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function makeScaleTex(maxVal, stepVal, brandTitle) {
+  const sc = document.createElement('canvas');
+  sc.width = 256; sc.height = 256;
+  const sx = sc.getContext('2d');
+  sx.clearRect(0, 0, 256, 256);
+  sx.strokeStyle = 'rgba(248, 250, 252, 0.88)';
+  sx.fillStyle = 'rgba(248, 250, 252, 0.92)';
+  sx.lineWidth = 2;
+  sx.font = 'bold 20px sans-serif';
+  sx.fillText(brandTitle, 18, 46);
+  sx.font = 'bold 16px monospace';
+  sx.fillText('Boro 3.3', 24, 72);
+  sx.beginPath(); sx.moveTo(138, 36); sx.lineTo(138, 232); sx.stroke();
+  for (let v = stepVal; v <= maxVal; v += stepVal) {
+    const frac = v / maxVal;
+    const yy = 232 - frac * 186;
+    sx.beginPath(); sx.moveTo(138, yy); sx.lineTo(174, yy); sx.stroke();
+    sx.fillText(String(v), 180, yy + 5);
+  }
+  return new THREE.CanvasTexture(sc);
+}
+
+export function makeRoundedRectShape(w, d, r) {
+  const s = new THREE.Shape();
+  const hw = w / 2, hd = d / 2;
+  s.moveTo(-hw + r, -hd);
+  s.lineTo(hw - r, -hd);
+  s.quadraticCurveTo(hw, -hd, hw, -hd + r);
+  s.lineTo(hw, hd - r);
+  s.quadraticCurveTo(hw, hd, hw - r, hd);
+  s.lineTo(-hw + r, hd);
+  s.quadraticCurveTo(-hw, hd, -hw, hd - r);
+  s.lineTo(-hw, -hd + r);
+  s.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
+  return s;
+}

@@ -5,7 +5,8 @@
 import { GAME_CONFIG } from '../core/config.js';
 import { getGroundHeight } from '../engine/physics.js';
 import { getVirtualDayFrac } from '../world/staircase-clock.js';
-import { updateContainerVolume, updateSyringeVolume } from '../world/lab-tools.js';
+import { updateContainerVolume } from '../items/liquid-culture.js';
+import { updateSyringeVolume } from '../items/syringe.js';
 import { greenhouseSlots } from '../world/greenhouse.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 
