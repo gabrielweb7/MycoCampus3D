@@ -22,6 +22,12 @@ import * as greenhouse from './world/greenhouse.js';
 import * as outerCampus from './world/outer-campus.js';
 import * as labTools from './world/lab-tools.js';
 import * as labSterilization from './world/lab-sterilization.js';
+import * as snowboard from './entities/vehicles/snowboard.js';
+import * as paraglider from './entities/vehicles/paraglider.js';
+import * as firstPersonArm from './entities/first-person-arm.js';
+import * as thermoLaser from './entities/thermo-laser.js';
+import * as placementGhost from './entities/placement-ghost.js';
+import * as chalkboard from './systems/chalkboard.js';
 import { bootApp } from './ui/app-boot.js';
 
 // Ponte de módulos para o motor 3D durante a migração incremental
@@ -39,7 +45,13 @@ window.__MYCO_MODULES__ = {
   greenhouse,
   outerCampus,
   labTools,
-  labSterilization
+  labSterilization,
+  snowboard,
+  paraglider,
+  firstPersonArm,
+  thermoLaser,
+  placementGhost,
+  chalkboard
 };
 
 // Ponte de depuração inspecionável via DevTools

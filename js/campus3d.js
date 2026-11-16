@@ -387,214 +387,60 @@
     return window.__MYCO_MODULES__.physics.clampPosAgainstWalls(getPhysCtx(), pos, radius);
   }
 
-  function buildFirstPersonArm() {
-    fpsArmGroup = new THREE.Group();
-    fpsSleeveMat = new THREE.MeshStandardMaterial({ color: 0x4f46e5, roughness: 0.6 });
-    var skinMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.65 });
-    var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.36), fpsSleeveMat);
-    sleeve.position.set(0, 0, 0.18);
-    var hand = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.13), skinMat);
-    hand.position.set(0, 0.01, -0.04);
-    fpsArmGroup.add(sleeve, hand);
-    fpsArmGroup.position.set(0.32, -0.28, -0.42);
-    fpsArmGroup.rotation.set(0.18, -0.14, 0.05);
-    fpsArmGroup.visible = false;
-    camera.add(fpsArmGroup);
+  // ---------------- Entidades, Veiculos, Termometro & Ghost (delegado para js/entities/ & js/systems/chalkboard.js) ----------------
 
-    fpsLeftArmGroup = new THREE.Group();
-    var sleeveL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.36), fpsSleeveMat);
-    sleeveL.position.set(0, 0, 0.18);
-    var handL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.13), skinMat);
-    handL.position.set(0, 0.01, -0.04);
-    fpsLeftArmGroup.add(sleeveL, handL);
-    fpsLeftArmGroup.position.set(-0.32, -0.28, -0.42);
-    fpsLeftArmGroup.rotation.set(0.18, 0.14, -0.05);
-    fpsLeftArmGroup.visible = false;
-    camera.add(fpsLeftArmGroup);
-    scene.add(camera);
-    buildSnowboardRig();
-  }
-
-  function buildSnowboardRig() {
-    if (snowboardGroup) return;
-    snowboardGroup = new THREE.Group();
-
-    // Textura estilizada de snowboard gradiente (ciano -> roxo -> rosa)
-    var sbCanvas = document.createElement('canvas');
-    sbCanvas.width = 256; sbCanvas.height = 64;
-    var sbx = sbCanvas.getContext('2d');
-    var grd = sbx.createLinearGradient(0, 0, 256, 64);
-    grd.addColorStop(0, '#06b6d4');
-    grd.addColorStop(0.5, '#6366f1');
-    grd.addColorStop(1, '#ec4899');
-    sbx.fillStyle = grd;
-    sbx.fillRect(0, 0, 256, 64);
-    sbx.fillStyle = 'rgba(15, 23, 42, 0.72)';
-    sbx.fillRect(42, 6, 172, 10);
-    sbx.fillRect(42, 48, 172, 10);
-    sbx.font = 'bold 20px sans-serif';
-    sbx.fillStyle = '#ffffff';
-    sbx.textAlign = 'center';
-    sbx.fillText('MYCORIDE PRO', 128, 39);
-    var sbTex = new THREE.CanvasTexture(sbCanvas);
-
-    var deckMat = new THREE.MeshStandardMaterial({ map: sbTex, roughness: 0.25, metalness: 0.2 });
-    var darkBootMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.75 });
-    var pantMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
-
-    // Prancha principal (comprimento ao longo de -Z/+Z quando rotacionada em stance lateral)
-    var deck = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.028, 1.38), deckMat);
-    deck.position.y = 0.02;
-    deck.castShadow = true;
-
-    // Bicos levantados (rocker frontal e traseiro)
-    var nose = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.024, 0.24), deckMat);
-    nose.position.set(0, 0.055, -0.76);
-    nose.rotation.x = 0.34;
-    var tail = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.024, 0.24), deckMat);
-    tail.position.set(0, 0.055, 0.76);
-    tail.rotation.x = -0.34;
-
-    // Fixações e botas em posição lateral de snowboarder (stance diagonal)
-    [-0.28, 0.28].forEach(function (fz, idx) {
-      var binding = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.04, 0.16), darkBootMat);
-      binding.position.set(0, 0.048, fz);
-      binding.rotation.y = idx === 0 ? 0.48 : 0.25;
-
-      var boot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.24), darkBootMat);
-      boot.position.set(0.02, 0.12, fz);
-      boot.rotation.y = idx === 0 ? 0.48 : 0.25;
-
-      var shin = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.36, 0.14), pantMat);
-      shin.position.set(0.03, 0.34, fz * 0.92);
-      shin.rotation.x = idx === 0 ? 0.16 : -0.16;
-
-      snowboardGroup.add(binding, boot, shin);
-    });
-
-    snowboardGroup.add(deck, nose, tail);
-    snowboardGroup.visible = false;
-    scene.add(snowboardGroup);
-    buildParagliderRig();
-    buildThermalColumns();
-  }
-
-  function createParagliderWingMesh(scale) {
-    var wg = new THREE.Group();
-    var s = scale || 1;
-    var panelColors = [0xec4899, 0x8b5cf6, 0x3b82f6, 0x06b6d4, 0xfacc15, 0xf97316, 0xef4444];
-    var spanCount = panelColors.length;
-    var segW = 0.56 * s;
-    for (var i = 0; i < spanCount; i++) {
-      var offset = i - (spanCount - 1) / 2;
-      var arcX = offset * segW * 0.92;
-      var arcY = -Math.pow(Math.abs(offset) / 3.2, 2) * 0.55 * s;
-      var tiltZ = -offset * 0.16;
-      var cellMat = new THREE.MeshStandardMaterial({
-        color: panelColors[i], roughness: 0.45, metalness: 0.05, side: THREE.DoubleSide
-      });
-      var cell = new THREE.Mesh(new THREE.BoxGeometry(segW, 0.08 * s, 1.35 * s), cellMat);
-      cell.position.set(arcX, 2.55 * s + arcY, 0);
-      cell.rotation.z = tiltZ;
-      wg.add(cell);
-    }
-    // Tirantes / linhas descendo da asa para as mãos
-    var lineMat = new THREE.LineBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.72 });
-    var linePts = [];
-    [-1.45 * s, -0.75 * s, 0.75 * s, 1.45 * s].forEach(function (lx) {
-      var handX = lx < 0 ? -0.34 * s : 0.34 * s;
-      var topY = 2.52 * s - Math.pow(Math.abs(lx) / (1.8 * s), 2) * 0.45 * s;
-      linePts.push(lx, topY, -0.38 * s, handX, 0.95 * s, -0.18 * s);
-      linePts.push(lx, topY, 0.38 * s, handX, 0.95 * s, -0.18 * s);
-    });
-    var lGeo = new THREE.BufferGeometry();
-    lGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePts, 3));
-    wg.add(new THREE.LineSegments(lGeo, lineMat));
-    // Batoques (manoplas) esquerdo e direito
-    var handleMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
-    [-0.34 * s, 0.34 * s].forEach(function (hx) {
-      var hdl = new THREE.Mesh(new THREE.TorusGeometry(0.055 * s, 0.015 * s, 6, 12), handleMat);
-      hdl.position.set(hx, 0.93 * s, -0.18 * s);
-      wg.add(hdl);
-    });
-    return wg;
-  }
-
-  function buildParagliderRig() {
-    if (paragliderGroup) return;
-    paragliderGroup = createParagliderWingMesh(1.0);
-    paragliderGroup.visible = false;
-    scene.add(paragliderGroup);
-  }
-
-  function buildThermalColumns() {
-    if (thermalColumns.length) return;
-    var spots = [
-      { x: 0, z: -135 },
-      { x: -70, z: -125 },
-      { x: 70, z: -125 },
-      { x: 0, z: -72 },
-      { x: -105, z: 12 },
-      { x: 105, z: 12 }
-    ];
-    var ringMat = new THREE.MeshBasicMaterial({
-      color: 0x67e8f9, transparent: true, opacity: 0.24, side: THREE.DoubleSide, depthWrite: false
-    });
-    spots.forEach(function (sp) {
-      var baseY = terrainHeight(sp.x, sp.z);
-      var rings = [];
-      for (var r = 0; r < 6; r++) {
-        var radius = 4.5 + r * 0.9;
-        var rm = new THREE.Mesh(new THREE.RingGeometry(radius - 0.35, radius, 28), ringMat);
-        rm.rotation.x = -Math.PI / 2;
-        rm.position.set(sp.x, baseY + 3 + r * 14, sp.z);
-        rm.userData.ignoreRay = true;
-        scene.add(rm);
-        rings.push({ mesh: rm, offset: r * 14 });
+  function getEntityCtx() {
+    return {
+      scene: scene,
+      camera: camera,
+      raycaster: raycaster,
+      playerPos: playerPos,
+      inFps: inFps,
+      pointerNdc: pointerNdc,
+      heldItem: heldItem,
+      heldRotY: heldRotY,
+      snapClosePot: snapClosePot,
+      snapPetriStack: snapPetriStack,
+      cookerPots: cookerPots,
+      pickableItems: pickableItems,
+      supportMeshes: supportMeshes,
+      supportSurfaces: supportSurfaces,
+      wallSegments: wallSegments,
+      thermalColumns: thermalColumns,
+      recentlyDropped: recentlyDropped,
+      pendingMovedItems: pendingMovedItems,
+      physCtx: getPhysCtx(),
+      isHeldByRemote: isHeldByRemote,
+      removeFromCookerContents: removeFromCookerContents,
+      setSnapClosePot: function (v) { snapClosePot = v; },
+      setSnapPetriStack: function (v) { snapPetriStack = v; },
+      setHeldRotY: function (v) { heldRotY = v; },
+      getSnowboardGroup: function () { return snowboardGroup; },
+      setSnowboardGroup: function (v) { snowboardGroup = v; },
+      getParagliderGroup: function () { return paragliderGroup; },
+      setParagliderGroup: function (v) { paragliderGroup = v; },
+      setFpsArmRefs: function (r) {
+        fpsArmGroup = r.fpsArmGroup;
+        fpsLeftArmGroup = r.fpsLeftArmGroup;
+        fpsSleeveMat = r.fpsSleeveMat;
+      },
+      setThermoLaserRefs: function (r) {
+        thermoLaserLine = r.thermoLaserLine;
+        thermoLaserDot = r.thermoLaserDot;
+        if (r.thermoTex) thermoTex = r.thermoTex;
       }
-      thermalColumns.push({ x: sp.x, z: sp.z, baseY: baseY, maxH: 118, radius: 13, rings: rings });
-    });
+    };
   }
 
-  function drawBoardSegment(ctx, color, p0, p1) {
-    if (!ctx) return;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    if (color === 'erase') {
-      ctx.strokeStyle = '#14532d';
-      ctx.lineWidth = 38;
-    } else {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 4.5;
-    }
-    ctx.beginPath();
-    ctx.moveTo(p0[0], p0[1]);
-    ctx.lineTo(p1[0], p1[1]);
-    ctx.stroke();
-    ctx.restore();
-  }
+  function buildFirstPersonArm() { return window.__MYCO_MODULES__.firstPersonArm.buildFirstPersonArm(getEntityCtx()); }
+  function buildSnowboardRig() { return window.__MYCO_MODULES__.snowboard.buildSnowboardRig(getEntityCtx()); }
+  function createParagliderWingMesh(scale) { return window.__MYCO_MODULES__.paraglider.createParagliderWingMesh(scale); }
+  function buildParagliderRig() { return window.__MYCO_MODULES__.paraglider.buildParagliderRig(getEntityCtx()); }
+  function buildThermalColumns() { return window.__MYCO_MODULES__.paraglider.buildThermalColumns(getEntityCtx()); }
 
-  function applyStrokeToBoard(st) {
-    var b = chalkboards[st && st.b ? st.b : 0] || chalkboards[0];
-    if (!b || !st || !st.pts || !st.pts.length) return;
-    var pts = st.pts;
-    for (var i = 0; i < pts.length; i++) {
-      var p0 = i === 0 ? pts[0] : pts[i - 1];
-      drawBoardSegment(b.ctx, st.c, p0, pts[i]);
-    }
-    b.tex.needsUpdate = true;
-  }
-
-  function getHeldBoardToolColor() {
-    if (!heldItem) return null;
-    if (heldItem.id.indexOf('chalk_white') === 0) return '#f8fafc';
-    if (heldItem.id.indexOf('chalk_green') === 0) return '#4ade80';
-    if (heldItem.id.indexOf('chalk_yellow') === 0) return '#facc15';
-    if (heldItem.id.indexOf('board_eraser') === 0) return 'erase';
-    return null;
-  }
-
+  function drawBoardSegment(ctx, color, p0, p1) { return window.__MYCO_MODULES__.chalkboard.drawBoardSegment(ctx, color, p0, p1); }
+  function applyStrokeToBoard(st) { return window.__MYCO_MODULES__.chalkboard.applyStrokeToBoard(chalkboards, st); }
+  function getHeldBoardToolColor() { return window.__MYCO_MODULES__.chalkboard.getHeldBoardToolColor(heldItem); }
   function flushCurrentStroke() {
     if (currentStroke && currentStroke.pts.length > 0) {
       pendingBoardStrokes.push(currentStroke);
@@ -603,603 +449,33 @@
     lastDrawPt = null;
   }
 
-  var placementRing = null;
-  var placementDot = null;
-  var placementHoloWrap = null;
-  var placementHoloMats = [];
-  var placementGhostItemId = null;
-  var placementGhostHasLid = false;
-  var placementGhostLastValid = null;
-
-  var _cGhostGreenTint = new THREE.Color(0x22c55e); // Verde vivo esmeralda
-  var _cGhostGreenEmi  = new THREE.Color(0x10b981); // Brilho verde neon
-  var _cGhostRedTint   = new THREE.Color(0xef4444); // Vermelho vibrante
-  var _cGhostRedEmi    = new THREE.Color(0xdc2626); // Brilho vermelho neon
-
   function createPlacementGhost() {
-    placementGhost = new THREE.Group();
-    placementRing = new THREE.Mesh(
-      new THREE.RingGeometry(0.11, 0.142, 48),
-      new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false })
-    );
-    placementRing.rotation.x = -Math.PI / 2;
-    placementRing.position.y = 0.008;
-    placementGhost.add(placementRing);
-
-    placementDot = new THREE.Mesh(
-      new THREE.CircleGeometry(0.024, 24),
-      new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
-    );
-    placementDot.rotation.x = -Math.PI / 2;
-    placementDot.position.y = 0.009;
-    placementGhost.add(placementDot);
-
-    placementHoloWrap = new THREE.Group();
-    placementGhost.add(placementHoloWrap);
-
-    placementGhost.visible = false;
-    scene.add(placementGhost);
+    placementGhost = window.__MYCO_MODULES__.placementGhost.createPlacementGhost(scene);
   }
-
   function initThermoDisplay() {
-    thermoCanvas = document.createElement('canvas');
-    thermoCanvas.width = 128;
-    thermoCanvas.height = 128;
-    thermoCtx = thermoCanvas.getContext('2d');
-    thermoTex = new THREE.CanvasTexture(thermoCanvas);
-    drawThermoScreen(24.0, 'HOLD');
+    thermoTex = window.__MYCO_MODULES__.thermoLaser.initThermoDisplay();
+    return thermoTex;
   }
-
-  var lastDrawnTempStr = '';
-  var lastDrawnMode = '';
   function drawThermoScreen(tempVal, modeStr, force) {
-    if (!thermoCtx || !thermoTex) return;
-    var tStr = (typeof tempVal === 'number' ? tempVal.toFixed(1) : '24.0') + '°C';
-    var mStr = modeStr || 'SCAN';
-    if (!force && tStr === lastDrawnTempStr && mStr === lastDrawnMode) return;
-    lastDrawnTempStr = tStr;
-    lastDrawnMode = mStr;
-    var ctx = thermoCtx;
-    ctx.fillStyle = '#4ade80';
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.strokeStyle = '#15803d';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(4, 4, 120, 120);
-
-    ctx.fillStyle = '#064e3b';
-    ctx.font = 'bold 12px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(mStr, 10, 22);
-
-    ctx.textAlign = 'right';
-    ctx.fillText('⚡ 🔋', 118, 22);
-
-    ctx.font = 'bold 30px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(tStr, 64, 68);
-
-    ctx.font = 'bold 11px monospace';
-    ctx.fillText('ε=0.95  MAX 380°', 64, 98);
-    ctx.font = '9px monospace';
-    ctx.fillText('INFRARED TEMP', 64, 114);
-
-    thermoTex.needsUpdate = true;
+    return window.__MYCO_MODULES__.thermoLaser.drawThermoScreen(tempVal, modeStr, force);
   }
-
   function createThermoLaserFx() {
-    var lineGeo = new THREE.BufferGeometry();
-    var linePos = new Float32Array(6);
-    lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
-    thermoLaserLine = new THREE.Line(
-      lineGeo,
-      new THREE.LineBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.88, linewidth: 2, depthWrite: false })
-    );
-    thermoLaserLine.visible = false;
-    scene.add(thermoLaserLine);
-
-    var dotGeo = new THREE.CircleGeometry(0.016, 16);
-    var dotMat = new THREE.MeshBasicMaterial({
-      color: 0xff1133,
-      transparent: true,
-      opacity: 0.95,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    });
-    thermoLaserDot = new THREE.Mesh(dotGeo, dotMat);
-    thermoLaserDot.visible = false;
-    scene.add(thermoLaserDot);
+    return window.__MYCO_MODULES__.thermoLaser.createThermoLaserFx(getEntityCtx());
   }
-
-  function prepareGhostCloneMesh(rootGroup, matList) {
-    rootGroup.traverse(function (ch) {
-      ch.userData.ignoreRay = true;
-      ch.userData.supportSurface = null;
-      ch.userData.dynamicSurface = null;
-      ch.userData.burnerSwitchIdx = null;
-      ch.userData.stirSwitch = null;
-      ch.userData.hoodSwitch = null;
-      ch.userData.scaleObj = null;
-      ch.userData.isTable = false;
-      ch.userData.isHood = false;
-      ch.userData.isBurner = false;
-      ch.userData.isStirrer = false;
-      if (ch.isPoints) {
-        ch.visible = false;
-        return;
-      }
-      if (ch.isMesh && ch.material) {
-        ch.castShadow = false;
-        ch.receiveShadow = false;
-        var cloneOneMat = function (origM) {
-          var m = origM.clone();
-          m.userData._baseColor = m.color ? m.color.clone() : new THREE.Color(0xffffff);
-          m.transparent = true;
-          var origOp = origM.transparent ? origM.opacity : 1.0;
-          m.opacity = origM.transparent ? Math.max(0.38, origOp * 0.90) : 0.76;
-          m.depthWrite = false;
-          matList.push(m);
-          return m;
-        };
-        if (Array.isArray(ch.material)) {
-          ch.material = ch.material.map(cloneOneMat);
-        } else {
-          ch.material = cloneOneMat(ch.material);
-        }
-      }
-    });
-  }
-
   function updatePlacementGhostVisual(item, isValid, rotY) {
-    if (!placementGhost || !item) return;
-    var hasLid = !!(item.lidItem && item.lidItem.isAttached);
-    if (placementGhostItemId !== item.id || placementGhostHasLid !== hasLid) {
-      while (placementHoloWrap.children.length > 0) {
-        placementHoloWrap.remove(placementHoloWrap.children[0]);
-      }
-      placementHoloMats = [];
-      var clone = item.mesh.clone(true);
-      clone.position.set(0, 0, 0);
-      clone.rotation.set(0, 0, 0);
-      clone.visible = true;
-      prepareGhostCloneMesh(clone, placementHoloMats);
-      placementHoloWrap.add(clone);
-
-      if (hasLid && item.lidItem && item.lidItem.mesh) {
-        var lidClone = item.lidItem.mesh.clone(true);
-        lidClone.position.set(0, 0.36, 0);
-        lidClone.rotation.set(0, 0, 0);
-        lidClone.visible = true;
-        prepareGhostCloneMesh(lidClone, placementHoloMats);
-        placementHoloWrap.add(lidClone);
-      }
-
-      placementGhostItemId = item.id;
-      placementGhostHasLid = hasLid;
-      placementGhostLastValid = null;
-    }
-    var col = isValid ? 0x10b981 : 0xef4444;
-    placementRing.material.color.setHex(col);
-    placementDot.material.color.setHex(col);
-
-    var tintCol = isValid ? _cGhostGreenTint : _cGhostRedTint;
-    var emiCol = isValid ? _cGhostGreenEmi : _cGhostRedEmi;
-    var tintRatio = isValid ? 0.74 : 0.82; // Efeito verde/vermelho bem evidente e vivo
-    var pulse = 0.52 + Math.sin(clock.elapsedTime * 6.0) * 0.16;
-
-    if (placementGhostLastValid !== isValid) {
-      placementGhostLastValid = isValid;
-      for (var i = 0; i < placementHoloMats.length; i++) {
-        var m = placementHoloMats[i];
-        if (m.color && m.userData._baseColor) {
-          m.color.copy(m.userData._baseColor).lerp(tintCol, tintRatio);
-        }
-        if (m.emissive) {
-          m.emissive.copy(emiCol);
-        }
-      }
-    }
-
-    // Pulso holográfico suave e contínuo no brilho
-    for (var j = 0; j < placementHoloMats.length; j++) {
-      if (placementHoloMats[j].emissive) {
-        placementHoloMats[j].emissiveIntensity = pulse;
-      }
-    }
-
-    placementHoloWrap.rotation.y = rotY;
-    var ringPulse = 1 + Math.sin(clock.elapsedTime * 6.0) * 0.06;
-    placementRing.scale.set(ringPulse, ringPulse, 1);
+    return window.__MYCO_MODULES__.placementGhost.updatePlacementGhostVisual(item, isValid, rotY, clock.elapsedTime);
   }
-
-  var _tmpPlacePt = new THREE.Vector3();
-  var _tmpPlaceCenter = new THREE.Vector3();
   function findPlacementTarget(customNdc) {
-    snapClosePot = null;
-    snapPetriStack = false;
-    var rayNdc = customNdc || (inFps ? _vZero2 : pointerNdc);
-    raycaster.setFromCamera(rayNdc, camera);
-    var dir = raycaster.ray.direction;
-    var origin = raycaster.ray.origin;
-    var bestPt = null;
-    var bestT = Infinity;
-
-    // 0. Se estiver segurando uma Tampa de Panela e mirar na Panela aberta (ou na boca dela), encaixa para fechar!
-    if (heldItem && heldItem.potItem) {
-      for (var cpi = 0; cpi < cookerPots.length; cpi++) {
-        var cp = cookerPots[cpi];
-        var targetPot = cp.potItem;
-        if (targetPot.lidItem && targetPot.lidItem.isAttached && targetPot.lidItem !== heldItem) continue;
-        _tmpPlaceCenter.set(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
-        var camDist = origin.distanceTo(_tmpPlaceCenter);
-        var potHits = raycaster.intersectObject(targetPot.mesh, true);
-        if ((potHits.length > 0 && potHits[0].distance < 4.5) || (camDist < 4.5 && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.25)) {
-          snapClosePot = targetPot;
-          heldRotY = targetPot.mesh.rotation.y;
-          return _tmpPlacePt.set(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.36, targetPot.mesh.position.z);
-        }
-      }
-    }
-
-    // 0b. Se estiver segurando uma Placa de Petri e mirar em outra Placa de Petri (pilha max 7 placas!)
-    if (heldItem && heldItem.mesh && heldItem.mesh.userData.isPetri) {
-      var petriBest = null;
-      var petriDist = 4.2;
-      for (var pi = 0; pi < pickableItems.length; pi++) {
-        var cand = pickableItems[pi];
-        if (!cand || cand === heldItem || !cand.mesh || !cand.mesh.userData.isPetri) continue;
-        if (isHeldByRemote(cand.id)) continue;
-        var cp = cand.mesh.position;
-        _tmpPlaceCenter.set(cp.x, cp.y + 0.03, cp.z);
-        var dCam = origin.distanceTo(_tmpPlaceCenter);
-        if (dCam < petriDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.045) {
-          petriDist = dCam;
-          petriBest = cand;
-        }
-      }
-      if (petriBest) {
-        var bx = petriBest.mesh.position.x;
-        var bz = petriBest.mesh.position.z;
-        var stackCount = 0;
-        var maxY = petriBest.mesh.position.y;
-        for (var pj = 0; pj < pickableItems.length; pj++) {
-          var pOther = pickableItems[pj];
-          if (!pOther || pOther === heldItem || !pOther.mesh || !pOther.mesh.userData.isPetri) continue;
-          if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < 0.14) {
-            stackCount++;
-            if (pOther.mesh.position.y > maxY) maxY = pOther.mesh.position.y;
-          }
-        }
-        if (stackCount < 7) {
-          snapPetriStack = true;
-          return _tmpPlacePt.set(bx, maxY + 0.055, bz);
-        }
-      }
-    }
-
-    // 1. Raycast direto nas meshes de prateleiras, bancadas e mesas (evita atravessar prateleiras de cima!)
-    if (supportMeshes.length) {
-      for (var sm = 0; sm < supportMeshes.length; sm++) {
-        if (supportMeshes[sm]) supportMeshes[sm].updateWorldMatrix(true, false);
-      }
-      var sHits = raycaster.intersectObjects(supportMeshes, false);
-      for (var si = 0; si < sHits.length; si++) {
-        var sh = sHits[si];
-        if (sh.distance < 0.02 || sh.distance > 5.8) continue;
-        if (sh.object.userData.ignoreRay) continue;
-        var sSurf = sh.object.userData.supportSurface;
-        if (!sSurf) continue;
-        if (heldItem && heldItem.mesh) {
-          if (heldItem.mesh.userData.dynamicSurface === sSurf) continue;
-          if (heldItem.mesh === sh.object || heldItem.mesh.getObjectById(sh.object.id)) continue;
-        }
-        var cx = Math.max(sSurf.minX + 0.02, Math.min(sSurf.maxX - 0.02, sh.point.x));
-        var cz = Math.max(sSurf.minZ + 0.02, Math.min(sSurf.maxZ - 0.02, sh.point.z));
-        return new THREE.Vector3(cx, sSurf.topY, cz);
-      }
-    }
-
-    // 1b. Interseção matemática exata de raio com o plano e volume de cada mesa/bancada/estufa
-    for (var i = 0; i < supportSurfaces.length; i++) {
-      var s = supportSurfaces[i];
-      if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === s) continue;
-
-      // Teste de plano horizontal no topo (s.topY)
-      var dy = s.topY - origin.y;
-      if (Math.abs(dir.y) > 0.001) {
-        var tPlane = dy / dir.y;
-        if (tPlane >= 0.05 && tPlane <= 5.8 && tPlane < bestT) {
-          var hx = origin.x + dir.x * tPlane;
-          var hz = origin.z + dir.z * tPlane;
-          if (hx >= s.minX - 0.12 && hx <= s.maxX + 0.12 && hz >= s.minZ - 0.12 && hz <= s.maxZ + 0.12) {
-            var cx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, hx));
-            var cz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, hz));
-            bestT = tPlane;
-            bestPt = new THREE.Vector3(cx, s.topY, cz);
-          }
-        }
-      }
-
-      // Teste de volume 3D (AABB) da mesa (caso o jogador mire na borda frontal, pernas ou laterais)
-      var bMinX = s.minX - 0.05, bMaxX = s.maxX + 0.05;
-      var bMinZ = s.minZ - 0.05, bMaxZ = s.maxZ + 0.05;
-      var bMinY = Math.max(0.12, s.topY - 0.95), bMaxY = s.topY + 0.08;
-      var invDx = 1 / (Math.abs(dir.x) > 1e-6 ? dir.x : 1e-6);
-      var invDy = 1 / (Math.abs(dir.y) > 1e-6 ? dir.y : 1e-6);
-      var invDz = 1 / (Math.abs(dir.z) > 1e-6 ? dir.z : 1e-6);
-      var t1 = (bMinX - origin.x) * invDx, t2 = (bMaxX - origin.x) * invDx;
-      var t3 = (bMinY - origin.y) * invDy, t4 = (bMaxY - origin.y) * invDy;
-      var t5 = (bMinZ - origin.z) * invDz, t6 = (bMaxZ - origin.z) * invDz;
-      var tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
-      var tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
-      if (tmax >= tmin && tmax >= 0.05 && tmin <= 5.5 && tmin < bestT) {
-        var boxHitX = origin.x + dir.x * Math.max(0.05, tmin);
-        var boxHitZ = origin.z + dir.z * Math.max(0.05, tmin);
-        var bcx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, boxHitX));
-        var bcz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, boxHitZ));
-        bestT = tmin;
-        bestPt = new THREE.Vector3(bcx, s.topY, bcz);
-      }
-    }
-    if (bestPt) return bestPt;
-
-    // 2. Intersecao fina com piso / terreno / tampos de mesa ao longo da mira
-    for (var t = 0.45; t <= 5.0; t += 0.08) {
-      var px = origin.x + dir.x * t;
-      var py = origin.y + dir.y * t;
-      var pz = origin.z + dir.z * t;
-      var gh = getItemGroundHeight(px, pz, py);
-      if (py <= gh + 0.04) {
-        return new THREE.Vector3(px, gh, pz);
-      }
-    }
-
-    // 3. Fallback suave seguindo a direcao exata do mouse/mira (mesmo olhando para parede/canto)
-    var hLen = Math.hypot(dir.x, dir.z) || 1;
-    var fx = playerPos.x + (dir.x / hLen) * 1.8;
-    var fz = playerPos.z + (dir.z / hLen) * 1.8;
-    return new THREE.Vector3(fx, getItemGroundHeight(fx, fz, playerPos.y), fz);
+    return window.__MYCO_MODULES__.placementGhost.findPlacementTarget(getEntityCtx(), customNdc);
   }
-
   var placementBlockedReason = '';
   function isPlacementBlocked(pt) {
-    placementBlockedReason = '';
-    if (!heldItem || !heldItem.mesh) return false;
-    if (snapClosePot || snapPetriStack) return false;
-
-    // Altura e limites verticais do item sendo segurado
-    var heldH = heldItem.height || (heldItem.mesh.userData.tableDims ? heldItem.mesh.userData.tableDims.h : 0.32);
-    var heldMinY = pt.y;
-    var heldMaxY = pt.y + heldH;
-
-    // Dimensões horizontais do item segurado
-    var heldIsBox = !!(heldItem.mesh.userData.tableDims);
-    var heldHw = 0, heldHd = 0, heldRad = 0;
-    if (heldIsBox) {
-      var dims = heldItem.mesh.userData.tableDims;
-      var cRot = Math.abs(Math.cos(heldRotY)), sRot = Math.abs(Math.sin(heldRotY));
-      heldHw = (dims.w * cRot + dims.d * sRot) * 0.5;
-      heldHd = (dims.w * sRot + dims.d * cRot) * 0.5;
-      heldRad = Math.max(heldHw, heldHd);
-    } else {
-      heldRad = heldItem.radius || 0.16;
-      heldHw = heldRad;
-      heldHd = heldRad;
-    }
-
-    // 1. CHECAGEM DE COLISÃO COM TODOS OS ITENS EXISTENTES NO MUNDO
-    // Impede colocar qualquer item por dentro de outro item!
-    for (var k = 0; k < pickableItems.length; k++) {
-      var other = pickableItems[k];
-      if (!other || !other.mesh) continue;
-      if (other === heldItem) continue;
-      if (heldItem.lidItem && other === heldItem.lidItem) continue;
-      if (heldItem.potItem && other === heldItem.potItem) continue;
-      if (other.isAttached && other.potItem) continue; // Tampa acoplada na panela é coberta pelo corpo da panela
-      if (heldItem.trayContents && heldItem.trayContents.some(function (tc) { return tc.item === other; })) continue;
-      if (isHeldByRemote(other.id)) continue; // Item sendo carregado no ar por outro jogador
-
-      var oPos = other.mesh.position;
-      var otherH = other.height || (other.mesh.userData.tableDims ? other.mesh.userData.tableDims.h : 0.32);
-      var otherMinY = oPos.y;
-      var otherMaxY = oPos.y + otherH;
-
-      // Se o 'other' for um suporte/mesa/equipamento com superfície dinâmica no topo
-      if (other.mesh.userData.dynamicSurface) {
-        var dynSurf = other.mesh.userData.dynamicSurface;
-        // O jogador está colocando o item EM CIMA da superfície deste equipamento/mesa?
-        var onDynSurfXZ = (
-          pt.x >= dynSurf.minX - 0.02 && pt.x <= dynSurf.maxX + 0.02 &&
-          pt.z >= dynSurf.minZ - 0.02 && pt.z <= dynSurf.maxZ + 0.02
-        );
-        if (onDynSurfXZ && pt.y >= dynSurf.topY - 0.04 && pt.y <= dynSurf.topY + 0.12) {
-          // Impedir colocar uma mesa em cima de outra mesa ou capela (mas permitir colocar a capela em cima de mesas/bancadas!)
-          if (other.mesh.userData.isTable && heldItem.mesh.userData.isTable) {
-            placementBlockedReason = '🚫 Não é permitido sobrepor mesas';
-            return true;
-          }
-          if (other.mesh.userData.isHood && heldItem.mesh.userData.isTable) {
-            placementBlockedReason = '🚫 Não cabe aqui';
-            return true;
-          }
-          if (other.mesh.userData.isScale || other.mesh.userData.isStirrer || other.mesh.userData.isBurner) {
-            var hUd = heldItem.mesh.userData;
-            if (hUd.isTable || hUd.isHood || hUd.isScale || hUd.isStirrer || hUd.isBurner) {
-              placementBlockedReason = '🚫 Equipamento incompatível com esta superfície';
-              return true;
-            }
-            if ((other.mesh.userData.isScale || other.mesh.userData.isStirrer) && hUd.twoHanded) {
-              placementBlockedReason = '🚫 Objeto grande demais para este aparelho';
-              return true;
-            }
-          }
-          // Está apoiado sobre a superfície: o suporte em si não bloqueia
-          // (mas qualquer outro objeto já em cima desse suporte será checado nas próximas iterações!)
-          continue;
-        }
-      }
-
-      // Verificação de sobreposição vertical:
-      // Se não há interseção na faixa de altura (ex: prateleira superior vs inferior, ou chão vs mesa alta)
-      if (heldMinY >= otherMaxY - 0.02 || heldMaxY <= otherMinY + 0.02) {
-        continue;
-      }
-
-      // Verificação de sobreposição horizontal (X e Z):
-      if (!heldIsBox && !other.mesh.userData.tableDims) {
-        // Dois objetos radiais/cilíndricos (vidros, potes, béqueres, bags, seringas, etc.)
-        var oRad = other.radius || 0.16;
-        var minDist = (heldRad + oRad) * 0.94; // Permite toque encostado mas bloqueia penetração
-        var dx = pt.x - oPos.x;
-        var dz = pt.z - oPos.z;
-        if (dx * dx + dz * dz < minDist * minDist) {
-          placementBlockedReason = '🚫 Espaço ocupado por outro objeto';
-          return true; // BLOQUEADO: Tentando colocar item por dentro de outro item!
-        }
-      } else {
-        // Pelo menos um dos objetos é retangular/caixa (mesas, fogareiro, balança, capela)
-        var oHw, oHd;
-        if (other.mesh.userData.tableDims) {
-          var od = other.mesh.userData.tableDims;
-          var oc = Math.abs(Math.cos(other.mesh.rotation.y)), os = Math.abs(Math.sin(other.mesh.rotation.y));
-          oHw = (od.w * oc + od.d * os) * 0.5;
-          oHd = (od.w * os + od.d * oc) * 0.5;
-        } else {
-          var oR = other.radius || 0.16;
-          oHw = oR * 0.90;
-          oHd = oR * 0.90;
-        }
-        var cW = (heldHw + oHw) * 0.93;
-        var cD = (heldHd + oHd) * 0.93;
-        if (Math.abs(pt.x - oPos.x) < cW && Math.abs(pt.z - oPos.z) < cD) {
-          placementBlockedReason = '🚫 Espaço ocupado por outro objeto';
-          return true; // BLOQUEADO: Colisão de caixa com objeto!
-        }
-      }
-    }
-
-    // 2. CHECAGEM DE COLISÃO COM PAREDES
-    if (pt.y > 3.2) return false;
-    for (var wIdx = 0; wIdx < wallSegments.length; wIdx++) {
-      var w = wallSegments[wIdx];
-      var vx = w.x2 - w.x1, vz = w.z2 - w.z1;
-      var len2 = vx * vx + vz * vz;
-      var t = Math.max(0, Math.min(1, ((pt.x - w.x1) * vx + (pt.z - w.z1) * vz) / len2));
-      var dist = Math.hypot(pt.x - (w.x1 + t * vx), pt.z - (w.z1 + t * vz));
-      var effectiveHalf = heldIsBox ? Math.min(heldHw, heldHd) : heldRad;
-      var minWallDist = Math.max(0.16, effectiveHalf * 0.78 + 0.08);
-      if (dist < minWallDist) {
-        placementBlockedReason = '🚫 Muito próximo da parede';
-        return true;
-      }
-    }
-
-    return false;
+    var blocked = window.__MYCO_MODULES__.placementGhost.isPlacementBlocked(getEntityCtx(), pt);
+    placementBlockedReason = window.__MYCO_MODULES__.placementGhost.getPlacementBlockedReason();
+    return blocked;
   }
-
-  var lastGravityCheckAt = 0;
-  var hasFallingItems = true;
   function dropUnsupportedItems() {
-    var now = performance.now();
-    if (!hasFallingItems && now - lastGravityCheckAt < 180) return;
-    lastGravityCheckAt = now;
-    var anyFalling = false;
-    pickableItems.forEach(function (item) {
-      if (item.potItem && item.isAttached) {
-        var pot = item.potItem;
-        item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
-        item.mesh.rotation.copy(pot.mesh.rotation);
-        return;
-      }
-      if (heldItem === item || isHeldByRemote(item.id)) {
-        item.movedAt = now;
-        removeFromCookerContents(item);
-        return;
-      }
-      for (var cpi = 0; cpi < cookerPots.length; cpi++) {
-        var cpRef = cookerPots[cpi];
-        var slotIdx = cpRef.contents.indexOf(item);
-        if (slotIdx !== -1) {
-          var potP = cpRef.potItem.mesh.position;
-          var ox = (slotIdx % 2 === 0 ? -0.06 : 0.06);
-          var oz = (slotIdx < 2 ? -0.05 : 0.05);
-          item.mesh.position.set(potP.x + ox, potP.y + 0.045, potP.z + oz);
-          return;
-        }
-      }
-      if (item.mesh.position.y < -5) {
-        item.mesh.position.copy(item.homePos);
-        item.mesh.rotation.y = item.homeRy;
-        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
-        recentlyDropped[item.id] = now + 1500;
-        pendingMovedItems[item.id] = {
-          id: item.id, x: item.homePos.x, y: item.homePos.y, z: item.homePos.z, ry: item.homeRy
-        };
-        return;
-      }
-      var supportedY = getItemGroundHeight(item.mesh.position.x, item.mesh.position.z, item.mesh.position.y, item.mesh.userData.dynamicSurface, item.mesh.position.y + 0.18);
-      if (!item.mesh.userData.isTable) {
-        for (var i = 0; i < supportSurfaces.length; i++) {
-          var s = supportSurfaces[i];
-          if (s === item.mesh.userData.dynamicSurface) continue;
-          if (item.mesh.userData.isHood && s.isHood) continue;
-          if (item.mesh.position.x >= s.minX - 0.09 && item.mesh.position.x <= s.maxX + 0.09 &&
-            item.mesh.position.z >= s.minZ - 0.09 && item.mesh.position.z <= s.maxZ + 0.09 &&
-            item.mesh.position.y >= s.topY - 0.28) {
-            supportedY = Math.max(supportedY, s.topY);
-          }
-        }
-        if (item.mesh.userData.isPetri) {
-          var myIdx = pickableItems.indexOf(item);
-          for (var pj = 0; pj < pickableItems.length; pj++) {
-            var pBase = pickableItems[pj];
-            if (!pBase || pBase === item || pBase === heldItem || isHeldByRemote(pBase.id)) continue;
-            if (!pBase.mesh || !pBase.mesh.userData.isPetri) continue;
-            if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < 0.15) {
-              var dyPetri = item.mesh.position.y - pBase.mesh.position.y;
-              if (dyPetri > 0.008 || (Math.abs(dyPetri) <= 0.008 && myIdx > pj)) {
-                supportedY = Math.max(supportedY, pBase.mesh.position.y + 0.055);
-              }
-            }
-          }
-        }
-      }
-      if (item.mesh.position.y < supportedY - 0.005 && !item.mesh.userData.isTable && !item.mesh.userData.isHood) {
-        item.mesh.position.y = supportedY;
-        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
-      } else if (item.mesh.position.y > supportedY + 0.015) {
-        anyFalling = true;
-        recentlyDropped[item.id] = now + 1500;
-        item.mesh.position.y = Math.max(supportedY, item.mesh.position.y - 0.18);
-        if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
-        if (item.lidItem && item.lidItem.isAttached) {
-          var attLid = item.lidItem;
-          attLid.mesh.position.set(item.mesh.position.x, item.mesh.position.y + 0.36, item.mesh.position.z);
-          recentlyDropped[attLid.id] = now + 1500;
-        }
-        if (Math.abs(item.mesh.position.y - supportedY) < 0.005) {
-          item.mesh.position.y = supportedY;
-          item.isMoved = true;
-          pendingMovedItems[item.id] = {
-            id: item.id,
-            x: item.mesh.position.x,
-            y: item.mesh.position.y,
-            z: item.mesh.position.z,
-            ry: item.mesh.rotation.y
-          };
-          if (item.lidItem && item.lidItem.isAttached) {
-            var lid = item.lidItem;
-            pendingMovedItems[lid.id] = {
-              id: lid.id,
-              x: lid.mesh.position.x,
-              y: lid.mesh.position.y,
-              z: lid.mesh.position.z,
-              ry: lid.mesh.rotation.y
-            };
-          }
-        }
-      }
-    });
-    hasFallingItems = anyFalling;
+    return window.__MYCO_MODULES__.placementGhost.dropUnsupportedItems(getEntityCtx());
   }
 
   // ---------------- Avatares Multiplayer ----------------
