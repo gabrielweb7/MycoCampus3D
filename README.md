@@ -18,11 +18,11 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.25"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.26"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.25)
-├── VERSION                    # Versão semântica atual do projeto (0.9.25)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.26)
+├── VERSION                    # Versão semântica atual do projeto (0.9.26)
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
 ├── .cpanel.yml                # Script de deploy automatizado no cPanel / HostGator
@@ -135,7 +135,7 @@ Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite
    - Todas as novidades devem ser testadas em telas de toque (joystick, `#interact-pill`, `#btn-mobile-action`, área útil com `safe-area-inset` e eventos passivos).
 5. **Áudio Centralizado & Versionamento:**
    - Todo novo efeito sonoro deve ser implementado em `js/campus-audio.js` (`window.MycoAudio`) conectado ao `masterGain` (para respeitar o botão 🔇 Mudo).
-   - Ao finalizar uma entrega, atualize `VERSION`, os parâmetros `?v=` em `index.html` e o `CHANGELOG.md` para forçar recarregamento limpo nos clientes online.
+   - Ao finalizar uma entrega, atualize `VERSION`, os parâmetros `?v=` em `index.html` e o `CHANGELOG.md`. Os módulos ES importados são revalidados pelo Apache (`.htaccess`), pois seus imports internos não carregam o parâmetro de versão.
 
 ---
 

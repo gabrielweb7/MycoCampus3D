@@ -184,15 +184,15 @@ export function buildStaircaseAndBridge(ctx) {
   });
 
   // Patamar Superior atras do topo da escada (z = -22.5 .. -18.5, livre dos degraus e conectado ao Relogio e as duas alas!)
-  addWalkableSlab(0, yTop, -20.5, 5.6, 0.34, 4.0, 0x475569, { roughness: 0.6 });
-  addWalkableSlab(-12.0, yTop, -20.5, 18.4, 0.34, 4.0, 0x475569, { roughness: 0.6 });
-  addWalkableSlab(12.0, yTop, -20.5, 18.4, 0.34, 4.0, 0x475569, { roughness: 0.6 });
+  addWalkableSlab(ctx.scene, ctx.walkableFloors, 0, yTop, -20.5, 5.6, 0.34, 4.0, 0x475569, { roughness: 0.6 });
+  addWalkableSlab(ctx.scene, ctx.walkableFloors, -12.0, yTop, -20.5, 18.4, 0.34, 4.0, 0x475569, { roughness: 0.6 });
+  addWalkableSlab(ctx.scene, ctx.walkableFloors, 12.0, yTop, -20.5, 18.4, 0.34, 4.0, 0x475569, { roughness: 0.6 });
 
   // Pontes laterais ligando o Patamar (-18.5) direto as portas do 2o andar (-12.975) dos dois lados (x = +-19)
   [-19, 19].forEach(function (ax) {
-    addWalkableSlab(ax, yTop, -15.7375, 4.4, 0.34, 5.525, 0x475569, { roughness: 0.6 });
-    addSolidWall(ax - 2.12, -18.5, ax - 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
-    addSolidWall(ax + 2.12, -18.5, ax + 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addWalkableSlab(ctx.scene, ctx.walkableFloors, ax, yTop, -15.7375, 4.4, 0.34, 5.525, 0x475569, { roughness: 0.6 });
+    addSolidWall(ctx.scene, ctx.wallSegments, ax - 2.12, -18.5, ax - 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addSolidWall(ctx.scene, ctx.wallSegments, ax + 2.12, -18.5, ax + 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
   });
 
   // Pilares estruturais sustentando o patamar superior e as pontes laterais
@@ -211,33 +211,33 @@ export function buildStaircaseAndBridge(ctx) {
 
   // Guarda-corpo de vidro + corrimao metalico no patamar superior (sem bloquear a saida da escada nem a Ponte Norte)
   [-1, 1].forEach(function (side) {
-    addSolidWall(side * 4.25, -18.55, side * 16.85, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addSolidWall(ctx.scene, ctx.wallSegments, side * 4.25, -18.55, side * 16.85, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
     var railS = new THREE.Mesh(new THREE.BoxGeometry(12.6, 0.06, 0.1), railMetalMat);
     railS.position.set(side * 10.55, yTop + 1.03, -18.55);
     scene.add(railS);
 
-    addSolidWall(side * 2.8, -22.45, side * 21.15, -22.45, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addSolidWall(ctx.scene, ctx.wallSegments, side * 2.8, -22.45, side * 21.15, -22.45, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
     var railN = new THREE.Mesh(new THREE.BoxGeometry(18.35, 0.06, 0.1), railMetalMat);
     railN.position.set(side * 11.975, yTop + 1.03, -22.45);
     scene.add(railN);
 
-    addSolidWall(side * 21.15, -22.45, side * 21.15, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addSolidWall(ctx.scene, ctx.wallSegments, side * 21.15, -22.45, side * 21.15, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
   });
 
   // Pontes ligando Bloco Norte <-> Bloco Sul no 2o andar (x = +-19, z = -1.025 .. 2.025, y = 3.80, encontro exato sem z-fighting)
   [-19, 19].forEach(function (ax) {
-    addWalkableSlab(ax, yTop, 0.5, 4.4, 0.28, 3.05, 0x475569, { roughness: 0.6 });
-    addSolidWall(ax - 2.1, -1.025, ax - 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
-    addSolidWall(ax + 2.1, -1.025, ax + 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+    addWalkableSlab(ctx.scene, ctx.walkableFloors, ax, yTop, 0.5, 4.4, 0.28, 3.05, 0x475569, { roughness: 0.6 });
+    addSolidWall(ctx.scene, ctx.wallSegments, ax - 2.1, -1.025, ax - 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+    addSolidWall(ctx.scene, ctx.wallSegments, ax + 2.1, -1.025, ax + 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
   });
 
   // Terraco Norte (y = 3.80, x: -24..24, z: -29.5 .. -42.0) — separado da passarela por um Lago Norte organico
-  addWalkableSlab(0, yTop, -35.75, 48.0, 3.80, 12.5, 0x94a3b8, { roughness: 0.8 });
+  addWalkableSlab(ctx.scene, ctx.walkableFloors, 0, yTop, -35.75, 48.0, 3.80, 12.5, 0x94a3b8, { roughness: 0.8 });
 
   // Ponte Norte sobre o lago ligando o Patamar (-22.5) ate o Terraco da Torre do Relogio (-29.5)
-  addWalkableSlab(0, yTop, -26.0, 5.6, 0.34, 7.0, 0x64748b, { roughness: 0.65 });
+  addWalkableSlab(ctx.scene, ctx.walkableFloors, 0, yTop, -26.0, 5.6, 0.34, 7.0, 0x64748b, { roughness: 0.65 });
   [-2.75, 2.75].forEach(function (bx) {
-    addSolidWall(bx, -29.5, bx, -22.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45 });
+    addSolidWall(ctx.scene, ctx.wallSegments, bx, -29.5, bx, -22.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45 });
   });
 
   // Lago Norte organico com borda de pedras dos dois lados da Ponte Norte
@@ -263,19 +263,19 @@ export function buildClockTowerAndAuditorium(ctx) {
 
   // Alas laterais simetricas da Reitoria caminhaveis com porta aberta (z = -40.2..-33.8)
   [-9.5, 9.5].forEach(function (ax) {
-    addWalkableSlab(ax, baseY, -37.0, 11.0, 0.2, 6.4, 0x334155);
+    addWalkableSlab(ctx.scene, ctx.walkableFloors, ax, baseY, -37.0, 11.0, 0.2, 6.4, 0x334155);
     var rRoof = makeBox(11.4, 0.45, 6.8, 0x64748b);
     rRoof.position.set(ax, baseY + 6.3, -37.0);
     registerSnowable(rRoof.material);
     ctx.roofZones.push({ minX: ax - 5.7, maxX: ax + 5.7, minZ: -40.4, maxZ: -33.6, roofY: baseY + 6.5 });
     scene.add(rRoof);
 
-    addSolidWall(ax - 5.5, -40.2, ax + 5.5, -40.2, baseY, 6.1, 0.28, brickMat(3, 2)); // Fundo
-    addSolidWall(ax - 5.5, -40.2, ax - 5.5, -33.8, baseY, 6.1, 0.28, brickMat(2, 2)); // Esq
-    addSolidWall(ax + 5.5, -40.2, ax + 5.5, -33.8, baseY, 6.1, 0.28, brickMat(2, 2)); // Dir
+    addSolidWall(ctx.scene, ctx.wallSegments, ax - 5.5, -40.2, ax + 5.5, -40.2, baseY, 6.1, 0.28, brickMat(3, 2)); // Fundo
+    addSolidWall(ctx.scene, ctx.wallSegments, ax - 5.5, -40.2, ax - 5.5, -33.8, baseY, 6.1, 0.28, brickMat(2, 2)); // Esq
+    addSolidWall(ctx.scene, ctx.wallSegments, ax + 5.5, -40.2, ax + 5.5, -33.8, baseY, 6.1, 0.28, brickMat(2, 2)); // Dir
     // Fachada frontal (z = -33.8) com porta aberta de 2.4m no centro e janelas laterais
-    addSolidWall(ax - 5.5, -33.8, ax - 1.2, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
-    addSolidWall(ax + 1.2, -33.8, ax + 5.5, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
+    addSolidWall(ctx.scene, ctx.wallSegments, ax - 5.5, -33.8, ax - 1.2, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
+    addSolidWall(ctx.scene, ctx.wallSegments, ax + 1.2, -33.8, ax + 5.5, -33.8, baseY, 6.1, 0.26, brickMat(1.2, 2));
     var doorHeader = makeBox(2.5, 3.1, 0.28, brickMat(1, 1));
     doorHeader.position.set(ax, baseY + 4.55, -33.8);
     var rDesk = makeBox(2.6, 0.78, 1.1, 0x92400e, { roughness: 0.65 });

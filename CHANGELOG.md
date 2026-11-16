@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.26] — 2026-11-15
+### 🐛 Correção da Tela Preta na Inicialização do Campus
+- Corrigidas as chamadas de `addWalkableSlab` e `addSolidWall` nos construtores do campus para corresponder às assinaturas atuais, evitando que a construção do mundo 3D seja interrompida.
+- Ajustado o cache Apache para revalidar módulos ES em cada carregamento, pois os imports internos não incluem query de versão.
+- Atualizado o versionamento para que os clientes carreguem os módulos corrigidos após o deploy.
+
 ## [v0.9.25] — 2026-11-15
 ### 🪂 Freio & Descida Rápida no Paraglider
 - **Controle de descida ao andar para trás ([js/campus3d.js](file:///d:/Users/ghost/Documents/Game%20Cultivo%20de%20Cogu/js/campus3d.js))**:

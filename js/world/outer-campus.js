@@ -294,18 +294,18 @@ export function buildOuterCampus(ctx) {
   }
 
   // 4. Setor Leste: Student Center -> GRANDE AUDITORIO / CINEMA CAMINHÁVEL (x: 48, z: -12)
-  addWalkableSlab(48, 0.14, -12, 22, 0.14, 16, 0x334155);
+  addWalkableSlab(ctx.scene, ctx.walkableFloors, 48, 0.14, -12, 22, 0.14, 16, 0x334155);
   var scRoof = makeBox(22.6, 0.4, 16.6, 0x64748b);
   scRoof.position.set(48, 6.7, -12);
   registerSnowable(scRoof.material);
   ctx.roofZones.push({ minX: 36.5, maxX: 59.5, minZ: -20.5, maxZ: -3.5, roofY: 6.9 });
   scene.add(scRoof);
   // Paredes do Auditorio com entrada ampla no Sul (x: 46..50 aberta!)
-  addSolidWall(37, -20, 59, -20, 0.14, 6.4, 0.35, brickMat(5, 2)); // Norte (fundo da tela)
-  addSolidWall(37, -20, 37, -4, 0.14, 6.4, 0.35, brickMat(4, 2));  // Oeste
-  addSolidWall(59, -20, 59, -4, 0.14, 6.4, 0.35, brickMat(4, 2));  // Leste
-  addSolidWall(37, -4, 46, -4, 0.14, 6.4, 0.35, brickMat(2.2, 2)); // Sul esq
-  addSolidWall(50, -4, 59, -4, 0.14, 6.4, 0.35, brickMat(2.2, 2)); // Sul dir
+  addSolidWall(ctx.scene, ctx.wallSegments, 37, -20, 59, -20, 0.14, 6.4, 0.35, brickMat(5, 2)); // Norte (fundo da tela)
+  addSolidWall(ctx.scene, ctx.wallSegments, 37, -20, 37, -4, 0.14, 6.4, 0.35, brickMat(4, 2));  // Oeste
+  addSolidWall(ctx.scene, ctx.wallSegments, 59, -20, 59, -4, 0.14, 6.4, 0.35, brickMat(4, 2));  // Leste
+  addSolidWall(ctx.scene, ctx.wallSegments, 37, -4, 46, -4, 0.14, 6.4, 0.35, brickMat(2.2, 2)); // Sul esq
+  addSolidWall(ctx.scene, ctx.wallSegments, 50, -4, 59, -4, 0.14, 6.4, 0.35, brickMat(2.2, 2)); // Sul dir
   var scHeader = makeBox(4.2, 2.8, 0.35, brickMat(1.2, 0.8));
   scHeader.position.set(48, 5.1, -4);
   scene.add(scHeader);
@@ -405,18 +405,18 @@ export function buildOuterCampus(ctx) {
   // 4c. 2 Dormitorios Caminhaveis no Sudeste (com porta aberta, piso, cama e mesa!)
   [[58, 12, 0xfacc15], [50, 28, 0x38bdf8]].forEach(function (dm) {
     var dx = dm[0], dz = dm[1];
-    addWalkableSlab(dx, 0.14, dz, 14, 0.14, 10, 0x475569);
+    addWalkableSlab(ctx.scene, ctx.walkableFloors, dx, 0.14, dz, 14, 0.14, 10, 0x475569);
     var dRoof = makeBox(14.6, 0.4, 10.6, 0x64748b);
     dRoof.position.set(dx, 5.4, dz);
     registerSnowable(dRoof.material);
     ctx.roofZones.push({ minX: dx - 7.5, maxX: dx + 7.5, minZ: dz - 5.5, maxZ: dz + 5.5, roofY: 5.6 });
     scene.add(dRoof);
-    addSolidWall(dx - 7, dz - 5, dx + 7, dz - 5, 0.14, 5.1, 0.3, brickMat(3, 2)); // Fundo
-    addSolidWall(dx - 7, dz - 5, dx - 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2)); // Esq
-    addSolidWall(dx + 7, dz - 5, dx + 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2)); // Dir
+    addSolidWall(ctx.scene, ctx.wallSegments, dx - 7, dz - 5, dx + 7, dz - 5, 0.14, 5.1, 0.3, brickMat(3, 2)); // Fundo
+    addSolidWall(ctx.scene, ctx.wallSegments, dx - 7, dz - 5, dx - 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2)); // Esq
+    addSolidWall(ctx.scene, ctx.wallSegments, dx + 7, dz - 5, dx + 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2)); // Dir
     // Frente (dz + 5) com porta aberta em dx - 4.0 (largura 2.4m)
-    addSolidWall(dx - 7, dz + 5, dx - 5.2, dz + 5, 0.14, 5.1, 0.3, brickMat(1, 2));
-    addSolidWall(dx - 2.8, dz + 5, dx + 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2));
+    addSolidWall(ctx.scene, ctx.wallSegments, dx - 7, dz + 5, dx - 5.2, dz + 5, 0.14, 5.1, 0.3, brickMat(1, 2));
+    addSolidWall(ctx.scene, ctx.wallSegments, dx - 2.8, dz + 5, dx + 7, dz + 5, 0.14, 5.1, 0.3, brickMat(2, 2));
     var dHeader = makeBox(2.5, 2.3, 0.3, brickMat(1, 1));
     dHeader.position.set(dx - 4.0, 4.1, dz + 5);
     var awning = makeBox(2.8, 0.25, 1.3, dm[2]);
