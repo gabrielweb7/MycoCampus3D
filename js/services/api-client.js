@@ -1,51 +1,44 @@
 /**
  * MycoCampus3D — Cliente HTTP Unificado para APIs PHP
- * Centraliza headers, envio de token, parse de JSON e tratamento de sessão expirada (401).
+ * Preserva o contrato exato de autenticação (user_id + token no payload JSON).
  */
 import { appState } from '../core/state.js';
 import { events } from '../core/events.js';
 
-function buildHeaders(extra = {}) {
-  const headers = { 'Content-Type': 'application/json', ...extra };
-  if (appState.authToken) {
-    headers['Authorization'] = `Bearer ${appState.authToken}`;
-  }
-  return headers;
-}
-
-async function handleResponse(res) {
-  let data = null;
-  try {
-    data = await res.json();
-  } catch (e) {
-    data = { ok: false, error: `Resposta inválida do servidor (${res.status})` };
-  }
-
-  if (res.status === 401 && data && data.session_expired) {
-    events.emit('auth:expired', data.error || 'Sessão expirada');
-  }
-  return { status: res.status, ok: res.ok && data && data.ok !== false, data };
-}
-
 export async function apiGet(url) {
-  const res = await fetch(url, {
-    method: 'GET',
-    credentials: 'same-origin',
-    headers: appState.authToken ? { 'Authorization': `Bearer ${appState.authToken}` } : {}
-  });
-  return handleResponse(res);
+  const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return { ok: false, error: `Erro de resposta do servidor (${res.status})` };
+  }
 }
 
-export async function apiPost(url, body = {}) {
-  const payload = appState.authToken && !body.auth_token
-    ? { ...body, auth_token: appState.authToken }
-    : body;
+export async function apiPost(url, payload = {}, withAuth = false) {
+  const data = { ...payload };
+  if (withAuth && appState.currentUser) {
+    data.user_id = appState.currentUser.id;
+    if (appState.authToken) data.token = appState.authToken;
+  }
 
   const res = await fetch(url, {
     method: 'POST',
-    credentials: 'same-origin',
-    headers: buildHeaders(),
-    body: JSON.stringify(payload)
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    credentials: 'same-origin'
   });
-  return handleResponse(res);
+
+  const text = await res.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    json = { ok: false, error: `Erro de resposta do servidor (${res.status})` };
+  }
+
+  if (res.status === 401 && json && json.auth === false && appState.currentUser) {
+    events.emit('auth:expired', json.error);
+  }
+  return json || { ok: false, error: 'Resposta inválida do servidor.' };
 }

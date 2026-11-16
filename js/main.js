@@ -8,6 +8,7 @@ import { events } from './core/events.js';
 import * as mathPool from './core/math-pool.js';
 import { AudioEngine } from './services/audio-engine.js';
 import * as apiClient from './services/api-client.js';
+import { bootApp } from './ui/app-boot.js';
 
 // Ponte de depuração inspecionável via DevTools
 window.__MYCO_DEBUG__ = {
@@ -19,3 +20,9 @@ window.__MYCO_DEBUG__ = {
   audio: AudioEngine,
   api: apiClient
 };
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootApp);
+} else {
+  bootApp();
+}
