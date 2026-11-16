@@ -105,6 +105,11 @@ export function canSealSpawnBag(item) {
 
 const compatibilityLabels = {
   canEnterCooker: 'Pode ir à panela de pressão',
+  acceptsPdaMedium: 'Recebe meio PDA/BDA preparado',
+  addsPdaPowder: 'Adiciona pó PDA/BDA ao béquer',
+  receivesPdaPowder: 'Recebe pó PDA/BDA para preparo',
+  receivesDistilledWater: 'Recebe água destilada na proporção da receita',
+  poursWater: 'Despeja água destilada',
   sealsBags: 'Pode selar bags de spawn',
   receivesSyringe: 'Recebe cultura líquida pela seringa',
   transfersLiquidCulture: 'Aspira e transfere cultura líquida',
@@ -126,6 +131,7 @@ const compatibilityLabels = {
 function getGuideItemName(item) {
   const meshData = item.mesh && item.mesh.userData;
   return (item.spawnCtrl && item.spawnCtrl.baseLabel) ||
+    (item.pdaReagentCtrl && item.pdaReagentCtrl.baseLabel) ||
     (meshData && meshData.liquidCtrl && meshData.liquidCtrl.baseLabel) ||
     item.label || item.id;
 }

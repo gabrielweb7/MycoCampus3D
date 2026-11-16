@@ -5,6 +5,7 @@
 import { GAME_CONFIG } from '../core/config.js';
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
+import { isPdaRecipeBalanced, updatePdaMediumVisual } from './pda-mix.js';
 
 const THREE = window.THREE;
 const LAB = GAME_CONFIG.lab;
@@ -366,6 +367,11 @@ export function stepPressureCookers(ctx, dt) {
       cp.sterilized = false;
       cp.contents.forEach((bIt) => {
         if (bIt.spawnCtrl) { bIt.spawnCtrl.burned = true; bIt.spawnCtrl.sterilized = false; bIt.spawnCtrl.updateVisual(); }
+        if (bIt.pdaMediumCtrl) {
+          bIt.pdaMediumCtrl.burned = true;
+          bIt.pdaMediumCtrl.sterilized = false;
+          updatePdaMediumVisual(bIt);
+        }
       });
       if (ctx.callbacks.onToast) {
         ctx.callbacks.onToast('🔥 A água da panela secou! Tudo queimou lá dentro :(');
@@ -483,6 +489,14 @@ export function stepPressureCookers(ctx, dt) {
             }
             cIt.spawnCtrl.updateVisual();
           }
+          if (cIt && cIt.pdaMediumCtrl) {
+            const medium = cIt.pdaMediumCtrl;
+            if (cp.mode === 'sterilize' && cp.progress >= 100 && medium.mixed && !medium.burned &&
+                isPdaRecipeBalanced(medium, cIt.mesh.userData.liquidCtrl.volMl)) {
+              medium.sterilized = true;
+              updatePdaMediumVisual(cIt);
+            }
+          }
         }
         if (cp.progress >= 100) {
           cp.sterilized = true;
@@ -499,6 +513,11 @@ export function stepPressureCookers(ctx, dt) {
               bIt.spawnCtrl.burned = true;
               bIt.spawnCtrl.sterilized = false;
               bIt.spawnCtrl.updateVisual();
+            }
+            if (bIt.pdaMediumCtrl) {
+              bIt.pdaMediumCtrl.burned = true;
+              bIt.pdaMediumCtrl.sterilized = false;
+              updatePdaMediumVisual(bIt);
             }
           }
           if (ctx.callbacks.onToast) {

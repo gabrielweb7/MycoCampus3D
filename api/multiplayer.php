@@ -14,7 +14,7 @@ const MP_WORLD_LIMIT = 220.0;
 $mpBaseItems = [
     'petri_clean', 'petri_contam', 'petri_empty', 'pda_bottle', 'pda_bottle_02', 'pda_bottle_03',
     'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
-    'heat_sealer', 'liquid_culture', 'magnetic_stirrer',
+    'heat_sealer', 'liquid_culture', 'magnetic_stirrer', 'pda_media_bottle_1l',
     'precision_scale', 'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03', 'burner_lab',
     'infrared_thermometer', 'lab_tray_01', 'lab_tray_02', 'lab_tray_03',
     'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
@@ -90,6 +90,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
 
     $hasItemState = strpos($itemId, 'spawn_') === 0 || strpos($itemId, 'pp5_cup_') === 0 ||
         strpos($itemId, 'petri_') === 0 ||
+        strpos($itemId, 'pda_bottle') === 0 || strpos($itemId, 'pda_media_bottle_') === 0 ||
         strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 ||
         strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'syringe_10ml_') === 0 ||
         strpos($itemId, 'mixing_bowl_') === 0 || strpos($itemId, 'scalpel_') === 0;
@@ -121,10 +122,36 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         $clean['petri'] = ['mode' => $raw['petri']['mode']];
     }
 
-    if ((strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 || strpos($itemId, 'falcon_') === 0) &&
+    if ((strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 ||
+        strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'pda_media_bottle_') === 0) &&
         isset($raw['liquid']) && is_array($raw['liquid']) &&
         isset($raw['liquid']['volMl']) && is_numeric($raw['liquid']['volMl']) && is_finite((float)$raw['liquid']['volMl'])) {
         $clean['liquid'] = ['volMl' => max(0, min(5000, (int)round((float)$raw['liquid']['volMl'])))];
+    }
+
+    if ((strpos($itemId, 'beaker_1l_') === 0 || strpos($itemId, 'falcon_') === 0 ||
+        strpos($itemId, 'pda_media_bottle_') === 0) &&
+        isset($raw['pdaMedium']) && is_array($raw['pdaMedium'])) {
+        $src = $raw['pdaMedium'];
+        $medium = [];
+        foreach (['mixed', 'sterilized', 'burned'] as $key) {
+            if (isset($src[$key]) && is_bool($src[$key])) $medium[$key] = $src[$key];
+        }
+        foreach (['powderGrams' => 500, 'stirProgress' => 4] as $key => $limit) {
+            if (isset($src[$key]) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
+                $medium[$key] = max(0, min($limit, round((float)$src[$key], 1)));
+            }
+        }
+        if ($medium) $clean['pdaMedium'] = $medium;
+    }
+
+    if (strpos($itemId, 'pda_bottle') === 0 && isset($raw['pdaReagent']) &&
+        is_array($raw['pdaReagent']) && isset($raw['pdaReagent']['remainingGrams']) &&
+        is_numeric($raw['pdaReagent']['remainingGrams']) &&
+        is_finite((float)$raw['pdaReagent']['remainingGrams'])) {
+        $clean['pdaReagent'] = [
+            'remainingGrams' => max(0, min(500, (int)round((float)$raw['pdaReagent']['remainingGrams'])))
+        ];
     }
 
     if (strpos($itemId, 'syringe_10ml_') === 0 && isset($raw['syringe']) && is_array($raw['syringe']) &&

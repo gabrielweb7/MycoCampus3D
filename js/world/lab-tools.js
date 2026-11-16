@@ -13,6 +13,7 @@ import { buildLaminarHoodAndBenches } from '../items/laminar-hood.js';
 import { createPressureCookerPair, makeElectricBurner } from '../items/pressure-cooker.js';
 import { makePetriDish, getPetriMeta } from '../items/petri-dish.js';
 import { createPdaBottleGroup, PDA_BOTTLE_META } from '../items/pda-bottle.js';
+import { attachPdaMediumCtrl, attachPdaReagentCtrl, makePdaMediaBottle1L } from '../items/pda-mix.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
 import { createPrecisionScale } from '../items/precision-scale.js';
 import { makeAlcoholSprayBottle } from '../items/alcohol-spray.js';
@@ -78,7 +79,8 @@ export function buildCampusWingsAndEquipment(ctx) {
 
   // Frasco PDA 500g
   const pdaGroup = createPdaBottleGroup();
-  registerPickable(ctx, 'pda_bottle', 'Frasco PDA 500g (Ágar Batata Dextrose)', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.34, PDA_BOTTLE_META);
+  const pdaBottle = registerPickable(ctx, 'pda_bottle', 'Pó desidratado BDA/PDA 500g', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.34, PDA_BOTTLE_META);
+  attachPdaReagentCtrl(pdaBottle);
 
   // Spawn, Balanca, Borrifador & Seladora
   makeSpawnJar800(ctx, 'spawn_jar', true, -23.1, 1.02, -4.5);
@@ -94,8 +96,11 @@ export function buildCampusWingsAndEquipment(ctx) {
   // Agitador, Cultura Liquida, Bequeres, Bandejas, Seringas & Termometro
   makeMagneticStirrer(ctx, 'magnetic_stirrer', -20.95, 0.91, -10.55);
   makeLiquidJar800(ctx, 'liquid_culture', -20.95, 1.015, -10.59, 350);
-  makeBeaker1L(ctx, 'beaker_1l_a', -20.42, 0.91, -10.55, 0);
-  makeBeaker1L(ctx, 'beaker_1l_b', -20.08, 0.91, -10.55, 500);
+  makePdaMediaBottle1L(ctx, 'pda_media_bottle_1l', -21.30, 0.91, -10.55);
+  const beakerA = makeBeaker1L(ctx, 'beaker_1l_a', -20.42, 0.91, -10.55, 0);
+  const beakerB = makeBeaker1L(ctx, 'beaker_1l_b', -20.08, 0.91, -10.55, 500);
+  attachPdaMediumCtrl(beakerA, 'beaker', false);
+  attachPdaMediumCtrl(beakerB, 'beaker', false);
   makeLabTray(ctx, 'lab_tray_01', 'Bandeja Inox Cirúrgica', -19.70, 0.91, -10.57);
   makeLabTray(ctx, 'lab_tray_02', 'Bandeja Inox (Fluxo)', -18.30, 1.065, -8.20);
   makeLabTray(ctx, 'lab_tray_03', 'Bandeja Inox (Preparo)', -20.42, 0.91, -10.18);
@@ -105,12 +110,14 @@ export function buildCampusWingsAndEquipment(ctx) {
 
   // Estante azul + Tubos Falcon 15ml (azul) e 50ml (laranja)
   makeFalconRack(ctx, -19.25, 0.91, -10.35);
-  makeFalconTube(ctx, 'falcon_15ml_01', 15, -19.31, 0.92, -10.39, 0);
-  makeFalconTube(ctx, 'falcon_15ml_02', 15, -19.26, 0.92, -10.39, 10);
-  makeFalconTube(ctx, 'falcon_15ml_03', 15, -19.21, 0.92, -10.39, 0);
-  makeFalconTube(ctx, 'falcon_15ml_04', 15, -19.16, 0.92, -10.39, 0);
-  makeFalconTube(ctx, 'falcon_50ml_01', 50, -19.30, 0.92, -10.30, 0);
-  makeFalconTube(ctx, 'falcon_50ml_02', 50, -19.20, 0.92, -10.30, 35);
+  const falcon15a = makeFalconTube(ctx, 'falcon_15ml_01', 15, -19.31, 0.92, -10.39, 0);
+  const falcon15b = makeFalconTube(ctx, 'falcon_15ml_02', 15, -19.26, 0.92, -10.39, 10);
+  const falcon15c = makeFalconTube(ctx, 'falcon_15ml_03', 15, -19.21, 0.92, -10.39, 0);
+  const falcon15d = makeFalconTube(ctx, 'falcon_15ml_04', 15, -19.16, 0.92, -10.39, 0);
+  const falcon50a = makeFalconTube(ctx, 'falcon_50ml_01', 50, -19.30, 0.92, -10.30, 0);
+  const falcon50b = makeFalconTube(ctx, 'falcon_50ml_02', 50, -19.20, 0.92, -10.30, 35);
+  [falcon15a, falcon15b, falcon15c, falcon15d].forEach((item) => attachPdaMediumCtrl(item, 'falcon', true));
+  [falcon50a, falcon50b].forEach((item) => attachPdaMediumCtrl(item, 'falcon', false));
 
   // Bisturi Inox, Saches de Lamina #24, Flocao de Milho 500g e Potinhos PP5 145ml
   makeScalpel(ctx, 'scalpel_01', -18.25, 1.065, -8.90);
@@ -154,8 +161,10 @@ export function buildCampusWingsAndEquipment(ctx) {
       getPetriMeta('bare')
     );
   }
-  registerPickable(ctx, 'pda_bottle_02', 'Ágar PDA / BDA (500g)', pdaGroup.clone(), -17.55, 1.798, 3.05, 0, 0.14, 0.31, PDA_BOTTLE_META);
-  registerPickable(ctx, 'pda_bottle_03', 'Ágar PDA / BDA (500g)', pdaGroup.clone(), -17.15, 1.798, 3.05, 0, 0.14, 0.31, PDA_BOTTLE_META);
+  const pdaBottle2 = registerPickable(ctx, 'pda_bottle_02', 'Pó desidratado BDA/PDA 500g', pdaGroup.clone(), -17.55, 1.798, 3.05, 0, 0.14, 0.31, PDA_BOTTLE_META);
+  const pdaBottle3 = registerPickable(ctx, 'pda_bottle_03', 'Pó desidratado BDA/PDA 500g', pdaGroup.clone(), -17.15, 1.798, 3.05, 0, 0.14, 0.31, PDA_BOTTLE_META);
+  attachPdaReagentCtrl(pdaBottle2);
+  attachPdaReagentCtrl(pdaBottle3);
 
   for (let ji = 0; ji < 15; ji++) {
     const jRow = Math.floor(ji / 8);
@@ -174,8 +183,10 @@ export function buildCampusWingsAndEquipment(ctx) {
   for (let pfi = 0; pfi < 3; pfi++) {
     makeTapeRoll(ctx, 'parafilm_' + pad2(pfi + 1), 'parafilm', -23.05, 1.798, 7.1 + pfi * 0.45);
   }
-  makeBeaker1L(ctx, 'beaker_1l_03', -23.05, 1.798, 9.2, 0);
-  makeBeaker1L(ctx, 'beaker_1l_04', -23.05, 1.798, 9.9, 0);
+  const beakerC = makeBeaker1L(ctx, 'beaker_1l_03', -23.05, 1.798, 9.2, 0);
+  const beakerD = makeBeaker1L(ctx, 'beaker_1l_04', -23.05, 1.798, 9.9, 0);
+  attachPdaMediumCtrl(beakerC, 'beaker', false);
+  attachPdaMediumCtrl(beakerD, 'beaker', false);
   for (let syi = 0; syi < 20; syi++) {
     const sRow = Math.floor(syi / 10);
     const sCol = syi % 10;

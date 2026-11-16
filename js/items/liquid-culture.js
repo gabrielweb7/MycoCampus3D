@@ -21,9 +21,17 @@ export const BEAKER_META = {
   purpose: 'Béquer graduado 1L para preparo e mistura de soluções nutritivas',
   maxVolumeMl: 1000,
   baseTempC: 23.5,
-  getWeightGrams: (item) => 260 + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
-  compatibilities: { canEnterCooker: true, receivesSyringe: true, stirsOnMagneticPlate: true },
-  connections: ['magnetic_stirrer', 'precision_scale', 'syringe']
+  getWeightGrams: (item) => 260 +
+    ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0) +
+    ((item && item.pdaMediumCtrl) ? item.pdaMediumCtrl.powderGrams : 0),
+  compatibilities: {
+    canEnterCooker: true,
+    receivesSyringe: true,
+    stirsOnMagneticPlate: true,
+    receivesPdaPowder: true,
+    receivesDistilledWater: true
+  },
+  connections: ['magnetic_stirrer', 'precision_scale', 'syringe', 'pda_bottle', 'distilled_jug', 'pda_media_bottle']
 };
 
 export function updateContainerVolume(item, newVol) {
@@ -44,7 +52,11 @@ export function updateContainerVolume(item, newVol) {
       ctrl.mycCloud.position.y = ctrl.baseY + Math.min(ctrl.maxH * frac * 0.45, 0.048);
     }
   }
-  item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml)';
+  if (item.pdaMediumCtrl && item.pdaMediumCtrl.updateVisual) {
+    item.pdaMediumCtrl.updateVisual();
+  } else {
+    item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml)';
+  }
 }
 
 export function makeLiquidJar800(ctx, id, px, py, pz, initMl) {

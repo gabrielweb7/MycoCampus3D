@@ -4,6 +4,7 @@
 
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
+import { isPdaRecipeBalanced, PDA_MIX_TIME_SECONDS, updatePdaMediumVisual } from './pda-mix.js';
 
 const THREE = window.THREE;
 
@@ -93,6 +94,19 @@ export function stepMagneticStirrers(ctx, dt) {
       if (st.on && lx >= st.surface.minX && lx <= st.surface.maxX && lz >= st.surface.minZ && lz <= st.surface.maxZ && Math.abs(ly - st.surface.topY) < 0.08) {
         lcCtrl.stirBar.rotation.y += dt * 18;
         if (lcCtrl.mycCloud) lcCtrl.mycCloud.rotation.y += dt * 4.5;
+        const medium = liqIt.pdaMediumCtrl;
+        if (medium && medium.kind === 'beaker' && !medium.burned && !medium.sterilized &&
+            !medium.mixed && isPdaRecipeBalanced(medium, lcCtrl.volMl)) {
+          medium.stirProgress = Math.min(PDA_MIX_TIME_SECONDS, medium.stirProgress + dt);
+          if (medium.stirProgress >= PDA_MIX_TIME_SECONDS) {
+            medium.mixed = true;
+            updatePdaMediumVisual(liqIt);
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧪 Meio PDA/BDA homogêneo! Transfira para os Falcon ou para o frasco de 1L.');
+            ctx.notifyWorldAction();
+          } else {
+            updatePdaMediumVisual(liqIt);
+          }
+        }
         break;
       }
     }

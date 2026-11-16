@@ -22,6 +22,14 @@ import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
+import {
+  addPdaPowder,
+  isPdaRecipeBalanced,
+  markPdaVolumeChanged,
+  PDA_GRAMS_PER_LITER,
+  PDA_POWDER_DOSE_GRAMS,
+  transferPdaGrams
+} from '../items/pda-mix.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -180,6 +188,51 @@ export function handlePrimaryAction(ctx) {
       drawThermoScreen(ctx.thermoCurrentTemp, ctx.thermoLaserOn ? 'SCAN' : 'HOLD', true);
       return;
     }
+    if (ctx.hoveredPdaTarget) {
+      const target = ctx.hoveredPdaTarget;
+      if (ctx.heldItem.pdaReagentCtrl) {
+        const result = addPdaPowder(ctx.heldItem, target);
+        if (result.ok) {
+          if (window.MycoAudio) window.MycoAudio.playClick();
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧪 +' + PDA_POWDER_DOSE_GRAMS + 'g de PDA/BDA no béquer.');
+          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+          ctx.notifyWorldAction();
+        } else if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('⚠️ ' + result.reason);
+        }
+        return;
+      }
+
+      const sourceLiquid = ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl;
+      const targetLiquid = target.mesh && target.mesh.userData.liquidCtrl;
+      const medium = target.pdaMediumCtrl;
+      const canPourDistilledWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
+        ctx.heldItem.meta.compatibilities.poursWater;
+      if (sourceLiquid && targetLiquid && medium && canPourDistilledWater) {
+        if (medium.burned || medium.sterilized) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este meio já foi processado; use um béquer limpo.');
+          return;
+        }
+        if (medium.powderGrams <= 0) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Adicione o pó PDA/BDA antes da água destilada.');
+          return;
+        }
+        const expectedMl = medium.powderGrams * 1000 / PDA_GRAMS_PER_LITER;
+        const addMl = Math.min(sourceLiquid.volMl, targetLiquid.maxMl - targetLiquid.volMl, expectedMl - targetLiquid.volMl);
+        if (addMl <= 0) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A proporção já está completa; ajuste a quantidade de pó para preparar mais meio.');
+          return;
+        }
+        updateContainerVolume(ctx.heldItem, sourceLiquid.volMl - addMl);
+        updateContainerVolume(target, targetLiquid.volMl + addMl);
+        markPdaVolumeChanged(target);
+        if (window.MycoAudio) window.MycoAudio.playSpray();
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 +' + addMl + 'ml de água destilada. Proporção: 40g/L.');
+        ctx.notifyWorldAction();
+        return;
+      }
+    }
     if (ctx.hoveredBoardHit && getHeldBoardToolColor(ctx.heldItem)) {
       const boardToolCol = getHeldBoardToolColor(ctx.heldItem);
       const brd = ctx.chalkboards[ctx.hoveredBoardIndex];
@@ -290,6 +343,10 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (ctx.hoveredSink) {
+      if (ctx.heldItem.pdaMediumCtrl) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não encha um recipiente com meio PDA/BDA pela pia; use o garrafão de água destilada no béquer.');
+        return;
+      }
       let filledSomething = false;
       if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
         const lc = ctx.heldItem.mesh.userData.liquidCtrl;
@@ -319,6 +376,10 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (ctx.hoveredFillPot && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
+      if (ctx.heldItem.pdaMediumCtrl) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Transfira o meio para o frasco ou Falcon antes de levar à panela.');
+        return;
+      }
       const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
       const cp = ctx.hoveredFillPot;
       const pourAmt = Math.min(srcLc.volMl, 500, cp.maxWaterMl - cp.waterMl);
@@ -336,13 +397,56 @@ export function handlePrimaryAction(ctx) {
       const dstItem = ctx.hoveredPourTarget;
       const dstLc = dstItem.mesh && dstItem.mesh.userData.liquidCtrl;
       if (dstLc) {
+        const srcPda = ctx.heldItem.pdaMediumCtrl;
+        if (srcPda) {
+          const dstPda = dstItem.pdaMediumCtrl;
+          if (srcPda.burned || srcPda.sterilized || !srcPda.mixed || !isPdaRecipeBalanced(srcPda, srcLc.volMl)) {
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Misture o meio PDA/BDA na proporção de 40g/L antes de transferir.');
+            return;
+          }
+          if (!dstPda || (dstPda.kind !== 'media_bottle' && !(dstPda.kind === 'falcon' && dstPda.isSlant))) {
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Transfira o meio preparado para um Falcon de 15ml ou para o frasco de 1L.');
+            return;
+          }
+          if (dstPda.burned || dstPda.sterilized) {
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Use um recipiente limpo que ainda não foi processado.');
+            return;
+          }
+          if (dstLc.volMl > 0 && dstPda.powderGrams <= 0) {
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Use um tubo vazio para preparar o slant.');
+            return;
+          }
+          const stepAmt = dstLc.maxMl <= 15 ? 15 : 250;
+          const pourAmt = Math.min(srcLc.volMl, stepAmt, dstLc.maxMl - dstLc.volMl);
+          if (pourAmt > 0) {
+            const sourceVolMl = srcLc.volMl;
+            updateContainerVolume(ctx.heldItem, sourceVolMl - pourAmt);
+            updateContainerVolume(dstItem, dstLc.volMl + pourAmt);
+            transferPdaGrams(ctx.heldItem, dstItem, pourAmt, sourceVolMl);
+            if (window.MycoAudio) window.MycoAudio.playSpray();
+            if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧪 Meio transferido para ' + dstItem.label + '. Leve à panela para esterilizar.');
+            ctx.notifyWorldAction();
+          }
+          return;
+        }
+
+        if (dstItem.pdaMediumCtrl &&
+            (dstItem.pdaMediumCtrl.kind === 'beaker' || dstItem.pdaMediumCtrl.kind === 'media_bottle') &&
+            !ctx.heldItem.pdaMediumCtrl) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Use água destilada no béquer ou transfira um meio PDA/BDA já preparado.');
+          return;
+        }
+
         const stepAmt = dstLc.maxMl <= 50 ? 15 : 250;
         const pourAmt = Math.min(srcLc.volMl, stepAmt, dstLc.maxMl - dstLc.volMl);
         if (pourAmt > 0) {
           updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
           updateContainerVolume(dstItem, dstLc.volMl + pourAmt);
+          if (dstItem.pdaMediumCtrl) markPdaVolumeChanged(dstItem);
           if (window.MycoAudio) window.MycoAudio.playSpray();
           if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+          ctx.notifyWorldAction();
         }
       } else if (dstItem.bowlCtrl) {
         const pourAmt = Math.min(srcLc.volMl, 50);
@@ -774,6 +878,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredSwitch = null;
   ctx.hoveredHoodSwitch = null;
   ctx.hoveredStirSwitch = null;
+  ctx.hoveredPdaTarget = null;
   ctx.hoveredSyringeTarget = null;
   ctx.hoveredHeatSealerTarget = null;
   ctx.hoveredScaleTare = null;
@@ -821,6 +926,24 @@ export function updateHoverRay(ctx, customNdc) {
           ctx.hoveredSprayTarget = aCand.mesh.userData.isHood ? 'hood' : aCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
           if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🧴 Borrifar Álcool 70% (' + aCand.label + ')');
+          return;
+        }
+      }
+    }
+    if (ctx.heldItem.pdaReagentCtrl) {
+      const pdaRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const pdaRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
+        const pCand = ctx.pickableItems[pi];
+        if (pCand === ctx.heldItem || !pCand.pdaMediumCtrl || pCand.pdaMediumCtrl.kind !== 'beaker' ||
+            ctx.isHeldByRemote(pCand.id)) continue;
+        const dx = pCand.mesh.position.x - pdaRefX, dz = pCand.mesh.position.z - pdaRefZ;
+        if (dx * dx + dz * dz > 100) continue;
+        const hit = firstValidRayHit(ctx.raycaster.intersectObject(pCand.mesh, true));
+        if (hit && hit.distance < 3.5) {
+          ctx.hoveredPdaTarget = pCand;
+          if (ctx.placementGhost) ctx.placementGhost.visible = false;
+          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🧪 Adicionar ' + PDA_POWDER_DOSE_GRAMS + 'g de PDA/BDA ao béquer');
           return;
         }
       }
@@ -878,6 +1001,27 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
     if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl && ctx.heldItem.mesh.userData.liquidCtrl.volMl > 0) {
+      if (ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.poursWater) {
+        const pdaRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+        const pdaRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+        for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
+          const pCand = ctx.pickableItems[pi];
+          if (pCand === ctx.heldItem || !pCand.pdaMediumCtrl || pCand.pdaMediumCtrl.kind !== 'beaker' ||
+              ctx.isHeldByRemote(pCand.id)) continue;
+          const dx = pCand.mesh.position.x - pdaRefX, dz = pCand.mesh.position.z - pdaRefZ;
+          if (dx * dx + dz * dz > 100) continue;
+          const hit = firstValidRayHit(ctx.raycaster.intersectObject(pCand.mesh, true));
+          if (hit && hit.distance < 3.5) {
+            ctx.hoveredPdaTarget = pCand;
+            if (ctx.placementGhost) ctx.placementGhost.visible = false;
+            const hint = pCand.pdaMediumCtrl.powderGrams > 0
+              ? '💧 Completar o preparo do PDA/BDA com água destilada'
+              : '🧪 Adicione o pó PDA/BDA antes da água destilada';
+            if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(hint);
+            return;
+          }
+        }
+      }
       for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
         const cp = ctx.cookerPots[ci];
         if (cp.lidItem.isAttached || cp.waterMl >= cp.maxWaterMl) continue;

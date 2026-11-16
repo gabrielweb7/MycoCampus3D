@@ -17,13 +17,16 @@ export function getFalconMeta(maxMl) {
       : 'Tubo Falcon 15ml para coleta de esporos, slants e amostras estéreis',
     maxVolumeMl: maxMl,
     baseTempC: 23.4,
-    getWeightGrams: (item) => (is50 ? 14 : 7) + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
+    getWeightGrams: (item) => (is50 ? 14 : 7) +
+      ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0) +
+      ((item && item.pdaMediumCtrl) ? item.pdaMediumCtrl.powderGrams : 0),
     compatibilities: {
       canEnterCooker: true,
       receivesSyringe: true,
       fillsFromSink: true,
       poursWater: true,
-      receivesWater: true
+      receivesWater: true,
+      acceptsPdaMedium: true
     },
     connections: ['syringe', 'liquid_culture', 'lab_sink', 'pressure_cooker', 'laminar_hood']
   };

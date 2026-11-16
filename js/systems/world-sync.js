@@ -13,6 +13,7 @@ import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { updatePetriVisual } from '../items/petri-dish.js';
 import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 
 export function consumeCampusMovedItems(sim) {
   const pending = sim.pendingMovedItems;
@@ -76,6 +77,18 @@ function getReplicatedItemState(sim, item) {
   }
   const liquid = meshData.liquidCtrl;
   if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0) };
+  if (item.pdaReagentCtrl) {
+    state.pdaReagent = { remainingGrams: Math.round(item.pdaReagentCtrl.remainingGrams || 0) };
+  }
+  if (item.pdaMediumCtrl) {
+    state.pdaMedium = {
+      powderGrams: Math.round((item.pdaMediumCtrl.powderGrams || 0) * 10) / 10,
+      mixed: !!item.pdaMediumCtrl.mixed,
+      stirProgress: Math.round((item.pdaMediumCtrl.stirProgress || 0) * 10) / 10,
+      sterilized: !!item.pdaMediumCtrl.sterilized,
+      burned: !!item.pdaMediumCtrl.burned
+    };
+  }
   const syringe = meshData.syrCtrl;
   if (syringe) state.syringe = { volMl: Math.round((syringe.volMl || 0) * 10) / 10 };
   if (item.bowlCtrl) {
@@ -162,6 +175,24 @@ function applyReplicatedItemState(sim, item, state) {
   }
   if (meshData.liquidCtrl && state.liquid && typeof state.liquid.volMl === 'number') {
     updateContainerVolume(item, state.liquid.volMl);
+  }
+  if (item.pdaReagentCtrl && state.pdaReagent && typeof state.pdaReagent.remainingGrams === 'number' &&
+      Number.isFinite(state.pdaReagent.remainingGrams)) {
+    item.pdaReagentCtrl.remainingGrams = Math.max(0, Math.min(item.pdaReagentCtrl.maxGrams, state.pdaReagent.remainingGrams));
+    updatePdaReagentLabel(item);
+  }
+  if (item.pdaMediumCtrl && state.pdaMedium && typeof state.pdaMedium === 'object') {
+    const medium = item.pdaMediumCtrl;
+    if (typeof state.pdaMedium.powderGrams === 'number' && Number.isFinite(state.pdaMedium.powderGrams)) {
+      medium.powderGrams = Math.max(0, Math.min(500, state.pdaMedium.powderGrams));
+    }
+    if (typeof state.pdaMedium.stirProgress === 'number' && Number.isFinite(state.pdaMedium.stirProgress)) {
+      medium.stirProgress = Math.max(0, Math.min(4, state.pdaMedium.stirProgress));
+    }
+    ['mixed', 'sterilized', 'burned'].forEach(function (key) {
+      if (typeof state.pdaMedium[key] === 'boolean') medium[key] = state.pdaMedium[key];
+    });
+    updatePdaMediumVisual(item);
   }
   if (meshData.syrCtrl && state.syringe && typeof state.syringe.volMl === 'number') {
     updateSyringeVolume(item, state.syringe.volMl);

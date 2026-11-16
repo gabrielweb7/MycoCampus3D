@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.34] — Preparo de Meio PDA/BDA
+### 🧪 Dosagem, Mistura e Esterilização
+- O pó PDA/BDA pode ser dosado no béquer em incrementos de 1g e combinado com água destilada na proporção de 40g/L.
+- O agitador magnético homogeneíza a mistura após 4 segundos com a receita correta.
+- O meio homogêneo pode ser transferido para Falcon de 15ml (slants) ou para o frasco autoclavável de 1L; a esterilização e a queima são refletidas no rótulo.
+- Quantidades de reagente, volumes, homogeneização e estado de esterilização são sincronizados no multiplayer.
+
 ## [v0.9.33] — 2026-11-16
 ### 🧫 Inoculação de Petri e Colonização
 - A placa estéril com PDA agora aceita cultura líquida, mostra o estado de cultura/contaminação e pode fornecer micélio ao bisturi; o estado também sincroniza no multiplayer.
