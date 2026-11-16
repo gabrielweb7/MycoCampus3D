@@ -2,6 +2,10 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.35] — 2026-11-16
+### 🧴 Escala do Frasco PDA/BDA
+- Redimensionado o frasco autoclavável de 1L para ficar proporcional ao béquer graduado de 1L, preservando sua capacidade e as interações.
+
 ## [v0.9.34] — Preparo de Meio PDA/BDA
 ### 🧪 Dosagem, Mistura e Esterilização
 - O pó PDA/BDA pode ser dosado no béquer em incrementos de 1g e combinado com água destilada na proporção de 40g/L.

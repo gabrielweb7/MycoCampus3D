@@ -174,6 +174,8 @@ export function makePdaMediaBottle1L(ctx, id, px, py, pz) {
   );
   capSeal.position.y = 0.531;
   bottle.add(liquid, body, bottom, shoulder, neck, graduations, cap, capSeal);
+  const bottleScale = 0.62;
+  bottle.scale.setScalar(bottleScale);
 
   const liquidCtrl = {
     volMl: 0, maxMl: 900, baseY: 0.05, maxH: 0.30,
@@ -181,7 +183,10 @@ export function makePdaMediaBottle1L(ctx, id, px, py, pz) {
     baseLabel: 'Frasco de Meio PDA 1L'
   };
   bottle.userData.liquidCtrl = liquidCtrl;
-  const item = registerPickable(ctx, id, liquidCtrl.baseLabel, bottle, px, py, pz, 0, 0.17, 0.60, PDA_MEDIA_BOTTLE_META);
+  const item = registerPickable(
+    ctx, id, liquidCtrl.baseLabel, bottle, px, py, pz, 0,
+    0.17 * bottleScale, 0.60 * bottleScale, PDA_MEDIA_BOTTLE_META
+  );
   attachPdaMediumCtrl(item, 'media_bottle', false);
   item.setVolume = function (volume) { updateContainerVolume(item, volume); };
   updateContainerVolume(item, 0);
