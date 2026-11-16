@@ -3,6 +3,14 @@
  */
 
 const THREE = window.THREE;
+const PETRI_SIDE_RADIUS = 0.06;
+const PETRI_AGAR_RADIUS = 0.055;
+
+export const PETRI_DISH_RADIUS = 0.062;
+export const PETRI_DISH_HEIGHT = 0.024;
+export const PETRI_STACK_SPACING = 0.026;
+export const PETRI_STACK_ALIGNMENT_RADIUS = 0.08;
+export const PETRI_STACK_AIM_DISTANCE_SQ = 0.0064;
 
 export function getPetriMeta(mode) {
   const isBare = mode === 'bare';
@@ -49,10 +57,10 @@ function drawAgarTexture(pctx, mode) {
 export function makePetriDish(mode) {
   const pg = new THREE.Group();
   const glassMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.08, metalness: 0.15 });
-  const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.048, 22, 1, true), glassMat);
-  rim.position.y = 0.024;
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.172, 0.172, 0.012, 22), glassMat);
-  lid.position.y = 0.048;
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(PETRI_SIDE_RADIUS, PETRI_SIDE_RADIUS, 0.018, 22, 1, true), glassMat);
+  rim.position.y = 0.009;
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(PETRI_DISH_RADIUS, PETRI_DISH_RADIUS, 0.006, 22), glassMat);
+  lid.position.y = 0.021;
 
   const c = document.createElement('canvas');
   c.width = 256; c.height = 256;
@@ -62,10 +70,10 @@ export function makePetriDish(mode) {
   let agarMesh = null;
   if (mode !== 'bare') {
     agarMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.156, 0.156, 0.022, 22),
+      new THREE.CylinderGeometry(PETRI_AGAR_RADIUS, PETRI_AGAR_RADIUS, 0.009, 22),
       new THREE.MeshStandardMaterial({ map: agarTexture, roughness: 0.35 })
     );
-    agarMesh.position.y = 0.015;
+    agarMesh.position.y = 0.008;
     pg.add(agarMesh);
   }
   pg.add(rim, lid);
@@ -86,10 +94,10 @@ export function updatePetriVisual(item) {
     if (!ctrl.texture) ctrl.texture = new THREE.CanvasTexture(ctrl.canvas);
     if (!ctrl.agarMesh) {
       ctrl.agarMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.156, 0.156, 0.022, 22),
+        new THREE.CylinderGeometry(PETRI_AGAR_RADIUS, PETRI_AGAR_RADIUS, 0.009, 22),
         new THREE.MeshStandardMaterial({ map: ctrl.texture, roughness: 0.35 })
       );
-      ctrl.agarMesh.position.y = 0.015;
+      ctrl.agarMesh.position.y = 0.008;
       item.mesh.add(ctrl.agarMesh);
     } else if (ctrl.agarMesh.material.map !== ctrl.texture) {
       ctrl.agarMesh.material.map = ctrl.texture;

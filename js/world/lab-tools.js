@@ -11,7 +11,7 @@ import { registerPickable } from '../items/item-registry.js';
 import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { buildLaminarHoodAndBenches } from '../items/laminar-hood.js';
 import { createPressureCookerPair, makeElectricBurner } from '../items/pressure-cooker.js';
-import { makePetriDish, getPetriMeta } from '../items/petri-dish.js';
+import { makePetriDish, getPetriMeta, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, PETRI_STACK_SPACING } from '../items/petri-dish.js';
 import { createPdaBottleGroup, PDA_BOTTLE_META } from '../items/pda-bottle.js';
 import { attachPdaMediumCtrl, attachPdaReagentCtrl, makePdaMediaBottle1L } from '../items/pda-mix.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
@@ -73,9 +73,9 @@ export function buildCampusWingsAndEquipment(ctx) {
 
   // Mesa de Cultura Liquida & Placas de Petri
   addMovableStainlessTable(ctx, 'table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);
-  registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.3, 1.065, -8.6, 0, 0.20, 0.08, getPetriMeta('clean'));
-  registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 1.065, -7.8, 0, 0.20, 0.08, getPetriMeta('contam'));
-  registerPickable(ctx, 'petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, 0.20, 0.08, getPetriMeta('empty'));
+  registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.3, 1.065, -8.6, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
+  registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 1.065, -7.8, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('contam'));
+  registerPickable(ctx, 'petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
 
   // Frasco PDA 500g
   const pdaGroup = createPdaBottleGroup();
@@ -155,9 +155,9 @@ export function buildCampusWingsAndEquipment(ctx) {
       'Placa de Petri Vazia',
       makePetriDish('bare'),
       -21.3 + stackIdx * 0.56,
-      1.798 + stackLvl * 0.055,
+      1.798 + stackLvl * PETRI_STACK_SPACING,
       3.05,
-      0, 0.20, 0.08,
+      0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT,
       getPetriMeta('bare')
     );
   }

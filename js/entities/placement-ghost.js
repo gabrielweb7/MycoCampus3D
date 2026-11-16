@@ -1,4 +1,10 @@
 import { getItemGroundHeight } from '../engine/physics.js';
+import {
+  PETRI_DISH_HEIGHT,
+  PETRI_STACK_SPACING,
+  PETRI_STACK_ALIGNMENT_RADIUS,
+  PETRI_STACK_AIM_DISTANCE_SQ
+} from '../items/petri-dish.js';
 
 var placementGhost = null;
 var placementRing = null;
@@ -207,9 +213,9 @@ export function findPlacementTarget(ctx, customNdc) {
       if (!cand || cand === heldItem || !cand.mesh || !cand.mesh.userData.isPetri) continue;
       if (ctx.isHeldByRemote(cand.id)) continue;
       var cpos = cand.mesh.position;
-      _tmpPlaceCenter.set(cpos.x, cpos.y + 0.03, cpos.z);
+      _tmpPlaceCenter.set(cpos.x, cpos.y + PETRI_DISH_HEIGHT * 0.5, cpos.z);
       var dCam = origin.distanceTo(_tmpPlaceCenter);
-      if (dCam < petriDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.045) {
+      if (dCam < petriDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < PETRI_STACK_AIM_DISTANCE_SQ) {
         petriDist = dCam;
         petriBest = cand;
       }
@@ -222,14 +228,14 @@ export function findPlacementTarget(ctx, customNdc) {
       for (var pj = 0; pj < pickableItems.length; pj++) {
         var pOther = pickableItems[pj];
         if (!pOther || pOther === heldItem || !pOther.mesh || !pOther.mesh.userData.isPetri) continue;
-        if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < 0.14) {
+        if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < PETRI_STACK_ALIGNMENT_RADIUS) {
           stackCount++;
           if (pOther.mesh.position.y > maxY) maxY = pOther.mesh.position.y;
         }
       }
       if (stackCount < 7) {
         ctx.setSnapPetriStack(true);
-        return _tmpPlacePt.set(bx, maxY + 0.055, bz);
+        return _tmpPlacePt.set(bx, maxY + PETRI_STACK_SPACING, bz);
       }
     }
   }
@@ -503,10 +509,10 @@ export function dropUnsupportedItems(ctx) {
           var pBase = pickableItems[pj];
           if (!pBase || pBase === item || pBase === heldItem || ctx.isHeldByRemote(pBase.id)) continue;
           if (!pBase.mesh || !pBase.mesh.userData.isPetri) continue;
-          if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < 0.15) {
+          if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < PETRI_STACK_ALIGNMENT_RADIUS) {
             var dyPetri = item.mesh.position.y - pBase.mesh.position.y;
             if (dyPetri > 0.008 || (Math.abs(dyPetri) <= 0.008 && myIdx > pj)) {
-              supportedY = Math.max(supportedY, pBase.mesh.position.y + 0.055);
+              supportedY = Math.max(supportedY, pBase.mesh.position.y + PETRI_STACK_SPACING);
             }
           }
         }

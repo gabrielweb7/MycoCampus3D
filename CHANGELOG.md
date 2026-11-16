@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.38] — 2026-11-16
+### 🧫 Proporção das Placas e Ações de Cultura
+- Reduzido o diâmetro da placa de Petri para ficar apenas um pouco maior que o PP5; espessura, colisão e espaçamento de empilhamento acompanham a nova escala.
+- Ações de flocão, mistura/porcionamento e transferência com bisturi foram extraídas para `systems/lab-culture-actions.js`, separando parte do fluxo de cultura do sistema geral de interação.
+
 ## [v0.9.37] — 2026-11-16
 ### 📦 Posicionamento de Itens e Organização
 - O fantasma de posicionamento só aparece depois de escolher posicionar: G/Q ou clique direito no PC; botão 📦 dedicado no celular. Clique/tap confirma e Esc ou o botão cancela.

@@ -24,12 +24,15 @@ import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource,
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
-import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
-import { isAsepticWorkArea } from '../items/laminar-hood.js';
-import { updateScalpelLabel } from '../items/scalpel.js';
 import { fillPetriWithPda } from '../items/petri-dish.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
-import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
+import { addIngredientToBowl } from '../items/mixing-bowl.js';
+import {
+  handleFlocaoTargetAction,
+  handleMixingBowlTargetAction,
+  handleScalpelTargetAction,
+  handleSubstrateTargetAction
+} from './lab-culture-actions.js';
 import {
   addPdaPowder,
   isPdaRecipeBalanced,
@@ -502,137 +505,20 @@ export function handlePrimaryAction(ctx) {
     if (ctx.hoveredFlocaoTarget && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isFlocao &&
         ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
         ctx.heldItem.meta.compatibilities.fillsPP5WithFlocao) {
-      if (ctx.hoveredFlocaoTarget.bowlCtrl) {
-        const receivesIngredients = ctx.hoveredFlocaoTarget.meta && ctx.hoveredFlocaoTarget.meta.compatibilities &&
-          ctx.hoveredFlocaoTarget.meta.compatibilities.receivesIngredients;
-        if (!receivesIngredients) return;
-        addIngredientToBowl(ctx.hoveredFlocaoTarget, 'flocao', 50);
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 +50g de Flocão no Pote de Mistura! (' + ctx.hoveredFlocaoTarget.label + ')');
-        ctx.notifyWorldAction();
-        return;
-      }
-      const ppSc = ctx.hoveredFlocaoTarget.spawnCtrl;
-      const receivesFlocao = ctx.hoveredFlocaoTarget.meta && ctx.hoveredFlocaoTarget.meta.compatibilities &&
-        ctx.hoveredFlocaoTarget.meta.compatibilities.receivesFlocao;
-      if (ppSc && receivesFlocao && !ppSc.filled) {
-        ppSc.filled = true;
-        ppSc.fillGrams = 45;
-        ppSc.substrateKind = 'flocao';
-        ppSc.baseLabel = 'Potinho PP5 145ml (Flocão)';
-        if (ctx.hoveredFlocaoTarget.meta && ctx.hoveredFlocaoTarget.meta.compatibilities) {
-          ctx.hoveredFlocaoTarget.meta.compatibilities.acceptsPdaMedium = false;
-          ctx.hoveredFlocaoTarget.meta.compatibilities.receivesFlocao = false;
-        }
-        if (ppSc.fillMesh) ppSc.fillMesh.visible = true;
-        ppSc.updateVisual();
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 45g de Flocão colocados no Potinho PP5! Adicione água e esterilize por 1h20m.');
-        ctx.notifyWorldAction();
-      }
+      handleFlocaoTargetAction(ctx);
       return;
     }
     if (ctx.hoveredBowlTarget) {
-      if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isLabSpoon) {
-        const res = stirMixingBowl(ctx.hoveredBowlTarget);
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast(res.empty ? '🥄 Pote de Mistura está vazio!' : (res.done ? '✅ Receita homogênea pronta para porcionar!' : '🥄 Misturando (' + res.stirCount + '/3)...'));
-        }
-        if (!res.empty) ctx.notifyWorldAction();
-        return;
-      }
-      if (ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed && ctx.hoveredBowlTarget.spawnCtrl) {
-        const dstSc = ctx.hoveredBowlTarget.spawnCtrl;
-        const bc = ctx.heldItem.bowlCtrl;
-        const needSolid = dstSc.isPP5 ? 45 : 250;
-        const needWater = dstSc.isPP5 ? 35 : 150;
-        const solidKey = bc.ingredients.flocao > 0 ? 'flocao' : (bc.ingredients.corn > 0 ? 'corn' : 'sawdust');
-        const solidAvailable = bc.ingredients[solidKey] || 0;
-        const waterAvailable = bc.ingredients.water || 0;
-        if (solidAvailable >= needSolid && waterAvailable >= needWater) {
-          bc.ingredients[solidKey] -= needSolid;
-          bc.ingredients.water -= needWater;
-          updateMixingBowlLabel(ctx.heldItem);
-          dstSc.filled = true;
-          dstSc.fillGrams = needSolid;
-          dstSc.waterMl = needWater;
-          if (dstSc.fillMesh) dstSc.fillMesh.visible = true;
-          dstSc.updateVisual();
-          if (window.MycoAudio) window.MycoAudio.playClick();
-          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🥣 Receita porcionada em ' + dstSc.baseLabel + '!');
-          ctx.notifyWorldAction();
-        } else if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('⚠️ Mistura insuficiente: precisa de ' + needSolid + 'g de sólido e ' + needWater + 'ml de água.');
-        }
-        return;
-      }
+      if (handleMixingBowlTargetAction(ctx)) return;
     }
     if (ctx.hoveredScalpelTarget && ctx.heldItem.scalpelCtrl &&
         ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
         ctx.heldItem.meta.compatibilities.transfersMycelium) {
-      const sc = ctx.heldItem.scalpelCtrl;
-      const tgt = ctx.hoveredScalpelTarget;
-      if (tgt.mode === 'blade') {
-        sc.hasBlade = true;
-        sc.sterile = true;
-        sc.hasMycelium = false;
-        if (sc.bladeMesh) sc.bladeMesh.visible = true;
-        updateScalpelLabel(ctx.heldItem);
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada no bisturi!');
-        ctx.notifyWorldAction();
-      } else if (tgt.mode === 'cut') {
-        sc.hasMycelium = true;
-        updateScalpelLabel(ctx.heldItem);
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Leve até um potinho PP5 estéril.');
-        ctx.notifyWorldAction();
-      } else if (tgt.mode === 'transfer' && tgt.item && tgt.item.spawnCtrl) {
-        const dstSc = tgt.item.spawnCtrl;
-        const receivesMyceliumCut = tgt.item.meta && tgt.item.meta.compatibilities &&
-          tgt.item.meta.compatibilities.receivesMyceliumCut;
-        if (!receivesMyceliumCut || !dstSc.filled || dstSc.inoculated) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode receber outro corte de micélio.');
-          return;
-        }
-        const isAseptic = isAsepticWorkArea(ctx, tgt.item);
-        dstSc.inoculated = true;
-        if (!sc.sterile || !dstSc.sterilized || (!isAseptic && Math.random() < 0.45)) {
-          dstSc.contaminated = true;
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Contaminação na transferência! Use lâmina estéril, substrato esterilizado (1h20m) e Fluxo Laminar higienizado!');
-        } else if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🍄 Micélio transferido com sucesso para ' + dstSc.baseLabel + '!');
-        }
-        dstSc.updateVisual();
-        sc.hasMycelium = false;
-        sc.sterile = false;
-        updateScalpelLabel(ctx.heldItem);
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        ctx.notifyWorldAction();
-      }
+      handleScalpelTargetAction(ctx);
       return;
     }
     if (ctx.hoveredGrainTarget && ctx.heldItem.id.indexOf('substrate_') === 0) {
-      const kind = ctx.heldItem.id.indexOf('grain') !== -1 ? 'grain' : 'sawdust';
-      if (ctx.hoveredGrainTarget.bowlCtrl) {
-        const receivesIngredients = ctx.hoveredGrainTarget.meta && ctx.hoveredGrainTarget.meta.compatibilities &&
-          ctx.hoveredGrainTarget.meta.compatibilities.receivesIngredients;
-        if (!receivesIngredients) return;
-        addIngredientToBowl(ctx.hoveredGrainTarget, kind === 'grain' ? 'corn' : 'sawdust', 100);
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 +100g no Pote de Mistura!');
-        ctx.notifyWorldAction();
-        return;
-      }
-      if (fillSpawnWithSubstrate(ctx.hoveredGrainTarget, kind)) {
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 ' + ctx.hoveredGrainTarget.label + ' preenchido!');
-        ctx.notifyWorldAction();
-      }
+      handleSubstrateTargetAction(ctx);
       return;
     }
     if (ctx.placementMode && ctx.placementValid && ctx.placementGhost) {

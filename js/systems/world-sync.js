@@ -11,7 +11,7 @@ import { updateSyringeVolume } from '../items/syringe.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
 import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
-import { updatePetriVisual } from '../items/petri-dish.js';
+import { updatePetriVisual, PETRI_STACK_SPACING, PETRI_STACK_ALIGNMENT_RADIUS } from '../items/petri-dish.js';
 import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 
@@ -373,6 +373,19 @@ export function applyCampusWorldObjects(sim, objectsMap) {
         const s = sim.supportSurfaces[i];
         if (saved.x >= s.minX - 0.09 && saved.x <= s.maxX + 0.09 && saved.z >= s.minZ - 0.09 && saved.z <= s.maxZ + 0.09 && saved.y >= s.topY - 0.18) {
           suppY = Math.max(suppY, s.topY);
+        }
+      }
+      if (item.mesh.userData.isPetri) {
+        for (let pi = 0; pi < sim.pickableItems.length; pi++) {
+          const base = sim.pickableItems[pi];
+          if (!base || base === item || !base.mesh || !base.mesh.userData.isPetri || sim.isHeldByRemote(base.id)) continue;
+          const baseSaved = objectsMap[base.id];
+          const baseX = baseSaved ? baseSaved.x : base.mesh.position.x;
+          const baseY = baseSaved ? baseSaved.y : base.mesh.position.y;
+          const baseZ = baseSaved ? baseSaved.z : base.mesh.position.z;
+          if (baseY < saved.y - 0.008 && Math.hypot(baseX - saved.x, baseZ - saved.z) < PETRI_STACK_ALIGNMENT_RADIUS) {
+            suppY = Math.max(suppY, baseY + PETRI_STACK_SPACING);
+          }
         }
       }
       let finalY = saved.y;
