@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.44] — 2026-11-17
+### 🛠️ Correções de Refresh em Loop, Câmera/Item na Mão, Interações e Painel de Erros
+- **Fim do Loop de Refresh Automático (`index.html` & `js/services/multiplayer-sync.js`):** Atualizado `window.MYCO_VERSION` no `index.html` para sincronizar com o arquivo `VERSION`, e ajustado o guarda de recarregamento (`myco_reload_guard`) para nunca reiniciar o jogo em loop a cada 30 segundos caso haja cache de proxy/HTML.
+- **Versão em Verde Fluorescente no Lobby (`index.html`):** Atualizado o texto inicial de versão (`#app-version`) para a versão atual com destaque em verde neon/fluorescente (`#39ff14`).
+- **Erro de Pointer Lock (`js/systems/input-controller.js`):** Envolvido `requestPointerLock()` com tratamento de Promise rejeitada e cooldown de 1,1s após saída do bloqueio, eliminando os erros `"Pointer lock cannot be acquired immediately after the user has exited the lock"`.
+- **Botão "Limpar erros" (`error.php` & `api/error.php`):** Adicionado botão exclusivo para administradores limparem o log de erros recentes (`action=clear`).
+- **Rotação Natural do Item na Mão (`js/systems/held-item-loop.js` & `js/systems/held-item-placement.js`):** Itens segurados na mão agora acompanham o giro do corpo/câmera (`playerYaw`) em vez de ficarem girando no sentido oposto em coordenadas globais; ao entrar em modo de posicionamento (`G/Q`), o fantasma já inicia alinhado à visão do jogador.
+- **Interagir com o Mundo Segurando Itens (`js/systems/hover-raycaster.js` & `js/systems/interaction-system.js`):** Jogadores agora podem abrir/fechar portas, persianas, geladeira de culturas, ligar luzes, fluxo laminar, fogareiro, agitador, balança, cinema e hidratar a estufa com borrifador mesmo enquanto seguram um item na mão.
+
 ## [v0.9.43] — 2026-11-17
 ### ⚡ Otimização de Raycasting & Fatiamento de Sincronização
 - **Broad-phase no Raycasting (`js/systems/hover-raycaster.js`):** Implementado `intersectPickableItem` usando `raycaster.ray.distanceSqToPoint()` (alocação zero) antes de descer na hierarquia de sub-malhas 3D, descartando instantaneamente itens fora da linha da mira.

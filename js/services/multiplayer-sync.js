@@ -80,10 +80,8 @@ export async function syncMultiplayer() {
       if (data.app_version && window.MYCO_VERSION && data.app_version !== window.MYCO_VERSION && !window._reloadingVersion) {
         let lastReloadInfo = '';
         try { lastReloadInfo = sessionStorage.getItem('myco_reload_guard') || ''; } catch (e) {}
-        const parts = lastReloadInfo.split('|');
-        const guardedVer = parts[0];
-        const guardedAt = Number(parts[1] || 0);
-        if (guardedVer !== data.app_version || (Date.now() - guardedAt) > 30000) {
+        const guardedVer = lastReloadInfo.split('|')[0];
+        if (guardedVer !== data.app_version) {
           window._reloadingVersion = true;
           try { sessionStorage.setItem('myco_reload_guard', `${data.app_version}|${Date.now()}`); } catch (e) {}
           showFloatingToast(`🔄 Nova versão v${data.app_version} disponível! Atualizando...`);
@@ -93,6 +91,10 @@ export async function syncMultiplayer() {
           }, 1500);
           return;
         }
+        // Se ja recarregou nesta sessao para essa versao (ex: cache de proxy/HTML), evita loop de refresh
+        window.MYCO_VERSION = data.app_version;
+        const verEl = $('app-version');
+        if (verEl) verEl.textContent = 'v' + data.app_version;
       }
 
       if ($('hud-online')) $('hud-online').textContent = String(data.online_count || 1);

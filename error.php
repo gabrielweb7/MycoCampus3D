@@ -28,7 +28,10 @@ header('X-Content-Type-Options: nosniff');
 <body>
   <header>
     <h1>Erros recentes do MycoCampus3D</h1>
-    <button id="refresh" type="button">Atualizar</button>
+    <div style="display:flex;gap:8px;">
+      <button id="clear" type="button" style="border-color:#991b1b;background:#450a0a;color:#fecaca;">Limpar erros</button>
+      <button id="refresh" type="button">Atualizar</button>
+    </div>
   </header>
   <p>Relatórios enviados pelo navegador. A listagem exige uma sessão de Administrador Master.</p>
   <p id="status" role="status">Carregando…</p>
@@ -37,6 +40,7 @@ header('X-Content-Type-Options: nosniff');
     const statusEl = document.getElementById('status');
     const errorsEl = document.getElementById('errors');
     const refreshBtn = document.getElementById('refresh');
+    const clearBtn = document.getElementById('clear');
 
     function renderErrors(errors) {
       errorsEl.replaceChildren();
@@ -92,7 +96,31 @@ header('X-Content-Type-Options: nosniff');
       }
     }
 
+    async function clearErrors() {
+      if (!confirm('Deseja limpar todos os erros registrados?')) return;
+      clearBtn.disabled = true;
+      statusEl.textContent = 'Limpando…';
+      try {
+        const response = await fetch('api/error.php?action=clear', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store'
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'Não foi possível limpar os erros.');
+        }
+        renderErrors([]);
+        statusEl.textContent = 'Erros limpos com sucesso.';
+      } catch (error) {
+        statusEl.textContent = error.message || 'Falha ao limpar os erros.';
+      } finally {
+        clearBtn.disabled = false;
+      }
+    }
+
     refreshBtn.addEventListener('click', loadErrors);
+    clearBtn.addEventListener('click', clearErrors);
     loadErrors();
   </script>
 </body>

@@ -38,6 +38,7 @@ export function beginHeldItemPlacement(ctx) {
   ctx.thermoLaserOn = false;
   if (ctx.thermoLaserLine) ctx.thermoLaserLine.visible = false;
   if (ctx.thermoLaserDot) ctx.thermoLaserDot.visible = false;
+  ctx.heldRotY = ctx.playerYaw || 0;
   setPlacementMode(ctx, true);
   if (ctx.callbacks.onToast) {
     ctx.callbacks.onToast('📦 Mire o local e clique para posicionar. Pressione Esc para cancelar.');

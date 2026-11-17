@@ -183,4 +183,28 @@ if ($action === 'list') {
     mc_json(['ok' => true, 'errors' => array_reverse($errors)]);
 }
 
+if ($action === 'clear') {
+    if ($method !== 'POST') {
+        mc_json(['ok' => false, 'error' => 'Método HTTP inválido. Use POST.'], 405);
+    }
+
+    $user = mc_require_user(mc_db_or_fail());
+    if (!mc_is_admin($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito ao Administrador.'], 403);
+    }
+
+    if (is_file($logPath)) {
+        $fp = @fopen($logPath, 'c+');
+        if ($fp === false || !flock($fp, LOCK_EX)) {
+            if (is_resource($fp)) fclose($fp);
+            mc_json(['ok' => false, 'error' => 'Não foi possível limpar o arquivo de erros.'], 500);
+        }
+        ftruncate($fp, 0);
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    }
+    mc_json(['ok' => true]);
+}
+
 mc_json(['ok' => false, 'error' => 'Ação desconhecida.'], 400);

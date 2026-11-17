@@ -234,7 +234,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.heldItem.mesh.rotation.set(ctx.playerPitch, ctx.playerYaw, 0);
       updateThermometerLaser(ctx, dt, now);
     } else {
-      ctx.heldItem.mesh.rotation.set(0, ctx.heldRotY, 0);
+      ctx.heldItem.mesh.rotation.order = 'YXZ';
+      ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
     }
 
     if (ctx.heldItem.trayContents && ctx.heldItem.trayContents.length) {

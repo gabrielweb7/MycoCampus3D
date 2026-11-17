@@ -75,8 +75,20 @@ export function bindControls(ctx) {
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) clearAllInputKeys();
   });
+  let lastPointerLockExitAt = 0;
+  function safeRequestPointerLock() {
+    if (performance.now() - lastPointerLockExitAt < 1100) return;
+    try {
+      const res = ctx.renderer.domElement.requestPointerLock();
+      if (res && typeof res.catch === 'function') {
+        res.catch(function () {});
+      }
+    } catch (err) {}
+  }
+
   document.addEventListener('pointerlockchange', function () {
     if (document.pointerLockElement !== ctx.renderer.domElement) {
+      lastPointerLockExitAt = performance.now();
       clearAllInputKeys();
     }
   });
@@ -101,7 +113,7 @@ export function bindControls(ctx) {
       return;
     }
     if (ctx.inFps && document.pointerLockElement !== ctx.renderer.domElement) {
-      ctx.renderer.domElement.requestPointerLock();
+      safeRequestPointerLock();
       return;
     }
     ctx.isPrimaryDown = true;

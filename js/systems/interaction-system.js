@@ -90,14 +90,6 @@ export function dropHeldItem(ctx) {
 export function handlePrimaryAction(ctx) {
   if (ctx.heldItem) {
     if (performance.now() - ctx.lastPickupAt < 140) return;
-    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer && !ctx.placementMode) {
-      ctx.thermoLaserOn = !ctx.thermoLaserOn;
-      if (window.MycoAudio && window.MycoAudio.playLaserBeep) {
-        window.MycoAudio.playLaserBeep();
-      }
-      drawThermoScreen(ctx.thermoCurrentTemp, ctx.thermoLaserOn ? 'SCAN' : 'HOLD', true);
-      return;
-    }
     if (ctx.hoveredPdaTarget) {
       const target = ctx.hoveredPdaTarget;
       if (ctx.heldItem.pdaReagentCtrl) {
@@ -539,10 +531,28 @@ export function handlePrimaryAction(ctx) {
         return;
       }
       commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
-    }
-    if (ctx.heldItem && ctx.heldItem.mesh.userData.isPetri && !ctx.placementMode) {
-      togglePetriLid(ctx, ctx.heldItem);
       return;
+    }
+    if (!ctx.placementMode) {
+      if (handleWorldInteraction(ctx)) return;
+      if (ctx.hoveredPickable && ctx.hoveredPickable.fridgeCtrl) {
+        toggleCultureFridgeDoor(ctx.hoveredPickable);
+        ctx.queueWorldStateChange(ctx.hoveredPickable.id, ctx.hoveredPickable.fridgeCtrl.doorOpen ? 1 : 0);
+        if (window.MycoAudio) window.MycoAudio.playDoor(ctx.hoveredPickable.fridgeCtrl.doorOpen);
+        return;
+      }
+      if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer) {
+        ctx.thermoLaserOn = !ctx.thermoLaserOn;
+        if (window.MycoAudio && window.MycoAudio.playLaserBeep) {
+          window.MycoAudio.playLaserBeep();
+        }
+        drawThermoScreen(ctx.thermoCurrentTemp, ctx.thermoLaserOn ? 'SCAN' : 'HOLD', true);
+        return;
+      }
+      if (ctx.heldItem && ctx.heldItem.mesh.userData.isPetri) {
+        togglePetriLid(ctx, ctx.heldItem);
+        return;
+      }
     }
     return;
   }

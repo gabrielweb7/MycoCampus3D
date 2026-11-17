@@ -492,36 +492,10 @@ export function updateHoverRay(ctx, customNdc) {
         return;
       }
     }
-    if (ctx.heldItem.mesh.userData.isPetri && !ctx.placementMode) {
-      const petriCtrl = ctx.heldItem.mesh.userData.petriCtrl;
-      if (petriCtrl) {
-        if (ctx.callbacks.onHoverPrompt) {
-          ctx.callbacks.onHoverPrompt(petriCtrl.lidOpen
-            ? '🧫 Clique para fechar a tampa da placa'
-            : '🧫 Clique para abrir a tampa (Fluxo Laminar ligado e higienizado)');
-        }
-        return;
-      }
-    }
-    if (ctx.heldItem.mesh.userData.isThermometer && !ctx.placementMode) {
-      if (ctx.placementGhost) ctx.placementGhost.visible = false;
-      if (ctx.thermoLaserOn) {
-        prompt = '🔴 [SCAN] ' + (ctx.thermoTargetLabel || 'Ambiente') + ': ' + ctx.thermoCurrentTemp.toFixed(1) + '°C (Clique: Desligar Laser • G/Q ou clique dir.: posicionar)';
-      } else {
-        prompt = '🔫 Laser DESLIGADO • Última: ' + ctx.thermoCurrentTemp.toFixed(1) + '°C [HOLD] (Clique: Ligar Laser • G/Q ou clique dir.: posicionar)';
-      }
-      if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
+    if (ctx.placementMode) {
+      updateHeldItemPlacementPreview(ctx, rayNdc);
       return;
     }
-    if (!ctx.placementMode) {
-      ctx.placementValid = false;
-      if (ctx.placementGhost) ctx.placementGhost.visible = false;
-      prompt = '📦 Pressione G/Q para posicionar este item';
-      if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
-      return;
-    }
-    updateHeldItemPlacementPreview(ctx, rayNdc);
-    return;
   }
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
 
@@ -635,7 +609,7 @@ export function updateHoverRay(ctx, customNdc) {
   const refZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
   const maxMushSq = ctx.inFps ? 24 : 225;
   const maxPickSq = ctx.inFps ? 26 : 225;
-  if (!prompt) {
+  if (!prompt && !ctx.heldItem) {
     for (let m = 0; m < ctx.wildMushrooms.length; m++) {
       const wm = ctx.wildMushrooms[m];
       if (!wm.active) continue;
@@ -649,7 +623,23 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
-  if (!prompt) {
+  if (!prompt && ctx.heldItem) {
+    for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
+      const fItem = ctx.pickableItems[fi];
+      if (!fItem || !fItem.fridgeCtrl) continue;
+      const fdx = fItem.mesh.position.x - refX, fdz = fItem.mesh.position.z - refZ;
+      if (fdx * fdx + fdz * fdz > maxPickSq) continue;
+      const fHit = intersectPickableItem(ctx.raycaster, fItem);
+      if (fHit && fHit.distance < 4.5) {
+        ctx.hoveredPickable = fItem;
+        prompt = fItem.fridgeCtrl.doorOpen
+          ? '🧊 Fechar Geladeira de Culturas (4°C)'
+          : '🧊 Abrir Geladeira de Culturas (4°C)';
+        break;
+      }
+    }
+  }
+  if (!prompt && !ctx.heldItem) {
     let bestSmall = null, bestSmallDist = Infinity;
     let bestLarge = null, bestLargeDist = Infinity;
     let bestBlocked = null, bestBlockedDist = Infinity;
@@ -748,6 +738,25 @@ export function updateHoverRay(ctx, customNdc) {
           prompt = '🌱 ' + hSlot.name + ' (' + Math.round(hSlot.humidity) + '% UR • ' + (hSlot.stage === 0 ? 'Micélio' : (hSlot.stage === 1 ? 'Primórdios' : 'Crescendo')) + ')';
         }
       }
+    }
+  }
+  if (!prompt && ctx.heldItem) {
+    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
+      const petriCtrl = ctx.heldItem.mesh.userData.petriCtrl;
+      if (petriCtrl) {
+        prompt = petriCtrl.lidOpen
+          ? '🧫 Clique para fechar a tampa da placa'
+          : '🧫 Clique para abrir a tampa (Fluxo Laminar ligado e higienizado)';
+      }
+    } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer) {
+      if (ctx.thermoLaserOn) {
+        prompt = '🔴 [SCAN] ' + (ctx.thermoTargetLabel || 'Ambiente') + ': ' + ctx.thermoCurrentTemp.toFixed(1) + '°C (Clique: Desligar Laser • G/Q ou clique dir.: posicionar)';
+      } else {
+        prompt = '🔫 Laser DESLIGADO • Última: ' + ctx.thermoCurrentTemp.toFixed(1) + '°C [HOLD] (Clique: Ligar Laser • G/Q ou clique dir.: posicionar)';
+      }
+    } else {
+      ctx.placementValid = false;
+      prompt = '📦 Pressione G/Q para posicionar este item';
     }
   }
   if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
