@@ -1,0 +1,542 @@
+﻿/**
+ * Sincronizacao de Objetos Fisicos, Estados de Culturas e Pose Salva (MycoCampus3D)
+ */
+
+import { getItemGroundHeight } from '../engine/physics.js';
+import { setHeldTwoHandedGhost } from './interaction-system.js';
+import { updateContainerVolume } from '../items/liquid-culture.js';
+import { updateSyringeVolume } from '../items/syringe.js';
+import { updateSpawnVisual } from '../items/spawn-containers.js';
+import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
+import { updateScalpelLabel } from '../items/scalpel.js';
+import { setPetriLidOpen, updatePetriVisual, PETRI_STACK_SPACING, PETRI_STACK_ALIGNMENT_RADIUS } from '../items/petri-dish.js';
+import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
+
+export function consumeCampusMovedItems(sim) {
+  const pending = sim.pendingMovedItems;
+  const byId = pending;
+  const now = performance.now();
+  if (!sim.nextItemStateSyncAt || now >= sim.nextItemStateSyncAt) {
+    sim.nextItemStateSyncAt = now + 1000;
+    sim.itemStateSignatures = sim.itemStateSignatures || {};
+    sim.pickableItems.forEach(function (item) {
+      if (sim.isHeldByRemote(item.id)) return;
+      const state = getReplicatedItemState(sim, item);
+      if (!state) return;
+      const signature = JSON.stringify(state);
+      if (sim.itemStateSignatures[item.id] === signature) return;
+      sim.itemStateSignatures[item.id] = signature;
+      const queued = byId[item.id] || (byId[item.id] = { id: item.id });
+      queued.state = state;
+    });
+  }
+  const list = Object.values(pending);
+  sim.pendingMovedItems = {};
+  return list;
+}
+
+export function requeueCampusMovedItems(sim, list) {
+  (list || []).forEach(function (it) {
+    if (!it || !it.id) return;
+    const queued = sim.pendingMovedItems[it.id];
+    if (!queued) {
+      sim.pendingMovedItems[it.id] = it;
+    } else if (it.state && !queued.state) {
+      queued.state = it.state;
+    }
+  });
+}
+
+function getReplicatedItemState(sim, item) {
+  if (!item || !item.mesh) return null;
+  const state = {};
+  const meshData = item.mesh.userData || {};
+  const spawn = item.spawnCtrl || meshData.spawnCtrl;
+  if (spawn) {
+    state.spawn = {
+      filled: !!spawn.filled,
+      fillGrams: Math.round(spawn.fillGrams || 0),
+      substrateKind: spawn.substrateKind || '',
+      waterMl: Math.round(spawn.waterMl || 0),
+      sterilizeProgress: Math.round(spawn.sterilizeProgress || 0),
+      sterilized: !!spawn.sterilized,
+      sealed: !!spawn.sealed,
+      inoculated: !!spawn.inoculated,
+      colonized: !!spawn.colonized,
+      colonization: Math.round(spawn.colonization || 0),
+      ageGameDays: Math.round((spawn.ageGameDays || 0) * 10) / 10,
+      shelfLifeAgeDays: Math.round((spawn.shelfLifeAgeDays || 0) * 10) / 10,
+      expired: !!spawn.expired,
+      contaminated: !!spawn.contaminated,
+      burned: !!spawn.burned
+    };
+  }
+  const petri = meshData.petriCtrl;
+  if (petri && ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam'].indexOf(petri.mode) !== -1) {
+    state.petri = {
+      mode: petri.mode,
+      lidOpen: !!petri.lidOpen,
+      sterilized: !!petri.sterilized,
+      inoculated: !!petri.inoculated,
+      inoculationMethod: petri.inoculationMethod === 'mycelium' ? 'mycelium' : (petri.inoculationMethod === 'liquid' ? 'liquid' : ''),
+      colonization: Math.round((petri.colonization || 0) * 10) / 10,
+      ageGameDays: Math.round((petri.ageGameDays || 0) * 10) / 10,
+      shelfLifeAgeDays: Math.round((petri.shelfLifeAgeDays || 0) * 10) / 10,
+      expired: !!petri.expired
+    };
+  }
+  if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
+  const liquid = meshData.liquidCtrl;
+  if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0) };
+  const culture = item.cultureCtrl || meshData.cultureCtrl;
+  if (culture) {
+    state.culture = {
+      colonized: !!culture.colonized,
+      contaminated: !!culture.contaminated,
+      ageGameDays: Math.round((culture.ageGameDays || 0) * 10) / 10,
+      shelfLifeAgeDays: Math.round((culture.shelfLifeAgeDays || 0) * 10) / 10,
+      expired: !!culture.expired
+    };
+  }
+  if (item.pdaReagentCtrl) {
+    state.pdaReagent = { remainingGrams: Math.round(item.pdaReagentCtrl.remainingGrams || 0) };
+  }
+  if (item.pdaMediumCtrl) {
+    state.pdaMedium = {
+      powderGrams: Math.round((item.pdaMediumCtrl.powderGrams || 0) * 10) / 10,
+      mixed: !!item.pdaMediumCtrl.mixed,
+      stirProgress: Math.round((item.pdaMediumCtrl.stirProgress || 0) * 10) / 10,
+      sterilized: !!item.pdaMediumCtrl.sterilized,
+      burned: !!item.pdaMediumCtrl.burned
+    };
+  }
+  const syringe = meshData.syrCtrl;
+  if (syringe) state.syringe = { volMl: Math.round((syringe.volMl || 0) * 10) / 10 };
+  if (item.bowlCtrl) {
+    state.bowl = {
+      ingredients: {
+        flocao: Math.round(item.bowlCtrl.ingredients.flocao || 0),
+        water: Math.round(item.bowlCtrl.ingredients.water || 0),
+        corn: Math.round(item.bowlCtrl.ingredients.corn || 0),
+        sawdust: Math.round(item.bowlCtrl.ingredients.sawdust || 0)
+      },
+      mixed: !!item.bowlCtrl.mixed,
+      stirCount: Math.max(0, Math.min(3, item.bowlCtrl.stirCount || 0))
+    };
+  }
+  if (item.scalpelCtrl) {
+    state.scalpel = {
+      hasBlade: !!item.scalpelCtrl.hasBlade,
+      sterile: !!item.scalpelCtrl.sterile,
+      hasMycelium: !!item.scalpelCtrl.hasMycelium
+    };
+  }
+  const containingCooker = sim.cookerPots.find((cooker) => cooker.contents.indexOf(item) !== -1);
+  if (containingCooker) {
+    state.containerId = containingCooker.potItem.id;
+  } else if (Object.keys(state).length) {
+    state.containerId = '';
+  }
+  const cooker = sim.cookerPots.find((candidate) => candidate.potItem === item);
+  if (cooker) {
+    state.cooker = {
+      waterMl: Math.round(cooker.waterMl || 0),
+      mode: cooker.mode === 'pasteurize' ? 'pasteurize' : 'sterilize',
+      temp: Math.round(cooker.temp || 0),
+      psi: Math.round((cooker.psi || 0) * 10) / 10,
+      progress: Math.round(cooker.progress || 0),
+      sterilized: !!cooker.sterilized,
+      burned: !!cooker.burned,
+      overheatTimer: Math.round((cooker.overheatTimer || 0) * 10) / 10,
+      contents: cooker.contents.slice(0, 6).map((content) => content.id)
+    };
+  }
+  return Object.keys(state).length ? state : null;
+}
+
+function applyReplicatedItemState(sim, item, state) {
+  if (!item || !state || typeof state !== 'object') return;
+  const spawn = item.spawnCtrl || (item.mesh.userData && item.mesh.userData.spawnCtrl);
+  if (spawn && state.spawn && typeof state.spawn === 'object') {
+    const incoming = state.spawn;
+    ['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'expired', 'contaminated', 'burned'].forEach(function (key) {
+      if (typeof incoming[key] === 'boolean') spawn[key] = incoming[key];
+    });
+    ['fillGrams', 'waterMl', 'sterilizeProgress', 'colonization', 'ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
+      if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
+        const maxValue = key === 'colonization' || key === 'sterilizeProgress' ? 100 : 1000;
+        spawn[key] = Math.max(0, Math.min(maxValue, incoming[key]));
+      }
+    });
+    const validSubstrates = spawn.isPP5
+      ? ['grain', 'sawdust', 'flocao', 'corn', 'pda']
+      : ['grain', 'sawdust', 'flocao', 'corn'];
+    if (validSubstrates.indexOf(incoming.substrateKind) !== -1) {
+      spawn.substrateKind = incoming.substrateKind;
+    }
+    if (spawn.inoculated && spawn.colonization >= 100 && !spawn.contaminated && !spawn.burned) {
+      spawn.colonized = true;
+    }
+    if (spawn.fillMesh) spawn.fillMesh.visible = spawn.filled && spawn.substrateKind !== 'pda';
+    if (item.meta && item.meta.compatibilities) {
+      item.meta.compatibilities.receivesSyringe = spawn.filled;
+      item.meta.compatibilities.receivesSubstrate = !spawn.filled && !spawn.isPP5;
+      if (spawn.isPP5) {
+        item.meta.compatibilities.acceptsPdaMedium = !spawn.filled;
+        item.meta.compatibilities.receivesFlocao = !spawn.filled;
+      }
+    }
+    if (spawn.isPP5) {
+      spawn.baseLabel = spawn.substrateKind === 'pda'
+        ? 'Potinho PP5 145ml (PDA/BDA)'
+        : (spawn.filled ? 'Potinho PP5 145ml (FlocÃ£o)' : 'Potinho PP5 145ml Vazio');
+    } else if (spawn.isBag) {
+      spawn.baseLabel = spawn.filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio';
+    } else {
+      spawn.baseLabel = spawn.filled ? 'Vidro 800ml (Milho)' : 'Vidro 800ml Vazio';
+    }
+    spawn.updateVisual ? spawn.updateVisual() : updateSpawnVisual(item);
+    if (spawn.isPP5 && spawn.fillGrams > 0 && spawn.waterMl === 0 && !spawn.inoculated) {
+      item.label = 'Potinho PP5 145ml (FlocÃ£o seco â€¢ Adicione Ã¡gua)';
+    }
+  }
+
+  const meshData = item.mesh.userData || {};
+  if (meshData.petriCtrl && state.petri && typeof state.petri.mode === 'string' &&
+      ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
+    const petri = meshData.petriCtrl;
+    const incomingPetri = state.petri;
+    petri.mode = incomingPetri.mode;
+    ['sterilized', 'inoculated', 'expired'].forEach(function (key) {
+      if (typeof incomingPetri[key] === 'boolean') petri[key] = incomingPetri[key];
+    });
+    if (typeof incomingPetri.colonization === 'number' && Number.isFinite(incomingPetri.colonization)) {
+      petri.colonization = Math.max(0, Math.min(100, incomingPetri.colonization));
+    }
+    if (typeof incomingPetri.ageGameDays === 'number' && Number.isFinite(incomingPetri.ageGameDays)) {
+      petri.ageGameDays = Math.max(0, Math.min(1000, incomingPetri.ageGameDays));
+    }
+    if (typeof incomingPetri.shelfLifeAgeDays === 'number' && Number.isFinite(incomingPetri.shelfLifeAgeDays)) {
+      petri.shelfLifeAgeDays = Math.max(0, Math.min(1000, incomingPetri.shelfLifeAgeDays));
+    }
+    petri.colonized = petri.mode === 'clean' || petri.colonization >= 100;
+    petri.contaminated = petri.mode === 'contam' && !petri.expired;
+    if (incomingPetri.inoculationMethod === 'liquid' || incomingPetri.inoculationMethod === 'mycelium') {
+      petri.inoculationMethod = incomingPetri.inoculationMethod;
+    } else {
+      petri.inoculationMethod = '';
+    }
+    if (typeof incomingPetri.lidOpen === 'boolean') setPetriLidOpen(item, incomingPetri.lidOpen, false);
+    updatePetriVisual(item);
+  }
+  if (item.fridgeCtrl && state.fridge && typeof state.fridge.doorOpen === 'boolean') {
+    setCultureFridgeDoorOpen(item, state.fridge.doorOpen, false);
+  }
+  const culture = item.cultureCtrl || (meshData && meshData.cultureCtrl);
+  if (culture && state.culture && typeof state.culture === 'object') {
+    ['colonized', 'contaminated', 'expired'].forEach(function (key) {
+      if (typeof state.culture[key] === 'boolean') culture[key] = state.culture[key];
+    });
+    ['ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
+      if (typeof state.culture[key] === 'number' && Number.isFinite(state.culture[key])) {
+        culture[key] = Math.max(0, Math.min(1000, state.culture[key]));
+      }
+    });
+  }
+  if (meshData.liquidCtrl && state.liquid && typeof state.liquid.volMl === 'number') {
+    updateContainerVolume(item, state.liquid.volMl);
+  }
+  if (item.pdaReagentCtrl && state.pdaReagent && typeof state.pdaReagent.remainingGrams === 'number' &&
+      Number.isFinite(state.pdaReagent.remainingGrams)) {
+    item.pdaReagentCtrl.remainingGrams = Math.max(0, Math.min(item.pdaReagentCtrl.maxGrams, state.pdaReagent.remainingGrams));
+    updatePdaReagentLabel(item);
+  }
+  if (item.pdaMediumCtrl && state.pdaMedium && typeof state.pdaMedium === 'object') {
+    const medium = item.pdaMediumCtrl;
+    if (typeof state.pdaMedium.powderGrams === 'number' && Number.isFinite(state.pdaMedium.powderGrams)) {
+      const maxPowderGrams = item.spawnCtrl && item.spawnCtrl.isPP5 ? 4 : 500;
+      medium.powderGrams = Math.max(0, Math.min(maxPowderGrams, state.pdaMedium.powderGrams));
+    }
+    if (typeof state.pdaMedium.stirProgress === 'number' && Number.isFinite(state.pdaMedium.stirProgress)) {
+      medium.stirProgress = Math.max(0, Math.min(4, state.pdaMedium.stirProgress));
+    }
+    ['mixed', 'sterilized', 'burned'].forEach(function (key) {
+      if (typeof state.pdaMedium[key] === 'boolean') medium[key] = state.pdaMedium[key];
+    });
+    updatePdaMediumVisual(item);
+  }
+  if (meshData.syrCtrl && state.syringe && typeof state.syringe.volMl === 'number') {
+    updateSyringeVolume(item, state.syringe.volMl);
+  }
+  if (item.bowlCtrl && state.bowl && typeof state.bowl === 'object') {
+    const ingredients = state.bowl.ingredients || {};
+    ['flocao', 'water', 'corn', 'sawdust'].forEach(function (key) {
+      const value = ingredients[key];
+      item.bowlCtrl.ingredients[key] = typeof value === 'number' && Number.isFinite(value)
+        ? Math.max(0, Math.min(5000, value))
+        : 0;
+    });
+    if (typeof state.bowl.mixed === 'boolean') item.bowlCtrl.mixed = state.bowl.mixed;
+    if (typeof state.bowl.stirCount === 'number') item.bowlCtrl.stirCount = Math.max(0, Math.min(3, state.bowl.stirCount));
+    updateMixingBowlLabel(item);
+  }
+  if (item.scalpelCtrl && state.scalpel && typeof state.scalpel === 'object') {
+    ['hasBlade', 'sterile', 'hasMycelium'].forEach(function (key) {
+      if (typeof state.scalpel[key] === 'boolean') item.scalpelCtrl[key] = state.scalpel[key];
+    });
+    if (item.scalpelCtrl.bladeMesh) item.scalpelCtrl.bladeMesh.visible = item.scalpelCtrl.hasBlade;
+    updateScalpelLabel(item);
+  }
+
+  if (typeof state.containerId === 'string') {
+    sim.cookerPots.forEach(function (cooker) {
+      const idx = cooker.contents.indexOf(item);
+      if (idx !== -1) cooker.contents.splice(idx, 1);
+    });
+    const targetCooker = sim.cookerPots.find((cooker) => cooker.potItem.id === state.containerId);
+    if (targetCooker && targetCooker.contents.indexOf(item) === -1) targetCooker.contents.push(item);
+  }
+
+  if (item.lidItem) {
+    const cooker = sim.cookerPots.find((candidate) => candidate.potItem === item);
+    const incoming = state.cooker;
+    if (cooker && incoming && typeof incoming === 'object') {
+      if (typeof incoming.waterMl === 'number' && Number.isFinite(incoming.waterMl)) {
+        cooker.waterMl = Math.max(0, Math.min(cooker.maxWaterMl, incoming.waterMl));
+      }
+      if (incoming.mode === 'sterilize' || incoming.mode === 'pasteurize') cooker.mode = incoming.mode;
+      ['temp', 'psi', 'progress', 'overheatTimer'].forEach(function (key) {
+        if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) cooker[key] = Math.max(0, incoming[key]);
+      });
+      ['sterilized', 'burned'].forEach(function (key) {
+        if (typeof incoming[key] === 'boolean') cooker[key] = incoming[key];
+      });
+      cooker.lastHudKey = '';
+      if (Array.isArray(incoming.contents)) {
+        cooker.contents = incoming.contents.slice(0, 6)
+          .map((itemId) => sim.findPickable(itemId))
+          .filter(Boolean);
+      }
+      updateCookerWaterVisual(cooker);
+    }
+  }
+}
+
+export function applyCampusItemStates(sim, itemStates) {
+  if (!itemStates || typeof itemStates !== 'object') return;
+  const itemsById = new Map(sim.pickableItems.map((item) => [item.id, item]));
+  Object.keys(itemStates).forEach(function (itemId) {
+    const item = itemsById.get(itemId);
+    if (!item) return;
+    applyReplicatedItemState(sim, item, itemStates[itemId]);
+    sim.itemStateSignatures = sim.itemStateSignatures || {};
+    const currentState = getReplicatedItemState(sim, item);
+    if (currentState) sim.itemStateSignatures[itemId] = JSON.stringify(currentState);
+  });
+}
+
+export function applyCampusWorldObjects(sim, objectsMap) {
+  if (!objectsMap) return;
+  const now = performance.now();
+
+  sim.pickableItems.forEach(function (item) {
+    if (!item.mesh.userData.updateBounds) return;
+    if (sim.heldItem === item || sim.isHeldByRemote(item.id)) return;
+    if (sim.pendingMovedItems[item.id]) return;
+    if (sim.recentlyDropped[item.id] > now) {
+      const svCheck = objectsMap[item.id];
+      if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.06 && Math.abs(svCheck.y - item.mesh.position.y) < 0.06) {
+        delete sim.recentlyDropped[item.id];
+      } else if (sim.recentlyDropped[item.id] - now < 13500) {
+        sim.pendingMovedItems[item.id] = {
+          id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
+        };
+      }
+      return;
+    }
+    const saved = objectsMap[item.id];
+    if (saved) {
+      let finalY = saved.y;
+      if (!item.mesh.userData.isTable && !item.mesh.userData.isHood) {
+        let suppY = getItemGroundHeight(sim.physCtx, saved.x, saved.z, saved.y, item.mesh.userData.dynamicSurface, saved.y + 0.18);
+        for (let si = 0; si < sim.supportSurfaces.length; si++) {
+          const s = sim.supportSurfaces[si];
+          if (s === item.mesh.userData.dynamicSurface) continue;
+          if (saved.x >= s.minX - 0.09 && saved.x <= s.maxX + 0.09 && saved.z >= s.minZ - 0.09 && saved.z <= s.maxZ + 0.09 && saved.y >= s.topY - 0.18) {
+            suppY = Math.max(suppY, s.topY);
+          }
+        }
+        if (Math.abs(saved.y - suppY) > 0.04) {
+          finalY = suppY;
+          sim.pendingMovedItems[item.id] = {
+            id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
+          };
+        } else {
+          finalY = suppY;
+        }
+      }
+      item.mesh.position.set(saved.x, finalY, saved.z);
+      item.mesh.rotation.y = saved.ry || 0;
+      item.isMoved = true;
+      item.mesh.userData.updateBounds(item);
+    } else if (item.isMoved) {
+      item.mesh.position.copy(item.homePos);
+      item.mesh.rotation.y = item.homeRy;
+      item.mesh.userData.updateBounds(item);
+      item.isMoved = false;
+    }
+  });
+
+  sim.pickableItems.forEach(function (item) {
+    if (item.mesh.userData.updateBounds) return;
+    if (sim.heldItem === item || sim.isHeldByRemote(item.id)) return;
+    if (sim.pendingMovedItems[item.id]) return;
+    if (sim.recentlyDropped[item.id] > now) {
+      const svCheck = objectsMap[item.id];
+      if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.06 && Math.abs(svCheck.y - item.mesh.position.y) < 0.06) {
+        delete sim.recentlyDropped[item.id];
+      } else if (sim.recentlyDropped[item.id] - now < 13500) {
+        sim.pendingMovedItems[item.id] = {
+          id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
+        };
+      }
+      return;
+    }
+    if (item.potItem && item.isAttached) {
+      const pRef = item.potItem;
+      if (sim.heldItem === pRef || sim.isHeldByRemote(pRef.id) || sim.pendingMovedItems[pRef.id] || sim.recentlyDropped[pRef.id] > now) {
+        return;
+      }
+    }
+    const saved = objectsMap[item.id];
+    if (saved) {
+      if (item.potItem) {
+        const pot = item.potItem;
+        const potSaved = objectsMap[pot.id];
+        const refX = potSaved ? potSaved.x : pot.mesh.position.x;
+        const refY = potSaved ? potSaved.y : pot.mesh.position.y;
+        const refZ = potSaved ? potSaved.z : pot.mesh.position.z;
+        const attached = Math.hypot(saved.x - refX, saved.z - refZ) < 0.28 &&
+          Math.abs(saved.y - (refY + 0.36)) < 0.28;
+        item.isAttached = attached;
+        if (attached) {
+          item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
+          item.mesh.rotation.copy(pot.mesh.rotation);
+          item.isMoved = true;
+          return;
+        }
+      }
+      let suppY = getItemGroundHeight(sim.physCtx, saved.x, saved.z, saved.y, item.mesh.userData.dynamicSurface, saved.y + 0.18);
+      for (let i = 0; i < sim.supportSurfaces.length; i++) {
+        const s = sim.supportSurfaces[i];
+        if (saved.x >= s.minX - 0.09 && saved.x <= s.maxX + 0.09 && saved.z >= s.minZ - 0.09 && saved.z <= s.maxZ + 0.09 && saved.y >= s.topY - 0.18) {
+          suppY = Math.max(suppY, s.topY);
+        }
+      }
+      if (item.mesh.userData.isPetri) {
+        for (let pi = 0; pi < sim.pickableItems.length; pi++) {
+          const base = sim.pickableItems[pi];
+          if (!base || base === item || !base.mesh || !base.mesh.userData.isPetri || sim.isHeldByRemote(base.id)) continue;
+          const baseSaved = objectsMap[base.id];
+          const baseX = baseSaved ? baseSaved.x : base.mesh.position.x;
+          const baseY = baseSaved ? baseSaved.y : base.mesh.position.y;
+          const baseZ = baseSaved ? baseSaved.z : base.mesh.position.z;
+          if (baseY < saved.y - 0.008 && Math.hypot(baseX - saved.x, baseZ - saved.z) < PETRI_STACK_ALIGNMENT_RADIUS) {
+            suppY = Math.max(suppY, baseY + PETRI_STACK_SPACING);
+          }
+        }
+      }
+      let finalY = saved.y;
+      if (saved.y < suppY - 0.04 || (!item.mesh.userData.isPetri && saved.y > suppY + 0.08) || Math.abs(saved.y - suppY) < 0.06) {
+        finalY = suppY;
+        if (Math.abs(saved.y - suppY) > 0.04) {
+          sim.pendingMovedItems[item.id] = {
+            id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
+          };
+        }
+      }
+      item.mesh.position.set(saved.x, finalY, saved.z);
+      item.mesh.rotation.y = saved.ry || 0;
+      item.isMoved = true;
+    } else if (item.isMoved) {
+      sim.removeFromCookerContents(item);
+      item.mesh.position.copy(item.homePos);
+      item.mesh.rotation.y = item.homeRy;
+      if (item.potItem) item.isAttached = true;
+      item.isMoved = false;
+    }
+  });
+}
+
+export function resetCampusWorldObjects(sim) {
+  if (sim.cancelHeldItemPlacement) sim.cancelHeldItemPlacement();
+  setHeldTwoHandedGhost(sim.heldItem, false);
+  sim.heldItem = null;
+  sim.pendingMovedItems = {};
+  sim.recentlyDropped = {};
+  for (let cpi = 0; cpi < sim.cookerPots.length; cpi++) {
+    const cp = sim.cookerPots[cpi];
+    cp.contents = [];
+    cp.psi = 0;
+    cp.temp = 25;
+    cp.progress = 0;
+    cp.sterilized = false;
+    cp.overheatTimer = 0;
+    cp.burned = false;
+    if (cp.steamPoints) cp.steamPoints.visible = false;
+    if (cp.openPotSteam) cp.openPotSteam.points.visible = false;
+    if (cp.statusSprite) cp.statusSprite.visible = false;
+    cp.lastHudKey = '';
+    if (cp.weight) { cp.weight.position.y = 0.13; cp.weight.rotation.set(0, 0, 0); }
+    if (cp.weightTop) { cp.weightTop.position.y = 0.16; cp.weightTop.rotation.set(0, 0, 0); }
+    if (cp.safetyPins) {
+      for (let pni = 0; pni < cp.safetyPins.length; pni++) cp.safetyPins[pni].position.y = 0.110;
+    }
+  }
+  sim.pickableItems.forEach(function (item) {
+    item.mesh.position.copy(item.homePos);
+    item.mesh.rotation.y = item.homeRy;
+    if (item.potItem) item.isAttached = true;
+    if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+    item.isMoved = false;
+  });
+  if (sim.callbacks.onHoldChange) sim.callbacks.onHoldChange(null);
+}
+
+
+export function applyCampusSavedPose(sim, pose) {
+  if (!pose || typeof pose !== 'object') return;
+  if (typeof pose.x === 'number' && typeof pose.z === 'number') {
+    sim.playerPos.set(pose.x, typeof pose.y === 'number' ? pose.y : 0, pose.z);
+  }
+  if (typeof pose.yaw === 'number') sim.playerYaw = pose.yaw;
+  if (typeof pose.pitch === 'number') sim.playerPitch = pose.pitch;
+  if (pose.seated) {
+    let bestSeat = null, bestD = 1.6;
+    for (let i = 0; i < sim.seatMeshes.length; i++) {
+      const si = sim.seatMeshes[i].userData.seatInfo;
+      if (!si) continue;
+      const d = Math.hypot(si.x - sim.playerPos.x, si.z - sim.playerPos.z);
+      if (d < bestD && Math.abs(si.y - sim.playerPos.y) < 1.0) {
+        bestD = d;
+        bestSeat = si;
+      }
+    }
+    if (bestSeat) {
+      sim.seatedSeat = bestSeat;
+      sim.playerPos.set(bestSeat.x, bestSeat.y, bestSeat.z);
+    }
+  }
+  if (pose.holding && !sim.heldItem) {
+    const item = sim.findPickable(pose.holding);
+    if (item && !sim.isHeldByRemote(item.id)) {
+      sim.removeFromCookerContents(item);
+      if (item.potItem && item.isAttached) item.isAttached = false;
+      sim.heldItem = item;
+      sim.heldRotY = item.mesh.rotation.y;
+      setHeldTwoHandedGhost(sim.heldItem, true);
+      if (sim.callbacks.onHoldChange) sim.callbacks.onHoldChange(sim.heldItem.label);
+    }
+  }
+}

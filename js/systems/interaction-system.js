@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Sistema de Interacoes de Itens e Mao (MycoCampus3D)
  * Coordenacao de pegar/soltar objetos, inoculacao, panela de pressao, borrifador,
  * termometro laser, lousa e delegacao de interacoes fixas do mundo e raycasting.
@@ -80,7 +80,7 @@ export function dropHeldItem(ctx) {
   const pt = findPlacementTarget(ctx.entityCtx, rayNdc);
   if (isPlacementBlocked(ctx.entityCtx, pt)) {
     if (ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(getPlacementBlockedReason() || 'ðŸš« Sem espaÃ§o livre aqui para soltar o item!');
+      ctx.callbacks.onToast(getPlacementBlockedReason() || '🚫 Sem espaço livre aqui para soltar o item!');
     }
     return;
   }
@@ -104,11 +104,11 @@ export function handlePrimaryAction(ctx) {
         const result = addPdaPowder(ctx.heldItem, target);
         if (result.ok) {
           if (window.MycoAudio) window.MycoAudio.playClick();
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('ðŸ§ª +' + PDA_POWDER_DOSE_GRAMS + 'g de PDA/BDA no bÃ©quer.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧪 +' + PDA_POWDER_DOSE_GRAMS + 'g de PDA/BDA no béquer.');
           if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
           ctx.notifyWorldAction();
         } else if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('âš ï¸ ' + result.reason);
+          ctx.callbacks.onToast('⚠️ ' + result.reason);
         }
         return;
       }
@@ -123,17 +123,17 @@ export function handlePrimaryAction(ctx) {
         target.meta.compatibilities.receivesPdaWater;
       if (sourceLiquid && targetLiquid && medium && canPourWater && targetCanReceivePdaWater) {
         if (medium.burned || medium.sterilized) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Este meio jÃ¡ foi processado; use um bÃ©quer limpo.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este meio já foi processado; use um béquer limpo.');
           return;
         }
         if (medium.powderGrams <= 0) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Adicione o pÃ³ PDA/BDA antes da Ã¡gua.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Adicione o pó PDA/BDA antes da água.');
           return;
         }
         const expectedMl = medium.powderGrams * 1000 / PDA_GRAMS_PER_LITER;
         const addMl = Math.min(sourceLiquid.volMl, targetLiquid.maxMl - targetLiquid.volMl, expectedMl - targetLiquid.volMl);
         if (addMl <= 0) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ A proporÃ§Ã£o jÃ¡ estÃ¡ completa; ajuste a quantidade de pÃ³ para preparar mais meio.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A proporção já está completa; ajuste a quantidade de pó para preparar mais meio.');
           return;
         }
         updateContainerVolume(ctx.heldItem, sourceLiquid.volMl - addMl);
@@ -141,7 +141,7 @@ export function handlePrimaryAction(ctx) {
         markPdaVolumeChanged(target);
         if (window.MycoAudio) window.MycoAudio.playSpray();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('ðŸ’§ +' + addMl + 'ml de Ã¡gua. ProporÃ§Ã£o: 40g/L.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 +' + addMl + 'ml de água. Proporção: 40g/L.');
         ctx.notifyWorldAction();
         return;
       }
@@ -224,15 +224,15 @@ export function handlePrimaryAction(ctx) {
         target.spawnCtrl.sealed = true;
         target.spawnCtrl.updateVisual();
         if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('â™¨ï¸ Bag selado! Leve-o Ã  panela para esterilizar antes de inocular.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('♨️ Bag selado! Leve-o à panela para esterilizar antes de inocular.');
         ctx.notifyWorldAction();
       } else if (ctx.callbacks.onToast) {
         const sc = target.spawnCtrl;
         const reason = !sc.filled ? 'preencha o bag com substrato primeiro'
-          : (sc.sealed ? 'este bag jÃ¡ estÃ¡ selado'
-            : (sc.sterilized || sc.inoculated ? 'este bag jÃ¡ foi processado; sele apenas antes da esterilizaÃ§Ã£o'
-              : (sc.burned ? 'este bag foi queimado' : 'este bag estÃ¡ contaminado')));
-        ctx.callbacks.onToast('âš ï¸ NÃ£o foi possÃ­vel selar: ' + reason + '.');
+          : (sc.sealed ? 'este bag já está selado'
+            : (sc.sterilized || sc.inoculated ? 'este bag já foi processado; sele apenas antes da esterilização'
+              : (sc.burned ? 'este bag foi queimado' : 'este bag está contaminado')));
+        ctx.callbacks.onToast('⚠️ Não foi possível selar: ' + reason + '.');
       }
       return;
     }
@@ -247,17 +247,17 @@ export function handlePrimaryAction(ctx) {
         return;
       }
       if (tgt.mode === 'draw' && !canSyringeSource(tgt.item)) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ SÃ³ Ã© possÃ­vel aspirar uma cultura lÃ­quida colonizada e dentro da validade.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Só é possível aspirar uma cultura líquida colonizada e dentro da validade.');
         return;
       }
       if (tgt.mode === 'inject' && !canSyringeTarget(tgt.item)) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Este recipiente nÃ£o estÃ¡ preparado para receber cultura pela seringa.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não está preparado para receber cultura pela seringa.');
         return;
       }
       const fromVol = syrCtrl.volMl;
       const isPetriInjection = tgt.mode === 'inject' && tgt.item && tgt.item.mesh.userData.isPetri;
       if (isPetriInjection && fromVol < 1) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ A seringa precisa conter pelo menos 1ml para inocular a placa.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A seringa precisa conter pelo menos 1ml para inocular a placa.');
         return;
       }
       const sourceVol = tgt.mode === 'draw' && tgt.item && tgt.item.mesh.userData.liquidCtrl
@@ -283,11 +283,11 @@ export function handlePrimaryAction(ctx) {
       const medium = ctx.heldItem.pdaMediumCtrl;
       const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !cp.lidItem.isAttached);
       if (hasPdaContents(ctx.heldItem)) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Este recipiente jÃ¡ contÃ©m ou processou meio PDA/BDA; use um recipiente limpo.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente já contém ou processou meio PDA/BDA; use um recipiente limpo.');
         return;
       }
       if (!isPotHeld && !canFillFromSink(ctx.heldItem)) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Este recipiente nÃ£o pode ser preenchido pela pia.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode ser preenchido pela pia.');
         return;
       }
       let filledSomething = false;
@@ -316,7 +316,7 @@ export function handlePrimaryAction(ctx) {
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
         ctx.notifyWorldAction();
       } else if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('ðŸ’§ Recipiente jÃ¡ estÃ¡ cheio!');
+        ctx.callbacks.onToast('💧 Recipiente já está cheio!');
       }
       return;
     }
@@ -324,7 +324,7 @@ export function handlePrimaryAction(ctx) {
       const sourceCanPourWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
         ctx.heldItem.meta.compatibilities.poursWater;
       if (!sourceCanPourWater || hasPdaContents(ctx.heldItem)) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ A panela recebe Ã¡gua, nÃ£o cultura lÃ­quida ou meio PDA/BDA.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A panela recebe água, não cultura líquida ou meio PDA/BDA.');
         return;
       }
       const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
@@ -349,7 +349,7 @@ export function handlePrimaryAction(ctx) {
       const sourceCanPourWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
         ctx.heldItem.meta.compatibilities.poursWater;
       if (!sourceHasPda && !sourceCanPourWater) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Este recipiente nÃ£o pode despejar Ã¡gua ou soluÃ§Ã£o.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode despejar água ou solução.');
         return;
       }
       const dstPetri = dstItem.mesh && dstItem.mesh.userData.petriCtrl;
@@ -361,16 +361,16 @@ export function handlePrimaryAction(ctx) {
           return;
         }
         if (!isAsepticWorkArea(ctx, dstItem)) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ O Fluxo Laminar precisa estar ligado e higienizado para despejar PDA na placa.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ O Fluxo Laminar precisa estar ligado e higienizado para despejar PDA na placa.');
           return;
         }
         if (srcLc.volMl < 20) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ SÃ£o necessÃ¡rios 20ml de meio preparado para preencher uma placa de Petri.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ São necessários 20ml de meio preparado para preencher uma placa de Petri.');
           return;
         }
         if (srcPda.burned || srcPda.sterilized || !srcPda.mixed ||
             !isPdaRecipeBalanced(srcPda, srcLc.volMl)) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Misture o meio PDA/BDA na proporÃ§Ã£o de 40g/L antes de preencher a placa.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Misture o meio PDA/BDA na proporção de 40g/L antes de preencher a placa.');
           return;
         }
         const pourAmt = 20;
@@ -382,7 +382,7 @@ export function handlePrimaryAction(ctx) {
         fillPetriWithPda(dstItem);
         if (window.MycoAudio) window.MycoAudio.playSpray();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('ðŸ§« ' + pourAmt + 'ml de meio PDA/BDA colocados na placa. Leve para esterilizar.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧫 ' + pourAmt + 'ml de meio PDA/BDA colocados na placa. Leve para esterilizar.');
         ctx.notifyWorldAction();
         return;
       }
@@ -406,7 +406,7 @@ export function handlePrimaryAction(ctx) {
         if (sourceHasPda) {
           const dstPda = dstItem.pdaMediumCtrl;
           if (srcPda.burned || srcPda.sterilized || !srcPda.mixed || !isPdaRecipeBalanced(srcPda, srcLc.volMl)) {
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Misture o meio PDA/BDA na proporÃ§Ã£o de 40g/L antes de transferir.');
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Misture o meio PDA/BDA na proporção de 40g/L antes de transferir.');
             return;
           }
           const canReceivePda = !!(dstPda && (
@@ -417,15 +417,15 @@ export function handlePrimaryAction(ctx) {
               (dstPda.kind === 'pp5' && dstItem.spawnCtrl && dstItem.spawnCtrl.isPP5 && !dstItem.spawnCtrl.filled))
           ));
           if (!canReceivePda) {
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Transfira o meio para um Falcon slant, frasco de 1L ou PP5 vazio.');
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Transfira o meio para um Falcon slant, frasco de 1L ou PP5 vazio.');
             return;
           }
           if (dstPda.burned || dstPda.sterilized) {
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Use um recipiente limpo que ainda nÃ£o foi processado.');
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Use um recipiente limpo que ainda não foi processado.');
             return;
           }
           if (dstLc.volMl > 0 && dstPda.powderGrams <= 0) {
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Use um tubo vazio para preparar o slant.');
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Use um tubo vazio para preparar o slant.');
             return;
           }
           const stepAmt = dstLc.maxMl <= 15 ? 15 : 250;
@@ -441,7 +441,7 @@ export function handlePrimaryAction(ctx) {
             }
             if (window.MycoAudio) window.MycoAudio.playSpray();
             if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('ðŸ§ª Meio transferido para ' + dstItem.label + '. Leve Ã  panela para esterilizar.');
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧪 Meio transferido para ' + dstItem.label + '. Leve à panela para esterilizar.');
             ctx.notifyWorldAction();
           }
           return;
@@ -450,12 +450,12 @@ export function handlePrimaryAction(ctx) {
         const receivesWater = dstItem.meta && dstItem.meta.compatibilities &&
           dstItem.meta.compatibilities.receivesWater;
         if (!receivesWater) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Este recipiente nÃ£o pode receber Ã¡gua por transferÃªncia.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode receber água por transferência.');
           return;
         }
         const destinationHasPda = hasPdaContents(dstItem);
         if (destinationHasPda && !sourceHasPda) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ NÃ£o dilua um meio PDA/BDA em preparo; use Ã¡gua no prÃ³prio bÃ©quer ou transfira outro meio preparado.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não dilua um meio PDA/BDA em preparo; use água no próprio béquer ou transfira outro meio preparado.');
           return;
         }
 
@@ -474,7 +474,7 @@ export function handlePrimaryAction(ctx) {
           dstItem.meta.compatibilities.receivesWater;
         if (!receivesWater) return;
         if (hasPdaContents(ctx.heldItem)) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Meio PDA/BDA nÃ£o pode ser adicionado como Ã¡gua da receita; use Ã¡gua limpa.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Meio PDA/BDA não pode ser adicionado como água da receita; use água limpa.');
           return;
         }
         const pourAmt = Math.min(srcLc.volMl, 50);
@@ -483,7 +483,7 @@ export function handlePrimaryAction(ctx) {
           addIngredientToBowl(dstItem, 'water', pourAmt);
           if (window.MycoAudio) window.MycoAudio.playSpray();
           if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('ðŸ’§ +' + pourAmt + 'g Ã¡gua no Pote de Mistura!');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 +' + pourAmt + 'g água no Pote de Mistura!');
           ctx.notifyWorldAction();
         }
       }
@@ -511,21 +511,21 @@ export function handlePrimaryAction(ctx) {
     if (ctx.hoveredFridgeTarget && ctx.heldItem) {
       const fridgeTarget = ctx.hoveredFridgeTarget;
       if (!fridgeTarget.ready) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('â³ Espere a cultura atingir 100% de colonizaÃ§Ã£o antes de refrigerÃ¡-la.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⏳ Espere a cultura atingir 100% de colonização antes de refrigerá-la.');
         return;
       }
       if (!fridgeTarget.fridge.fridgeCtrl.doorOpen) {
         toggleCultureFridgeDoor(fridgeTarget.fridge);
         ctx.queueWorldStateChange(fridgeTarget.fridge.id, fridgeTarget.fridge.fridgeCtrl.doorOpen ? 1 : 0);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('ðŸ§Š Geladeira aberta. Clique novamente para guardar a cultura.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira aberta. Clique novamente para guardar a cultura.');
         return;
       }
       if (!fridgeTarget.slotPosition) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('ðŸ§Š NÃ£o hÃ¡ espaÃ§o livre nas prateleiras.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Não há espaço livre nas prateleiras.');
         return;
       }
       if (fridgeTarget.lidOpen) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('âš ï¸ Feche a placa antes de guardÃ¡-la na geladeira.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Feche a placa antes de guardá-la na geladeira.');
         return;
       }
       commitHeldItemPlacement(ctx, fridgeTarget.slotPosition, false);
@@ -563,7 +563,7 @@ export function handlePrimaryAction(ctx) {
         if (cpLock.lidItem === ctx.hoveredPickable && cpLock.psi >= 1.5) {
           if (window.MycoAudio) window.MycoAudio.playClick();
           if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('ðŸ”’ Tampa travada pela pressÃ£o (' + cpLock.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar (< 1.5 PSI).');
+            ctx.callbacks.onToast('🔒 Tampa travada pela pressão (' + cpLock.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar (< 1.5 PSI).');
           }
           return;
         }
@@ -583,7 +583,7 @@ export function handlePrimaryAction(ctx) {
         if (cpPot.potItem === ctx.hoveredPickable && cpPot.psi >= 1.5) {
           if (window.MycoAudio) window.MycoAudio.playClick();
           if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('ðŸ”’ Panela pressurizada (' + cpPot.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar.');
+            ctx.callbacks.onToast('🔒 Panela pressurizada (' + cpPot.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar.');
           }
           return;
         }

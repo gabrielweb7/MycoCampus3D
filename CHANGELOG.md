@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.43] — 2026-11-17
+### ⚡ Otimização de Raycasting & Fatiamento de Sincronização
+- **Broad-phase no Raycasting (`js/systems/hover-raycaster.js`):** Implementado `intersectPickableItem` usando `raycaster.ray.distanceSqToPoint()` (alocação zero) antes de descer na hierarquia de sub-malhas 3D, descartando instantaneamente itens fora da linha da mira.
+- **Fatiamento do Sync Multiplayer (`js/systems/`):** O antigo `world-sync.js` (750 linhas) foi dividido em dois módulos especializados mantendo a fachada original para compatibilidade total:
+  - `js/systems/world-objects-sync.js`: movimentação, empilhamento, containeres, estados de culturas e pose salva.
+  - `js/systems/world-devices-sync.js`: portas, persianas, luzes, fluxo laminar, fogareiros, estufa, telão do auditório e lousa.
+- **Integridade UTF-8 (`js/systems/interaction-system.js`):** Corrigida codificação UTF-8 de textos e emojis nos toasts de interação.
+
 ## [v0.9.42] — 2026-11-17
 ### 🧩 Refatoração Modular & Escalabilidade
 - **Fatiamento do Sistema de Interação (`js/systems/`):** O antigo monolito `interaction-system.js` (~1.480 linhas) foi dividido em 3 módulos especializados com 100% de compatibilidade:

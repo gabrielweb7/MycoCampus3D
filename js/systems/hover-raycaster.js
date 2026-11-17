@@ -37,6 +37,18 @@ export function firstValidRayHit(hits) {
   return null;
 }
 
+/**
+ * Broad-phase de baixo custo: evita raycast recursivo em sub-malhas quando
+ * o centro do item esta distante da linha do raio.
+ */
+function intersectPickableItem(raycaster, item) {
+  if (!item || !item.mesh) return null;
+  const ud = item.mesh.userData;
+  const maxRadSq = (ud && (ud.isTable || ud.isHood || ud.isRack || item.fridgeCtrl)) ? 9.0 : 0.72;
+  if (raycaster.ray.distanceSqToPoint(item.mesh.position) > maxRadSq) return null;
+  return firstValidRayHit(raycaster.intersectObject(item.mesh, true));
+}
+
 export function updateHoverRay(ctx, customNdc) {
   if (!ctx.heldItem && ctx.placementMode) cancelHeldItemPlacement(ctx);
   ctx.hoveredPickable = null;
@@ -95,7 +107,7 @@ export function updateHoverRay(ctx, customNdc) {
         if (aCand === ctx.heldItem || ctx.isHeldByRemote(aCand.id)) continue;
         const adx = aCand.mesh.position.x - spRefX, adz = aCand.mesh.position.z - spRefZ;
         if (adx * adx + adz * adz > 100) continue;
-        const aHit = firstValidRayHit(ctx.raycaster.intersectObject(aCand.mesh, true));
+        const aHit = intersectPickableItem(ctx.raycaster, aCand);
         if (aHit && aHit.distance < 3.5) {
           ctx.hoveredSprayTarget = aCand.mesh.userData.isHood ? 'hood' : aCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -114,7 +126,7 @@ export function updateHoverRay(ctx, customNdc) {
             ctx.isHeldByRemote(pCand.id)) continue;
         const dx = pCand.mesh.position.x - pdaRefX, dz = pCand.mesh.position.z - pdaRefZ;
         if (dx * dx + dz * dz > 100) continue;
-        const hit = firstValidRayHit(ctx.raycaster.intersectObject(pCand.mesh, true));
+        const hit = intersectPickableItem(ctx.raycaster, pCand);
         if (hit && hit.distance < 3.5) {
           ctx.hoveredPdaTarget = pCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -131,7 +143,7 @@ export function updateHoverRay(ctx, customNdc) {
         if (!hCand.spawnCtrl || !hCand.spawnCtrl.isBag || hCand === ctx.heldItem || ctx.isHeldByRemote(hCand.id)) continue;
         const hdx = hCand.mesh.position.x - hsRefX, hdz = hCand.mesh.position.z - hsRefZ;
         if (hdx * hdx + hdz * hdz > 100) continue;
-        const hHit = firstValidRayHit(ctx.raycaster.intersectObject(hCand.mesh, true));
+        const hHit = intersectPickableItem(ctx.raycaster, hCand);
         if (!hHit || hHit.distance >= 3.5) continue;
         ctx.hoveredHeatSealerTarget = hCand;
         if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -190,7 +202,7 @@ export function updateHoverRay(ctx, customNdc) {
               ctx.isHeldByRemote(pCand.id)) continue;
           const dx = pCand.mesh.position.x - pdaRefX, dz = pCand.mesh.position.z - pdaRefZ;
           if (dx * dx + dz * dz > 100) continue;
-          const hit = firstValidRayHit(ctx.raycaster.intersectObject(pCand.mesh, true));
+          const hit = intersectPickableItem(ctx.raycaster, pCand);
           if (hit && hit.distance < 3.5) {
             ctx.hoveredPdaTarget = pCand;
             if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -242,7 +254,7 @@ export function updateHoverRay(ctx, customNdc) {
         if (!isPourableLc && !isPourablePP5 && !isPourableBowl && !isPourablePetri) continue;
         const pdx = pCand.mesh.position.x - pRefX, pdz = pCand.mesh.position.z - pRefZ;
         if (pdx * pdx + pdz * pdz > 100) continue;
-        const pHit = firstValidRayHit(ctx.raycaster.intersectObject(pCand.mesh, true));
+        const pHit = intersectPickableItem(ctx.raycaster, pCand);
         if (pHit && pHit.distance < 3.5) {
           ctx.hoveredPourTarget = pCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -274,7 +286,7 @@ export function updateHoverRay(ctx, customNdc) {
         if ((!canFlocaoPP5 && !canFlocaoBowl) || ctx.isHeldByRemote(fCand.id)) continue;
         const fdx = fCand.mesh.position.x - fRefX, fdz = fCand.mesh.position.z - fRefZ;
         if (fdx * fdx + fdz * fdz > 100) continue;
-        const fHit = firstValidRayHit(ctx.raycaster.intersectObject(fCand.mesh, true));
+        const fHit = intersectPickableItem(ctx.raycaster, fCand);
         if (fHit && fHit.distance < 3.5) {
           ctx.hoveredFlocaoTarget = fCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -296,7 +308,7 @@ export function updateHoverRay(ctx, customNdc) {
         if (!isSpoonTarget && !isPortionTarget) continue;
         const bdx = bCand.mesh.position.x - bRefX, bdz = bCand.mesh.position.z - bRefZ;
         if (bdx * bdx + bdz * bdz > 100) continue;
-        const bHit = firstValidRayHit(ctx.raycaster.intersectObject(bCand.mesh, true));
+        const bHit = intersectPickableItem(ctx.raycaster, bCand);
         if (bHit && bHit.distance < 3.5) {
           ctx.hoveredBowlTarget = bCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -316,7 +328,7 @@ export function updateHoverRay(ctx, customNdc) {
         if (sCand === ctx.heldItem || ctx.isHeldByRemote(sCand.id) || !isCultureAccessibleFromFridge(ctx, sCand)) continue;
         const sdx = sCand.mesh.position.x - sRefX, sdz = sCand.mesh.position.z - sRefZ;
         if (sdx * sdx + sdz * sdz > 100) continue;
-        const sHit = firstValidRayHit(ctx.raycaster.intersectObject(sCand.mesh, true));
+        const sHit = intersectPickableItem(ctx.raycaster, sCand);
         if (sHit && sHit.distance < 3.5) {
           if (sCand.mesh.userData.isScalpelBladePack) {
             ctx.hoveredScalpelTarget = { mode: 'blade', item: sCand };
@@ -369,7 +381,7 @@ export function updateHoverRay(ctx, customNdc) {
         if ((!receivesSubstrate && !receivesIngredients) || ctx.isHeldByRemote(gCand.id)) continue;
         const gdx = gCand.mesh.position.x - gRefX, gdz = gCand.mesh.position.z - gRefZ;
         if (gdx * gdx + gdz * gdz > 100) continue;
-        const gHit = firstValidRayHit(ctx.raycaster.intersectObject(gCand.mesh, true));
+        const gHit = intersectPickableItem(ctx.raycaster, gCand);
         if (gHit && gHit.distance < 3.5) {
           ctx.hoveredGrainTarget = gCand;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -392,7 +404,7 @@ export function updateHoverRay(ctx, customNdc) {
         if (cand === ctx.heldItem || ctx.isHeldByRemote(cand.id) || !isCultureAccessibleFromFridge(ctx, cand)) continue;
         const sydx = cand.mesh.position.x - syRefX, sydz = cand.mesh.position.z - syRefZ;
         if (sydx * sydx + sydz * sydz > 100) continue;
-        const sHit = firstValidRayHit(ctx.raycaster.intersectObject(cand.mesh, true));
+        const sHit = intersectPickableItem(ctx.raycaster, cand);
         if (sHit && sHit.distance < 4.2) {
           if (cand.mesh.userData.liquidCtrl && !(cand.spawnCtrl && cand.spawnCtrl.isPP5)) {
             const lc = cand.mesh.userData.liquidCtrl;
@@ -648,7 +660,7 @@ export function updateHoverRay(ctx, customNdc) {
       if (ctx.isHeldByRemote(item.id)) continue;
       const idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
       if (idx * idx + idz * idz > maxPickSq) continue;
-      const hit0 = firstValidRayHit(ctx.raycaster.intersectObject(item.mesh, true));
+      const hit0 = intersectPickableItem(ctx.raycaster, item);
       if (hit0 && hit0.distance < 4.5) {
         const dHit = hit0.distance;
         if (item.lidItem && item.lidItem.isAttached && hit0.point.y >= item.mesh.position.y + 0.26) {
