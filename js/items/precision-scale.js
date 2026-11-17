@@ -81,6 +81,9 @@ export function stepPrecisionScales(ctx, now) {
         gross += getItemWeightGrams(pIt);
       }
     }
+    if (gross <= 0.1 && scObj.tare !== 0) {
+      scObj.tare = 0;
+    }
     scObj.lastGross = gross;
     scObj.draw(gross - scObj.tare);
   }

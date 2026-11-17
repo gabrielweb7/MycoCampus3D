@@ -48,26 +48,30 @@ export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
  * Retorna o status atual de higienizacao (0..3 borrifadas e tempo restante).
  */
 export function getSanitizationStatus(target, ctx) {
-  if (!target) return { hits: 0, isSanitized: false, remainingSec: 0 };
+  if (!target) return { hits: 0, alcoholWet: false, isSanitized: false, remainingSec: 0 };
   const isHood = target === 'hood' || (target.mesh && target.mesh.userData && target.mesh.userData.isHood);
   const nowPerf = performance.now();
   const nowEpoch = Date.now();
 
   if (isHood && ctx) {
-    const active = ctx.hoodSanitizedUntil > nowEpoch;
-    const hits = active ? 3 : Math.min(2, target._sanitizeHits || 0);
+    const wet = !!ctx.hoodAlcoholWet;
+    const active = !wet && ctx.hoodSanitizedUntil > nowEpoch;
+    const hits = (wet || active) ? 3 : Math.min(2, target._sanitizeHits || 0);
     return {
       hits,
+      alcoholWet: wet,
       isSanitized: active,
       remainingSec: active ? Math.max(1, Math.ceil((ctx.hoodSanitizedUntil - nowEpoch) / 1000)) : 0
     };
   }
 
+  const wet = !!target.alcoholWet;
   const until = target.sanitizedUntil || target._sanitizeUntil || 0;
-  const active = until > nowPerf;
-  const hits = active ? 3 : Math.min(2, target._sanitizeHits || 0);
+  const active = !wet && until > nowPerf;
+  const hits = (wet || active) ? 3 : Math.min(2, target._sanitizeHits || 0);
   return {
     hits,
+    alcoholWet: wet,
     isSanitized: active,
     remainingSec: active ? Math.max(1, Math.ceil((until - nowPerf) / 1000)) : 0
   };
@@ -75,13 +79,16 @@ export function getSanitizationStatus(target, ctx) {
 
 export function formatSprayHoverPrompt(target, label, ctx) {
   const st = getSanitizationStatus(target, ctx);
+  if (st.alcoholWet) {
+    return '🧻 [ÁLCOOL APLICADO] ' + label + ' — Passe Papel Toalha para secar e finalizar!';
+  }
   if (st.isSanitized) {
-    return '✨ [●●● HIGIENIZADO • ' + st.remainingSec + 's] ' + label + ' — Clique para reforçar';
+    return '✨ [●●● DESINFECTADO • ' + st.remainingSec + 's] ' + label + ' — Borrifar + Papel Toalha reseta o tempo';
   }
   const dots = st.hits === 0 ? '○○○ 0/3' : (st.hits === 1 ? '●○○ 1/3' : '●●○ 2/3');
   const rem = 3 - st.hits;
   const statusTxt = st.hits === 0 ? 'Não higienizado' : (st.hits === 1 ? 'Higienizando' : 'Quase limpo');
-  return '🧴 [' + dots + '] ' + statusTxt + ' (' + label + ') • Clique +' + rem + 'x para higienizar';
+  return '🧴 [' + dots + '] ' + statusTxt + ' (' + label + ') • Clique +' + rem + 'x e seque com Papel';
 }
 
 function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, speed, size, life) {
@@ -125,15 +132,18 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
   const isHood = target === 'hood' || (target.mesh && target.mesh.userData && target.mesh.userData.isHood);
   const st = getSanitizationStatus(target, ctx);
 
+  if (st.alcoholWet) {
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧻 ' + label + ' já está com Álcool 70%! Agora passe o Papel Toalha para secar.');
+    return;
+  }
+
   if (st.isSanitized) {
     if (isHood) {
-      ctx.hoodSanitizedUntil = Date.now() + 90000;
-      ctx.queueWorldStateChange('hood_sanitized_until', 1);
-    } else {
-      target.sanitizedUntil = nowPerf + 90000;
-      target._sanitizeUntil = nowPerf + 90000;
+      ctx.hoodAlcoholWet = true;
+    } else if (typeof target === 'object') {
+      target.alcoholWet = true;
     }
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('✨ ' + label + ' reforçado com Álcool 70% (90s)!');
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧴 Álcool reaplicado em ' + label + '! Seque com Papel Toalha para resetar os 90s.');
     return;
   }
 
@@ -150,25 +160,21 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
     return;
   }
 
-  // 3/3 = 100% Higienizado!
+  // 3/3 = Molhado com alcool 70%; falta secar com Papel Toalha para completar o ciclo!
   if (isHood) {
-    ctx.hoodSanitizedUntil = Date.now() + 90000;
-    ctx.queueWorldStateChange('hood_sanitized_until', 1);
-    if (ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('sanitize_hood');
+    ctx.hoodAlcoholWet = true;
   } else if (typeof target === 'object') {
-    target.sanitizedUntil = nowPerf + 90000;
-    target._sanitizeUntil = nowPerf + 90000;
+    target.alcoholWet = true;
     target._sanitizeHits = 0;
   }
 
-  // Efeito visual de brilho asséptico (particulas verde-ciano) no alvo higienizado
   const burstPos = sprayInfo.hitPoint
     ? sprayInfo.hitPoint.clone()
     : spOrigin.clone().addScaledVector(spDir, 1.4);
-  spawnSprayParticles(ctx, 0x34d399, 26, burstPos, new THREE.Vector3(0, 1, 0), 1.8, 0.7, 0.045, 0.65);
+  spawnSprayParticles(ctx, 0x38bdf8, 22, burstPos, new THREE.Vector3(0, 1, 0), 1.6, 0.6, 0.04, 0.55);
   if (window.MycoAudio) window.MycoAudio.playClick();
   if (ctx.callbacks.onToast) {
-    ctx.callbacks.onToast('✨ [●●● 3/3 HIGIENIZADO] ' + label + ' 100% sanitizado (90s)!');
+    ctx.callbacks.onToast('🧻 [●●● 3/3 ÁLCOOL APLICADO] Agora passe o Papel Toalha em ' + label + ' para secar e concluir!');
   }
 }
 

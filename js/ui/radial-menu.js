@@ -1,81 +1,76 @@
 /**
- * Menu Radial Contextual (PC & Mobile) - MycoCampus3D
- * Abre com a tecla F (PC) ou botao de acoes (Mobile) para executar acoes secundarias
- * sobre o item em maos ou sobre o objeto/dispositivo sob a mira.
+ * Barra Flutuante Diegetica de Acoes Contextuais (PC & Mobile) - MycoCampus3D
+ * Aparece automaticamente dentro do jogo ao apontar para itens/dispositivos ou segurar objetos,
+ * sem soltar o Pointer Lock nem exibir cursor do Windows.
+ * Acione com as teclas 1, 2, 3, 4 (PC) ou toque direto (Mobile).
  */
 
-import { setBurnerLevel, BURNER_LEVEL_NAMES, updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { togglePetriLid } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor } from '../items/culture-fridge.js';
 import { getSanitizationStatus } from '../items/alcohol-spray.js';
 import { isPdaRecipeBalanced } from '../items/pda-mix.js';
 import { handlePrimaryAction, dropHeldItem } from '../systems/interaction-system.js';
 
-let overlayEl = null;
+let barEl = null;
 let styleInjected = false;
+let currentActions = [];
+let lastSignature = '';
 
-function ensureRadialStyles() {
+function ensureFloatingStyles() {
   if (styleInjected) return;
   styleInjected = true;
   const st = document.createElement('style');
   st.textContent = `
-    #myco-radial-overlay {
-      position: fixed; inset: 0; z-index: 60;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(2, 6, 23, 0.42);
-      backdrop-filter: blur(4px);
-      animation: mycoRadialFade 0.14s ease-out;
+    #myco-floating-actions {
+      position: fixed;
+      left: 50%;
+      bottom: 108px;
+      transform: translateX(-50%);
+      z-index: 25;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      max-width: 92vw;
+      pointer-events: auto;
     }
-    @keyframes mycoRadialFade {
-      from { opacity: 0; transform: scale(0.92); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    .myco-radial-ring {
-      position: relative;
-      width: min(320px, 84vw);
-      height: min(320px, 84vw);
+    #myco-floating-actions.hidden { display: none; }
+    .myco-float-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
       border-radius: 9999px;
-      background: radial-gradient(circle, rgba(15, 23, 42, 0.25) 28%, rgba(15, 23, 42, 0.82) 72%);
-      border: 1.5px solid rgba(57, 255, 20, 0.35);
-      box-shadow: 0 0 32px rgba(16, 185, 129, 0.22), inset 0 0 24px rgba(15, 23, 42, 0.8);
-    }
-    .myco-radial-center {
-      position: absolute; left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
-      width: 94px; height: 94px; border-radius: 9999px;
-      background: rgba(15, 23, 42, 0.94);
-      border: 1.5px solid rgba(148, 163, 184, 0.45);
-      color: #e2e8f0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      text-align: center; padding: 6px; cursor: pointer;
-      font-size: 11px; font-weight: 700; line-height: 1.2;
-      transition: transform 0.12s, border-color 0.12s;
-    }
-    .myco-radial-center:hover {
-      border-color: #ef4444; transform: translate(-50%, -50%) scale(1.06);
-    }
-    .myco-radial-btn {
-      position: absolute;
-      transform: translate(-50%, -50%);
-      min-width: 96px; max-width: 124px;
-      padding: 8px 10px;
-      border-radius: 14px;
-      background: rgba(15, 23, 42, 0.92);
-      border: 1px solid rgba(56, 189, 248, 0.42);
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(57, 255, 20, 0.38);
       color: #f8fafc;
-      font-size: 12px; font-weight: 700;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      text-align: center; cursor: pointer;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-      transition: transform 0.12s, background 0.12s, border-color 0.12s;
+      font-size: 11px;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      cursor: pointer;
       user-select: none;
+      transition: transform 0.1s, border-color 0.1s, background 0.1s;
     }
-    .myco-radial-btn:hover, .myco-radial-btn:active {
-      background: rgba(16, 185, 129, 0.25);
+    .myco-float-chip:hover, .myco-float-chip:active {
+      background: rgba(16, 185, 129, 0.3);
       border-color: #39ff14;
-      transform: translate(-50%, -50%) scale(1.08);
+      transform: translateY(-1px);
     }
-    .myco-radial-btn .ico { font-size: 18px; line-height: 1; }
+    .myco-float-key {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 4px;
+      background: rgba(57, 255, 20, 0.18);
+      color: #39ff14;
+      font-size: 10px;
+      font-weight: 800;
+    }
   `;
   document.head.appendChild(st);
 }
@@ -84,7 +79,8 @@ function inspectItemToast(ctx, item) {
   if (!item || !ctx.callbacks || !ctx.callbacks.onToast) return;
   const parts = ['🔍 ' + item.label];
   const san = getSanitizationStatus(item, ctx);
-  if (san.isSanitized) parts.push('✨ Higienizado (' + san.remainingSec + 's)');
+  if (san.alcoholWet) parts.push('🧻 Álcool aplicado (falta secar)');
+  else if (san.isSanitized) parts.push('✨ Desinfectado (' + san.remainingSec + 's)');
 
   const petri = item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (petri) {
@@ -110,9 +106,7 @@ function inspectItemToast(ctx, item) {
   }
 
   const lc = item.mesh && item.mesh.userData && item.mesh.userData.liquidCtrl;
-  if (lc) {
-    parts.push('Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + 'ml');
-  }
+  if (lc) parts.push('Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + 'ml');
 
   const med = item.pdaMediumCtrl;
   if (med) {
@@ -131,24 +125,18 @@ function inspectItemToast(ctx, item) {
   ctx.callbacks.onToast(parts.join(' • '));
 }
 
-function buildRadialActions(ctx) {
+function buildContextActions(ctx) {
   const actions = [];
-  let title = 'Ações';
 
-  // 1. Alvo sob a mira: Panela de Pressao
+  // 1. Panela de Pressao
   const hoveredPot = ctx.hoveredPotInsert ||
     (ctx.hoveredPickable && ctx.cookerPots.find((cp) => cp.potItem === ctx.hoveredPickable || cp.lidItem === ctx.hoveredPickable));
 
   if (hoveredPot) {
-    title = hoveredPot.potItem.label;
     actions.push({
-      icon: '🍲',
-      label: hoveredPot.lidItem.isAttached ? 'Retirar Tampa' : 'Ação Principal',
-      run: () => handlePrimaryAction(ctx)
-    });
-    actions.push({
+      id: 'pot_mode_' + hoveredPot.potItem.id + '_' + hoveredPot.mode,
       icon: hoveredPot.mode === 'pasteurize' ? '♨️' : '🌡️',
-      label: hoveredPot.mode === 'pasteurize' ? 'Modo Esterilizar' : 'Modo Pasteurizar',
+      label: hoveredPot.mode === 'pasteurize' ? 'Esterilizar' : 'Pasteurizar',
       run: () => {
         hoveredPot.mode = hoveredPot.mode === 'pasteurize' ? 'sterilize' : 'pasteurize';
         hoveredPot.lastHudKey = '';
@@ -163,8 +151,9 @@ function buildRadialActions(ctx) {
       }
     });
     actions.push({
+      id: 'pot_water_' + Math.round(hoveredPot.waterMl),
       icon: '💧',
-      label: 'Água: ' + (hoveredPot.waterMl / 1000).toFixed(1) + 'L',
+      label: 'Água ' + (hoveredPot.waterMl / 1000).toFixed(1) + 'L',
       run: () => {
         const baseTxt = hoveredPot.hasBase ? 'Base 4cm ✅' : 'Sem Base ⚠️';
         if (ctx.callbacks.onToast) {
@@ -174,8 +163,9 @@ function buildRadialActions(ctx) {
     });
     if (hoveredPot.waterMl > 3600) {
       actions.push({
+        id: 'pot_drain',
         icon: '🚰',
-        label: 'Ajustar 3.4L Ideal',
+        label: 'Ajustar 3.4L',
         run: () => {
           hoveredPot.waterMl = 3400;
           updateCookerWaterVisual(hoveredPot);
@@ -184,20 +174,15 @@ function buildRadialActions(ctx) {
         }
       });
     }
-    return { title, actions };
+    return actions;
   }
 
-  // 2. Alvo sob a mira: Fogareiro / Tripe a Gas
-  if (ctx.hoveredBurnerSwitch) {
-    title = ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé a Gás' : 'Fogareiro';
+  // 2. Fogareiro / Tripe a Gas
+  if (ctx.hoveredBurnerSwitch && ctx.hoveredBurnerSwitch.on) {
     actions.push({
-      icon: '🔥',
-      label: 'Mudar Chama',
-      run: () => handlePrimaryAction(ctx)
-    });
-    actions.push({
+      id: 'burner_off_' + (ctx.hoveredBurnerSwitch.id || '0'),
       icon: '🛑',
-      label: 'Desligar',
+      label: 'Desligar Chama',
       run: () => {
         setBurnerLevel(ctx.hoveredBurnerSwitch, 0);
         if (window.MycoAudio) window.MycoAudio.playSwitch();
@@ -207,164 +192,135 @@ function buildRadialActions(ctx) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('🛑 Queimador desligado.');
       }
     });
-    return { title, actions };
+    return actions;
   }
 
-  // 3. Alvo sob a mira: Item pegavel / Geladeira
-  if (ctx.hoveredPickable) {
+  // 3. Item sob a mira
+  if (ctx.hoveredPickable && !ctx.heldItem) {
     const target = ctx.hoveredPickable;
-    title = target.label;
     if (target.fridgeCtrl) {
       actions.push({
-        icon: '🧊',
-        label: target.fridgeCtrl.doorOpen ? 'Fechar Porta' : 'Abrir Porta',
-        run: () => {
-          toggleCultureFridgeDoor(target);
-          ctx.queueWorldStateChange(target.id, target.fridgeCtrl.doorOpen ? 1 : 0);
-          if (window.MycoAudio) window.MycoAudio.playDoor(target.fridgeCtrl.doorOpen);
-        }
-      });
-      actions.push({
+        id: 'fridge_info_' + target.id,
         icon: '🔍',
-        label: 'Ver Status',
+        label: 'Ver Vagas',
         run: () => {
           const count = target.fridgeCtrl.slots ? target.fridgeCtrl.slots.filter(Boolean).length : 0;
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira 4°C • ' + count + '/15 culturas armazenadas.');
         }
       });
-      return { title, actions };
+      return actions;
     }
-    actions.push({
-      icon: '✋',
-      label: 'Pegar',
-      run: () => handlePrimaryAction(ctx)
-    });
     if (target.mesh && target.mesh.userData && target.mesh.userData.isPetri) {
       actions.push({
+        id: 'petri_lid_' + target.id + '_' + (target.mesh.userData.petriCtrl?.lidOpen ? '1' : '0'),
         icon: '🧫',
         label: target.mesh.userData.petriCtrl?.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
         run: () => togglePetriLid(ctx, target)
       });
     }
     actions.push({
+      id: 'inspect_' + target.id,
       icon: '🔍',
       label: 'Inspecionar',
       run: () => inspectItemToast(ctx, target)
     });
-    return { title, actions };
+    return actions;
   }
 
   // 4. Item em maos
   if (ctx.heldItem) {
     const held = ctx.heldItem;
-    title = held.label;
     actions.push({
+      id: 'held_place_' + held.id + '_' + (ctx.placementMode ? '1' : '0'),
       icon: '📦',
-      label: ctx.placementMode ? 'Confirmar Local' : 'Posicionar (G/Q)',
+      label: ctx.placementMode ? 'Cancelar' : 'Posicionar (G/Q)',
       run: () => ctx.toggleHeldItemPlacement()
     });
     actions.push({
+      id: 'held_drop_' + held.id,
       icon: '⬇️',
-      label: 'Soltar Aqui',
+      label: 'Soltar',
       run: () => dropHeldItem(ctx)
     });
     if (held.mesh && held.mesh.userData && held.mesh.userData.isPetri) {
       actions.push({
+        id: 'held_petri_lid_' + held.id,
         icon: '🧫',
         label: held.mesh.userData.petriCtrl?.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
         run: () => togglePetriLid(ctx, held)
       });
     }
     actions.push({
+      id: 'held_inspect_' + held.id,
       icon: '🔍',
-      label: 'Inspecionar',
+      label: 'Status',
       run: () => inspectItemToast(ctx, held)
     });
-    return { title, actions };
+    return actions;
   }
 
-  // 5. Elementos fixos do campus (Porta, Persiana, Luz, Fluxo, Estufa)
-  if (ctx.hoveredDoorObj || ctx.hoveredBlindObj || ctx.hoveredSwitch || ctx.hoveredHoodSwitch || ctx.hoveredStirSwitch || ctx.hoveredGreenhouseSlot) {
-    title = ctx.hoveredDoorObj ? ctx.hoveredDoorObj.label
-      : (ctx.hoveredBlindObj ? 'Persiana'
-        : (ctx.hoveredGreenhouseSlot ? ctx.hoveredGreenhouseSlot.name : 'Dispositivo'));
-    actions.push({
-      icon: '⚡',
-      label: 'Ativar / Alternar',
-      run: () => handlePrimaryAction(ctx)
-    });
-  }
-
-  return { title, actions };
+  return actions;
 }
 
-export function isRadialMenuOpen() {
-  return !!overlayEl;
-}
-
-export function closeRadialMenu() {
-  if (overlayEl) {
-    overlayEl.remove();
-    overlayEl = null;
-  }
-}
-
-export function openRadialMenu(ctx) {
-  if (overlayEl) {
-    closeRadialMenu();
+export function syncFloatingActions(ctx) {
+  if (!ctx || !ctx.inFps || ctx.lobbyTourActive) {
+    if (barEl) barEl.classList.add('hidden');
+    currentActions = [];
+    lastSignature = '';
     return;
   }
-  const { title, actions } = buildRadialActions(ctx);
+
+  const actions = buildContextActions(ctx);
   if (!actions.length) {
-    if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🎯 Aponte para um item ou segure um objeto para abrir ações rápidas.');
+    if (barEl && !barEl.classList.contains('hidden')) {
+      barEl.classList.add('hidden');
     }
+    currentActions = [];
+    lastSignature = '';
     return;
   }
 
-  ensureRadialStyles();
-  if (document.pointerLockElement) {
-    try { document.exitPointerLock(); } catch (e) {}
+  const sig = actions.map((a) => a.id).join('|');
+  currentActions = actions;
+  if (sig === lastSignature && barEl && !barEl.classList.contains('hidden')) return;
+  lastSignature = sig;
+
+  ensureFloatingStyles();
+  if (!barEl) {
+    barEl = document.createElement('div');
+    barEl.id = 'myco-floating-actions';
+    document.body.appendChild(barEl);
   }
+  barEl.classList.remove('hidden');
+  barEl.replaceChildren();
 
-  overlayEl = document.createElement('div');
-  overlayEl.id = 'myco-radial-overlay';
-
-  const ring = document.createElement('div');
-  ring.className = 'myco-radial-ring';
-
-  const centerBtn = document.createElement('button');
-  centerBtn.type = 'button';
-  centerBtn.className = 'myco-radial-center';
-  const shortTitle = title.length > 26 ? title.slice(0, 24) + '…' : title;
-  centerBtn.innerHTML = `<span style="color:#39ff14;font-size:13px;">✕</span><span>${shortTitle}</span>`;
-  centerBtn.addEventListener('click', closeRadialMenu);
-  ring.appendChild(centerBtn);
-
-  const count = actions.length;
-  const radiusPct = 39;
   actions.forEach(function (act, idx) {
-    const angle = -Math.PI / 2 + (idx * Math.PI * 2) / count;
-    const xPct = 50 + Math.cos(angle) * radiusPct;
-    const yPct = 50 + Math.sin(angle) * radiusPct;
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'myco-radial-btn';
-    btn.style.left = xPct + '%';
-    btn.style.top = yPct + '%';
-    btn.innerHTML = `<span class="ico">${act.icon}</span><span>${act.label}</span>`;
-    btn.addEventListener('click', function (ev) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'myco-float-chip';
+    chip.innerHTML = `<span class="myco-float-key">${idx + 1}</span><span>${act.icon} ${act.label}</span>`;
+    chip.addEventListener('click', function (ev) {
       ev.stopPropagation();
-      closeRadialMenu();
       act.run();
     });
-    ring.appendChild(btn);
+    barEl.appendChild(chip);
   });
+}
 
-  overlayEl.appendChild(ring);
-  overlayEl.addEventListener('click', function (ev) {
-    if (ev.target === overlayEl) closeRadialMenu();
-  });
-  document.body.appendChild(overlayEl);
+export function triggerFloatingAction(index) {
+  if (index >= 0 && index < currentActions.length && currentActions[index]) {
+    currentActions[index].run();
+    return true;
+  }
+  return false;
+}
+
+export function isRadialMenuOpen() { return false; }
+export function closeRadialMenu() {}
+export function openRadialMenu(ctx) {
+  if (currentActions.length) {
+    triggerFloatingAction(0);
+  } else if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast('🎯 Aponte para um item para ver as opções flutuantes (teclas 1–4).');
+  }
 }

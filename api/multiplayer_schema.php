@@ -20,6 +20,7 @@ function mp_build_allowed_items(): array {
         // === Equipamentos & Ferramentas de Lab ===
         'heat_sealer', 'magnetic_stirrer', 'precision_scale',
         'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03',
+        'paper_towel_01', 'paper_towel_02',
         'burner_lab', 'gas_tripod_sub', 'infrared_thermometer',
         'lab_tray_01', 'lab_tray_02', 'lab_tray_03',
         'syringe_10ml_a', 'syringe_10ml_b',

@@ -107,6 +107,7 @@ export async function syncMultiplayer() {
         window.applyCampusItemStates(data.item_states);
       }
       if (!data.state_unchanged && data.world_state && window.applyCampusWorldState) {
+        if (typeof data.server_ts === 'number') data.world_state._serverTs = data.server_ts;
         window.applyCampusWorldState(data.world_state, firstSync);
       }
       if (firstSync && data.saved_pose && window.applyCampusSavedPose) {

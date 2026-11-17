@@ -19,6 +19,19 @@ export function isAsepticWorkArea(ctx, item) {
     pos.y >= area.topY - 0.15 && pos.y <= area.topY + 0.6);
 }
 
+export function getAsepticWorkAreaReason(ctx, item) {
+  const air = ctx.hoodAirData;
+  const area = air && air.workArea;
+  const pos = item && item.mesh && item.mesh.position;
+  if (!air || !air.on) return '💨 Ligue o Fluxo Laminar no botão lateral da capela.';
+  if (ctx.hoodAlcoholWet) return '🧻 Passe o Papel Toalha no Fluxo Laminar para secar o álcool e concluir a desinfecção!';
+  if (!(Date.now() < ctx.hoodSanitizedUntil)) return '🧴 Passe Álcool 70% (3x) no Fluxo Laminar e depois seque com Papel Toalha.';
+  if (!area || !pos || pos.x < area.minX || pos.x > area.maxX || pos.z < area.minZ || pos.z > area.maxZ || pos.y < area.topY - 0.15 || pos.y > area.topY + 0.6) {
+    return '🧫 Coloque a placa sobre a bancada interna do Fluxo Laminar.';
+  }
+  return '';
+}
+
 export const LAMINAR_HOOD_META = {
   category: 'equipment',
   purpose: 'Cabine de fluxo laminar HEPA para trabalho asséptico e inoculação estéril',

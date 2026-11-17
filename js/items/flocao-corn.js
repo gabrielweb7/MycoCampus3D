@@ -27,7 +27,7 @@ export function makeFlocao500g(ctx, id, px, py, pz) {
   ctx2.fillStyle = '#78350f'; ctx2.font = 'bold 34px sans-serif';
   ctx2.fillText('500g', 128, 128);
   ctx2.fillStyle = '#1e293b'; ctx2.font = 'bold 18px sans-serif';
-  ctx2.fillText('Cultura Sólida • PP5', 128, 178);
+  ctx2.fillText('100% Milho Flocado', 128, 178);
 
   const pack = makeBox(0.14, 0.21, 0.085, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.55 }));
   pack.position.y = 0.105;

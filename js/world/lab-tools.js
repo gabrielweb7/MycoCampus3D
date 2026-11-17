@@ -18,6 +18,8 @@ import { attachPdaMediumCtrl, attachPdaReagentCtrl, makePdaMediaBottle1L } from 
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
 import { createPrecisionScale } from '../items/precision-scale.js';
 import { makeAlcoholSprayBottle } from '../items/alcohol-spray.js';
+import { makePaperTowelRoll } from '../items/paper-towel.js';
+import { buildLabTrashBin } from '../items/lab-trash.js';
 import { createHeatSealer } from '../items/heat-sealer.js';
 import { makeLiquidJar800, makeBeaker1L } from '../items/liquid-culture.js';
 import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
@@ -93,7 +95,9 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeMixingBowl(ctx, 'mixing_bowl_01', -23.1, 1.02, -10.1);
   makeLabSpoon(ctx, 'lab_spoon_01', -23.1, 1.02, -10.35);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray', -23.1, 1.02, -7.1);
+  makePaperTowelRoll(ctx, 'paper_towel_01', -23.1, 1.02, -7.45);
   createHeatSealer(ctx, 'heat_sealer', -23.1, 1.02, -6.2);
+  buildLabTrashBin(ctx, -17.3, 0, -9.2);
 
   // Agitador, Cultura Liquida, Bequeres, Bandejas, Seringas & Termometro
   makeMagneticStirrer(ctx, 'magnetic_stirrer', -20.95, 0.91, -10.55);
@@ -179,6 +183,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   }
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_02', -23.05, 0.438, 9.8);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_03', -23.05, 0.438, 10.4);
+  makePaperTowelRoll(ctx, 'paper_towel_02', -23.05, 0.438, 10.1);
   for (let mi = 0; mi < 4; mi++) {
     makeTapeRoll(ctx, 'micropore_' + pad2(mi + 1), 'micropore', -23.05, 1.798, 4.8 + mi * 0.45);
   }

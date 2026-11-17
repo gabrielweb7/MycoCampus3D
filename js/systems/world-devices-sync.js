@@ -118,7 +118,11 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
       sim.pendingStateChanges.hood_sanitized_until === undefined &&
       !(sim.recentlyChangedState.hood_sanitized_until > now)) {
     const expiresAt = Number(stateMap.hood_sanitized_until);
-    if (Number.isFinite(expiresAt)) sim.hoodSanitizedUntil = Math.max(0, expiresAt) * 1000;
+    if (Number.isFinite(expiresAt)) {
+      const serverNow = typeof stateMap._serverTs === 'number' ? stateMap._serverTs : Math.floor(Date.now() / 1000);
+      const remainingMs = Math.max(0, (expiresAt - serverNow) * 1000);
+      sim.hoodSanitizedUntil = remainingMs > 0 ? (Date.now() + remainingMs) : 0;
+    }
   }
 
   if (sim.stirrerDevices.length && stateMap.stir_lab !== undefined) {

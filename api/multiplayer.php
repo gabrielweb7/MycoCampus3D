@@ -428,6 +428,7 @@ if ($action === 'sync') {
 
     $resp = [
         'ok' => true,
+        'server_ts' => $nowTs,
         'app_version' => $appVersion,
         'online_count' => count($players) + 1,
         'saved_pose' => $savedPose,

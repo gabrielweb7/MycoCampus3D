@@ -12,7 +12,8 @@ import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource,
 import { BURNER_LEVEL_NAMES } from '../items/pressure-cooker.js';
 import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge } from '../items/culture-fridge.js';
 import { PDA_POWDER_DOSE_GRAMS } from '../items/pda-mix.js';
-import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
+import { formatSprayHoverPrompt, getSanitizationStatus } from '../items/alcohol-spray.js';
+import { canDisposeItemInTrash } from '../items/lab-trash.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -72,6 +73,8 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredBurnerSwitch = null;
   ctx.hoveredPotInsert = null;
   ctx.hoveredSprayTarget = null;
+  ctx.hoveredWipeTarget = null;
+  ctx.hoveredTrash = false;
   ctx.hoveredSink = null;
   ctx.hoveredPourTarget = null;
   ctx.hoveredFillPot = null;
@@ -160,6 +163,50 @@ export function updateHoverRay(ctx, customNdc) {
       }
       return;
     }
+    if (ctx.heldItem.mesh.userData.isPaperTowel && !ctx.placementMode) {
+      const ptRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const ptRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      let bestTarget = null;
+      let bestLabel = '';
+      let bestDist = 4.2;
+      for (let ai = 0; ai < ctx.pickableItems.length; ai++) {
+        const aCand = ctx.pickableItems[ai];
+        if (aCand === ctx.heldItem || ctx.isHeldByRemote(aCand.id)) continue;
+        const adx = aCand.mesh.position.x - ptRefX, adz = aCand.mesh.position.z - ptRefZ;
+        if (adx * adx + adz * adz > 100) continue;
+        const aHit = intersectPickableItem(ctx.raycaster, aCand);
+        if (aHit && aHit.distance < bestDist) {
+          bestDist = aHit.distance;
+          bestTarget = aCand.mesh.userData.isHood ? 'hood' : aCand;
+          bestLabel = aCand.label;
+        }
+      }
+      if (bestTarget) {
+        ctx.hoveredWipeTarget = { target: bestTarget, label: bestLabel };
+        if (ctx.placementGhost) ctx.placementGhost.visible = false;
+        const st = getSanitizationStatus(bestTarget, ctx);
+        const wPrompt = st.alcoholWet
+          ? '🧻 Secar Álcool 70% de ' + bestLabel + ' (Concluir desinfecção 90s!)'
+          : (st.isSanitized
+            ? '✨🧻 Passar Papel em ' + bestLabel + ' (Resetar proteção para 90s)'
+            : '⚠️ Passe Álcool 70% (3x) em ' + bestLabel + ' antes de secar');
+        if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(wPrompt);
+        return;
+      }
+    }
+    if (!ctx.placementMode && ctx.labTrashMeshes && ctx.labTrashMeshes.length && canDisposeItemInTrash(ctx.heldItem)) {
+      const trHits = ctx.raycaster.intersectObjects(ctx.labTrashMeshes, false);
+      if (trHits.length > 0 && trHits[0].distance < 3.5) {
+        ctx.hoveredTrash = true;
+        if (ctx.placementGhost) ctx.placementGhost.visible = false;
+        if (ctx.callbacks.onHoverPrompt) {
+          ctx.callbacks.onHoverPrompt(ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.isBag
+            ? '🗑️ Descartar Bag na Lixeira (repõe novo no estoque)'
+            : '🗑️ Esvaziar conteúdo na Lixeira (limpar recipiente)');
+        }
+        return;
+      }
+    }
     if (ctx.heldItem.pdaReagentCtrl) {
       const pdaRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
       const pdaRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
@@ -201,6 +248,28 @@ export function updateHoverRay(ctx, customNdc) {
               : (hSc.sterilized || hSc.inoculated
                 ? '⚠️ O bag deve ser selado antes da esterilização'
                 : (hSc.burned ? '🔥 Este bag foi queimado' : '🦠 Este bag está contaminado'))));
+        if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(hPrompt);
+        return;
+      }
+    }
+    if (ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.isBag && !ctx.placementMode) {
+      const hsRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+      const hsRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      for (let hi = 0; hi < ctx.pickableItems.length; hi++) {
+        const sCand = ctx.pickableItems[hi];
+        if (!sCand || !sCand.meta || !sCand.meta.compatibilities || !sCand.meta.compatibilities.sealsBags || ctx.isHeldByRemote(sCand.id)) continue;
+        const hdx = sCand.mesh.position.x - hsRefX, hdz = sCand.mesh.position.z - hsRefZ;
+        if (hdx * hdx + hdz * hdz > 100) continue;
+        const sHit = intersectPickableItem(ctx.raycaster, sCand);
+        if (!sHit || sHit.distance >= 3.5) continue;
+        ctx.hoveredHeatSealerTarget = ctx.heldItem;
+        if (ctx.placementGhost) ctx.placementGhost.visible = false;
+        const hSc = ctx.heldItem.spawnCtrl;
+        const hPrompt = canSealSpawnBag(ctx.heldItem)
+          ? '♨️ Selar este Bag na Seladora Térmica (na mão!)'
+          : (!hSc.filled
+            ? '🌾 Preencha o bag com substrato antes de selar'
+            : (hSc.sealed ? '✅ Este bag já está selado' : '⚠️ Este bag não pode ser selado agora'));
         if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(hPrompt);
         return;
       }

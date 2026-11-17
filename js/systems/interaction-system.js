@@ -23,6 +23,8 @@ import { canFillFromSink, canSealSpawnBag, hasPdaContents } from '../items/item-
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray } from '../items/alcohol-spray.js';
+import { wipeWithPaperTowel } from '../items/paper-towel.js';
+import { handleTrashDisposal } from '../items/lab-trash.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { fillPetriWithPda, togglePetriLid, setPetriLidOpen } from '../items/petri-dish.js';
@@ -212,11 +214,24 @@ export function handlePrimaryAction(ctx) {
       }
       return;
     }
-    if (ctx.hoveredHeatSealerTarget && ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.sealsBags) {
+    if (ctx.heldItem.mesh.userData.isPaperTowel && !ctx.placementMode && ctx.hoveredWipeTarget) {
+      wipeWithPaperTowel(ctx, ctx.hoveredWipeTarget);
+      return;
+    }
+    if (ctx.hoveredTrash && !ctx.placementMode) {
+      handleTrashDisposal(ctx, ctx.heldItem);
+      return;
+    }
+    if (ctx.hoveredHeatSealerTarget && (
+        (ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.sealsBags) ||
+        (ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.isBag))) {
       const target = ctx.hoveredHeatSealerTarget;
       if (canSealSpawnBag(target)) {
         target.spawnCtrl.sealed = true;
         target.spawnCtrl.updateVisual();
+        if (target === ctx.heldItem && ctx.callbacks.onHoldChange) {
+          ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        }
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('♨️ Bag selado! Leve-o à panela para esterilizar antes de inocular.');
         ctx.notifyWorldAction();

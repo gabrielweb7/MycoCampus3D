@@ -20,6 +20,7 @@ import { stepMultiplayerAvatars } from '../entities/avatars.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
 import { stepLobbyTour } from './lobby-tour.js';
 import { updateHoverRay } from './interaction-system.js';
+import { syncFloatingActions } from '../ui/radial-menu.js';
 import { stepPlayerMovement } from './player-movement.js';
 import { stepHeldItemAndSyringe } from './held-item-loop.js';
 import { stepSportBalls } from './sports-physics.js';
@@ -192,6 +193,7 @@ function stepHoverAndChalkboard(ctx, now) {
     lastMobileHoverAt = now;
     if (!isTouch) lastDesktopHoverAt = now;
     updateHoverRay(ctx.interactionCtx);
+    syncFloatingActions(ctx.interactionCtx);
   }
   const toolColor = getHeldBoardToolColor(ctx.heldItem);
   const activeBoard = ctx.chalkboards[ctx.hoveredBoardIndex];

@@ -2,7 +2,7 @@
  * Placa de Petri (MycoCampus3D)
  */
 
-import { isAsepticWorkArea } from './laminar-hood.js';
+import { isAsepticWorkArea, getAsepticWorkAreaReason } from './laminar-hood.js';
 import {
   CULTURE_GAME_DAY_SECONDS,
   CULTURE_REFRIGERATED_SHELF_LIFE_DAYS,
@@ -163,7 +163,8 @@ export function togglePetriLid(ctx, item) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl) return false;
   if (!ctrl.lidOpen && !isAsepticWorkArea(ctx, item)) {
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Para abrir uma placa, ligue e higienize o Fluxo Laminar e mantenha a placa na área de trabalho.');
+    const reason = getAsepticWorkAreaReason(ctx, item) || 'Para abrir uma placa, ligue e higienize o Fluxo Laminar e mantenha a placa na área de trabalho.';
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ ' + reason);
     return false;
   }
   const changed = setPetriLidOpen(item, !ctrl.lidOpen, false);

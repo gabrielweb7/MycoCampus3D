@@ -146,6 +146,12 @@ export function handleWorldInteraction(ctx) {
   if (ctx.hoveredScaleTare) {
     ctx.hoveredScaleTare.tare = ctx.hoveredScaleTare.lastGross || 0;
     ctx.hoveredScaleTare.draw(0);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(ctx.hoveredScaleTare.tare > 0
+        ? '⚖️ TARA aplicada (' + ctx.hoveredScaleTare.tare.toFixed(1) + 'g descontados • visor zerado)'
+        : '⚖️ Balança zerada (0.0 g)');
+    }
     return true;
   }
   if (ctx.hoveredBurnerSwitch) {

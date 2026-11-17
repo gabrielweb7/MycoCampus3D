@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.47] — 2026-11-17
+### 🧻 Ciclo Álcool + Papel Toalha, Lixeira do Lab, Seladora na Mão, Balança TARA & Menu Flutuante Diegético
+- **Ciclo Completo de Desinfecção (`paper-towel.js`, `alcohol-spray.js`, `laminar-hood.js`, `petri-dish.js`):**
+  - Após aplicar Álcool 70% (3x), o objeto/Fluxo Laminar fica molhado com álcool e exige secar com o novo **Papel Toalha Asséptico** (`paper_towel_01` / `02`) para concluir e resetar os 90s de desinfecção.
+  - Corrigido bug de fuso/relógio entre servidor e cliente em `hood_sanitized_until` (`server_ts` no `multiplayer.php`), e adicionada mensagem exata do motivo caso a placa Petri não possa abrir.
+- **Lixeira Asséptica do Laboratório (`lab-trash.js`):** Esvazia recipientes reutilizáveis (vidros, PP5, petri, béquer, pote) mantendo-os limpos na mão, ou descarta bags repondo um novo bag limpo no estoque.
+- **Seladora com Bag na Mão (`hover-raycaster.js`, `interaction-system.js`):** Segurando um bag na mão, clicar na Seladora Térmica sela o bag imediatamente na mão.
+- **TARA Automática da Balança (`precision-scale.js`, `world-interactions.js`):** Zera corretamente o peso do recipiente em cima e reseta a tara para `0.0 g` ao retirar o item.
+- **Menu Flutuante Diegético (`radial-menu.js`, `game-loop.js`, `input-controller.js`):** Substituído o overlay modal por chips flutuantes dentro do jogo (`[1]`..`[4]`), sem nunca soltar o Pointer Lock nem mostrar o cursor do Windows.
+- **Rótulo do Flocão (`flocao-corn.js`):** Removido `"Cultura Sólida • PP5"` e alterado para `"100% Milho Flocado"`.
+
 ## [v0.9.46] — 2026-11-17
 ### 🎯 Menu Radial Contextual (PC & Mobile)
 - **Novo Menu Radial (`js/ui/radial-menu.js`):** Pressionando **`F`** no PC ou tocando no botão **`⚙️`** no Mobile, abre um menu radial translúcido ao redor da mira com ações contextuais rápidas para o item em mãos ou alvo mirado:

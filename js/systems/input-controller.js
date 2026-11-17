@@ -29,6 +29,12 @@ export function bindControls(ctx) {
       e.preventDefault();
       window.openCampusRadialMenu();
     }
+    if ((e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') && window.triggerCampusFloatingAction) {
+      const idx = parseInt(e.code.charAt(5), 10) - 1;
+      if (window.triggerCampusFloatingAction(idx)) {
+        e.preventDefault();
+      }
+    }
     if (e.code === 'Escape' && window.isCampusRadialMenuOpen && window.isCampusRadialMenuOpen()) {
       e.preventDefault();
       window.closeCampusRadialMenu();

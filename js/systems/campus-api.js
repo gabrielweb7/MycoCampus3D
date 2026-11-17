@@ -13,7 +13,7 @@ import { getLabItemGuide } from '../items/item-registry.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
 import { applyQualityTier } from './game-loop.js';
 import * as worldSync from './world-sync.js';
-import { openRadialMenu, closeRadialMenu, isRadialMenuOpen } from '../ui/radial-menu.js';
+import { openRadialMenu, closeRadialMenu, isRadialMenuOpen, triggerFloatingAction } from '../ui/radial-menu.js';
 
 const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
 
@@ -255,6 +255,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.openCampusRadialMenu = function () { openRadialMenu(sim); };
   window.closeCampusRadialMenu = closeRadialMenu;
   window.isCampusRadialMenuOpen = isRadialMenuOpen;
+  window.triggerCampusFloatingAction = triggerFloatingAction;
 
   window.MycoCampus = window.MycoCampus || {};
   window.MycoCampus.teleportPlayer = window.teleportCampusPlayer;
