@@ -2,27 +2,6 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
-## [v0.9.43] — 2026-11-16
-### 🌲 Expansão do Mundo e Organização Final do Laboratório
-- Expandida a mata para 2 km, com rios, cavernas, picos altos, cogumelos e correntes térmicas distribuídas pela área.
-- Adicionados HUD de altitude, camadas da atmosfera e exploração espacial com sistema solar e controles de voo adaptados ao celular.
-- Removidas as duas mesas centrais do laboratório; equipamentos e materiais foram reorganizados sobre as bancadas fixas, e a geladeira ficou mais visível.
-- Migração online reposiciona somente itens ainda nas antigas posições padrão, preservando posições personalizadas e estados das culturas.
-
-## [v0.9.42] — 2026-11-16
-### 🧪 Bancada do Fluxo Laminar e Organização do Laboratório
-- A capela de fluxo laminar agora fica sobre a bancada fixa do laboratório, com a área de trabalho e o fluxo de ar alinhados para a abertura voltada ao ambiente.
-- A mesa móvel próxima passa a servir como apoio asséptico para placas e ferramentas; a bancada de preparo identifica o uso para meios e cultura líquida.
-- Reposicionados PDA e água destilada para liberar o espaço da capela; itens salvos exatamente nas posições antigas da capela e do PDA são migrados sem alterar culturas ou outros itens movidos.
-
-## [v0.9.41] — 2026-11-18
-### 🌲 Mata, Voo em Altitude e Sistema Solar
-- A área natural agora cobre 2 km, com picos próximos de 1 km, três rios, três cavernas exploráveis e cogumelos distribuídos pela floresta.
-- Floresta, terreno e correntes térmicas usam densidade e sombras ajustadas para dispositivos móveis; correntes em diferentes regiões permitem subir até a termosfera.
-- Adicionado HUD de altitude/corrente de ar, transições visuais pelas camadas atmosféricas e voo livre no espaço com controle vertical.
-- Sol, Lua e planetas aparecem em um sistema solar navegável; as órbitas usam escala comprimida e cada planeta informa sua distância real em AU.
-- A sincronização online aceita a nova área, altitude e velocidade de voo sem ampliar os limites dos objetos do laboratório para o espaço.
-
 ## [v0.9.40] — 2026-11-17
 ### 🧊 Conservação de Culturas e Vapor da Panela
 - O vapor da fervura sem tampa sai da boca da panela; a válvula só libera vapor quando a tampa está encaixada.

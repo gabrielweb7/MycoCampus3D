@@ -3,18 +3,12 @@
  */
 import { snowableEntries, getTextures } from './textures.js';
 import { stepRainbow } from './rainbow.js';
-import { GAME_CONFIG } from '../core/config.js';
-import { terrainHeight } from './terrain-profile.js';
 
 const THREE = window.THREE;
 
 const _cSkyDay = new THREE.Color(0x60a5fa);
 const _cSkySunset = new THREE.Color(0xf97316);
 const _cSkyNight = new THREE.Color(0x0b132b);
-const _cSkyUpper = new THREE.Color(0x1e3a8a);
-const _cSkyNearSpace = new THREE.Color(0x0b1020);
-const _cSkyThermosphere = new THREE.Color(0x060a14);
-const _cSkySpace = new THREE.Color(0x02030a);
 const _cSkyWork = new THREE.Color();
 const _cPartly = new THREE.Color(0x93c5fd);
 const _cOvercast = new THREE.Color(0x94a3b8);
@@ -37,10 +31,6 @@ export function updateDynamicEnvironment(dt, env) {
   const sunAngle = (dayFrac - 0.25) * Math.PI * 2;
   const sunY = Math.sin(sunAngle);
   const sunX = Math.cos(sunAngle);
-  const altitude = env.inFps ? Math.max(0, env.playerPos.y) : 0;
-  const centerX = env.inFps ? env.playerPos.x : env.camera.position.x;
-  const centerZ = env.inFps ? env.playerPos.z : env.camera.position.z;
-  const groundY = terrainHeight(centerX, centerZ);
 
   const wCycle = (Date.now() / 1000) % 450;
   let weatherMode = 'clear';
@@ -73,50 +63,13 @@ export function updateDynamicEnvironment(dt, env) {
   if (weatherMode === 'overcast') skyCol.lerp(_cOvercast, 0.45);
   if (weatherMode === 'rain') skyCol.lerp(_cRain, 0.65);
   if (weatherMode === 'snow') skyCol.lerp(_cSnow, 0.5);
-  if (altitude > 0) {
-    if (altitude < GAME_CONFIG.atmosphere.stratosphere) {
-      skyCol.lerp(_cSkyUpper, altitude / GAME_CONFIG.atmosphere.stratosphere);
-    } else if (altitude < GAME_CONFIG.atmosphere.mesosphere) {
-      _cSkyWork.copy(_cSkyUpper).lerp(
-        _cSkyNearSpace,
-        (altitude - GAME_CONFIG.atmosphere.stratosphere)
-          / (GAME_CONFIG.atmosphere.mesosphere - GAME_CONFIG.atmosphere.stratosphere)
-      );
-      skyCol.copy(_cSkyWork);
-    } else if (altitude < GAME_CONFIG.atmosphere.thermosphere) {
-      _cSkyWork.copy(_cSkyNearSpace).lerp(
-        _cSkyThermosphere,
-        (altitude - GAME_CONFIG.atmosphere.mesosphere)
-          / (GAME_CONFIG.atmosphere.thermosphere - GAME_CONFIG.atmosphere.mesosphere)
-      );
-      skyCol.copy(_cSkyWork);
-    } else if (altitude < GAME_CONFIG.atmosphere.spaceAltitude) {
-      _cSkyWork.copy(_cSkyThermosphere).lerp(
-        _cSkySpace,
-        (altitude - GAME_CONFIG.atmosphere.thermosphere)
-          / (GAME_CONFIG.atmosphere.spaceAltitude - GAME_CONFIG.atmosphere.thermosphere)
-      );
-      skyCol.copy(_cSkyWork);
-    } else {
-      skyCol.copy(_cSkySpace);
-    }
-  }
   env.scene.background.copy(skyCol);
-  if (env.scene.fog) {
-    env.scene.fog.color.copy(skyCol);
-    env.scene.fog.density = altitude < GAME_CONFIG.atmosphere.stratosphere
-      ? 0.0011 - (altitude / GAME_CONFIG.atmosphere.stratosphere) * 0.00095
-      : (altitude < GAME_CONFIG.atmosphere.spaceAltitude
-        ? 0.00015 - ((altitude - GAME_CONFIG.atmosphere.stratosphere)
-          / (GAME_CONFIG.atmosphere.spaceAltitude - GAME_CONFIG.atmosphere.stratosphere)) * 0.00014
-        : 0.00001);
-  }
+  if (env.scene.fog) env.scene.fog.color.copy(skyCol);
 
   if (env.sunDisc && env.sunHalo) {
-    env.sunDisc.position.set(centerX + sunX * 165, env.camera.position.y + sunY * 145, centerZ - 45);
+    env.sunDisc.position.set(sunX * 165, sunY * 145, -45);
     env.sunHalo.position.copy(env.sunDisc.position);
-    const sunVis = altitude < GAME_CONFIG.atmosphere.spaceTransitionAltitude
-      && sunY > -0.08 && weatherMode !== 'rain';
+    const sunVis = sunY > -0.08 && weatherMode !== 'rain';
     env.sunDisc.visible = sunVis;
     env.sunHalo.visible = sunVis;
     const sunOrbCol = sunY < 0.22 ? 0xfb923c : 0xfef08a;
@@ -125,21 +78,17 @@ export function updateDynamicEnvironment(dt, env) {
     env.sunHalo.material.opacity = weatherMode === 'overcast' ? 0.16 : 0.36;
   }
   if (env.moonDisc) {
-    env.moonDisc.position.set(centerX - sunX * 165, env.camera.position.y - sunY * 145, centerZ - 45);
-    env.moonDisc.visible = altitude < GAME_CONFIG.atmosphere.spaceTransitionAltitude && sunY < 0.08;
+    env.moonDisc.position.set(-sunX * 165, -sunY * 145, -45);
+    env.moonDisc.visible = sunY < 0.08;
   }
   if (env.starPoints) {
-    env.starPoints.position.copy(env.camera.position);
-    const nightStarOp = Math.max(0, Math.min(0.9, (-sunY - 0.02) * 2.4))
-      * (weatherMode === 'rain' || weatherMode === 'overcast' ? 0.2 : 1);
-    const spaceStarOp = Math.min(0.95, Math.max(0, (altitude - 30000) / 70000));
-    const starOp = Math.max(nightStarOp, spaceStarOp);
+    const starOp = Math.max(0, Math.min(0.9, (-sunY - 0.02) * 2.4)) * (weatherMode === 'rain' || weatherMode === 'overcast' ? 0.2 : 1);
     env.starPoints.visible = starOp > 0.02;
     env.starPoints.material.opacity = starOp;
   }
 
   if (env.envSun) {
-    env.envSun.position.set(centerX + sunX * 75, env.camera.position.y + Math.max(8, sunY * 75 + 12), centerZ + 38);
+    env.envSun.position.set(sunX * 75, Math.max(8, sunY * 75 + 12), 38);
     if (sunY > 0.22) env.envSun.color.copy(_cSunDay);
     else if (sunY > -0.15) env.envSun.color.copy(_cSunSet);
     else env.envSun.color.copy(_cSunNight);
@@ -162,14 +111,9 @@ export function updateDynamicEnvironment(dt, env) {
     }
   }
   for (let ci = 0; ci < env.envClouds.length; ci++) {
-    const angle = (ci / env.envClouds.length) * Math.PI * 2 + env.envTime * cloudSpeed * 0.006;
-    const radius = 55 + (ci % 4) * 24;
-    env.envClouds[ci].visible = ci < targetClouds && altitude < 14000;
-    env.envClouds[ci].position.set(
-      centerX + Math.cos(angle) * radius,
-      groundY + 30 + (ci % 5) * 4.5,
-      centerZ + Math.sin(angle) * radius
-    );
+    env.envClouds[ci].visible = ci < targetClouds;
+    env.envClouds[ci].position.x += dt * cloudSpeed * (0.8 + (ci % 3) * 0.25);
+    if (env.envClouds[ci].position.x > 155) env.envClouds[ci].position.x = -155;
   }
 
   if (env.terrainSnowMat) {
@@ -185,36 +129,30 @@ export function updateDynamicEnvironment(dt, env) {
 
   if (env.weatherPoints && env.weatherPosAttr) {
     const particleCount = env.weatherPoints.geometry.drawRange.count;
-    env.weatherPoints.position.set(centerX, groundY, centerZ);
-    env.weatherPoints.visible = particleCount > 0
-      && altitude < 12000
-      && (weatherMode === 'rain' || weatherMode === 'snow');
+    env.weatherPoints.visible = particleCount > 0 && (weatherMode === 'rain' || weatherMode === 'snow');
     if (env.weatherPoints.visible) {
       env.weatherPoints.material.color.setHex(weatherMode === 'rain' ? 0x93c5fd : 0xffffff);
       env.weatherPoints.material.size = weatherMode === 'rain' ? 0.16 : 0.24;
       const arr = env.weatherPosAttr.array;
       const fallSpeed = weatherMode === 'rain' ? 24 : 3.2;
       const drift = weatherMode === 'rain' ? 2.5 : Math.sin(env.envTime * 1.5) * 1.2;
+      const cx = env.inFps ? env.playerPos.x : env.camera.position.x;
+      const cz = env.inFps ? env.playerPos.z : env.camera.position.z;
       for (let p = 0; p < particleCount * 3; p += 3) {
         arr[p] += drift * dt;
         arr[p + 1] -= fallSpeed * dt;
-        const worldX = centerX + arr[p];
-        const worldY = groundY + arr[p + 1];
-        const worldZ = centerZ + arr[p + 2];
         let hitRoof = false;
         for (let rz = 0; rz < env.roofZones.length; rz++) {
           const zBox = env.roofZones[rz];
-          if (worldX >= zBox.minX && worldX <= zBox.maxX
-            && worldZ >= zBox.minZ && worldZ <= zBox.maxZ
-            && worldY <= zBox.roofY + 0.25) {
+          if (arr[p] >= zBox.minX && arr[p] <= zBox.maxX && arr[p + 2] >= zBox.minZ && arr[p + 2] <= zBox.maxZ && arr[p + 1] <= zBox.roofY + 0.25) {
             hitRoof = true;
             break;
           }
         }
         if (hitRoof || arr[p + 1] < 0) {
-          arr[p] = (Math.random() - 0.5) * 55;
+          arr[p] = cx + (Math.random() - 0.5) * 55;
           arr[p + 1] = 24 + Math.random() * 8;
-          arr[p + 2] = (Math.random() - 0.5) * 55;
+          arr[p + 2] = cz + (Math.random() - 0.5) * 55;
         }
       }
       env.weatherPosAttr.needsUpdate = true;

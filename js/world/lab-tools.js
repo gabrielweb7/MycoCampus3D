@@ -59,7 +59,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   createBanner(scene, -13.85, 5.1, -2.4, Math.PI / 2, '#1d4ed8', '🧬');
   createBanner(scene, -13.85, 5.1, 12.6, Math.PI / 2, '#d97706', '📦');
 
-  // Bancada fixa: capela, preparo de meios e trabalho asséptico.
+  // Bancadas, Estante e Capela de Fluxo Laminar
   buildLaminarHoodAndBenches(ctx);
 
   // Autoclave, Base Perfurada & Fogareiro
@@ -70,17 +70,18 @@ export function buildCampusWingsAndEquipment(ctx) {
 
   // Pia Inox com Torneira + Garrafao 5L Agua Destilada
   buildLabSink(ctx, -23.15, 1.02, -10.8);
-  makeDistilledJug5L(ctx, 'distilled_jug_5l', -22.15, 1.02, -12.3, 5000);
-  makeCultureFridge(ctx, 'culture_fridge_lab', -15.1, 0.12, -9.7);
+  makeDistilledJug5L(ctx, 'distilled_jug_5l', -21.95, 1.02, -11.9, 5000);
+  makeCultureFridge(ctx, 'culture_fridge_lab', -15.55, 0.12, -10.7);
 
-  // Materiais assépticos ficam na bancada fixa, à direita da capela.
-  registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -16.55, 1.02, -11.45, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
-  registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -15.55, 1.02, -11.45, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('contam'));
+  // Mesa de Cultura Liquida & Placas de Petri
+  addMovableStainlessTable(ctx, 'table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);
+  registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.3, 1.065, -8.6, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
+  registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 1.065, -7.8, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('contam'));
   registerPickable(ctx, 'petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
 
   // Frasco PDA 500g
   const pdaGroup = createPdaBottleGroup();
-  const pdaBottle = registerPickable(ctx, 'pda_bottle', 'Pó desidratado BDA/PDA 500g', pdaGroup, -22.15, 1.02, -11.45, 0, 0.15, 0.34, PDA_BOTTLE_META);
+  const pdaBottle = registerPickable(ctx, 'pda_bottle', 'Pó desidratado BDA/PDA 500g', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.34, PDA_BOTTLE_META);
   attachPdaReagentCtrl(pdaBottle);
 
   // Spawn, Balanca, Borrifador & Seladora
@@ -94,43 +95,43 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeAlcoholSprayBottle(ctx, 'alcohol_spray', -23.1, 1.02, -7.1);
   createHeatSealer(ctx, 'heat_sealer', -23.1, 1.02, -6.2);
 
-  // Estacao de preparo de meios e cultura liquida na bancada fixa.
-  makeMagneticStirrer(ctx, 'magnetic_stirrer', -21.65, 1.02, -11.75);
-  makeLiquidJar800(ctx, 'liquid_culture', -21.65, 1.125, -11.79, 350);
-  makePdaMediaBottle1L(ctx, 'pda_media_bottle_1l', -22.0, 1.02, -11.8);
-  const beakerA = makeBeaker1L(ctx, 'beaker_1l_a', -21.10, 1.02, -11.8, 0);
-  const beakerB = makeBeaker1L(ctx, 'beaker_1l_b', -20.75, 1.02, -11.8, 500);
+  // Agitador, Cultura Liquida, Bequeres, Bandejas, Seringas & Termometro
+  makeMagneticStirrer(ctx, 'magnetic_stirrer', -20.95, 0.91, -10.55);
+  makeLiquidJar800(ctx, 'liquid_culture', -20.95, 1.015, -10.59, 350);
+  makePdaMediaBottle1L(ctx, 'pda_media_bottle_1l', -21.30, 0.91, -10.55);
+  const beakerA = makeBeaker1L(ctx, 'beaker_1l_a', -20.42, 0.91, -10.55, 0);
+  const beakerB = makeBeaker1L(ctx, 'beaker_1l_b', -20.08, 0.91, -10.55, 500);
   attachPdaMediumCtrl(beakerA, 'beaker', false);
   attachPdaMediumCtrl(beakerB, 'beaker', false);
-  makeLabTray(ctx, 'lab_tray_01', 'Bandeja Inox Cirúrgica', -20.75, 1.02, -11.3);
-  makeLabTray(ctx, 'lab_tray_02', 'Bandeja Inox (Fluxo)', -16.0, 1.02, -12.2);
-  makeLabTray(ctx, 'lab_tray_03', 'Bandeja Inox (Preparo)', -21.45, 1.02, -12.3);
-  makeSyringe10ml(ctx, 'syringe_10ml_a', -20.25, 1.028, -12.25);
-  makeSyringe10ml(ctx, 'syringe_10ml_b', -20.25, 1.028, -12.05);
-  makeInfraredThermometer(ctx, 'infrared_thermometer', -20.75, 1.02, -12.3);
+  makeLabTray(ctx, 'lab_tray_01', 'Bandeja Inox Cirúrgica', -19.70, 0.91, -10.57);
+  makeLabTray(ctx, 'lab_tray_02', 'Bandeja Inox (Fluxo)', -18.30, 1.065, -8.20);
+  makeLabTray(ctx, 'lab_tray_03', 'Bandeja Inox (Preparo)', -20.42, 0.91, -10.18);
+  makeSyringe10ml(ctx, 'syringe_10ml_a', -19.70, 0.918, -10.50);
+  makeSyringe10ml(ctx, 'syringe_10ml_b', -19.70, 0.918, -10.64);
+  makeInfraredThermometer(ctx, 'infrared_thermometer', -20.0, 0.91, -10.2);
 
   // Estante azul + Tubos Falcon 15ml (azul) e 50ml (laranja)
-  makeFalconRack(ctx, -20.0, 1.02, -11.55);
-  const falcon15a = makeFalconTube(ctx, 'falcon_15ml_01', 15, -20.06, 1.03, -11.59, 0);
-  const falcon15b = makeFalconTube(ctx, 'falcon_15ml_02', 15, -20.01, 1.03, -11.59, 10);
-  const falcon15c = makeFalconTube(ctx, 'falcon_15ml_03', 15, -19.96, 1.03, -11.59, 0);
-  const falcon15d = makeFalconTube(ctx, 'falcon_15ml_04', 15, -19.91, 1.03, -11.59, 0);
-  const falcon50a = makeFalconTube(ctx, 'falcon_50ml_01', 50, -20.05, 1.03, -11.5, 0);
-  const falcon50b = makeFalconTube(ctx, 'falcon_50ml_02', 50, -19.95, 1.03, -11.5, 35);
+  makeFalconRack(ctx, -19.25, 0.91, -10.35);
+  const falcon15a = makeFalconTube(ctx, 'falcon_15ml_01', 15, -19.31, 0.92, -10.39, 0);
+  const falcon15b = makeFalconTube(ctx, 'falcon_15ml_02', 15, -19.26, 0.92, -10.39, 10);
+  const falcon15c = makeFalconTube(ctx, 'falcon_15ml_03', 15, -19.21, 0.92, -10.39, 0);
+  const falcon15d = makeFalconTube(ctx, 'falcon_15ml_04', 15, -19.16, 0.92, -10.39, 0);
+  const falcon50a = makeFalconTube(ctx, 'falcon_50ml_01', 50, -19.30, 0.92, -10.30, 0);
+  const falcon50b = makeFalconTube(ctx, 'falcon_50ml_02', 50, -19.20, 0.92, -10.30, 35);
   [falcon15a, falcon15b, falcon15c, falcon15d].forEach((item) => attachPdaMediumCtrl(item, 'falcon', true));
   [falcon50a, falcon50b].forEach((item) => attachPdaMediumCtrl(item, 'falcon', false));
 
-  // Bisturi, laminas e PP5 ficam na area asséptica a direita da capela.
-  makeScalpel(ctx, 'scalpel_01', -15.1, 1.02, -12.2);
+  // Bisturi Inox, Saches de Lamina #24, Flocao de Milho 500g e Potinhos PP5 145ml
+  makeScalpel(ctx, 'scalpel_01', -18.25, 1.065, -8.90);
   for (let bpi = 0; bpi < 4; bpi++) {
-    makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi + 1), -15.35 + bpi * 0.04, 1.02, -12.2);
+    makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi + 1), -18.12 + bpi * 0.04, 1.065, -8.92);
   }
   makeFlocao500g(ctx, 'flocao_500g_01', -23.10, 1.02, -5.30);
   makeFlocao500g(ctx, 'flocao_500g_02', -23.10, 1.02, -5.05);
   for (let ppIdx = 0; ppIdx < 8; ppIdx++) {
     const ppRow = Math.floor(ppIdx / 4);
     const ppCol = ppIdx % 4;
-    makePP5Cup145ml(ctx, 'pp5_cup_' + pad2(ppIdx + 1), false, -17.05 + ppCol * 0.12, 1.02, -12.35 + ppRow * 0.35);
+    makePP5Cup145ml(ctx, 'pp5_cup_' + pad2(ppIdx + 1), false, -18.18 + ppCol * 0.12, 1.065, -7.45 + ppRow * 0.12);
   }
 
   // Estantes Porta-Pallet & Estoque do Deposito

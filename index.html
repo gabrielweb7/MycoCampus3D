@@ -391,7 +391,7 @@
       <div id="lobby-stats" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
         Conectando ao servidor da Universidade...
       </div>
-      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.9.43</span> •
+      <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version">v0.9.7</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -446,22 +446,6 @@
       WASD anda • Shift corre • Espaço pula • R gira • Clique interage
     </div>
 
-    <div id="flight-hud"
-      class="hidden fixed top-28 right-3 z-30 glass-panel rounded-xl px-3 py-2 text-xs text-white min-w-[164px]">
-      <div class="flex items-center justify-between gap-4">
-        <span class="text-sky-200 font-bold">ALTITUDE</span>
-        <span id="flight-hud-altitude" class="font-extrabold tabular-nums">0 m</span>
-      </div>
-      <div class="mt-1 flex items-center justify-between gap-4">
-        <span id="flight-hud-layer" class="text-slate-300">Troposfera</span>
-        <span id="flight-hud-wind" class="text-cyan-200">0 m/s</span>
-      </div>
-      <div id="flight-hud-space" class="hidden mt-2 border-t border-slate-600 pt-2 text-[10px] leading-relaxed text-amber-200">
-        Espaço: WASD voa • Shift acelera • Espaço sobe • Ctrl/joystick ↓ desce
-        <div class="mt-1 text-slate-300">Planetas em escala orbital comprimida; distâncias reais em AU.</div>
-      </div>
-    </div>
-
     <!-- Interaction Prompt Pill -->
     <div id="interact-pill"
       class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40">
@@ -505,8 +489,8 @@
     <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
     <button id="btn-mobile-place" type="button" class="touch-btn" title="Posicionar item" style="display:none">📦</button>
     <button id="btn-mobile-action" type="button" class="touch-btn" title="Ação" style="display:none">🧽</button>
-    <button id="btn-mobile-sprint" type="button" class="touch-btn" title="Correr / impulsionar no espaço">🏃</button>
-    <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular / subir no espaço">⬆️</button>
+    <button id="btn-mobile-sprint" type="button" class="touch-btn" title="Correr">🏃</button>
+    <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular">⬆️</button>
   </div>
 
   <!-- LAB GUIDE -->
@@ -692,10 +676,10 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.9.43';</script>
+  <script>window.MYCO_VERSION = '0.9.40';</script>
   <script src="js/vendor/three.min.js?v=r128"></script>
   <script src="js/vendor/OrbitControls.js?v=r128"></script>
-  <script type="module" src="js/main.js?v=0.9.43"></script>
+  <script type="module" src="js/main.js?v=0.9.40"></script>
 </body>
 
 </html>

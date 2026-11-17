@@ -55,44 +55,23 @@ export function buildThermalColumns(ctx) {
     { x: 70, z: -125 },
     { x: 0, z: -72 },
     { x: -105, z: 12 },
-    { x: 105, z: 12 },
-    { x: 0, z: -390 },
-    { x: -310, z: -520 },
-    { x: 340, z: -500 },
-    { x: 690, z: 130 },
-    { x: -650, z: 280 },
-    { x: 470, z: 640 },
-    { x: -410, z: 700 },
-    { x: -790, z: -610 },
-    { x: 860, z: -330 },
-    { x: 70, z: 820 }
+    { x: 105, z: 12 }
   ];
-  var isTouch = ctx.isTouchDevice ? ctx.isTouchDevice() : false;
   var ringMat = new THREE.MeshBasicMaterial({
     color: 0x67e8f9, transparent: true, opacity: 0.24, side: THREE.DoubleSide, depthWrite: false
   });
-  var ringGeometry = new THREE.RingGeometry(4.2, 5, 20);
-  var ringOffsets = [0, 35, 110, 260, 1000, 6000, 22000, 60000, 100000];
-  spots.forEach(function (sp, spotIndex) {
-    if (isTouch && spotIndex % 2 !== 0) return;
+  spots.forEach(function (sp) {
     var baseY = terrainHeight(sp.x, sp.z);
-    var ringMesh = new THREE.InstancedMesh(
-      ringGeometry,
-      ringMat,
-      ringOffsets.length
-    );
-    ringMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    ringMesh.userData.ignoreRay = true;
-    ringMesh.frustumCulled = false;
-    ctx.scene.add(ringMesh);
-    ctx.thermalColumns.push({
-      x: sp.x,
-      z: sp.z,
-      baseY: baseY,
-      maxH: 110000,
-      radius: isTouch ? 68 : 82,
-      ringMesh: ringMesh,
-      ringOffsets: ringOffsets
-    });
+    var rings = [];
+    for (var r = 0; r < 6; r++) {
+      var radius = 4.5 + r * 0.9;
+      var rm = new THREE.Mesh(new THREE.RingGeometry(radius - 0.35, radius, 28), ringMat);
+      rm.rotation.x = -Math.PI / 2;
+      rm.position.set(sp.x, baseY + 3 + r * 14, sp.z);
+      rm.userData.ignoreRay = true;
+      ctx.scene.add(rm);
+      rings.push({ mesh: rm, offset: r * 14 });
+    }
+    ctx.thermalColumns.push({ x: sp.x, z: sp.z, baseY: baseY, maxH: 118, radius: 13, rings: rings });
   });
 }

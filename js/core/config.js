@@ -16,33 +16,20 @@ export const GAME_CONFIG = Object.freeze({
     gravity: 16.5,
     coyoteTimeMs: 150,
     jumpBufferMs: 150,
-    worldBound: 1000,
-    spaceBound: 32000
+    worldBound: 210
   },
   vehicles: {
     snowboardMaxSpeed: 26.0,
     paragliderFastSpeed: 15.0,
     paragliderCruiseSpeed: 11.2,
     paragliderBrakeSpeed: 4.2,
-    thermalLiftVelocity: 8.5,
-    spaceCruiseSpeed: 125,
-    spaceBoostSpeed: 260,
-    spaceVerticalSpeed: 90
-  },
-  atmosphere: {
-    stratosphere: 12000,
-    mesosphere: 50000,
-    thermosphere: 85000,
-    spaceTransitionAltitude: 75000,
-    spaceAltitude: 100000,
-    spaceAltitudeLimit: 120000,
-    solarSystemHeight: 100000
+    thermalLiftVelocity: 8.5
   },
   camera: {
     fov: 62,
     near: 0.1,
-    farDesktop: 1800,
-    farTouch: 1100,
+    farDesktop: 440,
+    farTouch: 210,
     touchShadowSize: 768,
     desktopShadowSize: 1536
   },

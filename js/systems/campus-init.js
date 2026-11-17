@@ -9,8 +9,6 @@ import { getInitialQualityTier } from '../core/quality.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
-import { buildWildlands } from '../world/wildlands.js';
-import { buildSolarSystem } from '../world/solar-system.js';
 import { buildStaircaseAndBridge, buildClockTowerAndAuditorium } from '../world/staircase-clock.js';
 import { registerPickable } from '../items/item-registry.js';
 import { buildCampusWingsAndEquipment } from '../world/lab-tools.js';
@@ -66,12 +64,6 @@ const sim = {
   tourTime: 0,
   inFps: false,
   playerPos: new THREE.Vector3(0, 0, 14.5),
-  flightHud: null,
-  flightHudAltitude: null,
-  flightHudLayer: null,
-  flightHudWind: null,
-  flightHudSpaceHint: null,
-  lastFlightHudUpdate: 0,
   playerVelX: 0,
   playerVelZ: 0,
   playerVelY: 0,
@@ -220,7 +212,6 @@ const sim = {
   sunHalo: null,
   moonDisc: null,
   starPoints: null,
-  solarSystemGroup: null,
   envTime: 14,
   weatherPoints: null,
   weatherPosAttr: null,
@@ -355,7 +346,6 @@ sim.entityCtx = {
   get supportSurfaces() { return sim.supportSurfaces; },
   get wallSegments() { return sim.wallSegments; },
   get thermalColumns() { return sim.thermalColumns; },
-  isTouchDevice: sim.isTouchDevice,
   get recentlyDropped() { return sim.recentlyDropped; },
   get pendingMovedItems() { return sim.pendingMovedItems; },
   get physCtx() { return sim.physCtx; },
@@ -451,16 +441,10 @@ export function triggerCampusRainbow(dur) {
 export function initCampus3D(containerId, cbs) {
   return logger.tryCall('campus-init', function () {
     sim.callbacks = Object.assign(sim.callbacks, cbs || {});
-    sim.flightHud = document.getElementById('flight-hud');
-    sim.flightHudAltitude = document.getElementById('flight-hud-altitude');
-    sim.flightHudLayer = document.getElementById('flight-hud-layer');
-    sim.flightHudWind = document.getElementById('flight-hud-wind');
-    sim.flightHudSpaceHint = document.getElementById('flight-hud-space');
     const container = document.getElementById(containerId);
     sim.scene = new THREE.Scene();
     sim.scene.background = new THREE.Color(0x60a5fa);
-    sim.scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0011);
-    sim.solarSystemGroup = buildSolarSystem(sim.scene);
+    sim.scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0022);
 
     sim.rainbowMesh = createRainbowMesh();
     sim.scene.add(sim.rainbowMesh);
@@ -483,9 +467,9 @@ export function initCampus3D(containerId, cbs) {
     const starPos = new Float32Array(starCount * 3);
     for (let st = 0; st < starCount; st++) {
       const sTheta = Math.random() * Math.PI * 2;
-      const sPhi = Math.asin(Math.random() * 2 - 1);
+      const sPhi = Math.random() * Math.PI * 0.44;
       starPos[st * 3] = Math.cos(sTheta) * Math.cos(sPhi) * 210;
-      starPos[st * 3 + 1] = Math.sin(sPhi) * 210;
+      starPos[st * 3 + 1] = Math.sin(sPhi) * 210 + 18;
       starPos[st * 3 + 2] = Math.sin(sTheta) * Math.cos(sPhi) * 210;
     }
     const starGeo = new THREE.BufferGeometry();
@@ -573,7 +557,6 @@ export function initCampus3D(containerId, cbs) {
 
     const wbCtx = getWorldBuilderCtx();
     buildNatureWorld(wbCtx);
-    buildWildlands(sim.scene);
     buildPlaza(wbCtx);
     buildStaircaseAndBridge(wbCtx);
     buildClockTowerAndAuditorium(wbCtx);
