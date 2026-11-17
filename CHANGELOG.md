@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.46] — 2026-11-17
+### 🎯 Menu Radial Contextual (PC & Mobile)
+- **Novo Menu Radial (`js/ui/radial-menu.js`):** Pressionando **`F`** no PC ou tocando no botão **`⚙️`** no Mobile, abre um menu radial translúcido ao redor da mira com ações contextuais rápidas para o item em mãos ou alvo mirado:
+  - **Panela de Pressão:** Retirar tampa, alternar Esterilizar/Pasteurizar, verificar nível de água/base e drenar excesso direto para o ideal (`3.4L` / +0,5cm da base).
+  - **Placas Petri / Spawn / Líquidos / PDA:** Pegar, abrir/fechar tampa, posicionar/soltar e inspecionar estado completo (substrato, receita 40g/L, colonização %, validade, higienização).
+  - **Queimadores & Geladeira:** Mudar ou desligar chama rapidamente; abrir/fechar geladeira e ver vagas ocupadas.
+
 ## [v0.9.45] — 2026-11-17
 ### 🧪 Borrifador 3x Universal, Panela com Base & Nível Ideal de Água, Bandeja e Empilhamento de PP5
 - **Borrifador Álcool 70% (`js/items/alcohol-spray.js`, `held-item-loop.js`, `hover-raycaster.js`):**

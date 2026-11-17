@@ -25,6 +25,15 @@ export function bindControls(ctx) {
         ctx.heldRotY = (ctx.heldRotY || 0) + (e.shiftKey ? -Math.PI / 4 : Math.PI / 4);
       }
     }
+    if (e.code === 'KeyF' && window.openCampusRadialMenu) {
+      e.preventDefault();
+      window.openCampusRadialMenu();
+    }
+    if (e.code === 'Escape' && window.isCampusRadialMenuOpen && window.isCampusRadialMenuOpen()) {
+      e.preventDefault();
+      window.closeCampusRadialMenu();
+      return;
+    }
     if (e.code === 'Escape' && ctx.placementMode) {
       e.preventDefault();
       ctx.cancelHeldItemPlacement();
