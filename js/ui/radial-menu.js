@@ -36,6 +36,10 @@ function ensureFloatingStyles() {
       gap: 6px;
       max-width: 92vw;
       pointer-events: auto;
+      transition: bottom 0.18s ease;
+    }
+    #myco-floating-actions.with-held-item {
+      bottom: calc(118px + env(safe-area-inset-bottom, 0px));
     }
     #myco-floating-actions.hidden { display: none; }
     .myco-float-chip {
@@ -90,54 +94,84 @@ function ensureFloatingStyles() {
   document.head.appendChild(st);
 }
 
-function inspectItemToast(ctx, item) {
-  if (!item || !ctx.callbacks || !ctx.callbacks.onToast) return;
-  const parts = ['🔍 ' + item.label];
+let _statusDismissTimeout = null;
+
+export function showItemStatusCard(item, ctx) {
+  if (!item) return;
+  const card = document.getElementById('item-status-card');
+  const titleEl = document.getElementById('item-status-title');
+  const iconEl = document.getElementById('item-status-icon');
+  const bodyEl = document.getElementById('item-status-body');
+  if (!card || !bodyEl) return;
+
+  const title = item.label || 'Item';
+  const icon = (item.meta && item.meta.icon) || (item.mesh && item.mesh.userData && item.mesh.userData.isTray ? '📥' : '🔍');
+  if (titleEl) titleEl.textContent = title;
+  if (iconEl) iconEl.textContent = icon;
+
+  const chips = [];
   const san = getSanitizationStatus(item, ctx);
-  if (san.alcoholWet) parts.push('🧻 Álcool aplicado (falta secar)');
-  else if (san.isSanitized) parts.push('✨ Desinfectado (' + san.remainingSec + 's)');
+  if (san.alcoholWet) chips.push({ icon: '🧻', text: 'Álcool 70% Aplicado (Aguardando Secagem)', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+  else if (san.isSanitized) chips.push({ icon: '✨', text: 'Desinfectado (' + san.remainingSec + 's)', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+  else chips.push({ icon: '⚠️', text: 'Não Desinfectado', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
 
   const petri = item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (petri) {
-    parts.push('Modo: ' + petri.mode);
-    parts.push(petri.sterilized ? 'Estéril ✅' : 'Não estéril');
-    if (petri.inoculated) parts.push('Colonização: ' + Math.round(petri.colonization || 0) + '%');
-    if (petri.expired) parts.push('⏰ Vencida');
+    chips.push({ icon: petri.lidOpen ? '⚠️' : '✅', text: petri.lidOpen ? 'Tampa Aberta' : 'Tampa Fechada', color: petri.lidOpen ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+    chips.push({ icon: petri.sterilized ? '✅' : '⚠️', text: petri.sterilized ? 'Estéril' : 'Não Estéril', color: petri.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
+    if (petri.parafilmSealed) chips.push({ icon: '🎞️', text: 'Vedada (Parafilm M)', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
+    if (petri.inoculated) chips.push({ icon: '🍄', text: 'Colonização ' + Math.round(petri.colonization || 0) + '%', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+    if (petri.contaminated) chips.push({ icon: '🦠', text: 'CONTAMINADA', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+    if (petri.expired) chips.push({ icon: '⏰', text: 'Vencida', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
   }
 
   const sp = item.spawnCtrl;
   if (sp) {
     if (sp.filled) {
-      parts.push('Substrato: ' + (sp.substrateKind || 'N/A'));
-      if (sp.waterMl) parts.push('Água: ' + sp.waterMl + 'ml');
-      parts.push(sp.sterilized ? 'Estéril ✅' : 'Não estéril');
-      if (sp.inoculated) parts.push('Colonização: ' + Math.round(sp.colonization || 0) + '%');
-      if (sp.burned) parts.push('🔥 Queimado');
-      if (sp.contaminated) parts.push('🦠 Contaminado');
-      if (sp.expired) parts.push('⏰ Vencido');
+      chips.push({ icon: '🌾', text: 'Substrato: ' + (sp.substrateKind || 'Grãos'), color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+      if (sp.waterMl) chips.push({ icon: '💧', text: sp.waterMl + ' ml H₂O', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
+      chips.push({ icon: sp.sterilized ? '✅' : '⚠️', text: sp.sterilized ? 'Esterilizado' : 'Não Esterilizado', color: sp.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
+      if (sp.inoculated) chips.push({ icon: '🍄', text: 'Colonização ' + Math.round(sp.colonization || 0) + '%', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+      if (sp.contaminated) chips.push({ icon: '🦠', text: 'CONTAMINADO', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
     } else {
-      parts.push('Vazio');
+      chips.push({ icon: '📦', text: 'Recipiente Vazio', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
     }
   }
 
   const lc = item.mesh && item.mesh.userData && item.mesh.userData.liquidCtrl;
-  if (lc) parts.push('Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + 'ml');
+  if (lc) chips.push({ icon: '💧', text: 'Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + ' ml', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
 
   const med = item.pdaMediumCtrl;
   if (med) {
-    parts.push('Pó PDA: ' + (med.powderGrams || 0) + 'g');
-    if (med.mixed) {
-      const bal = lc ? isPdaRecipeBalanced(med, lc.volMl) : false;
-      parts.push(bal ? 'Receita 40g/L ✅' : 'Receita desbalanceada ⚠️');
-    }
-    if (med.sterilized) parts.push('Esterilizado ✅');
-    if (med.burned) parts.push('🔥 Queimado');
+    chips.push({ icon: '🧪', text: 'Pó PDA: ' + (med.powderGrams || 0) + 'g', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' });
+    if (med.mixed) chips.push({ icon: '🌀', text: 'Misturado', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' });
+    chips.push({ icon: med.sterilized ? '✅' : '⏳', text: med.sterilized ? 'Esterilizado' : 'Pendente Esterilização', color: med.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
   }
 
-  if (item.meta && item.meta.purpose && parts.length === 1) {
-    parts.push(item.meta.purpose);
+  if (item.meta && item.meta.purpose && chips.length <= 1) {
+    chips.push({ icon: 'ℹ️', text: item.meta.purpose, color: 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
   }
-  ctx.callbacks.onToast(parts.join(' • '));
+
+  bodyEl.innerHTML = chips.map(c => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${c.color}">${c.icon} ${c.text}</span>`).join('');
+
+  card.classList.remove('hidden');
+
+  if (_statusDismissTimeout) clearTimeout(_statusDismissTimeout);
+  _statusDismissTimeout = setTimeout(() => {
+    card.classList.add('hidden');
+  }, 5000);
+}
+
+export function inspectItemToast(ctx, item) {
+  if (!item) return;
+  showItemStatusCard(item, ctx);
+  if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    const parts = ['🔍 ' + item.label];
+    const san = getSanitizationStatus(item, ctx);
+    if (san.alcoholWet) parts.push('🧻 Álcool (secar)');
+    else if (san.isSanitized) parts.push('✨ Desinfectado (' + san.remainingSec + 's)');
+    ctx.callbacks.onToast(parts.join(' • '));
+  }
 }
 
 function buildContextActions(ctx) {
@@ -281,21 +315,9 @@ function buildContextActions(ctx) {
     return actions;
   }
 
-  // 4. Item em maos
+  // 4. Ações especiais contextuais do item em mãos (sem poluir com chips estáticos que já estão na barra #held-item-bar)
   if (ctx.heldItem) {
     const held = ctx.heldItem;
-    actions.push({
-      id: 'held_place_' + held.id + '_' + (ctx.placementMode ? '1' : '0'),
-      icon: '📦',
-      label: ctx.placementMode ? 'Cancelar' : 'Posicionar (G/Q)',
-      run: () => ctx.toggleHeldItemPlacement()
-    });
-    actions.push({
-      id: 'held_drop_' + held.id,
-      icon: '⬇️',
-      label: 'Soltar',
-      run: () => dropHeldItem(ctx)
-    });
     if (held.mesh && held.mesh.userData && held.mesh.userData.isPetri) {
       actions.push({
         id: 'held_petri_lid_' + held.id,
@@ -304,12 +326,6 @@ function buildContextActions(ctx) {
         run: () => togglePetriLid(ctx, held)
       });
     }
-    actions.push({
-      id: 'held_inspect_' + held.id,
-      icon: '🔍',
-      label: 'Status',
-      run: () => inspectItemToast(ctx, held)
-    });
     return actions;
   }
 
@@ -334,6 +350,9 @@ export function syncFloatingActions(ctx) {
     return;
   }
 
+  if (barEl) {
+    barEl.classList.toggle('with-held-item', !!ctx.heldItem);
+  }
   const sig = actions.map((a) => a.id).join('|');
   currentActions = actions;
   if (sig === lastSignature && barEl && !barEl.classList.contains('hidden')) return;
@@ -345,6 +364,7 @@ export function syncFloatingActions(ctx) {
     barEl.id = 'myco-floating-actions';
     document.body.appendChild(barEl);
   }
+  barEl.classList.toggle('with-held-item', !!ctx.heldItem);
   barEl.classList.remove('hidden');
   barEl.replaceChildren();
 

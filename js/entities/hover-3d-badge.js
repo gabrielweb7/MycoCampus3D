@@ -210,6 +210,15 @@ export function updateHover3dBadge(badgeState, data, camera, now) {
     const dist = camera.position.distanceTo(badgeState.sprite.position);
     const s = Math.max(1.05, Math.min(2.5, dist * 0.38));
     badgeState.sprite.scale.set(s * 1.5, s * 0.53, 1);
+
+    // Evita que o crachá 3D projete atrás da barra de menu superior (#hud-top-bar)
+    // Projeta em coordenadas de tela NDC (-1 a +1)
+    const _proj = new THREE.Vector3().copy(badgeState.sprite.position).project(camera);
+    if (_proj.y > 0.42 && _proj.z < 1.0) {
+      // Rebaixa suavemente a altura 3D para manter o crachá abaixo da barra superior
+      const pullDown = (_proj.y - 0.42) * dist * 0.55;
+      badgeState.sprite.position.y -= pullDown;
+    }
   }
 
   badgeState.sprite.visible = true;

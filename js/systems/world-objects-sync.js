@@ -13,6 +13,7 @@ import { setPetriLidOpen, updatePetriVisual, PETRI_STACK_SPACING, PETRI_STACK_AL
 import { PP5_STACK_SPACING, PP5_STACK_ALIGNMENT_RADIUS } from '../items/pp5-cup.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
+import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 
 export function consumeCampusMovedItems(sim) {
   const pending = sim.pendingMovedItems;
@@ -80,6 +81,7 @@ function getReplicatedItemState(sim, item) {
       lidOpen: !!petri.lidOpen,
       sterilized: !!petri.sterilized,
       inoculated: !!petri.inoculated,
+      parafilmSealed: !!petri.parafilmSealed,
       inoculationMethod: petri.inoculationMethod === 'mycelium' ? 'mycelium' : (petri.inoculationMethod === 'liquid' ? 'liquid' : ''),
       colonization: Math.round((petri.colonization || 0) * 10) / 10,
       ageGameDays: Math.round((petri.ageGameDays || 0) * 10) / 10,
@@ -191,7 +193,7 @@ function applyReplicatedItemState(sim, item, state) {
     if (spawn.isPP5) {
       spawn.baseLabel = spawn.substrateKind === 'pda'
         ? 'Potinho PP5 145ml (PDA/BDA)'
-        : (spawn.filled ? 'Potinho PP5 145ml (FlocÃ£o)' : 'Potinho PP5 145ml Vazio');
+        : (spawn.filled ? 'Potinho PP5 145ml (Flocão)' : 'Potinho PP5 145ml Vazio');
     } else if (spawn.isBag) {
       spawn.baseLabel = spawn.filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio';
     } else {
@@ -199,7 +201,7 @@ function applyReplicatedItemState(sim, item, state) {
     }
     spawn.updateVisual ? spawn.updateVisual() : updateSpawnVisual(item);
     if (spawn.isPP5 && spawn.fillGrams > 0 && spawn.waterMl === 0 && !spawn.inoculated) {
-      item.label = 'Potinho PP5 145ml (FlocÃ£o seco â€¢ Adicione Ã¡gua)';
+      item.label = 'Potinho PP5 145ml (Flocão seco • Adicione água)';
     }
   }
 
@@ -209,7 +211,7 @@ function applyReplicatedItemState(sim, item, state) {
     const petri = meshData.petriCtrl;
     const incomingPetri = state.petri;
     petri.mode = incomingPetri.mode;
-    ['sterilized', 'inoculated', 'expired'].forEach(function (key) {
+    ['sterilized', 'inoculated', 'expired', 'parafilmSealed'].forEach(function (key) {
       if (typeof incomingPetri[key] === 'boolean') petri[key] = incomingPetri[key];
     });
     if (typeof incomingPetri.colonization === 'number' && Number.isFinite(incomingPetri.colonization)) {
@@ -482,9 +484,11 @@ export function resetCampusWorldObjects(sim) {
   sim.heldItem = null;
   sim.pendingMovedItems = {};
   sim.recentlyDropped = {};
+  sim.itemStateSignatures = {};
   for (let cpi = 0; cpi < sim.cookerPots.length; cpi++) {
     const cp = sim.cookerPots[cpi];
     cp.contents = [];
+    cp.waterMl = 0;
     cp.psi = 0;
     cp.temp = 25;
     cp.progress = 0;
@@ -500,6 +504,7 @@ export function resetCampusWorldObjects(sim) {
     if (cp.safetyPins) {
       for (let pni = 0; pni < cp.safetyPins.length; pni++) cp.safetyPins[pni].position.y = 0.110;
     }
+    updateCookerWaterVisual(cp);
   }
   sim.pickableItems.forEach(function (item) {
     item.mesh.position.copy(item.homePos);
@@ -507,6 +512,25 @@ export function resetCampusWorldObjects(sim) {
     if (item.potItem) item.isAttached = true;
     if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
     item.isMoved = false;
+    if (item.mesh.userData.syrCtrl) {
+      updateSyringeVolume(item, 0);
+    }
+    if (item.bowlCtrl) {
+      item.bowlCtrl.ingredients.flocao = 0;
+      item.bowlCtrl.ingredients.water = 0;
+      item.bowlCtrl.ingredients.corn = 0;
+      item.bowlCtrl.ingredients.sawdust = 0;
+      item.bowlCtrl.mixed = false;
+      item.bowlCtrl.stirCount = 0;
+      updateMixingBowlLabel(item);
+    }
+    if (item.scalpelCtrl) {
+      item.scalpelCtrl.hasBlade = true;
+      item.scalpelCtrl.sterile = true;
+      item.scalpelCtrl.hasMycelium = false;
+      if (item.scalpelCtrl.bladeMesh) item.scalpelCtrl.bladeMesh.visible = true;
+      updateScalpelLabel(item);
+    }
   });
   if (sim.callbacks.onHoldChange) sim.callbacks.onHoldChange(null);
 }

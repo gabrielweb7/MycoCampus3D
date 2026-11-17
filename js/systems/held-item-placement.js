@@ -4,20 +4,19 @@ import {
   isPlacementBlocked,
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
+import { hideHover3dBadge } from '../entities/hover-3d-badge.js';
+
+const _tmpCommitVec = new window.THREE.Vector3();
 
 export function setHeldTwoHandedGhost(item, active) {
-  if (!item || !item.mesh || !item.mesh.userData.twoHanded) return;
-  item.mesh.visible = !active;
+  if (!item || !item.mesh) return;
+  item.mesh.visible = true;
   if (item.lidItem) {
-    if (active && item.lidItem.isAttached) {
-      item.lidItem.mesh.visible = false;
-    } else if (!active) {
-      item.lidItem.mesh.visible = true;
-    }
+    item.lidItem.mesh.visible = true;
   }
   if (item.cookerRef && Array.isArray(item.cookerRef.contents)) {
     item.cookerRef.contents.forEach(function (cItem) {
-      if (cItem && cItem.mesh) cItem.mesh.visible = !active;
+      if (cItem && cItem.mesh) cItem.mesh.visible = true;
     });
   }
 }
@@ -80,6 +79,7 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
     : (ctx.placementValid
       ? '📦 Clique para posicionar: ' + ctx.heldItem.label
       : (getPlacementBlockedReason() || '🚫 Local bloqueado (espaço ocupado)'));
+  if (ctx.hover3dBadge) hideHover3dBadge(ctx.hover3dBadge);
   if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
   return true;
 }
@@ -144,17 +144,25 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   }
 
   if (held.trayContents && held.trayContents.length) {
-    const cosY = Math.cos(ctx.heldRotY);
-    const sinY = Math.sin(ctx.heldRotY);
+    held.mesh.updateMatrixWorld(true);
     held.trayContents.forEach(function (content) {
       const item = content.item;
       if (!item || !item.mesh) return;
-      item.mesh.position.set(
-        held.mesh.position.x + content.lx * cosY + content.lz * sinY,
-        held.mesh.position.y + content.ly,
-        held.mesh.position.z - content.lx * sinY + content.lz * cosY
-      );
-      item.mesh.rotation.set(0, ctx.heldRotY + content.lry, 0);
+      if (content.localOffset) {
+        _tmpCommitVec.copy(content.localOffset);
+        held.mesh.localToWorld(_tmpCommitVec);
+        item.mesh.position.copy(_tmpCommitVec);
+      } else {
+        const cosY = Math.cos(ctx.heldRotY);
+        const sinY = Math.sin(ctx.heldRotY);
+        item.mesh.position.set(
+          held.mesh.position.x + content.lx * cosY + content.lz * sinY,
+          held.mesh.position.y + content.ly,
+          held.mesh.position.z - content.lx * sinY + content.lz * cosY
+        );
+      }
+      const rotY = content.localRotY !== undefined ? (ctx.heldRotY + content.localRotY) : (ctx.heldRotY + (content.lry || 0));
+      item.mesh.rotation.set(0, rotY, 0);
       item.isMoved = true;
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       ctx.pendingMovedItems[item.id] = {

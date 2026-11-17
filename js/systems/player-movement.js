@@ -109,7 +109,10 @@ export function stepPlayerMovement(ctx, dt, now) {
     if (mag > 0.08) {
       if (ctx.seatedSeat) ctx.seatedSeat = null;
       const isSprinting = !!(ctx.keys['ShiftLeft'] || ctx.keys['ShiftRight'] || ctx.mobileSprint);
-      const maxSpeed = isSprinting ? P.sprintSpeed : P.walkSpeed;
+      const isCrouching = !ctx.seatedSeat && !ctx.paragliderActive && !ctx.snowboardActive &&
+        !!(ctx.keys['ControlLeft'] || ctx.keys['ControlRight'] || ctx.keys['KeyC'] || ctx.mobileCrouch);
+      let maxSpeed = isSprinting ? P.sprintSpeed : P.walkSpeed;
+      if (isCrouching) maxSpeed *= 0.55;
       const throttle = Math.min(1, mag);
       moveX /= mag; moveZ /= mag;
       const fwdX = -Math.sin(ctx.playerYaw), fwdZ = -Math.cos(ctx.playerYaw);
@@ -189,7 +192,16 @@ export function stepPlayerMovement(ctx, dt, now) {
     ctx.walkBobPhase += dt * (4.5 + speedNow * 1.4);
     bobY = Math.sin(ctx.walkBobPhase) * 0.028 * Math.min(1, speedNow / 3.8);
   }
-  const eyeH = ctx.seatedSeat ? P.seatedEyeHeight : (ctx.snowboardActive ? P.snowboardEyeHeight : P.eyeHeight);
+  // Agachamento suave em primeira pessoa (Ctrl ou KeyC)
+  if (ctx.crouchProgress === undefined) ctx.crouchProgress = 0;
+  const isCrouchingNow = !ctx.seatedSeat && !ctx.paragliderActive && !ctx.snowboardActive &&
+    !!(ctx.keys['ControlLeft'] || ctx.keys['ControlRight'] || ctx.keys['KeyC'] || ctx.mobileCrouch);
+  const targetCrouch = isCrouchingNow ? 1 : 0;
+  ctx.crouchProgress += (targetCrouch - ctx.crouchProgress) * Math.min(1, dt * 9.5);
+  const crouchDrop = ctx.crouchProgress * 0.76;
+
+  const baseEyeH = ctx.seatedSeat ? P.seatedEyeHeight : (ctx.snowboardActive ? P.snowboardEyeHeight : P.eyeHeight);
+  const eyeH = baseEyeH - crouchDrop;
   if (ctx.seatedSeat) {
     ctx.playerPos.set(ctx.seatedSeat.x, ctx.seatedSeat.y, ctx.seatedSeat.z);
     ctx.playerVelY = 0;

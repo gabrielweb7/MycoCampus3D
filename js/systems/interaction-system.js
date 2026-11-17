@@ -28,7 +28,7 @@ import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { handleTrashDisposal } from '../items/lab-trash.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
-import { fillPetriWithPda, togglePetriLid, setPetriLidOpen } from '../items/petri-dish.js';
+import { fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
 import { addIngredientToBowl } from '../items/mixing-bowl.js';
@@ -254,6 +254,22 @@ export function handlePrimaryAction(ctx) {
     }
     if (ctx.heldItem.mesh.userData.isPaperTowel && !ctx.placementMode && ctx.hoveredWipeTarget) {
       wipeWithPaperTowel(ctx, ctx.hoveredWipeTarget);
+      return;
+    }
+    if (ctx.hoveredParafilmTarget && !ctx.placementMode && ctx.heldItem.id && ctx.heldItem.id.indexOf('parafilm_') === 0) {
+      const target = ctx.hoveredParafilmTarget;
+      const pc = target.mesh && target.mesh.userData && target.mesh.userData.petriCtrl;
+      if (pc && pc.lidOpen) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Feche a tampa da Placa de Petri antes de vedar com Parafilm M.');
+      } else if (pc && pc.parafilmSealed) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('✅ Esta Placa de Petri já está vedada com Parafilm M.');
+      } else if (pc && pc.mode === 'bare') {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧫 Adicione PDA/BDA e esterilize a placa antes de vedar.');
+      } else if (sealPetriWithParafilm(target)) {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🎞️ Placa de Petri vedada com Parafilm M! Protegida contra contaminação externa.');
+        ctx.notifyWorldAction();
+      }
       return;
     }
     if (ctx.hoveredTrash && !ctx.placementMode) {
@@ -590,6 +606,19 @@ export function handlePrimaryAction(ctx) {
         togglePetriLid(ctx, ctx.heldItem);
         return;
       }
+      if (ctx.heldItem && ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
+        ctx.wearingGloves = !ctx.wearingGloves;
+        if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
+          ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x38bdf8 : 0xfde68a);
+        }
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast(ctx.wearingGloves
+            ? '🧤 Luvas de Nitrilo Estéreis calçadas!'
+            : '🧤 Luvas de Nitrilo retiradas.');
+        }
+        return;
+      }
     }
     return;
   }
@@ -652,26 +681,23 @@ export function handlePrimaryAction(ctx) {
     }
     ctx.hoveredPickable.trayContents = null;
     if (ctx.hoveredPickable.mesh && ctx.hoveredPickable.mesh.userData.isTray) {
-      const tPos = ctx.hoveredPickable.mesh.position;
-      const tRy = ctx.hoveredPickable.mesh.rotation.y;
-      const cT = Math.cos(-tRy), sT = Math.sin(-tRy);
+      const trayMesh = ctx.hoveredPickable.mesh;
+      trayMesh.updateMatrixWorld(true);
+      const tRy = trayMesh.rotation.y;
       const carried = [];
+      const _locVec = new THREE.Vector3();
       for (let ti = 0; ti < ctx.pickableItems.length; ti++) {
         const cand = ctx.pickableItems[ti];
         if (!cand || cand === ctx.hoveredPickable || !cand.mesh || ctx.isHeldByRemote(cand.id)) continue;
         if (cand.mesh.userData.isTable || cand.mesh.userData.isHood || cand.mesh.userData.isTray) continue;
-        const cp = cand.mesh.position;
-        const dx = cp.x - tPos.x, dz = cp.z - tPos.z;
-        const lx = dx * cT + dz * sT;
-        const lz = -dx * sT + dz * cT;
-        if (Math.abs(lx) <= 0.21 && Math.abs(lz) <= 0.15 &&
-          cp.y >= tPos.y - 0.02 && cp.y <= tPos.y + 0.35) {
+        cand.mesh.getWorldPosition(_locVec);
+        trayMesh.worldToLocal(_locVec);
+        if (Math.abs(_locVec.x) <= 0.22 && Math.abs(_locVec.z) <= 0.16 &&
+          _locVec.y >= -0.05 && _locVec.y <= 0.38) {
           carried.push({
             item: cand,
-            lx,
-            ly: cp.y - tPos.y,
-            lz,
-            lry: cand.mesh.rotation.y - tRy
+            localOffset: _locVec.clone(),
+            localRotY: cand.mesh.rotation.y - tRy
           });
         }
       }

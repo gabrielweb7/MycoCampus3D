@@ -122,7 +122,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (in_array($p['mode'] ?? '', ['bare', 'filled', 'empty', 'clean', 'contam', 'colonizing'], true)) {
             $cleanPetri['mode'] = $p['mode'];
         }
-        foreach (['lidOpen', 'sterilized', 'inoculated', 'expired'] as $boolKey) {
+        foreach (['lidOpen', 'sterilized', 'inoculated', 'expired', 'parafilmSealed'] as $boolKey) {
             if (isset($p[$boolKey]) && is_bool($p[$boolKey])) {
                 $cleanPetri[$boolKey] = $p[$boolKey];
             }
@@ -146,6 +146,20 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         isset($raw['liquid']['volMl']) && is_numeric($raw['liquid']['volMl']) && is_finite((float)$raw['liquid']['volMl'])) {
         $maxVolumeMl = strpos($itemId, 'pp5_cup_') === 0 ? 100 : 5000;
         $clean['liquid'] = ['volMl' => max(0, min($maxVolumeMl, (int)round((float)$raw['liquid']['volMl'])))];
+    }
+
+    if (strpos($itemId, 'liquid_culture') === 0 && isset($raw['culture']) && is_array($raw['culture'])) {
+        $src = $raw['culture'];
+        $culture = [];
+        foreach (['colonized', 'contaminated', 'expired'] as $key) {
+            if (isset($src[$key]) && is_bool($src[$key])) $culture[$key] = $src[$key];
+        }
+        foreach (['ageGameDays' => 365, 'shelfLifeAgeDays' => 365] as $key => $limit) {
+            if (isset($src[$key]) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
+                $culture[$key] = max(0, min($limit, round((float)$src[$key], 2)));
+            }
+        }
+        if ($culture) $clean['culture'] = $culture;
     }
 
     if ((strpos($itemId, 'beaker_1l_') === 0 || strpos($itemId, 'falcon_') === 0 ||

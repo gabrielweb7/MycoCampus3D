@@ -2,6 +2,57 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.54] — 2026-11-17
+### 🎮 Correção da Panela Segurada, Laser Termômetro Preciso, Bandeja Robusta, Agachamento (Ctrl), Gavetas & Armários e Card de Status Limpo
+- **Visibilidade da Panela de Pressão Segurada em 1ª Pessoa (`js/systems/held-item-placement.js`, `js/systems/held-item-loop.js`):**
+  - Removido `item.mesh.visible = !active;` em `setHeldTwoHandedGhost` que tornava a panela invisível entre os braços do jogador ao pegá-la.
+  - A panela permanece visível em ambas as mãos, a tampa acoplada (`lidItem`) acompanha o corpo na altura correta (`y + 0.36`), e os conteúdos internos (`cookerRef.contents`) se deslocam solidários à panela. Pegar apenas a tampa também a mantém visível na mão.
+- **Termômetro Laser Infravermelho 100% Alinhado à Mira (`js/systems/held-item-loop.js`):**
+  - Substituído o cache restrito de alvos por raycast completo na cena (`ctx.scene.children`, ignorando avatar/mão/laser), interceptando instantaneamente armários, gavetas, bancadas, balanças e paredes na exata posição 3D sob o retículo da mira.
+  - O feixe laser sai do bocal e atinge exatamente o ponto central da tela (`lHit.point`), projetando o ponto vermelho (`thermoLaserDot`) alinhado à normal da superfície.
+- **Bandeja Inox — Transporte Estável de Itens sem Desaparecer (`js/systems/interaction-system.js`, `js/systems/held-item-loop.js`, `js/systems/held-item-placement.js`):**
+  - Ao pegar a bandeja com itens sobre ela (ex: seringas, potes), suas posições são convertidas para o espaço local da bandeja via `trayMesh.worldToLocal()`.
+  - No loop de carregamento e no posicionamento/soltura final, os itens são mapeados com `localToWorld()`, garantindo que acompanhem a bandeja solidariamente em qualquer rotação ou movimento do jogador sem sumir nem reaparecer no ponto antigo.
+- **Física Real de Tara da Balança de Precisão (`js/items/precision-scale.js`, `js/systems/world-interactions.js`, `js/systems/hover-raycaster.js`):**
+  - Ao apertar TARA com recipiente na balança, o visor zera (`0.0 g`).
+  - Ao retirar o recipiente, o visor exibe o peso negativo da tara em vermelho suave com indicador `TARE` (ex: `-240.0 g`).
+  - Ao devolver o recipiente, a balança retorna para `0.0 g`. Apertar TARA com a balança vazia zera e cancela a tara.
+- **Gavetas e Portas dos Armários da Bancada Totalmente Funcionais (`js/items/lab-cabinets.js`, `js/systems/hover-raycaster.js`, `js/systems/world-interactions.js`):**
+  - Corrigido o material de colisão dos hitboxes (`transparent: true, opacity: 0`) para raycast consistente em todos os motores Three.js.
+  - Priorizado o hover das 4 gavetas e portas sobre o mesh amplo da bancada, permitindo abrir e fechar gavetas e portas deslizantes/giratórias com clique direto.
+  - O fundo das gavetas agora é registrado como prateleira de suporte (`registerShelf`), permitindo posicionar bisturis e utensílios diretamente dentro das gavetas abertas.
+- **Agachamento Suave com Tecla Control / C no PC (`js/systems/input-controller.js`, `js/systems/player-movement.js`, `index.html`):**
+  - Adicionado agachamento fluido com interpolação suave (`ctx.crouchProgress`), reduzindo a altura dos olhos de 1.62m para 0.86m (`crouchDrop = 0.76m`).
+  - Permite inspecionar a parte inferior das bancadas, prateleiras baixas e gavetas abertas.
+- **Eliminação de Menus Sobrepostos & Novo Card de Status Centralizado (`index.html`, `js/ui/radial-menu.js`, `js/entities/hover-3d-badge.js`, `js/ui/app-boot.js`):**
+  - Removidos os chips redundantes permanentes `[1] Cancelar [2] Soltar [3] Status` de `radial-menu.js` quando itens estão em mãos, deixando a tela limpa.
+  - Criado o card `#item-status-card` com z-index alto (`z-40`), posicionado na faixa central `top-20`, exibindo detalhadamente com badges coloridas o estado de esterilização, sanitização (Álcool 70%), colonização, substrato e volume de qualquer item inspecionado (tecla `I` ou botão de status) sem ficar atrás da barra superior.
+  - Limitada a projeção NDC do crachá 3D (`_proj.y <= 0.42`) para nunca ficar cortado atrás do `#hud-top-bar`.
+- **Progressive Web App (PWA) & Fluidity Mobile (`sw.js`, `manifest.webmanifest`, `js/engine/haptics-wakelock.js`, `index.html`):**
+  - Service Worker com cache para inicialização instantânea no celular.
+  - Screen Wake Lock API para não apagar a tela durante o jogo.
+  - Feedback tátil háptico em vibrações nos botões de ação e botão "📲 Instalar App".
+
+## [v0.9.53] — 2026-11-17
+### 🛠️ Correções Críticas de Raycast & Crachá 3D, Zero-GC, Multiplayer, Armários e Insumos Micológicos
+- **Correção Crítica de Recursão Infinita e Crachá Holográfico 3D Universal (`js/systems/hover-raycaster.js`, `js/systems/held-item-placement.js`):**
+  - Corrigida a recursão infinita em `setHoverPrompt(ctx, prompt)` que causava `RangeError: Maximum call stack size exceeded` a cada ciclo de raycast.
+  - Unificado o pipeline de prompts de interação: todas as interações de mundo e de itens segurados na mão (portas, armários, interruptores, persianas, pia, lixeira, tara da balança, estufa, cinema, seringa, borrifador, papel toalha e termômetro laser) agora gravam `ctx.hoverHit` e atualizam o Crachá Holográfico 3D diegético sobre o alvo, com zero alocação por frame (`_tmpBadgeWorldPos`).
+- **Bloqueio Físico de Armários Fechados (`js/systems/hover-raycaster.js`, `js/entities/placement-ghost.js`):**
+  - Integrado `isItemInClosedCabinet(ctx, item)` ao raycast de seleção e ferramentas, e bloqueado o posicionamento (`findPlacementTarget` / `isPlacementBlocked`) em prateleiras de armários com a porta/gaveta fechada.
+- **Sincronização Multiplayer & Reset Completo do Laboratório (`api/multiplayer_schema.php`, `api/multiplayer.php`, `js/systems/world-objects-sync.js`):**
+  - Adicionada sanitização e persistência do bloco `culture` (`liquid_culture`) e `parafilmSealed` (`petri_*`) em `mp_clean_item_state()`.
+  - Corrigida a importação ausente de `setCultureFridgeDoorOpen` e os rótulos UTF-8 (`Flocão`, `•`, `água`) em `world-objects-sync.js`.
+  - A ação `reset_world` agora limpa `mc_world_item_states` além de `mc_world_objects` e restaura o estado interno de panelas, seringas, potes de mistura e bisturis.
+- **Performance Zero-GC no Render Loop & Desduplicação de CSS (`js/systems/game-loop.js`, `js/entities/placement-ghost.js`, `index.html`, `js/ui/radial-menu.js`):**
+  - Pré-alocados os vetores temporários em `findPlacementTarget` e os objetos de parâmetros em `game-loop.js`, eliminando dezenas de alocações por frame a 60 FPS.
+  - Removidas ~400 linhas de CSS inline duplicadas do `index.html` (mantidas centralizadas em `css/game.css`) e ajustada a altura de `#myco-floating-actions` quando segurando itens para não sobrepor `#held-item-bar`.
+- **Uso Prático de Insumos do Depósito & Conexão Spawn Bag → Estufa (`js/items/petri-dish.js`, `js/world/greenhouse.js`, `js/systems/interaction-system.js`, `js/entities/first-person-arm.js`):**
+  - **Parafilm M (`parafilm_01..03`):** Veda Placas de Petri fechadas com anel translúcido 3D, protegendo contra contaminação externa.
+  - **Luvas de Nitrilo Estéreis (`gloves_box_01..03`):** Permite calçar/retirar luvas azuis estéreis nas mãos em 1ª pessoa.
+  - **Inoculação de Blocos na Estufa (`greenhouse.js`):** Bags de Spawn 100% colonizados podem ser transferidos diretamente para os blocos em estágio inicial na Estufa de Frutificação, iniciando os primórdios e repondo o bag limpo no estoque.
+- **Deploy cPanel (`.cpanel.yml`):** Incluído `error.php` na cópia de deploy para produção.
+
 ## [v0.9.52] — 2026-11-17
 ### 📦 Barra de Ações do Item em Mãos (PC & Mobile), Tecla [X] para Largar & Botão Touch de Soltar
 - **Barra Flutuante de Item em Mãos no PC e Mobile (`#held-item-bar`, `index.html`, `css/game.css`, `app-boot.js`):**

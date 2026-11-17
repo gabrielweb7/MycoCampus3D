@@ -59,6 +59,7 @@ if ($action === 'reset_world') {
         mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
     }
     $pdo->exec('DELETE FROM mc_world_objects');
+    $pdo->exec('DELETE FROM mc_world_item_states');
     mc_json(['ok' => true]);
 }
 

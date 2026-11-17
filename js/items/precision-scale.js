@@ -49,13 +49,22 @@ export function createPrecisionScale(ctx, id, sx, sy, sz) {
     tare: 0, lastText: '', lastGross: 0, surface: scSurf,
     lcdCtx, lcdTex,
     draw: function (grams) {
-      const txt = grams.toFixed(1) + ' g';
+      const isNeg = grams < -0.05;
+      const displayGrams = Math.abs(grams) < 0.05 ? 0.0 : grams;
+      const txt = (isNeg ? '-' : '') + Math.abs(displayGrams).toFixed(1) + ' g';
       if (txt === this.lastText) return;
       this.lastText = txt;
       lcdCtx.fillStyle = '#064e3b'; lcdCtx.fillRect(0, 0, 256, 96);
-      lcdCtx.fillStyle = '#34d399'; lcdCtx.font = 'bold 46px monospace';
+      lcdCtx.fillStyle = isNeg ? '#f87171' : '#34d399';
+      lcdCtx.font = 'bold 44px monospace';
       lcdCtx.textAlign = 'right'; lcdCtx.textBaseline = 'middle';
-      lcdCtx.fillText(txt, 240, 50);
+      lcdCtx.fillText(txt, 240, 52);
+      if (this.tare > 0) {
+        lcdCtx.fillStyle = isNeg ? '#fca5a5' : '#10b981';
+        lcdCtx.font = 'bold 18px monospace';
+        lcdCtx.textAlign = 'left';
+        lcdCtx.fillText('TARE', 16, 26);
+      }
       lcdTex.needsUpdate = true;
     }
   };
@@ -80,9 +89,6 @@ export function stepPrecisionScales(ctx, now) {
       if (px0 >= scObj.surface.minX && px0 <= scObj.surface.maxX && pz0 >= scObj.surface.minZ && pz0 <= scObj.surface.maxZ && py0 >= scObj.surface.topY - 0.04 && py0 <= scObj.surface.topY + 0.45) {
         gross += getItemWeightGrams(pIt);
       }
-    }
-    if (gross <= 0.1 && scObj.tare !== 0) {
-      scObj.tare = 0;
     }
     scObj.lastGross = gross;
     scObj.draw(gross - scObj.tare);

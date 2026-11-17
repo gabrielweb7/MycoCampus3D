@@ -43,44 +43,27 @@ function updateThermometerLaser(ctx, dt, now) {
   _tmpMuzzlePos.set(0, 0.155, -0.09).applyEuler(ctx.heldItem.mesh.rotation).add(ctx.heldItem.mesh.position);
   ctx.raycaster.setFromCamera(ctx.inFps ? _vZero2 : ctx.pointerNdc, ctx.camera);
 
-  if (!window._cachedLaserTargets || (now - (window._lastLaserCacheAt || 0) > 800)) {
-    window._lastLaserCacheAt = now;
-    const lTargets = [];
-    for (let pki = 0; pki < ctx.pickableItems.length; pki++) {
-      const pItem = ctx.pickableItems[pki];
-      if (pItem && pItem.mesh && pItem !== ctx.heldItem) lTargets.push(pItem.mesh);
-    }
-    for (let smi = 0; smi < ctx.supportMeshes.length; smi++) {
-      const sMesh = ctx.supportMeshes[smi];
-      if (sMesh && (!ctx.heldItem || sMesh !== ctx.heldItem.mesh)) lTargets.push(sMesh);
-    }
-    for (let dmi = 0; dmi < ctx.doorHitMeshes.length; dmi++) {
-      if (ctx.doorHitMeshes[dmi]) lTargets.push(ctx.doorHitMeshes[dmi]);
-    }
-    for (let gsi = 0; gsi < greenhouseSlots.length; gsi++) {
-      if (greenhouseSlots[gsi] && greenhouseSlots[gsi].group) lTargets.push(greenhouseSlots[gsi].group);
-    }
-    Object.keys(ctx.remoteAvatars).forEach(function (rId) {
-      const rAv = ctx.remoteAvatars[rId];
-      if (rAv && rAv.group) lTargets.push(rAv.group);
-    });
-    window._cachedLaserTargets = lTargets;
-  }
-
-  const rawHits = ctx.raycaster.intersectObjects(window._cachedLaserTargets, true);
+  // Full raycast against scene children to hit walls, benches, cabinets, drawers, equipment
+  const rawHits = ctx.raycaster.intersectObjects(ctx.scene.children, true);
   let lHit = null;
+  const heldMesh = ctx.heldItem ? ctx.heldItem.mesh : null;
   for (let rhi = 0; rhi < rawHits.length; rhi++) {
     const candH = rawHits[rhi];
-    if (!candH.object.userData.ignoreRay &&
-        candH.object !== ctx.heldItem.mesh &&
-        candH.object !== ctx.thermoLaserLine &&
-        candH.object !== ctx.thermoLaserDot) {
-      lHit = candH;
-      break;
-    }
+    const obj = candH.object;
+    if (!obj || !obj.visible) continue;
+    if (obj.userData && obj.userData.ignoreRay) continue;
+    if (obj === ctx.thermoLaserLine || obj === ctx.thermoLaserDot) continue;
+    if (obj === ctx.placementGhost) continue;
+    if (heldMesh && (obj === heldMesh || heldMesh.children.includes(obj))) continue;
+    if (ctx.fpsArmGroup && (obj === ctx.fpsArmGroup || ctx.fpsArmGroup.children.includes(obj))) continue;
+    if (ctx.fpsLeftArmGroup && (obj === ctx.fpsLeftArmGroup || ctx.fpsLeftArmGroup.children.includes(obj))) continue;
+    if (ctx.playerGroup && (obj === ctx.playerGroup || ctx.playerGroup.children.includes(obj))) continue;
+    if (obj.isSprite || obj.isPoints || obj.isLine) continue;
+    lHit = candH;
+    break;
   }
 
-  if (lHit && lHit.distance < GAME_CONFIG.interaction.maxLaserDist) {
+  if (lHit && lHit.distance < 35.0) {
     const lArr = ctx.thermoLaserLine.geometry.attributes.position.array;
     lArr[0] = _tmpMuzzlePos.x; lArr[1] = _tmpMuzzlePos.y; lArr[2] = _tmpMuzzlePos.z;
     lArr[3] = lHit.point.x; lArr[4] = lHit.point.y; lArr[5] = lHit.point.z;
@@ -134,6 +117,12 @@ function updateThermometerLaser(ctx, dt, now) {
       } else if (hObj.userData.doorObj) {
         sTemp = 22.8;
         sLbl = hObj.userData.doorObj.label || 'Porta';
+      } else if (hObj.userData.cabinetPart || (hObj.parent && hObj.parent.userData && hObj.parent.userData.cabinetPart)) {
+        sTemp = 22.5;
+        sLbl = 'Bancada / Armário do Laboratório';
+      } else if (hObj.userData.scaleCtrl || (hObj.parent && hObj.parent.userData && hObj.parent.userData.scaleCtrl)) {
+        sTemp = 22.8;
+        sLbl = 'Balança Digital de Precisão';
       } else {
         let pWalk = hObj;
         let pNode = null;
@@ -151,7 +140,7 @@ function updateThermometerLaser(ctx, dt, now) {
           sLbl = 'Estufa de Frutificação';
         } else {
           sTemp = 23.2 + Math.sin(lHit.point.x * 0.5 + lHit.point.z * 0.3) * 0.4;
-          sLbl = lHit.point.y > 0.6 ? 'Bancada / Estrutura' : 'Piso';
+          sLbl = lHit.point.y > 0.6 ? 'Bancada / Estrutura' : 'Piso do Laboratório';
         }
       }
     }
@@ -160,54 +149,15 @@ function updateThermometerLaser(ctx, dt, now) {
   } else {
     const rOrig = ctx.raycaster.ray.origin;
     const rDir = ctx.raycaster.ray.direction;
-    let gHitPt = null;
-    for (let stepD = 1.0; stepD <= 32.0; stepD += 1.0) {
-      const sx = rOrig.x + rDir.x * stepD;
-      const sy = rOrig.y + rDir.y * stepD;
-      const sz = rOrig.z + rDir.z * stepD;
-      const gy = getGroundHeight(ctx.physCtx, sx, sz, sy + 1.0);
-      if (sy <= gy) {
-        _tmpLookPt.set(sx, gy, sz);
-        gHitPt = _tmpLookPt;
-        break;
-      }
-    }
-    if (gHitPt) {
-      const lArrG = ctx.thermoLaserLine.geometry.attributes.position.array;
-      lArrG[0] = _tmpMuzzlePos.x; lArrG[1] = _tmpMuzzlePos.y; lArrG[2] = _tmpMuzzlePos.z;
-      lArrG[3] = gHitPt.x; lArrG[4] = gHitPt.y; lArrG[5] = gHitPt.z;
-      ctx.thermoLaserLine.geometry.attributes.position.needsUpdate = true;
-      ctx.thermoLaserLine.visible = true;
-      ctx.thermoLaserDot.position.set(gHitPt.x, gHitPt.y + 0.008, gHitPt.z);
-      ctx.thermoLaserDot.lookAt(gHitPt.x, gHitPt.y + 1, gHitPt.z);
-      ctx.thermoLaserDot.visible = true;
-
-      const isLake = (Math.hypot(gHitPt.x, gHitPt.z - 48) < 17) || gHitPt.y < 0.05;
-      if (isLake) {
-        ctx.thermoTargetTemp = 19.2;
-        ctx.thermoTargetLabel = 'Água do Lago';
-      } else if (ctx.weatherMode === 'snow') {
-        ctx.thermoTargetTemp = 1.5;
-        ctx.thermoTargetLabel = 'Solo com Neve';
-      } else if (ctx.weatherMode === 'rain') {
-        ctx.thermoTargetTemp = 17.4;
-        ctx.thermoTargetLabel = 'Solo Molhado';
-      } else {
-        const sunBoost = Math.max(0, Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2)) * 8.5;
-        ctx.thermoTargetTemp = 18.8 + sunBoost + Math.sin(gHitPt.x * 0.2 + gHitPt.z * 0.2) * 0.4;
-        ctx.thermoTargetLabel = (Math.abs(gHitPt.x) < 13 && Math.abs(gHitPt.z) < 13) ? 'Piso da Praça' : 'Grama / Terreno';
-      }
-    } else {
-      _tmpSkyEnd.copy(rOrig).addScaledVector(rDir, 22.0);
-      const lArrS = ctx.thermoLaserLine.geometry.attributes.position.array;
-      lArrS[0] = _tmpMuzzlePos.x; lArrS[1] = _tmpMuzzlePos.y; lArrS[2] = _tmpMuzzlePos.z;
-      lArrS[3] = _tmpSkyEnd.x; lArrS[4] = _tmpSkyEnd.y; lArrS[5] = _tmpSkyEnd.z;
-      ctx.thermoLaserLine.geometry.attributes.position.needsUpdate = true;
-      ctx.thermoLaserLine.visible = true;
-      ctx.thermoLaserDot.visible = false;
-      ctx.thermoTargetTemp = ctx.weatherMode === 'snow' ? -6.5 : 4.2;
-      ctx.thermoTargetLabel = 'Céu Aberto';
-    }
+    const endPt = new THREE.Vector3().copy(rOrig).addScaledVector(rDir, 25.0);
+    const lArrG = ctx.thermoLaserLine.geometry.attributes.position.array;
+    lArrG[0] = _tmpMuzzlePos.x; lArrG[1] = _tmpMuzzlePos.y; lArrG[2] = _tmpMuzzlePos.z;
+    lArrG[3] = endPt.x; lArrG[4] = endPt.y; lArrG[5] = endPt.z;
+    ctx.thermoLaserLine.geometry.attributes.position.needsUpdate = true;
+    ctx.thermoLaserLine.visible = true;
+    ctx.thermoLaserDot.visible = false;
+    ctx.thermoTargetTemp = ctx.weatherMode === 'snow' ? -6.5 : (ctx.weatherMode === 'rain' ? 17.4 : 23.0);
+    ctx.thermoTargetLabel = 'Ambiente';
   }
   ctx.thermoCurrentTemp += (ctx.thermoTargetTemp - ctx.thermoCurrentTemp) * Math.min(1, dt * 14);
   drawThermoScreen(ctx.thermoCurrentTemp, 'SCAN');
@@ -274,19 +224,57 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
     }
 
+    // Ensure held mesh is always visible
+    ctx.heldItem.mesh.visible = true;
+
+    // Follow attached cooker lid
+    if (ctx.heldItem.lidItem && ctx.heldItem.lidItem.isAttached && ctx.heldItem.lidItem.mesh) {
+      ctx.heldItem.lidItem.mesh.visible = true;
+      ctx.heldItem.lidItem.mesh.position.set(_tmpHandPos.x, _tmpHandPos.y + 0.36, _tmpHandPos.z);
+      ctx.heldItem.lidItem.mesh.rotation.copy(ctx.heldItem.mesh.rotation);
+    }
+
+    // Follow cooker pot contents
+    if (ctx.heldItem.cookerRef && Array.isArray(ctx.heldItem.cookerRef.contents)) {
+      let nonBaseIdx = 0;
+      ctx.heldItem.cookerRef.contents.forEach(function (cItem) {
+        if (!cItem || !cItem.mesh) return;
+        cItem.mesh.visible = true;
+        if (cItem.mesh.userData && cItem.mesh.userData.isCookerBase) {
+          cItem.mesh.position.set(_tmpHandPos.x, _tmpHandPos.y + 0.036, _tmpHandPos.z);
+          cItem.mesh.rotation.set(0, ctx.heldItem.mesh.rotation.y, 0);
+        } else {
+          const ox = nonBaseIdx % 2 === 0 ? -0.065 : 0.065;
+          const oz = nonBaseIdx < 2 ? -0.055 : 0.055;
+          cItem.mesh.position.set(_tmpHandPos.x + ox, _tmpHandPos.y + 0.080, _tmpHandPos.z + oz);
+          nonBaseIdx++;
+        }
+      });
+    }
+
+    // Follow tray carried items
     if (ctx.heldItem.trayContents && ctx.heldItem.trayContents.length) {
+      ctx.heldItem.mesh.updateMatrixWorld(true);
       const hRy = ctx.heldItem.mesh.rotation.y;
-      const ch = Math.cos(hRy), sh = Math.sin(hRy);
-      const hp = ctx.heldItem.mesh.position;
       for (let tci = 0; tci < ctx.heldItem.trayContents.length; tci++) {
         const tc = ctx.heldItem.trayContents[tci];
         if (!tc.item || !tc.item.mesh) continue;
-        tc.item.mesh.position.set(
-          hp.x + tc.lx * ch + tc.lz * sh,
-          hp.y + tc.ly,
-          hp.z - tc.lx * sh + tc.lz * ch
-        );
-        tc.item.mesh.rotation.set(0, hRy + tc.lry, 0);
+        tc.item.mesh.visible = true;
+        if (tc.localOffset) {
+          _tmpLookPt.copy(tc.localOffset);
+          ctx.heldItem.mesh.localToWorld(_tmpLookPt);
+          tc.item.mesh.position.copy(_tmpLookPt);
+          tc.item.mesh.rotation.set(0, hRy + (tc.localRotY || 0), 0);
+        } else {
+          const ch = Math.cos(hRy), sh = Math.sin(hRy);
+          const hp = ctx.heldItem.mesh.position;
+          tc.item.mesh.position.set(
+            hp.x + tc.lx * ch + tc.lz * sh,
+            hp.y + tc.ly,
+            hp.z - tc.lx * sh + tc.lz * ch
+          );
+          tc.item.mesh.rotation.set(0, hRy + (tc.lry || 0), 0);
+        }
       }
     }
 

@@ -51,6 +51,7 @@ var _cGhostRedTint   = new THREE.Color(0xef4444);
 var _cGhostRedEmi    = new THREE.Color(0xdc2626);
 
 var _tmpPlacePt = new THREE.Vector3();
+var _tmpBestPt = new THREE.Vector3();
 var _tmpPlaceCenter = new THREE.Vector3();
 var _vZero2 = new THREE.Vector2(0, 0);
 
@@ -287,13 +288,14 @@ export function findPlacementTarget(ctx, customNdc) {
       if (sh.object.userData.ignoreRay) continue;
       var sSurf = sh.object.userData.supportSurface;
       if (!sSurf) continue;
+      if (sSurf.isCabinetShelf && sSurf.requiresOpenPart && !sSurf.requiresOpenPart.open) continue;
       if (heldItem && heldItem.mesh) {
         if (heldItem.mesh.userData.dynamicSurface === sSurf) continue;
         if (heldItem.mesh === sh.object || heldItem.mesh.getObjectById(sh.object.id)) continue;
       }
       var cx = Math.max(sSurf.minX + 0.02, Math.min(sSurf.maxX - 0.02, sh.point.x));
       var cz = Math.max(sSurf.minZ + 0.02, Math.min(sSurf.maxZ - 0.02, sh.point.z));
-      return new THREE.Vector3(cx, sSurf.topY, cz);
+      return _tmpPlacePt.set(cx, sSurf.topY, cz);
     }
   }
 
@@ -301,6 +303,7 @@ export function findPlacementTarget(ctx, customNdc) {
   for (var i = 0; i < supportSurfaces.length; i++) {
     var s = supportSurfaces[i];
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === s) continue;
+    if (s.isCabinetShelf && s.requiresOpenPart && !s.requiresOpenPart.open) continue;
 
     var dy = s.topY - origin.y;
     if (Math.abs(dir.y) > 0.001) {
@@ -312,7 +315,7 @@ export function findPlacementTarget(ctx, customNdc) {
           var scx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, hx));
           var scz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, hz));
           bestT = tPlane;
-          bestPt = new THREE.Vector3(scx, s.topY, scz);
+          bestPt = _tmpBestPt.set(scx, s.topY, scz);
         }
       }
     }
@@ -334,10 +337,10 @@ export function findPlacementTarget(ctx, customNdc) {
       var bcx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, boxHitX));
       var bcz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, boxHitZ));
       bestT = tmin;
-      bestPt = new THREE.Vector3(bcx, s.topY, bcz);
+      bestPt = _tmpBestPt.set(bcx, s.topY, bcz);
     }
   }
-  if (bestPt) return bestPt;
+  if (bestPt) return _tmpPlacePt.copy(bestPt);
 
   // 2. Piso / terreno
   for (var t = 0.45; t <= 5.0; t += 0.08) {
@@ -346,7 +349,7 @@ export function findPlacementTarget(ctx, customNdc) {
     var pz = origin.z + dir.z * t;
     var gh = getItemGroundHeight(physCtx, px, pz, py);
     if (py <= gh + 0.04) {
-      return new THREE.Vector3(px, gh, pz);
+      return _tmpPlacePt.set(px, gh, pz);
     }
   }
 
@@ -354,7 +357,7 @@ export function findPlacementTarget(ctx, customNdc) {
   var hLen = Math.hypot(dir.x, dir.z) || 1;
   var fx = playerPos.x + (dir.x / hLen) * 1.8;
   var fz = playerPos.z + (dir.z / hLen) * 1.8;
-  return new THREE.Vector3(fx, getItemGroundHeight(physCtx, fx, fz, playerPos.y), fz);
+  return _tmpPlacePt.set(fx, getItemGroundHeight(physCtx, fx, fz, playerPos.y), fz);
 }
 
 export function isPlacementBlocked(ctx, pt) {
@@ -366,6 +369,27 @@ export function isPlacementBlocked(ctx, pt) {
   var heldH = heldItem.height || (heldItem.mesh.userData.tableDims ? heldItem.mesh.userData.tableDims.h : 0.32);
   var heldMinY = pt.y;
   var heldMaxY = pt.y + heldH;
+
+  if (ctx.supportSurfaces) {
+    for (var csi = 0; csi < ctx.supportSurfaces.length; csi++) {
+      var cs = ctx.supportSurfaces[csi];
+      if (!cs.isCabinetShelf) continue;
+      if (pt.x >= cs.minX - 0.05 && pt.x <= cs.maxX + 0.05 &&
+          pt.z >= cs.minZ - 0.05 && pt.z <= cs.maxZ + 0.05 &&
+          Math.abs(pt.y - cs.topY) < 0.12) {
+        if (cs.requiresOpenPart && !cs.requiresOpenPart.open) {
+          placementBlockedReason = '🚫 Abra a porta do armário para guardar itens dentro';
+          return true;
+        }
+        var hUdCab = heldItem.mesh.userData;
+        if (hUdCab.isTable || hUdCab.isHood || hUdCab.isCultureFridge || hUdCab.twoHanded || heldH > 0.35) {
+          placementBlockedReason = '🚫 Objeto grande demais para guardar dentro do armário';
+          return true;
+        }
+        break;
+      }
+    }
+  }
 
   var heldIsBox = !!(heldItem.mesh.userData.tableDims);
   var heldHw = 0, heldHd = 0, heldRad = 0;

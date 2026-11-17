@@ -13,7 +13,7 @@ import { getLabItemGuide } from '../items/item-registry.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
 import { applyQualityTier } from './game-loop.js';
 import * as worldSync from './world-sync.js';
-import { openRadialMenu, closeRadialMenu, isRadialMenuOpen, triggerFloatingAction } from '../ui/radial-menu.js';
+import { openRadialMenu, closeRadialMenu, isRadialMenuOpen, triggerFloatingAction, inspectItemToast } from '../ui/radial-menu.js';
 
 const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
 
@@ -254,6 +254,10 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.triggerCampusRainbow = triggerCampusRainbow;
   window.dropCampusHeldItem = sim.dropHeldItem;
   window.toggleCampusHeldPlacement = sim.toggleHeldItemPlacement;
+  window.inspectCampusHeldItem = function () {
+    if (sim.heldItem) inspectItemToast(sim, sim.heldItem);
+    else if (sim.hoveredPickable) inspectItemToast(sim, sim.hoveredPickable);
+  };
   window.openCampusRadialMenu = function () { openRadialMenu(sim); };
   window.closeCampusRadialMenu = closeRadialMenu;
   window.isCampusRadialMenuOpen = isRadialMenuOpen;
@@ -271,4 +275,5 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.MycoCampus.triggerRainbow = triggerCampusRainbow;
   window.MycoCampus.dropHeldItem = sim.dropHeldItem;
   window.MycoCampus.toggleHeldItemPlacement = sim.toggleHeldItemPlacement;
+  window.MycoCampus.inspectHeldItem = window.inspectCampusHeldItem;
 }

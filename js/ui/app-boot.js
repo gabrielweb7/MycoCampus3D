@@ -130,6 +130,21 @@ function bindModalsAndToolbar() {
       if (window.rotateCampusHeldItem) window.rotateCampusHeldItem();
     };
   }
+  const heldStatusBtn = $('btn-held-status');
+  if (heldStatusBtn) {
+    heldStatusBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (window.inspectCampusHeldItem) window.inspectCampusHeldItem();
+    };
+  }
+  const btnCloseStatus = $('btn-close-status');
+  if (btnCloseStatus) {
+    btnCloseStatus.onclick = (e) => {
+      e.stopPropagation();
+      const sc = $('item-status-card');
+      if (sc) sc.classList.add('hidden');
+    };
+  }
 
   const btnOpenLessons = $('btn-open-lessons');
   if (btnOpenLessons) btnOpenLessons.onclick = () => { releaseInputForModal(); renderLessonsModal(); $('lesson-modal')?.classList.remove('hidden'); };

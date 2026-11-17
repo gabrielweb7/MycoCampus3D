@@ -145,18 +145,32 @@ export function handleWorldInteraction(ctx) {
     return true;
   }
   if (ctx.hoveredScaleTare) {
-    ctx.hoveredScaleTare.tare = ctx.hoveredScaleTare.lastGross || 0;
-    ctx.hoveredScaleTare.draw(0);
+    const sc = ctx.hoveredScaleTare;
+    if (sc.lastGross <= 0.05 && sc.tare > 0) {
+      sc.tare = 0;
+      sc.draw(0);
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      if (ctx.callbacks && ctx.callbacks.onToast) {
+        ctx.callbacks.onToast('⚖️ TARA cancelada (visor zerado em 0.0 g)');
+      }
+      return true;
+    }
+    sc.tare = sc.lastGross || 0;
+    sc.draw(0);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(ctx.hoveredScaleTare.tare > 0
-        ? '⚖️ TARA aplicada (' + ctx.hoveredScaleTare.tare.toFixed(1) + 'g descontados • visor zerado)'
+      ctx.callbacks.onToast(sc.tare > 0
+        ? '⚖️ TARA aplicada (' + sc.tare.toFixed(1) + 'g descontados • visor zerado)'
         : '⚖️ Balança zerada (0.0 g)');
     }
     return true;
   }
   if (ctx.hoveredCabinetPart) {
     toggleCabinetPart(ctx, ctx.hoveredCabinetPart);
+    if (ctx.callbacks && ctx.callbacks.onToast) {
+      const verb = ctx.hoveredCabinetPart.open ? 'aberto' : 'fechado';
+      ctx.callbacks.onToast(`🗄️ ${ctx.hoveredCabinetPart.label} ${verb}.`);
+    }
     return true;
   }
   if (ctx.hoveredBurnerSwitch) {

@@ -1,4 +1,5 @@
 import { makeBox, makeTextSprite, updateTextSprite } from '../engine/textures.js';
+import { updateSpawnVisual } from '../items/spawn-containers.js';
 
 export var greenhouseSlots = [
   {
@@ -271,6 +272,61 @@ export function interactGreenhouseSlot(slot, ctx) {
   var callbacks = ctx.callbacks;
   var queueWorldStateChange = ctx.queueWorldStateChange;
   var isHoldingSpray = heldItem && (heldItem.id.indexOf('alcohol_spray') !== -1 || heldItem.id.indexOf('spray') !== -1);
+  var isHoldingColonizedBag = !!(heldItem && heldItem.spawnCtrl && heldItem.spawnCtrl.isBag && heldItem.spawnCtrl.colonized && !heldItem.spawnCtrl.contaminated);
+
+  if (isHoldingColonizedBag) {
+    if (slot.stage === 0) {
+      var sp = heldItem.spawnCtrl;
+      sp.filled = false;
+      sp.fillGrams = 0;
+      sp.waterMl = 0;
+      sp.substrateKind = '';
+      sp.sterilized = false;
+      sp.sterilizeProgress = 0;
+      sp.sealed = false;
+      sp.inoculated = false;
+      sp.colonized = false;
+      sp.colonization = 0;
+      sp.contaminated = false;
+      sp.burned = false;
+      sp.expired = false;
+      sp.ageGameDays = 0;
+      updateSpawnVisual(heldItem);
+      heldItem.mesh.position.copy(heldItem.homePos);
+      heldItem.mesh.rotation.set(0, heldItem.homeRy || 0, 0);
+      heldItem.isMoved = false;
+      if (heldItem.mesh.userData.updateBounds) heldItem.mesh.userData.updateBounds(heldItem);
+      if (ctx.pendingMovedItems) {
+        ctx.pendingMovedItems[heldItem.id] = {
+          id: heldItem.id, x: heldItem.homePos.x, y: heldItem.homePos.y, z: heldItem.homePos.z, ry: heldItem.homeRy || 0
+        };
+      }
+      ctx.heldItem = null;
+      if (ctx.placementGhost) ctx.placementGhost.visible = false;
+      if (callbacks.onHoldChange) callbacks.onHoldChange(null);
+
+      slot.stage = 1;
+      slot.growth = 25;
+      slot.humidity = Math.max(85, slot.humidity);
+      if (window.MycoAudio) window.MycoAudio.playHarvest();
+      triggerSporeBurst(slot.x, slot.y + 0.25, slot.z, slot.color);
+      updateGreenhouseSlotMesh(slot);
+      queueWorldStateChange('greenhouse_slot_' + slot.id + '_stage', 1);
+      queueWorldStateChange('greenhouse_slot_' + slot.id + '_humidity', Math.round(slot.humidity));
+      if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
+      if (callbacks.onToast) {
+        callbacks.onToast('🍄 Spawn Colonizado transferido para ' + slot.name + '! Primórdios iniciados na estufa!');
+      }
+      if (ctx.notifyWorldAction) ctx.notifyWorldAction();
+    } else {
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      if (callbacks.onToast) {
+        callbacks.onToast('🌱 ' + slot.name + ' já possui micélio ativo em frutificação!');
+      }
+    }
+    return;
+  }
+
   if (slot.stage === 3) {
     if (window.MycoAudio) window.MycoAudio.playHarvest();
     triggerSporeBurst(slot.x, slot.y + 0.35, slot.z, slot.color);

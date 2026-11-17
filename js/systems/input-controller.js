@@ -34,6 +34,12 @@ export function bindControls(ctx) {
         ctx.heldRotY = (ctx.heldRotY || 0) + (e.shiftKey ? -Math.PI / 4 : Math.PI / 4);
       }
     }
+    if (e.code === 'KeyI') {
+      if (window.inspectCampusHeldItem) {
+        e.preventDefault();
+        window.inspectCampusHeldItem();
+      }
+    }
     if (e.code === 'KeyF' && window.openCampusRadialMenu) {
       e.preventDefault();
       window.openCampusRadialMenu();
@@ -42,6 +48,12 @@ export function bindControls(ctx) {
       const idx = parseInt(e.code.charAt(5), 10) - 1;
       if (window.triggerCampusFloatingAction(idx)) {
         e.preventDefault();
+      }
+    }
+    if (e.code === 'Escape') {
+      const sc = document.getElementById('item-status-card');
+      if (sc && !sc.classList.contains('hidden')) {
+        sc.classList.add('hidden');
       }
     }
     if (e.code === 'Escape' && window.isCampusRadialMenuOpen && window.isCampusRadialMenuOpen()) {

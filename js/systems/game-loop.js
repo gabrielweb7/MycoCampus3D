@@ -41,99 +41,163 @@ let lastDesktopHoverAt = 0;
 let animationStarted = false;
 let frameErrorLogged = false;
 
+const _qualityArg = {
+  renderer: null,
+  camera: null,
+  envSun: null,
+  weatherPoints: null,
+  isTouchDevice: false,
+  onQualityChange: null
+};
+
+const _cinemaHitArg = {
+  power: false,
+  lessonIdx: 0,
+  lessons: null
+};
+
+const _cinemaFrameArg = {
+  ctx: null,
+  tex: null,
+  camera: null,
+  power: false,
+  lessonIdx: 0,
+  lessons: null,
+  playing: false,
+  dirty: false,
+  time: 0,
+  hovered: false,
+  hoveredUv: null
+};
+
+const _envRainbow = { active: false, timer: 0, duration: 0 };
+
+const _envArg = {
+  envTime: 0,
+  getVirtualDayFrac,
+  lastWeatherMode: '',
+  weatherMode: '',
+  snowMix: 0,
+  rainbow: _envRainbow,
+  scene: null,
+  sunDisc: null,
+  sunHalo: null,
+  moonDisc: null,
+  starPoints: null,
+  envSun: null,
+  envHemi: null,
+  isTouch: false,
+  envCloudMat: null,
+  envClouds: null,
+  terrainSnowMat: null,
+  weatherPoints: null,
+  weatherPosAttr: null,
+  qualityTier: '',
+  inFps: false,
+  playerPos: null,
+  camera: null,
+  roofZones: null,
+  rainbowMesh: null,
+  fountainRipples: null,
+  fountainDropsAttr: null
+};
+
+const _mpAvatarsArg = {
+  remoteAvatars: null,
+  clock: null,
+  auraEnabled: false,
+  findPickable: null,
+  heldItem: null
+};
+
+function syncQualityArg(ctx) {
+  _qualityArg.renderer = ctx.renderer;
+  _qualityArg.camera = ctx.camera;
+  _qualityArg.envSun = ctx.envSun;
+  _qualityArg.weatherPoints = ctx.weatherPoints;
+  _qualityArg.isTouchDevice = ctx.isTouchDevice();
+  _qualityArg.onQualityChange = ctx.callbacks.onQualityChange;
+}
+
 export function applyQualityTier(ctx, tier) {
   qualityMod.qualityState.mode = ctx.qualityMode;
-  qualityMod.applyQualityTier(tier, {
-    renderer: ctx.renderer,
-    camera: ctx.camera,
-    envSun: ctx.envSun,
-    weatherPoints: ctx.weatherPoints,
-    isTouchDevice: ctx.isTouchDevice(),
-    onQualityChange: ctx.callbacks.onQualityChange
-  });
+  syncQualityArg(ctx);
+  qualityMod.applyQualityTier(tier, _qualityArg);
   ctx.qualityTier = qualityMod.qualityState.tier;
   ctx.auraEnabled = qualityMod.qualityState.auraEnabled;
 }
 
 export function stepAutoQuality(ctx, now) {
   qualityMod.qualityState.mode = ctx.qualityMode;
-  qualityMod.stepAutoQuality(now, {
-    renderer: ctx.renderer,
-    camera: ctx.camera,
-    envSun: ctx.envSun,
-    weatherPoints: ctx.weatherPoints,
-    isTouchDevice: ctx.isTouchDevice(),
-    onQualityChange: ctx.callbacks.onQualityChange
-  });
+  syncQualityArg(ctx);
+  qualityMod.stepAutoQuality(now, _qualityArg);
   ctx.qualityTier = qualityMod.qualityState.tier;
   ctx.auraEnabled = qualityMod.qualityState.auraEnabled;
 }
 
 export function getCinemaHitTarget(ctx, uv) {
-  return cinemaHitTarget(uv, {
-    power: ctx.cinemaPower,
-    lessonIdx: ctx.cinemaLessonIdx,
-    lessons: ctx.cinemaLessons
-  });
+  _cinemaHitArg.power = ctx.cinemaPower;
+  _cinemaHitArg.lessonIdx = ctx.cinemaLessonIdx;
+  _cinemaHitArg.lessons = ctx.cinemaLessons;
+  return cinemaHitTarget(uv, _cinemaHitArg);
 }
 
 export function drawCinemaVideoFrame(ctx, dt) {
-  const st = {
-    ctx: ctx.cinemaCtx,
-    tex: ctx.cinemaTex,
-    camera: ctx.camera,
-    power: ctx.cinemaPower,
-    lessonIdx: ctx.cinemaLessonIdx,
-    lessons: ctx.cinemaLessons,
-    playing: ctx.cinemaPlaying,
-    dirty: ctx.cinemaDirty,
-    time: ctx.cinemaTime,
-    hovered: ctx.hoveredCinema,
-    hoveredUv: ctx.hoveredCinemaUv
-  };
-  cinemaDrawFrame(dt, st);
-  ctx.cinemaTime = st.time;
-  ctx.cinemaDirty = st.dirty;
+  _cinemaFrameArg.ctx = ctx.cinemaCtx;
+  _cinemaFrameArg.tex = ctx.cinemaTex;
+  _cinemaFrameArg.camera = ctx.camera;
+  _cinemaFrameArg.power = ctx.cinemaPower;
+  _cinemaFrameArg.lessonIdx = ctx.cinemaLessonIdx;
+  _cinemaFrameArg.lessons = ctx.cinemaLessons;
+  _cinemaFrameArg.playing = ctx.cinemaPlaying;
+  _cinemaFrameArg.dirty = ctx.cinemaDirty;
+  _cinemaFrameArg.time = ctx.cinemaTime;
+  _cinemaFrameArg.hovered = ctx.hoveredCinema;
+  _cinemaFrameArg.hoveredUv = ctx.hoveredCinemaUv;
+  cinemaDrawFrame(dt, _cinemaFrameArg);
+  ctx.cinemaTime = _cinemaFrameArg.time;
+  ctx.cinemaDirty = _cinemaFrameArg.dirty;
 }
 
 export function updateDynamicEnvironment(ctx, dt) {
-  const env = {
-    envTime: ctx.envTime,
-    getVirtualDayFrac,
-    lastWeatherMode: ctx.lastWeatherMode,
-    weatherMode: ctx.weatherMode,
-    snowMix: ctx.snowMix,
-    rainbow: { active: ctx.rainbowActive, timer: ctx.rainbowTimer, duration: ctx.rainbowDuration },
-    scene: ctx.scene,
-    sunDisc: ctx.sunDisc,
-    sunHalo: ctx.sunHalo,
-    moonDisc: ctx.moonDisc,
-    starPoints: ctx.starPoints,
-    envSun: ctx.envSun,
-    envHemi: ctx.envHemi,
-    isTouch: ctx.isTouchDevice(),
-    envCloudMat: ctx.envCloudMat,
-    envClouds: ctx.envClouds,
-    terrainSnowMat: ctx.terrainSnowMat,
-    weatherPoints: ctx.weatherPoints,
-    weatherPosAttr: ctx.weatherPosAttr,
-    qualityTier: ctx.qualityTier,
-    inFps: ctx.inFps,
-    playerPos: ctx.playerPos,
-    camera: ctx.camera,
-    roofZones: ctx.roofZones,
-    rainbowMesh: ctx.rainbowMesh,
-    fountainRipples: ctx.fountainRipples,
-    fountainDropsAttr: ctx.fountainDropsAttr
-  };
-  envUpdate(dt, env);
-  ctx.envTime = env.envTime;
-  ctx.lastWeatherMode = env.lastWeatherMode;
-  ctx.weatherMode = env.weatherMode;
-  ctx.snowMix = env.snowMix;
-  ctx.rainbowActive = env.rainbow.active;
-  ctx.rainbowTimer = env.rainbow.timer;
-  ctx.rainbowDuration = env.rainbow.duration;
+  _envRainbow.active = ctx.rainbowActive;
+  _envRainbow.timer = ctx.rainbowTimer;
+  _envRainbow.duration = ctx.rainbowDuration;
+
+  _envArg.envTime = ctx.envTime;
+  _envArg.lastWeatherMode = ctx.lastWeatherMode;
+  _envArg.weatherMode = ctx.weatherMode;
+  _envArg.snowMix = ctx.snowMix;
+  _envArg.scene = ctx.scene;
+  _envArg.sunDisc = ctx.sunDisc;
+  _envArg.sunHalo = ctx.sunHalo;
+  _envArg.moonDisc = ctx.moonDisc;
+  _envArg.starPoints = ctx.starPoints;
+  _envArg.envSun = ctx.envSun;
+  _envArg.envHemi = ctx.envHemi;
+  _envArg.isTouch = ctx.isTouchDevice();
+  _envArg.envCloudMat = ctx.envCloudMat;
+  _envArg.envClouds = ctx.envClouds;
+  _envArg.terrainSnowMat = ctx.terrainSnowMat;
+  _envArg.weatherPoints = ctx.weatherPoints;
+  _envArg.weatherPosAttr = ctx.weatherPosAttr;
+  _envArg.qualityTier = ctx.qualityTier;
+  _envArg.inFps = ctx.inFps;
+  _envArg.playerPos = ctx.playerPos;
+  _envArg.camera = ctx.camera;
+  _envArg.roofZones = ctx.roofZones;
+  _envArg.rainbowMesh = ctx.rainbowMesh;
+  _envArg.fountainRipples = ctx.fountainRipples;
+  _envArg.fountainDropsAttr = ctx.fountainDropsAttr;
+
+  envUpdate(dt, _envArg);
+  ctx.envTime = _envArg.envTime;
+  ctx.lastWeatherMode = _envArg.lastWeatherMode;
+  ctx.weatherMode = _envArg.weatherMode;
+  ctx.snowMix = _envArg.snowMix;
+  ctx.rainbowActive = _envRainbow.active;
+  ctx.rainbowTimer = _envRainbow.timer;
+  ctx.rainbowDuration = _envRainbow.duration;
 }
 
 function stepArchitectureProps(ctx, dt, now) {
@@ -276,13 +340,12 @@ export function startAnimationLoop(ctx) {
         }
       }
 
-      stepMultiplayerAvatars({
-        remoteAvatars: ctx.remoteAvatars,
-        clock: ctx.clock,
-        auraEnabled: ctx.auraEnabled,
-        findPickable: ctx.findPickable,
-        heldItem: ctx.heldItem
-      }, dt);
+      _mpAvatarsArg.remoteAvatars = ctx.remoteAvatars;
+      _mpAvatarsArg.clock = ctx.clock;
+      _mpAvatarsArg.auraEnabled = ctx.auraEnabled;
+      _mpAvatarsArg.findPickable = ctx.findPickable;
+      _mpAvatarsArg.heldItem = ctx.heldItem;
+      stepMultiplayerAvatars(_mpAvatarsArg, dt);
 
       ctx.renderer.render(ctx.scene, ctx.camera);
       frameErrorLogged = false;

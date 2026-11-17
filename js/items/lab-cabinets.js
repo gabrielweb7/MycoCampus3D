@@ -159,7 +159,7 @@ export function buildBenchCabinets(ctx, cfg) {
         addBox(dg, 0.22, 0.014, 0.022, mats.handle, 0, 0, 0.036);
         const trayW = w - 0.07;
         const trayLen = Math.min(0.55, D - 0.12);
-        addBox(dg, trayW, 0.008, trayLen, mats.inside, 0, -slotH / 2 + 0.03, -trayLen / 2);
+        const trayBottom = addBox(dg, trayW, 0.008, trayLen, mats.inside, 0, -slotH / 2 + 0.03, -trayLen / 2);
         addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, -trayW / 2, -0.005, -trayLen / 2);
         addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, trayW / 2, -0.005, -trayLen / 2);
         addBox(dg, trayW, slotH - 0.07, 0.008, mats.inside, 0, -0.005, -trayLen);
@@ -181,9 +181,10 @@ export function buildBenchCabinets(ctx, cfg) {
           shelves: [],
           apply: function (p) { dg.position.z = DRAWER_TRAVEL * smooth(p); }
         };
+        registerShelf(dPart, trayBottom, lc - trayW / 2, lc + trayW / 2, yC - slotH / 2 + 0.035);
         const hit = new THREE.Mesh(
-          new THREE.BoxGeometry(faceW, slotH, 0.1),
-          new THREE.MeshBasicMaterial({ visible: false })
+          new THREE.BoxGeometry(faceW, slotH, 0.12),
+          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
         );
         hit.position.set(0, 0, 0.03);
         hit.userData.cabinetPart = dPart;
@@ -232,8 +233,8 @@ export function buildBenchCabinets(ctx, cfg) {
       // Puxador na borda livre
       addBox(panel, 0.014, 0.20, 0.022, mats.handle, -side * (wd / 2 - 0.04), 0, 0.024);
       const hit = new THREE.Mesh(
-        new THREE.BoxGeometry(wd, DOOR_TOP - DOOR_BOTTOM, 0.1),
-        new THREE.MeshBasicMaterial({ visible: false })
+        new THREE.BoxGeometry(wd, DOOR_TOP - DOOR_BOTTOM, 0.12),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
       );
       hit.position.set(0, 0, 0.03);
       hit.userData.cabinetPart = part;

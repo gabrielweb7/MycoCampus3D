@@ -116,6 +116,8 @@ export function makePetriDish(mode) {
     lidAnimationDuration: PETRI_LID_ANIMATION_SECONDS,
     sterilized: mode === 'empty' || mode === 'clean',
     inoculated: isColonized,
+    parafilmSealed: false,
+    parafilmMesh: null,
     inoculationMethod: isColonized ? 'mycelium' : '',
     colonization: isColonized ? 100 : 0,
     ...createCultureLifecycleState(isColonized),
@@ -131,7 +133,14 @@ export function makePetriDish(mode) {
     ctrl.agarMesh.position.y = 0.008;
     pg.add(ctrl.agarMesh);
   }
-  pg.add(rim, lidPivot);
+  const parafilmRing = new THREE.Mesh(
+    new THREE.CylinderGeometry(PETRI_DISH_RADIUS + 0.0018, PETRI_DISH_RADIUS + 0.0018, 0.011, 22, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.58, roughness: 0.25, side: THREE.DoubleSide })
+  );
+  parafilmRing.position.y = 0.017;
+  parafilmRing.visible = false;
+  ctrl.parafilmMesh = parafilmRing;
+  pg.add(rim, lidPivot, parafilmRing);
   pg.userData.isPetri = true;
   pg.userData.petriCtrl = ctrl;
   return pg;
@@ -146,6 +155,9 @@ export function setPetriLidOpen(item, open, immediate) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl || ctrl.lidOpen === !!open) return false;
   ctrl.lidOpen = !!open;
+  if (ctrl.lidOpen && ctrl.parafilmSealed) {
+    ctrl.parafilmSealed = false;
+  }
   ctrl.lidAnimationFrom = ctrl.lidProgress;
   ctrl.lidAnimationTo = ctrl.lidOpen ? 1 : 0;
   ctrl.lidAnimationElapsed = 0;
@@ -292,6 +304,12 @@ export function updatePetriVisual(item) {
   } else if (ctrl.mode === 'colonizing') {
     item.label += ' • ' + (ctrl.refrigerated ? '4°C • colonização pausada' : '25°C');
   }
+  if (ctrl.parafilmSealed && !ctrl.lidOpen) {
+    item.label += ' • Parafilm M';
+  }
+  if (ctrl.parafilmMesh) {
+    ctrl.parafilmMesh.visible = !!(ctrl.parafilmSealed && !ctrl.lidOpen);
+  }
   ctrl.lastRenderedColonization = Math.floor(ctrl.colonization);
   ctrl.lastRenderedRefrigerated = ctrl.refrigerated;
   ctrl.lastRenderedAgeDay = Math.floor(ctrl.ageGameDays);
@@ -363,6 +381,14 @@ export function contaminatePetri(item) {
   ctrl.colonized = false;
   ctrl.contaminated = true;
   ctrl.expired = false;
+  updatePetriVisual(item);
+  return true;
+}
+
+export function sealPetriWithParafilm(item) {
+  const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
+  if (!ctrl || ctrl.lidOpen || ctrl.mode === 'bare' || ctrl.parafilmSealed) return false;
+  ctrl.parafilmSealed = true;
   updatePetriVisual(item);
   return true;
 }

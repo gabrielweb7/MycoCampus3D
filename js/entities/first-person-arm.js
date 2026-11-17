@@ -10,6 +10,7 @@ export function buildFirstPersonArm(ctx) {
   var hand = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.13), skinMat);
   hand.position.set(0, 0.01, -0.04);
   fpsArmGroup.add(sleeve, hand);
+  fpsArmGroup.userData.handMat = skinMat;
   fpsArmGroup.position.set(0.32, -0.28, -0.42);
   fpsArmGroup.rotation.set(0.18, -0.14, 0.05);
   fpsArmGroup.visible = false;
