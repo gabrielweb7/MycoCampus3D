@@ -182,11 +182,6 @@ body.device-phone #chat-form button[type="submit"] {
   font-size: 11px !important;
 }
 
-body.device-tablet #chat-form {
-  max-width: min(360px, calc(100vw - 360px)) !important;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-}
-
 body.device-tablet #mobile-joystick-zone {
   width: 132px;
   height: 132px;
@@ -197,7 +192,9 @@ body.device-desktop #mobile-actions {
   display: none !important;
 }
 
-/* 6. Joystick Analógico Virtual & Botões Touch */
+/* ==========================================================================
+   Controles Mobile — Joystick Analógico & Cluster de Ações Ergonômico
+   ========================================================================== */
 #mobile-joystick-zone {
   position: fixed;
   left: calc(18px + env(safe-area-inset-left, 0px));
@@ -228,68 +225,236 @@ body.device-desktop #mobile-actions {
   pointer-events: none;
 }
 
+/* Cluster de Ações do Polegar Direito — Layout em Arco / Sem Sobreposição */
 #mobile-actions {
   position: fixed;
-  right: calc(18px + env(safe-area-inset-right, 0px));
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: 220px;
+  height: 160px;
   z-index: 25;
   display: none;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  pointer-events: none;
   touch-action: none;
 }
 
 .touch-btn {
-  min-width: 68px;
-  height: 68px;
+  position: absolute;
+  pointer-events: auto;
   border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.78);
-  border: 2px solid rgba(255, 255, 255, 0.32);
+  background: rgba(15, 23, 42, 0.82);
+  border: 2px solid rgba(255, 255, 255, 0.35);
   color: #ffffff;
   font-weight: 700;
-  font-size: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   touch-action: none;
   user-select: none;
-}
-
-#btn-mobile-action {
-  min-width: 74px;
-  height: 74px;
-  font-size: 30px;
-  background: rgba(16, 185, 129, 0.42);
-  border-color: rgba(52, 211, 153, 0.75);
-  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
-}
-
-#btn-mobile-action.action-active {
-  background: rgba(16, 185, 129, 0.92);
-  border-color: #6ee7b7;
-  transform: scale(0.92);
-  box-shadow: 0 0 24px rgba(52, 211, 153, 0.75);
-}
-
-#btn-mobile-jump {
-  min-width: 74px;
-  height: 74px;
-  font-size: 28px;
-  background: rgba(16, 185, 129, 0.38);
-  border-color: rgba(52, 211, 153, 0.7);
-}
-
-#btn-mobile-sprint.sprint-active {
-  background: rgba(245, 158, 11, 0.82);
-  border-color: #fde047;
-  box-shadow: 0 0 18px rgba(251, 191, 36, 0.55);
+  -webkit-user-select: none;
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .touch-btn:active {
+  transform: scale(0.90);
+  background: rgba(16, 185, 129, 0.85);
+}
+
+/* 1. Pulo: canto inferior direito, descanso natural do polegar */
+#btn-mobile-jump {
+  right: 0px;
+  bottom: 0px;
+  width: 66px;
+  height: 66px;
+  min-width: 66px;
+  font-size: 26px;
+  background: rgba(16, 185, 129, 0.42);
+  border-color: rgba(52, 211, 153, 0.75);
+}
+
+/* 2. Ação Primária: botão central de interação, maior e com brilho esmeralda */
+#btn-mobile-action {
+  right: 74px;
+  bottom: 4px;
+  width: 74px;
+  height: 74px;
+  min-width: 74px;
+  font-size: 32px;
+  background: rgba(16, 185, 129, 0.55);
+  border-color: rgba(52, 211, 153, 0.9);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
+}
+
+#btn-mobile-action.action-active {
+  background: rgba(16, 185, 129, 0.95);
+  border-color: #6ee7b7;
   transform: scale(0.92);
-  background: rgba(16, 185, 129, 0.75);
+  box-shadow: 0 0 28px rgba(52, 211, 153, 0.85);
+}
+
+/* 3. Correr: trava de sprint acima do pulo */
+#btn-mobile-sprint {
+  right: 6px;
+  bottom: 74px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  font-size: 22px;
+  background: rgba(15, 23, 42, 0.82);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+#btn-mobile-sprint.sprint-active {
+  background: rgba(245, 158, 11, 0.88);
+  border-color: #fde047;
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.65);
+}
+
+/* 4. Posicionar Item: acima do botão de ação (aparece apenas segurando item) */
+#btn-mobile-place {
+  right: 78px;
+  bottom: 84px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  font-size: 24px;
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(148, 163, 184, 0.75);
+}
+
+#btn-mobile-place.placement-active {
+  background: rgba(16, 185, 129, 0.95);
+  border-color: #6ee7b7;
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.75);
+}
+
+/* 5. Girar Item: à esquerda do botão de ação (aparece apenas segurando item) */
+#btn-mobile-rotate {
+  right: 154px;
+  bottom: 12px;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  font-size: 22px;
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(148, 163, 184, 0.75);
+}
+
+/* ==========================================================================
+   HUD Superior — Menu Responsivo Mobile & Ferramentas Secundárias
+   ========================================================================== */
+#hud-top-bar {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  max-width: calc(100vw - 20px);
+  z-index: 22;
+}
+
+#btn-mobile-menu {
+  display: none;
+}
+
+.hud-secondary-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 860px) {
+  #btn-mobile-menu {
+    display: inline-flex !important;
+  }
+
+  .hud-secondary-tools {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: min(94vw, 360px);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(52, 211, 153, 0.4);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+    z-index: 35;
+  }
+
+  .hud-secondary-tools.open {
+    display: grid !important;
+  }
+
+  .hud-secondary-tools .hud-pill-btn {
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: 11px;
+    min-height: 38px;
+  }
+}
+
+/* ==========================================================================
+   Chat Mobile — Botão Flutuante Discreto que Expande
+   ========================================================================== */
+#chat-container {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  pointer-events: auto;
+  z-index: 21;
+}
+
+#btn-mobile-chat-toggle {
+  display: none;
+}
+
+#btn-mobile-chat-close {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  #btn-mobile-chat-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+    color: #f8fafc;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  #chat-container:not(.chat-expanded) #chat-form {
+    display: none !important;
+  }
+
+  #chat-container.chat-expanded #btn-mobile-chat-toggle {
+    display: none !important;
+  }
+
+  #chat-container.chat-expanded #chat-form {
+    display: flex !important;
+    width: min(88vw, 360px);
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(52, 211, 153, 0.45);
+    border-radius: 9999px;
+    padding: 3px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  }
+
+  #btn-mobile-chat-close {
+    display: block !important;
+  }
 }
 
 /* HUD Top Actions & Professor Toolbar - Permanently Hidden per user request */

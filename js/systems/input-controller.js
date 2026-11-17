@@ -167,6 +167,14 @@ export function bindControls(ctx) {
       el.closest('input') ||
       el.closest('textarea') ||
       el.closest('form') ||
+      el.closest('#campus-hud') ||
+      el.closest('#hud-secondary-tools') ||
+      el.closest('#chat-container') ||
+      el.closest('#myco-floating-actions') ||
+      el.closest('#shop-modal') ||
+      el.closest('#map-modal') ||
+      el.closest('#quest-modal') ||
+      el.closest('#emote-bar') ||
       el.closest('#lesson-modal') ||
       el.closest('#ranking-modal') ||
       el.closest('#admin-modal') ||
@@ -211,18 +219,9 @@ export function bindControls(ctx) {
           const nowT = performance.now();
           if (nowT - lastTouchActionAt > 180) {
             lastTouchActionAt = nowT;
-            setNdcFromTouch(t);
+            // O toque na tela aciona exatamente onde a mira central está apontando (crosshair em 0, 0)
+            ctx.pointerNdc.set(0, 0);
             ctx.updateHoverRay(ctx.pointerNdc);
-            const isHolding = !!ctx.heldItem;
-            const hasTarget = isHolding || ctx.hoveredPickable || ctx.hoveredMushroom || ctx.hoveredDoorObj || ctx.hoveredBlindObj ||
-              ctx.hoveredSeat || ctx.hoveredSwitch || ctx.hoveredHoodSwitch || ctx.hoveredStirSwitch ||
-              ctx.hoveredSyringeTarget || ctx.hoveredScaleTare || ctx.hoveredBurnerSwitch || ctx.hoveredPotInsert ||
-              ctx.hoveredSprayTarget || ctx.hoveredRankBtn || ctx.hoveredCinema || ctx.hoveredScreen || ctx.hoveredScreenBtn ||
-              (ctx.hoveredBoardHit && getHeldBoardToolColor(ctx.heldItem));
-            if (!hasTarget) {
-              ctx.pointerNdc.set(0, 0);
-              ctx.updateHoverRay(ctx.pointerNdc);
-            }
             ctx.handlePrimaryAction();
           }
         }

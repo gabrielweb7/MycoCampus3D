@@ -27,9 +27,9 @@ function ensureFloatingStyles() {
     #myco-floating-actions {
       position: fixed;
       left: 50%;
-      bottom: 108px;
+      bottom: calc(76px + env(safe-area-inset-bottom, 0px));
       transform: translateX(-50%);
-      z-index: 25;
+      z-index: 26;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
@@ -41,22 +41,25 @@ function ensureFloatingStyles() {
     .myco-float-chip {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 5px 10px;
+      gap: 6px;
+      padding: 6px 12px;
       border-radius: 9999px;
-      background: rgba(15, 23, 42, 0.82);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(57, 255, 20, 0.38);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(57, 255, 20, 0.45);
       color: #f8fafc;
       font-size: 11px;
       font-weight: 700;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
       cursor: pointer;
       user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
       transition: transform 0.1s, border-color 0.1s, background 0.1s;
     }
     .myco-float-chip:hover, .myco-float-chip:active {
-      background: rgba(16, 185, 129, 0.3);
+      background: rgba(16, 185, 129, 0.35);
       border-color: #39ff14;
       transform: translateY(-1px);
     }
@@ -72,6 +75,16 @@ function ensureFloatingStyles() {
       color: #39ff14;
       font-size: 10px;
       font-weight: 800;
+    }
+    body.device-phone .myco-float-chip,
+    body.device-tablet .myco-float-chip {
+      padding: 8px 14px;
+      font-size: 12px;
+      min-height: 38px;
+    }
+    body.device-phone .myco-float-key,
+    body.device-tablet .myco-float-key {
+      display: none;
     }
   `;
   document.head.appendChild(st);

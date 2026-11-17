@@ -219,7 +219,7 @@ export function updateFpsUi(fps) {
   const mobActs = $('mobile-actions');
   if (fps && isTouch()) {
     if (joyZone) joyZone.style.display = 'block';
-    if (mobActs) mobActs.style.display = 'flex';
+    if (mobActs) mobActs.style.display = 'block';
   } else {
     if (joyZone) joyZone.style.display = 'none';
     if (mobActs) mobActs.style.display = 'none';

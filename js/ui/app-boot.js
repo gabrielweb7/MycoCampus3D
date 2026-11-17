@@ -238,6 +238,47 @@ function bindModalsAndToolbar() {
       try { await apiPost('api/multiplayer.php?action=reset_world', {}, true); } catch (e) {}
     };
   }
+
+  // Mobile Menu Drawer Toggle
+  const btnMobileMenu = $('btn-mobile-menu');
+  const hudSecTools = $('hud-secondary-tools');
+  if (btnMobileMenu && hudSecTools) {
+    btnMobileMenu.onclick = (e) => {
+      e.stopPropagation();
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      hudSecTools.classList.toggle('open');
+    };
+    document.addEventListener('click', (e) => {
+      if (hudSecTools.classList.contains('open') && !hudSecTools.contains(e.target) && e.target !== btnMobileMenu) {
+        hudSecTools.classList.remove('open');
+      }
+    });
+    hudSecTools.querySelectorAll('button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        hudSecTools.classList.remove('open');
+      });
+    });
+  }
+
+  // Mobile Chat Toggle
+  const chatContainer = $('chat-container');
+  const btnChatToggle = $('btn-mobile-chat-toggle');
+  const btnChatClose = $('btn-mobile-chat-close');
+  const chatInput = $('chat-input');
+  if (btnChatToggle && chatContainer) {
+    btnChatToggle.onclick = (e) => {
+      e.stopPropagation();
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      chatContainer.classList.add('chat-expanded');
+      setTimeout(() => { chatInput?.focus(); }, 60);
+    };
+  }
+  if (btnChatClose && chatContainer) {
+    btnChatClose.onclick = (e) => {
+      e.stopPropagation();
+      chatContainer.classList.remove('chat-expanded');
+    };
+  }
 }
 
 function bindChatAndShortcuts() {
@@ -251,6 +292,10 @@ function bindChatAndShortcuts() {
       syncMultiplayer();
     }
     inp.blur();
+    const chatContainer = $('chat-container');
+    if (chatContainer && isTouch()) {
+      chatContainer.classList.remove('chat-expanded');
+    }
   }
 
   const chatForm = $('chat-form');
@@ -308,8 +353,77 @@ export function bootApp() {
   const verEl = $('app-version');
   if (verEl) verEl.textContent = 'v' + getAppVersion();
   let mobilePlacementModeActive = false;
+  let currentHoldLabel = '';
+  let currentHoverPrompt = '';
+
+  function refreshMobileAction() {
+    const actBtn = $('btn-mobile-action');
+    if (!actBtn) return;
+    if (!isTouch() || !appState.currentUser || !appState.inFps) {
+      actBtn.style.display = 'none';
+      return;
+    }
+
+    const isHolding = !!(window.getCampusPlayerPose && window.getCampusPlayerPose().holding_item);
+
+    if (isHolding && currentHoldLabel) {
+      actBtn.style.display = 'flex';
+      actBtn.dataset.action = 'use';
+      if (currentHoldLabel.indexOf('Giz') !== -1 || currentHoldLabel.indexOf('chalk') !== -1) {
+        actBtn.textContent = '✏️';
+        actBtn.title = 'Desenhar na Lousa (segure e arraste o dedo)';
+      } else if (currentHoldLabel.indexOf('Apagador') !== -1 || currentHoldLabel.indexOf('eraser') !== -1) {
+        actBtn.textContent = '🧽';
+        actBtn.title = 'Apagar Lousa (segure e arraste o dedo)';
+      } else if (currentHoldLabel.indexOf('Borrifador') !== -1 || currentHoldLabel.indexOf('Álcool') !== -1) {
+        actBtn.textContent = '💦';
+        actBtn.title = 'Borrifar Álcool';
+      } else if (currentHoldLabel.indexOf('Termômetro') !== -1) {
+        actBtn.textContent = '🌡️';
+        actBtn.title = 'Medir Temperatura';
+      } else if (currentHoldLabel.indexOf('Seringa') !== -1) {
+        actBtn.textContent = '💉';
+        actBtn.title = 'Usar Seringa (segure para aspirar/injetar)';
+      } else if (currentHoldLabel.indexOf('Seladora') !== -1) {
+        actBtn.textContent = '♨️';
+        actBtn.title = 'Selar Bag Preenchido';
+      } else if (currentHoverPrompt) {
+        actBtn.textContent = getMobileActionIcon(currentHoverPrompt);
+        actBtn.title = currentHoverPrompt;
+      } else {
+        actBtn.textContent = '✋';
+        actBtn.title = currentHoldLabel;
+      }
+      if (currentHoverPrompt) {
+        actBtn.title = currentHoverPrompt;
+        actBtn.setAttribute('aria-label', currentHoverPrompt);
+      }
+    } else if (currentHoverPrompt) {
+      actBtn.style.display = 'flex';
+      actBtn.dataset.action = 'interact';
+      actBtn.textContent = getMobileActionIcon(currentHoverPrompt);
+      actBtn.title = currentHoverPrompt;
+      actBtn.setAttribute('aria-label', currentHoverPrompt);
+    } else {
+      actBtn.style.display = 'none';
+      actBtn.dataset.action = '';
+    }
+  }
+
   if (window.location.search.indexOf('preview=1') !== -1) {
     $('campus-lobby')?.classList.add('hidden');
+  }
+
+  // Auto-fade FPS hint on touch after 8 seconds
+  if (isTouch()) {
+    setTimeout(() => {
+      const hint = $('fps-hint');
+      if (hint) {
+        hint.style.transition = 'opacity 0.8s ease';
+        hint.style.opacity = '0';
+        hint.style.pointerEvents = 'none';
+      }
+    }, 8000);
   }
 
   window.initCampus3D('campus-canvas-wrap', {
@@ -327,6 +441,7 @@ export function bootApp() {
     onToast: (msg) => showFloatingToast(msg, 3500),
     onNearScreen: () => { $('prof-toolbar')?.classList.add('hidden'); },
     onHoldChange: (label) => {
+      currentHoldLabel = label || '';
       const rotBtn = $('btn-mobile-rotate');
       if (rotBtn) rotBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
       const placeBtn = $('btn-mobile-place');
@@ -338,48 +453,7 @@ export function bootApp() {
           : 'Posicionar item';
         placeBtn.classList.toggle('placement-active', mobilePlacementModeActive);
       }
-      const actBtn = $('btn-mobile-action');
-      if (actBtn) {
-        if (!isTouch() || !label) {
-          actBtn.style.display = 'none';
-          actBtn.dataset.action = '';
-        } else if (label.indexOf('Giz') !== -1 || label.indexOf('chalk') !== -1) {
-          actBtn.style.display = 'flex';
-          actBtn.dataset.action = 'use';
-          actBtn.textContent = '✏️';
-          actBtn.title = 'Desenhar na Lousa (segure e arraste o dedo para pintar)';
-        } else if (label.indexOf('Apagador') !== -1 || label.indexOf('eraser') !== -1) {
-          actBtn.style.display = 'flex';
-          actBtn.dataset.action = 'use';
-          actBtn.textContent = '🧽';
-          actBtn.title = 'Apagar Lousa (segure e arraste o dedo para apagar)';
-        } else if (label.indexOf('Borrifador') !== -1 || label.indexOf('Álcool') !== -1) {
-          actBtn.style.display = 'flex';
-          actBtn.dataset.action = 'use';
-          actBtn.textContent = '💦';
-          actBtn.title = 'Borrifar / Soltar';
-        } else if (label.indexOf('Termômetro') !== -1) {
-          actBtn.style.display = 'flex';
-          actBtn.dataset.action = 'use';
-          actBtn.textContent = '🌡️';
-          actBtn.title = 'Medir Temperatura';
-        } else if (label.indexOf('Seringa') !== -1) {
-          actBtn.style.display = 'flex';
-          actBtn.dataset.action = 'use';
-          actBtn.textContent = '💉';
-          actBtn.title = 'Usar Seringa';
-        } else if (label.indexOf('Seladora') !== -1) {
-          actBtn.style.display = 'flex';
-          actBtn.dataset.action = 'use';
-          actBtn.textContent = '♨️';
-          actBtn.title = 'Selar bag preenchido';
-        } else {
-          actBtn.style.display = 'flex';
-          actBtn.dataset.action = 'use';
-          actBtn.textContent = '✋';
-          actBtn.title = 'Agir no alvo destacado';
-        }
-      }
+      refreshMobileAction();
     },
     onPlacementModeChange: (active) => {
       mobilePlacementModeActive = active;
@@ -391,7 +465,10 @@ export function bootApp() {
         : 'Posicionar item';
       placeBtn.classList.toggle('placement-active', active);
     },
-    onFpsChange: updateFpsUi,
+    onFpsChange: (fps) => {
+      updateFpsUi(fps);
+      refreshMobileAction();
+    },
     onQualityChange: (info) => {
       const qBtn = $('btn-quality');
       if (!qBtn || !info) return;
@@ -404,6 +481,7 @@ export function bootApp() {
         (info.tier === 'min' || info.tier === 'low' ? 'text-amber-300 border-amber-500/40' : 'text-cyan-300 border-cyan-500/40');
     },
     onHoverPrompt: (txt) => {
+      currentHoverPrompt = txt || '';
       const pill = $('interact-pill');
       if (pill && Date.now() >= getToastUntil()) {
         if (txt && appState.currentUser) {
@@ -413,18 +491,7 @@ export function bootApp() {
           pill.classList.add('hidden');
         }
       }
-      const actBtn = $('btn-mobile-action');
-      const isHolding = window.getCampusPlayerPose && window.getCampusPlayerPose().holding_item;
-      if (actBtn) {
-        if (isTouch() && txt && appState.currentUser) {
-          actBtn.style.display = 'flex';
-          if (!isHolding) actBtn.textContent = getMobileActionIcon(txt);
-          actBtn.title = txt;
-          actBtn.setAttribute('aria-label', txt);
-        } else {
-          actBtn.style.display = 'none';
-        }
-      }
+      refreshMobileAction();
     }
   });
 

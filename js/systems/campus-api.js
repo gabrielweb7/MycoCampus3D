@@ -202,7 +202,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
     if (sim.lobbyTourActive) return;
     sim.isPrimaryDown = !!down;
     if (down) {
-      if (!sim.heldItem) sim.pointerNdc.set(0, 0);
+      sim.pointerNdc.set(0, 0);
       sim.updateHoverRay();
       sim.handlePrimaryAction();
     } else {

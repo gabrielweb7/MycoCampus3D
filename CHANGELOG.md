@@ -2,6 +2,28 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.50] — 2026-11-17
+### 📱 Otimização Completa de Mecânica Mobile, Ergonomia em Arco & HUD Despoluído
+- **Cluster de Ações Mobile Ergonômico em Arco (`css/game.css`, `index.html`, `mobile-controls.js`):**
+  - Substituída a coluna vertical de 6 botões (que tinha ~460px de altura e transbordava a tela em modo paisagem) por um cluster ergonômico no formato de arco natural para o polegar direito (`Pulo`, `Ação`, `Correr`, `Posicionar`, `Girar`).
+  - O botão de Pulo fica no canto inferior direito; Ação Primária em destaque esmeralda à esquerda; Sprint acima do pulo com trava visual; Posicionar e Girar situados acima apenas quando o jogador segura um item, sem provocar saltos de layout nem ocupar espaço desnecessário.
+  - Removido o botão residual `btn-mobile-radial` (⚙️) que era redundante e não executava função útil.
+- **Correção da Ação Primária & Eliminação de Tremulação (`app-boot.js`):**
+  - Criado o controlador unificado `refreshMobileAction()`: ferramentas ativas em mãos (Borrifador de Álcool 💦, Giz ✏️, Apagador 🧽, Bisturi 🔪, Seringa 💉, Termômetro 🌡️, Seladora ♨️) mantêm o botão de ação sempre visível e funcional, sem sumir quando a mira sai de um objeto.
+  - Alvos interativos no ambiente (cogumelos 🍄, portas 🚪, assentos 🪑, torneiras 🚰, panelas ♨️) exibem o ícone contextual correto imediatamente na mira.
+- **HUD Superior Compacto & Menu Gaveta Mobile (`index.html`, `css/game.css`, `app-boot.js`):**
+  - No celular e tablet, os 13 botões agrupados em 4 linhas foram substituídos por uma barra horizontal ultra limpa contendo perfil, status essenciais, atalhos rápidos (`🗺️ Mapa`, `🧪 Missão`) e o botão `☰ Menu`.
+  - Ao tocar em `☰ Menu`, abre-se um cartão de vidro translúcido com grade de toque confortável para as demais ferramentas (`Aulas`, `Ranking`, `Guia`, `Loja`, `Admin`, `Emotes`, `Qualidade`, `Som`, `Tela Cheia`), fechando automaticamente após o clique ou toque fora. No desktop, os botões permanecem todos visíveis em linha normalmente.
+- **Chat Mobile Expansível e Não Invasivo (`index.html`, `css/game.css`, `app-boot.js`):**
+  - No mobile, a caixa de texto permanente na parte inferior da tela foi substituída por uma pílula flutuante discreta `💬 Chat`.
+  - Ao tocar nela, a barra de texto expande suavemente com foco imediato; ao enviar a mensagem ou tocar no `✕`, ela recolhe, deixando a área inferior 100% limpa e sem risco de toques acidentais durante a exploração.
+- **Toque na Tela Aciona Exclusivamente a Mira Central (`input-controller.js`, `campus-api.js`):**
+  - Corrigido o raycast mobile: ao tocar em qualquer área da tela ou no botão de ação, a interação é disparada 100% no alvo central da mira (crosshair em `0, 0`), e não mais na coordenada exata onde o dedo encostou. Isso elimina cliques errôneos no chão ou em objetos periféricos ao tentar interagir com portas, cogumelos, equipamentos e bancadas.
+- **Prevenção de Toques Fantasmas na Câmera (`input-controller.js`):**
+  - Atualizado o filtro `isUiTouch` com os modais de loja, mapa, missões, menu mobile, chat e chips flutuantes, impedindo que interações na interface causem solavancos na câmera ou cliques indesejados no mundo 3D.
+- **Pílula de Dicas com Auto-Fade (`app-boot.js`):**
+  - A dica central `#fps-hint` agora esmaece suavemente após 8 segundos no mobile para liberar o campo de visão.
+
 ## [v0.9.49] — 2026-11-17
 ### 💉 Aspiração/Enchimento Contínuo, Geladeira Móvel & Universal, Colher Realista & Armários das Bancadas
 - **Aspiração e Injeção Contínua com Seringa (`held-item-loop.js`, `interaction-system.js`):**

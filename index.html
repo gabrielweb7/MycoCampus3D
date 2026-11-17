@@ -70,7 +70,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=0.9.10">
+  <link rel="stylesheet" href="css/game.css?v=0.9.50">
   <style>
     html,
     body {
@@ -211,11 +211,6 @@
       font-size: 11px !important;
     }
 
-    body.device-tablet #chat-form {
-      max-width: min(360px, calc(100vw - 360px)) !important;
-      bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-    }
-
     body.device-tablet #mobile-joystick-zone {
       width: 132px;
       height: 132px;
@@ -257,81 +252,225 @@
       pointer-events: none;
     }
 
+    /* Mobile Actions Cluster (Thumb Arc Zone) */
     #mobile-actions {
       position: fixed;
-      right: calc(18px + env(safe-area-inset-right, 0px));
-      bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      right: calc(16px + env(safe-area-inset-right, 0px));
+      bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+      width: 220px;
+      height: 160px;
       z-index: 25;
       display: none;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 10px;
+      pointer-events: none;
       touch-action: none;
     }
 
     .touch-btn {
-      min-width: 68px;
-      height: 68px;
+      position: absolute;
+      pointer-events: auto;
       border-radius: 9999px;
-      background: rgba(15, 23, 42, 0.78);
-      border: 2px solid rgba(255, 255, 255, 0.32);
+      background: rgba(15, 23, 42, 0.82);
+      border: 2px solid rgba(255, 255, 255, 0.35);
       color: #ffffff;
       font-weight: 700;
-      font-size: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
       touch-action: none;
       user-select: none;
-    }
-
-    #btn-mobile-action {
-      min-width: 74px;
-      height: 74px;
-      font-size: 30px;
-      background: rgba(16, 185, 129, 0.42);
-      border-color: rgba(52, 211, 153, 0.75);
-      box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
-    }
-
-    #btn-mobile-action.action-active {
-      background: rgba(16, 185, 129, 0.92);
-      border-color: #6ee7b7;
-      transform: scale(0.92);
-      box-shadow: 0 0 24px rgba(52, 211, 153, 0.75);
-    }
-
-    #btn-mobile-place {
-      min-width: 58px;
-      height: 58px;
-      font-size: 24px;
-      background: rgba(30, 41, 59, 0.88);
-      border-color: rgba(148, 163, 184, 0.72);
-    }
-
-    #btn-mobile-place.placement-active {
-      background: rgba(16, 185, 129, 0.92);
-      border-color: #6ee7b7;
-    }
-
-    #btn-mobile-jump {
-      min-width: 74px;
-      height: 74px;
-      font-size: 28px;
-      background: rgba(16, 185, 129, 0.38);
-      border-color: rgba(52, 211, 153, 0.7);
-    }
-
-    #btn-mobile-sprint.sprint-active {
-      background: rgba(245, 158, 11, 0.82);
-      border-color: #fde047;
-      box-shadow: 0 0 18px rgba(251, 191, 36, 0.55);
+      -webkit-user-select: none;
+      transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
     }
 
     .touch-btn:active {
+      transform: scale(0.90);
+      background: rgba(16, 185, 129, 0.85);
+    }
+
+    #btn-mobile-jump {
+      right: 0px;
+      bottom: 0px;
+      width: 66px;
+      height: 66px;
+      min-width: 66px;
+      font-size: 26px;
+      background: rgba(16, 185, 129, 0.42);
+      border-color: rgba(52, 211, 153, 0.75);
+    }
+
+    #btn-mobile-action {
+      right: 74px;
+      bottom: 4px;
+      width: 74px;
+      height: 74px;
+      min-width: 74px;
+      font-size: 32px;
+      background: rgba(16, 185, 129, 0.55);
+      border-color: rgba(52, 211, 153, 0.9);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
+    }
+
+    #btn-mobile-action.action-active {
+      background: rgba(16, 185, 129, 0.95);
+      border-color: #6ee7b7;
       transform: scale(0.92);
-      background: rgba(16, 185, 129, 0.75);
+      box-shadow: 0 0 28px rgba(52, 211, 153, 0.85);
+    }
+
+    #btn-mobile-sprint {
+      right: 6px;
+      bottom: 74px;
+      width: 52px;
+      height: 52px;
+      min-width: 52px;
+      font-size: 22px;
+      background: rgba(15, 23, 42, 0.82);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    #btn-mobile-sprint.sprint-active {
+      background: rgba(245, 158, 11, 0.88);
+      border-color: #fde047;
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.65);
+    }
+
+    #btn-mobile-place {
+      right: 78px;
+      bottom: 84px;
+      width: 56px;
+      height: 56px;
+      min-width: 56px;
+      font-size: 24px;
+      background: rgba(30, 41, 59, 0.92);
+      border-color: rgba(148, 163, 184, 0.75);
+    }
+
+    #btn-mobile-place.placement-active {
+      background: rgba(16, 185, 129, 0.95);
+      border-color: #6ee7b7;
+      box-shadow: 0 0 18px rgba(52, 211, 153, 0.75);
+    }
+
+    #btn-mobile-rotate {
+      right: 154px;
+      bottom: 12px;
+      width: 54px;
+      height: 54px;
+      min-width: 54px;
+      font-size: 22px;
+      background: rgba(30, 41, 59, 0.92);
+      border-color: rgba(148, 163, 184, 0.75);
+    }
+
+    #hud-top-bar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      max-width: calc(100vw - 20px);
+      z-index: 22;
+    }
+
+    #btn-mobile-menu {
+      display: none;
+    }
+
+    .hud-secondary-tools {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 860px) {
+      #btn-mobile-menu {
+        display: inline-flex !important;
+      }
+
+      .hud-secondary-tools {
+        display: none;
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        width: min(94vw, 360px);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        padding: 12px;
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.96);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(52, 211, 153, 0.4);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+        z-index: 35;
+      }
+
+      .hud-secondary-tools.open {
+        display: grid !important;
+      }
+
+      .hud-secondary-tools .hud-pill-btn {
+        justify-content: center;
+        padding: 8px 6px;
+        font-size: 11px;
+        min-height: 38px;
+      }
+    }
+
+    #chat-container {
+      position: fixed;
+      left: 50%;
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%);
+      pointer-events: auto;
+      z-index: 21;
+    }
+
+    #btn-mobile-chat-toggle {
+      display: none;
+    }
+
+    #btn-mobile-chat-close {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      #btn-mobile-chat-toggle {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 9999px;
+        color: #f8fafc;
+        font-size: 11px;
+        font-weight: 700;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+      }
+
+      #chat-container:not(.chat-expanded) #chat-form {
+        display: none !important;
+      }
+
+      #chat-container.chat-expanded #btn-mobile-chat-toggle {
+        display: none !important;
+      }
+
+      #chat-container.chat-expanded #chat-form {
+        display: flex !important;
+        width: min(88vw, 360px);
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(52, 211, 153, 0.45);
+        border-radius: 9999px;
+        padding: 3px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+      }
+
+      #btn-mobile-chat-close {
+        display: block !important;
+      }
     }
   </style>
 </head>
@@ -392,7 +531,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v0.9.49</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v0.9.50</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -400,46 +539,57 @@
   <!-- IN-GAME HUD -->
   <div id="campus-hud" class="hidden fixed inset-0 z-20 pointer-events-none">
     <!-- Top Left Profile & Stats -->
-    <div class="fixed top-3 left-3 flex flex-col gap-2 pointer-events-auto max-w-[92vw]">
-      <div class="glass-panel rounded-xl px-3 py-2 flex flex-wrap items-center gap-2 text-xs">
+    <div id="hud-top-bar" class="pointer-events-auto">
+      <div class="glass-panel rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs">
         <span id="hud-role-badge"
           class="px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">🎓
           Aluno</span>
-        <span id="hud-name" class="font-bold text-white truncate max-w-[130px]">Explorador</span>
-        <span class="text-amber-300 font-bold">⭐ <span id="hud-xp">0</span> XP</span>
+        <span id="hud-name" class="font-bold text-white truncate max-w-[100px] sm:max-w-[130px]">Explorador</span>
+        <span class="text-amber-300 font-bold">⭐ <span id="hud-xp">0</span><span class="hidden sm:inline"> XP</span></span>
         <span class="text-emerald-300 font-bold">🍄 <span id="hud-mushrooms">0</span></span>
-        <span class="text-sky-300 font-bold">🌐 <span id="hud-online">1</span> online</span>
+        <span class="text-sky-300 font-bold">🌐 <span id="hud-online">1</span></span>
+
+        <!-- Primary quick actions (always visible) -->
         <button id="btn-open-map" type="button" title="Mapa & Teleporte Rápido"
-          class="px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️
+          class="hud-pill-btn px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️
           Mapa</button>
-        <button id="btn-open-lessons" type="button" title="Módulos & Aulas Teóricas"
-          class="px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">📚
-          Aulas</button>
-        <button id="btn-open-ranking" type="button" title="Ranking Geral de Alunos"
-          class="px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🏆
-          Ranking</button>
         <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório"
-          class="px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪
+          class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪
           Missão <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/5</span></button>
-        <button id="btn-open-guide" type="button" title="Controles, tutorial opcional e compatibilidade dos itens"
-          class="px-2 py-0.5 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 font-bold border border-indigo-500/50 flex items-center gap-1">📖
-          Guia</button>
-        <button id="btn-open-shop" type="button" title="Loja de Cosméticos & Chapéus"
-          class="px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
-          Loja</button>
-        <button id="btn-open-admin" type="button" title="Painel Master Admin"
-          class="hidden px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🛡️
-          Admin</button>
-        <button id="btn-open-emotes" type="button" title="Emotes & Animações"
-          class="px-2 py-0.5 rounded-lg bg-pink-900/60 hover:bg-pink-800 text-pink-200 font-bold border border-pink-500/50 flex items-center gap-1">💃
-          Emotes</button>
-        <button id="btn-quality" type="button" title="Qualidade Gráfica & Auto-FPS (clique para alternar)"
-          class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 font-bold border border-cyan-500/40 whitespace-nowrap">⚡
-          Auto</button>
-        <button id="btn-toggle-audio" type="button" title="Ativar/Desativar Som"
-          class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">🔊</button>
-        <button id="btn-fullscreen" type="button" title="Tela Cheia (Fullscreen)"
-          class="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">⛶</button>
+
+        <!-- Mobile menu toggle (visible only on mobile) -->
+        <button id="btn-mobile-menu" type="button" title="Menu de Funções"
+          class="hud-pill-btn px-2.5 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 font-extrabold border border-emerald-500/50 flex items-center gap-1">☰
+          <span>Menu</span></button>
+
+        <!-- Secondary tools: inline on desktop, dropdown card on mobile -->
+        <div id="hud-secondary-tools" class="hud-secondary-tools">
+          <button id="btn-open-lessons" type="button" title="Módulos & Aulas Teóricas"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">📚
+            Aulas</button>
+          <button id="btn-open-ranking" type="button" title="Ranking Geral de Alunos"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🏆
+            Ranking</button>
+          <button id="btn-open-guide" type="button" title="Controles, tutorial opcional e compatibilidade dos itens"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 font-bold border border-indigo-500/50 flex items-center gap-1">📖
+            Guia</button>
+          <button id="btn-open-shop" type="button" title="Loja de Cosméticos & Chapéus"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
+            Loja</button>
+          <button id="btn-open-admin" type="button" title="Painel Master Admin"
+            class="hidden hud-pill-btn px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🛡️
+            Admin</button>
+          <button id="btn-open-emotes" type="button" title="Emotes & Animações"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-pink-900/60 hover:bg-pink-800 text-pink-200 font-bold border border-pink-500/50 flex items-center gap-1">💃
+            Emotes</button>
+          <button id="btn-quality" type="button" title="Qualidade Gráfica & Auto-FPS (clique para alternar)"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 font-bold border border-cyan-500/40 whitespace-nowrap">⚡
+            Auto</button>
+          <button id="btn-toggle-audio" type="button" title="Ativar/Desativar Som"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">🔊</button>
+          <button id="btn-fullscreen" type="button" title="Tela Cheia (Fullscreen)"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">⛶</button>
+        </div>
       </div>
       <div id="hud-quick-actions" style="display:none!important;visibility:hidden!important;"></div>
     </div>
@@ -449,13 +599,13 @@
 
     <!-- Center Fading Hint -->
     <div id="fps-hint"
-      class="fixed top-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap max-w-[92vw] truncate">
-      WASD anda • Shift corre • Espaço pula • R gira • F ações • Clique interage
+      class="fixed top-14 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap max-w-[92vw] truncate z-20">
+      WASD anda • Shift corre • Espaço pula • R gira • Clique interage
     </div>
 
     <!-- Interaction Prompt Pill -->
     <div id="interact-pill"
-      class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40">
+      class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40 z-24">
       Interagir
     </div>
 
@@ -478,14 +628,17 @@
         title="Fechar barra de emotes">✕</button>
     </div>
 
-    <!-- Bottom Center Chat Bar -->
-    <form id="chat-form"
-      class="fixed left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 chat-bar-wrap">
-      <input id="chat-input" type="text" maxlength="140" placeholder="💬 Escreva no chat..."
-        class="flex-1 px-3 py-2 rounded-full glass-panel text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400">
-      <button type="submit"
-        class="px-3.5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow">Enviar</button>
-    </form>
+    <!-- Bottom Center Chat Bar & Mobile Toggle -->
+    <div id="chat-container">
+      <button id="btn-mobile-chat-toggle" type="button" title="Abrir Chat">💬 <span>Chat</span></button>
+      <form id="chat-form" class="flex items-center gap-1.5 chat-bar-wrap">
+        <input id="chat-input" type="text" maxlength="140" placeholder="💬 Escreva no chat..."
+          class="flex-1 px-3 py-2 rounded-full glass-panel text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400">
+        <button type="submit"
+          class="px-3.5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow">Enviar</button>
+        <button id="btn-mobile-chat-close" type="button" title="Fechar Chat">✕</button>
+      </form>
+    </div>
   </div>
 
   <!-- MOBILE CONTROLS -->
@@ -493,12 +646,11 @@
     <div id="mobile-joystick-knob"></div>
   </div>
   <div id="mobile-actions">
-    <button id="btn-mobile-radial" type="button" class="touch-btn" title="Menu Radial de Ações">⚙️</button>
-    <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
-    <button id="btn-mobile-place" type="button" class="touch-btn" title="Posicionar item" style="display:none">📦</button>
-    <button id="btn-mobile-action" type="button" class="touch-btn" title="Ação" style="display:none">🧽</button>
-    <button id="btn-mobile-sprint" type="button" class="touch-btn" title="Correr">🏃</button>
     <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular">⬆️</button>
+    <button id="btn-mobile-action" type="button" class="touch-btn" title="Ação" style="display:none">✋</button>
+    <button id="btn-mobile-sprint" type="button" class="touch-btn" title="Correr">🏃</button>
+    <button id="btn-mobile-place" type="button" class="touch-btn" title="Posicionar item" style="display:none">📦</button>
+    <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
   </div>
 
   <!-- LAB GUIDE -->
@@ -684,10 +836,10 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.9.49';</script>
+  <script>window.MYCO_VERSION = '0.9.50';</script>
   <script src="js/vendor/three.min.js?v=r128"></script>
   <script src="js/vendor/OrbitControls.js?v=r128"></script>
-  <script type="module" src="js/main.js?v=0.9.40"></script>
+  <script type="module" src="js/main.js?v=0.9.50"></script>
 </body>
 
 </html>

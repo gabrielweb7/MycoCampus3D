@@ -80,19 +80,6 @@ export function setupMobileJoystick() {
     });
   }
 
-  const radialBtn = $('btn-mobile-radial');
-  if (radialBtn) {
-    radialBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (window.openCampusRadialMenu) window.openCampusRadialMenu();
-    }, { passive: false });
-    radialBtn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      if (window.openCampusRadialMenu) window.openCampusRadialMenu();
-    });
-  }
-
   const sprintBtn = $('btn-mobile-sprint');
   let sprintLatched = false;
   let sprintTouchStartAt = 0;
