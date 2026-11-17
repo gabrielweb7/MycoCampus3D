@@ -7,10 +7,12 @@
 
 import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { togglePetriLid } from '../items/petri-dish.js';
-import { toggleCultureFridgeDoor } from '../items/culture-fridge.js';
+import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
+import { toggleCabinetPart } from '../items/lab-cabinets.js';
 import { getSanitizationStatus } from '../items/alcohol-spray.js';
 import { isPdaRecipeBalanced } from '../items/pda-mix.js';
-import { handlePrimaryAction, dropHeldItem } from '../systems/interaction-system.js';
+import { handlePrimaryAction, dropHeldItem, setHeldTwoHandedGhost } from '../systems/interaction-system.js';
+import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
 
 let barEl = null;
 let styleInjected = false;
@@ -195,17 +197,56 @@ function buildContextActions(ctx) {
     return actions;
   }
 
+  if (ctx.hoveredCabinetPart) {
+    const cp = ctx.hoveredCabinetPart;
+    actions.push({
+      id: 'cab_toggle_' + cp.id,
+      icon: '🗄️',
+      label: (cp.open ? 'Fechar ' : 'Abrir ') + (cp.label || 'Armário'),
+      run: () => toggleCabinetPart(ctx, cp)
+    });
+    return actions;
+  }
+
   // 3. Item sob a mira
   if (ctx.hoveredPickable && !ctx.heldItem) {
     const target = ctx.hoveredPickable;
     if (target.fridgeCtrl) {
+      actions.push({
+        id: 'fridge_door_' + target.id,
+        icon: '🚪',
+        label: target.fridgeCtrl.doorOpen ? 'Fechar Porta' : 'Abrir Porta',
+        run: () => {
+          toggleCultureFridgeDoor(target);
+          ctx.queueWorldStateChange(target.id, target.fridgeCtrl.doorOpen ? 1 : 0);
+          if (window.MycoAudio) window.MycoAudio.playDoor(target.fridgeCtrl.doorOpen);
+        }
+      });
+      actions.push({
+        id: 'fridge_move_' + target.id,
+        icon: '🙌',
+        label: 'Mover Geladeira',
+        run: () => {
+          if (isCultureFridgeOccupied(ctx, target)) {
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('🚫 Retire tudo de dentro da geladeira antes de movê-la.');
+            return;
+          }
+          ctx.heldItem = target;
+          cancelHeldItemPlacement(ctx);
+          ctx.lastPickupAt = performance.now();
+          ctx.heldRotY = target.mesh.rotation.y;
+          setHeldTwoHandedGhost(target, true);
+          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(target.label);
+          ctx.notifyWorldAction();
+        }
+      });
       actions.push({
         id: 'fridge_info_' + target.id,
         icon: '🔍',
         label: 'Ver Vagas',
         run: () => {
           const count = target.fridgeCtrl.slots ? target.fridgeCtrl.slots.filter(Boolean).length : 0;
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira 4°C • ' + count + '/15 culturas armazenadas.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira 4°C • ' + count + ' vagas configuradas nas prateleiras.');
         }
       });
       return actions;

@@ -15,6 +15,11 @@ export function setHeldTwoHandedGhost(item, active) {
       item.lidItem.mesh.visible = true;
     }
   }
+  if (item.cookerRef && Array.isArray(item.cookerRef.contents)) {
+    item.cookerRef.contents.forEach(function (cItem) {
+      if (cItem && cItem.mesh) cItem.mesh.visible = !active;
+    });
+  }
 }
 
 function setPlacementMode(ctx, active) {
@@ -117,11 +122,18 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
     const cooker = ctx.cookerPots[cpi];
     if (cooker.potItem !== held) continue;
-    cooker.contents.forEach(function (item, index) {
+    let nonBaseIdx = 0;
+    cooker.contents.forEach(function (item) {
       if (!item || !item.mesh) return;
-      const ox = index % 2 === 0 ? -0.06 : 0.06;
-      const oz = index < 2 ? -0.05 : 0.05;
-      item.mesh.position.set(held.mesh.position.x + ox, held.mesh.position.y + 0.045, held.mesh.position.z + oz);
+      if (item.mesh.userData && item.mesh.userData.isCookerBase) {
+        item.mesh.position.set(held.mesh.position.x, held.mesh.position.y + 0.036, held.mesh.position.z);
+        item.mesh.rotation.set(0, held.mesh.rotation.y, 0);
+      } else {
+        const ox = nonBaseIdx % 2 === 0 ? -0.065 : 0.065;
+        const oz = nonBaseIdx < 2 ? -0.055 : 0.055;
+        item.mesh.position.set(held.mesh.position.x + ox, held.mesh.position.y + 0.080, held.mesh.position.z + oz);
+        nonBaseIdx++;
+      }
       item.isMoved = true;
       ctx.pendingMovedItems[item.id] = {
         id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y

@@ -6,6 +6,7 @@ import { greenhouseSlots, updateGreenhouseSlotMesh } from '../world/greenhouse.j
 import { applyStrokeToBoard } from './chalkboard.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { setBurnerLevel } from '../items/pressure-cooker.js';
+import { applyCabinetStates } from '../items/lab-cabinets.js';
 
 export function consumeCampusBoardStrokes(sim) {
   if (sim.currentStroke && sim.currentStroke.pts.length >= 2) {
@@ -51,6 +52,8 @@ export function requeueCampusStateChanges(sim, changes) {
 export function applyCampusWorldState(sim, stateMap, isInitial) {
   if (!stateMap || typeof stateMap !== 'object') return;
   const now = performance.now();
+
+  applyCabinetStates(sim, stateMap, now, isInitial);
 
   for (let di = 0; di < sim.campusDoors.length; di++) {
     const d = sim.campusDoors[di];

@@ -6,6 +6,7 @@
 
 import { scrollRanking } from '../world/staircase-clock.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES } from '../items/pressure-cooker.js';
+import { toggleCabinetPart } from '../items/lab-cabinets.js';
 
 export function isSeatOccupied(remoteAvatars, seat) {
   if (!seat) return false;
@@ -152,6 +153,10 @@ export function handleWorldInteraction(ctx) {
         ? '⚖️ TARA aplicada (' + ctx.hoveredScaleTare.tare.toFixed(1) + 'g descontados • visor zerado)'
         : '⚖️ Balança zerada (0.0 g)');
     }
+    return true;
+  }
+  if (ctx.hoveredCabinetPart) {
+    toggleCabinetPart(ctx, ctx.hoveredCabinetPart);
     return true;
   }
   if (ctx.hoveredBurnerSwitch) {

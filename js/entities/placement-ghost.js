@@ -427,6 +427,34 @@ export function isPlacementBlocked(ctx, pt) {
       }
     }
 
+    if (other.fridgeCtrl) {
+      var fShelves = other.fridgeCtrl.shelfSurfaces;
+      var onFridgeShelf = false;
+      if (fShelves) {
+        for (var sfi = 0; sfi < fShelves.length; sfi++) {
+          var fs = fShelves[sfi];
+          if (pt.x >= fs.minX - 0.05 && pt.x <= fs.maxX + 0.05 &&
+              pt.z >= fs.minZ - 0.05 && pt.z <= fs.maxZ + 0.05 &&
+              Math.abs(pt.y - fs.topY) < 0.10) {
+            onFridgeShelf = true;
+            break;
+          }
+        }
+      }
+      if (onFridgeShelf) {
+        if (!other.fridgeCtrl.doorOpen) {
+          placementBlockedReason = '🚫 Abra a porta da geladeira para colocar itens dentro';
+          return true;
+        }
+        var hUdFridge = heldItem.mesh.userData;
+        if (hUdFridge.isTable || hUdFridge.isHood || hUdFridge.isCultureFridge || (heldItem.height && heldItem.height > 0.40)) {
+          placementBlockedReason = '🚫 Objeto grande demais para a prateleira da geladeira';
+          return true;
+        }
+        continue;
+      }
+    }
+
     if (heldMinY >= otherMaxY - 0.02 || heldMaxY <= otherMinY + 0.02) {
       continue;
     }

@@ -5,6 +5,7 @@
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { addMovableStainlessTable } from './stainless-table.js';
+import { buildBenchCabinets } from './lab-cabinets.js';
 
 const THREE = window.THREE;
 
@@ -47,22 +48,61 @@ export function buildLaminarHoodAndBenches(ctx) {
   const supportSurfaces = ctx.supportSurfaces;
   const supportMeshes = ctx.supportMeshes;
 
-  function addWallLabBench(bx, bz, bw, bd) {
-    const cab = makeBox(bw, 0.82, bd, 0xe2e8f0, { roughness: 0.55 });
-    cab.position.set(bx, 0.14 + 0.41, bz);
-    const trim = makeBox(bw + 0.02, 0.72, bd + 0.02, 0x0284c7, { roughness: 0.5 });
-    trim.position.set(bx, 0.14 + 0.36, bz);
-    const top = makeBox(bw + 0.04, 0.06, bd + 0.04, 0x94a3b8, { roughness: 0.35, metalness: 0.25 });
-    top.position.set(bx, 0.14 + 0.85, bz);
-    scene.add(trim, cab, top);
+  function addWallLabBench(bx, bz, bw, bd, opts) {
+    opts = opts || {};
+    const B = { x0: bx - bw / 2, x1: bx + bw / 2, z0: bz - bd / 2, z1: bz + bd / 2 };
+    const eps = 1e-6;
+
+    // Tampo em peças (com recorte para a pia, quando houver)
+    function addTopPiece(x0, x1, z0, z1) {
+      if (x1 - x0 < 0.01 || z1 - z0 < 0.01) return;
+      const ex0 = Math.abs(x0 - B.x0) < eps ? 0.02 : 0;
+      const ex1 = Math.abs(x1 - B.x1) < eps ? 0.02 : 0;
+      const ez0 = Math.abs(z0 - B.z0) < eps ? 0.02 : 0;
+      const ez1 = Math.abs(z1 - B.z1) < eps ? 0.02 : 0;
+      const pw = (x1 - x0) + ex0 + ex1;
+      const pd = (z1 - z0) + ez0 + ez1;
+      const piece = makeBox(pw, 0.06, pd, 0x94a3b8, { roughness: 0.35, metalness: 0.25 });
+      piece.position.set((x0 - ex0 + x1 + ex1) / 2, 0.14 + 0.85, (z0 - ez0 + z1 + ez1) / 2);
+      scene.add(piece);
+      const surf = { minX: x0, maxX: x1, minZ: z0, maxZ: z1, topY: 1.02 };
+      supportSurfaces.push(surf);
+      piece.userData.supportSurface = surf;
+      supportMeshes.push(piece);
+    }
+
+    if (opts.hole) {
+      const H = opts.hole;
+      const hx0 = H.cx - H.w / 2, hx1 = H.cx + H.w / 2, hz0 = H.cz - H.d / 2, hz1 = H.cz + H.d / 2;
+      addTopPiece(B.x0, B.x1, B.z0, hz0);
+      addTopPiece(B.x0, B.x1, hz1, B.z1);
+      addTopPiece(B.x0, hx0, hz0, hz1);
+      addTopPiece(hx1, B.x1, hz0, hz1);
+    } else {
+      addTopPiece(B.x0, B.x1, B.z0, B.z1);
+    }
+
     solidColliders.push({ minX: bx - bw / 2 - 0.05, maxX: bx + bw / 2 + 0.05, minZ: bz - bd / 2 - 0.05, maxZ: bz + bd / 2 + 0.05, minY: 0.14, maxY: 1.02, surfaceTopY: 1.02 });
-    const benchSurf = { minX: bx - bw / 2, maxX: bx + bw / 2, minZ: bz - bd / 2, maxZ: bz + bd / 2, topY: 1.02 };
-    supportSurfaces.push(benchSurf);
-    top.userData.supportSurface = benchSurf;
-    supportMeshes.push(top);
+
+    if (opts.cabinets) {
+      buildBenchCabinets(ctx, Object.assign({ bx, bz, bw, bd }, opts.cabinets));
+    } else {
+      const cab = makeBox(bw, 0.82, bd, 0xe2e8f0, { roughness: 0.55 });
+      cab.position.set(bx, 0.14 + 0.41, bz);
+      const trim = makeBox(bw + 0.02, 0.72, bd + 0.02, 0x0284c7, { roughness: 0.5 });
+      trim.position.set(bx, 0.14 + 0.36, bz);
+      scene.add(trim, cab);
+    }
   }
-  addWallLabBench(-23.15, -7.0, 1.2, 10.6);
-  addWallLabBench(-18.5, -12.0, 8.1, 1.1);
+  // Bancada Oeste (pia): módulos de armário ao longo de z; trecho norte encosta na bancada Norte
+  addWallLabBench(-23.15, -7.0, 1.2, 10.6, {
+    hole: { cx: -23.15, cz: -10.8, w: 0.60, d: 0.50 },
+    cabinets: { id: 'a', face: 'x+', latMin: -5.3, latMax: 4.45 }
+  });
+  // Bancada Norte
+  addWallLabBench(-18.5, -12.0, 8.1, 1.1, {
+    cabinets: { id: 'b', face: 'z+' }
+  });
 
   const rackX = -19.2, rackZ = -1.85;
   const rackMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.65, roughness: 0.3 });

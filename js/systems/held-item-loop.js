@@ -12,6 +12,10 @@ import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { inoculatePetri } from '../items/petri-dish.js';
 import { greenhouseSlots } from '../world/greenhouse.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
+import { triggerSinkStream } from '../items/lab-sink.js';
+import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { markPdaVolumeChanged } from '../items/pda-mix.js';
+import { spawnSprayParticles } from '../items/alcohol-spray.js';
 
 const THREE = window.THREE;
 
@@ -25,6 +29,8 @@ const _tmpSyrOff = new THREE.Vector3();
 const _tmpNormal = new THREE.Vector3();
 const _tmpLookPt = new THREE.Vector3();
 const _tmpSkyEnd = new THREE.Vector3();
+const _tmpPourFrom = new THREE.Vector3();
+const _tmpPourDir = new THREE.Vector3();
 
 function updateThermometerLaser(ctx, dt, now) {
   if (!ctx.thermoLaserOn) {
@@ -243,6 +249,26 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       if (spUd.sprayTrig) {
         spUd.sprayTrig.position.z = squeezing ? 0.032 : 0.042;
       }
+    } else if (ctx.heldItem.mesh.userData.isLabSpoon) {
+      const spoonUd = ctx.heldItem.mesh.userData;
+      const stirRem = (spoonUd.spoonStirUntil || 0) - now;
+      const stirBowl = spoonUd.spoonStirTarget;
+      ctx.heldItem.mesh.rotation.order = 'YXZ';
+      if (stirRem > 0 && stirBowl && stirBowl.mesh) {
+        const stirPhase = (700 - stirRem) * 0.014;
+        const bp = stirBowl.mesh.position;
+        const fall = Math.min(1, (700 - stirRem) / 120, stirRem / 120);
+        const k = Math.max(0, fall);
+        ctx.heldItem.mesh.position.set(
+          _tmpHandPos.x + (bp.x + Math.cos(stirPhase) * 0.045 - _tmpHandPos.x) * k,
+          _tmpHandPos.y + (bp.y + 0.075 - _tmpHandPos.y) * k,
+          _tmpHandPos.z + (bp.z + Math.sin(stirPhase) * 0.045 - _tmpHandPos.z) * k
+        );
+        ctx.heldItem.mesh.rotation.set(-1.05 * k - 0.15 * (1 - k), ctx.playerYaw + Math.sin(stirPhase) * 0.4 * k, 0);
+        if (stirBowl.bowlCtrl && stirBowl.bowlCtrl.mixMesh) stirBowl.bowlCtrl.mixMesh.rotation.y += dt * 9;
+      } else {
+        ctx.heldItem.mesh.rotation.set(-0.15, ctx.playerYaw, 0);
+      }
     } else {
       ctx.heldItem.mesh.rotation.order = 'YXZ';
       ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
@@ -313,6 +339,114 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     if (ctx.thermoLaserDot && ctx.thermoLaserDot.visible) ctx.thermoLaserDot.visible = false;
   }
 
+  if (ctx.pourHold) {
+    const ph = ctx.pourHold;
+    const srcLcP = ph.src && ph.src.mesh && ph.src.mesh.userData.liquidCtrl;
+    const aimingOk = ctx.isPrimaryDown && ctx.heldItem === ph.src &&
+      (ph.kind === 'pot' ? ctx.hoveredFillPot === ph.dst : ctx.hoveredPourTarget === ph.dst);
+    let stopPour = !aimingOk || !srcLcP || srcLcP.volMl <= 0;
+    if (!stopPour) {
+      const rate = ph.kind === 'pp5' ? 30 : (ph.kind === 'pot' ? 420 : 240);
+      ph.carry += dt * rate;
+      const stepMl = Math.floor(ph.carry);
+      if (stepMl >= 1) {
+        ph.carry -= stepMl;
+        let amt = 0;
+        if (ph.kind === 'pot') {
+          amt = Math.min(stepMl, srcLcP.volMl, ph.dst.maxWaterMl - ph.dst.waterMl);
+          if (amt > 0) {
+            updateContainerVolume(ph.src, srcLcP.volMl - amt);
+            ph.dst.waterMl += amt;
+            updateCookerWaterVisual(ph.dst);
+          }
+        } else if (ph.kind === 'pp5') {
+          const sp = ph.dst.spawnCtrl;
+          amt = Math.min(stepMl, srcLcP.volMl, 35 - (sp.waterMl || 0));
+          if (amt > 0) {
+            updateContainerVolume(ph.src, srcLcP.volMl - amt);
+            sp.waterMl = (sp.waterMl || 0) + amt;
+            sp.updateVisual();
+          }
+        } else {
+          const dLc = ph.dst.mesh.userData.liquidCtrl;
+          amt = Math.min(stepMl, srcLcP.volMl, dLc.maxMl - dLc.volMl);
+          if (amt > 0) {
+            updateContainerVolume(ph.src, srcLcP.volMl - amt);
+            updateContainerVolume(ph.dst, dLc.volMl + amt);
+            if (ph.dst.pdaMediumCtrl) markPdaVolumeChanged(ph.dst);
+          }
+        }
+        if (amt <= 0) {
+          stopPour = true;
+        } else {
+          ph.any = true;
+          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ph.src.label);
+        }
+      }
+      if (!stopPour) {
+        if (now - ph.dropAt > 80) {
+          ph.dropAt = now;
+          _tmpPourFrom.copy(ph.src.mesh.position);
+          _tmpPourFrom.y += 0.10;
+          _tmpPourDir.set(0, -1, 0);
+          spawnSprayParticles(ctx, 0x7dd3fc, 5, _tmpPourFrom, _tmpPourDir, 0.12, 0.9, 0.032, 0.42);
+        }
+        if (now - ph.soundAt > 260) {
+          ph.soundAt = now;
+          if (window.MycoAudio) window.MycoAudio.playSpray();
+        }
+      }
+    }
+    if (stopPour) {
+      if (ph.any) ctx.notifyWorldAction();
+      ctx.pourHold = null;
+    }
+  }
+
+  if (ctx.sinkFilling) {
+    const sf = ctx.sinkFilling;
+    if (!ctx.isPrimaryDown || !ctx.heldItem || ctx.heldItem !== sf.item || !ctx.hoveredSink) {
+      if (sf.addedAny) {
+        if (ctx.callbacks.onHoldChange && ctx.heldItem) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        ctx.notifyWorldAction();
+      }
+      ctx.sinkFilling = null;
+    } else {
+      triggerSinkStream(ctx.hoveredSink, 250);
+      const lc = sf.item.mesh && sf.item.mesh.userData && sf.item.mesh.userData.liquidCtrl;
+      if (lc) {
+        if (lc.volMl < lc.maxMl) {
+          const rate = lc.maxMl >= 4000 ? 450 : 220;
+          sf.carryMl = (sf.carryMl || 0) + dt * rate;
+          const stepMl = Math.floor(sf.carryMl);
+          if (stepMl >= 1) {
+            sf.carryMl -= stepMl;
+            updateContainerVolume(sf.item, Math.min(lc.maxMl, lc.volMl + stepMl));
+            if (sf.item.pdaMediumCtrl) markPdaVolumeChanged(sf.item);
+            sf.addedAny = true;
+            if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(sf.item.label);
+          }
+        }
+      } else {
+        for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
+          const cp = ctx.cookerPots[cpi];
+          if (cp.potItem === sf.item && cp.waterMl < cp.maxWaterMl) {
+            sf.carryMl = (sf.carryMl || 0) + dt * 500;
+            const stepMl = Math.floor(sf.carryMl);
+            if (stepMl >= 1) {
+              sf.carryMl -= stepMl;
+              cp.waterMl = Math.min(cp.maxWaterMl, cp.waterMl + stepMl);
+              updateCookerWaterVisual(cp);
+              sf.addedAny = true;
+              if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(sf.item.label);
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
   if (ctx.syringePumping) {
     if (!ctx.heldItem || !ctx.heldItem.mesh.userData.isSyringe) {
       ctx.syringePumping = null;
@@ -324,20 +458,33 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     }
   }
   if (ctx.syringePumping && ctx.heldItem && ctx.heldItem.mesh.userData.isSyringe) {
-    ctx.syringePumping.elapsed += dt;
-    const pRatio = Math.min(1, ctx.syringePumping.elapsed / ctx.syringePumping.duration);
-    const pSmooth = pRatio * pRatio * (3 - 2 * pRatio);
-    const curVol = THREE.MathUtils.lerp(ctx.syringePumping.fromVol, ctx.syringePumping.toVol, pSmooth);
-    const syringeTarget = ctx.syringePumping.target.item;
-    const targetLiquid = syringeTarget && syringeTarget.mesh.userData.liquidCtrl;
-    const targetSpawn = syringeTarget && syringeTarget.spawnCtrl;
-    updateSyringeVolume(ctx.heldItem, curVol);
-    if (targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
-      const dHeld = curVol - ctx.syringePumping.fromVol;
-      const newJVol = Math.max(0, ctx.syringePumping.startJarVol - dHeld);
-      updateContainerVolume(syringeTarget, newJVol);
-    }
-    if (pRatio >= 1.0) {
+    if (ctx.syringePumping.holdMode && !ctx.isPrimaryDown) {
+      const syrCtrl = ctx.heldItem.mesh.userData.syrCtrl;
+      const finalVol = Math.round((syrCtrl ? syrCtrl.volMl : 0) * 10) / 10;
+      updateSyringeVolume(ctx.heldItem, finalVol);
+      if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Seringa com ' + finalVol.toFixed(1) + ' ml');
+      ctx.notifyWorldAction();
+      ctx.syringePumping = null;
+    } else {
+      ctx.syringePumping.elapsed += dt;
+      const pRatio = Math.min(1, ctx.syringePumping.elapsed / ctx.syringePumping.duration);
+      const pSmooth = ctx.syringePumping.holdMode ? pRatio : (pRatio * pRatio * (3 - 2 * pRatio));
+      const curVol = THREE.MathUtils.lerp(ctx.syringePumping.fromVol, ctx.syringePumping.toVol, pSmooth);
+      const syringeTarget = ctx.syringePumping.target.item;
+      const targetLiquid = syringeTarget && syringeTarget.mesh.userData.liquidCtrl;
+      const targetSpawn = syringeTarget && syringeTarget.spawnCtrl;
+      updateSyringeVolume(ctx.heldItem, curVol);
+      if (targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
+        const dHeld = curVol - ctx.syringePumping.fromVol;
+        const newJVol = Math.max(0, ctx.syringePumping.startJarVol - dHeld);
+        updateContainerVolume(syringeTarget, newJVol);
+      }
+      if (ctx.syringePumping.holdMode && ctx.callbacks.onHoverPrompt) {
+        const isDraw = ctx.syringePumping.toVol > ctx.syringePumping.fromVol;
+        ctx.callbacks.onHoverPrompt('💉 ' + (isDraw ? 'Aspirando' : 'Injetando') + ': ' + curVol.toFixed(1) + ' / 10.0 ml (solte para parar)');
+      }
+      if (pRatio >= 1.0) {
       updateSyringeVolume(ctx.heldItem, ctx.syringePumping.toVol);
       if (targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
         const finalD = ctx.syringePumping.toVol - ctx.syringePumping.fromVol;
@@ -379,6 +526,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       if (ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('syringe_use');
       ctx.notifyWorldAction();
       ctx.syringePumping = null;
+      }
     }
   }
 }

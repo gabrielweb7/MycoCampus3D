@@ -56,7 +56,7 @@ export function getSanitizationStatus(target, ctx) {
   if (isHood && ctx) {
     const wet = !!ctx.hoodAlcoholWet;
     const active = !wet && ctx.hoodSanitizedUntil > nowEpoch;
-    const hits = (wet || active) ? 3 : Math.min(2, target._sanitizeHits || 0);
+    const hits = (wet || active) ? 3 : Math.min(2, ctx.hoodSanitizeHits || 0);
     return {
       hits,
       alcoholWet: wet,
@@ -91,7 +91,7 @@ export function formatSprayHoverPrompt(target, label, ctx) {
   return '🧴 [' + dots + '] ' + statusTxt + ' (' + label + ') • Clique +' + rem + 'x e seque com Papel';
 }
 
-function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, speed, size, life) {
+export function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, speed, size, life) {
   const spArr = new Float32Array(count * 3);
   const spVel = new Float32Array(count * 3);
   for (let si = 0; si < count; si++) {
@@ -148,7 +148,9 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
   }
 
   const nextHits = Math.min(3, st.hits + 1);
-  if (typeof target === 'object') {
+  if (isHood) {
+    ctx.hoodSanitizeHits = nextHits;
+  } else if (typeof target === 'object') {
     target._sanitizeHits = nextHits;
   }
 
@@ -163,6 +165,7 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
   // 3/3 = Molhado com alcool 70%; falta secar com Papel Toalha para completar o ciclo!
   if (isHood) {
     ctx.hoodAlcoholWet = true;
+    ctx.hoodSanitizeHits = 0;
   } else if (typeof target === 'object') {
     target.alcoholWet = true;
     target._sanitizeHits = 0;

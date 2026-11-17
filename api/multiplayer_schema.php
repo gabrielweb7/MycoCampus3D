@@ -20,7 +20,7 @@ function mp_build_allowed_items(): array {
         // === Equipamentos & Ferramentas de Lab ===
         'heat_sealer', 'magnetic_stirrer', 'precision_scale',
         'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03',
-        'paper_towel_01', 'paper_towel_02',
+        'paper_towel_01', 'paper_towel_02', 'lab_trash_01',
         'burner_lab', 'gas_tripod_sub', 'infrared_thermometer',
         'lab_tray_01', 'lab_tray_02', 'lab_tray_03',
         'syringe_10ml_a', 'syringe_10ml_b',
@@ -258,6 +258,7 @@ function mp_is_valid_state_key(string $k): bool {
     }
     if (preg_match('/^(door_[0-3]|light_[0-7])$/', $k)) return true;
     if (preg_match('/^blind_([0-9]|1[0-5])$/', $k)) return true;
+    if (preg_match('/^cab_[a-z0-9_]+$/', $k)) return true;
     if (preg_match('/^wild_([0-9]|[12][0-9]|3[01])$/', $k)) return true;
     if (preg_match('/^greenhouse_slot_[0-3]_(humidity|stage)$/', $k)) return true;
     return false;

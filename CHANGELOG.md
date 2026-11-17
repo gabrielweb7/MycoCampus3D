@@ -2,7 +2,27 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
-## [v0.9.48] — 2026-11-17
+## [v0.9.49] — 2026-11-17
+### 💉 Aspiração/Enchimento Contínuo, Geladeira Móvel & Universal, Colher Realista & Armários das Bancadas
+- **Aspiração e Injeção Contínua com Seringa (`held-item-loop.js`, `interaction-system.js`):**
+  - Agora você clica e segura para aspirar cultura líquida da garrafa ou injetar; a seringa puxa continuamente exibindo na tela em tempo real os mL exatos (`💉 Aspirando: X.X / 10.0 ml (solte para parar)`). Ao soltar o clique, o bombeamento para na quantidade atual.
+- **Enchimento Contínuo na Pia & Derramamento (`held-item-loop.js`, `lab-sink.js`):**
+  - Clicar e segurar na pia da torneira enche continuamente qualquer recipiente (garrafas de água, béqueres, panelas de pressão, potes PP5), com jato contínuo de água. Ao soltar, interrompe no volume atingido.
+  - Transferência e despejo de líquidos entre recipientes também fluem continuamente ao manter o botão pressionado.
+- **Colher de Inox Remodelada & Animação de Mexer (`mixing-bowl.js`, `held-item-loop.js`):**
+  - Remodelada a colher com cabo afilado em aço inox polido, empunhadura anatômica e concha oval funda com borda reforçada.
+  - Animação diegética e contínua de mexer e misturar os ingredientes dentro da tigela, girando a mistura e a colher em arco.
+- **Geladeira de Culturas 4°C Móvel e Armazenamento Universal (`culture-fridge.js`, `placement-ghost.js`, `interaction-system.js`, `hover-raycaster.js`, `radial-menu.js`):**
+  - Permitido mover a geladeira com as duas mãos quando estiver vazia: mire no corpo da geladeira ou use o chip flutuante `[2] 🙌 Mover Geladeira`.
+  - Corrigido o fantasma de posicionamento para permitir colocar livremente qualquer item que caiba dentro da geladeira (placas Petri colonizadas ou vazias, potes PP5, frascos de spawn, béqueres, garrafas e misturas), com mais de 30 vagas distribuídas pelas prateleiras.
+  - Raycast direcionado: clicar na porta abre/fecha; clicar no corpo da geladeira vazia pega para mover.
+- **Armários Inferiores das Bancadas (`lab-cabinets.js`, `laminar-hood.js`, `hover-raycaster.js`, `world-interactions.js`, `game-loop.js`, `world-devices-sync.js`, `multiplayer_schema.php`):**
+  - Móveis modulados sob as bancadas com portas de vidro duplo, portas de aço escovado e gaveteiros com puxadores ergonômicos e corrediças funcionais.
+  - Abertura e fechamento interativo suave com animação interpolada e sincronização multiplayer via chaves `cab_...`.
+- **Pia Inox com Cuba Rebaixada (`lab-sink.js`, `laminar-hood.js`):**
+  - Cuba profunda de 22cm recortada diretamente na chapa da bancada, com dreno de escoamento e torneira alta.
+- **Correções do Painel de Erros (`api/multiplayer_schema.php`, `interaction-system.js`):**
+  - Corrigidos os erros `canSyringeSource is not defined` e `canFillFromSink is not defined`.
 ### 🧊 Correção da Geladeira Subindo Sozinha & Botão Soltar Inteligente
 - **Correção da Geladeira de Culturas (`js/engine/physics.js`, `js/entities/placement-ghost.js`):**
   - Resolvido o bug que fazia a geladeira subir infinitamente para o teto/céu: as 4 prateleiras internas da própria geladeira (`isCultureFridgeShelf`) estavam sendo detectadas como superfície de apoio abaixo dela mesma a cada frame.

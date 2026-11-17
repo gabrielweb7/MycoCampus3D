@@ -1,9 +1,10 @@
 /**
  * Lixeira Asséptica do Laboratório (MycoCampus3D)
- * Esvazia recipientes reutilizaveis (vidros, PP5, petri, bequer, pote)
- * ou descarta bags descartaveis repondo um novo bag limpo no estoque.
+ * Item movível com a palavra LIXO. Esvazia recipientes reutilizáveis (vidros, PP5, petri, béquer, pote)
+ * ou descarta bags descartáveis repondo um novo bag limpo no estoque.
  */
 
+import { registerPickable, updateItemBounds } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
 import { updateSpawnVisual } from './spawn-containers.js';
 import { updatePetriVisual } from './petri-dish.js';
@@ -12,49 +13,120 @@ import { updatePdaMediumVisual } from './pda-mix.js';
 
 const THREE = window.THREE;
 
+export const LAB_TRASH_META = {
+  category: 'furniture',
+  purpose: 'Descartar conteúdo de recipientes e bags do laboratório',
+  weightGrams: 3200,
+  baseTempC: 22.0,
+  compatibilities: { canEnterCooker: false, acceptsDisposal: true },
+  connections: ['spawn_bag', 'spawn_jar', 'petri', 'beaker']
+};
+
+function makeTrashLabelTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#b91c1c';
+  g.fillRect(0, 0, 256, 128);
+  g.strokeStyle = '#fecaca';
+  g.lineWidth = 6;
+  g.strokeRect(6, 6, 244, 116);
+  g.fillStyle = '#ffffff';
+  g.font = 'bold 66px sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('LIXO', 128, 56);
+  g.font = 'bold 17px sans-serif';
+  g.fillStyle = '#fee2e2';
+  g.fillText('RESÍDUOS DO LABORATÓRIO', 128, 106);
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
+}
+
 export function buildLabTrashBin(ctx, px, py, pz) {
   const tg = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.45, roughness: 0.45 });
-  const rimMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.3, roughness: 0.6 });
-  const bagMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.7 });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.28 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.4, roughness: 0.55 });
+  const bagMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.8, side: THREE.DoubleSide });
+  const lidMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.22 });
+  const labelTex = makeTrashLabelTexture();
+  const labelMat = new THREE.MeshBasicMaterial({ map: labelTex });
 
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.56, 20), bodyMat);
-  body.position.y = 0.28;
+  // Corpo inox levemente cônico
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.155, 0.54, 28), bodyMat);
+  body.position.y = 0.30;
   body.castShadow = true;
   body.receiveShadow = true;
 
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.018, 10, 22), rimMat);
+  // Base escura e cintas de reforço
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.035, 24), darkMat);
+  base.position.y = 0.0175;
+  const band1 = new THREE.Mesh(new THREE.TorusGeometry(0.172, 0.006, 8, 28), darkMat);
+  band1.rotation.x = Math.PI / 2;
+  band1.position.y = 0.16;
+  const band2 = new THREE.Mesh(new THREE.TorusGeometry(0.179, 0.006, 8, 28), darkMat);
+  band2.rotation.x = Math.PI / 2;
+  band2.position.y = 0.46;
+
+  // Borda superior e saco preto visível
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.188, 0.016, 10, 28), lidMat);
   rim.rotation.x = Math.PI / 2;
-  rim.position.y = 0.56;
+  rim.position.y = 0.57;
+  const liner = new THREE.Mesh(new THREE.CylinderGeometry(0.172, 0.150, 0.50, 24, 1, true), bagMat);
+  liner.position.y = 0.31;
+  const inner = new THREE.Mesh(new THREE.CircleGeometry(0.17, 24), new THREE.MeshBasicMaterial({ color: 0x020617 }));
+  inner.rotation.x = -Math.PI / 2;
+  inner.position.y = 0.52;
 
-  const innerBag = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.14, 0.53, 18), bagMat);
-  innerBag.position.y = 0.29;
+  // Tampa articulada atrás, entreaberta
+  const lidPivot = new THREE.Group();
+  lidPivot.position.set(0, 0.575, -0.185);
+  lidPivot.rotation.x = -1.05;
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.196, 0.196, 0.014, 28), lidMat);
+  lid.position.set(0, 0, 0.185);
+  const lidKnob = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 8), darkMat);
+  lidKnob.position.set(0, 0.016, 0.185);
+  lidPivot.add(lid, lidKnob);
 
-  const bioBadge = new THREE.Mesh(
-    new THREE.BoxGeometry(0.12, 0.08, 0.01),
-    new THREE.MeshBasicMaterial({ color: 0xfacc15 })
-  );
-  bioBadge.position.set(0, 0.36, 0.175);
+  // Placas "LIXO" na frente e atrás
+  [1, -1].forEach(function (side) {
+    const backing = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.105, 0.016), darkMat);
+    backing.position.set(0, 0.31, side * 0.172);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.178, 0.093), labelMat);
+    plate.position.set(0, 0.31, side * 0.1812);
+    if (side < 0) plate.rotation.y = Math.PI;
+    plate.userData.ignoreRay = true;
+    tg.add(backing, plate);
+  });
 
+  // Hitbox invisível maior para facilitar o descarte
   const hitMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.24, 0.22, 0.62, 14),
+    new THREE.CylinderGeometry(0.25, 0.22, 0.66, 14),
     new THREE.MeshBasicMaterial({ visible: false })
   );
-  hitMesh.position.y = 0.31;
+  hitMesh.position.y = 0.33;
   hitMesh.userData.isLabTrash = true;
 
-  tg.add(body, rim, innerBag, bioBadge, hitMesh);
-  tg.position.set(px, py, pz);
-  ctx.scene.add(tg);
+  tg.add(body, base, band1, band2, rim, liner, inner, lidPivot, hitMesh);
+  tg.userData.isTrash = true;
+  tg.userData.tableDims = { w: 0.40, h: 0.58, d: 0.40, surfOffset: 0 };
+  tg.userData.updateBounds = updateItemBounds;
+
+  const item = registerPickable(ctx, 'lab_trash_01', 'Lixo (Lixeira do Laboratório)', tg, px, py, pz, 0, 0.22, 0.58, LAB_TRASH_META);
+
   if (ctx.labTrashMeshes) ctx.labTrashMeshes.push(hitMesh);
   if (ctx.solidColliders) {
-    ctx.solidColliders.push({ minX: px - 0.22, maxX: px + 0.22, minZ: pz - 0.22, maxZ: pz + 0.22, maxY: py + 0.6 });
+    const col = { minX: px - 0.2, maxX: px + 0.2, minZ: pz - 0.2, maxZ: pz + 0.2, minY: py, maxY: py + 0.58, surfaceTopY: py + 0.58 };
+    ctx.solidColliders.push(col);
+    tg.userData.dynamicCollider = col;
   }
-  return tg;
+  return item;
 }
 
 export function canDisposeItemInTrash(item) {
   if (!item || !item.mesh) return false;
+  if (item.mesh.userData.isTrash) return false;
   if (item.spawnCtrl) return !!item.spawnCtrl.filled || !!item.spawnCtrl.burned || !!item.spawnCtrl.contaminated || !!item.spawnCtrl.expired;
   if (item.mesh.userData.isPetri) {
     const p = item.mesh.userData.petriCtrl;

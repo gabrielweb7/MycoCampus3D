@@ -1,4 +1,4 @@
-import { registerPickable } from './item-registry.js';
+import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { PETRI_DISH_RADIUS } from './petri-dish.js';
 import { updateCultureLiquidLabel } from './liquid-culture.js';
 import { stepCultureShelfLife } from './culture-lifecycle.js';
@@ -81,7 +81,7 @@ function getCultureStorageInfo(item) {
   if (petri) {
     info.kind = 'petri';
     info.ctrl = petri;
-    info.ready = petri.mode === 'clean' && petri.colonized && !petri.expired && !petri.contaminated;
+    info.ready = true;
     info.lidOpen = !!petri.lidOpen;
     info.radius = PETRI_DISH_RADIUS;
     info.height = item.height || PETRI_DISH_RADIUS;
@@ -91,8 +91,7 @@ function getCultureStorageInfo(item) {
   if (culture) {
     info.kind = 'vessel';
     info.ctrl = culture;
-    info.ready = culture.colonized && !culture.expired && !culture.contaminated &&
-      !!(meshData.liquidCtrl && meshData.liquidCtrl.volMl > 0);
+    info.ready = true;
     info.lidOpen = false;
     info.radius = 0.09;
     info.height = item.height || 0.30;
@@ -102,7 +101,7 @@ function getCultureStorageInfo(item) {
   if (spawn) {
     info.kind = spawn.isPP5 ? 'petri' : 'vessel';
     info.ctrl = spawn;
-    info.ready = spawn.colonized && !spawn.expired && !spawn.contaminated && !spawn.burned;
+    info.ready = true;
     info.lidOpen = false;
     info.radius = spawn.isPP5 ? 0.06 : (spawn.isBag ? 0.12 : 0.11);
     info.height = item.height || 0.30;
@@ -112,11 +111,29 @@ function getCultureStorageInfo(item) {
   return null;
 }
 
+function getGenericFridgeItemInfo(item) {
+  if (!item || !item.mesh) return null;
+  const ud = item.mesh.userData || {};
+  if (ud.twoHanded || ud.isTable || ud.isHood || ud.isBurner || ud.isTrash || item.fridgeCtrl || item.potItem) return null;
+  const h = item.height || 0.20;
+  if (h > 0.38) return null;
+  return {
+    kind: (item.radius || 0.1) <= 0.08 ? 'petri' : 'vessel',
+    height: h,
+    radius: item.radius || 0.10,
+    ready: true,
+    lidOpen: false,
+    displayLabel: item.label || 'Item',
+    ctrl: null
+  };
+}
+
 function findOccupiedSlot(ctx, position, excludeItem, slotKind) {
   for (let i = 0; i < ctx.pickableItems.length; i++) {
     const item = ctx.pickableItems[i];
-    const info = getCultureStorageInfo(item);
-    if (!info || item === excludeItem || ctx.isHeldByRemote(item.id)) continue;
+    if (!item || item === excludeItem || ctx.isHeldByRemote(item.id)) continue;
+    const info = getCultureStorageInfo(item) || getGenericFridgeItemInfo(item);
+    if (!info) continue;
     const p = item.mesh.position;
     if (Math.hypot(p.x - position.x, p.z - position.z) < info.radius + (slotKind === 'vessel' ? 0.11 : PETRI_DISH_RADIUS) &&
         Math.abs(p.y - position.y) < 0.06) return true;
@@ -125,7 +142,7 @@ function findOccupiedSlot(ctx, position, excludeItem, slotKind) {
 }
 
 export function getCultureFridgeStorageTarget(ctx) {
-  const heldInfo = getCultureStorageInfo(ctx.heldItem);
+  const heldInfo = getCultureStorageInfo(ctx.heldItem) || getGenericFridgeItemInfo(ctx.heldItem);
   if (!heldInfo) return null;
   let closestFridge = null;
   let closestDistance = Infinity;
@@ -184,6 +201,27 @@ export function setCultureFridgeDoorOpen(fridge, open, immediate) {
 
 export function toggleCultureFridgeDoor(fridge) {
   return setCultureFridgeDoorOpen(fridge, !fridge.fridgeCtrl.doorOpen, false);
+}
+
+/** Verdadeiro se o objeto ou seus nós ascendentes pertencem à porta da geladeira */
+export function isPartOfFridgeDoor(obj, fridge) {
+  if (!obj || !fridge || !fridge.fridgeCtrl || !fridge.fridgeCtrl.doorPivot) return false;
+  let cur = obj;
+  while (cur) {
+    if (cur === fridge.fridgeCtrl.doorPivot) return true;
+    cur = cur.parent;
+  }
+  return false;
+}
+
+/** Verdadeiro se houver qualquer item guardado nas prateleiras (impede mover a geladeira). */
+export function isCultureFridgeOccupied(ctx, fridge) {
+  const ctrl = fridge && fridge.fridgeCtrl;
+  if (!ctrl || !ctrl.shelfSurfaces) return false;
+  for (let i = 0; i < ctrl.shelfSurfaces.length; i++) {
+    if (isSurfaceOccupied(ctx, ctrl.shelfSurfaces[i], fridge)) return true;
+  }
+  return false;
 }
 
 export function isCultureAccessibleFromFridge(ctx, item) {
@@ -292,39 +330,42 @@ export function makeCultureFridge(ctx, id, x, y, z) {
     shelf.userData.supportSurface = surface;
     ctx.supportMeshes.push(shelf);
     ctx.supportSurfaces.push(surface);
-    [-0.21, 0, 0.21].forEach(function (slotX) {
-      slots.push({
-        kind: 'petri',
-        maxCultureHeight: PETRI_DISH_RADIUS * 1.5,
-        localX: slotX,
-        localY: shelfTop,
-        localZ: 0.06,
-        worldPosition: new THREE.Vector3(x + slotX, y + shelfTop, z + 0.06)
+    [-0.22, -0.11, 0, 0.11, 0.22].forEach(function (slotX) {
+      [-0.10, 0.10].forEach(function (slotZ) {
+        slots.push({
+          kind: 'petri',
+          maxCultureHeight: PETRI_DISH_RADIUS * 1.5,
+          localX: slotX,
+          localY: shelfTop,
+          localZ: slotZ,
+          worldPosition: new THREE.Vector3(x + slotX, y + shelfTop, z + slotZ)
+        });
       });
     });
     if (shelfIndex < 3) {
-      slots.push({
-        kind: 'vessel',
-        maxCultureHeight: shelfIndex < 2 ? 0.38 : 0.30,
-        localX: 0,
-        localY: shelfTop,
-        localZ: 0.06,
-        worldPosition: new THREE.Vector3(x, y + shelfTop, z + 0.06)
+      [-0.20, 0, 0.20].forEach(function (slotX) {
+        slots.push({
+          kind: 'vessel',
+          maxCultureHeight: shelfIndex < 2 ? 0.38 : 0.30,
+          localX: slotX,
+          localY: shelfTop,
+          localZ: 0.04,
+          worldPosition: new THREE.Vector3(x + slotX, y + shelfTop, z + 0.04)
+        });
       });
     }
   });
 
   const doorPivot = new THREE.Group();
   doorPivot.position.set(-FRIDGE_WIDTH * 0.5, FRIDGE_HEIGHT - 0.09, FRIDGE_DEPTH * 0.5);
+  doorPivot.userData.isFridgeDoor = true;
   group.add(doorPivot);
   const doorHeight = FRIDGE_HEIGHT - 0.16;
   const doorWidth = FRIDGE_WIDTH - 0.08;
   const doorPanel = addBox(doorPivot, doorWidth, doorHeight, 0.055, shellMat, doorWidth * 0.5, -doorHeight * 0.5, 0.035);
   const doorGlass = addBox(doorPivot, doorWidth - 0.16, doorHeight - 0.22, 0.012, glassMat, doorWidth * 0.5, -doorHeight * 0.5, 0.071);
   const doorHandle = addBox(doorPivot, 0.025, 0.34, 0.04, shelfMat, doorWidth - 0.055, -doorHeight * 0.5, 0.09);
-  doorPanel.userData.ignoreRay = true;
   doorGlass.userData.ignoreRay = true;
-  doorHandle.userData.ignoreRay = true;
 
   const screenCanvas = document.createElement('canvas');
   screenCanvas.width = 256;
@@ -358,7 +399,9 @@ export function makeCultureFridge(ctx, id, x, y, z) {
     temperatureC: 4
   };
   group.userData.isCultureFridge = true;
+  group.userData.twoHanded = true;
   group.userData.fridgeCtrl = fridgeCtrl;
+  group.userData.tableDims = { w: FRIDGE_WIDTH, h: FRIDGE_HEIGHT, d: FRIDGE_DEPTH, surfOffset: 0 };
   const item = registerPickable(ctx, id, 'Geladeira de Culturas (4°C)', group, x, y, z, 0, 0.50, FRIDGE_HEIGHT, CULTURE_FRIDGE_META);
   const solidCollider = {
     minX: x - FRIDGE_WIDTH * 0.5,
@@ -370,6 +413,8 @@ export function makeCultureFridge(ctx, id, x, y, z) {
     surfaceTopY: y + FRIDGE_HEIGHT
   };
   ctx.solidColliders.push(solidCollider);
+  group.userData.dynamicCollider = solidCollider;
+  group.userData.updateBounds = updateItemBounds;
   item.fridgeCtrl = fridgeCtrl;
   fridgeCtrl.solidCollider = solidCollider;
   fridgeCtrl.item = item;

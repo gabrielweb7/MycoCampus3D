@@ -40,6 +40,10 @@ export function handleMixingBowlTargetAction(ctx) {
   const target = ctx.hoveredBowlTarget;
   if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isLabSpoon) {
     const result = stirMixingBowl(target);
+    if (!result.empty) {
+      ctx.heldItem.mesh.userData.spoonStirUntil = performance.now() + 700;
+      ctx.heldItem.mesh.userData.spoonStirTarget = target;
+    }
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onToast) {
       ctx.callbacks.onToast(result.empty ? '🥄 Pote de Mistura está vazio!' : (result.done ? '✅ Receita homogênea pronta para porcionar!' : '🥄 Misturando (' + result.stirCount + '/3)...'));

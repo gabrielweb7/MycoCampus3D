@@ -70,6 +70,7 @@ export function wipeWithPaperTowel(ctx, wipeInfo) {
       return;
     }
     ctx.hoodAlcoholWet = false;
+    ctx.hoodSanitizeHits = 0;
     ctx.hoodSanitizedUntil = Date.now() + 90000;
     ctx.queueWorldStateChange('hood_sanitized_until', 1);
     if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('sanitize_hood');

@@ -20,7 +20,7 @@ import {
 } from './held-item-placement.js';
 import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canFillFromSink, canSealSpawnBag, hasPdaContents } from '../items/item-registry.js';
+import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray } from '../items/alcohol-spray.js';
@@ -29,7 +29,7 @@ import { handleTrashDisposal } from '../items/lab-trash.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { fillPetriWithPda, togglePetriLid, setPetriLidOpen } from '../items/petri-dish.js';
-import { toggleCultureFridgeDoor } from '../items/culture-fridge.js';
+import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
 import { addIngredientToBowl } from '../items/mixing-bowl.js';
 import {
@@ -311,12 +311,14 @@ export function handlePrimaryAction(ctx) {
         : (isPetriInjection ? fromVol - 1 : 0);
       if (Math.abs(toVol - fromVol) < 0.01) return;
 
+      const isHoldLiquidPump = !!(tgt.mode === 'draw' || (tgt.item && tgt.item.mesh && tgt.item.mesh.userData.liquidCtrl && !tgt.item.spawnCtrl));
       ctx.syringePumping = {
         target: tgt,
         fromVol: fromVol,
         toVol: toVol,
         amountMl: isPetriInjection ? 1 : 0,
-        duration: 2.0,
+        holdMode: isHoldLiquidPump,
+        duration: isHoldLiquidPump ? Math.max(0.5, Math.abs(toVol - fromVol) / 4.5) : 2.0,
         elapsed: 0,
         startJarVol: (tgt.item && tgt.item.mesh && tgt.item.mesh.userData.liquidCtrl) ? tgt.item.mesh.userData.liquidCtrl.volMl : 0
       };
@@ -336,9 +338,8 @@ export function handlePrimaryAction(ctx) {
       let filledSomething = false;
       if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
         const lc = ctx.heldItem.mesh.userData.liquidCtrl;
-        const addAmt = lc.maxMl >= 4000 ? 1000 : (lc.maxMl >= 500 ? 250 : lc.maxMl);
         if (lc.volMl < lc.maxMl) {
-          updateContainerVolume(ctx.heldItem, Math.min(lc.maxMl, lc.volMl + addAmt));
+          updateContainerVolume(ctx.heldItem, Math.min(lc.maxMl, lc.volMl + 35));
           if (medium) markPdaVolumeChanged(ctx.heldItem);
           filledSomething = true;
         }
@@ -346,7 +347,7 @@ export function handlePrimaryAction(ctx) {
         for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
           const cp = ctx.cookerPots[cpi];
           if (cp.potItem === ctx.heldItem && cp.waterMl < cp.maxWaterMl) {
-            cp.waterMl = Math.min(cp.maxWaterMl, cp.waterMl + 1000);
+            cp.waterMl = Math.min(cp.maxWaterMl, cp.waterMl + 100);
             updateCookerWaterVisual(cp);
             filledSomething = true;
             break;
@@ -354,7 +355,8 @@ export function handlePrimaryAction(ctx) {
         }
       }
       if (filledSomething) {
-        triggerSinkStream(ctx.hoveredSink, 900);
+        ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, carryMl: 0, addedAny: true };
+        triggerSinkStream(ctx.hoveredSink, 500);
         if (window.MycoAudio) window.MycoAudio.playSpray();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
         ctx.notifyWorldAction();
@@ -372,14 +374,9 @@ export function handlePrimaryAction(ctx) {
       }
       const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
       const cp = ctx.hoveredFillPot;
-      const pourAmt = Math.min(srcLc.volMl, 500, cp.maxWaterMl - cp.waterMl);
-      if (pourAmt > 0) {
-        updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
-        cp.waterMl += pourAmt;
-        updateCookerWaterVisual(cp);
+      if (srcLc.volMl > 0 && cp.waterMl < cp.maxWaterMl) {
+        ctx.pourHold = { kind: 'pot', src: ctx.heldItem, dst: cp, carry: 0, any: false, soundAt: 0, dropAt: 0 };
         if (window.MycoAudio) window.MycoAudio.playSpray();
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        ctx.notifyWorldAction();
       }
       return;
     }
@@ -434,14 +431,9 @@ export function handlePrimaryAction(ctx) {
         const receivesWater = dstItem.meta && dstItem.meta.compatibilities &&
           dstItem.meta.compatibilities.receivesWater;
         if (!receivesWater || !spawn.filled || spawn.substrateKind === 'pda' || spawn.waterMl >= 35) return;
-        const pourAmt = Math.min(srcLc.volMl, 35 - (spawn.waterMl || 0));
-        if (pourAmt > 0) {
-          updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
-          spawn.waterMl = (spawn.waterMl || 0) + pourAmt;
-          spawn.updateVisual();
+        if (srcLc.volMl > 0) {
+          ctx.pourHold = { kind: 'pp5', src: ctx.heldItem, dst: dstItem, carry: 0, any: false, soundAt: 0, dropAt: 0 };
           if (window.MycoAudio) window.MycoAudio.playSpray();
-          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-          ctx.notifyWorldAction();
         }
         return;
       }
@@ -502,15 +494,9 @@ export function handlePrimaryAction(ctx) {
           return;
         }
 
-        const stepAmt = dstLc.maxMl <= 50 ? 15 : 250;
-        const pourAmt = Math.min(srcLc.volMl, stepAmt, dstLc.maxMl - dstLc.volMl);
-        if (pourAmt > 0) {
-          updateContainerVolume(ctx.heldItem, srcLc.volMl - pourAmt);
-          updateContainerVolume(dstItem, dstLc.volMl + pourAmt);
-          if (dstItem.pdaMediumCtrl) markPdaVolumeChanged(dstItem);
+        if (srcLc.volMl > 0 && dstLc.volMl < dstLc.maxMl) {
+          ctx.pourHold = { kind: 'lc', src: ctx.heldItem, dst: dstItem, carry: 0, any: false, soundAt: 0, dropAt: 0 };
           if (window.MycoAudio) window.MycoAudio.playSpray();
-          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-          ctx.notifyWorldAction();
         }
       } else if (dstItem.bowlCtrl) {
         const receivesWater = dstItem.meta && dstItem.meta.compatibilities &&
@@ -553,18 +539,14 @@ export function handlePrimaryAction(ctx) {
     }
     if (ctx.hoveredFridgeTarget && ctx.heldItem) {
       const fridgeTarget = ctx.hoveredFridgeTarget;
-      if (!fridgeTarget.ready) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⏳ Espere a cultura atingir 100% de colonização antes de refrigerá-la.');
-        return;
-      }
       if (!fridgeTarget.fridge.fridgeCtrl.doorOpen) {
         toggleCultureFridgeDoor(fridgeTarget.fridge);
         ctx.queueWorldStateChange(fridgeTarget.fridge.id, fridgeTarget.fridge.fridgeCtrl.doorOpen ? 1 : 0);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira aberta. Clique novamente para guardar a cultura.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira aberta. Clique novamente para guardar o item.');
         return;
       }
       if (!fridgeTarget.slotPosition) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Não há espaço livre nas prateleiras.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Não há espaço livre nas prateleiras da geladeira.');
         return;
       }
       if (fridgeTarget.lidOpen) {
@@ -610,9 +592,25 @@ export function handlePrimaryAction(ctx) {
   if (handleWorldInteraction(ctx)) return;
   if (ctx.hoveredPickable) {
     if (ctx.hoveredPickable.fridgeCtrl) {
-      toggleCultureFridgeDoor(ctx.hoveredPickable);
-      ctx.queueWorldStateChange(ctx.hoveredPickable.id, ctx.hoveredPickable.fridgeCtrl.doorOpen ? 1 : 0);
-      if (window.MycoAudio) window.MycoAudio.playDoor(ctx.hoveredPickable.fridgeCtrl.doorOpen);
+      const fridge = ctx.hoveredPickable;
+      const hitObj = ctx.hoverHit ? ctx.hoverHit.object : null;
+      const isDoor = isPartOfFridgeDoor(hitObj, fridge);
+      if (isDoor || isCultureFridgeOccupied(ctx, fridge)) {
+        toggleCultureFridgeDoor(fridge);
+        ctx.queueWorldStateChange(fridge.id, fridge.fridgeCtrl.doorOpen ? 1 : 0);
+        if (window.MycoAudio) window.MycoAudio.playDoor(fridge.fridgeCtrl.doorOpen);
+        if (!isDoor && isCultureFridgeOccupied(ctx, fridge) && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🚫 Esvazie a geladeira para poder movê-la com duas mãos.');
+        }
+        return;
+      }
+      ctx.heldItem = fridge;
+      cancelHeldItemPlacement(ctx);
+      ctx.lastPickupAt = performance.now();
+      ctx.heldRotY = fridge.mesh.rotation.y;
+      setHeldTwoHandedGhost(fridge, true);
+      if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(fridge.label);
+      ctx.notifyWorldAction();
       return;
     }
     if (ctx.hoveredPickable.mesh.userData.isBlockedPickup && ctx.hoveredPickable.mesh.userData.isBlockedPickup(ctx.hoveredPickable)) {

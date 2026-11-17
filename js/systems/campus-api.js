@@ -156,6 +156,8 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
 
   window.resetCampusLocalSession = function () {
     sim.syringePumping = null;
+    sim.sinkFilling = null;
+    sim.pourHold = null;
     sim.syringePunctureProgress = 0;
     sim.cancelHeldItemPlacement();
     setHeldTwoHandedGhost(sim.heldItem, false);

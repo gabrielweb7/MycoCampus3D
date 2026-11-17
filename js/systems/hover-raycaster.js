@@ -10,7 +10,7 @@ import { isSeatOccupied } from './world-interactions.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
 import { BURNER_LEVEL_NAMES } from '../items/pressure-cooker.js';
-import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge } from '../items/culture-fridge.js';
+import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { PDA_POWDER_DOSE_GRAMS } from '../items/pda-mix.js';
 import { formatSprayHoverPrompt, getSanitizationStatus } from '../items/alcohol-spray.js';
 import { canDisposeItemInTrash } from '../items/lab-trash.js';
@@ -310,7 +310,14 @@ export function updateHoverRay(ctx, customNdc) {
         if (sHits.length > 0 && sHits[0].distance < 3.5) {
           ctx.hoveredSink = sHits[0].object.userData.labSink;
           if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🚰 Encher ' + ctx.heldItem.label + ' com água da torneira');
+          if (ctx.callbacks.onHoverPrompt) {
+            const sinkLc = ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.liquidCtrl;
+            const sinkPot = ctx.cookerPots.find((cp) => cp.potItem === ctx.heldItem);
+            const volTxt = sinkLc
+              ? ' • ' + Math.round(sinkLc.volMl) + '/' + sinkLc.maxMl + ' ml'
+              : (sinkPot ? ' • ' + (sinkPot.waterMl / 1000).toFixed(1) + '/' + (sinkPot.maxWaterMl / 1000).toFixed(0) + ' L' : '');
+            ctx.callbacks.onHoverPrompt('🚰 SEGURE o clique para encher ' + ctx.heldItem.label + volTxt + ' (solte para parar)');
+          }
           return;
         }
       }
@@ -546,12 +553,12 @@ export function updateHoverRay(ctx, customNdc) {
             if (sc.volMl < 9.9 && lc.volMl > 0 && canSyringeSource(cand)) {
               ctx.hoveredSyringeTarget = { item: cand, mode: 'draw' };
               if (ctx.placementGhost) ctx.placementGhost.visible = false;
-              if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Furando Septo • Clique para aspirar cultura líquida (2s)');
+              if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 SEGURE o clique para aspirar cultura líquida (' + sc.volMl.toFixed(1) + '/10 ml • solte para parar)');
               return;
             } else if (sc.volMl > 0.1 && canSyringeTarget(cand)) {
               ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
               if (ctx.placementGhost) ctx.placementGhost.visible = false;
-              if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Seringa cheia (' + Math.round(sc.volMl) + 'ml) • Clique para esvaziar de volta (2s)');
+              if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('💉 Seringa com ' + sc.volMl.toFixed(1) + ' ml • SEGURE o clique para devolver ao frasco (solte para parar)');
               return;
             } else if (sc.volMl < 9.9 && lc.volMl > 0 && ctx.callbacks.onHoverPrompt) {
               ctx.callbacks.onHoverPrompt('⚠️ Aspiração disponível apenas em frasco de cultura líquida');
@@ -609,13 +616,11 @@ export function updateHoverRay(ctx, customNdc) {
         ctx.hoveredFridgeTarget = fridgeTarget;
         if (ctx.placementGhost) ctx.placementGhost.visible = false;
         const cultureLabel = fridgeTarget.displayLabel;
-        const fridgePrompt = !fridgeTarget.ready
-          ? '⏳ Aguarde 100% de colonização antes de refrigerar'
-          : (!fridgeTarget.fridge.fridgeCtrl.doorOpen
-            ? '🧊 Abra a geladeira para guardar o ' + cultureLabel
-            : (fridgeTarget.slotPosition
-              ? '🧊 Guardar ' + cultureLabel + ' • conservar a 4°C'
-              : '🧊 Geladeira cheia • retire uma cultura antes'));
+        const fridgePrompt = !fridgeTarget.fridge.fridgeCtrl.doorOpen
+          ? '🧊 Abra a geladeira para guardar ' + cultureLabel
+          : (fridgeTarget.slotPosition
+            ? '🧊 Guardar ' + cultureLabel + ' • conservar a 4°C'
+            : '🧊 Geladeira cheia • retire um item antes');
         if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(fridgePrompt);
         return;
       }
@@ -833,13 +838,33 @@ export function updateHoverRay(ctx, customNdc) {
           prompt = '🍲 Retirar Tampa da Panela de Pressão';
         }
       } else if (ctx.hoveredPickable.fridgeCtrl) {
-        prompt = ctx.hoveredPickable.fridgeCtrl.doorOpen
-          ? '🧊 Fechar Geladeira de Culturas (4°C)'
-          : '🧊 Abrir Geladeira de Culturas (4°C)';
+        const fridge = ctx.hoveredPickable;
+        const hitDoor = ctx.hoverHit && ctx.hoverHit.object && isPartOfFridgeDoor(ctx.hoverHit.object, fridge);
+        const occupied = isCultureFridgeOccupied(ctx, fridge);
+        if (hitDoor) {
+          prompt = fridge.fridgeCtrl.doorOpen
+            ? '🧊 Fechar Porta da Geladeira (4°C)'
+            : '🧊 Abrir Porta da Geladeira (4°C)';
+        } else if (occupied) {
+          prompt = (fridge.fridgeCtrl.doorOpen ? '🧊 Fechar Porta' : '🧊 Abrir Porta') + ' • Esvazie para mover com 2 mãos';
+        } else {
+          prompt = '🙌 Mover Geladeira de Culturas (Duas Mãos)';
+        }
       } else if (ctx.hoveredPickable.mesh.userData.twoHanded) {
         prompt = '🙌 Pegar ' + ctx.hoveredPickable.label + ' (2 mãos)';
       } else {
         prompt = '✋ Pegar ' + ctx.hoveredPickable.label;
+      }
+    }
+  }
+  ctx.hoveredCabinetPart = null;
+  if (!prompt && ctx.cabinetHitMeshes && ctx.cabinetHitMeshes.length) {
+    const cabHits = ctx.raycaster.intersectObjects(ctx.cabinetHitMeshes, false);
+    if (cabHits.length > 0 && cabHits[0].distance < 3.8) {
+      const cPart = cabHits[0].object.userData.cabinetPart;
+      if (cPart) {
+        ctx.hoveredCabinetPart = cPart;
+        prompt = (cPart.open ? '🗄️ Fechar ' : '🗄️ Abrir ') + (cPart.label || 'Armário');
       }
     }
   }

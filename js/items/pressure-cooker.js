@@ -199,6 +199,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
     burned: false
   };
   updateCookerWaterVisual(cpState);
+  potItem.cookerRef = cpState;
   ctx.cookerPots.push(cpState);
   return cpState;
 }

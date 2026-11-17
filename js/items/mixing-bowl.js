@@ -116,13 +116,40 @@ export function makeMixingBowl(ctx, id, px, py, pz) {
 
 export function makeLabSpoon(ctx, id, px, py, pz) {
   const sg = new THREE.Group();
-  const steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.90, roughness: 0.18 });
-  const handle = makeBox(0.014, 0.004, 0.15, steelMat);
-  handle.position.set(0, 0.008, 0.02);
-  const scoop = new THREE.Mesh(new THREE.SphereGeometry(0.020, 12, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), steelMat);
-  scoop.scale.set(0.85, 0.45, 1.3);
-  scoop.position.set(0, 0.012, -0.070);
-  sg.add(handle, scoop);
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.95, roughness: 0.12 });
+  const bowlMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.10, side: THREE.DoubleSide });
+  const gripMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.55 });
+
+  // Cabo afilado (inox) ao longo do eixo Z; concha na ponta -Z
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0065, 0.15, 12), steelMat);
+  handle.rotation.x = Math.PI / 2;
+  handle.position.set(0, 0.012, 0.045);
+
+  // Empunhadura colorida
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.055, 12), gripMat);
+  grip.rotation.x = Math.PI / 2;
+  grip.position.set(0, 0.012, 0.095);
+  const gripCap = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 12, 8), gripMat);
+  gripCap.position.set(0, 0.012, 0.1225);
+
+  // Pescoço curvo entre cabo e concha
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0045, 0.028, 10), steelMat);
+  neck.rotation.x = Math.PI / 2 - 0.35;
+  neck.position.set(0, 0.0105, -0.034);
+
+  // Concha oval funda com borda reforçada
+  const scoop = new THREE.Mesh(
+    new THREE.SphereGeometry(0.026, 20, 12, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5),
+    bowlMat
+  );
+  scoop.scale.set(0.82, 0.62, 1.28);
+  scoop.position.set(0, 0.018, -0.078);
+  const scoopRim = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.0015, 6, 24), steelMat);
+  scoopRim.rotation.x = Math.PI / 2;
+  scoopRim.scale.set(0.82, 1.28, 1);
+  scoopRim.position.set(0, 0.018, -0.078);
+
+  sg.add(handle, grip, gripCap, neck, scoop, scoopRim);
   sg.userData.isLabSpoon = true;
-  return registerPickable(ctx, id, 'Colher Inox de Mistura', sg, px, py, pz, 0, 0.10, 0.03, LAB_SPOON_META);
+  return registerPickable(ctx, id, 'Colher Inox de Mistura', sg, px, py, pz, 0, 0.10, 0.04, LAB_SPOON_META);
 }

@@ -1,0 +1,305 @@
+/**
+ * Armários e Gavetas das Bancadas do Laboratório (MycoCampus3D)
+ * - Armário de 2 alturas (portas de vidro) com prateleira interna.
+ * - Armário de espaço grande (portas inox) sem divisória, para itens maiores.
+ * - Gaveteiros pequenos (bisturis, talheres) com animação de abrir/fechar.
+ * As prateleiras internas são superfícies de apoio: itens podem ser guardados com a porta aberta,
+ * e ficam inacessíveis enquanto a porta estiver fechada.
+ */
+
+const THREE = window.THREE;
+
+const BODY_BOTTOM = 0.14;
+const BODY_TOP = 0.96;
+const FLOOR_TOP = 0.245;
+const MID_SHELF_TOP = 0.60;
+const DOOR_BOTTOM = 0.25;
+const DOOR_TOP = 0.95;
+const DOOR_ANGLE = 1.55;
+const DRAWER_TRAVEL = 0.42;
+
+function addBox(parent, w, h, d, mat, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  parent.add(m);
+  return m;
+}
+
+function smooth(t) {
+  return t * t * (3 - 2 * t);
+}
+
+function makeMaterials() {
+  return {
+    carcass: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5, metalness: 0.1 }),
+    inside: new THREE.MeshStandardMaterial({ color: 0xdbe4ee, roughness: 0.65 }),
+    steel: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.26 }),
+    dark: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6, metalness: 0.2 }),
+    blue: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.5 }),
+    handle: new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.95, roughness: 0.18 }),
+    glass: new THREE.MeshStandardMaterial({
+      color: 0x7dd3fc, transparent: true, opacity: 0.26, roughness: 0.08, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide
+    })
+  };
+}
+
+function makeDoorPanel(mats, wd, glass) {
+  const g = new THREE.Group();
+  const hh = DOOR_TOP - DOOR_BOTTOM;
+  if (glass) {
+    const fw = 0.035;
+    addBox(g, wd, fw, 0.02, mats.steel, 0, hh / 2 - fw / 2, 0);
+    addBox(g, wd, fw, 0.02, mats.steel, 0, -hh / 2 + fw / 2, 0);
+    addBox(g, fw, hh, 0.02, mats.steel, -wd / 2 + fw / 2, 0, 0);
+    addBox(g, fw, hh, 0.02, mats.steel, wd / 2 - fw / 2, 0, 0);
+    const pane = addBox(g, wd - fw * 2, hh - fw * 2, 0.006, mats.glass, 0, 0, 0);
+    pane.userData.ignoreRay = true;
+  } else {
+    addBox(g, wd, hh, 0.02, mats.steel, 0, 0, 0);
+    addBox(g, wd - 0.08, hh - 0.08, 0.004, mats.handle, 0, 0, 0.012);
+  }
+  return g;
+}
+
+/**
+ * Constrói os armários ao longo da frente de uma bancada.
+ * cfg: { id, bx, bz, bw, bd, face: 'x+' | 'z+', latMin, latMax }
+ * latMin/latMax: intervalo lateral (coordenada local) coberto por módulos; o restante vira painel fechado.
+ */
+export function buildBenchCabinets(ctx, cfg) {
+  const mats = makeMaterials();
+  const isX = cfg.face === 'x+';
+  const rotY = isX ? Math.PI / 2 : 0;
+  const L = isX ? cfg.bd : cfg.bw;
+  const D = isX ? cfg.bw : cfg.bd;
+  const fx = isX ? cfg.bx + cfg.bw / 2 : cfg.bx;
+  const fz = isX ? cfg.bz : cfg.bz + cfg.bd / 2;
+  const cos = Math.cos(rotY);
+  const sin = Math.sin(rotY);
+
+  if (!ctx.labCabinets) ctx.labCabinets = [];
+  if (!ctx.cabinetHitMeshes) ctx.cabinetHitMeshes = [];
+
+  const root = new THREE.Group();
+  root.position.set(fx, 0, fz);
+  root.rotation.y = rotY;
+  ctx.scene.add(root);
+
+  function toWorld(lx, lz) {
+    return { x: fx + lx * cos + lz * sin, z: fz - lx * sin + lz * cos };
+  }
+
+  const latMin = typeof cfg.latMin === 'number' ? cfg.latMin : -L / 2;
+  const latMax = typeof cfg.latMax === 'number' ? cfg.latMax : L / 2;
+  const span = latMax - latMin;
+  const count = Math.max(1, Math.round(span / 0.95));
+  const w = span / count;
+
+  // Carcaça base
+  const bodyH = BODY_TOP - BODY_BOTTOM;
+  addBox(root, L, BODY_TOP - 0.22, 0.02, mats.carcass, 0, (BODY_TOP + 0.22) / 2, -D + 0.01);
+  addBox(root, L, 0.08, 0.04, mats.blue, 0, BODY_BOTTOM + 0.04, -0.07);
+  addBox(root, L, 0.04, 0.03, mats.steel, 0, BODY_TOP - 0.02, -0.015);
+  addBox(root, 0.02, bodyH, D - 0.02, mats.carcass, -L / 2 + 0.01, (BODY_TOP + BODY_BOTTOM) / 2, -D / 2);
+  addBox(root, 0.02, bodyH, D - 0.02, mats.carcass, L / 2 - 0.01, (BODY_TOP + BODY_BOTTOM) / 2, -D / 2);
+
+  // Trechos fora dos módulos (ex.: encontro com outra bancada): painel fechado
+  [[-L / 2, latMin], [latMax, L / 2]].forEach(function (seg) {
+    const sw = seg[1] - seg[0];
+    if (sw > 0.03) {
+      addBox(root, sw, bodyH, D - 0.02, mats.carcass, (seg[0] + seg[1]) / 2, (BODY_TOP + BODY_BOTTOM) / 2, -D / 2);
+      addBox(root, sw, 0.08, 0.04, mats.blue, (seg[0] + seg[1]) / 2, BODY_BOTTOM + 0.04, 0.0);
+    }
+  });
+
+  // Divisórias verticais entre módulos
+  for (let bi = 0; bi <= count; bi++) {
+    addBox(root, 0.02, bodyH, D - 0.02, mats.carcass, latMin + bi * w, (BODY_TOP + BODY_BOTTOM) / 2, -D / 2);
+  }
+
+  const typeCycle = ['shelfDoors', 'bigDoor', 'drawers'];
+
+  function registerShelf(part, mesh, lx0, lx1, topY) {
+    const zA = -D + 0.05;
+    const zB = -0.04;
+    const c1 = toWorld(lx0, zA);
+    const c2 = toWorld(lx1, zA);
+    const c3 = toWorld(lx0, zB);
+    const c4 = toWorld(lx1, zB);
+    const surf = {
+      minX: Math.min(c1.x, c2.x, c3.x, c4.x),
+      maxX: Math.max(c1.x, c2.x, c3.x, c4.x),
+      minZ: Math.min(c1.z, c2.z, c3.z, c4.z),
+      maxZ: Math.max(c1.z, c2.z, c3.z, c4.z),
+      topY,
+      isCabinetShelf: true,
+      requiresOpenPart: part
+    };
+    ctx.supportSurfaces.push(surf);
+    mesh.userData.supportSurface = surf;
+    ctx.supportMeshes.push(mesh);
+    part.shelves.push(surf);
+  }
+
+  for (let mi = 0; mi < count; mi++) {
+    const lc = latMin + (mi + 0.5) * w;
+    const type = typeCycle[mi % typeCycle.length];
+    const key = cfg.id + mi;
+
+    if (type === 'drawers') {
+      const drawerCount = 4;
+      const slotH = (DOOR_TOP - DOOR_BOTTOM) / drawerCount;
+      for (let di = 0; di < drawerCount; di++) {
+        const yC = DOOR_BOTTOM + slotH * (di + 0.5);
+        const dg = new THREE.Group();
+        dg.position.set(lc, yC, 0);
+        root.add(dg);
+        const faceW = w - 0.03;
+        addBox(dg, faceW, slotH - 0.012, 0.025, mats.steel, 0, 0, 0.0125);
+        addBox(dg, 0.22, 0.014, 0.022, mats.handle, 0, 0, 0.036);
+        const trayW = w - 0.07;
+        const trayLen = Math.min(0.55, D - 0.12);
+        addBox(dg, trayW, 0.008, trayLen, mats.inside, 0, -slotH / 2 + 0.03, -trayLen / 2);
+        addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, -trayW / 2, -0.005, -trayLen / 2);
+        addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, trayW / 2, -0.005, -trayLen / 2);
+        addBox(dg, trayW, slotH - 0.07, 0.008, mats.inside, 0, -0.005, -trayLen);
+        if (di === 0 || di === 2) {
+          // Organizador azul com bisturis e talheres
+          addBox(dg, trayW - 0.04, 0.012, 0.32, mats.blue, 0, -slotH / 2 + 0.04, -0.2);
+          for (let ui = 0; ui < 4; ui++) {
+            const ux = (ui - 1.5) * 0.07;
+            addBox(dg, 0.012, 0.008, 0.20, mats.handle, ux, -slotH / 2 + 0.052, -0.2);
+            addBox(dg, 0.008, 0.006, 0.05, mats.dark, ux, -slotH / 2 + 0.052, -0.33);
+          }
+        }
+        const dPart = {
+          id: 'cab_' + key + '_d' + di,
+          kind: 'drawer',
+          label: di % 2 === 0 ? 'Gaveta de Bisturis e Talheres' : 'Gaveta de Utensílios',
+          open: false,
+          progress: 0,
+          shelves: [],
+          apply: function (p) { dg.position.z = DRAWER_TRAVEL * smooth(p); }
+        };
+        const hit = new THREE.Mesh(
+          new THREE.BoxGeometry(faceW, slotH, 0.1),
+          new THREE.MeshBasicMaterial({ visible: false })
+        );
+        hit.position.set(0, 0, 0.03);
+        hit.userData.cabinetPart = dPart;
+        dg.add(hit);
+        ctx.cabinetHitMeshes.push(hit);
+        ctx.labCabinets.push(dPart);
+      }
+      continue;
+    }
+
+    // Piso do módulo (prateleira inferior)
+    const part = {
+      id: 'cab_' + key,
+      kind: 'doors',
+      label: type === 'shelfDoors' ? 'Armário de 2 Alturas' : 'Armário de Espaço Grande',
+      open: false,
+      progress: 0,
+      shelves: [],
+      pivots: [],
+      apply: function (p) {
+        const e = smooth(p) * DOOR_ANGLE;
+        for (let pi = 0; pi < part.pivots.length; pi++) {
+          part.pivots[pi].pivot.rotation.y = part.pivots[pi].dir * e;
+        }
+      }
+    };
+
+    const floor = addBox(root, w - 0.03, 0.02, D - 0.05, mats.inside, lc, FLOOR_TOP - 0.01, -D / 2 - 0.005);
+    registerShelf(part, floor, lc - w / 2 + 0.02, lc + w / 2 - 0.02, FLOOR_TOP);
+
+    if (type === 'shelfDoors') {
+      const shelf = addBox(root, w - 0.03, 0.02, D - 0.05, mats.inside, lc, MID_SHELF_TOP - 0.01, -D / 2 - 0.005);
+      registerShelf(part, shelf, lc - w / 2 + 0.02, lc + w / 2 - 0.02, MID_SHELF_TOP);
+    }
+
+    const glass = type === 'shelfDoors';
+    const wd = (w - 0.03) / 2;
+    const doorMidY = (DOOR_BOTTOM + DOOR_TOP) / 2;
+    [-1, 1].forEach(function (side) {
+      const pivot = new THREE.Group();
+      pivot.position.set(lc + side * (w / 2 - 0.013), doorMidY, 0.012);
+      root.add(pivot);
+      const panel = makeDoorPanel(mats, wd, glass);
+      panel.position.x = -side * wd / 2;
+      pivot.add(panel);
+      // Puxador na borda livre
+      addBox(panel, 0.014, 0.20, 0.022, mats.handle, -side * (wd / 2 - 0.04), 0, 0.024);
+      const hit = new THREE.Mesh(
+        new THREE.BoxGeometry(wd, DOOR_TOP - DOOR_BOTTOM, 0.1),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hit.position.set(0, 0, 0.03);
+      hit.userData.cabinetPart = part;
+      panel.add(hit);
+      ctx.cabinetHitMeshes.push(hit);
+      part.pivots.push({ pivot, dir: side < 0 ? -1 : 1 });
+    });
+    ctx.labCabinets.push(part);
+  }
+}
+
+export function stepLabCabinets(ctx, dt) {
+  const parts = ctx.labCabinets;
+  if (!parts || !parts.length) return;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const target = part.open ? 1 : 0;
+    if (part.progress === target) continue;
+    const delta = target - part.progress;
+    const step = dt * 3.4;
+    part.progress = Math.abs(delta) <= step ? target : part.progress + Math.sign(delta) * step;
+    part.apply(part.progress);
+  }
+}
+
+export function toggleCabinetPart(ctx, part) {
+  if (!part) return;
+  part.open = !part.open;
+  if (ctx.queueWorldStateChange) ctx.queueWorldStateChange(part.id, part.open ? 1 : 0);
+  if (window.MycoAudio && window.MycoAudio.playDoor) window.MycoAudio.playDoor(part.open);
+}
+
+/** Verdadeiro se o item está guardado dentro de um armário com a porta fechada. */
+export function isItemInClosedCabinet(ctx, item) {
+  const parts = ctx.labCabinets;
+  if (!parts || !parts.length || !item || !item.mesh) return false;
+  const p = item.mesh.position;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part.open || !part.shelves.length) continue;
+    for (let si = 0; si < part.shelves.length; si++) {
+      const s = part.shelves[si];
+      if (p.x >= s.minX - 0.03 && p.x <= s.maxX + 0.03 && p.z >= s.minZ - 0.03 && p.z <= s.maxZ + 0.03 &&
+          p.y >= s.topY - 0.03 && p.y <= s.topY + 0.34) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function applyCabinetStates(ctx, stateMap, now, isInitial) {
+  const parts = ctx.labCabinets;
+  if (!parts || !parts.length) return;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const raw = stateMap[part.id];
+    if (raw === undefined) continue;
+    if (ctx.pendingStateChanges[part.id] !== undefined || ctx.recentlyChangedState[part.id] > now) continue;
+    const want = Number(raw) === 1;
+    if (part.open !== want) {
+      part.open = want;
+      if (isInitial) {
+        part.progress = want ? 1 : 0;
+        part.apply(part.progress);
+      }
+    }
+  }
+}
