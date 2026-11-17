@@ -320,7 +320,24 @@ body.device-desktop #btn-mobile-chat-toggle {
   box-shadow: 0 0 18px rgba(251, 191, 36, 0.65);
 }
 
-/* 4. Posicionar Item: acima do botão de ação (aparece apenas segurando item) */
+/* 4. Largar Item no Chão (aparece apenas segurando item) */
+#btn-mobile-drop {
+  right: 154px;
+  bottom: 84px;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  font-size: 22px;
+  background: rgba(30, 41, 59, 0.94);
+  border-color: rgba(245, 158, 11, 0.8);
+  color: #fcd34d;
+}
+
+#btn-mobile-drop:active {
+  background: rgba(245, 158, 11, 0.4);
+}
+
+/* 5. Posicionar Item: acima do botão de ação (aparece apenas segurando item) */
 #btn-mobile-place {
   right: 78px;
   bottom: 84px;
@@ -338,7 +355,7 @@ body.device-desktop #btn-mobile-chat-toggle {
   box-shadow: 0 0 18px rgba(52, 211, 153, 0.75);
 }
 
-/* 5. Girar Item: à esquerda do botão de ação (aparece apenas segurando item) */
+/* 6. Girar Item: à esquerda do botão de ação (aparece apenas segurando item) */
 #btn-mobile-rotate {
   right: 154px;
   bottom: 12px;
@@ -348,6 +365,21 @@ body.device-desktop #btn-mobile-chat-toggle {
   font-size: 22px;
   background: rgba(30, 41, 59, 0.92);
   border-color: rgba(148, 163, 184, 0.75);
+}
+
+#held-item-bar {
+  animation: slideUpHeldBar 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpHeldBar {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 /* ==========================================================================

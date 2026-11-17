@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.52] — 2026-11-17
+### 📦 Barra de Ações do Item em Mãos (PC & Mobile), Tecla [X] para Largar & Botão Touch de Soltar
+- **Barra Flutuante de Item em Mãos no PC e Mobile (`#held-item-bar`, `index.html`, `css/game.css`, `app-boot.js`):**
+  - Resolvido o problema em que o jogador pegava um item e ficava sem saber como largar ou posicionar.
+  - Ao segurar qualquer item, surge uma barra holográfica elegante no centro inferior da tela exibindo o nome do item e botões clicáveis: `[X] ⬇️ Largar no Chão`, `[G] 📦 Posicionar com Mira` e `[R] 🔄 Girar`.
+  - Ao entrar em modo de posicionamento, os botões se adaptam dinamicamente para `✅ Confirmar Posição` e `✕ Cancelar (Esc / X)`.
+- **Atalho de Teclado [X] para Largar Imediatamente no PC (`input-controller.js`, `interaction-system.js`):**
+  - Pressionar a tecla `X` solta o item segurado instantaneamente aos pés do jogador no chão ou sobre a bancada mais próxima, com confirmação sonora e toast `📦 [Item] solto.`
+- **Botão Touch Dedicado de Largar no Mobile (`#btn-mobile-drop`, `index.html`, `css/game.css`, `mobile-controls.js`):**
+  - Adicionado o botão `⬇️` no cluster do polegar direito no mobile (ao lado do botão de posicionar e girar), permitindo soltar o item com um único toque sem precisar mirar ou abrir menus.
+
 ## [v0.9.51] — 2026-11-17
 ### 💎 Crachá Diegético 3D no Alvo, Gráficos Mobile HD Vivos, Correção da Geladeira & Fullscreen à Vista
 - **Crachá Holográfico 3D Diegético sobre o Alvo da Mira (`js/entities/hover-3d-badge.js`, `hover-raycaster.js`, `campus-init.js`, `app-boot.js`):**

@@ -122,7 +122,11 @@ export function dropHeldItem(ctx) {
     }
     return;
   }
+  const droppedLabel = ctx.heldItem ? ctx.heldItem.label : 'Item';
   commitHeldItemPlacement(ctx, chosenPt, false);
+  if (ctx.callbacks.onToast) {
+    ctx.callbacks.onToast('📦 ' + droppedLabel + ' solto.');
+  }
 }
 
 export function handlePrimaryAction(ctx) {

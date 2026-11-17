@@ -105,6 +105,32 @@ function bindModalsAndToolbar() {
   const btnLogout = $('btn-logout');
   if (btnLogout) btnLogout.onclick = logoutCampus;
 
+  const heldDropBtn = $('btn-held-drop');
+  if (heldDropBtn) {
+    heldDropBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (mobilePlacementModeActive) {
+        if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
+      } else {
+        if (window.dropCampusHeldItem) window.dropCampusHeldItem();
+      }
+    };
+  }
+  const heldPlaceBtn = $('btn-held-place');
+  if (heldPlaceBtn) {
+    heldPlaceBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
+    };
+  }
+  const heldRotateBtn = $('btn-held-rotate');
+  if (heldRotateBtn) {
+    heldRotateBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (window.rotateCampusHeldItem) window.rotateCampusHeldItem();
+    };
+  }
+
   const btnOpenLessons = $('btn-open-lessons');
   if (btnOpenLessons) btnOpenLessons.onclick = () => { releaseInputForModal(); renderLessonsModal(); $('lesson-modal')?.classList.remove('hidden'); };
   const btnCloseLessons = $('btn-close-lessons');
@@ -442,6 +468,18 @@ export function bootApp() {
     onNearScreen: () => { $('prof-toolbar')?.classList.add('hidden'); },
     onHoldChange: (label) => {
       currentHoldLabel = label || '';
+      const heldBar = $('held-item-bar');
+      const heldName = $('held-item-bar-name');
+      if (heldBar && heldName) {
+        if (label && appState.currentUser) {
+          heldName.textContent = label;
+          heldBar.classList.remove('hidden');
+        } else {
+          heldBar.classList.add('hidden');
+        }
+      }
+      const dropBtn = $('btn-mobile-drop');
+      if (dropBtn) dropBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
       const rotBtn = $('btn-mobile-rotate');
       if (rotBtn) rotBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
       const placeBtn = $('btn-mobile-place');
@@ -458,12 +496,25 @@ export function bootApp() {
     onPlacementModeChange: (active) => {
       mobilePlacementModeActive = active;
       const placeBtn = $('btn-mobile-place');
-      if (!placeBtn) return;
-      placeBtn.textContent = active ? '✅' : '📦';
-      placeBtn.title = active
-        ? 'Mire e toque no local para confirmar; toque aqui para cancelar'
-        : 'Posicionar item';
-      placeBtn.classList.toggle('placement-active', active);
+      if (placeBtn) {
+        placeBtn.textContent = active ? '✅' : '📦';
+        placeBtn.title = active
+          ? 'Mire e toque no local para confirmar; toque aqui para cancelar'
+          : 'Posicionar item';
+        placeBtn.classList.toggle('placement-active', active);
+      }
+      const heldPlace = $('btn-held-place');
+      const heldDrop = $('btn-held-drop');
+      if (heldPlace) {
+        heldPlace.innerHTML = active
+          ? '<span class="hidden sm:inline bg-slate-900/80 text-emerald-300 px-1 py-0.2 rounded text-[10px] font-mono border border-emerald-500/30">[Clique]</span> ✅ Confirmar'
+          : '<span class="hidden sm:inline bg-slate-900/80 text-emerald-300 px-1 py-0.2 rounded text-[10px] font-mono border border-emerald-500/30">[G]</span> 📦 Posicionar';
+      }
+      if (heldDrop) {
+        heldDrop.innerHTML = active
+          ? '<span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[Esc]</span> ✕ Cancelar'
+          : '<span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[X]</span> ⬇️ Largar';
+      }
     },
     onFpsChange: (fps) => {
       updateFpsUi(fps);

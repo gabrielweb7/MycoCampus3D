@@ -13,6 +13,15 @@ export function bindControls(ctx) {
       e.preventDefault();
       if (window.triggerCampusJump) window.triggerCampusJump();
     }
+    if (e.code === 'KeyX') {
+      if (ctx.heldItem) {
+        if (ctx.placementMode) {
+          ctx.cancelHeldItemPlacement();
+        } else {
+          ctx.dropHeldItem();
+        }
+      }
+    }
     if (e.code === 'KeyG' || e.code === 'KeyQ') {
       if (ctx.heldItem) {
         ctx.toggleHeldItemPlacement();
