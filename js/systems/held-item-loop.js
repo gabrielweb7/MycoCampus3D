@@ -215,6 +215,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     const reachY = ctx.fpsArmGroup ? ctx.armReach * 0.06 : 0;
     if (isTwoHanded) {
       _tmpHandLocal.set(0, -0.48, -0.78);
+    } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isTray) {
+      _tmpHandLocal.set(0.14, -0.26 + reachY, -0.58 - reachZ);
     } else {
       _tmpHandLocal.set(0.30, -0.22 + reachY, -0.58 - reachZ);
     }
@@ -233,6 +235,14 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.heldItem.mesh.rotation.order = 'YXZ';
       ctx.heldItem.mesh.rotation.set(ctx.playerPitch, ctx.playerYaw, 0);
       updateThermometerLaser(ctx, dt, now);
+    } else if (ctx.heldItem.mesh.userData.isAlcoholSpray) {
+      const spUd = ctx.heldItem.mesh.userData;
+      const squeezing = spUd.sprayAnimUntil && spUd.sprayAnimUntil > now;
+      ctx.heldItem.mesh.rotation.order = 'YXZ';
+      ctx.heldItem.mesh.rotation.set(-ctx.playerPitch * 0.45 + (squeezing ? 0.08 : 0), ctx.playerYaw + Math.PI, 0);
+      if (spUd.sprayTrig) {
+        spUd.sprayTrig.position.z = squeezing ? 0.032 : 0.042;
+      }
     } else {
       ctx.heldItem.mesh.rotation.order = 'YXZ';
       ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);

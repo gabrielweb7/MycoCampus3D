@@ -10,6 +10,7 @@ import { updateSpawnVisual } from '../items/spawn-containers.js';
 import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { setPetriLidOpen, updatePetriVisual, PETRI_STACK_SPACING, PETRI_STACK_ALIGNMENT_RADIUS } from '../items/petri-dish.js';
+import { PP5_STACK_SPACING, PP5_STACK_ALIGNMENT_RADIUS } from '../items/pp5-cup.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 
@@ -434,21 +435,27 @@ export function applyCampusWorldObjects(sim, objectsMap) {
           suppY = Math.max(suppY, s.topY);
         }
       }
-      if (item.mesh.userData.isPetri) {
+      const isStackPetri = !!(item.mesh.userData && item.mesh.userData.isPetri);
+      const isStackPP5 = !!(item.spawnCtrl && item.spawnCtrl.isPP5);
+      if (isStackPetri || isStackPP5) {
+        const alignR = isStackPetri ? PETRI_STACK_ALIGNMENT_RADIUS : PP5_STACK_ALIGNMENT_RADIUS;
+        const stepY = isStackPetri ? PETRI_STACK_SPACING : PP5_STACK_SPACING;
         for (let pi = 0; pi < sim.pickableItems.length; pi++) {
           const base = sim.pickableItems[pi];
-          if (!base || base === item || !base.mesh || !base.mesh.userData.isPetri || sim.isHeldByRemote(base.id)) continue;
+          if (!base || base === item || !base.mesh || sim.isHeldByRemote(base.id)) continue;
+          const sameKind = isStackPetri ? !!base.mesh.userData.isPetri : !!(base.spawnCtrl && base.spawnCtrl.isPP5);
+          if (!sameKind) continue;
           const baseSaved = objectsMap[base.id];
           const baseX = baseSaved ? baseSaved.x : base.mesh.position.x;
           const baseY = baseSaved ? baseSaved.y : base.mesh.position.y;
           const baseZ = baseSaved ? baseSaved.z : base.mesh.position.z;
-          if (baseY < saved.y - 0.008 && Math.hypot(baseX - saved.x, baseZ - saved.z) < PETRI_STACK_ALIGNMENT_RADIUS) {
-            suppY = Math.max(suppY, baseY + PETRI_STACK_SPACING);
+          if (baseY < saved.y - 0.008 && Math.hypot(baseX - saved.x, baseZ - saved.z) < alignR) {
+            suppY = Math.max(suppY, baseY + stepY);
           }
         }
       }
       let finalY = saved.y;
-      if (saved.y < suppY - 0.04 || (!item.mesh.userData.isPetri && saved.y > suppY + 0.08) || Math.abs(saved.y - suppY) < 0.06) {
+      if (saved.y < suppY - 0.04 || (!(isStackPetri || isStackPP5) && saved.y > suppY + 0.08) || Math.abs(saved.y - suppY) < 0.06) {
         finalY = suppY;
         if (Math.abs(saved.y - suppY) > 0.04) {
           sim.pendingMovedItems[item.id] = {

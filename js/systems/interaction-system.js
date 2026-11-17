@@ -19,9 +19,10 @@ import {
 } from './held-item-placement.js';
 import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canSealSpawnBag, hasPdaContents } from '../items/item-registry.js';
+import { canFillFromSink, canSealSpawnBag, hasPdaContents } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
+import { fireAlcoholSpray } from '../items/alcohol-spray.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { fillPetriWithPda, togglePetriLid, setPetriLidOpen } from '../items/petri-dish.js';
@@ -76,6 +77,7 @@ export function dropHeldItem(ctx) {
   ctx.syringePumping = null;
   ctx.syringePunctureProgress = 0;
   ctx.lastSyringeTargetItem = null;
+  if (!ctx.placementMode) ctx.heldRotY = ctx.playerYaw || 0;
   const rayNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
   const pt = findPlacementTarget(ctx.entityCtx, rayNdc);
   if (isPlacementBlocked(ctx.entityCtx, pt)) {
@@ -156,17 +158,38 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (ctx.hoveredPotInsert && ctx.heldItem && !ctx.heldItem.mesh.userData.twoHanded) {
+      const cp = ctx.hoveredPotInsert;
+      const isBase = !!(ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isCookerBase);
+      const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+      if (!isBase && !hasBase) {
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('⚠️ Encaixe primeiro a Base Perfurada (4cm) no fundo da panela para os recipientes não boiarem!');
+        }
+        return;
+      }
+      if (isBase && hasBase) {
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('⚠️ Esta panela já possui uma Base Perfurada encaixada.');
+        }
+        return;
+      }
       if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
         setPetriLidOpen(ctx.heldItem, false, true);
       }
-      const potP = ctx.hoveredPotInsert.potItem.mesh.position;
-      const slotIdx = ctx.hoveredPotInsert.contents.length;
-      const ox = (slotIdx % 2 === 0 ? -0.06 : 0.06);
-      const oz = (slotIdx < 2 ? -0.05 : 0.05);
-      ctx.heldItem.mesh.position.set(potP.x + ox, potP.y + 0.045, potP.z + oz);
-      ctx.heldItem.mesh.rotation.set(0, ctx.heldRotY, 0);
+      const potP = cp.potItem.mesh.position;
+      if (isBase) {
+        cp.hasBase = true;
+        ctx.heldItem.mesh.position.set(potP.x, potP.y + 0.036, potP.z);
+        ctx.heldItem.mesh.rotation.set(0, cp.potItem.mesh.rotation.y, 0);
+      } else {
+        const nonBaseCount = cp.contents.filter((it) => it && (!it.mesh || !it.mesh.userData.isCookerBase)).length;
+        const ox = (nonBaseCount % 2 === 0 ? -0.065 : 0.065);
+        const oz = (nonBaseCount < 2 ? -0.055 : 0.055);
+        ctx.heldItem.mesh.position.set(potP.x + ox, potP.y + 0.080, potP.z + oz);
+        ctx.heldItem.mesh.rotation.set(0, ctx.heldRotY, 0);
+      }
       ctx.heldItem.isMoved = true;
-      if (ctx.hoveredPotInsert.contents.indexOf(ctx.heldItem) === -1) ctx.hoveredPotInsert.contents.push(ctx.heldItem);
+      if (cp.contents.indexOf(ctx.heldItem) === -1) cp.contents.push(ctx.heldItem);
       ctx.pendingMovedItems[ctx.heldItem.id] = {
         id: ctx.heldItem.id, x: ctx.heldItem.mesh.position.x, y: ctx.heldItem.mesh.position.y, z: ctx.heldItem.mesh.position.z, ry: ctx.heldItem.mesh.rotation.y
       };
@@ -182,32 +205,11 @@ export function handlePrimaryAction(ctx) {
       ctx.notifyWorldAction();
       return;
     }
-    if (ctx.hoveredSprayTarget && ctx.heldItem.mesh.userData.isAlcoholSpray) {
-      if (window.MycoAudio) window.MycoAudio.playSpray();
-      const nowMs = performance.now();
-      if (ctx.hoveredSprayTarget === 'hood') {
-        ctx.hoodSanitizedUntil = Date.now() + 90000;
-        ctx.queueWorldStateChange('hood_sanitized_until', 1);
-        if (ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('sanitize_hood');
-      } else {
-        ctx.hoveredSprayTarget.sanitizedUntil = nowMs + 90000;
+    if (ctx.heldItem.mesh.userData.isAlcoholSpray && !ctx.placementMode) {
+      fireAlcoholSpray(ctx, ctx.hoveredSprayTarget);
+      if (ctx.hoveredGreenhouseSlot) {
+        ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
       }
-      const spCount = 24;
-      const spArr = new Float32Array(spCount * 3);
-      const spOrigin = new THREE.Vector3(0.24, -0.14, -0.52).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
-      const spDir = new THREE.Vector3(0, 0, -1).applyEuler(ctx.camera.rotation);
-      for (let si = 0; si < spCount; si++) {
-        spArr[si * 3] = spOrigin.x + (Math.random() - 0.5) * 0.14;
-        spArr[si * 3 + 1] = spOrigin.y + (Math.random() - 0.5) * 0.14;
-        spArr[si * 3 + 2] = spOrigin.z + (Math.random() - 0.5) * 0.14;
-      }
-      const spGeo = new THREE.BufferGeometry();
-      const spAttr = new THREE.BufferAttribute(spArr, 3);
-      spGeo.setAttribute('position', spAttr);
-      const spMat = new THREE.PointsMaterial({ color: 0xe0f2fe, size: 0.035, transparent: true, opacity: 0.85 });
-      const spPts = new THREE.Points(spGeo, spMat);
-      ctx.scene.add(spPts);
-      ctx.sprayBursts.push({ pts: spPts, mat: spMat, attr: spAttr, dir: spDir, age: 0 });
       return;
     }
     if (ctx.hoveredHeatSealerTarget && ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.sealsBags) {
@@ -600,12 +602,17 @@ export function handlePrimaryAction(ctx) {
       }
     }
     for (let cpIdx = 0; cpIdx < ctx.cookerPots.length; cpIdx++) {
-      const idxInPot = ctx.cookerPots[cpIdx].contents.indexOf(ctx.hoveredPickable);
-      if (idxInPot !== -1) ctx.cookerPots[cpIdx].contents.splice(idxInPot, 1);
+      const cp = ctx.cookerPots[cpIdx];
+      const idxInPot = cp.contents.indexOf(ctx.hoveredPickable);
+      if (idxInPot !== -1) {
+        cp.contents.splice(idxInPot, 1);
+        if (ctx.hoveredPickable.mesh && ctx.hoveredPickable.mesh.userData.isCookerBase) {
+          cp.hasBase = cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+        }
+      }
     }
     ctx.hoveredPickable.trayContents = null;
-    if (ctx.hoveredPickable.mesh && ctx.hoveredPickable.mesh.userData.isTray && ctx.hoveredPickable.mesh.userData.dynamicSurface) {
-      const tSurf = ctx.hoveredPickable.mesh.userData.dynamicSurface;
+    if (ctx.hoveredPickable.mesh && ctx.hoveredPickable.mesh.userData.isTray) {
       const tPos = ctx.hoveredPickable.mesh.position;
       const tRy = ctx.hoveredPickable.mesh.rotation.y;
       const cT = Math.cos(-tRy), sT = Math.sin(-tRy);
@@ -615,15 +622,16 @@ export function handlePrimaryAction(ctx) {
         if (!cand || cand === ctx.hoveredPickable || !cand.mesh || ctx.isHeldByRemote(cand.id)) continue;
         if (cand.mesh.userData.isTable || cand.mesh.userData.isHood || cand.mesh.userData.isTray) continue;
         const cp = cand.mesh.position;
-        if (cp.x >= tSurf.minX - 0.04 && cp.x <= tSurf.maxX + 0.04 &&
-          cp.z >= tSurf.minZ - 0.04 && cp.z <= tSurf.maxZ + 0.04 &&
-          cp.y >= tSurf.topY - 0.04 && cp.y <= tSurf.topY + 0.35) {
-          const dx = cp.x - tPos.x, dz = cp.z - tPos.z;
+        const dx = cp.x - tPos.x, dz = cp.z - tPos.z;
+        const lx = dx * cT + dz * sT;
+        const lz = -dx * sT + dz * cT;
+        if (Math.abs(lx) <= 0.21 && Math.abs(lz) <= 0.15 &&
+          cp.y >= tPos.y - 0.02 && cp.y <= tPos.y + 0.35) {
           carried.push({
             item: cand,
-            lx: dx * cT + dz * sT,
+            lx,
             ly: cp.y - tPos.y,
-            lz: -dx * sT + dz * cT,
+            lz,
             lry: cand.mesh.rotation.y - tRy
           });
         }

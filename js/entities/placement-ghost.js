@@ -5,6 +5,36 @@ import {
   PETRI_STACK_ALIGNMENT_RADIUS,
   PETRI_STACK_AIM_DISTANCE_SQ
 } from '../items/petri-dish.js';
+import {
+  PP5_STACK_SPACING,
+  PP5_STACK_ALIGNMENT_RADIUS,
+  PP5_STACK_AIM_DISTANCE_SQ
+} from '../items/pp5-cup.js';
+
+function getStackConfig(item) {
+  if (!item || !item.mesh) return null;
+  if (item.mesh.userData.isPetri) {
+    return {
+      kind: 'petri',
+      spacing: PETRI_STACK_SPACING,
+      alignRadius: PETRI_STACK_ALIGNMENT_RADIUS,
+      aimDistSq: PETRI_STACK_AIM_DISTANCE_SQ,
+      halfHeight: PETRI_DISH_HEIGHT * 0.5,
+      maxStack: 7
+    };
+  }
+  if (item.spawnCtrl && item.spawnCtrl.isPP5) {
+    return {
+      kind: 'pp5',
+      spacing: PP5_STACK_SPACING,
+      alignRadius: PP5_STACK_ALIGNMENT_RADIUS,
+      aimDistSq: PP5_STACK_AIM_DISTANCE_SQ,
+      halfHeight: PP5_STACK_SPACING * 0.5,
+      maxStack: 6
+    };
+  }
+  return null;
+}
 
 var placementGhost = null;
 var placementRing = null;
@@ -204,38 +234,43 @@ export function findPlacementTarget(ctx, customNdc) {
     }
   }
 
-  // 0b. Pilha de Placas de Petri (max 7)
-  if (heldItem && heldItem.mesh && heldItem.mesh.userData.isPetri) {
-    var petriBest = null;
-    var petriDist = 4.2;
+  // 0b. Pilha de Placas de Petri (max 7) e Potinhos PP5 de Flocao (max 6)
+  var stackCfg = getStackConfig(heldItem);
+  if (stackCfg) {
+    var stackBest = null;
+    var stackDist = 4.2;
     for (var pi = 0; pi < pickableItems.length; pi++) {
       var cand = pickableItems[pi];
-      if (!cand || cand === heldItem || !cand.mesh || !cand.mesh.userData.isPetri) continue;
+      if (!cand || cand === heldItem) continue;
+      var candCfg = getStackConfig(cand);
+      if (!candCfg || candCfg.kind !== stackCfg.kind) continue;
       if (ctx.isHeldByRemote(cand.id)) continue;
       var cpos = cand.mesh.position;
-      _tmpPlaceCenter.set(cpos.x, cpos.y + PETRI_DISH_HEIGHT * 0.5, cpos.z);
+      _tmpPlaceCenter.set(cpos.x, cpos.y + stackCfg.halfHeight, cpos.z);
       var dCam = origin.distanceTo(_tmpPlaceCenter);
-      if (dCam < petriDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < PETRI_STACK_AIM_DISTANCE_SQ) {
-        petriDist = dCam;
-        petriBest = cand;
+      if (dCam < stackDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < stackCfg.aimDistSq) {
+        stackDist = dCam;
+        stackBest = cand;
       }
     }
-    if (petriBest) {
-      var bx = petriBest.mesh.position.x;
-      var bz = petriBest.mesh.position.z;
+    if (stackBest) {
+      var bx = stackBest.mesh.position.x;
+      var bz = stackBest.mesh.position.z;
       var stackCount = 0;
-      var maxY = petriBest.mesh.position.y;
+      var maxY = stackBest.mesh.position.y;
       for (var pj = 0; pj < pickableItems.length; pj++) {
         var pOther = pickableItems[pj];
-        if (!pOther || pOther === heldItem || !pOther.mesh || !pOther.mesh.userData.isPetri) continue;
-        if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < PETRI_STACK_ALIGNMENT_RADIUS) {
+        if (!pOther || pOther === heldItem) continue;
+        var pOtherCfg = getStackConfig(pOther);
+        if (!pOtherCfg || pOtherCfg.kind !== stackCfg.kind) continue;
+        if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < stackCfg.alignRadius) {
           stackCount++;
           if (pOther.mesh.position.y > maxY) maxY = pOther.mesh.position.y;
         }
       }
-      if (stackCount < 7) {
+      if (stackCount < stackCfg.maxStack) {
         ctx.setSnapPetriStack(true);
-        return _tmpPlacePt.set(bx, maxY + PETRI_STACK_SPACING, bz);
+        return _tmpPlacePt.set(bx, maxY + stackCfg.spacing, bz);
       }
     }
   }
@@ -503,16 +538,18 @@ export function dropUnsupportedItems(ctx) {
           supportedY = Math.max(supportedY, s.topY);
         }
       }
-      if (item.mesh.userData.isPetri) {
+      var itemStackCfg = getStackConfig(item);
+      if (itemStackCfg) {
         var myIdx = pickableItems.indexOf(item);
         for (var pj = 0; pj < pickableItems.length; pj++) {
           var pBase = pickableItems[pj];
           if (!pBase || pBase === item || pBase === heldItem || ctx.isHeldByRemote(pBase.id)) continue;
-          if (!pBase.mesh || !pBase.mesh.userData.isPetri) continue;
-          if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < PETRI_STACK_ALIGNMENT_RADIUS) {
-            var dyPetri = item.mesh.position.y - pBase.mesh.position.y;
-            if (dyPetri > 0.008 || (Math.abs(dyPetri) <= 0.008 && myIdx > pj)) {
-              supportedY = Math.max(supportedY, pBase.mesh.position.y + PETRI_STACK_SPACING);
+          var baseStackCfg = getStackConfig(pBase);
+          if (!baseStackCfg || baseStackCfg.kind !== itemStackCfg.kind) continue;
+          if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < itemStackCfg.alignRadius) {
+            var dyStack = item.mesh.position.y - pBase.mesh.position.y;
+            if (dyStack > 0.008 || (Math.abs(dyStack) <= 0.008 && myIdx > pj)) {
+              supportedY = Math.max(supportedY, pBase.mesh.position.y + itemStackCfg.spacing);
             }
           }
         }

@@ -184,7 +184,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
     openPotSteam,
     contents: [],
     hasBase: false,
-    waterMl: 2500,
+    waterMl: 3400,
     maxWaterMl: 20000,
     mode: 'sterilize', // 'sterilize' | 'pasteurize'
     statusSprite: pSprite,
@@ -496,7 +496,15 @@ export function stepPressureCookers(ctx, dt) {
       cp.weightTop.rotation.z = 0;
     }
 
-    const canAdvanceProcess = activeBurner && hasWater && cp.lidItem.isAttached && !cp.burned && (
+    const hasBase = cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+    cp.hasBase = hasBase;
+    const hasContainers = cp.contents.some((it) => it && (!it.mesh || !it.mesh.userData.isCookerBase));
+    const waterTooLow = cp.waterMl < 3000;
+    const waterTooHigh = cp.waterMl > 4000;
+    const waterLevelOk = !waterTooLow && !waterTooHigh;
+
+    const canAdvanceProcess = activeBurner && hasWater && cp.lidItem.isAttached && !cp.burned &&
+      (!hasContainers || (hasBase && waterLevelOk)) && (
       (cp.mode === 'sterilize' && cp.psi >= 14.2) ||
       (cp.mode === 'pasteurize' && cp.temp >= 74 && cp.temp <= 90)
     );
@@ -599,6 +607,18 @@ export function stepPressureCookers(ctx, dt) {
           stageTitle = '⚠️ Panela sem água!';
           stageSub = 'Encha na Pia ou Garrafão 5L';
           barPct = 100; barCol = '#ef4444'; borderCol = '#ef4444';
+        } else if (hasContainers && !hasBase) {
+          stageTitle = '⚠️ Falta Base Perfurada!';
+          stageSub = 'Encaixe a base 4cm no fundo';
+          barPct = 100; barCol = '#ef4444'; borderCol = '#ef4444';
+        } else if (hasContainers && waterTooLow) {
+          stageTitle = '💧 Água abaixo da base!';
+          stageSub = 'Ideal: 3.4L (+0.5cm acima da base)';
+          barPct = 100; barCol = '#f59e0b'; borderCol = '#f59e0b';
+        } else if (hasContainers && waterTooHigh) {
+          stageTitle = '🌊 Muita água na panela!';
+          stageSub = 'Ideal: 3.0–4.0L (+0.5cm da base)';
+          barPct = 100; barCol = '#f59e0b'; borderCol = '#f59e0b';
         } else if (activeBurner && !cp.lidItem.isAttached) {
           barPct = Math.min(100, Math.round(((cp.temp - 25) / 75) * 100));
           stageTitle = cp.temp >= 98 ? '♨️ Fervendo (sem tampa)' : '🔥 Aquecendo água...';

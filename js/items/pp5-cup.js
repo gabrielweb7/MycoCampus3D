@@ -10,6 +10,10 @@ import { attachPdaMediumCtrl } from './pda-mix.js';
 
 const THREE = window.THREE;
 
+export const PP5_STACK_SPACING = 0.062;
+export const PP5_STACK_ALIGNMENT_RADIUS = 0.045;
+export const PP5_STACK_AIM_DISTANCE_SQ = 0.0064;
+
 export function getPP5Meta(filled) {
   return {
     category: 'solid_culture',

@@ -5,12 +5,14 @@
 
 import { getHeldBoardToolColor } from './chalkboard.js';
 import { cancelHeldItemPlacement, updateHeldItemPlacementPreview } from './held-item-placement.js';
+import { updatePlacementGhostVisual } from '../entities/placement-ghost.js';
 import { isSeatOccupied } from './world-interactions.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
 import { BURNER_LEVEL_NAMES } from '../items/pressure-cooker.js';
 import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge } from '../items/culture-fridge.js';
 import { PDA_POWDER_DOSE_GRAMS } from '../items/pda-mix.js';
+import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -99,22 +101,64 @@ export function updateHoverRay(ctx, customNdc) {
         return;
       }
     }
-    if (ctx.heldItem.mesh.userData.isAlcoholSpray) {
+    if (ctx.heldItem.mesh.userData.isAlcoholSpray && !ctx.placementMode) {
       const spRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
       const spRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+      let bestTarget = null;
+      let bestLabel = '';
+      let bestDist = 4.2;
+      let bestPoint = null;
+
       for (let ai = 0; ai < ctx.pickableItems.length; ai++) {
         const aCand = ctx.pickableItems[ai];
         if (aCand === ctx.heldItem || ctx.isHeldByRemote(aCand.id)) continue;
         const adx = aCand.mesh.position.x - spRefX, adz = aCand.mesh.position.z - spRefZ;
         if (adx * adx + adz * adz > 100) continue;
         const aHit = intersectPickableItem(ctx.raycaster, aCand);
-        if (aHit && aHit.distance < 3.5) {
-          ctx.hoveredSprayTarget = aCand.mesh.userData.isHood ? 'hood' : aCand;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🧴 Borrifar Álcool 70% (' + aCand.label + ')');
-          return;
+        if (aHit && aHit.distance < bestDist) {
+          bestDist = aHit.distance;
+          bestTarget = aCand.mesh.userData.isHood ? 'hood' : aCand;
+          bestLabel = aCand.label;
+          bestPoint = aHit.point;
         }
       }
+      if (greenhouseHitMeshes.length > 0) {
+        const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
+        if (ghHits.length > 0 && ghHits[0].distance < bestDist && ghHits[0].object.userData.greenhouseSlot) {
+          const hSlot = ghHits[0].object.userData.greenhouseSlot;
+          bestDist = ghHits[0].distance;
+          bestTarget = hSlot;
+          bestLabel = hSlot.name;
+          bestPoint = ghHits[0].point;
+          ctx.hoveredGreenhouseSlot = hSlot;
+        }
+      }
+      if (!bestTarget && ctx.doorHitMeshes.length) {
+        const dHits = ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false);
+        if (dHits.length > 0 && dHits[0].distance < bestDist && dHits[0].object.userData.doorObj) {
+          bestDist = dHits[0].distance;
+          bestTarget = dHits[0].object.userData.doorObj;
+          bestLabel = bestTarget.label || 'Porta';
+          bestPoint = dHits[0].point;
+        }
+      }
+      if (!bestTarget && ctx.blindHitMeshes.length) {
+        const bHits = ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false);
+        if (bHits.length > 0 && bHits[0].distance < bestDist && bHits[0].object.userData.blindObj) {
+          bestDist = bHits[0].distance;
+          bestTarget = bHits[0].object.userData.blindObj;
+          bestLabel = 'Persiana';
+          bestPoint = bHits[0].point;
+        }
+      }
+      if (ctx.placementGhost) ctx.placementGhost.visible = false;
+      ctx.hoveredSprayTarget = { target: bestTarget, label: bestLabel, hitPoint: bestPoint };
+      if (ctx.callbacks.onHoverPrompt) {
+        ctx.callbacks.onHoverPrompt(bestTarget
+          ? formatSprayHoverPrompt(bestTarget, bestLabel, ctx)
+          : '🧴 Borrifador Álcool 70% • Clique para borrifar ou aponte em algo (3x higieniza)');
+      }
+      return;
     }
     if (ctx.heldItem.pdaReagentCtrl) {
       const pdaRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
@@ -168,8 +212,23 @@ export function updateHoverRay(ctx, customNdc) {
         const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
         if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
           ctx.hoveredPotInsert = cp;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt('🍲 Colocar ' + ctx.heldItem.label + ' dentro da Panela');
+          const isBase = !!(ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isCookerBase);
+          const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+          if (isBase && ctx.placementGhost) {
+            const potP = cp.potItem.mesh.position;
+            ctx.placementGhost.position.set(potP.x, potP.y + 0.036, potP.z);
+            updatePlacementGhostVisual(ctx.heldItem, !hasBase, cp.potItem.mesh.rotation.y, ctx.clock.elapsedTime);
+          } else if (ctx.placementGhost) {
+            ctx.placementGhost.visible = false;
+          }
+          if (ctx.callbacks.onHoverPrompt) {
+            const potPrompt = isBase
+              ? (hasBase ? '⚠️ Esta panela já possui Base Perfurada' : '⚙️ Clique para encaixar a Base Perfurada (4cm) no fundo')
+              : (!hasBase
+                ? '⚠️ Encaixe primeiro a Base Perfurada (4cm) na panela'
+                : '🍲 Colocar ' + ctx.heldItem.label + ' sobre a Base na Panela');
+            ctx.callbacks.onHoverPrompt(potPrompt);
+          }
           return;
         }
       }

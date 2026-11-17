@@ -2,6 +2,18 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.45] — 2026-11-17
+### 🧪 Borrifador 3x Universal, Panela com Base & Nível Ideal de Água, Bandeja e Empilhamento de PP5
+- **Borrifador Álcool 70% (`js/items/alcohol-spray.js`, `held-item-loop.js`, `hover-raycaster.js`):**
+  - Bico do borrifador corrigido para apontar exatamente para frente na mão, com animação de gatilho ao borrifar.
+  - Dispara névoa de álcool em qualquer clique e exibe o status em tempo real do alvo (`○○○ 0/3` → `●○○ 1/3` → `●●○ 2/3` → `✨ ●●● HIGIENIZADO` por 90s com partículas verde-ciano), funcionando em itens, fluxo laminar, portas, persianas e estufa.
+- **Pia / Enchimento de Frascos (`js/systems/interaction-system.js`):** Corrigida a importação ausente de `canFillFromSink` que impedia encher frascos/béqueres/panelas na torneira.
+- **Panela de Pressão & Base Perfurada (`pressure-cooker.js`, `hover-raycaster.js`, `interaction-system.js`):**
+  - Pré-visualização de encaixe centralizado (`placementGhost`) ao segurar a Base Perfurada (4cm) sobre a panela aberta, encaixando perfeitamente no centro do fundo.
+  - Exigida a presença da Base Perfurada para esterilizar/pasteurizar recipientes e validado o nível ideal de água (`3.0L` a `4.0L`, ~0,5cm acima da base de 4cm).
+- **Bandeja Cirúrgica (`interaction-system.js`, `held-item-loop.js`):** Correção do transporte por coordenadas locais da bandeja e posicionamento visível em mão, garantindo que todos os itens em cima sejam carregados e soltos juntos.
+- **Empilhamento de Potinhos PP5 (`pp5-cup.js`, `placement-ghost.js`, `world-objects-sync.js`):** Potinhos de flocão agora podem ser empilhados (até 6 unidades) assim como as placas de Petri.
+
 ## [v0.9.44] — 2026-11-17
 ### 🛠️ Correções de Refresh em Loop, Câmera/Item na Mão, Interações e Painel de Erros
 - **Fim do Loop de Refresh Automático (`index.html` & `js/services/multiplayer-sync.js`):** Atualizado `window.MYCO_VERSION` no `index.html` para sincronizar com o arquivo `VERSION`, e ajustado o guarda de recarregamento (`myco_reload_guard`) para nunca reiniciar o jogo em loop a cada 30 segundos caso haja cache de proxy/HTML.
