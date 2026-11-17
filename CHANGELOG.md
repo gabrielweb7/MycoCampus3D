@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.48] — 2026-11-17
+### 🧊 Correção da Geladeira Subindo Sozinha & Botão Soltar Inteligente
+- **Correção da Geladeira de Culturas (`js/engine/physics.js`, `js/entities/placement-ghost.js`):**
+  - Resolvido o bug que fazia a geladeira subir infinitamente para o teto/céu: as 4 prateleiras internas da própria geladeira (`isCultureFridgeShelf`) estavam sendo detectadas como superfície de apoio abaixo dela mesma a cada frame.
+  - Sincronizada também a posição da Base Perfurada (centro) e dos recipientes (`+0,08m`) dentro de `dropUnsupportedItems`.
+- **Botão "Soltar" Inteligente (`js/systems/interaction-system.js`):**
+  - Ao acionar **Soltar**, o sistema agora procura automaticamente um espaço livre em anéis ao redor do jogador (`0,45m` a `1,55m`), evitando travar quando estiver olhando para o vazio ou paredes; **Posicionar (`G/Q`)** continua usando a mira exata com fantasma.
+
 ## [v0.9.47] — 2026-11-17
 ### 🧻 Ciclo Álcool + Papel Toalha, Lixeira do Lab, Seladora na Mão, Balança TARA & Menu Flutuante Diegético
 - **Ciclo Completo de Desinfecção (`paper-towel.js`, `alcohol-spray.js`, `laminar-hood.js`, `petri-dish.js`):**

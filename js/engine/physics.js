@@ -46,6 +46,7 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf) {
   for (let u = 0; u < supportSurfaces.length; u++) {
     const ss = supportSurfaces[u];
     if (ignoreSurf && ss === ignoreSurf) continue;
+    if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
     const sW = ss.maxX - ss.minX;
     const sD = ss.maxZ - ss.minZ;
@@ -65,6 +66,7 @@ export function getSupportSurfaceAt(ctx, x, z, margin, ignoreSurf, maxTopY) {
   for (let u = 0; u < supportSurfaces.length; u++) {
     const ss = supportSurfaces[u];
     if (ignoreSurf && ss === ignoreSurf) continue;
+    if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
     if (typeof maxTopY === 'number' && ss.topY > maxTopY) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
     if (x >= ss.minX - m && x <= ss.maxX + m && z >= ss.minZ - m && z <= ss.maxZ + m) {

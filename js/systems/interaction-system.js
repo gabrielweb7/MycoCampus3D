@@ -5,6 +5,7 @@
  */
 
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
+import { getItemGroundHeight } from '../engine/physics.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 import {
   findPlacementTarget,
@@ -80,15 +81,48 @@ export function dropHeldItem(ctx) {
   ctx.syringePunctureProgress = 0;
   ctx.lastSyringeTargetItem = null;
   if (!ctx.placementMode) ctx.heldRotY = ctx.playerYaw || 0;
-  const rayNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
-  const pt = findPlacementTarget(ctx.entityCtx, rayNdc);
-  if (isPlacementBlocked(ctx.entityCtx, pt)) {
+
+  const candPt = new THREE.Vector3();
+  const baseYaw = ctx.playerYaw || 0;
+  const radii = [0.75, 1.15, 1.55, 0.45];
+  const angleOffsets = [0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.4, -2.4, Math.PI];
+  let chosenPt = null;
+
+  for (let ri = 0; ri < radii.length && !chosenPt; ri++) {
+    const r = radii[ri];
+    for (let ai = 0; ai < angleOffsets.length; ai++) {
+      const a = baseYaw + angleOffsets[ai];
+      const cx = ctx.playerPos.x - Math.sin(a) * r;
+      const cz = ctx.playerPos.z - Math.cos(a) * r;
+      const cy = getItemGroundHeight(
+        ctx.physCtx,
+        cx,
+        cz,
+        ctx.playerPos.y + 0.9,
+        ctx.heldItem.fridgeCtrl ? 'fridge' : ctx.heldItem.mesh.userData.dynamicSurface,
+        ctx.playerPos.y + 1.25
+      );
+      candPt.set(cx, cy, cz);
+      if (!isPlacementBlocked(ctx.entityCtx, candPt)) {
+        chosenPt = candPt;
+        break;
+      }
+    }
+  }
+
+  if (!chosenPt) {
+    const rayNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
+    const pt = findPlacementTarget(ctx.entityCtx, rayNdc);
+    if (!isPlacementBlocked(ctx.entityCtx, pt)) chosenPt = pt;
+  }
+
+  if (!chosenPt) {
     if (ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(getPlacementBlockedReason() || '🚫 Sem espaço livre aqui para soltar o item!');
+      ctx.callbacks.onToast(getPlacementBlockedReason() || '🚫 Sem espaço livre ao redor para soltar o item!');
     }
     return;
   }
-  commitHeldItemPlacement(ctx, pt, false);
+  commitHeldItemPlacement(ctx, chosenPt, false);
 }
 
 export function handlePrimaryAction(ctx) {
