@@ -146,8 +146,9 @@ html, body {
 }
 
 /* 5. Perfis de Dispositivos (Desktop, Tablet, Smartphone) */
-body.device-phone #fps-hint {
-  top: 102px;
+body.device-phone #fps-hint,
+body.device-tablet #fps-hint {
+  display: none !important;
 }
 
 body.device-phone #interact-pill {
@@ -188,8 +189,16 @@ body.device-tablet #mobile-joystick-zone {
 }
 
 body.device-desktop #mobile-joystick-zone,
-body.device-desktop #mobile-actions {
+body.device-desktop #mobile-actions,
+body.device-desktop #btn-mobile-menu,
+body.device-desktop #btn-mobile-chat-toggle {
   display: none !important;
+}
+
+#btn-fullscreen {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ==========================================================================

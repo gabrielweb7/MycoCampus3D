@@ -484,12 +484,9 @@ export function bootApp() {
       currentHoverPrompt = txt || '';
       const pill = $('interact-pill');
       if (pill && Date.now() >= getToastUntil()) {
-        if (txt && appState.currentUser) {
-          pill.textContent = txt;
-          pill.classList.remove('hidden');
-        } else {
-          pill.classList.add('hidden');
-        }
+        // Crachá 3D Diegético exibe os parâmetros e ações no mundo 3D;
+        // Mantém a HUD 2D limpa para eliminar sobreposição de texto
+        pill.classList.add('hidden');
       }
       refreshMobileAction();
     }

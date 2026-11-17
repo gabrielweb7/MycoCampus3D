@@ -18,6 +18,7 @@ import { initConfettiSystem } from '../entities/confetti.js';
 import { buildFirstPersonArm } from '../entities/first-person-arm.js';
 import { initThermoDisplay, createThermoLaserFx } from '../entities/thermo-laser.js';
 import { createPlacementGhost } from '../entities/placement-ghost.js';
+import { createHover3dBadge } from '../entities/hover-3d-badge.js';
 import { buildCuteAvatar } from '../entities/avatars.js';
 import { dropHeldItem, handlePrimaryAction, updateHoverRay } from './interaction-system.js';
 import {
@@ -525,14 +526,15 @@ export function initCampus3D(containerId, cbs) {
     );
     sim.camera.position.set(-14, 16, 26);
 
-    sim.renderer = new THREE.WebGLRenderer({ antialias: !touch, powerPreference: 'high-performance' });
+    sim.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     sim.renderer.setSize(window.innerWidth, window.innerHeight);
-    sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.0 : 1.5));
-    sim.renderer.shadowMap.enabled = !touch;
-    sim.renderer.shadowMap.type = touch ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+    sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75));
+    sim.renderer.shadowMap.enabled = true;
+    sim.renderer.shadowMap.type = touch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    sim.renderer.outputEncoding = THREE.sRGBEncoding;
     if (THREE.ACESFilmicToneMapping) {
       sim.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      sim.renderer.toneMappingExposure = touch ? 1.08 : 1.02;
+      sim.renderer.toneMappingExposure = touch ? 1.05 : 1.02;
     }
     container.innerHTML = '';
     container.appendChild(sim.renderer.domElement);
@@ -544,14 +546,15 @@ export function initCampus3D(containerId, cbs) {
     sim.controls.maxDistance = 65;
     sim.controls.target.set(0, 4.5, -14);
 
-    const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x475569, touch ? 0.68 : 0.56);
+    const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x475569, touch ? 0.65 : 0.56);
     sim.scene.add(hemi);
     sim.envHemi = hemi;
-    const sun = new THREE.DirectionalLight(0xfffbeb, touch ? 1.05 : 0.95);
+    const sun = new THREE.DirectionalLight(0xfffbeb, touch ? 1.02 : 0.95);
     sun.position.set(45, 65, 38);
-    sun.castShadow = !touch;
-    const shSize = touch ? camCfg.touchShadowSize : camCfg.desktopShadowSize;
+    sun.castShadow = true;
+    const shSize = touch ? 1024 : camCfg.desktopShadowSize;
     sun.shadow.mapSize.set(shSize, shSize);
+    sun.shadow.bias = -0.0005;
     sun.shadow.camera.left = -85;
     sun.shadow.camera.right = 85;
     sun.shadow.camera.top = 85;
@@ -575,6 +578,7 @@ export function initCampus3D(containerId, cbs) {
     sim.localAvatar = buildCuteAvatar(sim.scene, { isLocal: true, hat_color: '#d9534f', body_color: '#4f46e5' });
     sim.localAvatar.group.visible = false;
     sim.placementGhost = createPlacementGhost(sim.scene);
+    sim.hover3dBadge = createHover3dBadge(sim.scene);
     createThermoLaserFx(sim.entityCtx);
     initConfettiSystem(sim.scene);
     initGreenhouseParticlePools(sim.scene);

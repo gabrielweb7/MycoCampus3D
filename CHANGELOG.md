@@ -2,6 +2,23 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.51] — 2026-11-17
+### 💎 Crachá Diegético 3D no Alvo, Gráficos Mobile HD Vivos, Correção da Geladeira & Fullscreen à Vista
+- **Crachá Holográfico 3D Diegético sobre o Alvo da Mira (`js/entities/hover-3d-badge.js`, `hover-raycaster.js`, `campus-init.js`, `app-boot.js`):**
+  - Substituído o texto 2D flutuante na tela (`#interact-pill`), que causava sobreposição e poluição visual com a HUD e botões mobile, por um crachá holográfico diegético em 3D renderizado diretamente no mundo sobre o objeto focado pela mira.
+  - Exibe com nitidez o Título/Nome do item com ícone, Parâmetros e Estado em tempo real (ex.: `4.0°C • Conservação de Esporos`, `121°C • 15.0 PSI • 100% Estéril`, `85% UR • Crescendo`, `9.5 ml`) e a Ação Contextual recomendada (`👉 Toque / Clique para Abrir`, `👉 Segure para Aspirar`, etc.).
+  - Conta com levitação suave em tempo real, dimensionamento dinâmico que mantém legibilidade perfeita em qualquer distância e renderização com `depthTest: false` para evitar oclusão ou cortes na geometria 3D.
+- **Gráficos Mobile em Alta Definição & Cores Vivas sem Perda de FPS (`campus-init.js`, `quality.js`, `game-loop.js`):**
+  - Corrigido o visual fosco e pixelado em celulares potentes: ativado MSAA de hardware (`antialias: true`) no WebGLRenderer, antes desligado em telas touch.
+  - Implementado `sim.renderer.outputEncoding = THREE.sRGBEncoding`, restaurando gama de cores real, contraste dinâmico vibrante e fidelidade das texturas em displays OLED/AMOLED de alta densidade.
+  - Elevado o teto de resolução mobile (`ratioCap: 1.75` no perfil High) e ativadas sombras direcionais em celulares modernos (processadores de 6+ núcleos e 4GB+ RAM), com controle de escala de auto-FPS que preserva 60 FPS estáveis e reduz a resolução automaticamente apenas em hardware fraco.
+- **Correção Definitiva do Bug de Teleporte na Geladeira de Culturas (`physics.js`, `interaction-system.js`, `hover-raycaster.js`):**
+  - Resolvido o bug em que clicar na geladeira do laboratório catapultava o avatar para o vazio/fora do mapa: o clique na geladeira agora sempre abre e fecha a porta de 4°C, sem tentar pegá-la no colo como item de duas mãos enquanto ocupada.
+  - No motor de colisão (`physics.js`), adicionada proteção explícita para ignorar colisores sólidos pertencentes ao próprio item segurado nas mãos (`ctx.heldItem`), impedindo o loop infinito de ejeção física se qualquer estrutura sólida for manipulada.
+- **Botão de Tela Cheia Prominente & Separação Total PC vs Mobile (`index.html`, `css/game.css`):**
+  - O botão de Tela Cheia (`⛶`) foi promovido para a barra principal superior, permanentemente visível tanto no mobile quanto no desktop para acesso instantâneo com um toque.
+  - Instruções de teclado de PC (`WASD anda • Shift corre...`) foram totalmente ocultadas em celulares e tablets, garantindo que o que for de computador seja exibido apenas no PC e controles touch apenas em smartphones/tablets.
+
 ## [v0.9.50] — 2026-11-17
 ### 📱 Otimização Completa de Mecânica Mobile, Ergonomia em Arco & HUD Despoluído
 - **Cluster de Ações Mobile Ergonômico em Arco (`css/game.css`, `index.html`, `mobile-controls.js`):**

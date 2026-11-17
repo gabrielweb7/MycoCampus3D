@@ -593,24 +593,12 @@ export function handlePrimaryAction(ctx) {
   if (ctx.hoveredPickable) {
     if (ctx.hoveredPickable.fridgeCtrl) {
       const fridge = ctx.hoveredPickable;
-      const hitObj = ctx.hoverHit ? ctx.hoverHit.object : null;
-      const isDoor = isPartOfFridgeDoor(hitObj, fridge);
-      if (isDoor || isCultureFridgeOccupied(ctx, fridge)) {
-        toggleCultureFridgeDoor(fridge);
-        ctx.queueWorldStateChange(fridge.id, fridge.fridgeCtrl.doorOpen ? 1 : 0);
-        if (window.MycoAudio) window.MycoAudio.playDoor(fridge.fridgeCtrl.doorOpen);
-        if (!isDoor && isCultureFridgeOccupied(ctx, fridge) && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🚫 Esvazie a geladeira para poder movê-la com duas mãos.');
-        }
-        return;
+      toggleCultureFridgeDoor(fridge);
+      ctx.queueWorldStateChange(fridge.id, fridge.fridgeCtrl.doorOpen ? 1 : 0);
+      if (window.MycoAudio) window.MycoAudio.playDoor(fridge.fridgeCtrl.doorOpen);
+      if (ctx.callbacks.onToast) {
+        ctx.callbacks.onToast(fridge.fridgeCtrl.doorOpen ? '🧊 Geladeira 4°C: Porta ABERTA' : '🧊 Geladeira 4°C: Porta FECHADA');
       }
-      ctx.heldItem = fridge;
-      cancelHeldItemPlacement(ctx);
-      ctx.lastPickupAt = performance.now();
-      ctx.heldRotY = fridge.mesh.rotation.y;
-      setHeldTwoHandedGhost(fridge, true);
-      if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(fridge.label);
-      ctx.notifyWorldAction();
       return;
     }
     if (ctx.hoveredPickable.mesh.userData.isBlockedPickup && ctx.hoveredPickable.mesh.userData.isBlockedPickup(ctx.hoveredPickable)) {

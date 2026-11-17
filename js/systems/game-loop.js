@@ -188,7 +188,7 @@ function stepHoverAndChalkboard(ctx, now) {
   const isDrawingBoard = !!ctx.touchDrawingBoard || !!window.touchDrawingBoard;
   const isTouch = ctx.isTouchDevice();
   const shouldUpdateHover = isTouch
-    ? (ctx.isPrimaryDown || (ctx.heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 260))
+    ? (ctx.isPrimaryDown || (ctx.heldItem && now - lastMobileHoverAt > 45) || (now - lastMobileHoverAt > 70))
     : (ctx.isPrimaryDown || now - lastDesktopHoverAt >= 33);
   if (!isDrawingBoard && shouldUpdateHover) {
     lastMobileHoverAt = now;
