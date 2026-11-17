@@ -305,7 +305,9 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
   if (ctx.syringePumping) {
     if (!ctx.heldItem || !ctx.heldItem.mesh.userData.isSyringe) {
       ctx.syringePumping = null;
-    } else if (ctx.syringePumping.target.item && ctx.syringePumping.target.item.mesh.position.distanceTo(ctx.playerPos) > 4.5) {
+    } else if (ctx.syringePumping.target && ctx.syringePumping.target.item &&
+               ctx.syringePumping.target.item.mesh &&
+               ctx.syringePumping.target.item.mesh.position.distanceTo(ctx.playerPos) > 4.5) {
       ctx.syringePumping = null;
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Bombeamento cancelado: você se afastou do recipiente.');
     }

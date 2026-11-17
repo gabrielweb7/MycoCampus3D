@@ -91,16 +91,28 @@ export function handleScalpelTargetAction(ctx) {
     ctx.notifyWorldAction();
   } else if (target.mode === 'cut') {
     const petri = target.item && target.item.mesh.userData.petriCtrl;
-    if (petri && (!petri.lidOpen || petri.mode !== 'clean' || !scalpel.hasBlade || !scalpel.sterile ||
-        !isAsepticWorkArea(ctx, target.item))) {
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Para retirar micélio, use uma placa colonizada aberta e uma lâmina estéril no Fluxo Laminar higienizado.');
+    const spawn = target.item && target.item.spawnCtrl;
+    if (!scalpel.hasBlade || !scalpel.sterile) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Encaixe uma lâmina estéril #24 no bisturi antes de coletar micélio.');
+      return;
+    }
+    if (!isAsepticWorkArea(ctx, target.item)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Colete micélio apenas dentro do Fluxo Laminar ligado e higienizado com Álcool 70%.');
+      return;
+    }
+    if (petri && (!petri.lidOpen || petri.mode !== 'clean' || petri.expired || petri.contaminated)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Para retirar micélio, use uma placa colonizada saudável e aberta no Fluxo Laminar.');
+      return;
+    }
+    if (spawn && (spawn.burned || spawn.contaminated || spawn.expired || spawn.colonization < 60)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ O micélio deste recipiente não está viável para transferência.');
       return;
     }
     scalpel.hasMycelium = true;
     updateScalpelLabel(ctx.heldItem);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Leve-o a uma placa estéril aberta no Fluxo Laminar.');
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Transfira para uma placa estéril ou frasco/bag de spawn.');
     ctx.notifyWorldAction();
   } else if (target.mode === 'open' && target.item && target.item.mesh.userData.isPetri) {
     togglePetriLid(ctx, target.item);
@@ -129,8 +141,11 @@ export function handleScalpelTargetAction(ctx) {
     const spawn = target.item.spawnCtrl;
     const receivesMyceliumCut = target.item.meta && target.item.meta.compatibilities &&
       target.item.meta.compatibilities.receivesMyceliumCut;
-    if (!receivesMyceliumCut || !spawn.filled || spawn.inoculated) {
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode receber outro corte de micélio.');
+    if (!receivesMyceliumCut || !spawn.filled || spawn.inoculated || spawn.burned || spawn.contaminated) {
+      const reason = spawn.burned ? 'este recipiente foi queimado'
+        : (spawn.contaminated ? 'este recipiente está contaminado'
+          : (spawn.inoculated ? 'já foi inoculado' : 'não está pronto para receber micélio'));
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir: ' + reason + '.');
       return;
     }
     const isAseptic = isAsepticWorkArea(ctx, target.item);

@@ -14,7 +14,7 @@ export const CAMPUS_SECTORS = [
   { id: 'cinema', icon: '🎬', name: 'Cinema & Auditório', desc: 'Telão interativo com aulas e poltronas', x: 48, y: 0.14, z: -6.5, yaw: 0 },
   { id: 'sports', icon: '⚽', name: 'Complexo Esportivo', desc: 'Futebol, basquete com bolas reais e tênis', x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
   { id: 'forest', icon: '🌲', name: 'Bosque & Lago', desc: 'Colha cogumelos silvestres pela floresta', x: 0, y: 0, z: -24, yaw: 0 },
-  { id: 'mountain', icon: '🏔️', name: 'Montanhas (Snowboard)', desc: 'Pico panorâmico para descer de snowboard', x: 0, z: -158, yaw: Math.PI }
+  { id: 'mountain', icon: '🏔️', name: 'Montanhas (Snowboard)', desc: 'Pico panorâmico para descer de snowboard', x: 0, y: 28.5, z: -158, yaw: Math.PI }
 ];
 
 export const LAB_QUEST_STEPS = [

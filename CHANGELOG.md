@@ -2,6 +2,19 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.41] — 2026-11-17
+### 🐛 Correções Críticas de Multiplayer, Física, Laboratório e Interface
+- **Multiplayer e Persistência (`api/multiplayer.php`):** Registrados no whitelist de itens multiplayer `culture_fridge_lab`, `distilled_jug_5l`, `cooker_base_lab`, `cooker_base_sub` e `gas_tripod_sub`.
+- **Placas de Petri e Spawn no Multiplayer:** Suporte ao modo `'colonizing'`, preservando no banco de dados os campos `lidOpen`, `sterilized`, `inoculated`, `inoculationMethod`, `colonization`, `ageGameDays`, `shelfLifeAgeDays` e `expired`, além de idade/validade em frascos/bags de spawn e volume de água em garrafões de 5L.
+- **Sincronização de Geladeira e Fogareiros:** Persistência do estado de porta da geladeira de culturas (`doorOpen`) e sincronização em tempo real de múltiplos queimadores (`burner_lab` e `gas_tripod_sub` em `interaction-system.js` e `world-sync.js`).
+- **Autoclave e Fogareiro (`pressure-cooker.js`):** Corrigido bug de nível de chama onde o nível 0 (desligado) recaía indevidamente para nível 3; adicionada proteção contra erro nulo ao inspecionar meio PDA/BDA.
+- **Segurança de Raycast (`held-item-loop.js`):** Proteção defensiva para prevenir erro de referência nula ao mirar com seringa em objetos sem malha física válida.
+- **Assepsia no Bisturi (`lab-culture-actions.js`):** Validação estrita de lâmina, esterilização e fluxo laminar ativo ao retirar micélio de spawn ou placa; impedida a transferência de micélio para frascos contaminados ou queimados.
+- **Autoclave de Placas (`interaction-system.js`):** Tampa da placa de Petri é automaticamente fechada ao ser colocada na panela de pressão.
+- **Controle de Rotação (`input-controller.js`):** Tecla `R` implementada para rotacionar itens seguros em mãos (+45° / -45° com Shift), atendendo ao hint visual do HUD.
+- **Interface e HUD (`index.html`):** Adicionados os botões "Aulas" (`btn-open-lessons`) e "Ranking" (`btn-open-ranking`) à barra de ferramentas do HUD.
+- **Teleporte das Montanhas (`quest-map.js`):** Coordenada de altura `y: 28.5` adicionada ao setor de snowboard das Montanhas, evitando teleporte sob o solo.
+
 ## [v0.9.40] — 2026-11-17
 ### 🧊 Conservação de Culturas e Vapor da Panela
 - O vapor da fervura sem tampa sai da boca da panela; a válvula só libera vapor quando a tampa está encaixada.

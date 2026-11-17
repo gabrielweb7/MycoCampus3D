@@ -379,7 +379,7 @@ export function stepPressureCookers(ctx, dt) {
       }
     }
 
-    const heatLvl = activeBurner ? (activeBurner.level || 3) : 0;
+    const heatLvl = activeBurner ? (activeBurner.level > 0 ? activeBurner.level : 3) : 0;
     const hasWater = cp.waterMl > 5;
     const heatRate = heatLvl === 1 ? 2.8 : (heatLvl === 2 ? 4.8 : (heatLvl === 3 ? 7.5 : 0));
 
@@ -527,8 +527,9 @@ export function stepPressureCookers(ctx, dt) {
           }
           if (cIt && cIt.pdaMediumCtrl) {
             const medium = cIt.pdaMediumCtrl;
+            const liquidCtrl = cIt.mesh && cIt.mesh.userData && cIt.mesh.userData.liquidCtrl;
             if (cp.mode === 'sterilize' && cp.progress >= 100 && medium.mixed && !medium.burned &&
-                isPdaRecipeBalanced(medium, cIt.mesh.userData.liquidCtrl.volMl)) {
+                liquidCtrl && isPdaRecipeBalanced(medium, liquidCtrl.volMl)) {
               medium.sterilized = true;
               if (cIt.spawnCtrl && cIt.spawnCtrl.substrateKind === 'pda') {
                 cIt.spawnCtrl.sterilized = true;

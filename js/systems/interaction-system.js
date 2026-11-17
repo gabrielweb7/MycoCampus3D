@@ -200,6 +200,9 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (ctx.hoveredPotInsert && ctx.heldItem && !ctx.heldItem.mesh.userData.twoHanded) {
+      if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
+        setPetriLidOpen(ctx.heldItem, false, true);
+      }
       const potP = ctx.hoveredPotInsert.potItem.mesh.position;
       const slotIdx = ctx.hoveredPotInsert.contents.length;
       const ox = (slotIdx % 2 === 0 ? -0.06 : 0.06);
@@ -704,10 +707,9 @@ export function handlePrimaryAction(ctx) {
     const nextLvl = ((ctx.hoveredBurnerSwitch.level || (ctx.hoveredBurnerSwitch.on ? 3 : 0)) + 1) % 4;
     setBurnerLevel(ctx.hoveredBurnerSwitch, nextLvl);
     if (window.MycoAudio) window.MycoAudio.playSwitch();
-    if (ctx.hoveredBurnerSwitch.id === 'burner_lab') {
-      ctx.queueWorldStateChange('burner_lab', ctx.hoveredBurnerSwitch.on ? 1 : 0);
-      ctx.queueWorldStateChange('burner_level_lab', ctx.hoveredBurnerSwitch.level || 0);
-    }
+    const bId = ctx.hoveredBurnerSwitch.id || 'burner_lab';
+    ctx.queueWorldStateChange(bId, ctx.hoveredBurnerSwitch.on ? 1 : 0);
+    ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, ctx.hoveredBurnerSwitch.level || 0);
     if (ctx.callbacks.onToast) {
       ctx.callbacks.onToast('🔥 ' + (ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé a Gás' : 'Fogareiro') + ': ' + BURNER_LEVEL_NAMES[nextLvl]);
     }

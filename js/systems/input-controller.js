@@ -18,6 +18,13 @@ export function bindControls(ctx) {
         ctx.toggleHeldItemPlacement();
       }
     }
+    if (e.code === 'KeyR' && ctx.heldItem) {
+      if (window.rotateCampusHeldItem) {
+        window.rotateCampusHeldItem(e.shiftKey ? -Math.PI / 4 : Math.PI / 4);
+      } else {
+        ctx.heldRotY = (ctx.heldRotY || 0) + (e.shiftKey ? -Math.PI / 4 : Math.PI / 4);
+      }
+    }
     if (e.code === 'Escape' && ctx.placementMode) {
       e.preventDefault();
       ctx.cancelHeldItemPlacement();

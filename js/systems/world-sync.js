@@ -632,15 +632,18 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
     }
   }
 
-  const burnerSyncKey = stateMap.burner_level_lab !== undefined ? 'burner_level_lab' : 'burner_lab';
-  if (sim.burnerDevices.length && stateMap[burnerSyncKey] !== undefined) {
-    if (sim.pendingStateChanges[burnerSyncKey] === undefined && !(sim.recentlyChangedState[burnerSyncKey] > now)) {
-      const bn0 = sim.burnerDevices[0];
+  for (let bi = 0; bi < sim.burnerDevices.length; bi++) {
+    const bn = sim.burnerDevices[bi];
+    const bId = bn.id || (bi === 0 ? 'burner_lab' : 'gas_tripod_sub');
+    const levelKey = bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`;
+    const toggleKey = bId;
+    const burnerSyncKey = stateMap[levelKey] !== undefined ? levelKey : (stateMap[toggleKey] !== undefined ? toggleKey : null);
+    if (burnerSyncKey && sim.pendingStateChanges[burnerSyncKey] === undefined && !(sim.recentlyChangedState[burnerSyncKey] > now)) {
       const savedValue = parseInt(stateMap[burnerSyncKey], 10) || 0;
-      const burnerLevel = burnerSyncKey === 'burner_level_lab'
+      const burnerLevel = (burnerSyncKey === levelKey)
         ? Math.max(0, Math.min(3, savedValue))
         : (savedValue === 1 ? 3 : 0);
-      if (bn0.level !== burnerLevel) setBurnerLevel(bn0, burnerLevel);
+      if (bn.level !== burnerLevel) setBurnerLevel(bn, burnerLevel);
     }
   }
 

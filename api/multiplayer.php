@@ -19,6 +19,7 @@ $mpBaseItems = [
     'infrared_thermometer', 'lab_tray_01', 'lab_tray_02', 'lab_tray_03',
     'syringe_10ml_a', 'syringe_10ml_b', 'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
     'pressure_cooker_lab', 'pressure_lid_lab', 'pressure_cooker_sub', 'pressure_lid_sub',
+    'cooker_base_lab', 'cooker_base_sub', 'gas_tripod_sub', 'culture_fridge_lab', 'distilled_jug_5l',
     'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'laminar_hood_lab',
     'mixing_bowl_01', 'lab_spoon_01', 'scalpel_01', 'flocao_500g_01', 'flocao_500g_02',
     'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser',
@@ -92,6 +93,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         strpos($itemId, 'petri_') === 0 ||
         strpos($itemId, 'pda_bottle') === 0 || strpos($itemId, 'pda_media_bottle_') === 0 ||
         strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 ||
+        strpos($itemId, 'distilled_jug_') === 0 || strpos($itemId, 'culture_fridge_') === 0 ||
         strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'syringe_10ml_') === 0 ||
         strpos($itemId, 'mixing_bowl_') === 0 || strpos($itemId, 'scalpel_') === 0;
     if ($hasItemState && array_key_exists('containerId', $raw) && is_string($raw['containerId']) &&
@@ -103,12 +105,12 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     if ($isSpawn && isset($raw['spawn']) && is_array($raw['spawn'])) {
         $src = $raw['spawn'];
         $spawn = [];
-        foreach (['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'contaminated', 'burned'] as $key) {
+        foreach (['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'contaminated', 'burned', 'expired'] as $key) {
             if (array_key_exists($key, $src) && is_bool($src[$key])) $spawn[$key] = $src[$key];
         }
-        foreach (['fillGrams' => 5000, 'waterMl' => 5000, 'sterilizeProgress' => 100, 'colonization' => 100] as $key => $limit) {
+        foreach (['fillGrams' => 5000, 'waterMl' => 5000, 'sterilizeProgress' => 100, 'colonization' => 100, 'ageGameDays' => 365, 'shelfLifeAgeDays' => 365] as $key => $limit) {
             if (array_key_exists($key, $src) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
-                $spawn[$key] = max(0, min($limit, (int)round((float)$src[$key])));
+                $spawn[$key] = max(0, min($limit, round((float)$src[$key], 2)));
             }
         }
         $validSubstrates = ['grain', 'sawdust', 'flocao', 'corn'];
@@ -119,12 +121,30 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if ($spawn) $clean['spawn'] = $spawn;
     }
 
-    if (strpos($itemId, 'petri_') === 0 && isset($raw['petri']) && is_array($raw['petri']) &&
-        in_array($raw['petri']['mode'] ?? '', ['bare', 'filled', 'empty', 'clean', 'contam'], true)) {
-        $clean['petri'] = ['mode' => $raw['petri']['mode']];
+    if (strpos($itemId, 'petri_') === 0 && isset($raw['petri']) && is_array($raw['petri'])) {
+        $p = $raw['petri'];
+        $cleanPetri = [];
+        if (in_array($p['mode'] ?? '', ['bare', 'filled', 'empty', 'clean', 'contam', 'colonizing'], true)) {
+            $cleanPetri['mode'] = $p['mode'];
+        }
+        foreach (['lidOpen', 'sterilized', 'inoculated', 'expired'] as $boolKey) {
+            if (isset($p[$boolKey]) && is_bool($p[$boolKey])) {
+                $cleanPetri[$boolKey] = $p[$boolKey];
+            }
+        }
+        if (isset($p['inoculationMethod']) && is_string($p['inoculationMethod'])) {
+            $cleanPetri['inoculationMethod'] = substr($p['inoculationMethod'], 0, 32);
+        }
+        foreach (['colonization' => 100, 'ageGameDays' => 365, 'shelfLifeAgeDays' => 365] as $numKey => $maxVal) {
+            if (isset($p[$numKey]) && is_numeric($p[$numKey]) && is_finite((float)$p[$numKey])) {
+                $cleanPetri[$numKey] = max(0, min($maxVal, round((float)$p[$numKey], 2)));
+            }
+        }
+        if ($cleanPetri) $clean['petri'] = $cleanPetri;
     }
 
     if ((strpos($itemId, 'liquid_culture') === 0 || strpos($itemId, 'beaker_1l_') === 0 ||
+        strpos($itemId, 'distilled_jug_') === 0 ||
         strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'pda_media_bottle_') === 0 ||
         strpos($itemId, 'pp5_cup_') === 0) &&
         isset($raw['liquid']) && is_array($raw['liquid']) &&
@@ -217,6 +237,12 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if ($cooker) $clean['cooker'] = $cooker;
     }
 
+    if (strpos($itemId, 'culture_fridge_') === 0 && isset($raw['fridge']) && is_array($raw['fridge'])) {
+        if (isset($raw['fridge']['doorOpen']) && is_bool($raw['fridge']['doorOpen'])) {
+            $clean['fridge'] = ['doorOpen' => $raw['fridge']['doorOpen']];
+        }
+    }
+
     if (!$clean) return null;
     $encoded = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     return is_string($encoded) ? $encoded : null;
@@ -259,7 +285,13 @@ if ($action === 'set_slide') {
 }
 
 function mp_is_valid_state_key(string $k): bool {
-    if (in_array($k, ['hood_lab', 'hood_sanitized_until', 'stir_lab', 'burner_lab', 'burner_level_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson', 'auditorium_slide', 'cooker_mode_lab', 'cooker_mode_sub'], true)) {
+    if (in_array($k, [
+        'hood_lab', 'hood_sanitized_until', 'stir_lab',
+        'burner_lab', 'burner_level_lab',
+        'gas_tripod_sub', 'gas_tripod_sub_level', 'gas_tripod_level_sub',
+        'culture_fridge_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson',
+        'auditorium_slide', 'cooker_mode_lab', 'cooker_mode_sub'
+    ], true)) {
         return true;
     }
     if (preg_match('/^(door_[0-3]|light_[0-7])$/', $k)) return true;
@@ -521,7 +553,7 @@ if ($action === 'sync') {
                 $cleanVal = (string)(time() + 20);
             } elseif ($sKey === 'hood_sanitized_until') {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? (string)(time() + 90) : '0';
-            } elseif ($sKey === 'burner_level_lab') {
+            } elseif ($sKey === 'burner_level_lab' || $sKey === 'gas_tripod_sub_level' || $sKey === 'gas_tripod_level_sub') {
                 $cleanVal = (string)max(0, min(3, (int)$sVal));
             } elseif ($sKey === 'cinema_lesson') {
                 $cleanVal = (string)max(-1, min(10, (int)$sVal));
