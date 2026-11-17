@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.42] — 2026-11-17
+### 🧩 Refatoração Modular & Escalabilidade
+- **Fatiamento do Sistema de Interação (`js/systems/`):** O antigo monolito `interaction-system.js` (~1.480 linhas) foi dividido em 3 módulos especializados com 100% de compatibilidade:
+  - `js/systems/world-interactions.js`: interações com portas, persianas, interruptores, fluxo laminar, agitador, balança, fogareiros, cinema, ranking, assentos e estufa.
+  - `js/systems/hover-raycaster.js`: detecção de mira (`updateHoverRay`) e prompts contextuais do HUD.
+  - `js/systems/interaction-system.js`: focado em pegar/soltar e ações de itens em mãos (~620 linhas).
+- **Schema Multiplayer Centralizado (`api/multiplayer_schema.php`):** Extraídos de `api/multiplayer.php` o catálogo categorizado de itens (`mp_build_allowed_items`), a sanitização de estados (`mp_clean_item_state`) e a validação de chaves globais (`mp_is_valid_state_key`), facilitando a adição de novos equipamentos e configurações.
+
 ## [v0.9.41] — 2026-11-17
 ### 🐛 Correções Críticas de Multiplayer, Física, Laboratório e Interface
 - **Multiplayer e Persistência (`api/multiplayer.php`):** Registrados no whitelist de itens multiplayer `culture_fridge_lab`, `distilled_jug_5l`, `cooker_base_lab`, `cooker_base_sub` e `gas_tripod_sub`.
