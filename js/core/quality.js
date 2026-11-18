@@ -13,10 +13,10 @@ const TIER_CONFIGS = {
     min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0  }
   },
   mobile: {
-    high:   { ratioCap: 1.15, shadows: false, soft: false, far: 155, aura: true,  weatherParticles: 70,  forestScale: 0.65, toneMap: false, blur: false, maxLights: 2, itemCullDist: 24 },
-    medium: { ratioCap: 0.85, shadows: false, soft: false, far: 112, aura: false, weatherParticles: 25,  forestScale: 0.48, toneMap: false, blur: false, maxLights: 1, itemCullDist: 18 },
-    low:    { fixedRatio: 0.70, shadows: false, soft: false, far: 86,  aura: false, weatherParticles: 0,   forestScale: 0.36, toneMap: false, blur: false, maxLights: 0, itemCullDist: 14 },
-    min:    { fixedRatio: 0.55, shadows: false, soft: false, far: 68,  aura: false, weatherParticles: 0,   forestScale: 0.26, toneMap: false, blur: false, maxLights: 0, itemCullDist: 11 }
+    high:   { ratioCap: 1.15, shadows: false, soft: false, far: 155, aura: true,  weatherParticles: 70,  forestScale: 0.65, toneMap: false, blur: false, maxLights: 2, itemCullDist: 48 },
+    medium: { ratioCap: 0.85, shadows: false, soft: false, far: 112, aura: false, weatherParticles: 25,  forestScale: 0.48, toneMap: false, blur: false, maxLights: 1, itemCullDist: 42 },
+    low:    { fixedRatio: 0.70, shadows: false, soft: false, far: 86,  aura: false, weatherParticles: 0,   forestScale: 0.36, toneMap: false, blur: false, maxLights: 0, itemCullDist: 34 },
+    min:    { fixedRatio: 0.55, shadows: false, soft: false, far: 68,  aura: false, weatherParticles: 0,   forestScale: 0.26, toneMap: false, blur: false, maxLights: 0, itemCullDist: 28 }
   }
 };
 
