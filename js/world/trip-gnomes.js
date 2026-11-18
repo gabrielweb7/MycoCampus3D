@@ -7,12 +7,15 @@ import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
 const THREE = window.THREE;
 
 const TUNIC_COLORS = [0x2563eb, 0x16a34a, 0x7c3aed, 0x0d9488, 0xd97706];
-const CALM_EMOTES = ['😊', '🍄', '✨', '👀', '🌿'];
+const CALM_EMOTES = ['😊', '🍄', '✨', '😐', '🤔', '🤪', '🧐', '💭'];
 const FEAR_EMOTES = ['😱', '😨', '👁️', '💀'];
+const FLOWER_COLORS = [0xf472b6, 0xc084fc, 0x60a5fa, 0xfb923c, 0xfacc15, 0xf8fafc, 0xfb7185];
 
 let gnomePool = null;
 let shadowGnomePool = null;
+let floraPool = null;
 let sharedGeos = null;
+let floraGeos = null;
 let cachedFlowTextures = null;
 let flowTime = 0;
 let flowWasActive = false;
@@ -60,6 +63,155 @@ function stepTripTextureFlow(scene, dt) {
     const waveX = Math.sin(flowTime * 0.42 + entry.phase) * 0.032 * strength;
     const waveY = Math.cos(flowTime * 0.36 + entry.phase) * 0.032 * strength;
     entry.tex.offset.set(entry.baseX + drift + waveX, entry.baseY + drift * 0.65 + waveY);
+  }
+}
+
+function getFloraGeos() {
+  if (floraGeos) return floraGeos;
+  floraGeos = {
+    stem: new THREE.CylinderGeometry(0.022, 0.028, 0.34, 6),
+    leaf: new THREE.SphereGeometry(0.08, 6, 5),
+    petal: new THREE.SphereGeometry(0.065, 7, 6),
+    center: new THREE.SphereGeometry(0.055, 8, 6),
+    tuftBlade: new THREE.ConeGeometry(0.06, 0.28, 5),
+    bTrunk: new THREE.CylinderGeometry(0.09, 0.14, 1.5, 8),
+    bLeaf: new THREE.BoxGeometry(0.34, 0.03, 1.1),
+    banana: new THREE.CylinderGeometry(0.04, 0.04, 0.22, 6)
+  };
+  return floraGeos;
+}
+
+function createFlowerMesh(colorHex) {
+  const g = getFloraGeos();
+  const grp = new THREE.Group();
+  const stemMat = new THREE.MeshLambertMaterial({ color: 0x4ade80 });
+  const petalMat = new THREE.MeshLambertMaterial({ color: colorHex });
+  const centerMat = new THREE.MeshLambertMaterial({ color: 0xfacc15 });
+
+  const stem = new THREE.Mesh(g.stem, stemMat);
+  stem.position.y = 0.17;
+  grp.add(stem);
+
+  const leafL = new THREE.Mesh(g.leaf, stemMat);
+  leafL.scale.set(1.2, 0.35, 0.7);
+  leafL.position.set(-0.07, 0.11, 0);
+  leafL.rotation.z = 0.55;
+  const leafR = new THREE.Mesh(g.leaf, stemMat);
+  leafR.scale.set(1.2, 0.35, 0.7);
+  leafR.position.set(0.07, 0.13, 0);
+  leafR.rotation.z = -0.55;
+  grp.add(leafL, leafR);
+
+  const head = new THREE.Group();
+  head.position.set(0, 0.35, 0);
+  head.rotation.x = 0.28;
+  const center = new THREE.Mesh(g.center, centerMat);
+  head.add(center);
+  for (let p = 0; p < 6; p++) {
+    const ang = (p / 6) * Math.PI * 2;
+    const pet = new THREE.Mesh(g.petal, petalMat);
+    pet.scale.set(0.85, 0.45, 1.25);
+    pet.position.set(Math.cos(ang) * 0.085, 0, Math.sin(ang) * 0.085);
+    pet.rotation.y = -ang;
+    head.add(pet);
+  }
+  grp.add(head);
+  return grp;
+}
+
+function createTuftMesh() {
+  const g = getFloraGeos();
+  const grp = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x22c55e });
+  for (let i = 0; i < 5; i++) {
+    const blade = new THREE.Mesh(g.tuftBlade, mat);
+    const a = (i / 5) * Math.PI * 2;
+    blade.position.set(Math.cos(a) * 0.07, 0.12, Math.sin(a) * 0.07);
+    blade.rotation.z = Math.cos(a) * 0.38;
+    blade.rotation.x = -Math.sin(a) * 0.38;
+    grp.add(blade);
+  }
+  return grp;
+}
+
+function createBananaTreeMesh() {
+  const g = getFloraGeos();
+  const grp = new THREE.Group();
+  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x84cc16 });
+  const leafMat = new THREE.MeshLambertMaterial({ color: 0x16a34a });
+  const bananaMat = new THREE.MeshLambertMaterial({ color: 0xfacc15 });
+
+  const trunk = new THREE.Mesh(g.bTrunk, trunkMat);
+  trunk.position.y = 0.75;
+  grp.add(trunk);
+
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.3;
+    const leaf = new THREE.Mesh(g.bLeaf, leafMat);
+    leaf.position.set(Math.cos(a) * 0.52, 1.48, Math.sin(a) * 0.52);
+    leaf.rotation.y = -a + Math.PI / 2;
+    leaf.rotation.x = 0.42;
+    grp.add(leaf);
+  }
+  const bunch = new THREE.Mesh(g.banana, bananaMat);
+  bunch.position.set(0.16, 1.24, 0.12);
+  bunch.rotation.z = 0.25;
+  grp.add(bunch);
+  return grp;
+}
+
+function stepEnchantedFlora(ctx, dt, show) {
+  if (!show) {
+    if (floraPool) {
+      for (let i = 0; i < floraPool.length; i++) floraPool[i].mesh.visible = false;
+    }
+    return;
+  }
+  const px = ctx.playerPos.x;
+  const pz = ctx.playerPos.z;
+  if (!floraPool) {
+    floraPool = [];
+    for (let i = 0; i < 24; i++) {
+      const m = createFlowerMesh(FLOWER_COLORS[i % FLOWER_COLORS.length]);
+      m.visible = false;
+      ctx.scene.add(m);
+      floraPool.push({ mesh: m, targetScale: 0.9 + Math.random() * 0.55, curScale: 0.01, phase: Math.random() * 6.28 });
+    }
+    for (let i = 0; i < 12; i++) {
+      const m = createTuftMesh();
+      m.visible = false;
+      ctx.scene.add(m);
+      floraPool.push({ mesh: m, targetScale: 0.9 + Math.random() * 0.5, curScale: 0.01, phase: Math.random() * 6.28 });
+    }
+    for (let i = 0; i < 5; i++) {
+      const m = createBananaTreeMesh();
+      m.visible = false;
+      ctx.scene.add(m);
+      floraPool.push({ mesh: m, targetScale: 0.85 + Math.random() * 0.35, curScale: 0.01, phase: Math.random() * 6.28 });
+    }
+  }
+
+  for (let i = 0; i < floraPool.length; i++) {
+    const fl = floraPool[i];
+    const dist = fl.mesh.visible ? Math.hypot(fl.mesh.position.x - px, fl.mesh.position.z - pz) : 999;
+    if (!fl.mesh.visible || dist > 21) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = 3.5 + Math.random() * 14.5;
+      const fx = Math.max(-72, Math.min(72, px + Math.cos(ang) * r));
+      const fz = Math.max(-72, Math.min(72, pz + Math.sin(ang) * r));
+      // Evita brotar dentro das salas do laboratório
+      if (Math.abs(fx) < 12 && Math.abs(fz) < 12) continue;
+      fl.mesh.position.set(fx, getGroundHeight(ctx.physCtx, fx, fz, 2), fz);
+      fl.mesh.rotation.y = Math.random() * Math.PI * 2;
+      fl.curScale = 0.02;
+      fl.mesh.scale.setScalar(0.02);
+      fl.mesh.visible = true;
+    } else if (fl.curScale < fl.targetScale) {
+      fl.curScale = Math.min(fl.targetScale, fl.curScale + dt * 2.2);
+      fl.mesh.scale.setScalar(fl.curScale);
+    }
+    fl.phase += dt * 1.8;
+    fl.mesh.rotation.z = Math.sin(fl.phase) * 0.04;
   }
 }
 
@@ -191,6 +343,7 @@ export function stepTripGnomes(ctx, dt) {
   stepTripTextureFlow(ctx.scene, dt);
   const freakout = typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive();
   const active = typeof window !== 'undefined' && window.isTripRainbowActive && window.isTripRainbowActive();
+  stepEnchantedFlora(ctx, dt, active && !freakout);
 
   if (!freakout && shadowGnomePool) {
     for (let i = 0; i < shadowGnomePool.length; i++) shadowGnomePool[i].root.visible = false;
@@ -327,8 +480,10 @@ export function stepTripGnomes(ctx, dt) {
       pickRoamTarget(gn, px, pz, 11, 20);
       const gy = getGroundHeight(ctx.physCtx, gn.targetX, gn.targetZ, 2);
       gn.root.position.set(gn.targetX, gy, gn.targetZ);
-      gn.state = i % 2 === 0 ? 'wander' : 'watch';
-      gn.timer = 1.5 + Math.random() * 3.0;
+      gn.root.scale.setScalar(1.05);
+      gn.shrinkTimer = 0;
+      gn.state = i % 2 === 0 ? 'wander' : 'happy';
+      gn.timer = 1.8 + Math.random() * 2.5;
       setGnomeEmote(gn, CALM_EMOTES[i % CALM_EMOTES.length]);
       gn.root.visible = true;
     }
@@ -339,51 +494,92 @@ export function stepTripGnomes(ctx, dt) {
     const dzP = pz - gz;
     const distToPlayer = Math.hypot(dxP, dzP);
 
-    if (distToPlayer < 6.0 && gn.state !== 'flee') {
-      gn.state = 'flee';
-      gn.timer = 2.6;
+    // Se o jogador pegar / chegar muito perto (< 3.4m): encolhe correndo até sumir e reaparece longe!
+    if (distToPlayer < 3.4 && gn.state !== 'shrink_flee') {
+      gn.state = 'shrink_flee';
+      gn.timer = 1.35;
+      gn.shrinkTimer = 1.35;
       setGnomeEmote(gn, '😳');
+      const awayAng = Math.atan2(-dzP, -dxP) + (Math.random() - 0.5) * 0.6;
+      gn.targetX = Math.max(-72, Math.min(72, gx + Math.cos(awayAng) * 16));
+      gn.targetZ = Math.max(-72, Math.min(72, gz + Math.sin(awayAng) * 16));
+    } else if (distToPlayer < 6.5 && gn.state !== 'flee' && gn.state !== 'shrink_flee') {
+      gn.state = 'flee';
+      gn.timer = 2.4;
+      setGnomeEmote(gn, '💨');
       const awayAng = Math.atan2(-dzP, -dxP) + (Math.random() - 0.5) * 0.7;
-      gn.targetX = Math.max(-72, Math.min(72, gx + Math.cos(awayAng) * 14));
-      gn.targetZ = Math.max(-72, Math.min(72, gz + Math.sin(awayAng) * 14));
+      gn.targetX = Math.max(-72, Math.min(72, gx + Math.cos(awayAng) * 15));
+      gn.targetZ = Math.max(-72, Math.min(72, gz + Math.sin(awayAng) * 15));
     } else if (distToPlayer > 34) {
       pickRoamTarget(gn, px, pz, 12, 22);
       gn.root.position.set(gn.targetX, getGroundHeight(ctx.physCtx, gn.targetX, gn.targetZ, 2), gn.targetZ);
+      gn.root.scale.setScalar(1.05);
     }
 
     gn.timer -= dt;
     let speed = 0;
 
-    if (gn.state === 'flee') {
-      speed = 5.4;
+    if (gn.state === 'shrink_flee') {
+      speed = 9.5;
+      const s = Math.max(0.04, (gn.timer / 1.35) * 1.05);
+      gn.root.scale.setScalar(s);
+      if (gn.timer <= 0) {
+        pickRoamTarget(gn, px, pz, 14, 23);
+        gn.root.position.set(gn.targetX, getGroundHeight(ctx.physCtx, gn.targetX, gn.targetZ, 2), gn.targetZ);
+        gn.root.scale.setScalar(1.05);
+        gn.state = 'happy';
+        gn.timer = 2.5;
+        setGnomeEmote(gn, '😊');
+      }
+    } else if (gn.state === 'flee') {
+      speed = 7.6;
       if (gn.timer <= 0 && distToPlayer > 11.5) {
-        gn.state = 'watch';
-        gn.timer = 2.5 + Math.random() * 2.5;
-        setGnomeEmote(gn, '👀');
+        gn.state = 'serious';
+        gn.timer = 2.2 + Math.random() * 2.0;
+        setGnomeEmote(gn, '🧐');
       } else if (gn.timer <= 0) {
         const awayAng = Math.atan2(-dzP, -dxP);
-        gn.targetX = Math.max(-72, Math.min(72, gx + Math.cos(awayAng) * 12));
-        gn.targetZ = Math.max(-72, Math.min(72, gz + Math.sin(awayAng) * 12));
-        gn.timer = 1.5;
+        gn.targetX = Math.max(-72, Math.min(72, gx + Math.cos(awayAng) * 13));
+        gn.targetZ = Math.max(-72, Math.min(72, gz + Math.sin(awayAng) * 13));
+        gn.timer = 1.4;
       }
-    } else if (gn.state === 'watch') {
+    } else if (gn.state === 'happy' || gn.state === 'serious' || gn.state === 'thoughtful') {
       const lookYaw = Math.atan2(dxP, dzP);
       gn.root.rotation.y += Math.atan2(Math.sin(lookYaw - gn.root.rotation.y), Math.cos(lookYaw - gn.root.rotation.y)) * Math.min(1, dt * 6);
-      gn.headGrp.rotation.z = Math.sin(gn.phase * 1.5) * 0.08;
+      if (gn.state === 'happy') {
+        gn.headGrp.rotation.z = Math.sin(gn.phase * 2.2) * 0.12;
+        gn.root.position.y = getGroundHeight(ctx.physCtx, gx, gz, gn.root.position.y + 0.3) + Math.abs(Math.sin(gn.phase * 2.4)) * 0.09;
+      } else if (gn.state === 'thoughtful') {
+        gn.headGrp.rotation.z = 0.22;
+        gn.headGrp.rotation.x = -0.18;
+      } else {
+        gn.headGrp.rotation.z = 0;
+        gn.headGrp.rotation.x = 0;
+      }
       if (gn.timer <= 0) {
-        gn.state = Math.random() < 0.35 ? 'run' : 'wander';
-        gn.timer = 2.8 + Math.random() * 3.5;
-        pickRoamTarget(gn, px, pz, 9, 21);
-        setGnomeEmote(gn, CALM_EMOTES[Math.floor(Math.random() * CALM_EMOTES.length)]);
+        const roll = Math.random();
+        gn.state = roll < 0.35 ? 'freak' : (roll < 0.72 ? 'run' : 'wander');
+        gn.timer = 2.4 + Math.random() * 3.0;
+        pickRoamTarget(gn, px, pz, 8, 21);
+        setGnomeEmote(gn, gn.state === 'freak' ? '🤪' : CALM_EMOTES[Math.floor(Math.random() * CALM_EMOTES.length)]);
       }
     } else {
-      speed = gn.state === 'run' ? 3.8 : 1.75;
+      speed = gn.state === 'freak' ? 7.8 : (gn.state === 'run' ? 5.6 : 2.6);
+      if (gn.state === 'freak') {
+        gn.headGrp.rotation.z = Math.sin(gn.phase * 3.0) * 0.25;
+      }
       const toTgtX = gn.targetX - gx;
       const toTgtZ = gn.targetZ - gz;
-      if (Math.hypot(toTgtX, toTgtZ) < 0.8 || gn.timer <= 0) {
-        gn.state = 'watch';
-        gn.timer = 2.4 + Math.random() * 3.0;
-        setGnomeEmote(gn, Math.random() < 0.5 ? '😊' : '👀');
+      if (Math.hypot(toTgtX, toTgtZ) < 0.85 || gn.timer <= 0) {
+        const moods = [
+          { s: 'happy', e: '😊' },
+          { s: 'serious', e: '😐' },
+          { s: 'thoughtful', e: '🤔' }
+        ];
+        const pick = moods[Math.floor(Math.random() * moods.length)];
+        gn.state = pick.s;
+        gn.timer = 2.2 + Math.random() * 2.6;
+        setGnomeEmote(gn, pick.e);
       }
     }
 
