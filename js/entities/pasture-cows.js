@@ -445,14 +445,16 @@ export function stepPastureCows(ctx, dt) {
     cow.mesh.rotation.y = cow.yaw;
 
     // 3. Animação (só quando visível para manter FPS alto)
+    const groundY = terrainHeight(cow.mesh.position.x, cow.mesh.position.z);
     if (cow.happyTimer > 0) cow.happyTimer = Math.max(0, cow.happyTimer - dt);
     if (cow.mesh.visible) {
       if (cow.happyTimer > 0) {
         const bounce = Math.abs(Math.sin(syncClock * 10.0 + i)) * 0.14;
-        cow.mesh.position.y += bounce;
+        cow.mesh.position.y = groundY + bounce;
         cow.tail.rotation.z = Math.sin(syncClock * 18.0) * 0.65;
         cow.head.rotation.x = -0.12 + Math.sin(syncClock * 8.0) * 0.14;
       } else if (cow.speed > 0.01) {
+        cow.mesh.position.y = groundY;
         cow.walkPhase += dt * cow.speed * 5.2;
         const swing = Math.sin(cow.walkPhase) * 0.44;
         cow.legs[0].rotation.x = swing;
@@ -462,6 +464,7 @@ export function stepPastureCows(ctx, dt) {
         cow.head.rotation.x = 0.12 + Math.sin(cow.walkPhase * 0.4) * 0.08;
         cow.tail.rotation.z = Math.sin(cow.walkPhase * 1.5) * 0.25;
       } else {
+        cow.mesh.position.y = groundY;
         for (let li = 0; li < 4; li++) cow.legs[li].rotation.x *= 0.85;
         cow.head.rotation.x = cow.state === 'graze'
           ? 0.48 + Math.sin(syncClock * 3.0 + i) * 0.10
