@@ -102,9 +102,15 @@ export function formatHoverInfo(prompt, targetObj) {
     title = action;
   }
 
-  // Limpa prefixos redundantes de ação para manter o crachá limpo
-  if (action === title && params) {
-    action = 'Interagir';
+  // Remove repetições: não exibir "Pegar ..." nem repetir o título na linha de ação ou parâmetros já presentes no título
+  if (params && title.includes(params)) {
+    params = '';
+  }
+  const stripEmojis = (s) => String(s || '').replace(/^[\s\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '').trim();
+  const cleanAction = stripEmojis(action);
+  const cleanTitleNoParen = stripEmojis(title).replace(/\s*\([^)]+\)/g, '').trim();
+  if (/^Pegar\b/i.test(cleanAction) || cleanAction === stripEmojis(title) || cleanAction === cleanTitleNoParen) {
+    action = '';
   }
 
   return { title, params, action };
@@ -150,14 +156,14 @@ function renderBadgeTexture(badgeState, title, params, action) {
   const paramLines = params ? wrapLines(ctx, params, maxTextW, 2) : [];
 
   ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
-  const actionLines = wrapLines(ctx, '👉 ' + action, maxTextW, 2);
+  const actionLines = action ? wrapLines(ctx, '👉 ' + action, maxTextW, 2) : [];
 
   const padTop = 26;
   const titleH = titleLines.length * 28;
   const paramH = paramLines.length ? (paramLines.length * 24 + 6) : 0;
-  const divGap = 14;
-  const actionH = actionLines.length * 26;
-  const padBottom = 22;
+  const divGap = actionLines.length ? 14 : 0;
+  const actionH = actionLines.length ? (actionLines.length * 26) : 0;
+  const padBottom = actionLines.length ? 22 : 16;
   const boxH = Math.min(canvas.height - 16, padTop + titleH + paramH + divGap + actionH + padBottom);
 
   // Fundo escuro nítido ajustado exatamente ao conteúdo
@@ -199,22 +205,24 @@ function renderBadgeTexture(badgeState, title, params, action) {
     }
   }
 
-  // Divisor sutil
-  const divY = yCursor - 4;
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.30)';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(30, divY);
-  ctx.lineTo(w - 30, divY);
-  ctx.stroke();
+  if (actionLines.length) {
+    // Divisor sutil
+    const divY = yCursor - 4;
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.30)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(30, divY);
+    ctx.lineTo(w - 30, divY);
+    ctx.stroke();
 
-  // Linha 3: Ação contextual (Amarelo-ouro brilhante de leitura fácil)
-  ctx.fillStyle = '#fde047';
-  ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
-  let actY = divY + 20;
-  for (let i = 0; i < actionLines.length; i++) {
-    ctx.fillText(actionLines[i], w / 2, actY, maxTextW);
-    actY += 26;
+    // Linha 3: Ação contextual (Amarelo-ouro brilhante de leitura fácil)
+    ctx.fillStyle = '#fde047';
+    ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
+    let actY = divY + 20;
+    for (let i = 0; i < actionLines.length; i++) {
+      ctx.fillText(actionLines[i], w / 2, actY, maxTextW);
+      actY += 26;
+    }
   }
 
   texture.needsUpdate = true;
