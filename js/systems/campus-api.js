@@ -13,6 +13,7 @@ import { getLabItemGuide } from '../items/item-registry.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
 import { applyQualityTier } from './game-loop.js';
 import * as worldSync from './world-sync.js';
+import * as adminEditor from './admin-editor.js';
 import { openRadialMenu, closeRadialMenu, isRadialMenuOpen, triggerFloatingAction, inspectItemToast } from '../ui/radial-menu.js';
 
 const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
@@ -153,6 +154,18 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.requeueCampusStateChanges = function (changes) { return worldSync.requeueCampusStateChanges(sim, changes); };
   window.applyCampusWorldState = function (stateMap, isInitial) { return worldSync.applyCampusWorldState(sim, stateMap, isInitial); };
   window.applyCampusSavedPose = function (pose) { return worldSync.applyCampusSavedPose(sim, pose); };
+  window.applyCampusLayoutEdits = function (edits) { return adminEditor.applyCampusLayoutEdits(sim, edits); };
+  window.getCampusAdminEditor = function () {
+    return {
+      getPrefabs: () => adminEditor.getAdminPrefabOptions(),
+      getTargetItem: () => sim.heldItem || sim.hoveredPickable || null,
+      addPrefab: (prefabId) => adminEditor.adminAddPrefabAtPlayer(sim, prefabId),
+      removeItem: (item) => adminEditor.adminRemoveTargetItem(sim, item),
+      editItem: (item, opts) => adminEditor.adminEditTargetItem(sim, item, opts),
+      moveGroup: (item, dx, dy, dz, dRy) => adminEditor.adminMoveTargetWithSupported(sim, item, dx, dy, dz, dRy),
+      saveWorldDefault: () => adminEditor.adminSaveWorldDefault(sim)
+    };
+  };
 
   window.resetCampusLocalSession = function () {
     sim.syringePumping = null;

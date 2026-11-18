@@ -30,6 +30,7 @@ export async function syncMultiplayer() {
     if (firstSync) {
       appState.lastObjVer = '';
       appState.lastStateVer = '';
+      appState.lastLayoutVer = '';
     }
     const data = await apiPost('api/multiplayer.php?action=sync', {
       session_id: appState.sessionId,
@@ -53,6 +54,7 @@ export async function syncMultiplayer() {
       state_changes: stateChanges,
       obj_ver: appState.lastObjVer,
       state_ver: appState.lastStateVer,
+      layout_ver: appState.lastLayoutVer || '',
       board_since: appState.boardLastId,
       board_strokes: strokes
     }, true);
@@ -100,6 +102,10 @@ export async function syncMultiplayer() {
       if ($('hud-online')) $('hud-online').textContent = String(data.online_count || 1);
       if (typeof data.obj_ver === 'string') appState.lastObjVer = data.obj_ver;
       if (typeof data.state_ver === 'string') appState.lastStateVer = data.state_ver;
+      if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;
+      if (!data.layout_unchanged && data.layout_edits && window.applyCampusLayoutEdits) {
+        window.applyCampusLayoutEdits(data.layout_edits);
+      }
       if (!data.objects_unchanged && data.objects && window.applyCampusWorldObjects) {
         window.applyCampusWorldObjects(data.objects);
       }
