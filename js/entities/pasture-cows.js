@@ -351,6 +351,7 @@ export function stepPastureCows(ctx, dt) {
 
   for (let i = 0; i < ctx.pastureCows.length; i++) {
     const cow = ctx.pastureCows[i];
+    if (cow.abducted) continue;
     const cx = cow.mesh.position.x;
     const cz = cow.mesh.position.z;
     const distToPlayer = Math.hypot(px - cx, pz - cz);

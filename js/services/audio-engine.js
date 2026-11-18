@@ -362,6 +362,31 @@ export function playBoing() {
   osc.stop(now + 0.34);
 }
 
+export function playUfoBeam() {
+  if (isMuted || !audioCtx || !masterGain) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const lfo = audioCtx.createOscillator();
+  const lfoGain = audioCtx.createGain();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(220, now);
+  osc.frequency.linearRampToValueAtTime(340, now + 1.8);
+  lfo.frequency.setValueAtTime(7, now);
+  lfoGain.gain.setValueAtTime(35, now);
+  lfo.connect(lfoGain);
+  lfoGain.connect(osc.frequency);
+  g.gain.setValueAtTime(0.001, now);
+  g.gain.linearRampToValueAtTime(0.11, now + 0.35);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(now);
+  lfo.start(now);
+  osc.stop(now + 2.25);
+  lfo.stop(now + 2.25);
+}
+
 export const AudioEngine = {
   playFootstep,
   playHarvest,
@@ -374,6 +399,7 @@ export const AudioEngine = {
   playGnomeGiggle,
   playUmbralWhisper,
   playBoing,
+  playUfoBeam,
   setSteam,
   toggleMute,
   isMuted: getIsMuted,

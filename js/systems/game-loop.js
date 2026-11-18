@@ -16,6 +16,7 @@ import {
 } from '../world/staircase-clock.js';
 import { stepConfetti } from '../entities/confetti.js';
 import { stepTripGnomes } from '../world/trip-gnomes.js';
+import { stepUfoAbduction } from '../world/ufo-abduction.js';
 import { dropUnsupportedItems } from '../entities/placement-ghost.js';
 import { stepMultiplayerAvatars } from '../entities/avatars.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
@@ -333,6 +334,7 @@ export function startAnimationLoop(ctx) {
       stepGreenhouse(ctx, dt);
       stepPastureCows(ctx, dt);
       stepTripGnomes(ctx, dt);
+      stepUfoAbduction(ctx, dt);
       stepDehydrators(ctx, dt);
       stepForestDistanceCulling(ctx);
       drawCinemaVideoFrame(ctx, dt);

@@ -1,0 +1,246 @@
+/**
+ * MycoCampus3D — Disco Voador (Passagem Rara no Céu & Abdução de Vaquinha)
+ */
+import { getGroundHeight } from '../engine/physics.js';
+
+const THREE = window.THREE;
+
+let ufoState = {
+  mesh: null,
+  beam: null,
+  lights: [],
+  phase: 'idle', // 'idle' | 'flyby' | 'approach' | 'beam' | 'depart'
+  timer: 32,     // 1ª passagem após ~32s de jogo, depois a cada 75-120s
+  t: 0,
+  startX: -95,
+  startZ: -60,
+  endX: 95,
+  endZ: 45,
+  targetCow: null,
+  cowStartY: 0,
+  cowRespawnTimer: 0,
+  respawnCow: null
+};
+
+function ensureUfoMesh(scene) {
+  if (ufoState.mesh) return ufoState.mesh;
+  const root = new THREE.Group();
+
+  const hullMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
+  const domeMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+  const cyanMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+  const yellowMat = new THREE.MeshBasicMaterial({ color: 0xfde047 });
+
+  // Disco principal prateado achatado
+  const saucer = new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 12), hullMat);
+  saucer.scale.set(1, 0.23, 1);
+  root.add(saucer);
+
+  // Base escura inferior
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 10), domeMat);
+  belly.scale.set(1, 0.35, 1);
+  belly.position.y = -0.24;
+  root.add(belly);
+
+  // Cúpula escura superior
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(1.45, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), domeMat);
+  dome.position.y = 0.25;
+  root.add(dome);
+
+  // Anel ciano brilhante na base da cúpula
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.08, 8, 24), cyanMat);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.32;
+  root.add(ring);
+
+  // 6 janelas ciano ao redor da cúpula
+  const winGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.1, 10);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const win = new THREE.Mesh(winGeo, cyanMat);
+    win.position.set(Math.cos(a) * 1.24, 0.68, Math.sin(a) * 1.24);
+    win.lookAt(Math.cos(a) * 4, 0.9, Math.sin(a) * 4);
+    win.rotateX(Math.PI / 2);
+    root.add(win);
+  }
+
+  // 8 luzinhas amarelas na borda
+  const bulbGeo = new THREE.SphereGeometry(0.11, 8, 6);
+  ufoState.lights = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const bulb = new THREE.Mesh(bulbGeo, yellowMat.clone());
+    bulb.position.set(Math.cos(a) * 2.25, 0.06, Math.sin(a) * 2.25);
+    root.add(bulb);
+    ufoState.lights.push(bulb);
+  }
+
+  // Feixe de luz trator (cone invertido: topo na nave, base no chão)
+  const beamGeo = new THREE.ConeGeometry(2.8, 12.5, 18, 1, true);
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0x38bdf8,
+    transparent: true,
+    opacity: 0.34,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.y = -6.4;
+  beam.visible = false;
+  root.add(beam);
+
+  root.visible = false;
+  scene.add(root);
+  ufoState.mesh = root;
+  ufoState.beam = beam;
+  return root;
+}
+
+function releaseCow(cow, ctx) {
+  if (!cow) return;
+  cow.abducted = false;
+  cow.mesh.scale.setScalar(1);
+  cow.mesh.rotation.set(0, cow.yaw || 0, 0);
+  const rx = 50 + (Math.random() - 0.5) * 14;
+  const rz = 4 + (Math.random() - 0.5) * 14;
+  const ry = ctx && ctx.physCtx ? getGroundHeight(ctx.physCtx, rx, rz, 2) : 0;
+  cow.mesh.position.set(rx, ry, rz);
+  cow.mesh.visible = true;
+}
+
+export function stepUfoAbduction(ctx, dt) {
+  if (!ctx || !ctx.scene) return;
+
+  if (ufoState.respawnCow) {
+    ufoState.cowRespawnTimer -= dt;
+    if (ufoState.cowRespawnTimer <= 0) {
+      releaseCow(ufoState.respawnCow, ctx);
+      ufoState.respawnCow = null;
+    }
+  }
+
+  if (ufoState.phase === 'idle') {
+    ufoState.timer -= dt;
+    if (ufoState.timer > 0) return;
+
+    const ufo = ensureUfoMesh(ctx.scene);
+    const cows = ctx.pastureCows || [];
+    const availableCows = cows.filter((c) => !c.abducted);
+    const doAbduct = availableCows.length > 0 && Math.random() < 0.55;
+
+    ufo.visible = true;
+    ufoState.beam.visible = false;
+    ufoState.t = 0;
+
+    if (doAbduct) {
+      const cow = availableCows[Math.floor(Math.random() * availableCows.length)];
+      cow.abducted = true;
+      cow.mood = 'Abduzida 🛸!';
+      ufoState.targetCow = cow;
+      ufoState.cowStartY = cow.mesh.position.y;
+      ufoState.startX = cow.mesh.position.x - 55;
+      ufoState.startZ = cow.mesh.position.z - 45;
+      ufo.position.set(ufoState.startX, 32, ufoState.startZ);
+      ufoState.phase = 'approach';
+    } else {
+      const ang = Math.random() * Math.PI * 2;
+      ufoState.startX = Math.cos(ang) * 95;
+      ufoState.startZ = Math.sin(ang) * 95;
+      ufoState.endX = -ufoState.startX;
+      ufoState.endZ = -ufoState.startZ;
+      ufo.position.set(ufoState.startX, 28 + Math.random() * 8, ufoState.startZ);
+      ufoState.phase = 'flyby';
+    }
+    return;
+  }
+
+  const ufo = ufoState.mesh;
+  if (!ufo) return;
+  ufoState.t += dt;
+
+  // Girar nave e piscar luzinhas
+  ufo.rotation.y += dt * 1.4;
+  for (let i = 0; i < ufoState.lights.length; i++) {
+    const pulse = (Math.sin(ufoState.t * 8 + i * 0.9) + 1) * 0.5;
+    ufoState.lights[i].material.color.setHSL(0.14, 1, 0.45 + pulse * 0.35);
+  }
+
+  if (ufoState.phase === 'flyby') {
+    const dur = 14;
+    const p = Math.min(1, ufoState.t / dur);
+    ufo.position.x = ufoState.startX + (ufoState.endX - ufoState.startX) * p;
+    ufo.position.z = ufoState.startZ + (ufoState.endZ - ufoState.startZ) * p;
+    ufo.position.y = 29 + Math.sin(p * Math.PI * 2) * 2.5;
+    ufo.rotation.z = 0.14;
+    if (p >= 1) {
+      ufo.visible = false;
+      ufoState.phase = 'idle';
+      ufoState.timer = 75 + Math.random() * 45;
+    }
+  } else if (ufoState.phase === 'approach') {
+    const cow = ufoState.targetCow;
+    if (!cow) { ufoState.phase = 'depart'; ufoState.t = 0; return; }
+    const dur = 5.5;
+    const p = Math.min(1, ufoState.t / dur);
+    const ease = 1 - Math.pow(1 - p, 2);
+    const tx = cow.mesh.position.x;
+    const tz = cow.mesh.position.z;
+    const ty = ufoState.cowStartY + 11.5;
+    ufo.position.x = ufoState.startX + (tx - ufoState.startX) * ease;
+    ufo.position.z = ufoState.startZ + (tz - ufoState.startZ) * ease;
+    ufo.position.y = 32 + (ty - 32) * ease;
+    ufo.rotation.z = (1 - ease) * 0.22;
+    if (p >= 1) {
+      ufoState.phase = 'beam';
+      ufoState.t = 0;
+      ufoState.beam.visible = true;
+      if (ctx.playerPos && Math.hypot(ctx.playerPos.x - tx, ctx.playerPos.z - tz) < 55) {
+        if (window.MycoAudio && window.MycoAudio.playUfoBeam) window.MycoAudio.playUfoBeam();
+      }
+    }
+  } else if (ufoState.phase === 'beam') {
+    const cow = ufoState.targetCow;
+    const dur = 5.2;
+    const p = Math.min(1, ufoState.t / dur);
+    ufo.rotation.z = Math.sin(ufoState.t * 3) * 0.04;
+    ufoState.beam.material.opacity = 0.28 + Math.sin(ufoState.t * 10) * 0.1;
+
+    if (cow) {
+      cow.mesh.visible = true;
+      cow.mesh.position.y = ufoState.cowStartY + p * 11.2;
+      cow.mesh.rotation.y += dt * 3.5;
+      cow.mesh.rotation.z = Math.sin(ufoState.t * 5) * 0.18;
+      if (p > 0.72) {
+        const shrink = Math.max(0.05, 1 - (p - 0.72) / 0.28);
+        cow.mesh.scale.setScalar(shrink);
+      }
+    }
+    if (p >= 1) {
+      ufoState.beam.visible = false;
+      if (cow) {
+        cow.mesh.visible = false;
+        ufoState.respawnCow = cow;
+        ufoState.cowRespawnTimer = 10;
+      }
+      ufoState.targetCow = null;
+      ufoState.phase = 'depart';
+      ufoState.t = 0;
+      ufoState.startX = ufo.position.x;
+      ufoState.startZ = ufo.position.z;
+    }
+  } else if (ufoState.phase === 'depart') {
+    const dur = 4.2;
+    const p = Math.min(1, ufoState.t / dur);
+    const ease = p * p;
+    ufo.position.x = ufoState.startX + ease * 85;
+    ufo.position.z = ufoState.startZ - ease * 60;
+    ufo.position.y = 12 + ease * 55;
+    ufo.rotation.z = -0.25 * p;
+    if (p >= 1) {
+      ufo.visible = false;
+      ufoState.phase = 'idle';
+      ufoState.timer = 85 + Math.random() * 50;
+    }
+  }
+}
