@@ -843,9 +843,11 @@ export function stepPressureCookers(ctx, dt) {
           stageSub = 'Encaixe a base 4cm no fundo';
           barPct = 100; barCol = '#ef4444'; borderCol = '#ef4444';
         } else if (hasContainers && waterTooLow) {
-          stageTitle = '💧 Água abaixo da base!';
-          stageSub = 'Ideal: 3.4L (+0.5cm acima da base)';
-          barPct = 100; barCol = '#f59e0b'; borderCol = '#f59e0b';
+          stageTitle = activeBurner ? '⚠️ Água baixa! Desligue o fogo!' : '💧 Água abaixo da base!';
+          stageSub = activeBurner ? 'Desligue para perder pressão e não queimar tudo' : 'Ideal: 3.4L (+0.5cm acima da base)';
+          barPct = Math.max(5, Math.min(100, (cp.waterMl / 3400) * 100));
+          barCol = activeBurner ? '#ef4444' : '#f59e0b';
+          borderCol = barCol;
         } else if (hasContainers && waterTooHigh) {
           stageTitle = '🌊 Muita água na panela!';
           stageSub = 'Ideal: 3.0–4.0L (+0.5cm da base)';

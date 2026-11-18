@@ -8,7 +8,7 @@ export function buildFirstPersonArm(ctx) {
   var sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.36), fpsSleeveMat);
   sleeve.position.set(0, 0, 0.18);
   var hand = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.13), skinMat);
-  hand.position.set(0, 0.01, -0.04);
+  hand.position.set(0, 0, -0.066);
   fpsArmGroup.add(sleeve, hand);
   fpsArmGroup.userData.handMat = skinMat;
   fpsArmGroup.position.set(0.32, -0.28, -0.42);
@@ -20,7 +20,7 @@ export function buildFirstPersonArm(ctx) {
   var sleeveL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.36), fpsSleeveMat);
   sleeveL.position.set(0, 0, 0.18);
   var handL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.10, 0.13), skinMat);
-  handL.position.set(0, 0.01, -0.04);
+  handL.position.set(0, 0, -0.066);
   fpsLeftArmGroup.add(sleeveL, handL);
   fpsLeftArmGroup.position.set(-0.32, -0.28, -0.42);
   fpsLeftArmGroup.rotation.set(0.18, 0.14, -0.05);

@@ -518,7 +518,8 @@ function buildContextActions(ctx) {
           ctx.glovesExpired = false;
           ctx.glovesUntil = shouldWear ? (performance.now() + 160000) : 0;
           if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
-            ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x1e293b : 0xfde68a);
+            ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x09090b : 0xfde68a);
+            ctx.fpsArmGroup.userData.handMat.roughness = ctx.wearingGloves ? 0.35 : 0.65;
           }
           if (window.MycoAudio) window.MycoAudio.playClick();
           if (ctx.callbacks.onToast) {
