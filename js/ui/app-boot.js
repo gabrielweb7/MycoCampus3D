@@ -255,13 +255,109 @@ function bindModalsAndToolbar() {
       try {
         const rw = await apiPost('api/multiplayer.php?action=reset_world', {}, true);
         if (rw && rw.ok) {
-          if (window.resetCampusWorldObjects) window.resetCampusWorldObjects();
-          showAdminNotice('♻️ Todos os itens do laboratório e estantes foram restaurados para as posições originais!');
+          if (rw.restored_from_default > 0) {
+            appState.isInitialSync = true;
+            events.emit('sync:now');
+            showAdminNotice(`♻️ Mundo restaurado para o padrão salvo pelo Admin (${rw.restored_from_default} itens)!`);
+          } else {
+            if (window.resetCampusWorldObjects) window.resetCampusWorldObjects();
+            showAdminNotice('♻️ Todos os itens do laboratório e estantes foram restaurados para as posições originais!');
+          }
         } else {
           showAdminNotice((rw && rw.error) || 'Não foi possível resetar os itens.', true);
         }
       } catch (e) {
         showAdminNotice('Erro de conexão ao resetar itens.', true);
+      }
+    };
+  }
+
+  const btnAdminSaveDefault = $('btn-admin-save-default');
+  if (btnAdminSaveDefault) {
+    btnAdminSaveDefault.onclick = async () => {
+      const ed = window.getCampusAdminEditor ? window.getCampusAdminEditor() : null;
+      if (!ed) return;
+      try {
+        const res = await ed.saveWorldDefault();
+        if (res && res.ok) {
+          showAdminNotice(`💾 Padrão do Admin salvo no MySQL (${res.saved_count} itens)! Futuros resets voltarão exatamente para este layout.`);
+        } else {
+          showAdminNotice((res && res.error) || 'Falha ao salvar padrão.', true);
+        }
+      } catch (e) {
+        showAdminNotice('Erro de conexão ao salvar padrão.', true);
+      }
+    };
+  }
+
+  const btnAdminAddPrefab = $('btn-admin-add-prefab');
+  if (btnAdminAddPrefab) {
+    btnAdminAddPrefab.onclick = async () => {
+      const ed = window.getCampusAdminEditor ? window.getCampusAdminEditor() : null;
+      const sel = $('admin-prefab-select');
+      if (!ed || !sel) return;
+      try {
+        const created = await ed.addPrefab(sel.value);
+        showAdminNotice(created ? `➕ Adicionado: ${created.label} (sincronizado!)` : 'Prefab não encontrado.', !created);
+      } catch (e) {
+        showAdminNotice('Erro ao adicionar prefab.', true);
+      }
+    };
+  }
+
+  const btnAdminRotateGroup = $('btn-admin-rotate-group');
+  if (btnAdminRotateGroup) {
+    btnAdminRotateGroup.onclick = () => {
+      const ed = window.getCampusAdminEditor ? window.getCampusAdminEditor() : null;
+      const target = ed && ed.getTargetItem();
+      if (!target) {
+        showAdminNotice('Segure ou mire em uma bancada/item antes de girar.', true);
+        return;
+      }
+      const res = ed.moveGroup(target, 0, 0, 0, Math.PI / 2);
+      showAdminNotice(`🔄 ${target.label} girado +90° com ${Math.max(0, (res && res.movedCount ? res.movedCount - 1 : 0))} item(ns) em cima!`);
+    };
+  }
+
+  const btnAdminEditItem = $('btn-admin-edit-item');
+  if (btnAdminEditItem) {
+    btnAdminEditItem.onclick = async () => {
+      const ed = window.getCampusAdminEditor ? window.getCampusAdminEditor() : null;
+      const target = ed && ed.getTargetItem();
+      if (!target) {
+        showAdminNotice('Segure ou mire em um item para editar.', true);
+        return;
+      }
+      const newLabel = window.prompt('Novo nome/rótulo do item:', target.label || '');
+      if (newLabel === null) return;
+      const curScale = target.mesh ? target.mesh.scale.x : 1;
+      const scaleStr = window.prompt('Escala (0.25 a 4.0):', String(curScale));
+      if (scaleStr === null) return;
+      const parsedScale = parseFloat(scaleStr);
+      const scale = Number.isFinite(parsedScale) ? Math.max(0.25, Math.min(4.0, parsedScale)) : curScale;
+      try {
+        await ed.editItem(target, { label: newLabel, scale });
+        showAdminNotice(`✏️ Atualizado: ${newLabel} (${scale}x)`);
+      } catch (e) {
+        showAdminNotice('Erro ao editar item.', true);
+      }
+    };
+  }
+
+  const btnAdminRemoveItem = $('btn-admin-remove-item');
+  if (btnAdminRemoveItem) {
+    btnAdminRemoveItem.onclick = async () => {
+      const ed = window.getCampusAdminEditor ? window.getCampusAdminEditor() : null;
+      const target = ed && ed.getTargetItem();
+      if (!target) {
+        showAdminNotice('Segure ou mire em um item para remover.', true);
+        return;
+      }
+      try {
+        await ed.removeItem(target);
+        showAdminNotice(`🗑️ Removido: ${target.label} (sincronizado!)`);
+      } catch (e) {
+        showAdminNotice('Erro ao remover item.', true);
       }
     };
   }
