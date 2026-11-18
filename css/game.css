@@ -495,6 +495,9 @@ body.device-desktop #btn-mobile-chat-toggle {
 }
 
 #held-item-bar {
+  bottom: 66px;
+  top: auto;
+  z-index: 28;
   animation: slideUpHeldBar 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   touch-action: manipulation;
 }
@@ -504,14 +507,10 @@ body.device-touch #hud-top-bar > .glass-panel {
   white-space: nowrap;
 }
 
-body.device-touch #held-item-bar {
-  bottom: auto !important;
-  top: 62px !important;
-  max-width: calc(100vw - 20px);
-  padding: 5px 10px;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
+body.device-touch #held-item-bar,
+body.device-phone #held-item-bar,
+body.device-tablet #held-item-bar {
+  display: none !important;
 }
 
 body.device-touch #held-item-bar #btn-held-drop,

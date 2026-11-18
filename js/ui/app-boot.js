@@ -703,7 +703,7 @@ export function bootApp() {
       const heldBar = $('held-item-bar');
       const heldName = $('held-item-bar-name');
       if (heldBar && heldName) {
-        if (label && appState.currentUser) {
+        if (label && appState.currentUser && !isTouch()) {
           heldName.textContent = label;
           heldBar.classList.remove('hidden');
         } else {
@@ -713,7 +713,9 @@ export function bootApp() {
       const dropBtn = $('btn-mobile-drop');
       if (dropBtn) dropBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
       const rotBtn = $('btn-mobile-rotate');
-      if (rotBtn) rotBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
+      if (rotBtn) rotBtn.style.display = (label && isTouch() && mobilePlacementModeActive) ? 'flex' : 'none';
+      const heldRot = $('btn-held-rotate');
+      if (heldRot) heldRot.style.display = (label && !isTouch() && mobilePlacementModeActive) ? 'inline-flex' : 'none';
       const placeBtn = $('btn-mobile-place');
       if (placeBtn) {
         placeBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
@@ -727,6 +729,10 @@ export function bootApp() {
     },
     onPlacementModeChange: (active) => {
       mobilePlacementModeActive = active;
+      const rotBtn = $('btn-mobile-rotate');
+      if (rotBtn) rotBtn.style.display = (currentHoldLabel && isTouch() && active) ? 'flex' : 'none';
+      const heldRot = $('btn-held-rotate');
+      if (heldRot) heldRot.style.display = (currentHoldLabel && !isTouch() && active) ? 'inline-flex' : 'none';
       const placeBtn = $('btn-mobile-place');
       if (placeBtn) {
         placeBtn.textContent = active ? '✖️' : '📦';

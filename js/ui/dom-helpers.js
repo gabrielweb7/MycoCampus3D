@@ -26,8 +26,9 @@ export function isTouch() {
 
 export function applyDeviceUi() {
   const profile = getDeviceProfile();
-  document.body.classList.remove('device-desktop', 'device-tablet', 'device-phone');
+  document.body.classList.remove('device-desktop', 'device-tablet', 'device-phone', 'device-touch');
   document.body.classList.add(`device-${profile}`);
+  if (profile !== 'desktop') document.body.classList.add('device-touch');
 
   const hint = $('fps-hint');
   const chatInp = $('chat-input');
