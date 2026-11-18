@@ -55,13 +55,44 @@ export function updateMixingBowlLabel(item) {
     parts.push(tag + ' ' + val + 'g');
   });
   if (bc.mixMesh) {
-    bc.mixMesh.visible = true;
-    const fillFrac = Math.min(1, totalG / 600);
-    const sy = Math.max(0.15, fillFrac);
-    const sxz = 0.86 + 0.14 * fillFrac;
-    bc.mixMesh.scale.set(sxz, sy, sxz);
-    bc.mixMesh.position.y = 0.012 + (0.095 * sy) * 0.5;
-    bc.mixMesh.material.color.setHex(bc.mixed ? 0xf59e0b : (bc.ingredients.water > 0 && !bc.ingredients.flocao && !bc.ingredients.corn ? 0x7dd3fc : 0xfde047));
+    const dryG = (bc.ingredients.flocao || 0) + (bc.ingredients.corn || 0) + (bc.ingredients.sawdust || 0);
+    const waterG = bc.ingredients.water || 0;
+    if (bc.mixed) {
+      bc.mixMesh.visible = totalG > 0;
+      const fillFrac = Math.min(1, totalG / 600);
+      const sy = Math.max(0.15, fillFrac);
+      const sxz = 0.86 + 0.14 * fillFrac;
+      bc.mixMesh.scale.set(sxz, sy, sxz);
+      bc.mixMesh.position.y = 0.012 + (0.095 * sy) * 0.5;
+      bc.mixMesh.material.color.setHex(0xf59e0b);
+      if (bc.waterLayerMesh) bc.waterLayerMesh.visible = false;
+    } else {
+      const dryFrac = Math.min(1, dryG / 600);
+      const dryH = dryG > 0 ? Math.max(0.014, 0.095 * dryFrac) : 0;
+      if (dryG > 0) {
+        bc.mixMesh.visible = true;
+        const sy = dryH / 0.095;
+        const sxz = 0.86 + 0.14 * dryFrac;
+        bc.mixMesh.scale.set(sxz, sy, sxz);
+        bc.mixMesh.position.y = 0.012 + dryH * 0.5;
+        bc.mixMesh.material.color.setHex(0xfde047);
+      } else {
+        bc.mixMesh.visible = false;
+      }
+      if (bc.waterLayerMesh) {
+        if (waterG > 0) {
+          const waterFrac = Math.min(1 - dryFrac * 0.8, waterG / 600);
+          const waterH = Math.max(0.012, 0.095 * Math.max(0.08, waterFrac));
+          const wy = waterH / 0.095;
+          const wxz = 0.88 + 0.12 * Math.min(1, (dryG + waterG) / 600);
+          bc.waterLayerMesh.visible = true;
+          bc.waterLayerMesh.scale.set(wxz, wy, wxz);
+          bc.waterLayerMesh.position.y = 0.012 + dryH + waterH * 0.5;
+        } else {
+          bc.waterLayerMesh.visible = false;
+        }
+      }
+    }
   }
   const status = bc.mixed ? '✅ Receita Homogênea' : '🥄 Misture c/ colher';
   item.label = 'Pote Mistura (' + parts.join(' + ') + ' = ' + totalG + 'g • ' + status + ')';
@@ -73,19 +104,27 @@ export function addIngredientToBowl(item, ingKey, grams) {
   bc.ingredients[ingKey] = (bc.ingredients[ingKey] || 0) + grams;
   bc.mixed = false;
   bc.stirCount = 0;
+  bc.stirProgress = 0;
   updateMixingBowlLabel(item);
   return true;
 }
 
-export function stirMixingBowl(item) {
-  if (!item || !item.bowlCtrl) return { done: false, empty: true };
+export function advanceMixingBowlStir(item, dt) {
+  if (!item || !item.bowlCtrl) return { done: false, empty: true, progress: 0 };
   const bc = item.bowlCtrl;
   const total = Object.values(bc.ingredients).reduce((a, b) => a + b, 0);
-  if (total <= 0) return { done: false, empty: true };
-  bc.stirCount += 1;
-  if (bc.stirCount >= 3) bc.mixed = true;
-  updateMixingBowlLabel(item);
-  return { done: bc.mixed, empty: false, stirCount: bc.stirCount };
+  if (total <= 0) return { done: false, empty: true, progress: 0 };
+  if (bc.mixed) return { done: true, empty: false, progress: 1 };
+  bc.stirProgress = Math.min(1, (bc.stirProgress || 0) + dt / 3.0);
+  if (bc.stirProgress >= 1) {
+    bc.mixed = true;
+    updateMixingBowlLabel(item);
+  }
+  return { done: bc.mixed, empty: false, progress: bc.stirProgress };
+}
+
+export function stirMixingBowl(item) {
+  return advanceMixingBowlStir(item, 1.0);
 }
 
 export function makeMixingBowl(ctx, id, px, py, pz) {
@@ -102,14 +141,20 @@ export function makeMixingBowl(ctx, id, px, py, pz) {
     new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.78 })
   );
   mixMesh.visible = false;
-  bg.add(mixMesh, wall, bottom);
+  const waterLayerMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.098, 0.086, 0.095, 18),
+    new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.62, roughness: 0.12, depthWrite: false })
+  );
+  waterLayerMesh.visible = false;
+  bg.add(mixMesh, waterLayerMesh, wall, bottom);
 
   const item = registerPickable(ctx, id, 'Pote de Mistura (Vazio)', bg, px, py, pz, 0, 0.14, 0.14, MIXING_BOWL_META);
   item.bowlCtrl = {
     ingredients: {},
     mixed: false,
     stirCount: 0,
-    mixMesh
+    mixMesh,
+    waterLayerMesh
   };
   item.mesh.userData.bowlCtrl = item.bowlCtrl;
   updateMixingBowlLabel(item);

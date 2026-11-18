@@ -195,7 +195,7 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
 
       // Chamas do bico: cone interno ciano + cone externo azul + ponta amarela
       const flameCluster = new THREE.Group();
-      flameCluster.position.set(nx, totalH - 0.026, nz);
+      flameCluster.position.set(nx, 0, nz);
 
       // Núcleo quente interno
       const fCore = new THREE.Mesh(new THREE.ConeGeometry(0.009, 0.034, 8), flameCoreMat);
@@ -220,12 +220,14 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   // Grupos separados para controle independente de chama:
   // Grupo de Chamas Internas (6 bicos de caulim do anel central)
   const innerFlamesGroup = new THREE.Group();
+  innerFlamesGroup.position.y = totalH - 0.026;
   createCaulimNozzleWithFlame(0.062, 6, innerFlamesGroup);
   innerFlamesGroup.visible = false;
   tg.add(innerFlamesGroup);
 
   // Grupo de Chamas Externas (12 bicos de caulim do anel periférico)
   const outerFlamesGroup = new THREE.Group();
+  outerFlamesGroup.position.y = totalH - 0.026;
   createCaulimNozzleWithFlame(0.138, 12, outerFlamesGroup);
   outerFlamesGroup.visible = false;
   tg.add(outerFlamesGroup);
@@ -248,20 +250,32 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   pipe2.position.set(manifoldX - pipeLen / 2, totalH - 0.060, -0.016);
   tg.add(pipe1, pipe2);
 
-  // Registros de latão com manípulos pretos (um para anel interno e um para externo)
+  // Registros de latão com manípulos vermelhos visíveis (um para anel interno e um para externo)
+  const redValveMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.35, metalness: 0.15 });
+  function makeRedKnob(zPos) {
+    const kg = new THREE.Group();
+    kg.position.set(manifoldX - pipeLen - 0.008, totalH - 0.060, zPos);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.016, 12), redValveMat);
+    cap.rotation.z = Math.PI / 2;
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.052, 0.012), redValveMat);
+    bar.position.x = -0.006;
+    kg.add(cap, bar);
+    return kg;
+  }
+
   const valve1 = makeBox(0.024, 0.028, 0.024, brassMat);
   valve1.position.set(manifoldX - pipeLen + 0.02, totalH - 0.060, 0.016);
-
-  const knob1 = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.014, 12), rubberMat);
-  knob1.rotation.z = Math.PI / 2;
-  knob1.position.set(manifoldX - pipeLen - 0.005, totalH - 0.060, 0.016);
+  const knob1 = makeRedKnob(0.018);
 
   const valve2 = makeBox(0.024, 0.028, 0.024, brassMat);
   valve2.position.set(manifoldX - pipeLen + 0.02, totalH - 0.060, -0.016);
+  const knob2 = makeRedKnob(-0.018);
 
-  const knob2 = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.014, 12), rubberMat);
-  knob2.rotation.z = Math.PI / 2;
-  knob2.position.set(manifoldX - pipeLen - 0.005, totalH - 0.060, -0.016);
+  const valveHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.11, 0.12),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  valveHit.position.set(manifoldX - pipeLen, totalH - 0.060, 0);
 
   // Conexão T em latão e borboleta de alta pressão para regulador P13
   const tee = makeBox(0.020, 0.038, 0.048, brassMat);
@@ -272,7 +286,7 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   const butterflyWing2 = makeBox(0.006, 0.018, 0.014, brassMat);
   butterflyWing2.position.set(manifoldX - pipeLen - 0.046, totalH - 0.072, 0);
 
-  tg.add(valve1, knob1, valve2, knob2, tee, butterflyWing1, butterflyWing2);
+  tg.add(valve1, knob1, valve2, knob2, valveHit, tee, butterflyWing1, butterflyWing2);
 
   // 8. Mangueira Espiralada Preta Conectada ao Botijão GLP P13
   const hoseCurve = new THREE.CatmullRomCurve3([
@@ -354,9 +368,10 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   knob1.userData.burnerSwitchIdx = bIdx;
   valve2.userData.burnerSwitchIdx = bIdx;
   knob2.userData.burnerSwitchIdx = bIdx;
+  valveHit.userData.burnerSwitchIdx = bIdx;
   drumMesh.userData.burnerSwitchIdx = bIdx;
 
-  ctx.burnerSwitchMeshes.push(valve1, knob1, valve2, knob2, drumMesh);
+  ctx.burnerSwitchMeshes.push(valve1, knob1, valve2, knob2, valveHit, drumMesh);
   ctx.burnerDevices.push(bState);
 
   return registerPickable(ctx, id, 'Tripé Fogareiro a Gás (GLP)', tg, px, py, pz, 0, 0.36, totalH, GAS_TRIPOD_META);

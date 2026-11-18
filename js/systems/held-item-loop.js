@@ -16,6 +16,7 @@ import { triggerSinkStream } from '../items/lab-sink.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { markPdaVolumeChanged } from '../items/pda-mix.js';
 import { spawnSprayParticles } from '../items/alcohol-spray.js';
+import { advanceMixingBowlStir } from '../items/mixing-bowl.js';
 
 const THREE = window.THREE;
 
@@ -211,14 +212,14 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       }
     } else if (ctx.heldItem.mesh.userData.isLabSpoon) {
       const spoonUd = ctx.heldItem.mesh.userData;
-      const stirRem = (spoonUd.spoonStirUntil || 0) - now;
-      const stirBowl = spoonUd.spoonStirTarget;
+      const isHoldingStir = !!(ctx.stirHold && ctx.stirHold.spoon === ctx.heldItem && ctx.stirHold.bowl && ctx.stirHold.bowl.mesh);
+      const stirRem = isHoldingStir ? 500 : ((spoonUd.spoonStirUntil || 0) - now);
+      const stirBowl = isHoldingStir ? ctx.stirHold.bowl : spoonUd.spoonStirTarget;
       ctx.heldItem.mesh.rotation.order = 'YXZ';
       if (stirRem > 0 && stirBowl && stirBowl.mesh) {
-        const stirPhase = (700 - stirRem) * 0.014;
+        const stirPhase = isHoldingStir ? (now * 0.014) : ((700 - stirRem) * 0.014);
         const bp = stirBowl.mesh.position;
-        const fall = Math.min(1, (700 - stirRem) / 120, stirRem / 120);
-        const k = Math.max(0, fall);
+        const k = isHoldingStir ? 1 : Math.max(0, Math.min(1, (700 - stirRem) / 120, stirRem / 120));
         ctx.heldItem.mesh.position.set(
           _tmpHandPos.x + (bp.x + Math.cos(stirPhase) * 0.045 - _tmpHandPos.x) * k,
           _tmpHandPos.y + (bp.y + 0.075 - _tmpHandPos.y) * k,
@@ -229,7 +230,26 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       } else {
         ctx.heldItem.mesh.rotation.set(-0.15, ctx.playerYaw, 0);
       }
-    } else if ((ctx.pourHold && ctx.pourHold.src === ctx.heldItem) || (ctx.sinkFilling && ctx.sinkFilling.mode === 'drain' && ctx.sinkFilling.item === ctx.heldItem)) {
+    } else if (ctx.sinkFilling && ctx.sinkFilling.item === ctx.heldItem && ctx.sinkFilling.sink && ctx.sinkFilling.sink.nozzleWorld) {
+      const nw = ctx.sinkFilling.sink.nozzleWorld;
+      ctx.heldItem.mesh.rotation.order = 'YXZ';
+      if (ctx.sinkFilling.mode === 'fill') {
+        ctx.heldItem.mesh.position.set(nw.x, nw.y - 0.16, nw.z);
+        ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
+      } else {
+        ctx.heldItem.mesh.position.set(nw.x, nw.y + 0.02, nw.z);
+        ctx.heldItem.mesh.rotation.set(-0.95, ctx.playerYaw, -0.35);
+      }
+    } else if (ctx.pourHold && ctx.pourHold.src === ctx.heldItem) {
+      const dstObj = ctx.pourHold.dst && (ctx.pourHold.dst.mesh || (ctx.pourHold.dst.potItem && ctx.pourHold.dst.potItem.mesh));
+      if (dstObj) {
+        const dp = dstObj.position;
+        ctx.heldItem.mesh.position.set(
+          _tmpHandPos.x + (dp.x - _tmpHandPos.x) * 0.55,
+          _tmpHandPos.y + (dp.y + 0.24 - _tmpHandPos.y) * 0.55,
+          _tmpHandPos.z + (dp.z - _tmpHandPos.z) * 0.55
+        );
+      }
       ctx.heldItem.mesh.rotation.order = 'YXZ';
       ctx.heldItem.mesh.rotation.set(-0.85, ctx.playerYaw, -0.35);
     } else {
@@ -405,6 +425,37 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       if (ph.any) ctx.notifyWorldAction();
       ctx.pourHold = null;
     }
+  }
+
+  if (ctx.stirHold) {
+    const sh = ctx.stirHold;
+    const ring = document.getElementById('stir-progress-ring');
+    const arc = document.getElementById('stir-progress-arc');
+    if (!ctx.isPrimaryDown || !ctx.heldItem || ctx.heldItem !== sh.spoon || !ctx.hoveredBowlTarget || ctx.hoveredBowlTarget !== sh.bowl) {
+      ctx.stirHold = null;
+      if (ring) ring.classList.add('hidden');
+    } else {
+      const res = advanceMixingBowlStir(sh.bowl, dt);
+      if (ring && arc) {
+        ring.classList.remove('hidden');
+        arc.setAttribute('stroke-dashoffset', String(113.1 * (1 - (res.progress || 0))));
+      }
+      if (now - (sh.soundAt || 0) > 380) {
+        sh.soundAt = now;
+        if (window.MycoAudio) window.MycoAudio.playClick();
+      }
+      if (res.done) {
+        ctx.stirHold = null;
+        if (ring) ring.classList.add('hidden');
+        if (ctx.callbacks && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('✅ Receita homogênea pronta para porcionar!');
+        }
+        ctx.notifyWorldAction();
+      }
+    }
+  } else {
+    const ring = document.getElementById('stir-progress-ring');
+    if (ring && !ring.classList.contains('hidden')) ring.classList.add('hidden');
   }
 
   if (ctx.sinkFilling) {

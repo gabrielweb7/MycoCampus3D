@@ -39,16 +39,17 @@ export function handleFlocaoTargetAction(ctx) {
 export function handleMixingBowlTargetAction(ctx) {
   const target = ctx.hoveredBowlTarget;
   if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isLabSpoon) {
-    const result = stirMixingBowl(target);
-    if (!result.empty) {
-      ctx.heldItem.mesh.userData.spoonStirUntil = performance.now() + 700;
-      ctx.heldItem.mesh.userData.spoonStirTarget = target;
+    const bc = target && target.bowlCtrl;
+    const total = bc ? Object.values(bc.ingredients).reduce((a, b) => a + b, 0) : 0;
+    if (!bc || total <= 0) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🥄 Pote de Mistura está vazio!');
+      return true;
     }
-    if (window.MycoAudio) window.MycoAudio.playClick();
-    if (ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(result.empty ? '🥄 Pote de Mistura está vazio!' : (result.done ? '✅ Receita homogênea pronta para porcionar!' : '🥄 Misturando (' + result.stirCount + '/3)...'));
+    if (bc.mixed) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('✅ Receita já está homogênea! Use o pote para porcionar.');
+      return true;
     }
-    if (!result.empty) ctx.notifyWorldAction();
+    ctx.stirHold = { spoon: ctx.heldItem, bowl: target, soundAt: 0 };
     return true;
   }
   if (ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed && target.spawnCtrl) {
@@ -118,6 +119,27 @@ export function handleScalpelTargetAction(ctx) {
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
     if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Transfira para uma placa estéril ou frasco/bag de spawn.');
     ctx.notifyWorldAction();
+  } else if (target.mode === 'biopsy' && target.item && target.item.wildMushroomCtrl) {
+    if (!scalpel.hasBlade) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Encaixe uma lâmina #24 no bisturi antes de cortar o cogumelo.');
+      return;
+    }
+    const wm = target.item.wildMushroomCtrl;
+    const hoodOk = isAsepticWorkArea(ctx, target.item);
+    const bladeOk = !!scalpel.sterile;
+    const glovesOk = !!ctx.wearingGloves;
+    scalpel.hasMycelium = true;
+    scalpel.biopsySpecies = wm.speciesName;
+    scalpel.biopsyAseptic = hoodOk && bladeOk && glovesOk;
+    updateScalpelLabel(ctx.heldItem);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+    if (ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(scalpel.biopsyAseptic
+        ? `🔪 Amostra estéril de ${wm.speciesName} coletada! Transfira para Placa de Petri ou Cultura Líquida.`
+        : `🔪 Amostra de ${wm.speciesName} coletada (⚠️ risco de contaminação sem fluxo/luvas/lâmina estéril!).`);
+    }
+    ctx.notifyWorldAction();
   } else if (target.mode === 'open' && target.item && target.item.mesh.userData.isPetri) {
     togglePetriLid(ctx, target.item);
   } else if (target.mode === 'transfer' && target.item && target.item.mesh.userData.petriCtrl) {
@@ -128,15 +150,34 @@ export function handleScalpelTargetAction(ctx) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A placa de destino precisa estar estéril, aberta e dentro da área asséptica.');
       return;
     }
-    const sterileTransfer = scalpel.sterile && isAsepticWorkArea(ctx, target.item);
+    const sterileTransfer = scalpel.sterile && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item);
     if (!inoculatePetri(target.item, 'mycelium', sterileTransfer)) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir o fragmento para esta placa.');
       return;
     }
     if (ctx.callbacks.onToast) ctx.callbacks.onToast(sterileTransfer
       ? '🍄 Fragmento transferido! Acompanhe o crescimento do micélio branco.'
-      : '🦠 A transferência contaminou a placa; higienize o Fluxo Laminar e use uma lâmina estéril.');
+      : '🦠 A transferência contaminou a placa; higienize o Fluxo Laminar, use luvas e lâmina estéril.');
     scalpel.hasMycelium = false;
+    scalpel.biopsyAseptic = true;
+    scalpel.sterile = false;
+    updateScalpelLabel(ctx.heldItem);
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+    ctx.notifyWorldAction();
+  } else if (target.mode === 'transfer_lc' && target.item && target.item.cultureCtrl) {
+    const lc = target.item.cultureCtrl;
+    const aseptic = scalpel.sterile && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!ctx.wearingGloves;
+    if (aseptic) {
+      lc.colonized = true;
+      lc.contaminated = false;
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🍄 Cultura Líquida inoculada com sucesso!');
+    } else {
+      lc.contaminated = true;
+      lc.colonized = false;
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Cultura Líquida contaminou por falta de assepsia (fluxo/luvas/lâmina estéril)!');
+    }
+    scalpel.hasMycelium = false;
+    scalpel.biopsyAseptic = true;
     scalpel.sterile = false;
     updateScalpelLabel(ctx.heldItem);
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);

@@ -10,6 +10,7 @@ import { toggleCabinetPart } from '../items/lab-cabinets.js';
 import { petCow } from '../entities/pasture-cows.js';
 import { grabSportBall, throwHeldSportBall } from './sports-physics.js';
 import { registerDiscoveredSpecies, triggerMagicCubensisEffect } from './mycoteca.js';
+import { registerPickable } from '../items/item-registry.js';
 
 export function isSeatOccupied(remoteAvatars, seat) {
   if (!seat) return false;
@@ -40,30 +41,43 @@ export function handleWorldInteraction(ctx) {
     return true;
   }
   if (ctx.hoveredMushroom && ctx.hoveredMushroom.active) {
-    ctx.hoveredMushroom.active = false;
-    ctx.hoveredMushroom.group.visible = false;
-    ctx.hoveredMushroom.respawnAt = performance.now() + 20000;
-    ctx.queueWorldStateChange(ctx.hoveredMushroom.id, 0);
-    if (window.MycoAudio) window.MycoAudio.playHarvest();
-    const spName = (ctx.hoveredMushroom.capMesh && ctx.hoveredMushroom.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
-    const disc = registerDiscoveredSpecies(spName);
-    const isMagic = (ctx.hoveredMushroom.id && ctx.hoveredMushroom.id.indexOf('wild_poop_') === 0) ||
-      spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1;
-    if (isMagic) {
-      triggerMagicCubensisEffect(() => {
-        if (ctx.playerPos) {
-          ctx.playerPos.y = 36;
-          if (typeof ctx.playerVelY === 'number') ctx.playerVelY = -1;
-          if (window.setCampusRoundParachuteActive) window.setCampusRoundParachuteActive(true);
-        }
-      });
+    if (ctx.heldItem) {
       if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast(`🍄✨ Você comeu ${spName}! (+40 XP • Micoteca: ${disc.list.length}/100)`);
+        ctx.callbacks.onToast('⚠️ Solte ou guarde o item atual antes de colher o cogumelo.');
       }
-    } else if (disc.isNew && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`📖 Nova espécie na Micoteca (${disc.list.length}/100): ${spName}`);
+      return true;
     }
-    if (ctx.callbacks.onHarvestMushroom) ctx.callbacks.onHarvestMushroom(ctx.hoveredMushroom.id);
+    const wm = ctx.hoveredMushroom;
+    wm.active = false;
+    wm.group.visible = false;
+    wm.respawnAt = performance.now() + 20000;
+    ctx.queueWorldStateChange(wm.id, 0);
+    if (window.MycoAudio) window.MycoAudio.playHarvest();
+    const spName = (wm.capMesh && wm.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
+    const disc = registerDiscoveredSpecies(spName);
+    const isMagic = (wm.id && wm.id.indexOf('wild_poop_') === 0) ||
+      spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1;
+
+    const heldGroup = wm.group.clone();
+    heldGroup.visible = true;
+    heldGroup.position.set(0, 0, 0);
+    heldGroup.scale.setScalar(0.65);
+    const pickedId = 'wild_picked_' + Date.now().toString(36);
+    const mItem = registerPickable(ctx, pickedId, '🍄 ' + spName, heldGroup, 0, 0, 0, 0, 0.14, 0.20, {
+      category: 'specimen',
+      purpose: 'Comer ou levar ao Fluxo Laminar para clonar com bisturi',
+      weightGrams: 18,
+      compatibilities: { canEnterCooker: false }
+    });
+    mItem.wildMushroomCtrl = { speciesName: spName, isMagic };
+    ctx.heldItem = mItem;
+    ctx.lastPickupAt = performance.now();
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(mItem.label);
+    if (ctx.callbacks.onHarvestMushroom) ctx.callbacks.onHarvestMushroom(wm.id);
+    if (ctx.callbacks.onToast) {
+      const micMsg = disc.isNew ? ` (Nova na Micoteca: ${disc.list.length}/100!)` : '';
+      ctx.callbacks.onToast(`🍄 Colheu ${spName}${micMsg}! Coma ou leve ao Lab para clonar.`);
+    }
     return true;
   }
   if (ctx.hoveredDoorObj) {

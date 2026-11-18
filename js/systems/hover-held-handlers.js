@@ -520,11 +520,19 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
       matched = { mode: 'cut', prompt: '🔪 Cortar fragmento de micélio (' + sCand.label + ')' };
       return true;
     }
+    if (!sc.hasMycelium && sCand.wildMushroomCtrl) {
+      matched = { mode: 'biopsy', prompt: '🔪 Cortar amostra de tecido de ' + sCand.wildMushroomCtrl.speciesName };
+      return true;
+    }
     if (sc.hasMycelium && petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.sterilized) {
       matched = {
         mode: petriCtrl.lidOpen ? 'transfer' : 'open',
         prompt: petriCtrl.lidOpen ? '🍄 Transferir o fragmento para ' + sCand.label : '🧫 Abrir a placa estéril no Fluxo Laminar'
       };
+      return true;
+    }
+    if (sc.hasMycelium && sCand.cultureCtrl && !sCand.cultureCtrl.colonized && !sCand.cultureCtrl.contaminated) {
+      matched = { mode: 'transfer_lc', prompt: '🧪 Inocular fragmento na Cultura Líquida' };
       return true;
     }
     if (sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.filled && !sCand.spawnCtrl.inoculated &&

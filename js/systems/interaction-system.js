@@ -685,6 +685,32 @@ export function handlePrimaryAction(ctx) {
         togglePetriLid(ctx, ctx.heldItem);
         return;
       }
+      if (ctx.heldItem && ctx.heldItem.wildMushroomCtrl) {
+        const wm = ctx.heldItem.wildMushroomCtrl;
+        const eatenItem = ctx.heldItem;
+        if (window.MycoAudio) window.MycoAudio.playHarvest();
+        if (wm.isMagic) {
+          triggerMagicCubensisEffect(() => {
+            if (ctx.playerPos) {
+              ctx.playerPos.y = 36;
+              ctx.playerVelY = 0;
+              ctx.onGround = false;
+            }
+          });
+          if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast(`🍄✨ Você comeu ${wm.speciesName}!`);
+          }
+        } else if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast(`🍄 Você comeu ${wm.speciesName}!`);
+        }
+        ctx.heldItem = null;
+        if (eatenItem.mesh && eatenItem.mesh.parent) eatenItem.mesh.parent.remove(eatenItem.mesh);
+        const idx = ctx.pickableItems.indexOf(eatenItem);
+        if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+        if (ctx.placementGhost) ctx.placementGhost.visible = false;
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+        return;
+      }
       if (ctx.heldItem && ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
         ctx.wearingGloves = !ctx.wearingGloves;
         if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
@@ -701,13 +727,13 @@ export function handlePrimaryAction(ctx) {
     }
     return;
   }
-  if (handleWorldInteraction(ctx)) return;
+  if (!ctx.adminEditMode && handleWorldInteraction(ctx)) return;
   if (ctx.hoveredPickable) {
-    if (ctx.hoveredPickable.dehydratorCtrl) {
+    if (!ctx.adminEditMode && ctx.hoveredPickable.dehydratorCtrl) {
       interactDehydrator(ctx, ctx.hoveredPickable);
       return;
     }
-    if (ctx.hoveredPickable.fridgeCtrl) {
+    if (!ctx.adminEditMode && ctx.hoveredPickable.fridgeCtrl) {
       const fridge = ctx.hoveredPickable;
       toggleCultureFridgeDoor(fridge);
       ctx.queueWorldStateChange(fridge.id, fridge.fridgeCtrl.doorOpen ? 1 : 0);
@@ -717,7 +743,7 @@ export function handlePrimaryAction(ctx) {
       }
       return;
     }
-    if (ctx.hoveredPickable.mesh.userData.isBlockedPickup && ctx.hoveredPickable.mesh.userData.isBlockedPickup(ctx.hoveredPickable)) {
+    if (!ctx.adminEditMode && ctx.hoveredPickable.mesh.userData.isBlockedPickup && ctx.hoveredPickable.mesh.userData.isBlockedPickup(ctx.hoveredPickable)) {
       return;
     }
     if (ctx.hoveredPickable.potItem && ctx.hoveredPickable.isAttached) {
@@ -814,6 +840,9 @@ export function handlePrimaryAction(ctx) {
     ctx.heldRotY = ctx.heldItem.mesh.rotation.y;
     setHeldTwoHandedGhost(ctx.heldItem, true);
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+    if (ctx.adminEditMode) {
+      beginHeldItemPlacement(ctx);
+    }
     ctx.notifyWorldAction();
   }
 }

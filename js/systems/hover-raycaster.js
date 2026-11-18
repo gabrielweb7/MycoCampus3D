@@ -542,6 +542,8 @@ export function updateHoverRay(ctx, customNdc) {
         prompt = '🔫 Laser DESLIGADO • Última: ' + ctx.thermoCurrentTemp.toFixed(1) + '°C [HOLD]' +
           (isTouch ? ' (Toque: Ligar Laser)' : ' (Clique: Ligar Laser • G/Q ou clique dir.: posicionar)');
       }
+    } else if (ctx.heldItem.wildMushroomCtrl) {
+      prompt = (isTouch ? '🍄 Toque para comer ' : '🍄 Clique para comer ') + ctx.heldItem.wildMushroomCtrl.speciesName;
     } else {
       ctx.placementValid = false;
       if (!isTouch) prompt = '📦 Pressione G/Q para posicionar este item';

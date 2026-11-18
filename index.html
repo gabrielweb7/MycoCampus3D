@@ -70,13 +70,17 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=0.9.119">
+  <link rel="stylesheet" href="css/game.css?v=0.9.120">
 </head>
 
 <body>
   <!-- 3D Fullscreen Canvas -->
   <div id="campus-canvas-wrap"></div>
   <div id="crosshair"></div>
+  <svg id="stir-progress-ring" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30 w-12 h-12 -rotate-90" viewBox="0 0 44 44">
+    <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(15,23,42,0.55)" stroke-width="4" />
+    <circle id="stir-progress-arc" cx="22" cy="22" r="18" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-dasharray="113.1" stroke-dashoffset="113.1" />
+  </svg>
 
   <!-- ENTRY LOBBY OVERLAY -->
   <div id="campus-lobby"
@@ -129,7 +133,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v0.9.119</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v0.9.120</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -546,10 +550,10 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.9.119';</script>
+  <script>window.MYCO_VERSION = '0.9.120';</script>
   <script src="js/vendor/three.min.js?v=r128"></script>
   <script src="js/vendor/OrbitControls.js?v=r128"></script>
-  <script type="module" src="js/main.js?v=0.9.119"></script>
+  <script type="module" src="js/main.js?v=0.9.120"></script>
 </body>
 
 </html>

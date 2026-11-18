@@ -52,10 +52,12 @@ export function bindControls(ctx) {
       }
     }
     if (e.code === 'KeyR' && ctx.heldItem) {
+      const step = ctx.adminEditMode ? (Math.PI / 12) : (Math.PI / 4);
+      const delta = e.shiftKey ? -step : step;
       if (window.rotateCampusHeldItem) {
-        window.rotateCampusHeldItem(e.shiftKey ? -Math.PI / 4 : Math.PI / 4);
+        window.rotateCampusHeldItem(delta);
       } else {
-        ctx.heldRotY = (ctx.heldRotY || 0) + (e.shiftKey ? -Math.PI / 4 : Math.PI / 4);
+        ctx.heldRotY = (ctx.heldRotY || 0) + delta;
       }
     }
     if (e.code === 'KeyI') {
@@ -204,7 +206,8 @@ export function bindControls(ctx) {
   ctx.renderer.domElement.addEventListener('wheel', function (e) {
     if (ctx.heldItem) {
       e.preventDefault();
-      ctx.heldRotY += e.deltaY > 0 ? 0.35 : -0.35;
+      const step = ctx.adminEditMode ? (Math.PI / 36) : 0.175;
+      ctx.heldRotY += e.deltaY > 0 ? step : -step;
     }
   }, { passive: false });
 
