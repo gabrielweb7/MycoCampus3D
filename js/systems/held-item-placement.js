@@ -101,6 +101,18 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   held.isMoved = true;
 
   if (snapCloseLid && held.potItem && ctx.snapClosePot) {
+    if (Array.isArray(ctx.cookerPots)) {
+      for (let i = 0; i < ctx.cookerPots.length; i++) {
+        const cp = ctx.cookerPots[i];
+        if (cp.lidItem === held && cp.potItem !== ctx.snapClosePot) {
+          cp.lidItem = null;
+          if (cp.potItem && cp.potItem.lidItem === held) cp.potItem.lidItem = null;
+        }
+        if (cp.potItem === ctx.snapClosePot) {
+          cp.lidItem = held;
+        }
+      }
+    }
     held.isAttached = true;
     held.potItem = ctx.snapClosePot;
     ctx.snapClosePot.lidItem = held;

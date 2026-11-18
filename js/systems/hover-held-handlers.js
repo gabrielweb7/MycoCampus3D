@@ -330,7 +330,7 @@ function handleCookerInsertHover(ctx, setHoverPrompt) {
   if (!canItemEnterCooker(ctx.heldItem)) return false;
   for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
     const cp = ctx.cookerPots[ci];
-    if (cp.lidItem.isAttached || cp.contents.length >= 6) continue;
+    if ((cp.lidItem && cp.lidItem.isAttached) || cp.contents.length >= 6) continue;
     const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
     if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
       ctx.hoverHit = cpHits[0];
@@ -362,9 +362,10 @@ function handleCookerInsertHover(ctx, setHoverPrompt) {
 
 function handleSinkHover(ctx, setHoverPrompt) {
   if (!ctx.labSinkMeshes || !ctx.labSinkMeshes.length) return false;
-  const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !cp.lidItem.isAttached);
+  const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !(cp.lidItem && cp.lidItem.isAttached));
   const isLiquidHeld = canFillFromSink(ctx.heldItem);
-  if (!isPotHeld && !isLiquidHeld) return false;
+  const isBowlHeld = !!(ctx.heldItem && ctx.heldItem.bowlCtrl);
+  if (!isPotHeld && !isLiquidHeld && !isBowlHeld) return false;
   const sHits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
   if (sHits.length === 0 || sHits[0].distance >= 3.5) return false;
   ctx.hoverHit = sHits[0];
@@ -372,6 +373,21 @@ function handleSinkHover(ctx, setHoverPrompt) {
   const sinkAction = sHits[0].object.userData.sinkAction || 'fill';
   ctx.hoveredSinkAction = sinkAction;
   hidePlacementGhost(ctx);
+  if (isBowlHeld) {
+    const bc = ctx.heldItem.bowlCtrl;
+    if (bc.mixed) {
+      setHoverPrompt(ctx, '🗑️ Mistura já homogênea — descarte na lixeira');
+    } else if (sinkAction === 'drain') {
+      const w = Math.round(bc.ingredients.water || 0);
+      setHoverPrompt(ctx, w > 0
+        ? '🚰 SEGURE na Cuba para esvaziar água do Pote (' + w + 'g água)'
+        : '🗑️ Só há sólidos no Pote — use a lixeira para descartar');
+    } else {
+      const tot = Math.round(Object.values(bc.ingredients).reduce((a, b) => a + b, 0));
+      setHoverPrompt(ctx, '💧 SEGURE na Torneira para encher água no Pote (' + tot + '/600g)');
+    }
+    return true;
+  }
   const sinkLc = ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.liquidCtrl;
   const sinkPot = ctx.cookerPots.find((cp) => cp.potItem === ctx.heldItem);
   const curVol = sinkLc ? sinkLc.volMl : (sinkPot ? sinkPot.waterMl : 0);
@@ -410,7 +426,7 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
       const cp = ctx.cookerPots[ci];
       const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
       const potWaterCap = hasBase ? 4000 : 10000;
-      if (cp.lidItem.isAttached || cp.waterMl >= potWaterCap) continue;
+      if ((cp.lidItem && cp.lidItem.isAttached) || cp.waterMl >= potWaterCap) continue;
       const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
       if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
         ctx.hoverHit = cpHits[0];
@@ -495,7 +511,9 @@ function handleSpoonOrBowlHover(ctx, intersectPickableItem, setHoverPrompt) {
   ctx.hoverHit = res.hit;
   ctx.hoveredBowlTarget = res.item;
   hidePlacementGhost(ctx);
-  setHoverPrompt(ctx, isSpoonTarget ? '🥄 Misturar ingredientes no Pote' : '🥣 Porcionar receita em ' + res.item.label);
+  setHoverPrompt(ctx, isSpoonTarget
+    ? (res.item.bowlCtrl && res.item.bowlCtrl.mixed ? '✅ Receita já homogênea' : '🥄 Segure 3s para misturar no Pote')
+    : '🥣 Porcionar receita em ' + res.item.label);
   return true;
 }
 
@@ -555,7 +573,7 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
   if (ctx.heldItem.spawnCtrl && !ctx.heldItem.spawnCtrl.filled && !ctx.heldItem.spawnCtrl.burned) {
     for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
       const cp = ctx.cookerPots[ci];
-      if (cp.lidItem.isAttached || !cp.grainAlDente || (cp.grainGrams || 0) <= 0) continue;
+      if ((cp.lidItem && cp.lidItem.isAttached) || !cp.grainAlDente || (cp.grainGrams || 0) <= 0) continue;
       const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
       if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
         ctx.hoverHit = cpHits[0];
@@ -571,7 +589,7 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
     for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
       const cp = ctx.cookerPots[ci];
       const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
-      if (cp.lidItem.isAttached || hasBase || cp.waterMl < 3500 || (cp.grainGrams || 0) >= 4000) continue;
+      if ((cp.lidItem && cp.lidItem.isAttached) || hasBase || cp.waterMl < 3500 || (cp.grainGrams || 0) >= 4000) continue;
       const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
       if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
         ctx.hoverHit = cpHits[0];

@@ -566,7 +566,8 @@ export function stepPressureCookers(ctx, dt) {
     let evapRateMl = 0;
     if (activeBurner && hasWater && cp.temp >= 96) {
       const baseEvap = heatLvl === 1 ? 4.5 : (heatLvl === 2 ? 10.0 : 26.0);
-      evapRateMl = cp.lidItem.isAttached ? baseEvap : baseEvap * 1.85;
+      const lidClosed = !!(cp.lidItem && cp.lidItem.isAttached);
+      evapRateMl = lidClosed ? baseEvap : baseEvap * 1.85;
       cp.waterMl = Math.max(0, cp.waterMl - evapRateMl * dt);
       updateCookerWaterVisual(cp);
     }
@@ -596,7 +597,7 @@ export function stepPressureCookers(ctx, dt) {
     }
 
     if (activeBurner && hasWater) {
-      if (!cp.lidItem.isAttached) {
+      if (!(cp.lidItem && cp.lidItem.isAttached)) {
         // Fervura aberta a 100°C
         cp.temp = Math.min(100, cp.temp + dt * heatRate);
         cp.psi = Math.max(0, cp.psi - dt * 4.0);
@@ -631,7 +632,7 @@ export function stepPressureCookers(ctx, dt) {
       } else {
         cp.temp = Math.max(25, cp.temp - dt * 9.5);
       }
-      if (!cp.lidItem.isAttached) {
+      if (!(cp.lidItem && cp.lidItem.isAttached)) {
         cp.psi = 0;
         cp.overheatTimer = 0;
         if (cp.contents.length === 0) cp.burned = false;
@@ -639,7 +640,7 @@ export function stepPressureCookers(ctx, dt) {
       }
     }
 
-    const isLocked = cp.lidItem.isAttached && cp.psi >= LAB.autoclaveLockPsi;
+    const isLocked = !!(cp.lidItem && cp.lidItem.isAttached) && cp.psi >= LAB.autoclaveLockPsi;
     if (cp.safetyPins) {
       const targetPinY = isLocked ? 0.128 : 0.110;
       for (let pni = 0; pni < cp.safetyPins.length; pni++) {
@@ -647,8 +648,8 @@ export function stepPressureCookers(ctx, dt) {
       }
     }
 
-    const openBoiling = !cp.lidItem.isAttached && cp.temp >= 98 && hasWater;
-    const pressureSteamFactor = (cp.lidItem.isAttached && cp.psi >= 10.0)
+    const openBoiling = !(cp.lidItem && cp.lidItem.isAttached) && cp.temp >= 98 && hasWater;
+    const pressureSteamFactor = ((cp.lidItem && cp.lidItem.isAttached) && cp.psi >= 10.0)
       ? Math.min(1, (cp.psi - 10.0) / 5.0)
       : 0;
     const openSteamFactor = openBoiling ? 0.45 : 0;
@@ -692,7 +693,7 @@ export function stepPressureCookers(ctx, dt) {
     const waterTooHigh = cp.waterMl > 4000;
     const waterLevelOk = !waterTooLow && !waterTooHigh;
 
-    const canAdvanceProcess = activeBurner && hasWater && cp.lidItem.isAttached && !cp.burned &&
+    const canAdvanceProcess = activeBurner && hasWater && !!(cp.lidItem && cp.lidItem.isAttached) && !cp.burned &&
       (!hasContainers || (hasBase && waterLevelOk)) && (
         (cp.mode === 'sterilize' && cp.psi >= 14.2) ||
         (cp.mode === 'pasteurize' && cp.temp >= 74 && cp.temp <= 90)
@@ -819,7 +820,7 @@ export function stepPressureCookers(ctx, dt) {
           stageTitle = '🌊 Muita água na panela!';
           stageSub = 'Ideal: 3.0–4.0L (+0.5cm da base)';
           barPct = 100; barCol = '#f59e0b'; borderCol = '#f59e0b';
-        } else if (activeBurner && !cp.lidItem.isAttached) {
+        } else if (activeBurner && !(cp.lidItem && cp.lidItem.isAttached)) {
           if ((cp.grainGrams || 0) > 0) {
             barPct = cp.grainAlDente ? 100 : Math.min(100, Math.round(((cp.grainCookSec || 0) / 60) * 100));
             stageTitle = cp.grainAlDente ? '🌽 Milho AO DENTE (Pronto!)' : '🌽 Cozinhando Milho (' + barPct + '%)';
@@ -832,7 +833,7 @@ export function stepPressureCookers(ctx, dt) {
             barCol = cp.temp >= 98 ? '#38bdf8' : '#f97316';
           }
           borderCol = barCol;
-        } else if (activeBurner && cp.lidItem.isAttached) {
+        } else if (activeBurner && (cp.lidItem && cp.lidItem.isAttached)) {
           if (cp.mode === 'pasteurize') {
             if (cp.temp < 74) {
               barPct = Math.min(100, Math.round(((cp.temp - 25) / 50) * 100));

@@ -33,7 +33,7 @@ import { getItemsSupportedBy } from './surface-group-move.js';
 import { fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
-import { addIngredientToBowl } from '../items/mixing-bowl.js';
+import { addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import {
   handleFlocaoTargetAction,
   handleMixingBowlTargetAction,
@@ -375,8 +375,43 @@ export function handlePrimaryAction(ctx) {
         ctx.notifyWorldAction();
         return;
       }
+      if (ctx.heldItem.bowlCtrl) {
+        const bc = ctx.heldItem.bowlCtrl;
+        const sinkAction = ctx.hoveredSinkAction || 'fill';
+        if (bc.mixed) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🗑️ Receita já misturada! Descarte na lixeira.');
+          return;
+        }
+        const totalG = Object.values(bc.ingredients).reduce((a, b) => a + b, 0);
+        if (sinkAction === 'fill') {
+          if (totalG < 600) {
+            const add = Math.min(25, 600 - totalG);
+            addIngredientToBowl(ctx.heldItem, 'water', add);
+            ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, mode: 'fill', carryMl: 0, addedAny: true };
+            triggerSinkStream(ctx.hoveredSink, 500);
+            if (window.MycoAudio) window.MycoAudio.playSpray();
+            if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+            ctx.notifyWorldAction();
+          } else if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast('💧 Pote de Mistura já está cheio (600g)!');
+          }
+        } else {
+          if ((bc.ingredients.water || 0) > 0) {
+            bc.ingredients.water = Math.max(0, (bc.ingredients.water || 0) - 25);
+            bc.stirProgress = 0;
+            updateMixingBowlLabel(ctx.heldItem);
+            ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, mode: 'drain', carryMl: 0, addedAny: true };
+            if (window.MycoAudio) window.MycoAudio.playSpray();
+            if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+            ctx.notifyWorldAction();
+          } else if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast('🗑️ Só há ingredientes secos no pote; use a lixeira para descartar.');
+          }
+        }
+        return;
+      }
       const medium = ctx.heldItem.pdaMediumCtrl;
-      const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !cp.lidItem.isAttached);
+      const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !(cp.lidItem && cp.lidItem.isAttached));
       if (hasPdaContents(ctx.heldItem)) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente já contém ou processou meio PDA/BDA; use um recipiente limpo.');
         return;
