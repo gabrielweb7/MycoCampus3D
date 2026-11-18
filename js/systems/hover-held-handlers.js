@@ -169,6 +169,16 @@ function handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt) {
     bestLabel = pickHit.item.label;
     bestHitObj = pickHit.hit;
   }
+  if (greenhouseHitMeshes.length > 0) {
+    const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
+    if (ghHits.length > 0 && ghHits[0].distance < bestDist && ghHits[0].object.userData.greenhouseSlot) {
+      const hSlot = ghHits[0].object.userData.greenhouseSlot;
+      bestDist = ghHits[0].distance;
+      bestTarget = hSlot;
+      bestLabel = hSlot.name;
+      bestHitObj = ghHits[0];
+    }
+  }
   if (!bestTarget && ctx.doorHitMeshes && ctx.doorHitMeshes.length) {
     const dHits = ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false);
     if (dHits.length > 0 && dHits[0].distance < bestDist && dHits[0].object.userData.doorObj) {

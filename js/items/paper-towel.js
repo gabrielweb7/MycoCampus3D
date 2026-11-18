@@ -4,6 +4,7 @@
  */
 
 import { registerPickable } from './item-registry.js';
+import { spawnSprayParticles } from './alcohol-spray.js';
 
 const THREE = window.THREE;
 
@@ -81,6 +82,9 @@ export function wipeWithPaperTowel(ctx, wipeInfo) {
     ctx.hoodSanitizedUntil = Date.now() + 120000;
     ctx.queueWorldStateChange('hood_sanitized_until', 1);
     if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('sanitize_hood');
+    if (ctx.hoverHit && ctx.hoverHit.point) {
+      spawnSprayParticles(ctx, 0xf8fafc, 16, ctx.hoverHit.point.clone(), new THREE.Vector3(0, 1, 0), 1.2, 0.45, 0.035, 0.4);
+    }
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks && ctx.callbacks.onToast) {
       ctx.callbacks.onToast(hadWet
@@ -104,6 +108,9 @@ export function wipeWithPaperTowel(ctx, wipeInfo) {
   target._sanitizeUntil = nowPerf + 120000;
   target._sanitizeHits = 0;
 
+  if (ctx.hoverHit && ctx.hoverHit.point) {
+    spawnSprayParticles(ctx, 0xf8fafc, 14, ctx.hoverHit.point.clone(), new THREE.Vector3(0, 1, 0), 1.1, 0.4, 0.032, 0.38);
+  }
   if (window.MycoAudio) window.MycoAudio.playClick();
   if (ctx.callbacks && ctx.callbacks.onToast) {
     ctx.callbacks.onToast(hadWet
