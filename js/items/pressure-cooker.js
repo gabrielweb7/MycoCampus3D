@@ -827,7 +827,7 @@ export function stepPressureCookers(ctx, dt) {
       if (showHud) {
         let stageTitle = '', stageSub = '', barPct = 0, barCol = '#38bdf8', borderCol = '#38bdf8';
         const waterLit = (cp.waterMl / 1000).toFixed(1) + 'L';
-        const waterEta = evapRateMl > 0 ? (' • ~' + Math.ceil(cp.waterMl / evapRateMl) + 's água') : '';
+        const waterEta = '';
         const fireTag = activeBurner ? (' • ' + BURNER_LEVEL_NAMES[heatLvl]) : '';
 
         if (cp.burned) {
