@@ -521,7 +521,11 @@ function bindChatAndShortcuts() {
     const inp = $('chat-input');
     if (!inp) return;
     const txt = inp.value.trim();
-    if (txt) {
+    if (txt.toLowerCase() === '/discord') {
+      inp.value = '';
+      window.open('https://discord.gg/EmpEx6PxG', '_blank', 'noopener,noreferrer');
+      showToast('💬 Abrindo o Discord oficial do MycoCampus3D!');
+    } else if (txt) {
       appState.pendingChatMsg = txt.slice(0, 140);
       inp.value = '';
       syncMultiplayer();

@@ -159,6 +159,17 @@ function renderBadgeTexture(badgeState, title, params, action) {
   ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
   const actionLines = action ? wrapLines(ctx, '👉 ' + action, maxTextW, 2) : [];
 
+  let maxLineW = 0;
+  ctx.font = 'bold 24px "Segoe UI", -apple-system, Roboto, sans-serif';
+  for (let i = 0; i < titleLines.length; i++) maxLineW = Math.max(maxLineW, ctx.measureText(titleLines[i]).width);
+  ctx.font = '600 19px "Segoe UI", -apple-system, Roboto, sans-serif';
+  for (let i = 0; i < paramLines.length; i++) maxLineW = Math.max(maxLineW, ctx.measureText(paramLines[i]).width);
+  ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
+  for (let i = 0; i < actionLines.length; i++) maxLineW = Math.max(maxLineW, ctx.measureText(actionLines[i]).width);
+
+  const boxW = Math.min(w - 20, Math.max(220, Math.ceil(maxLineW) + 64));
+  const boxX = (w - boxW) * 0.5;
+
   const padTop = 26;
   const titleH = titleLines.length * 28;
   const paramH = paramLines.length ? (paramLines.length * 24 + 6) : 0;
@@ -167,13 +178,13 @@ function renderBadgeTexture(badgeState, title, params, action) {
   const padBottom = actionLines.length ? 22 : 16;
   const boxH = Math.min(canvas.height - 16, padTop + titleH + paramH + divGap + actionH + padBottom);
 
-  // Fundo escuro nítido ajustado exatamente ao conteúdo
+  // Fundo escuro nítido ajustado exatamente ao conteúdo (largura e altura)
   ctx.save();
   ctx.fillStyle = 'rgba(8, 13, 24, 0.95)';
-  roundRect(ctx, 10, 8, w - 20, boxH, 20);
+  roundRect(ctx, boxX, 8, boxW, boxH, 20);
   ctx.fill();
 
-  const grad = ctx.createLinearGradient(10, 8, w - 20, 8 + boxH);
+  const grad = ctx.createLinearGradient(boxX, 8, boxX + boxW, 8 + boxH);
   grad.addColorStop(0, 'rgba(52, 211, 153, 0.95)');
   grad.addColorStop(1, 'rgba(56, 189, 248, 0.95)');
   ctx.strokeStyle = grad;
@@ -212,8 +223,8 @@ function renderBadgeTexture(badgeState, title, params, action) {
     ctx.strokeStyle = 'rgba(148, 163, 184, 0.30)';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(30, divY);
-    ctx.lineTo(w - 30, divY);
+    ctx.moveTo(boxX + 20, divY);
+    ctx.lineTo(boxX + boxW - 20, divY);
     ctx.stroke();
 
     // Linha 3: Ação contextual (Amarelo-ouro brilhante de leitura fácil)
