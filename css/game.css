@@ -173,23 +173,23 @@ body.device-tablet #fps-hint {
   display: none !important;
 }
 
-@keyframes mycoTripL1 {
-  0%, 100% { filter: hue-rotate(-10deg) saturate(1.48) contrast(1.06) brightness(1.04); transform: scale(1); }
-  50% { filter: hue-rotate(28deg) saturate(1.68) contrast(1.08) brightness(1.07); transform: scale(1.012); }
+@keyframes mycoTripGentle {
+  0%, 100% {
+    filter: hue-rotate(-8deg) saturate(var(--trip-sat, 1.45)) contrast(var(--trip-con, 1.06)) brightness(var(--trip-bri, 1.04));
+    transform: scale(1);
+  }
+  50% {
+    filter: hue-rotate(24deg) saturate(calc(var(--trip-sat, 1.45) * 1.12)) contrast(var(--trip-con, 1.06)) brightness(calc(var(--trip-bri, 1.04) * 1.03));
+    transform: scale(1.01);
+  }
 }
-@keyframes mycoTripL2 {
-  0%, 100% { filter: hue-rotate(0deg) saturate(2.2) contrast(1.14); transform: scale(1.02) rotate(-2.2deg); }
-  50% { filter: hue-rotate(220deg) saturate(2.7) contrast(1.2); transform: scale(1.045) rotate(2.2deg); }
-}
-@keyframes mycoTripL3 {
-  0% { filter: hue-rotate(0deg) saturate(3.0) contrast(1.22); transform: scale(1.04) rotate(-7deg) skewX(2deg); }
-  50% { filter: hue-rotate(200deg) saturate(3.6) contrast(1.28); transform: scale(1.075) rotate(7deg) skewX(-2deg); }
-  100% { filter: hue-rotate(360deg) saturate(3.0) contrast(1.22); transform: scale(1.04) rotate(-7deg) skewX(2deg); }
-}
-@keyframes mycoTripUpsideDown {
-  0% { filter: hue-rotate(0deg) saturate(3.5); transform: scale(1.06) rotate(0deg); }
-  45% { filter: hue-rotate(180deg) saturate(4.0) brightness(1.35); transform: scale(1.08) rotate(180deg); }
-  100% { filter: hue-rotate(360deg) saturate(2.0) brightness(2.0); transform: scale(1.02) rotate(180deg); }
+
+@keyframes mycoTripFreakout {
+  0% { filter: saturate(2.5) contrast(1.4) brightness(0.95); transform: scale(1.02) rotate(0deg); }
+  25% { filter: saturate(0.4) contrast(2.2) brightness(0.42) invert(0.08); transform: scale(1.06) rotate(-14deg); }
+  55% { filter: saturate(0.15) contrast(2.8) brightness(0.16) invert(0.14); transform: scale(1.08) rotate(180deg); }
+  85% { filter: saturate(0.1) contrast(3.0) brightness(0.08); transform: scale(1.04) rotate(180deg); }
+  100% { filter: saturate(0.2) contrast(1.5) brightness(0.04); transform: scale(1.0) rotate(180deg); }
 }
 
 @keyframes mycoPrismSpin {
@@ -197,21 +197,28 @@ body.device-tablet #fps-hint {
   to { transform: scale(1.35) rotate(360deg); }
 }
 
-body.myco-trip-1 #campus-canvas-wrap,
-body.myco-trip-2 #campus-canvas-wrap,
-body.myco-trip-3 #campus-canvas-wrap,
-body.myco-trip-4 #campus-canvas-wrap {
-  will-change: transform, filter;
+@keyframes mycoCreatureLurk {
+  0%, 100% { opacity: 0.25; transform: scale(0.96) translateY(0); }
+  50% { opacity: 0.92; transform: scale(1.06) translateY(-8px); }
 }
-body.myco-trip-1 #myco-magic-overlay { animation: mycoPrismSpin 28s linear infinite; }
-body.myco-trip-2 #myco-magic-overlay { animation: mycoPrismSpin 8s linear infinite; }
-body.myco-trip-3 #myco-magic-overlay { animation: mycoPrismSpin 4s linear infinite; }
-body.myco-trip-4 #myco-magic-overlay { animation: mycoPrismSpin 2s linear infinite; }
 
-body.myco-trip-1 #campus-canvas-wrap { animation: mycoTripL1 18s ease-in-out infinite; transform-origin: center center; }
-body.myco-trip-2 #campus-canvas-wrap { animation: mycoTripL2 3.0s ease-in-out infinite; transform-origin: center center; }
-body.myco-trip-3 #campus-canvas-wrap { animation: mycoTripL3 2.1s ease-in-out infinite; transform-origin: center center; }
-body.myco-trip-4 #campus-canvas-wrap { animation: mycoTripUpsideDown 2.6s ease-in-out forwards; transform-origin: center center; }
+body.myco-trip-active #campus-canvas-wrap,
+body.myco-trip-freakout #campus-canvas-wrap {
+  will-change: transform, filter;
+  transform-origin: center center;
+}
+
+body.myco-trip-active #myco-magic-overlay {
+  animation: mycoPrismSpin 26s linear infinite;
+}
+
+body.myco-trip-active #campus-canvas-wrap {
+  animation: mycoTripGentle 16s ease-in-out infinite;
+}
+
+body.myco-trip-freakout #campus-canvas-wrap {
+  animation: mycoTripFreakout 4.2s ease-in-out forwards;
+}
 
 #interact-pill {
   top: 76px;

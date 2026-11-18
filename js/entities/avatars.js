@@ -407,12 +407,71 @@ export function animateAvatarExpression(av, dt, holding, chatMsg) {
   av.blinkTimer -= dt;
   const blinkNow = av.blinkTimer <= 0;
   if (av.blinkTimer <= -0.14) av.blinkTimer = 2.4 + Math.random() * 3.5;
-  const mood = chatMsg ? 'chat' : (holding ? 'focused' : 'happy');
+  const mood = av.emote === 'rainbow_trip' ? 'happy' : (chatMsg ? 'chat' : (holding ? 'focused' : 'happy'));
   if (mood !== av.lastMood || blinkNow !== av.lastBlink) {
     av.lastMood = mood;
     av.lastBlink = blinkNow;
     drawAvatarFace(av.faceCtx, mood, blinkNow);
     av.faceTex.needsUpdate = true;
+  }
+}
+
+function ensureRainbowAura(av) {
+  if (av.rainbowAuraGroup) return av.rainbowAuraGroup;
+  const grp = new THREE.Group();
+  const outerRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.46, 0.56, 32),
+    new THREE.MeshBasicMaterial({ color: 0xff0080, transparent: true, opacity: 0.48, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  outerRing.rotation.x = -Math.PI / 2;
+  outerRing.position.y = 0.025;
+  const innerRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.32, 0.39, 32),
+    new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.52, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  innerRing.rotation.x = -Math.PI / 2;
+  innerRing.position.y = 0.032;
+  grp.add(outerRing, innerRing);
+  const orbGeo = new THREE.SphereGeometry(0.028, 8, 8);
+  const orbs = [];
+  for (let oi = 0; oi < 8; oi++) {
+    const col = new THREE.Color().setHSL(oi / 8, 0.95, 0.62);
+    const oMat = new THREE.MeshBasicMaterial({
+      color: col, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const orb = new THREE.Mesh(orbGeo, oMat);
+    grp.add(orb);
+    orbs.push({ mesh: orb, angle: (oi / 8) * Math.PI * 2, phase: oi * 0.75, baseHue: oi / 8 });
+  }
+  av.group.add(grp);
+  av.rainbowAuraGroup = grp;
+  av.rainbowAuraOrbs = orbs;
+  return grp;
+}
+
+export function animateRainbowAura(av, tNow) {
+  if (!av) return;
+  const active = av.emote === 'rainbow_trip';
+  if (!active) {
+    if (av.rainbowAuraGroup) av.rainbowAuraGroup.visible = false;
+    return;
+  }
+  const grp = ensureRainbowAura(av);
+  grp.visible = true;
+  grp.rotation.y = tNow * 0.9;
+  const pScale = 1 + Math.sin(tNow * 2.8) * 0.07;
+  grp.children[0].scale.set(pScale, pScale, 1);
+  grp.children[0].material.color.setHSL((tNow * 0.18) % 1, 0.95, 0.58);
+  grp.children[1].material.color.setHSL((tNow * 0.18 + 0.5) % 1, 0.95, 0.62);
+  const orbs = av.rainbowAuraOrbs || [];
+  for (let oi = 0; oi < orbs.length; oi++) {
+    const o = orbs[oi];
+    const a = o.angle + tNow * 1.25;
+    const h = ((tNow * 0.5 + o.phase) % 1.45) + 0.08;
+    const rad = 0.46 + Math.sin(tNow * 2.2 + o.phase) * 0.06;
+    o.mesh.position.set(Math.cos(a) * rad, h, Math.sin(a) * rad);
+    o.mesh.material.color.setHSL((o.baseHue + tNow * 0.2) % 1, 0.95, 0.62);
+    o.mesh.material.opacity = Math.sin((h - 0.08) / 1.45 * Math.PI) * 0.82;
   }
 }
 
@@ -440,6 +499,7 @@ export function stepMultiplayerAvatars(ctx, dt) {
   Object.keys(remoteAvatars).forEach(function (id) {
     const av = remoteAvatars[id];
     if (auraEnabled) animateAvatarAura(av, tNow);
+    animateRainbowAura(av, tNow);
 
     const prevX = av.group.position.x;
     const prevZ = av.group.position.z;
@@ -631,6 +691,10 @@ export function stepMultiplayerAvatars(ctx, dt) {
           av.leftArm.rotation.x = 0.4; av.leftArm.rotation.z = -0.28;
           av.rightArm.rotation.x = 0.4; av.rightArm.rotation.z = 0.28;
           av.group.position.y += 0.30 + Math.sin(tNow * 2.5) * 0.06;
+        } else if (av.emote === 'rainbow_trip') {
+          av.headGroup.rotation.z = Math.sin(tNow * 3) * 0.09;
+          av.leftArm.rotation.z = -0.22 - Math.abs(Math.sin(tNow * 4)) * 0.16;
+          av.rightArm.rotation.z = 0.22 + Math.abs(Math.sin(tNow * 4)) * 0.16;
         }
       }
     }

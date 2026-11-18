@@ -111,7 +111,7 @@ export function stepPlayerMovement(ctx, dt, now) {
       const isSprinting = !!(ctx.keys['ShiftLeft'] || ctx.keys['ShiftRight'] || ctx.mobileSprint);
       const isCrouching = !ctx.seatedSeat && !ctx.paragliderActive && !ctx.snowboardActive &&
         !!(ctx.keys['ControlLeft'] || ctx.keys['ControlRight'] || ctx.keys['KeyC'] || ctx.mobileCrouch);
-      let maxSpeed = isSprinting ? P.sprintSpeed : P.walkSpeed;
+      let maxSpeed = (isSprinting ? P.sprintSpeed : P.walkSpeed) * (window.getTripSpeedMultiplier ? window.getTripSpeedMultiplier() : 1);
       if (isCrouching) maxSpeed *= 0.55;
       const throttle = Math.min(1, mag);
       moveX /= mag; moveZ /= mag;

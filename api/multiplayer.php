@@ -257,7 +257,7 @@ if ($action === 'sync') {
     }
 
     $emote = (string)($body['emote'] ?? '');
-    $validEmotes = ['wave', 'dance', 'cheer', 'meditate'];
+    $validEmotes = ['wave', 'dance', 'cheer', 'meditate', 'rainbow_trip'];
     if (!in_array($emote, $validEmotes, true)) {
         $emote = '';
     }

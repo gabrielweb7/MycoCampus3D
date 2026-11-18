@@ -92,7 +92,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       walking: sim.isWalking, seated: !!sim.seatedSeat, in_fps: sim.inFps,
       toy_mode: (sim.paragliderActive && inAir) ? 'paraglider' : (sim.snowboardActive ? 'snowboard' : ''),
       current_hat: sim.localHat,
-      emote: sim.localEmote
+      emote: sim.localEmote || (window.isTripRainbowActive && window.isTripRainbowActive() ? 'rainbow_trip' : '')
     };
   };
 

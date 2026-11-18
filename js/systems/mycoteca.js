@@ -26,27 +26,72 @@ export function registerDiscoveredSpecies(speciesName) {
   return { list, isNew: true };
 }
 
-let tripLevel = 0;
+let tripShroomCount = 0;
+let tripActive = false;
+let tripEndsAt = 0;
 let tripStartTimer = null;
-let tripFadeTimer = null;
 let tripDecayTimer = null;
-
-function clearTripClasses() {
-  if (typeof document === 'undefined') return;
-  document.body.classList.remove('myco-trip-1', 'myco-trip-2', 'myco-trip-3', 'myco-trip-4');
-}
 
 function clearTripTimers() {
   if (tripStartTimer) { clearTimeout(tripStartTimer); tripStartTimer = null; }
-  if (tripFadeTimer) { clearTimeout(tripFadeTimer); tripFadeTimer = null; }
   if (tripDecayTimer) { clearTimeout(tripDecayTimer); tripDecayTimer = null; }
+}
+
+function clearTripVisuals() {
+  if (typeof document === 'undefined') return;
+  document.body.classList.remove('myco-trip-active', 'myco-trip-freakout');
+  document.documentElement.style.removeProperty('--trip-sat');
+  document.documentElement.style.removeProperty('--trip-con');
+  document.documentElement.style.removeProperty('--trip-bri');
+  const overlay = document.getElementById('myco-magic-overlay');
+  if (overlay) overlay.style.opacity = '0';
+  const darkLayer = document.getElementById('myco-freakout-dark');
+  if (darkLayer) darkLayer.style.opacity = '0';
+}
+
+export function isTripRainbowActive() {
+  return tripActive && tripShroomCount >= 1 && tripShroomCount < 20;
+}
+
+export function getTripSpeedMultiplier() {
+  if (!tripActive || tripShroomCount <= 0 || tripShroomCount >= 20) return 1;
+  return 1 + Math.min(0.45, tripShroomCount * 0.03);
+}
+
+if (typeof window !== 'undefined') {
+  window.isTripRainbowActive = isTripRainbowActive;
+  window.getTripSpeedMultiplier = getTripSpeedMultiplier;
+}
+
+function applyProgressiveColorVars(count) {
+  const root = document.documentElement.style;
+  const sat = 1.35 + count * 0.09;
+  const con = 1.04 + count * 0.012;
+  const bri = 1.02 + Math.min(0.14, count * 0.008);
+  root.setProperty('--trip-sat', sat.toFixed(2));
+  root.setProperty('--trip-con', con.toFixed(2));
+  root.setProperty('--trip-bri', bri.toFixed(2));
+}
+
+function scheduleTripEnd(overlay) {
+  if (tripDecayTimer) clearTimeout(tripDecayTimer);
+  const remaining = Math.max(2000, tripEndsAt - Date.now());
+  tripDecayTimer = setTimeout(() => {
+    overlay.style.transition = 'opacity 25s ease-out';
+    overlay.style.opacity = '0';
+    tripDecayTimer = setTimeout(() => {
+      tripActive = false;
+      tripShroomCount = 0;
+      tripEndsAt = 0;
+      clearTripVisuals();
+    }, 25000);
+  }, remaining);
 }
 
 export function triggerMagicCubensisEffect(onSkyFall) {
   if (typeof document === 'undefined') return;
   clearTripTimers();
-  tripLevel = Math.min(4, tripLevel + 1);
-  clearTripClasses();
+  tripShroomCount = Math.min(20, tripShroomCount + 1);
 
   let overlay = document.getElementById('myco-magic-overlay');
   if (!overlay) {
@@ -55,72 +100,98 @@ export function triggerMagicCubensisEffect(onSkyFall) {
     overlay.style.cssText =
       'position:fixed;inset:0;pointer-events:none;z-index:24;opacity:0;mix-blend-mode:screen;' +
       'background:conic-gradient(from 45deg at 50% 50%, rgba(236,72,153,0.28), rgba(168,85,247,0.34), rgba(56,189,248,0.28), rgba(250,204,21,0.28), rgba(236,72,153,0.28));' +
-      'transition:opacity 1.2s ease;';
+      'transition:opacity 1.5s ease;';
     document.body.appendChild(overlay);
   }
 
-  // 1ª trip: demora ~1 min pra bater de leve, fica ~2 min bem colorida/tranquila e vai se esvaindo devagar
-  if (tripLevel === 1) {
-    overlay.style.transition = 'opacity 45s ease-in';
-    overlay.style.opacity = '0.12';
-    tripStartTimer = setTimeout(() => {
-      document.body.classList.add('myco-trip-1');
-      overlay.style.transition = 'opacity 25s ease-in-out';
-      overlay.style.opacity = '0.32';
+  // 20º cogumelo: SURTO CABULOSO -> vira tela, tudo preto/medonho, seres estranhos, desmaia no branco e cai do céu
+  if (tripShroomCount >= 20) {
+    tripActive = false;
+    document.body.classList.remove('myco-trip-active');
+    document.body.classList.add('myco-trip-freakout');
+    overlay.style.transition = 'opacity 0.5s ease';
+    overlay.style.opacity = '0';
 
-      // Platô tranquilo (~2 min) e depois saída suave (~30s)
-      tripFadeTimer = setTimeout(() => {
-        overlay.style.transition = 'opacity 28s ease-out';
-        overlay.style.opacity = '0';
-        tripDecayTimer = setTimeout(() => {
-          clearTripClasses();
-          tripLevel = 0;
-        }, 28000);
-      }, 95000);
-    }, 55000);
-    return;
-  }
+    let darkLayer = document.getElementById('myco-freakout-dark');
+    if (!darkLayer) {
+      darkLayer = document.createElement('div');
+      darkLayer.id = 'myco-freakout-dark';
+      darkLayer.style.cssText =
+        'position:fixed;inset:0;pointer-events:none;z-index:55;opacity:0;' +
+        'background:radial-gradient(circle at 50% 50%, rgba(5,5,10,0.65) 15%, rgba(0,0,0,0.97) 75%);' +
+        'transition:opacity 1.4s ease;overflow:hidden;';
+      darkLayer.innerHTML =
+        '<svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%;opacity:0.9;">' +
+        '<g style="animation:mycoCreatureLurk 1.3s ease-in-out infinite;">' +
+        '<path d="M70,480 Q95,290 150,275 Q180,265 205,330 Q220,400 230,480 Z" fill="#030306"/>' +
+        '<circle cx="136" cy="318" r="6" fill="#ef4444"/><circle cx="164" cy="316" r="6" fill="#ef4444"/>' +
+        '<path d="M132,344 Q150,362 168,342" stroke="#dc2626" stroke-width="3" fill="none"/>' +
+        '</g>' +
+        '<g style="animation:mycoCreatureLurk 1.05s ease-in-out infinite 0.35s;">' +
+        '<path d="M585,490 Q610,250 670,235 Q725,245 750,490 Z" fill="#020205"/>' +
+        '<ellipse cx="648" cy="292" rx="8" ry="4" fill="#facc15"/><ellipse cx="688" cy="294" rx="8" ry="4" fill="#facc15"/>' +
+        '<path d="M640,326 L655,318 L668,328 L682,318 L695,327" stroke="#eab308" stroke-width="2.5" fill="none"/>' +
+        '</g>' +
+        '<g style="animation:mycoCreatureLurk 0.9s ease-in-out infinite 0.6s;">' +
+        '<path d="M340,30 Q395,125 450,30 Z" fill="#020204"/>' +
+        '<circle cx="382" cy="64" r="4.5" fill="#f87171"/><circle cx="408" cy="64" r="4.5" fill="#f87171"/>' +
+        '</g></svg>';
+      document.body.appendChild(darkLayer);
+    }
+    requestAnimationFrame(() => { darkLayer.style.opacity = '1'; });
 
-  document.body.classList.add('myco-trip-' + tripLevel);
-  overlay.style.transition = 'opacity 1.2s ease';
-  overlay.style.opacity = String(Math.min(1, 0.42 + tripLevel * 0.18));
-
-  if (tripLevel >= 4) {
     let whiteScreen = document.getElementById('myco-white-ascend');
     if (!whiteScreen) {
       whiteScreen = document.createElement('div');
       whiteScreen.id = 'myco-white-ascend';
       whiteScreen.style.cssText =
         'position:fixed;inset:0;pointer-events:none;z-index:60;opacity:0;background:#ffffff;' +
-        'display:flex;align-items:center;justify-content:center;transition:opacity 1.6s ease;';
+        'display:flex;align-items:center;justify-content:center;transition:opacity 1.8s ease;';
       whiteScreen.innerHTML =
-        '<div style="color:#475569;font-size:clamp(22px,4vw,38px);font-weight:300;letter-spacing:0.08em;text-align:center;padding:24px;opacity:0;transition:opacity 1.4s ease;">O micélio te devolve à terra... Ainda há muito para cultivar.</div>';
+        '<div style="color:#334155;font-size:clamp(20px,3.6vw,34px);font-weight:300;line-height:1.5;letter-spacing:0.05em;text-align:center;padding:24px;opacity:0;transition:opacity 1.4s ease;">' +
+        'Às vezes é bom não exagerar,<br>pequeno gafanhoto!...<br>Ainda não é sua hora.. volte e termine seu trabalho!</div>';
       document.body.appendChild(whiteScreen);
     }
     const msgEl = whiteScreen.firstElementChild;
     setTimeout(() => {
       whiteScreen.style.opacity = '1';
-      if (msgEl) setTimeout(() => { msgEl.style.opacity = '1'; }, 700);
-    }, 1800);
+      if (msgEl) setTimeout(() => { msgEl.style.opacity = '1'; }, 800);
+    }, 3600);
 
     setTimeout(() => {
       if (typeof onSkyFall === 'function') onSkyFall();
-      clearTripClasses();
-      overlay.style.opacity = '0';
+      clearTripVisuals();
       if (msgEl) msgEl.style.opacity = '0';
       whiteScreen.style.opacity = '0';
-      tripLevel = 0;
-    }, 5600);
+      tripShroomCount = 0;
+      tripEndsAt = 0;
+    }, 8800);
     return;
   }
 
-  const durationMs = tripLevel === 2 ? 90000 : 60000;
-  tripDecayTimer = setTimeout(() => {
-    overlay.style.transition = 'opacity 14s ease-out';
-    overlay.style.opacity = '0';
-    tripFadeTimer = setTimeout(() => {
-      clearTripClasses();
-      tripLevel = 0;
-    }, 14000);
-  }, durationMs);
+  // 1º cogumelo: demora ~55s pra bater de leve, depois ~2 min colorido e tranquilo
+  if (tripShroomCount === 1 && !tripActive) {
+    applyProgressiveColorVars(1);
+    tripEndsAt = Date.now() + 55000 + 120000;
+    overlay.style.transition = 'opacity 45s ease-in';
+    overlay.style.opacity = '0.10';
+    tripStartTimer = setTimeout(() => {
+      tripActive = true;
+      document.body.classList.add('myco-trip-active');
+      overlay.style.transition = 'opacity 22s ease-in-out';
+      overlay.style.opacity = '0.20';
+      scheduleTripEnd(overlay);
+    }, 55000);
+    return;
+  }
+
+  // Cogumelos 2..19: entra/mantém brisa feliz, +1 min na duração, mais colorido, mais rápido e aura arco-íris
+  tripActive = true;
+  document.body.classList.add('myco-trip-active');
+  applyProgressiveColorVars(tripShroomCount);
+  const baseMinEnd = Date.now() + 120000;
+  tripEndsAt = Math.max(baseMinEnd, (tripEndsAt || Date.now()) + 60000);
+  overlay.style.transition = 'opacity 2.5s ease';
+  overlay.style.opacity = String(Math.min(0.75, 0.14 + tripShroomCount * 0.032));
+  scheduleTripEnd(overlay);
 }
