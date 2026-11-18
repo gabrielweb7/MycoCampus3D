@@ -57,6 +57,7 @@ export function beginHeldItemPlacement(ctx) {
 
 export function cancelHeldItemPlacement(ctx) {
   if (!ctx.placementMode) return false;
+  if (ctx.heldItem && ctx.heldItem.mesh) ctx.heldItem.mesh.visible = true;
   setPlacementMode(ctx, false);
   return true;
 }
@@ -94,6 +95,7 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   const held = ctx.heldItem;
   if (!held) return false;
 
+  held.mesh.visible = true;
   held.mesh.position.copy(point);
   held.mesh.rotation.set(0, ctx.heldRotY, 0);
   held.isMoved = true;

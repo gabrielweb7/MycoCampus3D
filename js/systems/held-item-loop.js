@@ -172,9 +172,16 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
   if (ctx.heldItem) {
     const reachZ = ctx.fpsArmGroup ? ctx.armReach * 0.16 : 0;
     const reachY = ctx.fpsArmGroup ? ctx.armReach * 0.06 : 0;
-    if (isTwoHanded) {
-      _tmpHandLocal.set(0, -0.48, -0.78);
-    } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isTray) {
+    const ud = ctx.heldItem.mesh && ctx.heldItem.mesh.userData;
+    if (ctx.heldItem.fridgeCtrl || (ud && ud.isCultureFridge)) {
+      _tmpHandLocal.set(0, -1.05, -2.05);
+    } else if (ud && ud.isHood) {
+      _tmpHandLocal.set(0, -0.78, -1.48);
+    } else if (ud && ud.isTable) {
+      _tmpHandLocal.set(0, -0.65, -1.35);
+    } else if (isTwoHanded) {
+      _tmpHandLocal.set(0, -0.48, -0.95);
+    } else if (ud && ud.isTray) {
       _tmpHandLocal.set(0.14, -0.26 + reachY, -0.58 - reachZ);
     } else {
       _tmpHandLocal.set(0.30, -0.22 + reachY, -0.58 - reachZ);
@@ -230,8 +237,9 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
     }
 
-    // Ensure held mesh is always visible
-    ctx.heldItem.mesh.visible = true;
+    // Esconde itens grandes (twoHanded/geladeira/capela/mesa) durante o modo posicionamento para não tampar o fantasma
+    const hideInPlaceMode = !!(ctx.placementMode && (isTwoHanded || (ud && (ud.isCultureFridge || ud.isHood || ud.isTable))));
+    ctx.heldItem.mesh.visible = !hideInPlaceMode;
 
     // Follow attached cooker lid
     if (ctx.heldItem.lidItem && ctx.heldItem.lidItem.isAttached && ctx.heldItem.lidItem.mesh) {

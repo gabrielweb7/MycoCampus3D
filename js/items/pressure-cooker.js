@@ -698,6 +698,7 @@ export function stepPressureCookers(ctx, dt) {
         (cp.mode === 'pasteurize' && cp.temp >= 74 && cp.temp <= 90)
       );
 
+    const hasElectricTimer = !!(activeBurner && activeBurner.kind === 'electric' && activeBurner.timerPresetMin > 0);
     if (canAdvanceProcess) {
       if (cp.progress < 100) {
         const baseMin = cp.mode === 'pasteurize' ? 45 : 80;
@@ -708,14 +709,20 @@ export function stepPressureCookers(ctx, dt) {
             maxMin = cIt.spawnCtrl.minSterilizeMin;
           }
         }
-        // ~12s para 80m (1h20m flocao/PP5), ~18s para 120m (2h milho de pipoca)
-        const potRate = (680 / maxMin);
+        // ~12s para 80m no modo Livre; com timer elétrico, acompanha o timer e termina pouco antes de desligar
+        const baseRate = (680 / maxMin);
+        let potRate = baseRate;
+        if (hasElectricTimer) {
+          const leadSec = Math.min(6, Math.max(2, activeBurner.timerPresetMin * BURNER_GAME_MIN_SECONDS * 0.08));
+          const remTarget = Math.max(1.5, (activeBurner.timerRemainingSec || 0) - leadSec);
+          potRate = Math.max(0.15, Math.min(25, (100 - cp.progress) / remTarget));
+        }
         cp.progress = Math.min(100, cp.progress + dt * potRate);
         for (let ci = 0; ci < cp.contents.length; ci++) {
           const cIt = cp.contents[ci];
           if (cIt && cIt.spawnCtrl) {
             const itemMin = cIt.spawnCtrl.minSterilizeMin || 80;
-            const itemRate = 680 / itemMin;
+            const itemRate = hasElectricTimer ? potRate * (maxMin / itemMin) : (680 / itemMin);
             cIt.spawnCtrl.sterilizeProgress = Math.min(100, (cIt.spawnCtrl.sterilizeProgress || 0) + dt * itemRate);
             if (cIt.spawnCtrl.sterilizeProgress >= 100) {
               cIt.spawnCtrl.sterilized = true;
@@ -745,6 +752,8 @@ export function stepPressureCookers(ctx, dt) {
           cp.sterilized = true;
           cp.overheatTimer = 0;
         }
+      } else if (hasElectricTimer) {
+        cp.overheatTimer = 0;
       } else {
         cp.overheatTimer += dt * (heatLvl === 3 ? 1.35 : (heatLvl === 2 ? 0.65 : 0.35));
         if (cp.overheatTimer >= LAB.autoclaveOverheatSec) {
@@ -836,7 +845,9 @@ export function stepPressureCookers(ctx, dt) {
               barCol = '#10b981'; borderCol = '#10b981';
             } else {
               stageTitle = '✅ Pasteurização 100%!';
-              stageSub = 'Desligue o fogo • ' + waterLit;
+              stageSub = hasElectricTimer
+                ? ('Timer desliga em ' + Math.max(0, Math.ceil(activeBurner.timerRemainingSec || 0)) + 's • ' + waterLit)
+                : ('Desligue o fogo • ' + waterLit);
               barPct = 100; barCol = '#22c55e'; borderCol = '#22c55e';
             }
           } else if (cp.temp < LAB.autoclaveTargetTempC) {
@@ -854,6 +865,13 @@ export function stepPressureCookers(ctx, dt) {
             stageTitle = '♨️ Esterilizando (15 PSI)...';
             stageSub = barPct + '% • ' + waterLit + waterEta + (heatLvl === 3 ? ' (Baixe p/ Médio!)' : '');
             barCol = '#22c55e'; borderCol = '#22c55e';
+          } else if (hasElectricTimer) {
+            const tSec = Math.max(0, Math.ceil(activeBurner.timerRemainingSec || 0));
+            barPct = 100;
+            stageTitle = '✅ 100% Esterilizado!';
+            stageSub = 'Timer desliga em ' + tSec + 's • ' + waterLit;
+            barCol = '#22c55e';
+            borderCol = '#22c55e';
           } else {
             const secLeft = Math.max(0, Math.ceil(LAB.autoclaveOverheatSec - cp.overheatTimer));
             barPct = Math.round((secLeft / LAB.autoclaveOverheatSec) * 100);
