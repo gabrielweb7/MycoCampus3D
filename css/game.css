@@ -539,8 +539,6 @@ body.device-touch #held-item-bar #btn-held-rotate {
     padding: 12px;
     border-radius: 16px;
     background: rgba(15, 23, 42, 0.96);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(52, 211, 153, 0.4);
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
     z-index: 35;
@@ -556,6 +554,41 @@ body.device-touch #held-item-bar #btn-held-rotate {
     font-size: 11px;
     min-height: 38px;
   }
+}
+
+body.device-phone #btn-mobile-menu,
+body.device-tablet #btn-mobile-menu {
+  display: inline-flex !important;
+}
+
+body.device-phone .hud-secondary-tools,
+body.device-tablet .hud-secondary-tools {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(94vw, 360px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  z-index: 35;
+}
+
+body.device-phone .hud-secondary-tools.open,
+body.device-tablet .hud-secondary-tools.open {
+  display: grid !important;
+}
+
+body.device-phone .hud-secondary-tools .hud-pill-btn,
+body.device-tablet .hud-secondary-tools .hud-pill-btn {
+  justify-content: center;
+  padding: 8px 6px;
+  font-size: 11px;
+  min-height: 38px;
 }
 
 /* ==========================================================================

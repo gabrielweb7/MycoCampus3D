@@ -717,9 +717,9 @@ export function bootApp() {
       const placeBtn = $('btn-mobile-place');
       if (placeBtn) {
         placeBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
-        placeBtn.textContent = mobilePlacementModeActive ? '✅' : '📦';
+        placeBtn.textContent = mobilePlacementModeActive ? '✖️' : '📦';
         placeBtn.title = mobilePlacementModeActive
-          ? 'Mire e toque no local para confirmar; toque aqui para cancelar'
+          ? 'Cancelar posicionamento'
           : 'Posicionar item';
         placeBtn.classList.toggle('placement-active', mobilePlacementModeActive);
       }
@@ -729,9 +729,9 @@ export function bootApp() {
       mobilePlacementModeActive = active;
       const placeBtn = $('btn-mobile-place');
       if (placeBtn) {
-        placeBtn.textContent = active ? '✅' : '📦';
+        placeBtn.textContent = active ? '✖️' : '📦';
         placeBtn.title = active
-          ? 'Mire e toque no local para confirmar; toque aqui para cancelar'
+          ? 'Cancelar posicionamento'
           : 'Posicionar item';
         placeBtn.classList.toggle('placement-active', active);
       }
