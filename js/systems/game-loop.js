@@ -35,6 +35,8 @@ import { stepCultureFridges } from '../items/culture-fridge.js';
 import { stepLabCabinets } from '../items/lab-cabinets.js';
 import { stepPetriCultures } from '../items/petri-dish.js';
 import { stepGreenhouse } from '../world/greenhouse.js';
+import { stepForestDistanceCulling } from '../world/mushroom-species.js';
+import { stepPastureCows } from '../entities/pasture-cows.js';
 
 let lastMobileHoverAt = 0;
 let lastDesktopHoverAt = 0;
@@ -327,6 +329,8 @@ export function startAnimationLoop(ctx) {
       stepSprayBursts(ctx, dt);
       stepLabSinks(ctx);
       stepGreenhouse(ctx, dt);
+      stepPastureCows(ctx, dt);
+      stepForestDistanceCulling(ctx);
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);
       dropUnsupportedItems(ctx.entityCtx);

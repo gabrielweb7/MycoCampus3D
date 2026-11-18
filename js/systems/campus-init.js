@@ -9,6 +9,8 @@ import { getInitialQualityTier } from '../core/quality.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
+import { buildExpandedForestAndMushrooms } from '../world/mushroom-species.js';
+import { createPastureAndCows } from '../entities/pasture-cows.js';
 import { buildStaircaseAndBridge, buildClockTowerAndAuditorium } from '../world/staircase-clock.js';
 import { registerPickable } from '../items/item-registry.js';
 import { buildCampusWingsAndEquipment } from '../world/lab-tools.js';
@@ -568,6 +570,8 @@ export function initCampus3D(containerId, cbs) {
 
     const wbCtx = getWorldBuilderCtx();
     buildNatureWorld(wbCtx);
+    buildExpandedForestAndMushrooms(wbCtx);
+    createPastureAndCows(wbCtx);
     buildPlaza(wbCtx);
     buildStaircaseAndBridge(wbCtx);
     buildClockTowerAndAuditorium(wbCtx);

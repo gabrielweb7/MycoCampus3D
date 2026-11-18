@@ -138,21 +138,37 @@ function wrapLines(ctx, text, maxWidth, maxLines) {
 function renderBadgeTexture(badgeState, title, params, action) {
   const { canvas, ctx, texture } = badgeState;
   const w = canvas.width;
-  const h = canvas.height;
   const maxTextW = w - 56;
 
-  ctx.clearRect(0, 0, w, h);
+  ctx.clearRect(0, 0, w, canvas.height);
 
-  // Fundo com vidro escuro translúcido (Glassmorphism sci-fi)
+  // Calcula layout antes de desenhar o fundo para ajustar a altura exata sem espaço sobrando
+  ctx.font = 'bold 24px "Segoe UI", -apple-system, Roboto, sans-serif';
+  const titleLines = wrapLines(ctx, title, maxTextW, 2);
+
+  ctx.font = '600 19px "Segoe UI", -apple-system, Roboto, sans-serif';
+  const paramLines = params ? wrapLines(ctx, params, maxTextW, 2) : [];
+
+  ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
+  const actionLines = wrapLines(ctx, '👉 ' + action, maxTextW, 2);
+
+  const padTop = 26;
+  const titleH = titleLines.length * 28;
+  const paramH = paramLines.length ? (paramLines.length * 24 + 6) : 0;
+  const divGap = 14;
+  const actionH = actionLines.length * 26;
+  const padBottom = 22;
+  const boxH = Math.min(canvas.height - 16, padTop + titleH + paramH + divGap + actionH + padBottom);
+
+  // Fundo escuro nítido ajustado exatamente ao conteúdo
   ctx.save();
-  ctx.fillStyle = 'rgba(10, 16, 28, 0.92)';
-  roundRect(ctx, 10, 8, w - 20, h - 16, 22);
+  ctx.fillStyle = 'rgba(8, 13, 24, 0.95)';
+  roundRect(ctx, 10, 8, w - 20, boxH, 20);
   ctx.fill();
 
-  // Borda neon degradê esmeralda/ciano nítida e vibrante
-  const grad = ctx.createLinearGradient(10, 8, w - 20, h - 16);
-  grad.addColorStop(0, 'rgba(52, 211, 153, 0.90)');
-  grad.addColorStop(1, 'rgba(56, 189, 248, 0.90)');
+  const grad = ctx.createLinearGradient(10, 8, w - 20, 8 + boxH);
+  grad.addColorStop(0, 'rgba(52, 211, 153, 0.95)');
+  grad.addColorStop(1, 'rgba(56, 189, 248, 0.95)');
   ctx.strokeStyle = grad;
   ctx.lineWidth = 2.8;
   ctx.shadowColor = 'rgba(56, 189, 248, 0.45)';
@@ -160,47 +176,45 @@ function renderBadgeTexture(badgeState, title, params, action) {
   ctx.stroke();
   ctx.restore();
 
-  // Linha 1: Título completo do Objeto (com quebra de linha se necessário)
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 24px "Segoe UI", -apple-system, Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const titleLines = wrapLines(ctx, title, maxTextW, 2);
-  let yCursor = titleLines.length > 1 ? 36 : 46;
+
+  // Linha 1: Título completo (Branco puro)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 24px "Segoe UI", -apple-system, Roboto, sans-serif';
+  let yCursor = 8 + padTop + 12;
   for (let i = 0; i < titleLines.length; i++) {
-    ctx.fillText(titleLines[i], w / 2, yCursor + i * 26, maxTextW);
+    ctx.fillText(titleLines[i], w / 2, yCursor, maxTextW);
+    yCursor += 28;
   }
-  yCursor += (titleLines.length - 1) * 26 + 28;
 
-  // Linha 2: Parâmetros / Estado em tempo real (Ciano Celeste)
-  if (params) {
-    ctx.save();
-    ctx.fillStyle = '#38bdf8';
+  // Linha 2: Parâmetros / Estado (Azul-ciano claro de alto contraste)
+  if (paramLines.length) {
+    yCursor += 2;
+    ctx.fillStyle = '#7dd3fc';
     ctx.font = '600 19px "Segoe UI", -apple-system, Roboto, sans-serif';
-    const paramLines = wrapLines(ctx, params, maxTextW, 2);
     for (let i = 0; i < paramLines.length; i++) {
-      ctx.fillText(paramLines[i], w / 2, yCursor + i * 22, maxTextW);
+      ctx.fillText(paramLines[i], w / 2, yCursor, maxTextW);
+      yCursor += 24;
     }
-    ctx.restore();
-    yCursor += (paramLines.length - 1) * 22 + 24;
   }
 
-  // Divisor sutil entre título/parâmetros e ação
-  const divY = Math.max(92, Math.min(148, yCursor - 4));
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.24)';
+  // Divisor sutil
+  const divY = yCursor - 4;
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.30)';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(30, divY);
   ctx.lineTo(w - 30, divY);
   ctx.stroke();
 
-  // Linha 3: Ação contextual completa (Dourado/Menta vibrante)
+  // Linha 3: Ação contextual (Amarelo-ouro brilhante de leitura fácil)
   ctx.fillStyle = '#fde047';
   ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
-  const actionLines = wrapLines(ctx, '👉 ' + action, maxTextW, 2);
-  const actStartY = divY + (actionLines.length > 1 ? 26 : 36);
+  let actY = divY + 20;
   for (let i = 0; i < actionLines.length; i++) {
-    ctx.fillText(actionLines[i], w / 2, actStartY + i * 24, maxTextW);
+    ctx.fillText(actionLines[i], w / 2, actY, maxTextW);
+    actY += 26;
   }
 
   texture.needsUpdate = true;
