@@ -14,6 +14,7 @@ const THREE = window.THREE;
 
 export const COW_POOP_INTERVAL_SEC = 30;
 export const POOP_CUBENSIS_GROW_SEC = 30;
+export const POOP_TOTAL_LIFETIME_SEC = 120; // 30s crescendo + 90s disponível antes de desaparecer
 export const MAX_ACTIVE_POOPS = 18;
 
 const PASTURE_BOUNDS = { minX: 40, maxX: 74, minZ: -12, maxZ: 28 };
@@ -155,12 +156,32 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
     flies.push({ group: fg, phase: fi * 2.1, radius: 0.14 + fi * 0.04 });
   }
 
-  // Variação criativa: 1 Cubensis Gigante, 2 Médios ou 3 em Tufo
+  // Micélio branco colonizando o topo do cocô (estágio 0s-10s)
+  const myceliumGroup = new THREE.Group();
+  const mycMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 });
+  [
+    [0, 0.20, 0, 0.14], [-0.07, 0.18, 0.05, 0.09], [0.08, 0.18, -0.04, 0.08], [0.02, 0.19, 0.08, 0.07]
+  ].forEach((m) => {
+    const patch = new THREE.Mesh(new THREE.CylinderGeometry(m[3], m[3] * 1.15, 0.014, 8), mycMat);
+    patch.position.set(m[0], m[1], m[2]);
+    myceliumGroup.add(patch);
+  });
+  myceliumGroup.scale.setScalar(0.05);
+  g.add(myceliumGroup);
+
+  // Cubensis reais (pins -> haste c/ véu roxo -> chapéu campanulado dourado c/ borda creme)
   const cubensisGroup = new THREE.Group();
   cubensisGroup.visible = false;
-  const stemMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.65 });
-  const capMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.42 });
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.65 });
+  const veilMat = new THREE.MeshStandardMaterial({ color: 0x581c87, roughness: 0.8 });
+  const capTopMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.45 });
+  const capUmboMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.4 });
+  const capRimMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.55 });
+  const gillsMat = new THREE.MeshStandardMaterial({ color: 0x3f2e26, roughness: 0.85, side: THREE.DoubleSide });
+  const spotDotMat = new THREE.MeshBasicMaterial({ color: 0xfef9c3 });
+
   const caps = [];
+  const mushParts = [];
   const patternType = Math.floor(hash01(variantSeed, 99) * 3);
   const offsets = patternType === 0
     ? [[0, 0, 1.48]] // 1 grande!
@@ -170,23 +191,50 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
 
   offsets.forEach((off) => {
     const mg = new THREE.Group();
-    mg.position.set(off[0], 0.12, off[1]);
+    mg.position.set(off[0], 0.14, off[1]);
     mg.scale.setScalar(off[2]);
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.18, 7), stemMat);
-    st.position.y = 0.09;
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), capMat);
-    cap.position.y = 0.17;
-    cap.userData.wildMushId = poopId;
-    cap.userData.speciesName = patternType === 0
-      ? 'Cubensis Dourado Gigante (Psilocybe cubensis)'
-      : 'Cubensis Dourado do Pasto (Psilocybe cubensis)';
-    mg.add(st, cap);
+
+    const stemPivot = new THREE.Group();
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.20, 9), stemMat);
+    st.position.y = 0.10;
+    const veilRing = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.006, 6, 12), veilMat);
+    veilRing.rotation.x = Math.PI / 2;
+    veilRing.rotation.z = 0.2;
+    veilRing.position.y = 0.125;
+    stemPivot.add(st, veilRing);
+    mg.add(stemPivot);
+
+    const capGroup = new THREE.Group();
+    capGroup.position.y = 0.195;
+    const dome = new THREE.Mesh(new THREE.ConeGeometry(0.088, 0.052, 14), capTopMat);
+    dome.position.y = 0.022;
+    const umbo = new THREE.Mesh(new THREE.SphereGeometry(0.034, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), capUmboMat);
+    umbo.position.y = 0.035;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.011, 6, 14), capRimMat);
+    rim.rotation.x = Math.PI / 2;
+    const gills = new THREE.Mesh(new THREE.CircleGeometry(0.082, 14), gillsMat);
+    gills.rotation.x = Math.PI / 2;
+    gills.position.y = -0.002;
+    for (let di = 0; di < 4; di++) {
+      const ang = di * Math.PI * 0.5 + 0.4;
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 5, 5), spotDotMat);
+      dot.position.set(Math.cos(ang) * 0.036, 0.030, Math.sin(ang) * 0.036);
+      capGroup.add(dot);
+    }
+    dome.userData.wildMushId = poopId;
+    dome.userData.speciesName = patternType === 0
+      ? 'Cubensis Dourado Gigante (Psilocybe cubensis • +40 XP)'
+      : 'Cubensis Dourado do Pasto (Psilocybe cubensis • +40 XP)';
+    capGroup.add(dome, umbo, rim, gills);
+    mg.add(capGroup);
+
     cubensisGroup.add(mg);
-    caps.push(cap);
+    caps.push(dome);
+    mushParts.push({ mg, stemPivot, veilRing, capGroup, targetScale: off[2] });
   });
   g.add(cubensisGroup);
 
-  return { group: g, flies, cubensisGroup, caps };
+  return { group: g, flies, myceliumGroup, cubensisGroup, caps, mushParts };
 }
 
 export function createPastureAndCows(ctx) {
@@ -385,7 +433,9 @@ export function stepPastureCows(ctx, dt) {
         id: poopId,
         group: poopVis.group,
         flies: poopVis.flies,
+        myceliumGroup: poopVis.myceliumGroup,
         cubensisGroup: poopVis.cubensisGroup,
+        mushParts: poopVis.mushParts,
         ageSec: 0,
         grown: false,
         wildEntry: {
@@ -399,9 +449,22 @@ export function stepPastureCows(ctx, dt) {
     }
   }
 
-  // 5. Atualiza mosquinhas + nascimento dos Cubensis Dourados após 30s
-  for (let pi = 0; pi < ctx.cowPoops.length; pi++) {
+  // 5. Atualiza mosquinhas + crescimento animado (micélio -> pins -> haste -> chapéu) + desaparecimento após 120s
+  for (let pi = ctx.cowPoops.length - 1; pi >= 0; pi--) {
     const p = ctx.cowPoops[pi];
+    p.ageSec += dt;
+
+    if (p.ageSec >= POOP_TOTAL_LIFETIME_SEC) {
+      if (p.group && p.group.parent) p.group.parent.remove(p.group);
+      p.wildEntry.active = false;
+      if (ctx.wildMushrooms) {
+        const wIdx = ctx.wildMushrooms.indexOf(p.wildEntry);
+        if (wIdx !== -1) ctx.wildMushrooms.splice(wIdx, 1);
+      }
+      ctx.cowPoops.splice(pi, 1);
+      continue;
+    }
+
     const pDistSq = (p.group.position.x - px) ** 2 + (p.group.position.z - pz) ** 2;
     p.group.visible = pDistSq <= 45 * 45;
 
@@ -414,15 +477,40 @@ export function stepPastureCows(ctx, dt) {
         fl.group.position.y = 0.26 + Math.sin(fl.phase * 2.4) * 0.05;
         fl.group.rotation.y = -fl.phase;
       }
+
+      // Fade/encolhimento suave nos últimos 5s antes de sumir
+      if (p.ageSec > POOP_TOTAL_LIFETIME_SEC - 5) {
+        const fade = Math.max(0.05, (POOP_TOTAL_LIFETIME_SEC - p.ageSec) / 5);
+        p.group.scale.setScalar(fade);
+      }
     }
 
-    if (!p.grown) {
-      p.ageSec += dt;
-      if (p.ageSec >= POOP_CUBENSIS_GROW_SEC) {
-        p.grown = true;
-        p.cubensisGroup.visible = true;
-        p.wildEntry.active = true;
-        if (ctx.wildMushrooms) ctx.wildMushrooms.push(p.wildEntry);
+    // Estágios de crescimento (0-10s micélio, 10-20s pins, 20-30s haste + véu + abertura do chapéu)
+    if (p.myceliumGroup) {
+      const mycFrac = Math.min(1, Math.max(0.08, p.ageSec / 10));
+      p.myceliumGroup.scale.set(mycFrac, 1, mycFrac);
+    }
+
+    if (p.ageSec >= 10 && p.mushParts) {
+      p.cubensisGroup.visible = true;
+      const pinFrac = Math.min(1, (p.ageSec - 10) / 10); // 10s..20s
+      const growFrac = Math.min(1, Math.max(0, (p.ageSec - 20) / 10)); // 20s..30s
+      for (let mi = 0; mi < p.mushParts.length; mi++) {
+        const mp = p.mushParts[mi];
+        const stemH = 0.18 + pinFrac * 0.22 + growFrac * 0.60;
+        const capOpen = 0.28 + pinFrac * 0.20 + growFrac * 0.52;
+        mp.stemPivot.scale.set(0.45 + 0.55 * growFrac, stemH, 0.45 + 0.55 * growFrac);
+        mp.veilRing.visible = growFrac > 0.35;
+        mp.capGroup.position.y = 0.195 * stemH;
+        mp.capGroup.scale.set(capOpen, 0.45 + 0.55 * growFrac, capOpen);
+      }
+    }
+
+    if (!p.grown && p.ageSec >= POOP_CUBENSIS_GROW_SEC) {
+      p.grown = true;
+      p.wildEntry.active = true;
+      if (ctx.wildMushrooms && ctx.wildMushrooms.indexOf(p.wildEntry) === -1) {
+        ctx.wildMushrooms.push(p.wildEntry);
       }
     }
   }

@@ -260,9 +260,11 @@ if ($action === 'harvest') {
     mc_require_post();
     $user = mc_require_user($pdo);
     $mushId = trim((string)($body['mushroom_id'] ?? ''));
-    if ($mushId !== '' && !preg_match('/^wild_(?:[0-9]|[12][0-9]|3[01])$/', $mushId)) {
+    if ($mushId !== '' && !preg_match('/^wild_(?:[0-9]{1,3}|poop_[a-zA-Z0-9_]{1,40})$/', $mushId)) {
         mc_json(['ok' => false, 'error' => 'Cogumelo inválido.'], 400);
     }
+    $isPoopCubensis = strpos($mushId, 'wild_poop_') === 0;
+    $xpReward = $isPoopCubensis ? 40 : MC_XP_HARVEST;
 
     $awarded = false;
     $pdo->beginTransaction();
@@ -280,7 +282,7 @@ if ($action === 'harvest') {
             // Anti-spam de colheita: no maximo 1 a cada MC_HARVEST_COOLDOWN_MS
             $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + ?, mushrooms_harvested = mushrooms_harvested + 1, last_harvest_at = NOW(3), last_seen = NOW()
                 WHERE id = ? AND (last_harvest_at IS NULL OR last_harvest_at < (NOW(3) - INTERVAL ? MICROSECOND))');
-            $upd->execute([MC_XP_HARVEST, (int)$user['id'], MC_HARVEST_COOLDOWN_MS * 1000]);
+            $upd->execute([$xpReward, (int)$user['id'], MC_HARVEST_COOLDOWN_MS * 1000]);
             $awarded = $upd->rowCount() > 0;
             if ($awarded && $mushId !== '') {
                 $upState = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');

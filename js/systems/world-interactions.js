@@ -37,6 +37,9 @@ export function handleWorldInteraction(ctx) {
     ctx.hoveredMushroom.respawnAt = performance.now() + 20000;
     ctx.queueWorldStateChange(ctx.hoveredMushroom.id, 0);
     if (window.MycoAudio) window.MycoAudio.playHarvest();
+    if (ctx.callbacks.onToast && ctx.hoveredMushroom.id && ctx.hoveredMushroom.id.indexOf('wild_poop_') === 0) {
+      ctx.callbacks.onToast('🍄✨ Você comeu Cubensis Dourado do pasto! (+40 XP)');
+    }
     if (ctx.callbacks.onHarvestMushroom) ctx.callbacks.onHarvestMushroom(ctx.hoveredMushroom.id);
     return true;
   }
