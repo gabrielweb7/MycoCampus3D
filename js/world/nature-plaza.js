@@ -141,26 +141,114 @@ export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
   grass.receiveShadow = true;
   g.add(grass);
 
-  const flowerCols = [0xfacc15, 0xf43f5e, 0xa855f7, 0xf97316, 0x38bdf8];
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    const rr = 0.35 + (i % 3) * 0.24;
-    const fx = Math.cos(a) * rx * rr;
-    const fz = Math.sin(a) * rz * rr;
-    const bush = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.28 + (i % 2) * 0.12, 0),
-      new THREE.MeshStandardMaterial({ color: i % 2 === 0 ? 0x15803d : 0x16a34a, roughness: 0.85 })
-    );
-    bush.position.set(fx, 0.32, fz);
-    bush.castShadow = true;
-    g.add(bush);
+  // Árvore estilizada central com galhos, raízes e copa em camadas
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.88 });
+  const leafDarkMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.72 });
+  const leafBrightMat = new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.68 });
+  const tree = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 1.55, 8), trunkMat);
+  trunk.position.y = 0.95;
+  trunk.castShadow = true;
+  tree.add(trunk);
 
-    const fl = new THREE.Mesh(
-      new THREE.SphereGeometry(0.11, 6, 6),
-      new THREE.MeshStandardMaterial({ color: flowerCols[i % flowerCols.length], emissive: flowerCols[i % flowerCols.length], emissiveIntensity: 0.12 })
-    );
-    fl.position.set(fx, 0.54, fz);
-    g.add(fl);
+  for (let ri = 0; ri < 4; ri++) {
+    const ra = (ri / 4) * Math.PI * 2 + 0.35;
+    const root = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.42, 6), trunkMat);
+    root.position.set(Math.cos(ra) * 0.22, 0.28, Math.sin(ra) * 0.22);
+    root.rotation.z = Math.cos(ra) * 0.95;
+    root.rotation.x = -Math.sin(ra) * 0.95;
+    tree.add(root);
+  }
+
+  const branchAngles = [0.2, 2.3, 4.4];
+  for (let bi = 0; bi < branchAngles.length; bi++) {
+    const ba = branchAngles[bi];
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.85, 6), trunkMat);
+    br.position.set(Math.cos(ba) * 0.32, 1.75, Math.sin(ba) * 0.32);
+    br.rotation.z = -Math.cos(ba) * 0.65;
+    br.rotation.x = Math.sin(ba) * 0.65;
+    tree.add(br);
+  }
+
+  const canopyClusters = [
+    [0, 2.45, 0, 0.95, 1],
+    [-0.65, 2.15, 0.25, 0.68, 0],
+    [0.62, 2.2, -0.22, 0.72, 1],
+    [0.12, 2.12, 0.64, 0.66, 0],
+    [-0.18, 2.18, -0.62, 0.64, 1],
+    [0, 2.85, 0, 0.65, 1]
+  ];
+  const puffGeo = new THREE.SphereGeometry(1, 10, 8);
+  for (let ci = 0; ci < canopyClusters.length; ci++) {
+    const c = canopyClusters[ci];
+    const puff = new THREE.Mesh(puffGeo, c[4] ? leafBrightMat : leafDarkMat);
+    puff.position.set(c[0], c[1], c[2]);
+    puff.scale.set(c[3], c[3] * 0.78, c[3]);
+    puff.castShadow = true;
+    tree.add(puff);
+  }
+  g.add(tree);
+
+  // Vasinhos de terracota com folhagens gordinhas + florzinhas com pétalas
+  const potMat = new THREE.MeshStandardMaterial({ color: 0xc26a3b, roughness: 0.75 });
+  const rimMat = new THREE.MeshStandardMaterial({ color: 0xd97742, roughness: 0.7 });
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.65 });
+  const centerMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 });
+  const flowerCols = [0xf472b6, 0xc084fc, 0x38bdf8, 0xfb923c, 0xfacc15];
+  const potGeo = new THREE.CylinderGeometry(0.18, 0.13, 0.24, 10);
+  const rimGeo = new THREE.TorusGeometry(0.18, 0.028, 6, 12);
+  const leafGeo = new THREE.SphereGeometry(0.09, 7, 6);
+  const petalGeo = new THREE.SphereGeometry(0.055, 6, 5);
+
+  for (let pi = 0; pi < 3; pi++) {
+    const pa = (pi / 3) * Math.PI * 2 + 0.5;
+    const px = Math.cos(pa) * rx * 0.52;
+    const pz = Math.sin(pa) * rz * 0.52;
+    const potGrp = new THREE.Group();
+    potGrp.position.set(px, 0.24, pz);
+    const pot = new THREE.Mesh(potGeo, potMat);
+    pot.position.y = 0.12;
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.24;
+    potGrp.add(pot, rim);
+    for (let li = 0; li < 5; li++) {
+      const la = (li / 5) * Math.PI * 2;
+      const lf = new THREE.Mesh(leafGeo, leafBrightMat);
+      lf.scale.set(0.7, 1.35, 0.35);
+      lf.position.set(Math.cos(la) * 0.11, 0.33, Math.sin(la) * 0.11);
+      lf.rotation.y = -la;
+      lf.rotation.x = 0.45;
+      potGrp.add(lf);
+    }
+    g.add(potGrp);
+  }
+
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const fx = Math.cos(a) * rx * 0.78;
+    const fz = Math.sin(a) * rz * 0.78;
+    const flGrp = new THREE.Group();
+    flGrp.position.set(fx, 0.24, fz);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.24, 6), stemMat);
+    stem.position.y = 0.12;
+    flGrp.add(stem);
+
+    const head = new THREE.Group();
+    head.position.y = 0.25;
+    head.rotation.x = 0.25;
+    head.add(new THREE.Mesh(new THREE.SphereGeometry(0.045, 7, 5), centerMat));
+    const pMat = new THREE.MeshStandardMaterial({ color: flowerCols[i % flowerCols.length], roughness: 0.55 });
+    for (let p = 0; p < 5; p++) {
+      const pa = (p / 5) * Math.PI * 2;
+      const pet = new THREE.Mesh(petalGeo, pMat);
+      pet.scale.set(0.85, 0.45, 1.25);
+      pet.position.set(Math.cos(pa) * 0.075, 0, Math.sin(pa) * 0.075);
+      pet.rotation.y = -pa;
+      head.add(pet);
+    }
+    flGrp.add(head);
+    g.add(flGrp);
   }
   scene.add(g);
 }
