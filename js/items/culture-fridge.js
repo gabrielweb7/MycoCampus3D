@@ -358,7 +358,10 @@ export function makeCultureFridge(ctx, id, x, y, z) {
   const group = new THREE.Group();
   const shellMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.48, metalness: 0.08 });
   const insideMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.72 });
-  const shelfMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.36, metalness: 0.48 });
+  const shelfMat = new THREE.MeshStandardMaterial({
+    color: 0xe2e8f0, roughness: 0.36, metalness: 0.48,
+    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+  });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x7dd3fc, transparent: true, opacity: 0.28, roughness: 0.12, metalness: 0.1, depthWrite: false
   });
@@ -436,6 +439,7 @@ export function makeCultureFridge(ctx, id, x, y, z) {
   const glassW = doorWidth - frameB * 2;
   const glassH = doorHeight - frameTop - frameB;
   const doorGlass = addBox(doorPivot, glassW, glassH, 0.014, doorGlassMat, doorWidth * 0.5, -frameTop - glassH * 0.5, 0.038);
+  doorGlass.renderOrder = 3;
   const doorHandle = addBox(doorPivot, 0.025, 0.34, 0.04, shelfMat, doorWidth - 0.045, -doorHeight * 0.5, 0.082);
   doorGlass.userData.ignoreRay = true;
 

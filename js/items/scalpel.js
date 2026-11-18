@@ -52,7 +52,14 @@ export function updateScalpelLabel(item) {
 }
 
 export function stepScalpels(ctx, now) {
-  if (!ctx || !ctx.pickableItems) return;
+  if (!ctx) return;
+  if (ctx.wearingGloves && !ctx.glovesExpired && ctx.glovesUntil && now >= ctx.glovesUntil) {
+    ctx.glovesExpired = true;
+    if (ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast('⚠️ Suas luvas pretas perderam a esterilidade após 160s! Troque na caixa de luvas.');
+    }
+  }
+  if (!ctx.pickableItems) return;
   for (let i = 0; i < ctx.pickableItems.length; i++) {
     const it = ctx.pickableItems[i];
     const sc = it && it.scalpelCtrl;

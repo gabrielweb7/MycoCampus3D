@@ -538,8 +538,8 @@ export function updateHoverRay(ctx, customNdc) {
       }
     } else if (ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
       prompt = isTouch
-        ? (ctx.wearingGloves ? '🧤 Toque para retirar Luvas de Nitrilo' : '🧤 Toque para calçar Luvas de Nitrilo Estéreis')
-        : ((ctx.wearingGloves ? '🧤 Clique para retirar Luvas de Nitrilo' : '🧤 Clique para calçar Luvas de Nitrilo Estéreis') + ' • G/Q para posicionar');
+        ? (ctx.wearingGloves && !ctx.glovesExpired ? '🧤 Toque para retirar Luvas Pretas' : '🧤 Toque para calçar Luvas Pretas Estéreis (160s)')
+        : ((ctx.wearingGloves && !ctx.glovesExpired ? '🧤 Clique para retirar Luvas Pretas' : '🧤 Clique para calçar Luvas Pretas Estéreis (160s)') + ' • G/Q para posicionar');
     } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer) {
       if (ctx.thermoLaserOn) {
         prompt = '🔴 [SCAN] ' + (ctx.thermoTargetLabel || 'Ambiente') + ': ' + ctx.thermoCurrentTemp.toFixed(1) + '°C' +

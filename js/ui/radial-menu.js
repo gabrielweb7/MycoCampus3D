@@ -348,6 +348,16 @@ export function showItemStatusCard(item, ctx) {
     });
   }
 
+  if (item.id && item.id.indexOf('gloves_box_') === 0 && ctx) {
+    const gRem = ctx.glovesUntil ? Math.max(0, Math.ceil((ctx.glovesUntil - performance.now()) / 1000)) : 0;
+    const gActive = !!(ctx.wearingGloves && !ctx.glovesExpired && gRem > 0);
+    chips.push({
+      icon: gActive ? '🧤' : (ctx.wearingGloves ? '⚠️' : '🖐️'),
+      text: gActive ? `Luvas Pretas Estéreis (${gRem}s)` : (ctx.wearingGloves ? 'Luvas Expiradas (Trocar)' : 'Sem Luvas'),
+      color: gActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+    });
+  }
+
   if (item.meta && item.meta.purpose && chips.length <= 2) {
     chips.push({ icon: 'ℹ️', text: item.meta.purpose, color: 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
   }
@@ -495,6 +505,29 @@ function buildContextActions(ctx) {
         }
       });
       return actions;
+    }
+    if (target.id && target.id.indexOf('gloves_box_') === 0) {
+      const wearActive = !!(ctx.wearingGloves && !ctx.glovesExpired);
+      actions.push({
+        id: 'gloves_toggle_' + target.id + '_' + (wearActive ? '1' : '0'),
+        icon: '🧤',
+        label: wearActive ? 'Retirar Luvas Pretas' : (ctx.wearingGloves ? 'Trocar Luvas Pretas (160s)' : 'Calçar Luvas Pretas (160s)'),
+        run: () => {
+          const shouldWear = !ctx.wearingGloves || !!ctx.glovesExpired;
+          ctx.wearingGloves = shouldWear;
+          ctx.glovesExpired = false;
+          ctx.glovesUntil = shouldWear ? (performance.now() + 160000) : 0;
+          if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
+            ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x1e293b : 0xfde68a);
+          }
+          if (window.MycoAudio) window.MycoAudio.playClick();
+          if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast(ctx.wearingGloves
+              ? '🧤 Luvas Pretas Nitrílicas Estéreis calçadas (160s)!'
+              : '🧤 Luvas Pretas retiradas.');
+          }
+        }
+      });
     }
     if (target.mesh && target.mesh.userData && target.mesh.userData.isPetri) {
       actions.push({

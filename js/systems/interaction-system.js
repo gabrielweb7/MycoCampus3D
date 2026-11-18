@@ -751,15 +751,18 @@ export function handlePrimaryAction(ctx) {
         return;
       }
       if (ctx.heldItem && ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
-        ctx.wearingGloves = !ctx.wearingGloves;
+        const shouldWear = !ctx.wearingGloves || !!ctx.glovesExpired;
+        ctx.wearingGloves = shouldWear;
+        ctx.glovesExpired = false;
+        ctx.glovesUntil = shouldWear ? (performance.now() + 160000) : 0;
         if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
-          ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x38bdf8 : 0xfde68a);
+          ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x1e293b : 0xfde68a);
         }
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (ctx.callbacks.onToast) {
           ctx.callbacks.onToast(ctx.wearingGloves
-            ? '🧤 Luvas de Nitrilo Estéreis calçadas!'
-            : '🧤 Luvas de Nitrilo retiradas.');
+            ? '🧤 Luvas Pretas Nitrílicas Estéreis calçadas (160s)!'
+            : '🧤 Luvas Pretas retiradas.');
         }
         return;
       }

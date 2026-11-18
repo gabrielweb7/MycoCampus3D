@@ -156,7 +156,7 @@ export function handleScalpelTargetAction(ctx) {
     const wm = target.item.wildMushroomCtrl;
     const hoodOk = isAsepticWorkArea(ctx, target.item);
     const bladeOk = !!scalpel.sterile;
-    const glovesOk = !!ctx.wearingGloves;
+    const glovesOk = !!(ctx.wearingGloves && !ctx.glovesExpired);
     scalpel.hasMycelium = true;
     scalpel.biopsySpecies = wm.speciesName;
     scalpel.biopsyAseptic = hoodOk && bladeOk && glovesOk;
@@ -182,7 +182,7 @@ export function handleScalpelTargetAction(ctx) {
     }
     const sterileTransfer = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item);
     let contamRisk = 0;
-    if (!ctx.wearingGloves) contamRisk += 0.25;
+    if (!(ctx.wearingGloves && !ctx.glovesExpired)) contamRisk += 0.25;
     if (!((target.item.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
     if (!((ctx.heldItem.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
     if (!inoculatePetri(target.item, 'mycelium', sterileTransfer, contamRisk)) {
@@ -201,7 +201,7 @@ export function handleScalpelTargetAction(ctx) {
     ctx.notifyWorldAction();
   } else if (target.mode === 'transfer_lc' && target.item && target.item.cultureCtrl) {
     const lc = target.item.cultureCtrl;
-    const aseptic = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!ctx.wearingGloves;
+    const aseptic = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!(ctx.wearingGloves && !ctx.glovesExpired);
     lc.inoculated = true;
     lc.colonized = false;
     if (aseptic) {
