@@ -193,7 +193,7 @@ export function bindControls(ctx) {
     }
   }, { passive: false });
 
-  let touchLookId = null, lastTX = 0, lastTY = 0, touchMoved = false;
+  let touchLookId = null, lastTX = 0, lastTY = 0, touchStartX = 0, touchStartY = 0, touchMoved = false;
   ctx.touchDrawingBoard = false;
   function setNdcFromTouch(t) {
     const rect = ctx.renderer.domElement.getBoundingClientRect();
@@ -206,9 +206,12 @@ export function bindControls(ctx) {
     return !!(
       el.closest('#mobile-joystick-zone') ||
       el.closest('#mobile-actions') ||
+      el.closest('#held-item-bar') ||
+      el.closest('#item-status-card') ||
       el.closest('.touch-btn') ||
       el.closest('button') ||
       el.closest('input') ||
+      el.closest('select') ||
       el.closest('textarea') ||
       el.closest('form') ||
       el.closest('#campus-hud') ||
@@ -234,6 +237,7 @@ export function bindControls(ctx) {
       if (touchLookId === null) {
         touchLookId = t.identifier;
         lastTX = t.clientX; lastTY = t.clientY;
+        touchStartX = t.clientX; touchStartY = t.clientY;
         touchMoved = false;
       }
     }
@@ -244,7 +248,7 @@ export function bindControls(ctx) {
       const t = e.changedTouches[i];
       if (t.identifier === touchLookId) {
         const dx = t.clientX - lastTX, dy = t.clientY - lastTY;
-        if (Math.hypot(dx, dy) > 4) touchMoved = true;
+        if (Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) > 10) touchMoved = true;
         if (ctx.inFps) {
           ctx.playerYaw -= dx * 0.0080;
           ctx.playerPitch = Math.max(-1.35, Math.min(1.35, ctx.playerPitch - dy * 0.0080));

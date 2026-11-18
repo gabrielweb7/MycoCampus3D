@@ -369,6 +369,23 @@ body.device-desktop #btn-mobile-chat-toggle {
 
 #held-item-bar {
   animation: slideUpHeldBar 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: manipulation;
+}
+
+body.device-touch #held-item-bar {
+  bottom: auto;
+  top: 56px;
+  max-width: calc(100vw - 20px);
+  padding: 5px 10px;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+body.device-touch #held-item-bar #btn-held-drop,
+body.device-touch #held-item-bar #btn-held-place,
+body.device-touch #held-item-bar #btn-held-rotate {
+  display: none;
 }
 
 @keyframes slideUpHeldBar {

@@ -120,7 +120,14 @@ function bindModalsAndToolbar() {
   if (heldPlaceBtn) {
     heldPlaceBtn.onclick = (e) => {
       e.stopPropagation();
-      if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
+      if (mobilePlacementModeActive) {
+        if (window.setCampusMobilePrimary) {
+          window.setCampusMobilePrimary(true);
+          window.setCampusMobilePrimary(false);
+        }
+      } else {
+        if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
+      }
     };
   }
   const heldRotateBtn = $('btn-held-rotate');
@@ -506,7 +513,10 @@ export function bootApp() {
     if (isHolding && currentHoldLabel) {
       actBtn.style.display = 'flex';
       actBtn.dataset.action = 'use';
-      if (currentHoldLabel.indexOf('Giz') !== -1 || currentHoldLabel.indexOf('chalk') !== -1) {
+      if (mobilePlacementModeActive) {
+        actBtn.textContent = '✅';
+        actBtn.title = 'Confirmar Posição do Item';
+      } else if (currentHoldLabel.indexOf('Giz') !== -1 || currentHoldLabel.indexOf('chalk') !== -1) {
         actBtn.textContent = '✏️';
         actBtn.title = 'Desenhar na Lousa (segure e arraste o dedo)';
       } else if (currentHoldLabel.indexOf('Apagador') !== -1 || currentHoldLabel.indexOf('eraser') !== -1) {
@@ -626,6 +636,7 @@ export function bootApp() {
           ? '<span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[Esc]</span> ✕ Cancelar'
           : '<span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[X]</span> ⬇️ Largar';
       }
+      refreshMobileAction();
     },
     onFpsChange: (fps) => {
       updateFpsUi(fps);
