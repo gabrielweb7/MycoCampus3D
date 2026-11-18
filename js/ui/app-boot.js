@@ -6,6 +6,8 @@ import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
 import { apiPost } from '../services/api-client.js';
 import { syncMultiplayer, sendLeaveBeacon } from '../services/multiplayer-sync.js';
+import { MUSHROOM_SPECIES_CATALOG } from '../world/mushroom-species.js';
+import { getDiscoveredSpecies } from '../systems/mycoteca.js';
 import {
   $,
   applyDeviceUi,
@@ -223,6 +225,34 @@ function bindModalsAndToolbar() {
       if (window.MycoAudio) window.MycoAudio.playClick();
       $('shop-modal')?.classList.add('hidden');
     };
+  }
+  const btnMycoteca = $('btn-open-mycoteca');
+  if (btnMycoteca) {
+    btnMycoteca.onclick = () => {
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      releaseInputForModal();
+      const grid = $('mycoteca-grid');
+      const summary = $('mycoteca-summary');
+      const found = getDiscoveredSpecies();
+      if (summary) summary.textContent = `Descobertas: ${found.length} / ${MUSHROOM_SPECIES_CATALOG.length} espécies catalogadas`;
+      if (grid) {
+        grid.innerHTML = MUSHROOM_SPECIES_CATALOG.map((sp) => {
+          const fullName = `${sp.common} (${sp.scientific})`;
+          const isFound = found.some((f) => f.indexOf(sp.scientific) !== -1 || f === fullName);
+          const hab = sp.habitat === 'wood' ? '🪵 Madeira' : (sp.habitat === 'pasture' ? '🐄 Pasto' : '🌲 Mata');
+          return `<div class="p-2.5 rounded-xl border ${isFound ? 'bg-teal-950/60 border-teal-400/50 text-white' : 'bg-slate-900/60 border-slate-700/50 text-slate-400'}">` +
+            `<div class="font-bold truncate">${isFound ? '✅ ' + sp.common : '🔒 ' + sp.common}</div>` +
+            `<div class="italic text-[11px] opacity-80 truncate">${sp.scientific}</div>` +
+            `<div class="mt-1 text-[10px] font-semibold ${isFound ? 'text-teal-300' : 'text-slate-500'}">${hab} • ${isFound ? 'Catalogado' : 'Procure no mapa'}</div>` +
+            `</div>`;
+        }).join('');
+      }
+      $('mycoteca-modal')?.classList.remove('hidden');
+    };
+  }
+  const btnCloseMycoteca = $('btn-close-mycoteca');
+  if (btnCloseMycoteca) {
+    btnCloseMycoteca.onclick = () => $('mycoteca-modal')?.classList.add('hidden');
   }
 
   const btnEmotes = $('btn-open-emotes');

@@ -36,7 +36,7 @@ function resolveHoverTargetObj(ctx) {
     ctx.hoveredDoorObj ||
     ctx.hoveredCabinetPart ||
     ctx.hoveredGreenhouseSlot ||
-    ctx.hoveredMushroom ||
+    (ctx.hoveredMushroom ? { label: (ctx.hoveredMushroom.capMesh && ctx.hoveredMushroom.capMesh.userData.speciesName) || 'Cogumelo Selvagem' } : null) ||
     ctx.hoveredBlindObj ||
     (ctx.hoveredSink ? { label: 'Pia Inox do Laboratório' } : null) ||
     (ctx.hoveredTrash ? { label: 'Lixeira do Laboratório' } : null) ||
@@ -342,9 +342,10 @@ export function updateHoverRay(ctx, customNdc) {
         ctx.hoverHit = mHits[0];
         ctx.hoveredMushroom = wm;
         const isPoop = wm.id && wm.id.indexOf('wild_poop_') === 0;
+        const spLabel = (wm.capMesh && wm.capMesh.userData && wm.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
         prompt = isPoop
-          ? '🍄 Colher Cubensis Dourado (+40 XP • +1 Cogu)'
-          : '🍄 Colher Cogumelo (+25 XP)';
+          ? `🍄 Comer / Colher ${spLabel} (+40 XP • +1 Cogu)`
+          : `🍄 Colher ${spLabel} (+25 XP • +1 Cogu)`;
         break;
       }
     }

@@ -166,26 +166,127 @@ function makeCreativeTree(kind, x, y, z, scale) {
   return g;
 }
 
+function getSpeciesShape(spec) {
+  const n = spec.scientific;
+  if (n.indexOf('Hericium') !== -1) return 'lions_mane';
+  if (n.indexOf('Pleurotus eryngii') !== -1 || n.indexOf('Boletus') !== -1 || n.indexOf('Leccinum') !== -1) return 'king_oyster';
+  if (n.indexOf('Pleurotus') !== -1 || n.indexOf('Ganoderma') !== -1 || n.indexOf('Trametes') !== -1 ||
+      n.indexOf('Laetiporus') !== -1 || n.indexOf('Auricularia') !== -1 || n.indexOf('Grifola') !== -1 ||
+      n.indexOf('Fomes') !== -1 || n.indexOf('Pycnoporus') !== -1 || n.indexOf('Polyporus') !== -1) return 'shelf';
+  if (n.indexOf('Flammulina') !== -1 || n.indexOf('Coprinellus') !== -1 || n.indexOf('Mycena') !== -1) return 'enoki';
+  if (n.indexOf('Morchella') !== -1) return 'morel';
+  if (n.indexOf('Cantharellus') !== -1 || n.indexOf('Craterellus') !== -1 || n.indexOf('Cookeina') !== -1 || n.indexOf('Sarcoscypha') !== -1) return 'funnel';
+  if (n.indexOf('Cordyceps') !== -1 || n.indexOf('Xylaria') !== -1) return 'cordyceps';
+  if (n.indexOf('Calvatia') !== -1 || n.indexOf('Lycoperdon') !== -1 || n.indexOf('Geastrum') !== -1 || n.indexOf('Tuber') !== -1) return 'puffball';
+  if (n.indexOf('Amanita muscaria') !== -1) return 'amanita_dots';
+  if (n.indexOf('Psilocybe') !== -1) return 'cubensis';
+  return 'classic';
+}
+
 function makeSpeciesMushroomMesh(spec) {
   const g = new THREE.Group();
   const s = spec.scale || 0.08;
-  const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(s * 0.26, s * 0.36, s * 2.1, 7),
-    new THREE.MeshStandardMaterial({ color: spec.stemColor, roughness: 0.7 })
-  );
-  stem.position.y = s * 1.05;
+  const shape = getSpeciesShape(spec);
   const isGlow = spec.scientific.indexOf('chlorophos') !== -1 || spec.scientific.indexOf('Panellus') !== -1;
-  const cap = new THREE.Mesh(
-    new THREE.SphereGeometry(s * 0.95, 9, 6, 0, Math.PI * 2, 0, Math.PI * 0.55),
-    new THREE.MeshStandardMaterial({
-      color: spec.capColor,
-      roughness: 0.48,
-      emissive: isGlow ? spec.capColor : 0x000000,
-      emissiveIntensity: isGlow ? 0.65 : 0
-    })
-  );
-  cap.position.y = s * 1.95;
-  g.add(stem, cap);
+  const isGlossy = spec.scientific.indexOf('Ganoderma') !== -1;
+
+  const stemMat = new THREE.MeshStandardMaterial({ color: spec.stemColor, roughness: 0.72 });
+  const capMat = new THREE.MeshStandardMaterial({
+    color: spec.capColor,
+    roughness: isGlossy ? 0.16 : 0.48,
+    metalness: isGlossy ? 0.15 : 0.02,
+    emissive: isGlow ? spec.capColor : 0x000000,
+    emissiveIntensity: isGlow ? 0.75 : 0,
+    side: THREE.DoubleSide
+  });
+
+  let cap = null;
+  if (shape === 'lions_mane') {
+    cap = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 1.15, 1), capMat);
+    cap.position.y = s * 1.05;
+    for (let i = 0; i < 4; i++) {
+      const tuft = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 0.65, 1), capMat);
+      const a = (i / 4) * Math.PI * 2;
+      tuft.position.set(Math.cos(a) * s * 0.55, s * 0.85, Math.sin(a) * s * 0.55);
+      g.add(tuft);
+    }
+    g.add(cap);
+  } else if (shape === 'shelf') {
+    for (let i = 0; i < 3; i++) {
+      const fan = new THREE.Mesh(new THREE.CylinderGeometry(s * (1.0 - i * 0.15), s * 0.45, s * 0.24, 10), capMat);
+      fan.position.set((i - 1) * s * 0.5, s * (0.45 + i * 0.35), i * s * 0.2);
+      fan.rotation.x = 0.22;
+      g.add(fan);
+      if (i === 0) cap = fan;
+    }
+  } else if (shape === 'enoki') {
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const r = i === 0 ? 0 : s * 0.48;
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.12, s * 0.15, s * 2.4, 6), stemMat);
+      st.position.set(Math.cos(a) * r, s * 1.2, Math.sin(a) * r);
+      const cp = new THREE.Mesh(new THREE.SphereGeometry(s * 0.42, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.6), capMat);
+      cp.position.set(Math.cos(a) * r, s * 2.35, Math.sin(a) * r);
+      g.add(st, cp);
+      if (i === 0) cap = cp;
+    }
+  } else if (shape === 'king_oyster') {
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.55, s * 0.68, s * 2.1, 10), stemMat);
+    st.position.y = s * 1.05;
+    cap = new THREE.Mesh(new THREE.SphereGeometry(s * 0.88, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), capMat);
+    cap.position.y = s * 2.0;
+    g.add(st, cap);
+  } else if (shape === 'morel') {
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.30, s * 0.38, s * 1.3, 8), stemMat);
+    st.position.y = s * 0.65;
+    cap = new THREE.Mesh(new THREE.ConeGeometry(s * 0.65, s * 1.5, 7), capMat);
+    cap.position.y = s * 1.85;
+    g.add(st, cap);
+  } else if (shape === 'funnel') {
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.40, s * 0.22, s * 1.5, 9), capMat);
+    st.position.y = s * 0.75;
+    cap = new THREE.Mesh(new THREE.CylinderGeometry(s * 1.05, s * 0.42, s * 0.55, 10, 1, true), capMat);
+    cap.position.y = s * 1.65;
+    g.add(st, cap);
+  } else if (shape === 'cordyceps') {
+    for (let i = 0; i < 3; i++) {
+      const club = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.24, s * 0.16, s * (2.2 + i * 0.25), 7), capMat);
+      club.position.set((i - 1) * s * 0.42, s * 1.1, 0);
+      club.rotation.z = (i - 1) * 0.14;
+      g.add(club);
+      if (i === 1) cap = club;
+    }
+  } else if (shape === 'puffball') {
+    cap = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 0.95, 1), capMat);
+    cap.position.y = s * 0.85;
+    g.add(cap);
+  } else if (shape === 'cubensis') {
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.22, s * 0.30, s * 2.3, 8), stemMat);
+    st.position.y = s * 1.15;
+    const veil = new THREE.Mesh(
+      new THREE.CylinderGeometry(s * 0.24, s * 0.42, s * 0.24, 8, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0x4c1d95, side: THREE.DoubleSide })
+    );
+    veil.position.y = s * 1.45;
+    cap = new THREE.Mesh(new THREE.ConeGeometry(s * 1.05, s * 0.62, 12), capMat);
+    cap.position.y = s * 2.35;
+    g.add(st, veil, cap);
+  } else {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.26, s * 0.36, s * 2.1, 7), stemMat);
+    stem.position.y = s * 1.05;
+    cap = new THREE.Mesh(new THREE.SphereGeometry(s * 0.95, 9, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), capMat);
+    cap.position.y = s * 1.95;
+    g.add(stem, cap);
+    if (shape === 'amanita_dots') {
+      const dotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      for (let di = 0; di < 5; di++) {
+        const a = (di / 5) * Math.PI * 2;
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(s * 0.14, 5, 5), dotMat);
+        dot.position.set(Math.cos(a) * s * 0.52, s * 2.42, Math.sin(a) * s * 0.52);
+        g.add(dot);
+      }
+    }
+  }
   return { g, cap };
 }
 

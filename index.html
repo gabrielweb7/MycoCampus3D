@@ -70,7 +70,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=0.9.66">
+  <link rel="stylesheet" href="css/game.css?v=0.9.67">
 </head>
 
 <body>
@@ -129,7 +129,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v0.9.66</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v0.9.67</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -174,6 +174,9 @@
           <button id="btn-open-guide" type="button" title="Controles, tutorial opcional e compatibilidade dos itens"
             class="hud-pill-btn px-2 py-0.5 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 font-bold border border-indigo-500/50 flex items-center gap-1">📖
             Guia</button>
+          <button id="btn-open-mycoteca" type="button" title="Coleção de Espécies de Cogumelos"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-teal-900/60 hover:bg-teal-800 text-teal-200 font-bold border border-teal-500/50 flex items-center gap-1">🍄
+            Micoteca</button>
           <button id="btn-open-shop" type="button" title="Loja de Cosméticos & Chapéus"
             class="hud-pill-btn px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
             Loja</button>
@@ -520,6 +523,22 @@
     </div>
   </div>
 
+  <!-- Micoteca (Coleção de Espécies) Modal -->
+  <div id="mycoteca-modal"
+    class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+    <div class="glass-panel rounded-2xl w-full max-w-4xl max-h-[88vh] flex flex-col border border-teal-500/40 overflow-hidden shadow-2xl">
+      <div class="p-4 border-b border-slate-700/60 flex items-center justify-between bg-slate-900/40">
+        <div>
+          <h2 class="text-base sm:text-lg font-extrabold text-teal-300">🍄 Micoteca — Coleção de Espécies</h2>
+          <p id="mycoteca-summary" class="text-xs text-slate-400">Explore os bosques, troncos e o pasto para catalogar todas as espécies.</p>
+        </div>
+        <button id="btn-close-mycoteca"
+          class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">✕ Fechar</button>
+      </div>
+      <div id="mycoteca-grid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs"></div>
+    </div>
+  </div>
+
   <noscript>
     <div
       style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99;background:#0b1220;color:#fff;padding:24px;text-align:center">
@@ -527,10 +546,10 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.9.66';</script>
+  <script>window.MYCO_VERSION = '0.9.67';</script>
   <script src="js/vendor/three.min.js?v=r128"></script>
   <script src="js/vendor/OrbitControls.js?v=r128"></script>
-  <script type="module" src="js/main.js?v=0.9.66"></script>
+  <script type="module" src="js/main.js?v=0.9.67"></script>
 </body>
 
 </html>
