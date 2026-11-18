@@ -83,15 +83,21 @@ export function buildLabSink(ctx, sx, sy, sz) {
   waterStream.visible = false;
   waterStream.userData.ignoreRay = true;
 
-  // Hitbox invisivel cobrindo cuba e torneira
-  const hitBox = new THREE.Mesh(
-    new THREE.BoxGeometry(0.86, 0.56 + BASIN_DEPTH, 0.66),
+  // Hitbox da torneira (encher) e hitbox da cuba/ralo (esvaziar/derramar)
+  const faucetHitBox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.40, 0.44, 0.36),
     new THREE.MeshBasicMaterial({ visible: false })
   );
-  hitBox.position.set(-0.06, 0.28 - (0.56 + BASIN_DEPTH) / 2 + 0.28, 0);
+  faucetHitBox.position.set(-0.16, 0.24, 0);
+
+  const basinHitBox = new THREE.Mesh(
+    new THREE.BoxGeometry(0.82, BASIN_DEPTH + 0.08, 0.62),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  basinHitBox.position.set(0, -BASIN_DEPTH / 2 + 0.02, 0);
 
   sg.add(lipZ, lipZ2, lipX, lipX2, wBack, wFront, wLeft, wRight, floor, drain, grate,
-    baseCol, riser, arch, nozzle, handle, waterStream, hitBox);
+    baseCol, riser, arch, nozzle, handle, waterStream, faucetHitBox, basinHitBox);
   ctx.scene.add(sg);
 
   // Fundo da cuba como superfície de apoio: itens colocados na pia ficam dentro dela
@@ -113,10 +119,13 @@ export function buildLabSink(ctx, sx, sy, sz) {
     activeUntil: 0,
     nozzleWorld: new THREE.Vector3(sx + nozzleX, sy + 0.03, sz)
   };
-  hitBox.userData.labSink = sinkObj;
+  faucetHitBox.userData.labSink = sinkObj;
+  faucetHitBox.userData.sinkAction = 'fill';
+  basinHitBox.userData.labSink = sinkObj;
+  basinHitBox.userData.sinkAction = 'drain';
   if (!ctx.labSinkMeshes) ctx.labSinkMeshes = [];
   if (!ctx.labSinks) ctx.labSinks = [];
-  ctx.labSinkMeshes.push(hitBox);
+  ctx.labSinkMeshes.push(faucetHitBox, basinHitBox);
   ctx.labSinks.push(sinkObj);
   return sinkObj;
 }

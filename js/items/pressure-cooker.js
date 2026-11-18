@@ -47,6 +47,58 @@ export const ELECTRIC_BURNER_META = {
 };
 
 export const BURNER_LEVEL_NAMES = ['Desligado', 'Fogo Baixo', 'Fogo Médio', 'Fogo Alto'];
+export const BURNER_TIMER_PRESETS = [0, 20, 60, 90, 120];
+export const BURNER_GAME_MIN_SECONDS = 3;
+
+export function formatBurnerTimerLabel(min) {
+  if (!min) return 'Livre';
+  if (min === 20) return '20m';
+  if (min === 60) return '1h';
+  if (min === 90) return '1h30';
+  if (min === 120) return '2h';
+  return min + 'm';
+}
+
+export function drawBurnerTimerDisplay(burner) {
+  if (!burner || !burner.timerCtx || !burner.timerTex) return;
+  const ctx2d = burner.timerCtx;
+  ctx2d.clearRect(0, 0, 256, 64);
+  ctx2d.fillStyle = '#040914';
+  ctx2d.fillRect(0, 0, 256, 64);
+  ctx2d.strokeStyle = burner.on ? '#22c55e' : '#38bdf8';
+  ctx2d.lineWidth = 4;
+  ctx2d.strokeRect(2, 2, 252, 60);
+
+  let rightTxt = '--:--';
+  if (burner.timerPresetMin > 0) {
+    const remMinTotal = Math.max(0, Math.ceil((burner.timerRemainingSec || 0) / BURNER_GAME_MIN_SECONDS));
+    const hh = Math.floor(remMinTotal / 60);
+    const mm = remMinTotal % 60;
+    rightTxt = (hh > 0 ? hh + 'h' : '') + String(mm).padStart(2, '0') + 'm';
+  } else {
+    rightTxt = 'LIVRE';
+  }
+  const lvlTxt = burner.on ? ('N' + (burner.level || 1)) : 'OFF';
+  ctx2d.fillStyle = burner.on ? '#4ade80' : '#7dd3fc';
+  ctx2d.font = 'bold 28px monospace';
+  ctx2d.textAlign = 'left';
+  ctx2d.textBaseline = 'middle';
+  ctx2d.fillText(lvlTxt, 14, 33);
+  ctx2d.textAlign = 'right';
+  ctx2d.fillStyle = burner.timerPresetMin > 0 && burner.on ? '#fde047' : '#e2e8f0';
+  ctx2d.fillText(rightTxt, 242, 33);
+  burner.timerTex.needsUpdate = true;
+}
+
+export function cycleBurnerTimer(burner) {
+  if (!burner) return 0;
+  const curIdx = BURNER_TIMER_PRESETS.indexOf(burner.timerPresetMin || 0);
+  const nextMin = BURNER_TIMER_PRESETS[(curIdx + 1) % BURNER_TIMER_PRESETS.length];
+  burner.timerPresetMin = nextMin;
+  burner.timerRemainingSec = nextMin * BURNER_GAME_MIN_SECONDS;
+  drawBurnerTimerDisplay(burner);
+  return nextMin;
+}
 
 function createSteamEmitter(parent, startY) {
   const count = 24;
@@ -152,6 +204,14 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   });
   lidGroup.add(lidRim, lidDome, weight, weightTop);
 
+  const grainMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.195, 0.195, 0.24, 24),
+    new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.72, metalness: 0.05 })
+  );
+  grainMesh.position.y = 0.08;
+  grainMesh.visible = false;
+  potGroup.add(grainMesh);
+
   const valveSteam = createSteamEmitter(lidGroup, 0.17);
   const openPotSteam = createSteamEmitter(potGroup, 0.37);
 
@@ -179,6 +239,10 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
     weightTop,
     safetyPins,
     waterMesh,
+    grainMesh,
+    grainGrams: 0,
+    grainCookSec: 0,
+    grainAlDente: false,
     steamPoints: valveSteam.points,
     valveSteam,
     openPotSteam,
@@ -214,6 +278,17 @@ export function updateCookerWaterVisual(cp) {
     const visFrac = Math.max(0.03, frac);
     cp.waterMesh.scale.y = visFrac;
     cp.waterMesh.position.y = 0.035 + (0.28 * visFrac) * 0.5;
+  }
+  if (cp.grainMesh) {
+    if ((cp.grainGrams || 0) <= 0) {
+      cp.grainMesh.visible = false;
+    } else {
+      cp.grainMesh.visible = true;
+      const gFrac = Math.max(0.08, Math.min(1, (cp.grainGrams || 0) / 4000));
+      cp.grainMesh.scale.y = gFrac;
+      cp.grainMesh.position.y = 0.032 + (0.24 * gFrac) * 0.5;
+      cp.grainMesh.material.color.setHex(cp.grainAlDente ? 0xfef08a : 0xfacc15);
+    }
   }
 }
 
@@ -308,11 +383,28 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   bg.userData.updateBounds = updateItemBounds;
   bg.userData.isBlockedPickup = function (it) { return isSurfaceOccupied(ctx, bSurf, it); };
 
-  const bState = { id, kind: 'electric', on: false, level: 0, heat: 0, coilMat, reflectorMat, ledMat, knobGroup, surface: bSurf };
+  const tCanvas = document.createElement('canvas');
+  tCanvas.width = 256; tCanvas.height = 64;
+  const tCtx = tCanvas.getContext('2d');
+  const tTex = new THREE.CanvasTexture(tCanvas);
+  const timerScreen = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.16, 0.042),
+    new THREE.MeshBasicMaterial({ map: tTex })
+  );
+  timerScreen.position.set(0, 0.044, 0.292);
+  bg.add(timerScreen);
+
+  const bState = {
+    id, kind: 'electric', on: false, level: 0, heat: 0,
+    coilMat, reflectorMat, ledMat, knobGroup, surface: bSurf,
+    timerPresetMin: 0, timerRemainingSec: 0, timerCtx: tCtx, timerTex: tTex, timerDrawAcc: 0
+  };
+  drawBurnerTimerDisplay(bState);
   const bIdx = ctx.burnerDevices.length;
   knobBase.userData.burnerSwitchIdx = bIdx;
   knobPointer.userData.burnerSwitchIdx = bIdx;
-  ctx.burnerSwitchMeshes.push(knobBase, knobPointer);
+  timerScreen.userData.burnerTimerIdx = bIdx;
+  ctx.burnerSwitchMeshes.push(knobBase, knobPointer, timerScreen);
   ctx.burnerDevices.push(bState);
   return registerPickable(ctx, id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12, ELECTRIC_BURNER_META);
 }
@@ -337,6 +429,12 @@ export function setBurnerLevel(burner, level) {
   } else if (burner.knobGroup) {
     burner.knobGroup.rotation.z = -lvl * 0.65;
   }
+  if (burner.kind === 'electric') {
+    if (lvl > 0 && burner.timerPresetMin > 0 && (burner.timerRemainingSec || 0) <= 0) {
+      burner.timerRemainingSec = burner.timerPresetMin * BURNER_GAME_MIN_SECONDS;
+    }
+    drawBurnerTimerDisplay(burner);
+  }
 }
 
 export function stepPressureCookers(ctx, dt) {
@@ -345,6 +443,25 @@ export function stepPressureCookers(ctx, dt) {
   let anyPotSteaming = false;
   for (let bni = 0; bni < ctx.burnerDevices.length; bni++) {
     const bnd = ctx.burnerDevices[bni];
+    if (bnd.kind === 'electric' && bnd.on && bnd.timerPresetMin > 0) {
+      bnd.timerRemainingSec = Math.max(0, (bnd.timerRemainingSec || 0) - dt);
+      bnd.timerDrawAcc = (bnd.timerDrawAcc || 0) + dt;
+      if (bnd.timerRemainingSec <= 0) {
+        setBurnerLevel(bnd, 0);
+        if (ctx.queueWorldStateChange) {
+          const bId = bnd.id || 'burner_lab';
+          ctx.queueWorldStateChange(bId, 0);
+          ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, 0);
+        }
+        if (window.MycoAudio) window.MycoAudio.playSwitch();
+        if (ctx.callbacks && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('⏰ Timer do Fogareiro (' + formatBurnerTimerLabel(bnd.timerPresetMin) + ') concluído! Desligado automaticamente.');
+        }
+      } else if (bnd.timerDrawAcc >= 0.25) {
+        bnd.timerDrawAcc = 0;
+        drawBurnerTimerDisplay(bnd);
+      }
+    }
     const lvl = bnd.on ? (bnd.level || 0) : 0;
     const targetHeat = lvl === 0 ? 0 : (lvl === 1 ? 0.38 : (lvl === 2 ? 0.68 : 1.0));
     if (bnd.heat < targetHeat) {
@@ -479,6 +596,16 @@ export function stepPressureCookers(ctx, dt) {
         // Fervura aberta a 100°C
         cp.temp = Math.min(100, cp.temp + dt * heatRate);
         cp.psi = Math.max(0, cp.psi - dt * 4.0);
+        if ((cp.grainGrams || 0) > 0 && cp.temp >= 96 && !cp.burned) {
+          cp.grainCookSec = (cp.grainCookSec || 0) + dt;
+          if (!cp.grainAlDente && cp.grainCookSec >= 60) {
+            cp.grainAlDente = true;
+            updateCookerWaterVisual(cp);
+            if (ctx.callbacks && ctx.callbacks.onToast) {
+              ctx.callbacks.onToast('🌽 Milho de pipoca no ponto AO DENTE (20 min)! Escorra na pia e porcione nos potes/bags!');
+            }
+          }
+        }
       } else if (cp.mode === 'pasteurize') {
         const targetPastTemp = heatLvl === 1 ? 76 : (heatLvl === 2 ? 84 : 96);
         if (cp.temp < targetPastTemp) cp.temp = Math.min(targetPastTemp, cp.temp + dt * heatRate);
@@ -679,10 +806,17 @@ export function stepPressureCookers(ctx, dt) {
           stageSub = 'Ideal: 3.0–4.0L (+0.5cm da base)';
           barPct = 100; barCol = '#f59e0b'; borderCol = '#f59e0b';
         } else if (activeBurner && !cp.lidItem.isAttached) {
-          barPct = Math.min(100, Math.round(((cp.temp - 25) / 75) * 100));
-          stageTitle = cp.temp >= 98 ? '♨️ Fervendo (sem tampa)' : '🔥 Aquecendo água...';
-          stageSub = Math.round(cp.temp) + '°C • Água ' + waterLit + waterEta;
-          barCol = cp.temp >= 98 ? '#38bdf8' : '#f97316';
+          if ((cp.grainGrams || 0) > 0) {
+            barPct = cp.grainAlDente ? 100 : Math.min(100, Math.round(((cp.grainCookSec || 0) / 60) * 100));
+            stageTitle = cp.grainAlDente ? '🌽 Milho AO DENTE (Pronto!)' : '🌽 Cozinhando Milho (' + barPct + '%)';
+            stageSub = Math.round(cp.grainGrams) + 'g • ' + Math.round(cp.temp) + '°C • Água ' + waterLit;
+            barCol = cp.grainAlDente ? '#22c55e' : '#eab308';
+          } else {
+            barPct = Math.min(100, Math.round(((cp.temp - 25) / 75) * 100));
+            stageTitle = cp.temp >= 98 ? '♨️ Fervendo (sem tampa)' : '🔥 Aquecendo água...';
+            stageSub = Math.round(cp.temp) + '°C • Água ' + waterLit + waterEta;
+            barCol = cp.temp >= 98 ? '#38bdf8' : '#f97316';
+          }
           borderCol = barCol;
         } else if (activeBurner && cp.lidItem.isAttached) {
           if (cp.mode === 'pasteurize') {

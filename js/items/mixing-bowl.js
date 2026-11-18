@@ -57,8 +57,10 @@ export function updateMixingBowlLabel(item) {
   if (bc.mixMesh) {
     bc.mixMesh.visible = true;
     const fillFrac = Math.min(1, totalG / 600);
-    bc.mixMesh.scale.y = Math.max(0.15, fillFrac);
-    bc.mixMesh.position.y = 0.015 + (0.095 * bc.mixMesh.scale.y) * 0.5;
+    const sy = Math.max(0.15, fillFrac);
+    const sxz = 0.86 + 0.14 * fillFrac;
+    bc.mixMesh.scale.set(sxz, sy, sxz);
+    bc.mixMesh.position.y = 0.012 + (0.095 * sy) * 0.5;
     bc.mixMesh.material.color.setHex(bc.mixed ? 0xf59e0b : (bc.ingredients.water > 0 && !bc.ingredients.flocao && !bc.ingredients.corn ? 0x7dd3fc : 0xfde047));
   }
   const status = bc.mixed ? '✅ Receita Homogênea' : '🥄 Misture c/ colher';
@@ -96,7 +98,7 @@ export function makeMixingBowl(ctx, id, px, py, pz) {
   const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.090, 0.090, 0.008, 20), bowlMat);
   bottom.position.y = 0.004;
   const mixMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.105, 0.084, 0.095, 18),
+    new THREE.CylinderGeometry(0.096, 0.080, 0.095, 18),
     new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.78 })
   );
   mixMesh.visible = false;

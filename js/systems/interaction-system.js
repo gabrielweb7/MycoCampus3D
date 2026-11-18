@@ -363,16 +363,16 @@ export function handlePrimaryAction(ctx) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode ser preenchido pela pia.');
         return;
       }
-      let sinkMode = 'fill';
+      const sinkAction = ctx.hoveredSinkAction || 'fill';
+      let sinkMode = sinkAction;
       let didStep = false;
       if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
         const lc = ctx.heldItem.mesh.userData.liquidCtrl;
-        if (lc.volMl < lc.maxMl) {
+        if (sinkAction === 'fill' && lc.volMl < lc.maxMl) {
           updateContainerVolume(ctx.heldItem, Math.min(lc.maxMl, lc.volMl + 35));
           if (medium) markPdaVolumeChanged(ctx.heldItem);
           didStep = true;
-        } else if (lc.volMl > 0) {
-          sinkMode = 'drain';
+        } else if (sinkAction === 'drain' && lc.volMl > 0) {
           updateContainerVolume(ctx.heldItem, Math.max(0, lc.volMl - 45));
           if (medium) markPdaVolumeChanged(ctx.heldItem);
           didStep = true;
@@ -383,12 +383,11 @@ export function handlePrimaryAction(ctx) {
           if (cp.potItem === ctx.heldItem) {
             const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
             const potWaterCap = hasBase ? 4000 : 10000;
-            if (cp.waterMl < potWaterCap) {
+            if (sinkAction === 'fill' && cp.waterMl < potWaterCap) {
               cp.waterMl = Math.min(potWaterCap, cp.waterMl + 100);
               updateCookerWaterVisual(cp);
               didStep = true;
-            } else if (cp.waterMl > 0) {
-              sinkMode = 'drain';
+            } else if (sinkAction === 'drain' && cp.waterMl > 0) {
               cp.waterMl = Math.max(0, cp.waterMl - 120);
               updateCookerWaterVisual(cp);
               didStep = true;
@@ -576,6 +575,39 @@ export function handlePrimaryAction(ctx) {
         ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
         ctx.heldItem.meta.compatibilities.transfersMycelium) {
       handleScalpelTargetAction(ctx);
+      return;
+    }
+    if (ctx.hoveredCornScoopPot && ctx.heldItem.spawnCtrl && !ctx.heldItem.spawnCtrl.filled) {
+      const cp = ctx.hoveredCornScoopPot;
+      const takeG = Math.min(200, cp.grainGrams || 0);
+      if (takeG > 0) {
+        cp.grainGrams -= takeG;
+        if (cp.grainGrams <= 0) { cp.grainGrams = 0; cp.grainCookSec = 0; cp.grainAlDente = false; }
+        updateCookerWaterVisual(cp);
+        const sc = ctx.heldItem.spawnCtrl;
+        sc.filled = true;
+        sc.substrateKind = 'grain';
+        sc.fillGrams = takeG;
+        sc.waterMl = 35;
+        sc.updateVisual();
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 ' + ctx.heldItem.label + ' preenchido com Milho Ao Dente!');
+        ctx.notifyWorldAction();
+      }
+      return;
+    }
+    if (ctx.hoveredGrainCooker && ctx.heldItem.id.indexOf('substrate_grain_') === 0) {
+      const cp = ctx.hoveredGrainCooker;
+      const addG = Math.min(500, 4000 - (cp.grainGrams || 0));
+      if (addG > 0) {
+        cp.grainGrams = (cp.grainGrams || 0) + addG;
+        cp.grainAlDente = false;
+        updateCookerWaterVisual(cp);
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌽 +' + addG + 'g de Milho na Panela (' + cp.grainGrams + '/4000g)! Ligue o fogão por 20m!');
+        ctx.notifyWorldAction();
+      }
       return;
     }
     if (ctx.hoveredGrainTarget && ctx.heldItem.id.indexOf('substrate_') === 0) {

@@ -7,7 +7,7 @@ import { cancelHeldItemPlacement, updateHeldItemPlacementPreview } from './held-
 import { resolveHeldItemHover } from './hover-held-handlers.js';
 import { isSeatOccupied } from './world-interactions.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
-import { BURNER_LEVEL_NAMES } from '../items/pressure-cooker.js';
+import { BURNER_LEVEL_NAMES, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
 import { isCultureAccessibleFromFridge, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
 import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
@@ -162,6 +162,10 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredParafilmTarget = null;
   ctx.hoveredScaleTare = null;
   ctx.hoveredBurnerSwitch = null;
+  ctx.hoveredBurnerTimer = null;
+  ctx.hoveredSinkAction = null;
+  ctx.hoveredGrainCooker = null;
+  ctx.hoveredCornScoopPot = null;
   ctx.hoveredPotInsert = null;
   ctx.hoveredSprayTarget = null;
   ctx.hoveredWipeTarget = null;
@@ -244,6 +248,13 @@ export function updateHoverRay(ctx, customNdc) {
     const bHits = ctx.raycaster.intersectObjects(ctx.burnerSwitchMeshes, false);
     if (bHits.length > 0 && bHits[0].distance < 4.0) {
       ctx.hoverHit = bHits[0];
+      if (bHits[0].object.userData.burnerTimerIdx !== undefined) {
+        ctx.hoveredBurnerTimer = ctx.burnerDevices[bHits[0].object.userData.burnerTimerIdx];
+        const curLbl = formatBurnerTimerLabel(ctx.hoveredBurnerTimer.timerPresetMin || 0);
+        prompt = '⏱️ Timer Digital (' + curLbl + ') • Clique para alternar (20m / 1h / 1h30 / 2h / Livre)';
+        setHoverPrompt(ctx, prompt);
+        return;
+      }
       ctx.hoveredBurnerSwitch = ctx.burnerDevices[bHits[0].object.userData.burnerSwitchIdx];
       const curL = ctx.hoveredBurnerSwitch.level || (ctx.hoveredBurnerSwitch.on ? 3 : 0);
       const nxtL = (curL + 1) % 4;

@@ -300,18 +300,19 @@ function handleSinkHover(ctx, setHoverPrompt) {
   if (sHits.length === 0 || sHits[0].distance >= 3.5) return false;
   ctx.hoverHit = sHits[0];
   ctx.hoveredSink = sHits[0].object.userData.labSink;
+  const sinkAction = sHits[0].object.userData.sinkAction || 'fill';
+  ctx.hoveredSinkAction = sinkAction;
   hidePlacementGhost(ctx);
   const sinkLc = ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.liquidCtrl;
   const sinkPot = ctx.cookerPots.find((cp) => cp.potItem === ctx.heldItem);
   const curVol = sinkLc ? sinkLc.volMl : (sinkPot ? sinkPot.waterMl : 0);
   const maxVol = sinkLc ? sinkLc.maxMl : (sinkPot ? (sinkPot.hasBase ? 4000 : 10000) : 0);
-  const isFull = maxVol > 0 && curVol >= maxVol;
   const volTxt = sinkLc
     ? ' • ' + Math.round(sinkLc.volMl) + '/' + sinkLc.maxMl + ' ml'
     : (sinkPot ? ' • ' + (sinkPot.waterMl / 1000).toFixed(1) + '/' + (maxVol / 1000).toFixed(0) + ' L' : '');
-  setHoverPrompt(ctx, isFull
-    ? '🚰 SEGURE o clique para esvaziar ' + ctx.heldItem.label + ' na pia' + volTxt
-    : '🚰 SEGURE o clique para encher ' + ctx.heldItem.label + volTxt + (curVol > 0 ? ' (ou Esq/Dir p/ esvaziar)' : ' (solte para parar)'));
+  setHoverPrompt(ctx, sinkAction === 'drain'
+    ? '🚰 SEGURE na Cuba da Pia para derramar água de ' + ctx.heldItem.label + volTxt
+    : '🚰 SEGURE na Torneira para encher ' + ctx.heldItem.label + volTxt + ' (solte para parar)');
   return true;
 }
 
@@ -474,7 +475,36 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
 }
 
 function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (ctx.heldItem.spawnCtrl && !ctx.heldItem.spawnCtrl.filled && !ctx.heldItem.spawnCtrl.burned) {
+    for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
+      const cp = ctx.cookerPots[ci];
+      if (cp.lidItem.isAttached || !cp.grainAlDente || (cp.grainGrams || 0) <= 0) continue;
+      const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
+      if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
+        ctx.hoverHit = cpHits[0];
+        ctx.hoveredCornScoopPot = cp;
+        hidePlacementGhost(ctx);
+        setHoverPrompt(ctx, '🌽 Encher ' + ctx.heldItem.label + ' com Milho Ao Dente (' + Math.round(cp.grainGrams) + 'g disponíveis)');
+        return true;
+      }
+    }
+  }
   if (!ctx.heldItem.id || ctx.heldItem.id.indexOf('substrate_') !== 0) return false;
+  if (ctx.heldItem.id.indexOf('substrate_grain_') === 0) {
+    for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
+      const cp = ctx.cookerPots[ci];
+      const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+      if (cp.lidItem.isAttached || hasBase || cp.waterMl < 3500 || (cp.grainGrams || 0) >= 4000) continue;
+      const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
+      if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
+        ctx.hoverHit = cpHits[0];
+        ctx.hoveredGrainCooker = cp;
+        hidePlacementGhost(ctx);
+        setHoverPrompt(ctx, '🌽 Adicionar +500g de Milho de Pipoca na Panela (' + Math.round(cp.grainGrams || 0) + '/4000g • cozinhar 20m ao dente)');
+        return true;
+      }
+    }
+  }
   let isBowl = false;
   const res = findPickableHit(ctx, 3.5, (gCand) => {
     const recSub = !!(gCand.spawnCtrl && !gCand.spawnCtrl.filled &&

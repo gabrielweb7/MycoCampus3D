@@ -11,7 +11,7 @@ const _tmpBadgeProj = THREE ? new THREE.Vector3() : null;
 export function createHover3dBadge(scene) {
   const canvas = document.createElement('canvas');
   canvas.width = 640;
-  canvas.height = 190;
+  canvas.height = 250;
   const ctx = canvas.getContext('2d');
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -110,13 +110,36 @@ export function formatHoverInfo(prompt, targetObj) {
   return { title, params, action };
 }
 
+function wrapLines(ctx, text, maxWidth, maxLines) {
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+  const lines = [];
+  let cur = words[0];
+  for (let i = 1; i < words.length; i++) {
+    const test = cur + ' ' + words[i];
+    if (ctx.measureText(test).width <= maxWidth) {
+      cur = test;
+    } else {
+      lines.push(cur);
+      cur = words[i];
+      if (maxLines && lines.length >= maxLines - 1) {
+        cur = words.slice(i).join(' ');
+        break;
+      }
+    }
+  }
+  lines.push(cur);
+  return lines;
+}
+
 /**
- * Renderiza o cartão diegético no canvas da textura (Estilo AR Sci-Fi Balanceado, Nítido e Legível)
+ * Renderiza o cartão diegético no canvas da textura (texto completo, sem cortes "…")
  */
 function renderBadgeTexture(badgeState, title, params, action) {
   const { canvas, ctx, texture } = badgeState;
   const w = canvas.width;
   const h = canvas.height;
+  const maxTextW = w - 56;
 
   ctx.clearRect(0, 0, w, h);
 
@@ -137,8 +160,33 @@ function renderBadgeTexture(badgeState, title, params, action) {
   ctx.stroke();
   ctx.restore();
 
+  // Linha 1: Título completo do Objeto (com quebra de linha se necessário)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 24px "Segoe UI", -apple-system, Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const titleLines = wrapLines(ctx, title, maxTextW, 2);
+  let yCursor = titleLines.length > 1 ? 36 : 46;
+  for (let i = 0; i < titleLines.length; i++) {
+    ctx.fillText(titleLines[i], w / 2, yCursor + i * 26, maxTextW);
+  }
+  yCursor += (titleLines.length - 1) * 26 + 28;
+
+  // Linha 2: Parâmetros / Estado em tempo real (Ciano Celeste)
+  if (params) {
+    ctx.save();
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '600 19px "Segoe UI", -apple-system, Roboto, sans-serif';
+    const paramLines = wrapLines(ctx, params, maxTextW, 2);
+    for (let i = 0; i < paramLines.length; i++) {
+      ctx.fillText(paramLines[i], w / 2, yCursor + i * 22, maxTextW);
+    }
+    ctx.restore();
+    yCursor += (paramLines.length - 1) * 22 + 24;
+  }
+
   // Divisor sutil entre título/parâmetros e ação
-  const divY = params ? 122 : 104;
+  const divY = Math.max(92, Math.min(148, yCursor - 4));
   ctx.strokeStyle = 'rgba(148, 163, 184, 0.24)';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
@@ -146,29 +194,14 @@ function renderBadgeTexture(badgeState, title, params, action) {
   ctx.lineTo(w - 30, divY);
   ctx.stroke();
 
-  // Linha 1: Título do Objeto (Branco Nítido e Confortável)
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 26px "Segoe UI", -apple-system, Roboto, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const displayTitle = title.length > 32 ? title.slice(0, 31) + '…' : title;
-  ctx.fillText(displayTitle, w / 2, params ? 48 : 58);
-
-  // Linha 2: Parâmetros / Estado em tempo real (Ciano Celeste)
-  if (params) {
-    ctx.save();
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = '600 20px "Segoe UI", -apple-system, Roboto, sans-serif';
-    const displayParams = params.length > 40 ? params.slice(0, 39) + '…' : params;
-    ctx.fillText(displayParams, w / 2, 88);
-    ctx.restore();
-  }
-
-  // Linha 3: Ação contextual (Dourado/Menta vibrante)
+  // Linha 3: Ação contextual completa (Dourado/Menta vibrante)
   ctx.fillStyle = '#fde047';
-  ctx.font = 'bold 22px "Segoe UI", -apple-system, Roboto, sans-serif';
-  const displayAction = action.length > 36 ? action.slice(0, 35) + '…' : action;
-  ctx.fillText('👉 ' + displayAction, w / 2, params ? 156 : 146);
+  ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
+  const actionLines = wrapLines(ctx, '👉 ' + action, maxTextW, 2);
+  const actStartY = divY + (actionLines.length > 1 ? 26 : 36);
+  for (let i = 0; i < actionLines.length; i++) {
+    ctx.fillText(actionLines[i], w / 2, actStartY + i * 24, maxTextW);
+  }
 
   texture.needsUpdate = true;
 }
@@ -213,7 +246,7 @@ export function updateHover3dBadge(badgeState, data, camera, now) {
   if (camera) {
     const dist = camera.position.distanceTo(badgeState.sprite.position);
     const s = Math.max(0.32, Math.min(0.68, dist * 0.22));
-    badgeState.sprite.scale.set(s * 1.65, s * 0.50, 1);
+    badgeState.sprite.scale.set(s * 1.65, s * 0.65, 1);
 
     // Evita que o crachá 3D projete atrás da barra de menu superior (#hud-top-bar)
     if (_tmpBadgeProj) {

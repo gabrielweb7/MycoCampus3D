@@ -5,7 +5,7 @@
  */
 
 import { scrollRanking } from '../world/staircase-clock.js';
-import { setBurnerLevel, BURNER_LEVEL_NAMES } from '../items/pressure-cooker.js';
+import { setBurnerLevel, BURNER_LEVEL_NAMES, cycleBurnerTimer, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
 
 export function isSeatOccupied(remoteAvatars, seat) {
@@ -170,6 +170,14 @@ export function handleWorldInteraction(ctx) {
     if (ctx.callbacks && ctx.callbacks.onToast) {
       const verb = ctx.hoveredCabinetPart.open ? 'aberto' : 'fechado';
       ctx.callbacks.onToast(`🗄️ ${ctx.hoveredCabinetPart.label} ${verb}.`);
+    }
+    return true;
+  }
+  if (ctx.hoveredBurnerTimer) {
+    const nextMin = cycleBurnerTimer(ctx.hoveredBurnerTimer);
+    if (window.MycoAudio) window.MycoAudio.playSwitch();
+    if (ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast('⏱️ Timer do Fogareiro definido para: ' + formatBurnerTimerLabel(nextMin));
     }
     return true;
   }
