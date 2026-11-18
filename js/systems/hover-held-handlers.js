@@ -352,7 +352,7 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
       hidePlacementGhost(ctx);
       setHoverPrompt(ctx, beakerRes.item.pdaMediumCtrl.powderGrams > 0
         ? '💧 Completar o preparo do PDA/BDA com água'
-        : '🧪 Adicione o pó PDA/BDA antes da água');
+        : '💧 Adicionar água ao Béquer (pode pôr PDA depois)');
       return true;
     }
     for (let ci = 0; ci < ctx.cookerPots.length; ci++) {

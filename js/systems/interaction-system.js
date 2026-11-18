@@ -163,14 +163,16 @@ export function handlePrimaryAction(ctx) {
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este meio já foi processado; use um béquer limpo.');
           return;
         }
-        if (medium.powderGrams <= 0) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Adicione o pó PDA/BDA antes da água.');
-          return;
-        }
-        const expectedMl = medium.powderGrams * 1000 / PDA_GRAMS_PER_LITER;
-        const addMl = Math.min(sourceLiquid.volMl, targetLiquid.maxMl - targetLiquid.volMl, expectedMl - targetLiquid.volMl);
+        const expectedMl = medium.powderGrams > 0 ? (medium.powderGrams * 1000 / PDA_GRAMS_PER_LITER) : targetLiquid.maxMl;
+        const addMl = medium.powderGrams > 0
+          ? Math.min(sourceLiquid.volMl, targetLiquid.maxMl - targetLiquid.volMl, expectedMl - targetLiquid.volMl)
+          : Math.min(100, sourceLiquid.volMl, targetLiquid.maxMl - targetLiquid.volMl);
         if (addMl <= 0) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A proporção já está completa; ajuste a quantidade de pó para preparar mais meio.');
+          if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast(medium.powderGrams > 0
+              ? '⚠️ A proporção já está completa; ajuste a quantidade de pó para preparar mais meio.'
+              : '⚠️ O recipiente já está cheio.');
+          }
           return;
         }
         updateContainerVolume(ctx.heldItem, sourceLiquid.volMl - addMl);
@@ -178,7 +180,11 @@ export function handlePrimaryAction(ctx) {
         markPdaVolumeChanged(target);
         if (window.MycoAudio) window.MycoAudio.playSpray();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 +' + addMl + 'ml de água. Proporção: 40g/L.');
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast(medium.powderGrams > 0
+            ? '💧 +' + addMl + 'ml de água. Proporção: 40g/L.'
+            : '💧 +' + addMl + 'ml de água no Béquer (adicione o pó PDA quando quiser).');
+        }
         ctx.notifyWorldAction();
         return;
       }
