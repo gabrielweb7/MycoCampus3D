@@ -110,6 +110,11 @@ export function handleWorldInteraction(ctx) {
     cloned.visible = true;
     cloned.position.set(0, 0, 0);
     cloned.rotation.set(0, 0, 0);
+    cloned.traverse((ch) => {
+      ch.matrixAutoUpdate = true;
+      ch.updateMatrix();
+    });
+    cloned.updateMatrixWorld(true);
     const mBox = new THREE.Box3().setFromObject(cloned);
     const mCenter = new THREE.Vector3();
     const mSize = new THREE.Vector3();
