@@ -34,6 +34,7 @@ export function bindControls(ctx) {
 
     ctx.keys[e.code] = true;
     if (e.code === 'Space') {
+      e.preventDefault();
       if (window.triggerCampusJump) window.triggerCampusJump();
     }
     if (e.code === 'KeyX') {
@@ -166,11 +167,25 @@ export function bindControls(ctx) {
   let lastTouchEndAt = 0;
   let lastTouchActionAt = 0;
 
+  ctx.renderer.domElement.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+  });
+
   ctx.renderer.domElement.addEventListener('mousedown', function (e) {
-    if (e.button !== 0 || ctx.lobbyTourActive) return;
+    if (ctx.lobbyTourActive) return;
     if ((e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) || (performance.now() - lastTouchEndAt < 700)) {
       return;
     }
+    if (e.button === 2 && ctx.heldItem) {
+      e.preventDefault();
+      if (ctx.placementMode) {
+        ctx.cancelHeldItemPlacement();
+      } else {
+        ctx.dropHeldItem();
+      }
+      return;
+    }
+    if (e.button !== 0) return;
     if (ctx.inFps && document.pointerLockElement !== ctx.renderer.domElement) {
       safeRequestPointerLock();
       return;

@@ -4,7 +4,7 @@
  * execute em tela cheia sem barra de navegador e carregue instantaneamente.
  */
 
-const CACHE_NAME = 'mycocampus-v0.9.55';
+const CACHE_NAME = 'mycocampus-v0.9.56';
 const STATIC_ASSETS = [
   './',
   'index.html',
