@@ -185,6 +185,10 @@ const sim = {
   labCabinets: [],
   cabinetHitMeshes: [],
   hoveredCabinetPart: null,
+  cowHitMeshes: [],
+  hoveredCow: null,
+  serverTimeSec: 0,
+  serverTimeSyncAt: 0,
   hoveredSink: null,
   hoveredTrash: false,
   hoveredWipeTarget: null,
@@ -418,6 +422,7 @@ function getWorldBuilderCtx() {
     labTrashMeshes: sim.labTrashMeshes,
     labCabinets: sim.labCabinets,
     cabinetHitMeshes: sim.cabinetHitMeshes,
+    cowHitMeshes: sim.cowHitMeshes,
     spawnGrowItems: sim.spawnGrowItems,
     scaleTareMeshes: sim.scaleTareMeshes,
     scaleDevices: sim.scaleDevices,
@@ -576,12 +581,12 @@ export function initCampus3D(containerId, cbs) {
     const wbCtx = getWorldBuilderCtx();
     buildNatureWorld(wbCtx);
     buildExpandedForestAndMushrooms(wbCtx);
-    createPastureAndCows(wbCtx);
     buildPlaza(wbCtx);
     buildStaircaseAndBridge(wbCtx);
     buildClockTowerAndAuditorium(wbCtx);
     buildCampusWingsAndEquipment(wbCtx);
     buildOuterCampus(wbCtx);
+    createPastureAndCows(wbCtx);
     buildFirstPersonArm(sim.entityCtx);
 
     sim.localAvatar = buildCuteAvatar(sim.scene, { isLocal: true, hat_color: '#d9534f', body_color: '#4f46e5' });

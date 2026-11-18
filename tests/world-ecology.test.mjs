@@ -10,7 +10,7 @@ globalThis.window = globalThis.window || {
 };
 
 const { MUSHROOM_SPECIES_CATALOG } = await import('../js/world/mushroom-species.js');
-const { COW_POOP_INTERVAL_SEC, POOP_CUBENSIS_GROW_SEC } = await import('../js/entities/pasture-cows.js');
+const { COW_POOP_INTERVAL_SEC, POOP_CUBENSIS_GROW_SEC, petCow } = await import('../js/entities/pasture-cows.js');
 const { BURNER_TIMER_PRESETS, formatBurnerTimerLabel } = await import('../js/items/pressure-cooker.js');
 
 test('MUSHROOM_SPECIES_CATALOG contém exatamente 100 espécies em madeira, mata e pasto', () => {
@@ -23,9 +23,14 @@ test('MUSHROOM_SPECIES_CATALOG contém exatamente 100 espécies em madeira, mata
   assert.ok(pasture.length >= 20);
 });
 
-test('vaquinhas soltam cocô a cada 30s e cubensis dourados nascem após 60s', () => {
+test('vaquinhas soltam cocô a cada 30s, cubensis dourados nascem após 30s e carinho atualiza saúde/humor', () => {
   assert.equal(COW_POOP_INTERVAL_SEC, 30);
-  assert.equal(POOP_CUBENSIS_GROW_SEC, 60);
+  assert.equal(POOP_CUBENSIS_GROW_SEC, 30);
+  const cow = { name: 'Mimosa', health: 95, mood: 'Pastando 🌿', state: 'wander' };
+  const msg = petCow(cow);
+  assert.equal(cow.health, 100);
+  assert.equal(cow.state, 'curious');
+  assert.match(msg, /Mimosa.*100%/);
 });
 
 test('fogareiro elétrico possui presets de timer 20m, 1h, 1h30, 2h e Livre', () => {

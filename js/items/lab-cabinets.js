@@ -39,6 +39,9 @@ function makeMaterials() {
     handle: new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.95, roughness: 0.18 }),
     glass: new THREE.MeshStandardMaterial({
       color: 0x7dd3fc, transparent: true, opacity: 0.26, roughness: 0.08, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide
+    }),
+    darkGlass: new THREE.MeshStandardMaterial({
+      color: 0x0f172a, transparent: true, opacity: 0.42, roughness: 0.08, metalness: 0.15, depthWrite: false, side: THREE.DoubleSide
     })
   };
 }
@@ -46,18 +49,15 @@ function makeMaterials() {
 function makeDoorPanel(mats, wd, glass) {
   const g = new THREE.Group();
   const hh = DOOR_TOP - DOOR_BOTTOM;
-  if (glass) {
-    const fw = 0.035;
-    addBox(g, wd, fw, 0.02, mats.steel, 0, hh / 2 - fw / 2, 0);
-    addBox(g, wd, fw, 0.02, mats.steel, 0, -hh / 2 + fw / 2, 0);
-    addBox(g, fw, hh, 0.02, mats.steel, -wd / 2 + fw / 2, 0, 0);
-    addBox(g, fw, hh, 0.02, mats.steel, wd / 2 - fw / 2, 0, 0);
-    const pane = addBox(g, wd - fw * 2, hh - fw * 2, 0.006, mats.glass, 0, 0, 0);
-    pane.userData.ignoreRay = true;
-  } else {
-    addBox(g, wd, hh, 0.02, mats.steel, 0, 0, 0);
-    addBox(g, wd - 0.08, hh - 0.08, 0.004, mats.handle, 0, 0, 0.012);
-  }
+  const fw = 0.035;
+  addBox(g, wd, fw, 0.02, mats.steel, 0, hh / 2 - fw / 2, 0);
+  addBox(g, wd, fw, 0.02, mats.steel, 0, -hh / 2 + fw / 2, 0);
+  addBox(g, fw, hh, 0.02, mats.steel, -wd / 2 + fw / 2, 0, 0);
+  addBox(g, fw, hh, 0.02, mats.steel, wd / 2 - fw / 2, 0, 0);
+  // Porta escura agora usa vidro fumê transparente para ver os itens dentro do armário
+  const paneMat = glass ? mats.glass : mats.darkGlass;
+  const pane = addBox(g, wd - fw * 2, hh - fw * 2, 0.006, paneMat, 0, 0, 0);
+  pane.userData.ignoreRay = true;
   return g;
 }
 
@@ -79,6 +79,12 @@ export function buildBenchCabinets(ctx, cfg) {
 
   if (!ctx.labCabinets) ctx.labCabinets = [];
   if (!ctx.cabinetHitMeshes) ctx.cabinetHitMeshes = [];
+  if (!ctx.cabinetLedMats) ctx.cabinetLedMats = [];
+
+  const ledStripMat = new THREE.MeshStandardMaterial({
+    color: 0xe0f2fe, emissive: 0x7dd3fc, emissiveIntensity: 1.35, roughness: 0.2
+  });
+  ctx.cabinetLedMats.push(ledStripMat);
 
   const root = new THREE.Group();
   root.position.set(fx, 0, fz);
@@ -195,6 +201,9 @@ export function buildBenchCabinets(ctx, cfg) {
       continue;
     }
 
+    // Fita de LED na parte superior no fundo interno do armário
+    addBox(root, w - 0.14, 0.014, 0.018, ledStripMat, lc, DOOR_TOP - 0.035, -D + 0.06);
+
     // Piso do módulo (prateleira inferior)
     const part = {
       id: 'cab_' + key,
@@ -265,6 +274,72 @@ export function toggleCabinetPart(ctx, part) {
   part.open = !part.open;
   if (ctx.queueWorldStateChange) ctx.queueWorldStateChange(part.id, part.open ? 1 : 0);
   if (window.MycoAudio && window.MycoAudio.playDoor) window.MycoAudio.playDoor(part.open);
+}
+
+/**
+ * Cria um interruptor na parede do laboratório para ligar/desligar a fita de LED
+ * dos armários e uma luminária LED acima da bancada principal.
+ */
+export function buildBenchLedSwitch(ctx, sx, sy, sz, benchX, benchZ) {
+  if (!THREE || !ctx || !ctx.scene) return null;
+  const swGroup = new THREE.Group();
+  swGroup.position.set(sx, sy, sz);
+
+  const plate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.11, 0.16, 0.025),
+    new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.4 })
+  );
+  const rocker = new THREE.Mesh(
+    new THREE.BoxGeometry(0.045, 0.075, 0.025),
+    new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.35 })
+  );
+  rocker.position.set(0, 0, 0.016);
+  rocker.rotation.x = -0.22;
+  const ledMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 8), ledMat);
+  led.position.set(0, 0.055, 0.016);
+  swGroup.add(plate, rocker, led);
+  ctx.scene.add(swGroup);
+
+  // Luminária LED acima da bancada
+  const lampGroup = new THREE.Group();
+  lampGroup.position.set(benchX, 2.65, benchZ);
+  const tubeMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, emissive: 0xe0f2fe, emissiveIntensity: 0.95, roughness: 0.2
+  });
+  const housing = new THREE.Mesh(
+    new THREE.BoxGeometry(2.2, 0.05, 0.14),
+    new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 })
+  );
+  const tube = new THREE.Mesh(new THREE.BoxGeometry(2.12, 0.03, 0.09), tubeMat);
+  tube.position.y = -0.025;
+  lampGroup.add(housing, tube);
+  ctx.scene.add(lampGroup);
+
+  const benchLight = new THREE.PointLight(0xe0f2fe, 1.35, 9.0, 1.6);
+  benchLight.position.set(benchX, 2.52, benchZ);
+  ctx.scene.add(benchLight);
+
+  const swObj = {
+    id: 'light_6',
+    on: true,
+    light: benchLight,
+    tubeMat,
+    ledMat,
+    rocker,
+    onToggle: (isOn) => {
+      if (ctx.cabinetLedMats) {
+        ctx.cabinetLedMats.forEach((m) => {
+          m.emissiveIntensity = isOn ? 1.35 : 0.03;
+          m.color.setHex(isOn ? 0xe0f2fe : 0x334155);
+        });
+      }
+    }
+  };
+  plate.userData.lightSwitch = swObj;
+  rocker.userData.lightSwitch = swObj;
+  if (ctx.lightSwitchMeshes) ctx.lightSwitchMeshes.push(plate, rocker);
+  return swObj;
 }
 
 /** Verdadeiro se o item está guardado dentro de um armário com a porta fechada. */

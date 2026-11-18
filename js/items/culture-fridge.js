@@ -1,7 +1,7 @@
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { PETRI_DISH_RADIUS } from './petri-dish.js';
 import { updateCultureLiquidLabel } from './liquid-culture.js';
-import { stepCultureShelfLife } from './culture-lifecycle.js';
+import { stepCultureShelfLife, stepCultureTemperature } from './culture-lifecycle.js';
 
 const THREE = window.THREE;
 const FRIDGE_WIDTH = 0.88;
@@ -240,13 +240,14 @@ export function isCultureAccessibleFromFridge(ctx, item) {
 
 export function stepCultureFridges(ctx, dt) {
   const items = ctx.pickableItems;
+  const doorOpenByFridgeId = {};
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
+    if (item && item.fridgeCtrl) doorOpenByFridgeId[item.id] = !!item.fridgeCtrl.doorOpen;
     const info = getCultureStorageInfo(item);
     if (!info) continue;
     const ctrl = info.ctrl;
     ctrl.inFridge = false;
-    ctrl.refrigerated = false;
     ctrl.fridgeId = '';
   }
 
@@ -275,7 +276,6 @@ export function stepCultureFridges(ctx, dt) {
         if (Math.hypot(itemPos.x - position.x, itemPos.z - position.z) >= info.radius + (slot.kind === 'vessel' ? 0.11 : PETRI_DISH_RADIUS) ||
             Math.abs(itemPos.y - position.y) >= 0.06) continue;
         info.ctrl.inFridge = true;
-        info.ctrl.refrigerated = !ctrl.doorOpen;
         info.ctrl.fridgeId = fridge.id;
       }
     }
@@ -286,10 +286,11 @@ export function stepCultureFridges(ctx, dt) {
     const info = getCultureStorageInfo(item);
     if (!info || info.kind !== 'vessel' || !(item.cultureCtrl || (item.mesh.userData && item.mesh.userData.cultureCtrl))) continue;
     const culture = info.ctrl;
+    const tempChanged = stepCultureTemperature(culture, dt, !!culture.inFridge, !!doorOpenByFridgeId[culture.fridgeId]);
     const changed = culture.refrigerated !== culture.lastRenderedRefrigerated;
     if (!item.mesh.userData.liquidCtrl || item.mesh.userData.liquidCtrl.volMl <= 0) continue;
     const lifeStep = stepCultureShelfLife(culture, dt);
-    if (changed || lifeStep > 0) updateCultureLiquidLabel(item);
+    if (changed || tempChanged || lifeStep > 0) updateCultureLiquidLabel(item);
     if (lifeStep === 2 && ctx.callbacks.onToast) {
       ctx.callbacks.onToast('🕒 A cultura líquida venceu; prepare uma nova cultura.');
     }

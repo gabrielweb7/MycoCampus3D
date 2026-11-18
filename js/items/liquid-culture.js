@@ -15,9 +15,14 @@ export const LIQUID_JAR_META = {
   purpose: 'Cultura líquida com septo de borracha para aspiração estéril via seringa',
   maxVolumeMl: 800,
   getWeightGrams: (item) => 260 + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
-  getTempC: (item, ctx) => item && item.cultureCtrl && item.cultureCtrl.refrigerated
-    ? 4
-    : 24.5 + Math.sin(((ctx && ctx.clock && ctx.clock.elapsedTime) || 0) * 2.0) * 0.2,
+  getTempC: (item, ctx) => {
+    if (item && item.cultureCtrl && typeof item.cultureCtrl.tempC === 'number') {
+      return item.cultureCtrl.tempC;
+    }
+    return item && item.cultureCtrl && item.cultureCtrl.refrigerated
+      ? 4
+      : 24.5 + Math.sin(((ctx && ctx.clock && ctx.clock.elapsedTime) || 0) * 2.0) * 0.2;
+  },
   compatibilities: {
     canEnterCooker: true,
     fillsFromSink: false,
@@ -62,7 +67,8 @@ export function updateCultureLiquidLabel(item) {
   } else if (culture.expired) {
     item.label = volumeLabel + ' • cultura vencida';
   } else if (culture.colonized) {
-    const temperature = culture.refrigerated ? '4°C' : '24,5°C';
+    const tempVal = typeof culture.tempC === 'number' ? culture.tempC : (culture.refrigerated ? 4.0 : 24.5);
+    const temperature = tempVal.toFixed(1).replace('.', ',') + '°C' + (culture.refrigerated ? ' ❄️' : '');
     item.label = volumeLabel + ' • 100% colonizada • ' + temperature +
       ' • validade ' + getCultureRemainingDays(culture) + ' dias';
   } else {

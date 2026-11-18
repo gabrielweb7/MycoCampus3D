@@ -8,13 +8,34 @@ export function createCultureLifecycleState(colonized) {
     contaminated: false,
     ageGameDays: 0,
     shelfLifeAgeDays: 0,
+    tempC: 24.5,
     refrigerated: false,
     inFridge: false,
     fridgeId: '',
     expired: false,
     lastRenderedRefrigerated: false,
+    lastRenderedTempInt: 25,
     lastRenderedAgeDay: -1
   };
+}
+
+export function stepCultureTemperature(ctrl, dt, inFridge, doorOpen) {
+  if (!ctrl) return false;
+  if (typeof ctrl.tempC !== 'number' || !Number.isFinite(ctrl.tempC)) ctrl.tempC = 24.5;
+  const targetTemp = inFridge ? (doorOpen ? 9.5 : 4.0) : 24.5;
+  const rate = inFridge ? 0.65 : 0.45; // esfria e aquece gradualmente
+  if (ctrl.tempC > targetTemp) {
+    ctrl.tempC = Math.max(targetTemp, ctrl.tempC - rate * dt);
+  } else if (ctrl.tempC < targetTemp) {
+    ctrl.tempC = Math.min(targetTemp, ctrl.tempC + rate * dt);
+  }
+  ctrl.refrigerated = ctrl.tempC <= 10.0;
+  const tempInt = Math.round(ctrl.tempC);
+  if (tempInt !== ctrl.lastRenderedTempInt) {
+    ctrl.lastRenderedTempInt = tempInt;
+    return true;
+  }
+  return false;
 }
 
 export function getCultureRemainingDays(ctrl) {

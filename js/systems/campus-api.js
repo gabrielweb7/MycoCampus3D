@@ -154,6 +154,10 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.requeueCampusStateChanges = function (changes) { return worldSync.requeueCampusStateChanges(sim, changes); };
   window.applyCampusWorldState = function (stateMap, isInitial) { return worldSync.applyCampusWorldState(sim, stateMap, isInitial); };
   window.applyCampusSavedPose = function (pose) { return worldSync.applyCampusSavedPose(sim, pose); };
+  window.setCampusServerTime = function (ts) {
+    sim.serverTimeSec = ts;
+    sim.serverTimeSyncAt = performance.now();
+  };
   window.applyCampusLayoutEdits = function (edits) { return adminEditor.applyCampusLayoutEdits(sim, edits); };
   window.getCampusAdminEditor = function () {
     return {

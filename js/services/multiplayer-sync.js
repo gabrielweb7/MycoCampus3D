@@ -100,6 +100,9 @@ export async function syncMultiplayer() {
       }
 
       if ($('hud-online')) $('hud-online').textContent = String(data.online_count || 1);
+      if (typeof data.server_ts === 'number' && window.setCampusServerTime) {
+        window.setCampusServerTime(data.server_ts);
+      }
       if (typeof data.obj_ver === 'string') appState.lastObjVer = data.obj_ver;
       if (typeof data.state_ver === 'string') appState.lastStateVer = data.state_ver;
       if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;

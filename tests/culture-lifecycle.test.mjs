@@ -8,7 +8,8 @@ import {
   createCultureLifecycleState,
   getCultureRemainingDays,
   isCultureIncubationTemperatureSuitable,
-  stepCultureShelfLife
+  stepCultureShelfLife,
+  stepCultureTemperature
 } from '../js/items/culture-lifecycle.js';
 
 test('createCultureLifecycleState inicializa corretamente', () => {
@@ -50,4 +51,23 @@ test('isCultureIncubationTemperatureSuitable valida faixa de 20°C a 30°C', () 
   assert.equal(isCultureIncubationTemperatureSuitable({ meta: { baseTempC: 4 } }, {}), false);
   assert.equal(isCultureIncubationTemperatureSuitable({ meta: { baseTempC: 35 } }, {}), false);
   assert.equal(isCultureIncubationTemperatureSuitable({ meta: { getTempC: () => 27 } }, {}), true);
+});
+
+test('stepCultureTemperature esfria gradualmente na geladeira e aquece de volta fora dela', () => {
+  const st = createCultureLifecycleState(true);
+  assert.equal(st.tempC, 24.5);
+  // 10s dentro da geladeira fechada: esfria parcialmente (~18°C), ainda não instantâneo
+  stepCultureTemperature(st, 10, true, false);
+  assert.ok(st.tempC > 10 && st.tempC < 24.5);
+  assert.equal(st.refrigerated, false);
+
+  // Mais 30s: chega a 4°C e ativa refrigeração
+  stepCultureTemperature(st, 30, true, false);
+  assert.equal(st.tempC, 4.0);
+  assert.equal(st.refrigerated, true);
+
+  // Tira da geladeira por 20s: aquece gradualmente
+  stepCultureTemperature(st, 20, false, false);
+  assert.ok(st.tempC > 10 && st.tempC < 24.5);
+  assert.equal(st.refrigerated, false);
 });

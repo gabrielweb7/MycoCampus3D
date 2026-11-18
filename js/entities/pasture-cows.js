@@ -1,8 +1,11 @@
 /**
- * Pasto com Vaquinhas Fofinhas Animadas, Cocôs com Mosquinhas e Psilocybe cubensis Dourados (MycoCampus3D)
- * - Vaquinhas andam pelo pasto e soltam cocô a cada 30 segundos.
- * - Mosquinhas orbitam em cima do cocô.
- * - Após 60 segundos, nascem cubensis dourados colhíveis direto do cocô.
+ * Vaquinhas Inteligentes, Cocôs com Mosquinhas e Cubensis Dourados (MycoCampus3D)
+ * - Nasce apenas em área livre (checando solidColliders e wallSegments).
+ * - Desvia de prédios, árvores, cercas e outras vaquinhas.
+ * - IA viva: pasta, fica curiosa olhando para jogadores próximos, às vezes corre assustada,
+ *   possui Saúde/Humor exibidos no crachá 3D e aceita carinho.
+ * - Sincronização determinística via server_ts para todos verem igual sem pesar no MySQL/FPS.
+ * - A cada 30s solta cocô com mosquinhas; após 30s nascem 1 grande, 2 médios ou 3 cubensis dourados.
  */
 
 import { terrainHeight } from '../engine/physics.js';
@@ -10,10 +13,57 @@ import { terrainHeight } from '../engine/physics.js';
 const THREE = window.THREE;
 
 export const COW_POOP_INTERVAL_SEC = 30;
-export const POOP_CUBENSIS_GROW_SEC = 60;
+export const POOP_CUBENSIS_GROW_SEC = 30;
 export const MAX_ACTIVE_POOPS = 18;
 
-const PASTURE_BOUNDS = { minX: 38, maxX: 68, minZ: 16, maxZ: 44 };
+const PASTURE_BOUNDS = { minX: 40, maxX: 74, minZ: -12, maxZ: 28 };
+const COW_NAMES = ['Mimosa', 'Estrela', 'Pipoca', 'Bela', 'Malhada', 'Flor'];
+
+function hash01(a, b) {
+  const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
+  return x - Math.floor(x);
+}
+
+function isBlockedAt(ctx, x, z, radius) {
+  const r = radius || 0.9;
+  const cols = ctx.solidColliders;
+  if (cols) {
+    for (let i = 0; i < cols.length; i++) {
+      const c = cols[i];
+      if (!c) continue;
+      if (x >= c.minX - r && x <= c.maxX + r && z >= c.minZ - r && z <= c.maxZ + r) {
+        return true;
+      }
+    }
+  }
+  const walls = ctx.wallSegments;
+  if (walls) {
+    for (let i = 0; i < walls.length; i++) {
+      const w = walls[i];
+      if (!w) continue;
+      const vx = w.x2 - w.x1, vz = w.z2 - w.z1;
+      const lenSq = vx * vx + vz * vz;
+      if (lenSq < 1e-6) continue;
+      const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (z - w.z1) * vz) / lenSq));
+      const px = w.x1 + t * vx, pz = w.z1 + t * vz;
+      const distSq = (x - px) * (x - px) + (z - pz) * (z - pz);
+      const minR = r + (w.thickness || 0.25) * 0.5;
+      if (distSq < minR * minR) return true;
+    }
+  }
+  return false;
+}
+
+function findSafePasturePoint(ctx, seedIdx) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const u = hash01(seedIdx + 1, attempt + 1);
+    const v = hash01(seedIdx + 17, attempt + 31);
+    const x = PASTURE_BOUNDS.minX + u * (PASTURE_BOUNDS.maxX - PASTURE_BOUNDS.minX);
+    const z = PASTURE_BOUNDS.minZ + v * (PASTURE_BOUNDS.maxZ - PASTURE_BOUNDS.minZ);
+    if (!isBlockedAt(ctx, x, z, 1.1)) return { x, z };
+  }
+  return { x: 56, z: 8 };
+}
 
 function createCuteCowMesh(variant) {
   const g = new THREE.Group();
@@ -24,19 +74,16 @@ function createCuteCowMesh(variant) {
   const hoofMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
 
-  // Corpo fofinho arredondado
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.56, 1.02), whiteMat);
   body.position.set(0, 0.56, 0);
   g.add(body);
 
-  // Manchas fofinhas
   const spot1 = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.28, 0.36), spotMat);
   spot1.position.set(0, 0.64, -0.14);
   const spot2 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.24, 0.34), spotMat);
   spot2.position.set(0.18, 0.54, 0.28);
   g.add(spot1, spot2);
 
-  // Cabeça fofa + focinho rosado
   const head = new THREE.Group();
   head.position.set(0, 0.78, 0.62);
   const skull = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.48, 0.48), whiteMat);
@@ -58,7 +105,6 @@ function createCuteCowMesh(variant) {
   head.add(skull, eyePatch, snout);
   g.add(head);
 
-  // 4 patinhas animáveis
   const legs = [];
   [[-0.24, 0.34], [0.24, 0.34], [-0.24, -0.34], [0.24, -0.34]].forEach((lp) => {
     const leg = new THREE.Group();
@@ -72,16 +118,15 @@ function createCuteCowMesh(variant) {
     legs.push(leg);
   });
 
-  // Rabinho
   const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.34, 6), spotMat);
   tail.position.set(0, 0.58, -0.56);
   tail.rotation.x = 0.35;
   g.add(tail);
 
-  return { group: g, head, legs, tail };
+  return { group: g, body, head, legs, tail };
 }
 
-function createPoopWithFliesAndCubensis(x, y, z, poopId) {
+function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
   const g = new THREE.Group();
   g.position.set(x, y, z);
 
@@ -94,7 +139,6 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId) {
   top.position.y = 0.17;
   g.add(base, mid, top);
 
-  // Mosquinhas voando!
   const flies = [];
   const flyBodyMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
   const wingMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.75 });
@@ -111,13 +155,20 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId) {
     flies.push({ group: fg, phase: fi * 2.1, radius: 0.14 + fi * 0.04 });
   }
 
-  // Grupo dos Cubensis Dourados (cresce após 60s)
+  // Variação criativa: 1 Cubensis Gigante, 2 Médios ou 3 em Tufo
   const cubensisGroup = new THREE.Group();
   cubensisGroup.visible = false;
   const stemMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.65 });
   const capMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.42 });
   const caps = [];
-  [[0, 0, 1.0], [-0.08, 0.06, 0.78], [0.09, -0.05, 0.85]].forEach((off) => {
+  const patternType = Math.floor(hash01(variantSeed, 99) * 3);
+  const offsets = patternType === 0
+    ? [[0, 0, 1.48]] // 1 grande!
+    : (patternType === 1
+      ? [[-0.06, 0.03, 1.05], [0.07, -0.04, 0.92]] // 2 médios
+      : [[0, 0, 1.0], [-0.08, 0.06, 0.78], [0.09, -0.05, 0.85]]); // 3 em tufo
+
+  offsets.forEach((off) => {
     const mg = new THREE.Group();
     mg.position.set(off[0], 0.12, off[1]);
     mg.scale.setScalar(off[2]);
@@ -126,7 +177,9 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId) {
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), capMat);
     cap.position.y = 0.17;
     cap.userData.wildMushId = poopId;
-    cap.userData.speciesName = 'Cubensis Dourado do Pasto (Psilocybe cubensis)';
+    cap.userData.speciesName = patternType === 0
+      ? 'Cubensis Dourado Gigante (Psilocybe cubensis)'
+      : 'Cubensis Dourado do Pasto (Psilocybe cubensis)';
     mg.add(st, cap);
     cubensisGroup.add(mg);
     caps.push(cap);
@@ -140,29 +193,47 @@ export function createPastureAndCows(ctx) {
   if (!THREE || !ctx || !ctx.scene) return;
   ctx.pastureCows = [];
   ctx.cowPoops = [];
+  ctx.cowHitMeshes = ctx.cowHitMeshes || [];
 
   for (let i = 0; i < 6; i++) {
-    const cx = PASTURE_BOUNDS.minX + 4 + (i % 3) * 9;
-    const cz = PASTURE_BOUNDS.minZ + 5 + Math.floor(i / 3) * 12;
-    const cy = terrainHeight(cx, cz);
-    const cow = createCuteCowMesh(i);
-    cow.group.position.set(cx, cy, cz);
-    cow.group.rotation.y = i * 1.1;
-    ctx.scene.add(cow.group);
+    const pos = findSafePasturePoint(ctx, i);
+    const cy = terrainHeight(pos.x, pos.z);
+    const cowVis = createCuteCowMesh(i);
+    cowVis.group.position.set(pos.x, cy, pos.z);
+    const initYaw = hash01(i, 7) * Math.PI * 2;
+    cowVis.group.rotation.y = initYaw;
+    ctx.scene.add(cowVis.group);
 
-    ctx.pastureCows.push({
+    const cowObj = {
       id: 'cow_' + i,
-      mesh: cow.group,
-      head: cow.head,
-      legs: cow.legs,
-      tail: cow.tail,
-      yaw: i * 1.1,
-      speed: 0.9 + (i % 3) * 0.25,
-      turnTimer: 2 + i * 0.7,
-      poopTimer: 5 + i * 4.5, // escalonado inicialmente, depois a cada 30s
+      name: COW_NAMES[i % COW_NAMES.length],
+      mesh: cowVis.group,
+      head: cowVis.head,
+      legs: cowVis.legs,
+      tail: cowVis.tail,
+      yaw: initYaw,
+      baseSpeed: 0.95 + (i % 3) * 0.22,
+      speed: 0.95,
+      health: 100,
+      mood: 'Pastando 🌿',
+      state: 'wander', // 'wander' | 'graze' | 'curious' | 'flee'
+      fleeTimer: 0,
+      lastBucket: -1,
+      lastPoopBucket: -1,
       walkPhase: i * 1.3
-    });
+    };
+    cowVis.body.userData.cowObj = cowObj;
+    ctx.cowHitMeshes.push(cowVis.body);
+    ctx.pastureCows.push(cowObj);
   }
+}
+
+export function petCow(cowObj) {
+  if (!cowObj) return '';
+  cowObj.health = Math.min(100, (cowObj.health || 100) + 5);
+  cowObj.mood = 'Feliz 💚 (Muuu!)';
+  cowObj.state = 'curious';
+  return `🐄 ${cowObj.name}: Muuu! 💚 (Saúde ${cowObj.health}%)`;
 }
 
 export function stepPastureCows(ctx, dt) {
@@ -170,56 +241,138 @@ export function stepPastureCows(ctx, dt) {
   const px = ctx.playerPos ? ctx.playerPos.x : 0;
   const pz = ctx.playerPos ? ctx.playerPos.z : 0;
 
-  // Anima vaquinhas
+  // Relógio sincronizado com o servidor para todas as telas verem igual
+  const syncClock = (ctx.serverTimeSec && ctx.serverTimeSec > 0)
+    ? ctx.serverTimeSec + ((performance.now() - (ctx.serverTimeSyncAt || 0)) / 1000)
+    : (Date.now() / 1000);
+  const steerBucket = Math.floor(syncClock / 4);
+
   for (let i = 0; i < ctx.pastureCows.length; i++) {
     const cow = ctx.pastureCows[i];
-    const distSq = (cow.mesh.position.x - px) ** 2 + (cow.mesh.position.z - pz) ** 2;
-    cow.mesh.visible = distSq <= 75 * 75;
+    const cx = cow.mesh.position.x;
+    const cz = cow.mesh.position.z;
+    const distToPlayer = Math.hypot(px - cx, pz - cz);
+    cow.mesh.visible = distToPlayer <= 78;
 
-    cow.turnTimer -= dt;
-    if (cow.turnTimer <= 0) {
-      cow.turnTimer = 3.5 + Math.random() * 4.5;
-      cow.yaw += (Math.random() - 0.5) * 1.8;
+    // 1. Comportamento inteligente: curiosa com jogador perto, ou corre assustada se muito perto
+    if (cow.fleeTimer > 0) {
+      cow.fleeTimer -= dt;
+      cow.state = 'flee';
+      cow.speed = cow.baseSpeed * 2.4;
+      cow.mood = 'Correndo 💨';
+    } else if (distToPlayer < 2.4) {
+      cow.fleeTimer = 3.2;
+      cow.yaw = Math.atan2(cx - px, cz - pz);
+      cow.state = 'flee';
+      cow.speed = cow.baseSpeed * 2.4;
+      cow.mood = 'Assustada 💨';
+    } else if (distToPlayer < 6.5) {
+      cow.state = 'curious';
+      cow.speed = 0;
+      cow.mood = 'Curiosa 👀';
+      const lookYaw = Math.atan2(px - cx, pz - cz);
+      let diff = lookYaw - cow.yaw;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      cow.yaw += diff * Math.min(1, dt * 4.5);
+    } else {
+      if (steerBucket !== cow.lastBucket) {
+        cow.lastBucket = steerBucket;
+        const rAct = hash01(i + 3, steerBucket);
+        if (rAct < 0.28) {
+          cow.state = 'graze';
+          cow.speed = 0;
+          cow.mood = 'Pastando 🌿';
+        } else {
+          cow.state = 'wander';
+          cow.speed = cow.baseSpeed;
+          cow.mood = 'Passeando 🌤️';
+          cow.yaw += (hash01(i + 19, steerBucket) - 0.5) * 2.0;
+        }
+      }
     }
 
-    let nx = cow.mesh.position.x + Math.sin(cow.yaw) * cow.speed * dt;
-    let nz = cow.mesh.position.z + Math.cos(cow.yaw) * cow.speed * dt;
-    if (nx < PASTURE_BOUNDS.minX || nx > PASTURE_BOUNDS.maxX) {
-      cow.yaw = -cow.yaw;
-      nx = Math.max(PASTURE_BOUNDS.minX, Math.min(PASTURE_BOUNDS.maxX, nx));
+    // 2. Movimento com desvio de obstáculos e outras vaquinhas
+    if (cow.speed > 0.01) {
+      let nx = cx + Math.sin(cow.yaw) * cow.speed * dt;
+      let nz = cz + Math.cos(cow.yaw) * cow.speed * dt;
+      let blocked = nx < PASTURE_BOUNDS.minX || nx > PASTURE_BOUNDS.maxX ||
+        nz < PASTURE_BOUNDS.minZ || nz > PASTURE_BOUNDS.maxZ ||
+        isBlockedAt(ctx, nx, nz, 0.95);
+
+      if (!blocked) {
+        for (let j = 0; j < ctx.pastureCows.length; j++) {
+          if (i === j) continue;
+          const other = ctx.pastureCows[j];
+          const odx = nx - other.mesh.position.x, odz = nz - other.mesh.position.z;
+          if (odx * odx + odz * odz < 1.8 * 1.8) { blocked = true; break; }
+        }
+      }
+
+      if (blocked) {
+        // Desvia suavemente para ângulo livre
+        let escaped = false;
+        for (const offset of [0.8, -0.8, 1.6, -1.6, Math.PI]) {
+          const tryYaw = cow.yaw + offset;
+          const tx = cx + Math.sin(tryYaw) * cow.speed * dt;
+          const tz = cz + Math.cos(tryYaw) * cow.speed * dt;
+          if (tx >= PASTURE_BOUNDS.minX && tx <= PASTURE_BOUNDS.maxX &&
+              tz >= PASTURE_BOUNDS.minZ && tz <= PASTURE_BOUNDS.maxZ &&
+              !isBlockedAt(ctx, tx, tz, 0.95)) {
+            cow.yaw = tryYaw;
+            nx = tx; nz = tz;
+            escaped = true;
+            break;
+          }
+        }
+        if (!escaped) {
+          cow.yaw += Math.PI * 0.75;
+          nx = cx; nz = cz;
+        }
+      }
+
+      const ny = terrainHeight(nx, nz);
+      cow.mesh.position.set(nx, ny, nz);
     }
-    if (nz < PASTURE_BOUNDS.minZ || nz > PASTURE_BOUNDS.maxZ) {
-      cow.yaw = Math.PI - cow.yaw;
-      nz = Math.max(PASTURE_BOUNDS.minZ, Math.min(PASTURE_BOUNDS.maxZ, nz));
-    }
-    const ny = terrainHeight(nx, nz);
-    cow.mesh.position.set(nx, ny, nz);
     cow.mesh.rotation.y = cow.yaw;
 
-    // Animação fofa das patas, cabeça e rabinho
+    // 3. Animação (só quando visível para manter FPS alto)
     if (cow.mesh.visible) {
-      cow.walkPhase += dt * cow.speed * 5.2;
-      const swing = Math.sin(cow.walkPhase) * 0.42;
-      cow.legs[0].rotation.x = swing;
-      cow.legs[3].rotation.x = swing;
-      cow.legs[1].rotation.x = -swing;
-      cow.legs[2].rotation.x = -swing;
-      cow.head.rotation.x = 0.14 + Math.sin(cow.walkPhase * 0.4) * 0.10;
-      cow.tail.rotation.z = Math.sin(cow.walkPhase * 1.5) * 0.25;
+      if (cow.speed > 0.01) {
+        cow.walkPhase += dt * cow.speed * 5.2;
+        const swing = Math.sin(cow.walkPhase) * 0.44;
+        cow.legs[0].rotation.x = swing;
+        cow.legs[3].rotation.x = swing;
+        cow.legs[1].rotation.x = -swing;
+        cow.legs[2].rotation.x = -swing;
+        cow.head.rotation.x = 0.12 + Math.sin(cow.walkPhase * 0.4) * 0.08;
+        cow.tail.rotation.z = Math.sin(cow.walkPhase * 1.5) * 0.25;
+      } else {
+        for (let li = 0; li < 4; li++) cow.legs[li].rotation.x *= 0.85;
+        cow.head.rotation.x = cow.state === 'graze'
+          ? 0.48 + Math.sin(syncClock * 3.0 + i) * 0.10
+          : 0.05 + Math.sin(syncClock * 1.5 + i) * 0.04;
+        cow.tail.rotation.z = Math.sin(syncClock * 2.2 + i) * 0.18;
+      }
     }
 
-    // Solta cocô a cada 30 segundos!
-    cow.poopTimer += dt;
-    if (cow.poopTimer >= COW_POOP_INTERVAL_SEC) {
-      cow.poopTimer = 0;
+    // 4. Rastro de cocô sincronizado a cada 30s
+    const poopBucket = Math.floor((syncClock + i * 5) / COW_POOP_INTERVAL_SEC);
+    if (cow.lastPoopBucket === -1) {
+      cow.lastPoopBucket = poopBucket;
+    } else if (poopBucket > cow.lastPoopBucket) {
+      cow.lastPoopBucket = poopBucket;
       if (ctx.cowPoops.length >= MAX_ACTIVE_POOPS) {
         const oldest = ctx.cowPoops.shift();
         if (oldest && oldest.group && oldest.group.parent) oldest.group.parent.remove(oldest.group);
       }
-      const poopId = 'wild_poop_' + Date.now().toString(36) + '_' + i;
-      const poopVis = createPoopWithFliesAndCubensis(nx, ny, nz, poopId);
+      const pxPos = cow.mesh.position.x - Math.sin(cow.yaw) * 0.55;
+      const pzPos = cow.mesh.position.z - Math.cos(cow.yaw) * 0.55;
+      const pyPos = terrainHeight(pxPos, pzPos);
+      const poopId = `wild_poop_${i}_${poopBucket}`;
+      const poopVis = createPoopWithFliesAndCubensis(pxPos, pyPos, pzPos, poopId, poopBucket + i * 13);
       ctx.scene.add(poopVis.group);
-      const poopEntry = {
+      ctx.cowPoops.push({
         id: poopId,
         group: poopVis.group,
         flies: poopVis.flies,
@@ -233,12 +386,11 @@ export function stepPastureCows(ctx, dt) {
           active: false,
           respawnAt: 0
         }
-      };
-      ctx.cowPoops.push(poopEntry);
+      });
     }
   }
 
-  // Atualiza mosquinhas + nascimento dos Cubensis Dourados após 60s
+  // 5. Atualiza mosquinhas + nascimento dos Cubensis Dourados após 30s
   for (let pi = 0; pi < ctx.cowPoops.length; pi++) {
     const p = ctx.cowPoops[pi];
     const pDistSq = (p.group.position.x - px) ** 2 + (p.group.position.z - pz) ** 2;

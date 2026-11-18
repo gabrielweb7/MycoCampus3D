@@ -7,6 +7,7 @@
 import { scrollRanking } from '../world/staircase-clock.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, cycleBurnerTimer, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
+import { petCow } from '../entities/pasture-cows.js';
 
 export function isSeatOccupied(remoteAvatars, seat) {
   if (!seat) return false;
@@ -120,6 +121,9 @@ export function handleWorldInteraction(ctx) {
     if (ctx.hoveredSwitch.rocker) {
       ctx.hoveredSwitch.rocker.rotation.x = ctx.hoveredSwitch.on ? -0.22 : 0.22;
     }
+    if (typeof ctx.hoveredSwitch.onToggle === 'function') {
+      ctx.hoveredSwitch.onToggle(ctx.hoveredSwitch.on);
+    }
     if (window.MycoAudio) window.MycoAudio.playSwitch();
     ctx.queueWorldStateChange(ctx.hoveredSwitch.id, ctx.hoveredSwitch.on ? 1 : 0);
     return true;
@@ -171,6 +175,12 @@ export function handleWorldInteraction(ctx) {
       const verb = ctx.hoveredCabinetPart.open ? 'aberto' : 'fechado';
       ctx.callbacks.onToast(`🗄️ ${ctx.hoveredCabinetPart.label} ${verb}.`);
     }
+    return true;
+  }
+  if (ctx.hoveredCow) {
+    const msg = petCow(ctx.hoveredCow);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (ctx.callbacks && ctx.callbacks.onToast && msg) ctx.callbacks.onToast(msg);
     return true;
   }
   if (ctx.hoveredBurnerTimer) {

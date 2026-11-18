@@ -48,6 +48,7 @@ function resolveHoverTargetObj(ctx) {
     (ctx.hoveredBurnerSwitch ? { label: ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé Fogareiro a Gás' : 'Fogareiro Elétrico' } : null) ||
     (ctx.hoveredStirSwitch ? { label: 'Agitador Magnético' } : null) ||
     (ctx.hoveredHoodSwitch ? { label: 'Capela de Fluxo Laminar' } : null) ||
+    (ctx.hoveredCow ? { label: `🐄 ${ctx.hoveredCow.name} • Saúde ${ctx.hoveredCow.health}% • ${ctx.hoveredCow.mood}`, mesh: ctx.hoveredCow.mesh } : null) ||
     (ctx.hoveredSwitch ? { label: 'Interruptor de Luz' } : null) ||
     (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer && ctx.thermoLaserOn
       ? { label: ctx.thermoTargetLabel || 'Termômetro Infravermelho' }
@@ -163,6 +164,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredScaleTare = null;
   ctx.hoveredBurnerSwitch = null;
   ctx.hoveredBurnerTimer = null;
+  ctx.hoveredCow = null;
   ctx.hoveredSinkAction = null;
   ctx.hoveredGrainCooker = null;
   ctx.hoveredCornScoopPot = null;
@@ -459,6 +461,14 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoverHit = blHits[0];
       ctx.hoveredBlindObj = blHits[0].object.userData.blindObj;
       prompt = ctx.hoveredBlindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana';
+    }
+  }
+  if (!prompt && ctx.cowHitMeshes && ctx.cowHitMeshes.length) {
+    const cowHits = ctx.raycaster.intersectObjects(ctx.cowHitMeshes, false);
+    if (cowHits.length > 0 && cowHits[0].distance < 5.5 && cowHits[0].object.userData.cowObj) {
+      ctx.hoverHit = cowHits[0];
+      ctx.hoveredCow = cowHits[0].object.userData.cowObj;
+      prompt = `🐄 ${ctx.hoveredCow.name} (Saúde ${ctx.hoveredCow.health}% • ${ctx.hoveredCow.mood}) • Clique para fazer carinho`;
     }
   }
   ctx.hoveredGreenhouseSlot = null;

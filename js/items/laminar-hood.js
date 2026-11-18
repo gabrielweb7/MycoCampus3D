@@ -5,7 +5,7 @@
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { addMovableStainlessTable } from './stainless-table.js';
-import { buildBenchCabinets } from './lab-cabinets.js';
+import { buildBenchCabinets, buildBenchLedSwitch } from './lab-cabinets.js';
 
 const THREE = window.THREE;
 
@@ -86,6 +86,10 @@ export function buildLaminarHoodAndBenches(ctx) {
 
     if (opts.cabinets) {
       buildBenchCabinets(ctx, Object.assign({ bx, bz, bw, bd }, opts.cabinets));
+      if (!ctx._benchLedSwitchBuilt) {
+        ctx._benchLedSwitchBuilt = true;
+        buildBenchLedSwitch(ctx, bx - bw / 2 + 0.04, 1.48, bz, bx, bz);
+      }
     } else {
       const cab = makeBox(bw, 0.82, bd, 0xe2e8f0, { roughness: 0.55 });
       cab.position.set(bx, 0.14 + 0.41, bz);
