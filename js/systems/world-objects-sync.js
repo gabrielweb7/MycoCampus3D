@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Sincronizacao de Objetos Fisicos, Estados de Culturas e Pose Salva (MycoCampus3D)
  */
 
