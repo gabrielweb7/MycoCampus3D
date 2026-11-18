@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 9;
+const MC_SCHEMA_VERSION = 10;
 const MC_TOKEN_TTL_DAYS = 30;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -154,6 +154,11 @@ function mc_migrate(PDO $pdo): void {
                 removed TINYINT(1) NOT NULL DEFAULT 0,
                 saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (Throwable $e) {}
+
+        // v9 -> v10: Precisão de microssegundos em mc_world_objects.updated_at para sync instantâneo sem colisões no mesmo segundo
+        try {
+            $pdo->exec("ALTER TABLE mc_world_objects MODIFY updated_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)");
         } catch (Throwable $e) {}
 
         try {

@@ -371,26 +371,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
     }
     const saved = objectsMap[item.id];
     if (saved) {
-      let finalY = saved.y;
-      if (!item.mesh.userData.isTable && !item.mesh.userData.isHood) {
-        let suppY = getItemGroundHeight(sim.physCtx, saved.x, saved.z, saved.y, item.mesh.userData.dynamicSurface, saved.y + 0.18);
-        for (let si = 0; si < sim.supportSurfaces.length; si++) {
-          const s = sim.supportSurfaces[si];
-          if (s === item.mesh.userData.dynamicSurface) continue;
-          if (saved.x >= s.minX - 0.09 && saved.x <= s.maxX + 0.09 && saved.z >= s.minZ - 0.09 && saved.z <= s.maxZ + 0.09 && saved.y >= s.topY - 0.18) {
-            suppY = Math.max(suppY, s.topY);
-          }
-        }
-        if (Math.abs(saved.y - suppY) > 0.04) {
-          finalY = suppY;
-          sim.pendingMovedItems[item.id] = {
-            id: item.id, x: saved.x, y: finalY, z: saved.z, ry: saved.ry || 0
-          };
-        } else {
-          finalY = suppY;
-        }
-      }
-      item.mesh.position.set(saved.x, finalY, saved.z);
+      item.mesh.position.set(saved.x, saved.y, saved.z);
       item.mesh.rotation.y = saved.ry || 0;
       item.isMoved = true;
       item.mesh.userData.updateBounds(item);
