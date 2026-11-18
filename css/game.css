@@ -175,13 +175,19 @@ body.device-tablet #fps-hint {
 
 @keyframes mycoTripGentle {
   0%, 100% {
-    filter: hue-rotate(-8deg) saturate(var(--trip-sat, 1.45)) contrast(var(--trip-con, 1.06)) brightness(var(--trip-bri, 1.04));
+    filter: hue-rotate(-6deg) saturate(var(--trip-sat, 1.45)) contrast(var(--trip-con, 1.07)) brightness(var(--trip-bri, 1.04));
     transform: scale(1);
   }
   50% {
-    filter: hue-rotate(24deg) saturate(calc(var(--trip-sat, 1.45) * 1.12)) contrast(var(--trip-con, 1.06)) brightness(calc(var(--trip-bri, 1.04) * 1.03));
-    transform: scale(1.01);
+    filter: hue-rotate(18deg) saturate(calc(var(--trip-sat, 1.45) * 1.14)) contrast(calc(var(--trip-con, 1.07) * 1.03)) brightness(calc(var(--trip-bri, 1.04) * 1.03));
+    transform: scale(1.012);
   }
+}
+
+@keyframes mycoMandalaFloat {
+  0%, 100% { transform: scale(1.02) rotate(0deg); }
+  50% { transform: scale(1.14) rotate(180deg); }
+  100% { transform: scale(1.02) rotate(360deg); }
 }
 
 @keyframes mycoTripFreakout {
@@ -209,7 +215,11 @@ body.myco-trip-freakout #campus-canvas-wrap {
 }
 
 body.myco-trip-active #myco-magic-overlay {
-  animation: mycoPrismSpin 26s linear infinite;
+  animation: mycoPrismSpin 30s linear infinite;
+}
+
+body.myco-trip-active #myco-mandala-overlay {
+  animation: mycoMandalaFloat 48s linear infinite;
 }
 
 body.myco-trip-active #campus-canvas-wrap {
