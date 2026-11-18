@@ -52,8 +52,9 @@ export function handleWorldInteraction(ctx) {
     if (isMagic) {
       triggerMagicCubensisEffect(() => {
         if (ctx.playerPos) {
-          ctx.playerPos.y = 26;
-          if (typeof ctx.playerVelY === 'number') ctx.playerVelY = 0;
+          ctx.playerPos.y = 32;
+          if (typeof ctx.playerVelY === 'number') ctx.playerVelY = -1;
+          if (window.setCampusParagliderActive) window.setCampusParagliderActive(true);
         }
       });
       if (ctx.callbacks.onToast) {

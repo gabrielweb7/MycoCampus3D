@@ -121,6 +121,11 @@ export function stepPlayerMovement(ctx, dt, now) {
       targetVZ = (fwdZ * moveZ + rightZ * moveX) * maxSpeed * throttle;
     }
     const accelFactor = 1 - Math.exp(-(mag > 0.08 ? 9.5 : 7.5) * dt);
+    if (typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive()) {
+      const tStagger = (ctx.clock ? ctx.clock.elapsedTime : now * 0.001);
+      targetVX += Math.sin(tStagger * 2.3) * 1.55 + Math.cos(tStagger * 4.1) * 0.65;
+      targetVZ += Math.cos(tStagger * 1.8) * 1.45 + Math.sin(tStagger * 3.7) * 0.65;
+    }
     ctx.playerVelX += (targetVX - ctx.playerVelX) * accelFactor;
     ctx.playerVelZ += (targetVZ - ctx.playerVelZ) * accelFactor;
 
@@ -230,7 +235,10 @@ export function stepPlayerMovement(ctx, dt, now) {
   ctx.camera.rotation.order = 'YXZ';
   ctx.camera.rotation.y = ctx.playerYaw;
   ctx.camera.rotation.x = ctx.playerPitch;
-  ctx.camera.rotation.z = ctx.snowboardActive ? ctx.snowboardRoll * 0.35 : ((ctx.paragliderActive && !ctx.onGround) ? ctx.paragliderRoll * 0.45 : 0);
+  const umbralSway = (typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive())
+    ? Math.sin((ctx.clock ? ctx.clock.elapsedTime : now * 0.001) * 2.2) * 0.085
+    : 0;
+  ctx.camera.rotation.z = umbralSway + (ctx.snowboardActive ? ctx.snowboardRoll * 0.35 : ((ctx.paragliderActive && !ctx.onGround) ? ctx.paragliderRoll * 0.45 : 0));
 
   // Bracos em 1a pessoa
   const isTwoHanded = !!(ctx.heldItem && ctx.heldItem.mesh.userData.twoHanded);
