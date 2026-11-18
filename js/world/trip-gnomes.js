@@ -474,7 +474,8 @@ function pickRoamTarget(gn, px, pz, minR, maxR) {
 
 let savedUmbralEnv = null;
 
-function applyUmbralAtmosphere(scene, active) {
+function applyUmbralAtmosphere(ctx, active) {
+  const scene = ctx && ctx.scene;
   if (!scene) return;
   if (active) {
     if (!savedUmbralEnv) {
@@ -482,15 +483,19 @@ function applyUmbralAtmosphere(scene, active) {
         bg: scene.background ? scene.background.clone() : null,
         fogColor: scene.fog && scene.fog.color ? scene.fog.color.clone() : null,
         fogNear: scene.fog ? scene.fog.near : null,
-        fogFar: scene.fog ? scene.fog.far : null
+        fogFar: scene.fog ? scene.fog.far : null,
+        sunInt: ctx.envSun ? ctx.envSun.intensity : null,
+        hemiInt: ctx.envHemi ? ctx.envHemi.intensity : null
       };
     }
-    if (scene.background && scene.background.setHex) scene.background.setHex(0x0b0514);
+    if (scene.background && scene.background.setHex) scene.background.setHex(0x030107);
     if (scene.fog) {
-      if (scene.fog.color) scene.fog.color.setHex(0x120822);
-      scene.fog.near = 6;
-      scene.fog.far = 42;
+      if (scene.fog.color) scene.fog.color.setHex(0x06020c);
+      scene.fog.near = 2.5;
+      scene.fog.far = 25;
     }
+    if (ctx.envSun) ctx.envSun.intensity = 0.24;
+    if (ctx.envHemi) ctx.envHemi.intensity = 0.28;
   } else if (savedUmbralEnv) {
     if (savedUmbralEnv.bg && scene.background) scene.background.copy(savedUmbralEnv.bg);
     if (scene.fog) {
@@ -498,6 +503,8 @@ function applyUmbralAtmosphere(scene, active) {
       if (savedUmbralEnv.fogNear !== null) scene.fog.near = savedUmbralEnv.fogNear;
       if (savedUmbralEnv.fogFar !== null) scene.fog.far = savedUmbralEnv.fogFar;
     }
+    if (ctx.envSun && savedUmbralEnv.sunInt !== null) ctx.envSun.intensity = savedUmbralEnv.sunInt;
+    if (ctx.envHemi && savedUmbralEnv.hemiInt !== null) ctx.envHemi.intensity = savedUmbralEnv.hemiInt;
     savedUmbralEnv = null;
   }
 }
@@ -506,7 +513,7 @@ export function stepTripGnomes(ctx, dt) {
   stepTripTextureFlow(ctx.scene, dt);
   const freakout = typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive();
   const active = typeof window !== 'undefined' && window.isTripRainbowActive && window.isTripRainbowActive();
-  applyUmbralAtmosphere(ctx.scene, freakout);
+  applyUmbralAtmosphere(ctx, freakout);
   stepEnchantedFlora(ctx, dt, active && !freakout);
   stepFireflies(ctx, dt, active && !freakout, freakout);
   stepGiantTrampolines(ctx, dt, active && !freakout);

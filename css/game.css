@@ -192,12 +192,12 @@ body.device-tablet #fps-hint {
 
 @keyframes mycoTripFreakout {
   0%, 100% {
-    filter: brightness(0.66) contrast(1.38) saturate(0.42) hue-rotate(-28deg);
-    transform: scale(1.01) skewX(0.7deg) rotate(-0.6deg);
+    filter: brightness(0.44) contrast(1.58) saturate(0.26) hue-rotate(-32deg);
+    transform: scale(1.015) skewX(0.9deg) rotate(-0.8deg);
   }
   50% {
-    filter: brightness(0.54) contrast(1.48) saturate(0.32) hue-rotate(24deg);
-    transform: scale(1.028) skewX(-0.9deg) rotate(0.6deg);
+    filter: brightness(0.34) contrast(1.72) saturate(0.18) hue-rotate(18deg);
+    transform: scale(1.038) skewX(-1.1deg) rotate(0.8deg);
   }
 }
 

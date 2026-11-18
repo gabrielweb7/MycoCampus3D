@@ -172,11 +172,13 @@ export function triggerMagicCubensisEffect(onSkyFall) {
       darkLayer.id = 'myco-freakout-dark';
       darkLayer.style.cssText =
         'position:fixed;inset:0;pointer-events:none;z-index:25;opacity:0;' +
-        'background:radial-gradient(circle at 50% 50%, transparent 40%, rgba(4,2,12,0.74) 100%);' +
-        'transition:opacity 2.8s ease;';
+        'background:radial-gradient(circle at 50% 50%, transparent 26%, rgba(3,1,10,0.88) 92%);' +
+        'box-shadow:inset 0 0 110px rgba(127,29,29,0.52);' +
+        'transition:opacity 2.4s ease;';
       document.body.appendChild(darkLayer);
     }
     requestAnimationFrame(() => { darkLayer.style.opacity = '1'; });
+    if (window.MycoAudio && window.MycoAudio.playUmbralWhisper) window.MycoAudio.playUmbralWhisper();
 
     let whiteScreen = document.getElementById('myco-white-ascend');
     if (!whiteScreen) {
