@@ -494,17 +494,22 @@ export function buildPlaza(ctx) {
     spot.position.set(fx + Math.cos(ang) * rSpot, ySpot, fz + Math.sin(ang) * rSpot);
     scene.add(spot);
   }
-  solidColliders.push({ minX: fx - 2.9, maxX: fx + 2.9, minZ: fz - 2.9, maxZ: fz + 2.9, minY: 0, maxY: 4.0 });
+  // Colisão octogonal inscrita no chafariz redondo (sem cantos quadrados invisíveis!)
+  solidColliders.push(
+    { minX: fx - 2.65, maxX: fx + 2.65, minZ: fz - 1.45, maxZ: fz + 1.45, minY: 0, maxY: 4.0 },
+    { minX: fx - 1.45, maxX: fx + 1.45, minZ: fz - 2.65, maxZ: fz + 2.65, minY: 0, maxY: 4.0 },
+    { minX: fx - 2.0, maxX: fx + 2.0, minZ: fz - 2.0, maxZ: fz + 2.0, minY: 0, maxY: 4.0 }
+  );
 
   createFlowerBed(scene, -5.8, -4.5, 3.0, 1.8, -0.35);
   createFlowerBed(scene, 5.8, -4.5, 3.0, 1.8, 0.35);
   createFlowerBed(scene, -6.2, 8.2, 3.2, 1.9, 0.42);
   createFlowerBed(scene, 6.2, 8.2, 3.2, 1.9, -0.42);
 
-  createBench(scene, seatMeshes, -3.2, -1.8, 0.8);
-  createBench(scene, seatMeshes, 3.2, -1.8, -0.8);
-  createBench(scene, seatMeshes, -5.5, 2.2, Math.PI / 2);
-  createBench(scene, seatMeshes, 5.5, 2.2, -Math.PI / 2);
+  createBench(scene, seatMeshes, -3.8, -2.2, 0.8);
+  createBench(scene, seatMeshes, 3.8, -2.2, -0.8);
+  createBench(scene, seatMeshes, -6.0, 2.2, Math.PI / 2);
+  createBench(scene, seatMeshes, 6.0, 2.2, -Math.PI / 2);
   createBench(scene, seatMeshes, -3.5, 13.5, 0);
   createBench(scene, seatMeshes, 3.5, 13.5, 0);
 
