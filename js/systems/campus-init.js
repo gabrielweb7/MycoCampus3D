@@ -5,7 +5,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
-import { getInitialQualityTier } from '../core/quality.js';
+import { getInitialQualityTier, getSavedQualityMode } from '../core/quality.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
@@ -623,7 +623,9 @@ export function initCampus3D(containerId, cbs) {
     const frozenCount = freezeStaticWorld(sim);
     logger.info('campus-init', `Cenário estático congelado: ${frozenCount} objetos`);
     bindControls(sim);
-    applyQualityTier(sim, getInitialQualityTier(touch, sim.renderer));
+    const initialTier = getSavedQualityMode() || getInitialQualityTier(touch, sim.renderer);
+    sim.qualityMode = initialTier;
+    applyQualityTier(sim, initialTier);
     startAnimationLoop(sim);
     const lobbyEl = document.getElementById('campus-lobby');
     if ((window._pendingEnterFps || (lobbyEl && lobbyEl.classList.contains('hidden'))) && window.setCampusFpsMode) {

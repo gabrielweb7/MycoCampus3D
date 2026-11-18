@@ -85,12 +85,13 @@ async function harvestGreenhouseSlot(slot) {
 function bindModalsAndToolbar() {
   const btnQuality = $('btn-quality');
   if (btnQuality && window.setCampusQualityMode && window.getCampusQualityState) {
-    const qModes = ['auto', 'high', 'medium', 'low', 'min'];
+    const qModes = ['high', 'medium', 'low', 'min'];
     btnQuality.onclick = (e) => {
       e.stopPropagation();
       if (window.MycoAudio) window.MycoAudio.playClick();
       const cur = window.getCampusQualityState();
-      const idx = qModes.indexOf(cur.mode);
+      const curKey = qModes.indexOf(cur.mode) !== -1 ? cur.mode : cur.tier;
+      const idx = qModes.indexOf(curKey);
       window.setCampusQualityMode(qModes[(idx + 1) % qModes.length]);
     };
   }
@@ -772,9 +773,8 @@ export function bootApp() {
       if (!qBtn || !info) return;
       const labels = { high: 'Alto', medium: 'Méd', low: 'Desemp', min: 'Mín' };
       const tierTxt = labels[info.tier] || info.tier;
-      const prefix = info.mode === 'auto' ? `Auto (${tierTxt})` : tierTxt;
       const fpsTxt = info.fps > 0 ? ` • ${info.fps}fps` : '';
-      qBtn.textContent = `⚡ ${prefix}${fpsTxt}`;
+      qBtn.textContent = `⚡ ${tierTxt}${fpsTxt}`;
       qBtn.className = 'px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 font-bold border whitespace-nowrap ' +
         (info.tier === 'min' || info.tier === 'low' ? 'text-amber-300 border-amber-500/40' : 'text-cyan-300 border-cyan-500/40');
     },

@@ -227,7 +227,7 @@ export function findPlacementTarget(ctx, customNdc) {
       _tmpPlaceCenter.set(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
       var camDist = origin.distanceTo(_tmpPlaceCenter);
       var potHits = raycaster.intersectObject(targetPot.mesh, true);
-      if ((potHits.length > 0 && potHits[0].distance < 4.5) || (camDist < 4.5 && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.25)) {
+      if ((potHits.length > 0 && potHits[0].distance < 4.5) || (camDist < 4.5 && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < 0.025)) {
         ctx.setSnapClosePot(targetPot);
         ctx.setHeldRotY(targetPot.mesh.rotation.y);
         return _tmpPlacePt.set(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.36, targetPot.mesh.position.z);

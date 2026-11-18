@@ -21,7 +21,7 @@ const TIER_CONFIGS = {
 };
 
 export const qualityState = {
-  mode: 'auto',
+  mode: 'manual',
   tier: 'high',
   auraEnabled: true,
   forestScale: 1.0,
@@ -61,9 +61,9 @@ function isSoftwareGpuRenderer(renderer) {
 export function getSavedQualityMode() {
   try {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('myco_quality_mode') : null;
-    if (saved === 'auto' || QUALITY_TIERS_ORDER.indexOf(saved) !== -1) return saved;
+    if (QUALITY_TIERS_ORDER.indexOf(saved) !== -1) return saved;
   } catch (e) {}
-  return 'auto';
+  return null;
 }
 
 export function saveQualityMode(mode) {
@@ -370,65 +370,6 @@ export function stepAutoQuality(now, deps) {
   qualityState.fpsFrames = 0;
   qualityState.fpsLastSampleAt = now;
 
-  if (qualityState.mode === 'auto' && now >= qualityState.warmupUntil) {
-    const idx = QUALITY_TIERS_ORDER.indexOf(qualityState.tier);
-    const fps = qualityState.currentFps;
-    const r = deps && deps.renderer;
-
-    // 1º nível de inteligência: resolução dinâmica contínua com deadband estável (só ajusta após 2s fora da faixa)
-    if (r && qualityState.baseRatio) {
-      let next = qualityState.dynScale || 1;
-      if (fps < 50 && next > 0.68) {
-        qualityState.lowFpsStreak++;
-        qualityState.highFpsStreak = 0;
-        if (qualityState.lowFpsStreak >= 2) {
-          next = Math.max(0.68, Math.round((next - 0.08) * 100) / 100);
-          qualityState.lowFpsStreak = 0;
-        }
-      } else if (fps >= 57 && next < 1) {
-        qualityState.highFpsStreak++;
-        qualityState.lowFpsStreak = 0;
-        if (qualityState.highFpsStreak >= 3) {
-          next = Math.min(1, Math.round((next + 0.08) * 100) / 100);
-          qualityState.highFpsStreak = 0;
-        }
-      } else {
-        qualityState.lowFpsStreak = 0;
-        qualityState.highFpsStreak = 0;
-      }
-      if (next !== qualityState.dynScale) {
-        qualityState.dynScale = next;
-        r.setPixelRatio(qualityState.baseRatio * next);
-        r.setSize(window.innerWidth, window.innerHeight, false);
-        if (deps.onQualityChange) deps.onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps });
-        return;
-      }
-    }
-
-    // 2º nível: só troca o preset quando a resolução já está no limite
-    const downThresholds = { high: 46, medium: 38, low: 28, min: 0 };
-    if (qualityState.currentFps < (downThresholds[qualityState.tier] || 0) && idx < QUALITY_TIERS_ORDER.length - 1) {
-      qualityState.lowFpsStreak++;
-      qualityState.highFpsStreak = 0;
-      if (qualityState.lowFpsStreak >= 2) {
-        qualityState.lowFpsStreak = 0;
-        qualityState.lastDowngradeAt = now;
-        applyQualityTier(QUALITY_TIERS_ORDER[idx + 1], deps);
-        return;
-      }
-    } else if (qualityState.currentFps >= 57 && idx > (qualityState.tierCeilingIdx || 0) && (now - qualityState.lastDowngradeAt) > 18000) {
-      qualityState.highFpsStreak++;
-      qualityState.lowFpsStreak = 0;
-      if (qualityState.highFpsStreak >= 6) {
-        qualityState.highFpsStreak = 0;
-        applyQualityTier(QUALITY_TIERS_ORDER[idx - 1], deps);
-        return;
-      }
-    } else {
-      qualityState.lowFpsStreak = 0;
-      qualityState.highFpsStreak = 0;
-    }
-  }
   if (deps && deps.onQualityChange) {
     deps.onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps: qualityState.currentFps });
   }

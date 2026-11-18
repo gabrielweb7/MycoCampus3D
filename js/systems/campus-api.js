@@ -98,14 +98,11 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.setCampusQualityMode = function (mode) {
-    if (mode === 'auto' || qualityTiersOrder.indexOf(mode) !== -1) {
+    if (qualityTiersOrder.indexOf(mode) !== -1) {
       sim.qualityMode = mode;
+      qualityState.mode = 'manual';
       saveQualityMode(mode);
-      if (mode === 'auto') {
-        applyQualityTier(sim, getInitialQualityTier(sim.isTouchDevice(), sim.renderer));
-      } else {
-        applyQualityTier(sim, mode);
-      }
+      applyQualityTier(sim, mode);
     }
   };
 
