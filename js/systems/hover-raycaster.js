@@ -405,12 +405,17 @@ export function updateHoverRay(ctx, customNdc) {
     }
     ctx.hoveredPickable = bestSmall || bestLarge;
     ctx.hoverHit = bestSmall ? bestSmallHit : bestLargeHit;
-    if (!ctx.hoveredPickable && bestBlocked && bestBlockedDist < 3.8 && ctx.adminEditMode) {
+    if (!ctx.hoveredPickable && bestBlocked && bestBlockedDist < 3.8) {
+      ctx.hoveredPickable = bestBlocked;
       ctx.hoverHit = bestBlockedHit;
-      if (bestBlocked.mesh.userData.isBurner) {
-        prompt = '🚫 Retire a panela de cima antes de mover o Fogareiro';
+      if (ctx.adminEditMode) {
+        if (bestBlocked.mesh.userData.isBurner) {
+          prompt = '🚫 Retire a panela de cima antes de mover o Fogareiro';
+        } else {
+          prompt = '🚫 Retire os objetos de cima antes de mover ' + bestBlocked.label;
+        }
       } else {
-        prompt = '🚫 Retire os objetos de cima antes de mover ' + bestBlocked.label;
+        prompt = bestBlocked.label;
       }
     } else if (ctx.hoveredPickable) {
       let potStatus = null;

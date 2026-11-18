@@ -288,6 +288,18 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.inspectCampusHeldItem = function () {
     if (sim.heldItem) inspectItemToast(sim, sim.heldItem);
     else if (sim.hoveredPickable) inspectItemToast(sim, sim.hoveredPickable);
+    else if (sim.raycaster && sim.supportMeshes && sim.supportMeshes.length) {
+      sim.raycaster.setFromCamera(new THREE.Vector2(0, 0), sim.camera);
+      const hits = sim.raycaster.intersectObjects(sim.supportMeshes, false);
+      if (hits.length > 0 && hits[0].distance < 4.0) {
+        inspectItemToast(sim, {
+          id: 'bench_surface',
+          label: 'Bancada do Laboratório',
+          sanitizedUntil: 0,
+          meta: { purpose: 'Superfície de apoio fixa (use Fluxo Laminar ou Bandeja higienizada para bisturi estéril)' }
+        });
+      }
+    }
   };
   window.openCampusRadialMenu = function () { openRadialMenu(sim); };
   window.closeCampusRadialMenu = closeRadialMenu;

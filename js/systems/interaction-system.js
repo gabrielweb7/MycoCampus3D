@@ -783,6 +783,11 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable.mesh.userData.isBlockedPickup && ctx.hoveredPickable.mesh.userData.isBlockedPickup(ctx.hoveredPickable)) {
+      if (ctx.callbacks.onToast) {
+        ctx.callbacks.onToast(ctx.hoveredPickable.mesh.userData.isBurner
+          ? '🚫 Retire a panela de cima antes de mover o Fogareiro'
+          : '🚫 Retire os objetos de cima antes de mover ' + ctx.hoveredPickable.label);
+      }
       return;
     }
     if (ctx.hoveredPickable.potItem && ctx.hoveredPickable.isAttached) {
