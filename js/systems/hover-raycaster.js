@@ -557,7 +557,6 @@ export function updateHoverRay(ctx, customNdc) {
       prompt = (isTouch ? '🍄 Toque para comer ' : '🍄 Clique para comer ') + ctx.heldItem.wildMushroomCtrl.speciesName;
     } else {
       ctx.placementValid = false;
-      if (!isTouch) prompt = '📦 Pressione G/Q para posicionar este item';
     }
   }
   setHoverPrompt(ctx, prompt);
