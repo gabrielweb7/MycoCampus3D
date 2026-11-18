@@ -405,7 +405,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
     ctx.hoveredPickable = bestSmall || bestLarge;
     ctx.hoverHit = bestSmall ? bestSmallHit : bestLargeHit;
-    if (!ctx.hoveredPickable && bestBlocked && bestBlockedDist < 3.8) {
+    if (!ctx.hoveredPickable && bestBlocked && bestBlockedDist < 3.8 && ctx.adminEditMode) {
       ctx.hoverHit = bestBlockedHit;
       if (bestBlocked.mesh.userData.isBurner) {
         prompt = '🚫 Retire a panela de cima antes de mover o Fogareiro';
