@@ -181,7 +181,10 @@ export function handleScalpelTargetAction(ctx) {
       return;
     }
     const sterileTransfer = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item);
-    if (!inoculatePetri(target.item, 'mycelium', sterileTransfer)) {
+    let contamRisk = 0;
+    if (!ctx.wearingGloves) contamRisk += 0.25;
+    if (!((target.item.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
+    if (!inoculatePetri(target.item, 'mycelium', sterileTransfer, contamRisk)) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir o fragmento para esta placa.');
       return;
     }

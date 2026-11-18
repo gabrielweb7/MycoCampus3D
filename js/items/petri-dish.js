@@ -54,11 +54,18 @@ export function getPetriMeta(mode) {
 function drawAgarTexture(pctx, ctrl) {
   const mode = ctrl.mode;
   pctx.clearRect(0, 0, 256, 256);
-  pctx.fillStyle = mode === 'contam' ? '#d9b36c' : '#efe7d2';
+  if (mode === 'contam') {
+    pctx.fillStyle = '#c99e4c';
+  } else {
+    const amberGrad = pctx.createRadialGradient(128, 128, 16, 128, 128, 128);
+    amberGrad.addColorStop(0, '#eab949');
+    amberGrad.addColorStop(1, '#cf9428');
+    pctx.fillStyle = amberGrad;
+  }
   pctx.fillRect(0, 0, 256, 256);
   if (mode === 'clean' || mode === 'colonizing') {
     const progress = mode === 'clean' ? 100 : Math.max(0, Math.min(100, ctrl.colonization || 0));
-    const radius = 8 + Math.sqrt(progress / 100) * 112;
+    const radius = 6 + Math.sqrt(progress / 100) * 122;
     pctx.save();
     pctx.beginPath();
     pctx.arc(128, 128, radius, 0, Math.PI * 2);
@@ -76,12 +83,20 @@ function drawAgarTexture(pctx, ctrl) {
       pctx.stroke();
     }
     pctx.restore();
+    // Quadradinho branco inicial do fragmento transferido no centro do PDA âmbar
+    if (mode === 'colonizing' && ctrl.inoculationMethod === 'mycelium' && progress < 35) {
+      pctx.fillStyle = '#ffffff';
+      pctx.fillRect(118, 118, 20, 20);
+      pctx.strokeStyle = '#cbd5e1';
+      pctx.lineWidth = 1.2;
+      pctx.strokeRect(118, 118, 20, 20);
+    }
     const cuts = Math.min(4, ctrl.cutWedges || 0);
     if (cuts > 0) {
       const offsets = [[154, 96], [88, 152], [156, 154], [92, 92]];
       for (let ci = 0; ci < cuts; ci++) {
         const [cx, cy] = offsets[ci];
-        pctx.fillStyle = '#d6c7a1';
+        pctx.fillStyle = '#cf9428';
         pctx.fillRect(cx - 12, cy - 12, 24, 24);
         pctx.strokeStyle = '#92400e';
         pctx.lineWidth = 1.5;
@@ -231,6 +246,19 @@ export function stepPetriCultures(ctx, dt) {
       const previousMode = ctrl.mode;
       const growthRate = !ctrl.refrigerated && isCultureIncubationTemperatureSuitable(item, ctx) ? 0.8 : 0;
       ctrl.colonization = Math.min(100, ctrl.colonization + dt * growthRate);
+      if (ctrl.delayedContamAtPct && ctrl.colonization >= ctrl.delayedContamAtPct) {
+        ctrl.delayedContamAtPct = 0;
+        ctrl.mode = 'contam';
+        ctrl.sterilized = false;
+        ctrl.colonized = false;
+        ctrl.contaminated = true;
+        updatePetriVisual(item);
+        if (ctx.callbacks && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🦠 Contaminação surgiu durante a colonização! Use luvas, álcool 70%, fluxo laminar e parafilme.');
+        }
+        ctx.notifyWorldAction();
+        continue;
+      }
       if (ctrl.colonization >= 100) {
         ctrl.mode = 'clean';
         ctrl.colonized = true;
@@ -361,7 +389,7 @@ export function sterilizePetri(item) {
   return true;
 }
 
-export function inoculatePetri(item, method, sterile) {
+export function inoculatePetri(item, method, sterile, contamRisk = 0) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl || ctrl.mode !== 'empty' || !ctrl.lidOpen || !ctrl.sterilized) return false;
   ctrl.inoculated = true;
@@ -372,6 +400,9 @@ export function inoculatePetri(item, method, sterile) {
   ctrl.shelfLifeAgeDays = 0;
   ctrl.colonization = 0;
   ctrl.expired = false;
+  ctrl.delayedContamAtPct = (sterile && contamRisk > 0 && Math.random() < contamRisk)
+    ? (16 + Math.random() * 48)
+    : 0;
   if (!sterile) {
     ctrl.mode = 'contam';
     ctrl.sterilized = false;
