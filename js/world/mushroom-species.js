@@ -401,7 +401,7 @@ export function stepForestDistanceCulling(ctx) {
   lastForestCullX = px;
   lastForestCullZ = pz;
 
-  const scale = qualityState.forestScale || 1;
+  const scale = (qualityState.forestScale || 1) * (qualityState.indoorForestFactor || 1);
   const scaleSq = scale * scale;
   const fList = ctx.forestCullGroups;
   if (fList) {

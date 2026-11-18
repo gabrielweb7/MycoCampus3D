@@ -13,10 +13,10 @@ const TIER_CONFIGS = {
     min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0  }
   },
   mobile: {
-    high:   { ratioCap: 1.15, shadows: false, soft: false, far: 155, aura: true,  weatherParticles: 70,  forestScale: 0.65, toneMap: false, blur: false, maxLights: 2, itemCullDist: 48 },
-    medium: { ratioCap: 0.85, shadows: false, soft: false, far: 112, aura: false, weatherParticles: 25,  forestScale: 0.48, toneMap: false, blur: false, maxLights: 1, itemCullDist: 42 },
-    low:    { fixedRatio: 0.70, shadows: false, soft: false, far: 86,  aura: false, weatherParticles: 0,   forestScale: 0.36, toneMap: false, blur: false, maxLights: 0, itemCullDist: 34 },
-    min:    { fixedRatio: 0.55, shadows: false, soft: false, far: 68,  aura: false, weatherParticles: 0,   forestScale: 0.26, toneMap: false, blur: false, maxLights: 0, itemCullDist: 28 }
+    high:   { ratioCap: 1.20, shadows: false, soft: false, far: 155, aura: true,  weatherParticles: 70,  forestScale: 0.68, toneMap: false, blur: false, maxLights: 2, itemCullDist: 48 },
+    medium: { ratioCap: 1.00, shadows: false, soft: false, far: 120, aura: false, weatherParticles: 25,  forestScale: 0.52, toneMap: false, blur: false, maxLights: 1, itemCullDist: 42 },
+    low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 95,  aura: false, weatherParticles: 0,   forestScale: 0.40, toneMap: false, blur: false, maxLights: 0, itemCullDist: 34 },
+    min:    { fixedRatio: 0.75, shadows: false, soft: false, far: 76,  aura: false, weatherParticles: 0,   forestScale: 0.30, toneMap: false, blur: false, maxLights: 0, itemCullDist: 28 }
   }
 };
 
@@ -209,12 +209,18 @@ export function optimizeSceneMaterialsForMobile(scene) {
 }
 
 export function stepMobileItemCulling(ctx, now) {
-  const maxDist = qualityState.itemCullDist;
-  if (!ctx || !ctx.pickableItems || !ctx.playerPos || maxDist >= 900) return;
+  if (!ctx || !ctx.playerPos) return;
   if (now - lastItemCullAt < 240) return;
   lastItemCullAt = now;
   const px = ctx.playerPos.x;
   const pz = ctx.playerPos.z;
+
+  // Oclusão por Setor: quando o jogador está dentro de um prédio (Lab / Substrato / Estufa), reduz o raio da floresta externa
+  const isInsideWing = Math.abs(px) > 13.5 && Math.abs(px) < 34 && Math.abs(pz) < 16.5;
+  qualityState.indoorForestFactor = isInsideWing ? 0.38 : 1.0;
+
+  const maxDist = qualityState.itemCullDist;
+  if (!ctx.pickableItems || maxDist >= 900) return;
   const maxSq = maxDist * maxDist;
   const items = ctx.pickableItems;
   for (let i = 0; i < items.length; i++) {
@@ -263,11 +269,11 @@ export function stepAutoQuality(now, deps) {
     // 1º nível de inteligência: resolução dinâmica contínua com deadband estável (só ajusta após 2s fora da faixa)
     if (r && qualityState.baseRatio) {
       let next = qualityState.dynScale || 1;
-      if (fps < 42 && next > 0.62) {
+      if (fps < 42 && next > 0.78) {
         qualityState.lowFpsStreak++;
         qualityState.highFpsStreak = 0;
         if (qualityState.lowFpsStreak >= 2) {
-          next = Math.max(0.62, Math.round((next - 0.12) * 100) / 100);
+          next = Math.max(0.78, Math.round((next - 0.10) * 100) / 100);
           qualityState.lowFpsStreak = 0;
         }
       } else if (fps >= 57 && next < 1) {

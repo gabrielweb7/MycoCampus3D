@@ -298,6 +298,9 @@ export function startAnimationLoop(ctx) {
   if (animationStarted) return;
   animationStarted = true;
 
+  let simSlowAccumDt = 0;
+  let lastSlowStepAt = 0;
+
   function tick() {
     requestAnimationFrame(tick);
     try {
@@ -325,23 +328,31 @@ export function startAnimationLoop(ctx) {
       stepLaminarHood(ctx, dt);
       stepCultureFridges(ctx, dt);
       stepLabCabinets(ctx, dt);
-      stepPetriCultures(ctx, dt);
       stepMagneticStirrers(ctx, dt);
-      stepPrecisionScales(ctx, now);
       stepPressureCookers(ctx, dt);
-      stepSpawnColonization(ctx, dt);
       stepSprayBursts(ctx, dt);
-      stepLabSinks(ctx);
-      stepGreenhouse(ctx, dt);
       stepPastureCows(ctx, dt);
       stepTripGnomes(ctx, dt);
       stepUfoAbduction(ctx, dt);
-      stepDehydrators(ctx, dt);
+
+      simSlowAccumDt += dt;
+      if (now - lastSlowStepAt >= 95) {
+        const slowDt = simSlowAccumDt;
+        simSlowAccumDt = 0;
+        lastSlowStepAt = now;
+        stepPetriCultures(ctx, slowDt);
+        stepPrecisionScales(ctx, now);
+        stepSpawnColonization(ctx, slowDt);
+        stepLabSinks(ctx);
+        stepGreenhouse(ctx, slowDt);
+        stepDehydrators(ctx, slowDt);
+        dropUnsupportedItems(ctx.entityCtx);
+      }
+
       stepForestDistanceCulling(ctx);
       qualityMod.stepMobileItemCulling(ctx, now);
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);
-      dropUnsupportedItems(ctx.entityCtx);
       stepConfetti(dt);
 
       if (ctx.localEmoteTimer > 0) {

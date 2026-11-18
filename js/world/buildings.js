@@ -176,12 +176,12 @@ export function buildCampusBuildingWing(ctx, opts) {
         const trayL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 1.65), fixMat);
         trayL.position.set(cx + lx, ceilY, cz + lz);
         scene.add(trayL);
-        [-0.1, 0.1].forEach((tx) => {
-          const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 1.5, 8), fTubeMat);
-          tube.rotation.x = Math.PI / 2;
-          tube.position.set(cx + lx + tx, ceilY - 0.04, cz + lz);
-          scene.add(tube);
-        });
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 1.5, 6), fTubeMat);
+        tube.rotation.x = Math.PI / 2;
+        tube.position.set(cx + lx, ceilY - 0.04, cz + lz);
+        tube.matrixAutoUpdate = false;
+        tube.updateMatrix();
+        scene.add(tube);
       });
     });
 
