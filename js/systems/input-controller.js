@@ -5,12 +5,35 @@
 import { getHeldBoardToolColor } from './chalkboard.js';
 
 export function bindControls(ctx) {
+  // Previne fechamento acidental da aba do navegador durante a sessão de jogo
+  window.addEventListener('beforeunload', function (e) {
+    if (ctx.inFps || (ctx.keys && Object.values(ctx.keys).some(Boolean))) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
   window.addEventListener('keydown', function (e) {
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+
+    // Isola comandos do jogo contra atalhos destrutivos do navegador (ex: Ctrl+W fecha aba, Ctrl+S salva, etc.)
+    const GAME_KEYS = [
+      'KeyW', 'KeyA', 'KeyS', 'KeyD',
+      'KeyR', 'KeyF', 'KeyG', 'KeyQ',
+      'KeyX', 'KeyI', 'KeyC', 'KeyE',
+      'Space', 'Tab',
+      'Digit1', 'Digit2', 'Digit3', 'Digit4'
+    ];
+    if (GAME_KEYS.indexOf(e.code) !== -1) {
+      if (e.ctrlKey || e.metaKey || e.code === 'Space' || e.code === 'Tab') {
+        e.preventDefault();
+      }
+    }
+
     ctx.keys[e.code] = true;
     if (e.code === 'Space') {
-      e.preventDefault();
       if (window.triggerCampusJump) window.triggerCampusJump();
     }
     if (e.code === 'KeyX') {

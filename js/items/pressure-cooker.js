@@ -350,12 +350,35 @@ export function stepPressureCookers(ctx, dt) {
     const h = bnd.heat;
     const pulse = h > 0.15 ? Math.sin(ctx.clock.elapsedTime * 5.0) * 0.08 * h : 0;
     if (bnd.kind === 'gas_tripod') {
+      const isLit = h > 0.04;
+      const flicker = isLit ? Math.sin(ctx.clock.elapsedTime * 16.0) * 0.05 * h : 0;
       if (bnd.flameRing) {
-        bnd.flameRing.visible = h > 0.05;
-        const sc = 0.65 + h * 0.45 + pulse * 0.4;
-        bnd.flameRing.scale.set(sc, sc, 1);
+        bnd.flameRing.visible = isLit;
+        const sc = 0.72 + h * 0.45 + pulse * 0.35 + flicker;
+        bnd.flameRing.scale.set(sc, sc, sc);
       }
-      bnd.coilMat.opacity = Math.min(0.95, h * 0.92 + pulse);
+      if (bnd.innerFlame) {
+        bnd.innerFlame.visible = isLit;
+        const scIn = 0.76 + h * 0.40 + pulse * 0.25;
+        bnd.innerFlame.scale.set(scIn, scIn, scIn);
+      }
+      if (bnd.flameTips) {
+        bnd.flameTips.visible = h > 0.52;
+        const scTip = 0.78 + h * 0.45 + flicker * 1.5;
+        bnd.flameTips.scale.set(scTip, scTip, scTip);
+      }
+      if (bnd.flameLight) {
+        bnd.flameLight.intensity = isLit ? (0.45 + h * 1.6 + Math.sin(ctx.clock.elapsedTime * 22.0) * 0.22 * h) : 0;
+      }
+      if (bnd.coilMat) {
+        bnd.coilMat.opacity = Math.min(0.95, 0.40 + h * 0.55 + pulse);
+      }
+      if (bnd.innerFlameMat) {
+        bnd.innerFlameMat.opacity = Math.min(0.98, 0.50 + h * 0.48);
+      }
+      if (bnd.flameTipsMat) {
+        bnd.flameTipsMat.opacity = Math.min(0.85, (h - 0.45) * 1.6);
+      }
     } else {
       bnd.coilMat.emissiveIntensity = h * 2.2 + pulse;
       bnd.coilMat.color.setRGB(0.39 + h * 0.55, 0.45 - h * 0.30, 0.55 - h * 0.48);
