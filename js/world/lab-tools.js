@@ -23,6 +23,7 @@ import { buildLabTrashBin } from '../items/lab-trash.js';
 import { createHeatSealer } from '../items/heat-sealer.js';
 import { makeLiquidJar800, makeBeaker1L } from '../items/liquid-culture.js';
 import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
+import { makeDehydrator } from '../items/dehydrator.js';
 import { makeSyringe10ml } from '../items/syringe.js';
 import { makeInfraredThermometer } from '../items/thermometer.js';
 import { makeLabTray } from '../items/lab-tray.js';
@@ -184,6 +185,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_02', -23.05, 0.438, 9.8);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_03', -23.05, 0.438, 10.4);
   makePaperTowelRoll(ctx, 'paper_towel_02', -23.05, 0.438, 10.1);
+  makeDehydrator(ctx, 'dehydrator_lab', -22.9, 1.02, 2.2);
   for (let mi = 0; mi < 4; mi++) {
     makeTapeRoll(ctx, 'micropore_' + pad2(mi + 1), 'micropore', -23.05, 1.798, 4.8 + mi * 0.45);
   }

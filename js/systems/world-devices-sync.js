@@ -7,6 +7,7 @@ import { applyStrokeToBoard } from './chalkboard.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { setBurnerLevel } from '../items/pressure-cooker.js';
 import { applyCabinetStates } from '../items/lab-cabinets.js';
+import { applySportBallStates } from './sports-physics.js';
 
 export function consumeCampusBoardStrokes(sim) {
   if (sim.currentStroke && sim.currentStroke.pts.length >= 2) {
@@ -218,4 +219,5 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
       }
     }
   }
+  applySportBallStates(sim, stateMap);
 }

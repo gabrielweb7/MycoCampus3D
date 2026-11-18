@@ -151,13 +151,20 @@ body.device-tablet #fps-hint {
   display: none !important;
 }
 
-body.device-phone #interact-pill {
-  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
-  max-width: 86vw;
+#interact-pill {
+  top: 76px;
+  bottom: auto;
+  max-width: calc(100vw - 28px);
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.35;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+body.device-phone #interact-pill {
+  top: 70px;
+  bottom: auto;
+  max-width: 90vw;
+  text-align: center;
 }
 
 body.device-phone #crosshair {

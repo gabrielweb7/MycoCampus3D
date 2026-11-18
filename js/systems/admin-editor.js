@@ -10,6 +10,12 @@ import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { makeLabTray } from '../items/lab-tray.js';
 import { makeAlcoholSprayBottle } from '../items/alcohol-spray.js';
 import { getPetriMeta, makePetriDish } from '../items/petri-dish.js';
+import { makeBeaker1L, makeLiquidJar800 } from '../items/liquid-culture.js';
+import { makePP5Cup145ml } from '../items/pp5-cup.js';
+import { makeMixingBowl } from '../items/mixing-bowl.js';
+import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
+import { makeInfraredThermometer } from '../items/thermometer.js';
+import { makeDehydrator } from '../items/dehydrator.js';
 import { moveItemWithSupported, dropSupportedItemsToGround } from './surface-group-move.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { apiPost } from '../services/api-client.js';
@@ -62,6 +68,48 @@ export function ensureCoreAdminPrefabs() {
         getPetriMeta('empty')
       );
     }
+  });
+
+  registerItemPrefab('beaker_1l', {
+    label: 'Béquer Vidro 1L',
+    category: 'glassware',
+    factory: (ctx, opts) => makeBeaker1L(ctx, opts.id || ('dyn_beaker_1l_' + Date.now().toString(36)), opts.x, opts.y, opts.z, 0)
+  });
+
+  registerItemPrefab('liquid_culture', {
+    label: 'Frasco Cultura Líquida 800ml',
+    category: 'glassware',
+    factory: (ctx, opts) => makeLiquidJar800(ctx, opts.id || ('dyn_liquid_culture_' + Date.now().toString(36)), opts.x, opts.y, opts.z, 0)
+  });
+
+  registerItemPrefab('pp5_cup', {
+    label: 'Copo PP5 145ml',
+    category: 'glassware',
+    factory: (ctx, opts) => makePP5Cup145ml(ctx, opts.id || ('dyn_pp5_cup_' + Date.now().toString(36)), false, opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('mixing_bowl', {
+    label: 'Pote de Mistura',
+    category: 'tools',
+    factory: (ctx, opts) => makeMixingBowl(ctx, opts.id || ('dyn_mixing_bowl_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('magnetic_stirrer', {
+    label: 'Agitador Magnético',
+    category: 'equipment',
+    factory: (ctx, opts) => makeMagneticStirrer(ctx, opts.id || ('dyn_magnetic_stirrer_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('infrared_thermometer', {
+    label: 'Termômetro Laser',
+    category: 'equipment',
+    factory: (ctx, opts) => makeInfraredThermometer(ctx, opts.id || ('dyn_thermometer_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('dehydrator', {
+    label: 'Desidratadora de Cogumelos',
+    category: 'equipment',
+    factory: (ctx, opts) => makeDehydrator(ctx, opts.id || ('dyn_dehydrator_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
   });
 }
 

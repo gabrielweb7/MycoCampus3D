@@ -257,6 +257,24 @@ function handleHeatSealerHover(ctx, intersectPickableItem, setHoverPrompt) {
   return false;
 }
 
+function handleCookerLidSnapHover(ctx, setHoverPrompt) {
+  if (!ctx.heldItem || !ctx.heldItem.potItem || ctx.placementMode) return false;
+  for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
+    const cp = ctx.cookerPots[ci];
+    const targetPot = cp.potItem;
+    if (targetPot.lidItem && targetPot.lidItem.isAttached && targetPot.lidItem !== ctx.heldItem) continue;
+    const cpHits = ctx.raycaster.intersectObject(targetPot.mesh, true);
+    if (cpHits.length > 0 && cpHits[0].distance < 4.5) {
+      ctx.hoverHit = cpHits[0];
+      ctx.hoveredSnapPot = targetPot;
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, '🍲 Clique para fechar a Tampa na ' + targetPot.label);
+      return true;
+    }
+  }
+  return false;
+}
+
 function handleCookerInsertHover(ctx, setHoverPrompt) {
   if (!canItemEnterCooker(ctx.heldItem)) return false;
   for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
@@ -645,6 +663,7 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
   if (handleHeatSealerHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleSinkHover(ctx, setHoverPrompt)) return true;
   if (handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
+  if (handleCookerLidSnapHover(ctx, setHoverPrompt)) return true;
   if (handleCookerInsertHover(ctx, setHoverPrompt)) return true;
   if (handleFlocaoHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleSpoonOrBowlHover(ctx, intersectPickableItem, setHoverPrompt)) return true;

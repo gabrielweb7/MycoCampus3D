@@ -165,10 +165,12 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredBurnerSwitch = null;
   ctx.hoveredBurnerTimer = null;
   ctx.hoveredCow = null;
+  ctx.hoveredSportBall = null;
   ctx.hoveredSinkAction = null;
   ctx.hoveredGrainCooker = null;
   ctx.hoveredCornScoopPot = null;
   ctx.hoveredPotInsert = null;
+  ctx.hoveredSnapPot = null;
   ctx.hoveredSprayTarget = null;
   ctx.hoveredWipeTarget = null;
   ctx.hoveredTrash = false;
@@ -466,6 +468,23 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoverHit = blHits[0];
       ctx.hoveredBlindObj = blHits[0].object.userData.blindObj;
       prompt = ctx.hoveredBlindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana';
+    }
+  }
+  if (ctx.heldSportBall) {
+    setHoverPrompt(ctx, '🏀 Mire acima da cesta e clique para arremessar!');
+    return;
+  }
+  if (!prompt && !ctx.heldItem && ctx.sportBalls && ctx.sportBalls.length) {
+    for (let si = 0; si < ctx.sportBalls.length; si++) {
+      const sb = ctx.sportBalls[si];
+      if (sb.kind !== 'basketball' || !sb.mesh) continue;
+      const bHits = ctx.raycaster.intersectObject(sb.mesh, false);
+      if (bHits.length > 0 && bHits[0].distance < 4.2) {
+        ctx.hoverHit = bHits[0];
+        ctx.hoveredSportBall = sb;
+        prompt = '🏀 Pegar Bola de Basquete (p/ arremessar na cesta)';
+        break;
+      }
     }
   }
   if (!prompt && ctx.cowHitMeshes && ctx.cowHitMeshes.length) {

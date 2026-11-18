@@ -37,6 +37,7 @@ import { stepPetriCultures } from '../items/petri-dish.js';
 import { stepGreenhouse } from '../world/greenhouse.js';
 import { stepForestDistanceCulling } from '../world/mushroom-species.js';
 import { stepPastureCows } from '../entities/pasture-cows.js';
+import { stepDehydrators } from '../items/dehydrator.js';
 
 let lastMobileHoverAt = 0;
 let lastDesktopHoverAt = 0;
@@ -330,6 +331,7 @@ export function startAnimationLoop(ctx) {
       stepLabSinks(ctx);
       stepGreenhouse(ctx, dt);
       stepPastureCows(ctx, dt);
+      stepDehydrators(ctx, dt);
       stepForestDistanceCulling(ctx);
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);

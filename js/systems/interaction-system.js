@@ -28,6 +28,7 @@ import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { handleTrashDisposal } from '../items/lab-trash.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { interactDehydrator } from '../items/dehydrator.js';
 import { getItemsSupportedBy } from './surface-group-move.js';
 import { fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
@@ -197,6 +198,13 @@ export function handlePrimaryAction(ctx) {
           pts: [tapPt, [tapPt[0] + 0.1, tapPt[1]]]
         });
       }
+      return;
+    }
+    if (ctx.hoveredSnapPot && ctx.heldItem && ctx.heldItem.potItem) {
+      ctx.snapClosePot = ctx.hoveredSnapPot;
+      commitHeldItemPlacement(ctx, ctx.hoveredSnapPot.mesh.position, true);
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🍲 Tampa encaixada e travada na panela!');
       return;
     }
     if (ctx.hoveredPotInsert && ctx.heldItem && !ctx.heldItem.mesh.userData.twoHanded) {
@@ -681,6 +689,10 @@ export function handlePrimaryAction(ctx) {
   }
   if (handleWorldInteraction(ctx)) return;
   if (ctx.hoveredPickable) {
+    if (ctx.hoveredPickable.dehydratorCtrl) {
+      interactDehydrator(ctx, ctx.hoveredPickable);
+      return;
+    }
     if (ctx.hoveredPickable.fridgeCtrl) {
       const fridge = ctx.hoveredPickable;
       toggleCultureFridgeDoor(fridge);

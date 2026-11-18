@@ -174,16 +174,16 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
   cubensisGroup.visible = false;
   const stemMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.65 });
   const veilMat = new THREE.MeshStandardMaterial({ color: 0x4c1d95, roughness: 0.85, side: THREE.DoubleSide });
-  const capMat = new THREE.MeshStandardMaterial({ color: 0xc97b1e, roughness: 0.42 });
+  const capMat = new THREE.MeshStandardMaterial({ color: 0xa1551c, roughness: 0.42, side: THREE.DoubleSide });
   const gillsMat = new THREE.MeshStandardMaterial({ color: 0x3b2820, roughness: 0.88, side: THREE.DoubleSide });
 
   const capProfile = [
-    new THREE.Vector2(0.001, 0.056),
-    new THREE.Vector2(0.022, 0.052),
-    new THREE.Vector2(0.050, 0.036),
-    new THREE.Vector2(0.078, 0.015),
+    new THREE.Vector2(0.084, -0.004),
     new THREE.Vector2(0.090, 0.000),
-    new THREE.Vector2(0.084, -0.004)
+    new THREE.Vector2(0.078, 0.016),
+    new THREE.Vector2(0.050, 0.038),
+    new THREE.Vector2(0.022, 0.052),
+    new THREE.Vector2(0.000, 0.056)
   ];
   const capGeo = new THREE.LatheGeometry(capProfile, 16);
 
@@ -240,6 +240,61 @@ export function createPastureAndCows(ctx) {
   ctx.cowPoops = ctx.cowPoops || [];
   ctx.cowPoops.length = 0;
   ctx.cowHitMeshes = ctx.cowHitMeshes || [];
+
+  // Cerca rústica do pasto + Porteira interativa + Cocho de Feno & Bebedouro
+  const fenceGroup = new THREE.Group();
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+  const hayMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.95 });
+  const waterMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, transparent: true, opacity: 0.85 });
+
+  function addFencePost(fx, fz) {
+    const fy = terrainHeight(fx, fz);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.15, 0.16), woodMat);
+    post.position.set(fx, fy + 0.55, fz);
+    fenceGroup.add(post);
+  }
+  function addFenceRail(x1, z1, x2, z2) {
+    const len = Math.hypot(x2 - x1, z2 - z1);
+    const ang = Math.atan2(x2 - x1, z2 - z1);
+    const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2;
+    const my = terrainHeight(mx, mz);
+    [0.42, 0.82].forEach((ry) => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.10, len), woodMat);
+      rail.position.set(mx, my + ry, mz);
+      rail.rotation.y = ang;
+      fenceGroup.add(rail);
+    });
+  }
+  for (let x = PASTURE_BOUNDS.minX; x <= PASTURE_BOUNDS.maxX; x += 6) {
+    addFencePost(x, PASTURE_BOUNDS.minZ);
+    addFencePost(x, PASTURE_BOUNDS.maxZ);
+    if (x + 6 <= PASTURE_BOUNDS.maxX) {
+      addFenceRail(x, PASTURE_BOUNDS.minZ, x + 6, PASTURE_BOUNDS.minZ);
+      addFenceRail(x, PASTURE_BOUNDS.maxZ, x + 6, PASTURE_BOUNDS.maxZ);
+    }
+  }
+  for (let z = PASTURE_BOUNDS.minZ; z <= PASTURE_BOUNDS.maxZ; z += 6) {
+    addFencePost(PASTURE_BOUNDS.maxX, z);
+    if (z + 6 <= PASTURE_BOUNDS.maxZ) {
+      addFenceRail(PASTURE_BOUNDS.maxX, z, PASTURE_BOUNDS.maxX, z + 6);
+    }
+    if (Math.abs(z - 8) > 3.5) {
+      addFencePost(PASTURE_BOUNDS.minX, z);
+      if (z + 6 <= PASTURE_BOUNDS.maxZ && Math.abs(z + 3 - 8) > 3.0) {
+        addFenceRail(PASTURE_BOUNDS.minX, z, PASTURE_BOUNDS.minX, z + 6);
+      }
+    }
+  }
+  // Cocho de Feno e Bebedouro no centro do pasto (x=57, z=8)
+  const ty = terrainHeight(57, 8);
+  const trough = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.42, 0.9), woodMat);
+  trough.position.set(57, ty + 0.21, 8);
+  const hayPile = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.26, 0.72), hayMat);
+  hayPile.position.set(56.45, ty + 0.36, 8);
+  const troughWater = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.14, 0.72), waterMat);
+  troughWater.position.set(57.55, ty + 0.32, 8);
+  fenceGroup.add(trough, hayPile, troughWater);
+  ctx.scene.add(fenceGroup);
 
   for (let i = 0; i < 6; i++) {
     const pos = findSafePasturePoint(ctx, i);
@@ -326,15 +381,20 @@ export function stepPastureCows(ctx, dt) {
       if (steerBucket !== cow.lastBucket) {
         cow.lastBucket = steerBucket;
         const rAct = hash01(i + 3, steerBucket);
-        if (rAct < 0.28) {
+        if (rAct < 0.24) {
           cow.state = 'graze';
           cow.speed = 0;
-          cow.mood = 'Pastando 🌿';
+          const nearTrough = Math.hypot(cx - 57, cz - 8) < 3.6;
+          cow.mood = nearTrough ? (rAct < 0.12 ? 'Bebendo água 💧' : 'Comendo feno 🌾') : 'Pastando 🌿';
         } else {
           cow.state = 'wander';
           cow.speed = cow.baseSpeed;
           cow.mood = 'Passeando 🌤️';
-          cow.yaw += (hash01(i + 19, steerBucket) - 0.5) * 2.0;
+          if (rAct > 0.82) {
+            cow.yaw = Math.atan2(57 - cx, 8 - cz); // Vai até o cocho!
+          } else {
+            cow.yaw += (hash01(i + 19, steerBucket) - 0.5) * 2.0;
+          }
         }
       }
     }

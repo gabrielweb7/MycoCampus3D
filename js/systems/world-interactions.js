@@ -8,6 +8,8 @@ import { scrollRanking } from '../world/staircase-clock.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, cycleBurnerTimer, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
 import { petCow } from '../entities/pasture-cows.js';
+import { grabSportBall, throwHeldSportBall } from './sports-physics.js';
+import { registerDiscoveredSpecies, triggerMagicCubensisEffect } from './mycoteca.js';
 
 export function isSeatOccupied(remoteAvatars, seat) {
   if (!seat) return false;
@@ -27,6 +29,12 @@ export function isSeatOccupied(remoteAvatars, seat) {
  * Retorna true se alguma interacao foi executada.
  */
 export function handleWorldInteraction(ctx) {
+  if (ctx.heldSportBall) {
+    return throwHeldSportBall(ctx);
+  }
+  if (ctx.hoveredSportBall) {
+    return grabSportBall(ctx, ctx.hoveredSportBall);
+  }
   if (ctx.hoveredGreenhouseSlot) {
     ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
     return true;
@@ -37,8 +45,15 @@ export function handleWorldInteraction(ctx) {
     ctx.hoveredMushroom.respawnAt = performance.now() + 20000;
     ctx.queueWorldStateChange(ctx.hoveredMushroom.id, 0);
     if (window.MycoAudio) window.MycoAudio.playHarvest();
-    if (ctx.callbacks.onToast && ctx.hoveredMushroom.id && ctx.hoveredMushroom.id.indexOf('wild_poop_') === 0) {
-      ctx.callbacks.onToast('🍄✨ Você comeu Cubensis Dourado do pasto! (+40 XP)');
+    const spName = (ctx.hoveredMushroom.capMesh && ctx.hoveredMushroom.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
+    const disc = registerDiscoveredSpecies(spName);
+    if (ctx.hoveredMushroom.id && ctx.hoveredMushroom.id.indexOf('wild_poop_') === 0) {
+      triggerMagicCubensisEffect();
+      if (ctx.callbacks.onToast) {
+        ctx.callbacks.onToast(`🍄✨ Você comeu Cubensis Dourado! (+40 XP • Micoteca: ${disc.list.length}/100)`);
+      }
+    } else if (disc.isNew && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(`📖 Nova espécie na Micoteca (${disc.list.length}/100): ${spName}`);
     }
     if (ctx.callbacks.onHarvestMushroom) ctx.callbacks.onHarvestMushroom(ctx.hoveredMushroom.id);
     return true;

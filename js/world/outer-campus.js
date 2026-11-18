@@ -206,12 +206,35 @@ export function buildOuterCampus(ctx) {
   var bballIn = makeBox(15, 0.05, 9.5, 0x15803d, { roughness: 0.8, noShadow: true });
   bballIn.position.set(-48, 0.025, 6);
   scene.add(bball, bballIn);
+  ctx.basketballHoops = [];
   [-55.5, -40.5].forEach(function (hx) {
-    var post = makeBox(0.16, 3.0, 0.16, 0x1e293b);
-    post.position.set(hx, 1.5, 6);
-    var boardB = makeBox(0.12, 1.0, 1.6, 0xf8fafc);
-    boardB.position.set(hx + (hx < -48 ? 0.35 : -0.35), 2.8, 6);
-    scene.add(post, boardB);
+    var dirIn = hx < -48 ? 1 : -1;
+    var post = makeBox(0.16, 3.1, 0.16, 0x1e293b);
+    post.position.set(hx, 1.55, 6);
+    var arm = makeBox(0.36, 0.12, 0.12, 0x334155);
+    arm.position.set(hx + dirIn * 0.18, 2.9, 6);
+    var boardB = makeBox(0.10, 1.05, 1.65, 0xf8fafc);
+    boardB.position.set(hx + dirIn * 0.36, 2.95, 6);
+    var targetSq = makeBox(0.11, 0.42, 0.56, 0xef4444);
+    targetSq.position.set(hx + dirIn * 0.365, 2.86, 6);
+
+    var rimX = hx + dirIn * 0.68;
+    var rimY = 2.66;
+    var rim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.28, 0.026, 8, 20),
+      new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.35, metalness: 0.5 })
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.set(rimX, rimY, 6);
+
+    var net = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.26, 0.16, 0.38, 12, 2, true),
+      new THREE.MeshBasicMaterial({ color: 0xf8fafc, wireframe: true })
+    );
+    net.position.set(rimX, rimY - 0.19, 6);
+
+    scene.add(post, arm, boardB, targetSq, rim, net);
+    ctx.basketballHoops.push({ x: rimX, y: rimY, z: 6 });
   });
 
   // Bolas interativas do Complexo Esportivo (Futebol + Basquete)

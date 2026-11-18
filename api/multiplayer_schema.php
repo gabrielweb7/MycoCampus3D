@@ -281,7 +281,8 @@ function mp_is_valid_state_key(string $k): bool {
         'burner_lab', 'burner_level_lab',
         'gas_tripod_sub', 'gas_tripod_sub_level', 'gas_tripod_level_sub',
         'culture_fridge_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson',
-        'auditorium_slide', 'cooker_mode_lab', 'cooker_mode_sub'
+        'auditorium_slide', 'cooker_mode_lab', 'cooker_mode_sub',
+        'ball_soccer', 'ball_basket'
     ], true)) {
         return true;
     }

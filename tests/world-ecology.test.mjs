@@ -12,6 +12,8 @@ globalThis.window = globalThis.window || {
 const { MUSHROOM_SPECIES_CATALOG } = await import('../js/world/mushroom-species.js');
 const { COW_POOP_INTERVAL_SEC, POOP_CUBENSIS_GROW_SEC, petCow } = await import('../js/entities/pasture-cows.js');
 const { BURNER_TIMER_PRESETS, formatBurnerTimerLabel } = await import('../js/items/pressure-cooker.js');
+const { DEHYDRATOR_META } = await import('../js/items/dehydrator.js');
+const { registerDiscoveredSpecies, getDiscoveredSpecies } = await import('../js/systems/mycoteca.js');
 
 test('MUSHROOM_SPECIES_CATALOG contém exatamente 100 espécies em madeira, mata e pasto', () => {
   assert.equal(MUSHROOM_SPECIES_CATALOG.length, 100);
@@ -40,4 +42,25 @@ test('fogareiro elétrico possui presets de timer 20m, 1h, 1h30, 2h e Livre', ()
   assert.equal(formatBurnerTimerLabel(60), '1h');
   assert.equal(formatBurnerTimerLabel(90), '1h30');
   assert.equal(formatBurnerTimerLabel(120), '2h');
+});
+
+test('DEHYDRATOR_META serializa e restaura estado da desidratadora e mycoteca funciona sem DOM', () => {
+  const item = {
+    label: 'Desidratadora',
+    dehydratorCtrl: { on: true, hasMushroom: true, progress: 65, crisp: false },
+    mesh: { userData: {} }
+  };
+  const saved = DEHYDRATOR_META.serializeState(item);
+  assert.deepEqual(saved, { on: true, hasMushroom: true, progress: 65, crisp: false });
+
+  const target = {
+    label: '',
+    dehydratorCtrl: { on: false, hasMushroom: false, progress: 0, crisp: false },
+    mesh: { userData: {} }
+  };
+  DEHYDRATOR_META.applyState(target, saved);
+  assert.equal(target.dehydratorCtrl.on, true);
+  assert.equal(target.dehydratorCtrl.progress, 65);
+  assert.ok(Array.isArray(getDiscoveredSpecies()));
+  assert.equal(typeof registerDiscoveredSpecies('Psilocybe cubensis').isNew, 'boolean');
 });
