@@ -29,7 +29,7 @@ function mp_build_allowed_items(): array {
         'pressure_cooker_sub', 'pressure_lid_sub', 'cooker_base_sub',
         'culture_fridge_lab', 'laminar_hood_lab',
         'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east',
-        'mixing_bowl_01', 'lab_spoon_01', 'scalpel_01',
+        'mixing_bowl_01', 'lab_spoon_01', 'scalpel_01', 'dehydrator_lab',
         'flocao_500g_01', 'flocao_500g_02',
 
         // === Lousas & Acessórios ===
