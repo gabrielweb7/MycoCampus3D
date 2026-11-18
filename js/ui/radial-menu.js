@@ -10,6 +10,7 @@ import { togglePetriLid } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
 import { getSanitizationStatus } from '../items/alcohol-spray.js';
+import { getCultureRemainingDays } from '../items/culture-lifecycle.js';
 import { isPdaRecipeBalanced } from '../items/pda-mix.js';
 import { handlePrimaryAction, dropHeldItem, setHeldTwoHandedGhost } from '../systems/interaction-system.js';
 import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
@@ -211,15 +212,31 @@ export function showItemStatusCard(item, ctx) {
     chips.push({ icon: petri.lidOpen ? '⚠️' : '✅', text: petri.lidOpen ? 'Tampa Aberta' : 'Tampa Fechada', color: petri.lidOpen ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
     chips.push({ icon: petri.sterilized ? '✅' : '⚠️', text: petri.sterilized ? 'Estéril' : 'Não Estéril', color: petri.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
     if (petri.parafilmSealed) chips.push({ icon: '🎞️', text: 'Vedada (Parafilm M)', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
-    if (petri.inoculated) chips.push({ icon: '🍄', text: 'Colonização ' + Math.round(petri.colonization || 0) + '%', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
-    if (petri.contaminated) chips.push({ icon: '🦠', text: 'CONTAMINADA', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
-    if (petri.expired) chips.push({ icon: '⏰', text: 'Vencida', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    if (petri.inoculated) {
+      chips.push({ icon: '🍄', text: 'Colonizada (' + Math.round(petri.colonization || 0) + '%)', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+    } else if (petri.mode !== 'bare') {
+      chips.push({ icon: '⚪', text: 'Não Colonizada', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    }
+    if (petri.contaminated || petri.mode === 'contam') {
+      chips.push({ icon: '🦠', text: 'Contaminada', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+    } else if (petri.mode !== 'bare') {
+      chips.push({ icon: '💚', text: 'Saudável', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+    }
+    if (petri.expired) {
+      chips.push({ icon: '⏰', text: 'Vencida', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    } else if (petri.mode !== 'bare' && !petri.contaminated) {
+      const remD = getCultureRemainingDays(petri);
+      const envTxt = petri.refrigerated ? '❄️ 4°C Refrigerada' : '🌡️ 25°C Ambiente';
+      chips.push({ icon: '⏳', text: 'Validade: ' + remD + 'd (' + envTxt + ')', color: petri.refrigerated ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
+    }
   }
 
   const sp = item.spawnCtrl;
   if (sp) {
     if (sp.filled) {
-      chips.push({ icon: '🌾', text: 'Substrato: ' + (sp.substrateKind || 'Grãos'), color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+      const subNames = { flocao: 'Flocão de Milho', corn: 'Milho de Pipoca', wheat: 'Trigo em Grão', sorghum: 'Sorgo', sawdust: 'Serragem', grain: 'Grãos' };
+      const subLbl = subNames[sp.substrateKind] || (sp.isPP5 ? 'Flocão de Milho' : 'Grãos');
+      chips.push({ icon: sp.isPP5 || sp.substrateKind === 'flocao' ? '🌽' : '🌾', text: 'Substrato: ' + subLbl, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
       if (sp.waterMl) chips.push({ icon: '💧', text: sp.waterMl + ' ml H₂O', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
       chips.push({ icon: sp.sterilized ? '✅' : '⚠️', text: sp.sterilized ? 'Esterilizado' : 'Não Esterilizado', color: sp.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
       if (sp.inoculated) chips.push({ icon: '🍄', text: 'Colonização ' + Math.round(sp.colonization || 0) + '%', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });

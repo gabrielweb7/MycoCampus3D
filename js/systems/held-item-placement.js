@@ -5,6 +5,7 @@ import {
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
 import { hideHover3dBadge } from '../entities/hover-3d-badge.js';
+import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
 
@@ -149,9 +150,8 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
         item.mesh.position.set(held.mesh.position.x, held.mesh.position.y + 0.036, held.mesh.position.z);
         item.mesh.rotation.set(0, held.mesh.rotation.y, 0);
       } else {
-        const ox = nonBaseIdx % 2 === 0 ? -0.065 : 0.065;
-        const oz = nonBaseIdx < 2 ? -0.055 : 0.055;
-        item.mesh.position.set(held.mesh.position.x + ox, held.mesh.position.y + 0.080, held.mesh.position.z + oz);
+        const slot = COOKER_SLOT_OFFSETS[nonBaseIdx % COOKER_SLOT_OFFSETS.length];
+        item.mesh.position.set(held.mesh.position.x + slot[0], held.mesh.position.y + COOKER_SLOT_Y, held.mesh.position.z + slot[1]);
         nonBaseIdx++;
       }
       item.isMoved = true;

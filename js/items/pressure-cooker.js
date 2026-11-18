@@ -49,6 +49,15 @@ export const ELECTRIC_BURNER_META = {
 export const BURNER_LEVEL_NAMES = ['Desligado', 'Fogo Baixo', 'Fogo Médio', 'Fogo Alto'];
 export const BURNER_TIMER_PRESETS = [0, 20, 60, 90, 120];
 export const BURNER_GAME_MIN_SECONDS = 3;
+export const COOKER_SLOT_OFFSETS = [
+  [-0.075, -0.055],
+  [ 0.075, -0.055],
+  [-0.075,  0.055],
+  [ 0.075,  0.055],
+  [ 0.000,  0.000],
+  [ 0.000, -0.095]
+];
+export const COOKER_SLOT_Y = 0.084;
 
 export function formatBurnerTimerLabel(min) {
   if (!min) return 'Livre';

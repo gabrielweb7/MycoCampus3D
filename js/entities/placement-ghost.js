@@ -1,4 +1,5 @@
 import { getItemGroundHeight } from '../engine/physics.js';
+import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import {
   PETRI_DISH_HEIGHT,
   PETRI_STACK_SPACING,
@@ -570,9 +571,8 @@ export function dropUnsupportedItems(ctx) {
             var prev = cpRef.contents[ci];
             if (prev && (!prev.mesh || !prev.mesh.userData.isCookerBase)) nonBaseIdx++;
           }
-          var ox = (nonBaseIdx % 2 === 0 ? -0.065 : 0.065);
-          var oz = (nonBaseIdx < 2 ? -0.055 : 0.055);
-          item.mesh.position.set(potP.x + ox, potP.y + 0.080, potP.z + oz);
+          var slot = COOKER_SLOT_OFFSETS[nonBaseIdx % COOKER_SLOT_OFFSETS.length];
+          item.mesh.position.set(potP.x + slot[0], potP.y + COOKER_SLOT_Y, potP.z + slot[1]);
         }
         return;
       }

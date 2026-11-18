@@ -518,6 +518,15 @@ function handleSpoonOrBowlHover(ctx, intersectPickableItem, setHoverPrompt) {
 }
 
 function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.isScalpelBladePack) {
+    const resB = findPickableHit(ctx, 3.5, (sCand) => !!sCand.scalpelCtrl, intersectPickableItem);
+    if (!resB) return false;
+    ctx.hoverHit = resB.hit;
+    ctx.hoveredScalpelTarget = { mode: 'attach_blade_to_scalpel', item: resB.item };
+    hidePlacementGhost(ctx);
+    setHoverPrompt(ctx, '🔪 Encaixar Lâmina Estéril #24 no Bisturi');
+    return true;
+  }
   if (!ctx.heldItem.scalpelCtrl) return false;
   const sc = ctx.heldItem.scalpelCtrl;
   let matched = null;

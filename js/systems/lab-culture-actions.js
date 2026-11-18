@@ -65,6 +65,7 @@ export function handleMixingBowlTargetAction(ctx) {
       bowl.ingredients.water -= needWater;
       updateMixingBowlLabel(ctx.heldItem);
       dstSc.filled = true;
+      dstSc.substrateKind = solidKey;
       dstSc.fillGrams = needSolid;
       dstSc.waterMl = needWater;
       if (dstSc.fillMesh) dstSc.fillMesh.visible = true;

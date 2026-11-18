@@ -26,8 +26,9 @@ import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray } from '../items/alcohol-spray.js';
 import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { handleTrashDisposal, isContaminatedOrBurned, resetDisposableContainer } from '../items/lab-trash.js';
+import { updateScalpelLabel } from '../items/scalpel.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
-import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { updateCookerWaterVisual, COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { interactDehydrator } from '../items/dehydrator.js';
 import { getItemsSupportedBy } from './surface-group-move.js';
 import { fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
@@ -245,9 +246,8 @@ export function handlePrimaryAction(ctx) {
         ctx.heldItem.mesh.rotation.set(0, cp.potItem.mesh.rotation.y, 0);
       } else {
         const nonBaseCount = cp.contents.filter((it) => it && (!it.mesh || !it.mesh.userData.isCookerBase)).length;
-        const ox = (nonBaseCount % 2 === 0 ? -0.065 : 0.065);
-        const oz = (nonBaseCount < 2 ? -0.055 : 0.055);
-        ctx.heldItem.mesh.position.set(potP.x + ox, potP.y + 0.080, potP.z + oz);
+        const slot = COOKER_SLOT_OFFSETS[nonBaseCount % COOKER_SLOT_OFFSETS.length];
+        ctx.heldItem.mesh.position.set(potP.x + slot[0], potP.y + COOKER_SLOT_Y, potP.z + slot[1]);
         ctx.heldItem.mesh.rotation.set(0, ctx.heldRotY, 0);
       }
       ctx.heldItem.isMoved = true;
@@ -627,6 +627,19 @@ export function handlePrimaryAction(ctx) {
     }
     if (ctx.hoveredBowlTarget) {
       if (handleMixingBowlTargetAction(ctx)) return;
+    }
+    if (ctx.hoveredScalpelTarget && ctx.hoveredScalpelTarget.mode === 'attach_blade_to_scalpel' && ctx.hoveredScalpelTarget.item && ctx.hoveredScalpelTarget.item.scalpelCtrl) {
+      const targetScalpel = ctx.hoveredScalpelTarget.item;
+      const sc = targetScalpel.scalpelCtrl;
+      sc.hasBlade = true;
+      sc.sterile = true;
+      sc.hasMycelium = false;
+      if (sc.bladeMesh) sc.bladeMesh.visible = true;
+      updateScalpelLabel(targetScalpel);
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada no Bisturi!');
+      ctx.notifyWorldAction();
+      return;
     }
     if (ctx.hoveredScalpelTarget && ctx.heldItem.scalpelCtrl &&
         ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&

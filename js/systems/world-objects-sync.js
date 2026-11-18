@@ -368,7 +368,9 @@ export function applyCampusWorldObjects(sim, objectsMap) {
 
   sim.pickableItems.forEach(function (item) {
     if (!item.mesh.userData.updateBounds) return;
-    if (sim.heldItem === item || sim.isHeldByRemote(item.id)) return;
+    const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
+    const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
+    if (sim.heldItem === item || isInHeldPot || isHeldLid || sim.isHeldByRemote(item.id)) return;
     if (sim.pendingMovedItems[item.id]) return;
     if (sim.recentlyDropped[item.id] > now) {
       const svCheck = objectsMap[item.id];
@@ -397,7 +399,9 @@ export function applyCampusWorldObjects(sim, objectsMap) {
 
   sim.pickableItems.forEach(function (item) {
     if (item.mesh.userData.updateBounds) return;
-    if (sim.heldItem === item || sim.isHeldByRemote(item.id)) return;
+    const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
+    const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
+    if (sim.heldItem === item || isInHeldPot || isHeldLid || sim.isHeldByRemote(item.id)) return;
     if (sim.pendingMovedItems[item.id]) return;
     if (sim.recentlyDropped[item.id] > now) {
       const svCheck = objectsMap[item.id];

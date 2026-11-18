@@ -151,6 +151,8 @@ export function buildCampusWingsAndEquipment(ctx) {
   }
   for (let si = 0; si < 4; si++) {
     makeSubstrateBag5kg(ctx, 'substrate_grain_' + pad2(si + 1), 'grain', -21.35 + si * 0.58, 0.438, 3.05);
+    makeSubstrateBag5kg(ctx, 'substrate_wheat_' + pad2(si + 1), 'wheat', -21.35 + si * 0.58, 1.118, 3.05);
+    makeSubstrateBag5kg(ctx, 'substrate_sorghum_' + pad2(si + 1), 'sorghum', -18.85 + si * 0.58, 1.118, 3.05);
     makeSubstrateBag5kg(ctx, 'substrate_sawdust_' + pad2(si + 1), 'sawdust', -18.85 + si * 0.58, 0.438, 3.05);
   }
   for (let pIdx = 0; pIdx < 40; pIdx++) {

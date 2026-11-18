@@ -13,7 +13,7 @@ import { inoculatePetri } from '../items/petri-dish.js';
 import { greenhouseSlots } from '../world/greenhouse.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
-import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { updateCookerWaterVisual, COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { markPdaVolumeChanged } from '../items/pda-mix.js';
 import { spawnSprayParticles, fireAlcoholSpray, getSanitizationStatus } from '../items/alcohol-spray.js';
 import { wipeWithPaperTowel } from '../items/paper-towel.js';
@@ -239,14 +239,14 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ctx.heldItem.mesh.position.set(nw.x, nw.y - 0.16, nw.z);
         ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
       } else {
-        const yOff = ctx.heldItem.cookerRef ? 0.12 : 0.05;
+        const yOff = ctx.heldItem.cookerRef ? 0.14 : 0.05;
         ctx.heldItem.mesh.position.set(sk.x, sk.y + yOff, sk.z);
-        ctx.heldItem.mesh.rotation.set(-0.62, ctx.playerYaw, -0.22);
+        ctx.heldItem.mesh.rotation.set(-0.42, ctx.playerYaw, -0.15);
         if (now - (ctx.sinkFilling.dropAt || 0) > 85) {
           ctx.sinkFilling.dropAt = now;
-          _tmpPourFrom.set(sk.x, sk.y + yOff + 0.04, sk.z);
+          _tmpPourFrom.set(0, ctx.heldItem.cookerRef ? 0.26 : 0.14, -0.12).applyEuler(ctx.heldItem.mesh.rotation).add(ctx.heldItem.mesh.position);
           _tmpPourDir.set(0, -1, 0);
-          spawnSprayParticles(ctx, 0x7dd3fc, 5, _tmpPourFrom, _tmpPourDir, 0.14, 1.1, 0.032, 0.36);
+          spawnSprayParticles(ctx, 0x7dd3fc, 5, _tmpPourFrom, _tmpPourDir, 0.12, 1.1, 0.032, 0.36);
         }
       }
     } else if (ctx.pourHold && ctx.pourHold.src === ctx.heldItem) {
@@ -279,19 +279,22 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.heldItem.lidItem.mesh.rotation.copy(ctx.heldItem.mesh.rotation);
     }
 
-    // Follow cooker pot contents
+    // Follow cooker pot contents (respeitando a inclinação/rotação da panela)
     if (ctx.heldItem.cookerRef && Array.isArray(ctx.heldItem.cookerRef.contents)) {
       let nonBaseIdx = 0;
+      const potQuat = ctx.heldItem.mesh.quaternion;
       ctx.heldItem.cookerRef.contents.forEach(function (cItem) {
         if (!cItem || !cItem.mesh) return;
         cItem.mesh.visible = true;
         if (cItem.mesh.userData && cItem.mesh.userData.isCookerBase) {
-          cItem.mesh.position.set(heldPos.x, heldPos.y + 0.036, heldPos.z);
-          cItem.mesh.rotation.set(0, ctx.heldItem.mesh.rotation.y, 0);
+          _tmpPourFrom.set(0, 0.036, 0).applyQuaternion(potQuat).add(heldPos);
+          cItem.mesh.position.copy(_tmpPourFrom);
+          cItem.mesh.quaternion.copy(potQuat);
         } else {
-          const ox = nonBaseIdx % 2 === 0 ? -0.065 : 0.065;
-          const oz = nonBaseIdx < 2 ? -0.055 : 0.055;
-          cItem.mesh.position.set(heldPos.x + ox, heldPos.y + 0.080, heldPos.z + oz);
+          const slot = COOKER_SLOT_OFFSETS[nonBaseIdx % COOKER_SLOT_OFFSETS.length];
+          _tmpPourFrom.set(slot[0], COOKER_SLOT_Y, slot[1]).applyQuaternion(potQuat).add(heldPos);
+          cItem.mesh.position.copy(_tmpPourFrom);
+          cItem.mesh.quaternion.copy(potQuat);
           nonBaseIdx++;
         }
       });
