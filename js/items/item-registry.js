@@ -66,6 +66,7 @@ export function getItemBaseTempC(item, ctx) {
 
 export function canItemEnterCooker(item) {
   if (!item || !item.mesh) return false;
+  if (item.id && item.id.indexOf('distilled_jug') === 0) return false;
   const meta = item.meta || item.mesh.userData.itemMeta;
   if (meta && meta.compatibilities && meta.compatibilities.canEnterCooker !== undefined) {
     return !!meta.compatibilities.canEnterCooker;

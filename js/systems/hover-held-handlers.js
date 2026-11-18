@@ -276,7 +276,11 @@ function handleCookerInsertHover(ctx, setHoverPrompt) {
         hidePlacementGhost(ctx);
       }
       const potPrompt = isBase
-        ? (hasBase ? '⚠️ Esta panela já possui Base Perfurada' : '⚙️ Clique para encaixar a Base Perfurada (4cm) no fundo')
+        ? (hasBase
+          ? '⚠️ Esta panela já possui Base Perfurada'
+          : (cp.waterMl > 4000
+            ? '⚠️ Muita água na panela! Tire o excesso na pia antes de encaixar a Base'
+            : '⚙️ Clique para encaixar a Base Perfurada (4cm) no fundo'))
         : (!hasBase
           ? '⚠️ Encaixe primeiro a Base Perfurada (4cm) na panela'
           : '🍲 Colocar ' + ctx.heldItem.label + ' sobre a Base na Panela');
@@ -299,10 +303,15 @@ function handleSinkHover(ctx, setHoverPrompt) {
   hidePlacementGhost(ctx);
   const sinkLc = ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.liquidCtrl;
   const sinkPot = ctx.cookerPots.find((cp) => cp.potItem === ctx.heldItem);
+  const curVol = sinkLc ? sinkLc.volMl : (sinkPot ? sinkPot.waterMl : 0);
+  const maxVol = sinkLc ? sinkLc.maxMl : (sinkPot ? (sinkPot.hasBase ? 4000 : 10000) : 0);
+  const isFull = maxVol > 0 && curVol >= maxVol;
   const volTxt = sinkLc
     ? ' • ' + Math.round(sinkLc.volMl) + '/' + sinkLc.maxMl + ' ml'
-    : (sinkPot ? ' • ' + (sinkPot.waterMl / 1000).toFixed(1) + '/' + (sinkPot.maxWaterMl / 1000).toFixed(0) + ' L' : '');
-  setHoverPrompt(ctx, '🚰 SEGURE o clique para encher ' + ctx.heldItem.label + volTxt + ' (solte para parar)');
+    : (sinkPot ? ' • ' + (sinkPot.waterMl / 1000).toFixed(1) + '/' + (maxVol / 1000).toFixed(0) + ' L' : '');
+  setHoverPrompt(ctx, isFull
+    ? '🚰 SEGURE o clique para esvaziar ' + ctx.heldItem.label + ' na pia' + volTxt
+    : '🚰 SEGURE o clique para encher ' + ctx.heldItem.label + volTxt + (curVol > 0 ? ' (ou Esq/Dir p/ esvaziar)' : ' (solte para parar)'));
   return true;
 }
 
@@ -329,13 +338,15 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
     }
     for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
       const cp = ctx.cookerPots[ci];
-      if (cp.lidItem.isAttached || cp.waterMl >= cp.maxWaterMl) continue;
+      const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+      const potWaterCap = hasBase ? 4000 : 10000;
+      if (cp.lidItem.isAttached || cp.waterMl >= potWaterCap) continue;
       const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
       if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
         ctx.hoverHit = cpHits[0];
         ctx.hoveredFillPot = cp;
         hidePlacementGhost(ctx);
-        setHoverPrompt(ctx, '💧 Despejar água na Panela (' + (cp.waterMl / 1000).toFixed(1) + 'L / 20L)');
+        setHoverPrompt(ctx, '💧 SEGURE o clique para despejar água na Panela (' + (cp.waterMl / 1000).toFixed(1) + 'L / ' + (potWaterCap / 1000).toFixed(1) + 'L)');
         return true;
       }
     }
@@ -602,9 +613,9 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
   if (handleTrashHover(ctx, setHoverPrompt)) return true;
   if (handlePdaReagentHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleHeatSealerHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
-  if (handleCookerInsertHover(ctx, setHoverPrompt)) return true;
   if (handleSinkHover(ctx, setHoverPrompt)) return true;
   if (handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
+  if (handleCookerInsertHover(ctx, setHoverPrompt)) return true;
   if (handleFlocaoHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleSpoonOrBowlHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt)) return true;

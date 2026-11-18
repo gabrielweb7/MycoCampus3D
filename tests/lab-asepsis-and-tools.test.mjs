@@ -41,7 +41,8 @@ test('getSanitizationStatus para Fluxo Laminar (hood) usa epoch do ctx', () => {
 test('canDisposeItemInTrash aceita recipientes com conteúdo e bloqueia lixeira/galão destilado', () => {
   assert.equal(canDisposeItemInTrash({ id: 'trash_1', mesh: { userData: { isTrash: true } } }), false);
   assert.equal(canDisposeItemInTrash({ id: 'distilled_jug_1', mesh: { userData: { liquidCtrl: { volMl: 500 } } } }), false);
-  assert.equal(canDisposeItemInTrash({ id: 'beaker_1', mesh: { userData: { liquidCtrl: { volMl: 100 } } } }), true);
+  assert.equal(canDisposeItemInTrash({ id: 'beaker_1', mesh: { userData: { liquidCtrl: { volMl: 100 } } } }), false);
+  assert.equal(canDisposeItemInTrash({ id: 'beaker_1', pdaMediumCtrl: { powderGrams: 10 }, mesh: { userData: { liquidCtrl: { volMl: 100 } } } }), true);
   assert.equal(canDisposeItemInTrash({ id: 'bag_1', spawnCtrl: { filled: true }, mesh: { userData: {} } }), true);
   assert.equal(canDisposeItemInTrash({ id: 'petri_1', mesh: { userData: { isPetri: true, petriCtrl: { mode: 'bare' } } } }), false);
   assert.equal(canDisposeItemInTrash({ id: 'petri_2', mesh: { userData: { isPetri: true, petriCtrl: { mode: 'clean' } } } }), true);

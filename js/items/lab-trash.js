@@ -137,7 +137,10 @@ export function canDisposeItemInTrash(item) {
     return !!(item.bowlCtrl.mixed || (ing.flocao || 0) + (ing.water || 0) + (ing.corn || 0) + (ing.sawdust || 0) > 0);
   }
   if (item.mesh.userData.liquidCtrl && item.id.indexOf('distilled_jug') !== 0) {
-    return item.mesh.userData.liquidCtrl.volMl > 0 || !!(item.pdaMediumCtrl && item.pdaMediumCtrl.powderGrams > 0);
+    const hasPda = !!(item.pdaMediumCtrl && (item.pdaMediumCtrl.powderGrams > 0 || item.pdaMediumCtrl.mixed || item.pdaMediumCtrl.burned));
+    const hasCulture = !!(item.cultureCtrl && (item.cultureCtrl.colonized || item.cultureCtrl.contaminated || item.cultureCtrl.expired));
+    // Água pura sempre é descartada na pia, nunca no lixo
+    return hasPda || hasCulture;
   }
   return false;
 }

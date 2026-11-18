@@ -219,6 +219,9 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       } else {
         ctx.heldItem.mesh.rotation.set(-0.15, ctx.playerYaw, 0);
       }
+    } else if ((ctx.pourHold && ctx.pourHold.src === ctx.heldItem) || (ctx.sinkFilling && ctx.sinkFilling.mode === 'drain' && ctx.sinkFilling.item === ctx.heldItem)) {
+      ctx.heldItem.mesh.rotation.order = 'YXZ';
+      ctx.heldItem.mesh.rotation.set(-0.85, ctx.playerYaw, -0.35);
     } else {
       ctx.heldItem.mesh.rotation.order = 'YXZ';
       ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
@@ -341,7 +344,9 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ph.carry -= stepMl;
         let amt = 0;
         if (ph.kind === 'pot') {
-          amt = Math.min(stepMl, srcLcP.volMl, ph.dst.maxWaterMl - ph.dst.waterMl);
+          const hasBase = ph.dst.hasBase || ph.dst.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+          const potWaterCap = hasBase ? 4000 : 10000;
+          amt = Math.min(stepMl, srcLcP.volMl, Math.max(0, potWaterCap - ph.dst.waterMl));
           if (amt > 0) {
             updateContainerVolume(ph.src, srcLcP.volMl - amt);
             ph.dst.waterMl += amt;
@@ -400,16 +405,18 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       }
       ctx.sinkFilling = null;
     } else {
-      triggerSinkStream(ctx.hoveredSink, 250);
+      const isDrain = sf.mode === 'drain';
+      if (!isDrain) triggerSinkStream(ctx.hoveredSink, 250);
       const lc = sf.item.mesh && sf.item.mesh.userData && sf.item.mesh.userData.liquidCtrl;
       if (lc) {
-        if (lc.volMl < lc.maxMl) {
+        if ((!isDrain && lc.volMl < lc.maxMl) || (isDrain && lc.volMl > 0)) {
           const rate = lc.maxMl >= 4000 ? 450 : 220;
           sf.carryMl = (sf.carryMl || 0) + dt * rate;
           const stepMl = Math.floor(sf.carryMl);
           if (stepMl >= 1) {
             sf.carryMl -= stepMl;
-            updateContainerVolume(sf.item, Math.min(lc.maxMl, lc.volMl + stepMl));
+            const nextVol = isDrain ? Math.max(0, lc.volMl - stepMl) : Math.min(lc.maxMl, lc.volMl + stepMl);
+            updateContainerVolume(sf.item, nextVol);
             if (sf.item.pdaMediumCtrl) markPdaVolumeChanged(sf.item);
             sf.addedAny = true;
             if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(sf.item.label);
@@ -418,15 +425,19 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       } else {
         for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
           const cp = ctx.cookerPots[cpi];
-          if (cp.potItem === sf.item && cp.waterMl < cp.maxWaterMl) {
-            sf.carryMl = (sf.carryMl || 0) + dt * 500;
-            const stepMl = Math.floor(sf.carryMl);
-            if (stepMl >= 1) {
-              sf.carryMl -= stepMl;
-              cp.waterMl = Math.min(cp.maxWaterMl, cp.waterMl + stepMl);
-              updateCookerWaterVisual(cp);
-              sf.addedAny = true;
-              if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(sf.item.label);
+          if (cp.potItem === sf.item) {
+            const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+            const potWaterCap = hasBase ? 4000 : 10000;
+            if ((!isDrain && cp.waterMl < potWaterCap) || (isDrain && cp.waterMl > 0)) {
+              sf.carryMl = (sf.carryMl || 0) + dt * 500;
+              const stepMl = Math.floor(sf.carryMl);
+              if (stepMl >= 1) {
+                sf.carryMl -= stepMl;
+                cp.waterMl = isDrain ? Math.max(0, cp.waterMl - stepMl) : Math.min(potWaterCap, cp.waterMl + stepMl);
+                updateCookerWaterVisual(cp);
+                sf.addedAny = true;
+                if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(sf.item.label);
+              }
             }
             break;
           }

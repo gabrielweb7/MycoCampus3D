@@ -214,6 +214,12 @@ export function handlePrimaryAction(ctx) {
         }
         return;
       }
+      if (isBase && !hasBase && cp.waterMl > 4000) {
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('⚠️ Muita água na panela! Tire o excesso na pia antes de encaixar a Base Perfurada.');
+        }
+        return;
+      }
       if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
         setPetriLidOpen(ctx.heldItem, false, true);
       }
@@ -356,33 +362,48 @@ export function handlePrimaryAction(ctx) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Este recipiente não pode ser preenchido pela pia.');
         return;
       }
-      let filledSomething = false;
+      let sinkMode = 'fill';
+      let didStep = false;
       if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
         const lc = ctx.heldItem.mesh.userData.liquidCtrl;
         if (lc.volMl < lc.maxMl) {
           updateContainerVolume(ctx.heldItem, Math.min(lc.maxMl, lc.volMl + 35));
           if (medium) markPdaVolumeChanged(ctx.heldItem);
-          filledSomething = true;
+          didStep = true;
+        } else if (lc.volMl > 0) {
+          sinkMode = 'drain';
+          updateContainerVolume(ctx.heldItem, Math.max(0, lc.volMl - 45));
+          if (medium) markPdaVolumeChanged(ctx.heldItem);
+          didStep = true;
         }
       } else {
         for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
           const cp = ctx.cookerPots[cpi];
-          if (cp.potItem === ctx.heldItem && cp.waterMl < cp.maxWaterMl) {
-            cp.waterMl = Math.min(cp.maxWaterMl, cp.waterMl + 100);
-            updateCookerWaterVisual(cp);
-            filledSomething = true;
+          if (cp.potItem === ctx.heldItem) {
+            const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+            const potWaterCap = hasBase ? 4000 : 10000;
+            if (cp.waterMl < potWaterCap) {
+              cp.waterMl = Math.min(potWaterCap, cp.waterMl + 100);
+              updateCookerWaterVisual(cp);
+              didStep = true;
+            } else if (cp.waterMl > 0) {
+              sinkMode = 'drain';
+              cp.waterMl = Math.max(0, cp.waterMl - 120);
+              updateCookerWaterVisual(cp);
+              didStep = true;
+            }
             break;
           }
         }
       }
-      if (filledSomething) {
-        ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, carryMl: 0, addedAny: true };
-        triggerSinkStream(ctx.hoveredSink, 500);
+      if (didStep) {
+        ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, mode: sinkMode, carryMl: 0, addedAny: true };
+        if (sinkMode === 'fill') triggerSinkStream(ctx.hoveredSink, 500);
         if (window.MycoAudio) window.MycoAudio.playSpray();
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
         ctx.notifyWorldAction();
       } else if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('💧 Recipiente já está cheio!');
+        ctx.callbacks.onToast('💧 Recipiente já está vazio/cheio!');
       }
       return;
     }
@@ -395,7 +416,9 @@ export function handlePrimaryAction(ctx) {
       }
       const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
       const cp = ctx.hoveredFillPot;
-      if (srcLc.volMl > 0 && cp.waterMl < cp.maxWaterMl) {
+      const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+      const potWaterCap = hasBase ? 4000 : 10000;
+      if (srcLc.volMl > 0 && cp.waterMl < potWaterCap) {
         ctx.pourHold = { kind: 'pot', src: ctx.heldItem, dst: cp, carry: 0, any: false, soundAt: 0, dropAt: 0 };
         if (window.MycoAudio) window.MycoAudio.playSpray();
       }
