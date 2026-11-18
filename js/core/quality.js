@@ -37,11 +37,10 @@ export const qualityState = {
   lastDowngradeAt: 0
 };
 
-function isSoftwareGpuRenderer() {
+function isSoftwareGpuRenderer(renderer) {
   try {
-    if (typeof document === 'undefined') return false;
-    const c = document.createElement('canvas');
-    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!renderer || !renderer.getContext) return false;
+    const gl = renderer.getContext();
     if (!gl) return false;
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     if (!dbg) return false;
@@ -66,8 +65,8 @@ export function saveQualityMode(mode) {
   } catch (e) {}
 }
 
-export function getInitialQualityTier(isTouchDevice) {
-  if (isSoftwareGpuRenderer()) return 'min';
+export function getInitialQualityTier(isTouchDevice, renderer) {
+  if (isSoftwareGpuRenderer(renderer)) return 'min';
 
   const memory = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined;

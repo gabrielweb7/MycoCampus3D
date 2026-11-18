@@ -4,13 +4,13 @@
  * execute em tela cheia sem barra de navegador e carregue instantaneamente.
  */
 
-const CACHE_NAME = 'mycocampus-v0.9.96';
+const CACHE_NAME = 'mycocampus-v0.9.97';
 const STATIC_ASSETS = [
   './',
   'index.html',
   'manifest.webmanifest',
   'css/tailwind.min.css?v=0.8.3',
-  'css/game.css?v=0.9.96',
+  'css/game.css?v=0.9.97',
   'js/vendor/three.min.js?v=r128',
   'js/vendor/OrbitControls.js?v=r128',
   'assets/icon-192.png',
@@ -51,7 +51,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Estratégia Stale-While-Revalidate para ativos estáticos e páginas
+  // Estratégia Network-First para HTML, JS e CSS (nunca misturar versões de módulos ES)
+  const isCodeOrDoc = event.request.mode === 'navigate' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname === '/';
+
+  if (isCodeOrDoc) {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Stale-While-Revalidate apenas para imagens/ícones/ativos estáticos
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {

@@ -126,36 +126,65 @@ export function buildNatureWorld(ctx) {
 
 const LITE_FLORA = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
+let sharedBedAssets = null;
+function getSharedBedAssets() {
+  if (sharedBedAssets) return sharedBedAssets;
+  const flowerCols = [0xf472b6, 0xc084fc, 0x38bdf8, 0xfb923c, 0xfacc15];
+  sharedBedAssets = {
+    curbGeo: new THREE.CylinderGeometry(1, 1, 0.22, 24),
+    curbMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.75 }),
+    grassGeo: new THREE.CylinderGeometry(1, 1, 0.24, 24),
+    grassMat: new THREE.MeshStandardMaterial({ color: 0x3b8c3b, roughness: 0.9 }),
+    trunkGeo: new THREE.CylinderGeometry(0.16, 0.28, 1.55, 8),
+    rootGeo: new THREE.ConeGeometry(0.11, 0.42, 6),
+    branchGeo: new THREE.CylinderGeometry(0.07, 0.11, 0.85, 6),
+    puffGeo: new THREE.SphereGeometry(1, 10, 8),
+    potGeo: new THREE.CylinderGeometry(0.18, 0.13, 0.24, 10),
+    rimGeo: new THREE.TorusGeometry(0.18, 0.028, 6, 12),
+    leafGeo: new THREE.SphereGeometry(0.09, 7, 6),
+    stemGeo: new THREE.CylinderGeometry(0.018, 0.022, 0.24, 6),
+    centerGeo: new THREE.SphereGeometry(0.045, 7, 5),
+    petalGeo: new THREE.SphereGeometry(0.055, 6, 5),
+    trunkMat: new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.88 }),
+    leafDarkMat: new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.72 }),
+    leafBrightMat: new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.68 }),
+    potMat: new THREE.MeshStandardMaterial({ color: 0xc26a3b, roughness: 0.75 }),
+    rimMat: new THREE.MeshStandardMaterial({ color: 0xd97742, roughness: 0.7 }),
+    stemMat: new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.65 }),
+    centerMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 }),
+    petalMats: flowerCols.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55 }))
+  };
+  return sharedBedAssets;
+}
+
 export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
+  const A = getSharedBedAssets();
   const g = new THREE.Group();
   g.position.set(cx, 0, cz);
   g.rotation.y = rotY || 0;
 
-  const curb = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.22, 24), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.75 }));
+  const curb = new THREE.Mesh(A.curbGeo, A.curbMat);
   curb.scale.set(rx + 0.22, 1, rz + 0.22);
   curb.position.y = 0.11;
   curb.receiveShadow = true;
   g.add(curb);
 
-  const grass = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.24, 24), new THREE.MeshStandardMaterial({ color: 0x3b8c3b, roughness: 0.9 }));
+  const grass = new THREE.Mesh(A.grassGeo, A.grassMat);
   grass.scale.set(rx, 1, rz);
   grass.position.y = 0.12;
   grass.receiveShadow = true;
   g.add(grass);
 
   // Árvore estilizada central com galhos, raízes e copa em camadas
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.88 });
-  const leafDarkMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.72 });
-  const leafBrightMat = new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.68 });
   const tree = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 1.55, 8), trunkMat);
+  const trunk = new THREE.Mesh(A.trunkGeo, A.trunkMat);
   trunk.position.y = 0.95;
   trunk.castShadow = true;
   tree.add(trunk);
 
   for (let ri = 0; ri < 4; ri++) {
     const ra = (ri / 4) * Math.PI * 2 + 0.35;
-    const root = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.42, 6), trunkMat);
+    const root = new THREE.Mesh(A.rootGeo, A.trunkMat);
     root.position.set(Math.cos(ra) * 0.22, 0.28, Math.sin(ra) * 0.22);
     root.rotation.z = Math.cos(ra) * 0.95;
     root.rotation.x = -Math.sin(ra) * 0.95;
@@ -165,7 +194,7 @@ export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
   const branchAngles = [0.2, 2.3, 4.4];
   for (let bi = 0; bi < branchAngles.length; bi++) {
     const ba = branchAngles[bi];
-    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.85, 6), trunkMat);
+    const br = new THREE.Mesh(A.branchGeo, A.trunkMat);
     br.position.set(Math.cos(ba) * 0.32, 1.75, Math.sin(ba) * 0.32);
     br.rotation.z = -Math.cos(ba) * 0.65;
     br.rotation.x = Math.sin(ba) * 0.65;
@@ -180,10 +209,9 @@ export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
     [-0.18, 2.18, -0.62, 0.64, 1],
     [0, 2.85, 0, 0.65, 1]
   ];
-  const puffGeo = new THREE.SphereGeometry(1, 10, 8);
   for (let ci = 0; ci < canopyClusters.length; ci++) {
     const c = canopyClusters[ci];
-    const puff = new THREE.Mesh(puffGeo, c[4] ? leafBrightMat : leafDarkMat);
+    const puff = new THREE.Mesh(A.puffGeo, c[4] ? A.leafBrightMat : A.leafDarkMat);
     puff.position.set(c[0], c[1], c[2]);
     puff.scale.set(c[3], c[3] * 0.78, c[3]);
     puff.castShadow = true;
@@ -191,32 +219,21 @@ export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
   }
   g.add(tree);
 
-  // Vasinhos de terracota com folhagens gordinhas + florzinhas com pétalas
-  const potMat = new THREE.MeshStandardMaterial({ color: 0xc26a3b, roughness: 0.75 });
-  const rimMat = new THREE.MeshStandardMaterial({ color: 0xd97742, roughness: 0.7 });
-  const stemMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.65 });
-  const centerMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 });
-  const flowerCols = [0xf472b6, 0xc084fc, 0x38bdf8, 0xfb923c, 0xfacc15];
-  const potGeo = new THREE.CylinderGeometry(0.18, 0.13, 0.24, 10);
-  const rimGeo = new THREE.TorusGeometry(0.18, 0.028, 6, 12);
-  const leafGeo = new THREE.SphereGeometry(0.09, 7, 6);
-  const petalGeo = new THREE.SphereGeometry(0.055, 6, 5);
-
   for (let pi = 0; pi < (LITE_FLORA ? 0 : 3); pi++) {
     const pa = (pi / 3) * Math.PI * 2 + 0.5;
     const px = Math.cos(pa) * rx * 0.52;
     const pz = Math.sin(pa) * rz * 0.52;
     const potGrp = new THREE.Group();
     potGrp.position.set(px, 0.24, pz);
-    const pot = new THREE.Mesh(potGeo, potMat);
+    const pot = new THREE.Mesh(A.potGeo, A.potMat);
     pot.position.y = 0.12;
-    const rim = new THREE.Mesh(rimGeo, rimMat);
+    const rim = new THREE.Mesh(A.rimGeo, A.rimMat);
     rim.rotation.x = Math.PI / 2;
     rim.position.y = 0.24;
     potGrp.add(pot, rim);
     for (let li = 0; li < 5; li++) {
       const la = (li / 5) * Math.PI * 2;
-      const lf = new THREE.Mesh(leafGeo, leafBrightMat);
+      const lf = new THREE.Mesh(A.leafGeo, A.leafBrightMat);
       lf.scale.set(0.7, 1.35, 0.35);
       lf.position.set(Math.cos(la) * 0.11, 0.33, Math.sin(la) * 0.11);
       lf.rotation.y = -la;
@@ -233,18 +250,18 @@ export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
     const fz = Math.sin(a) * rz * 0.78;
     const flGrp = new THREE.Group();
     flGrp.position.set(fx, 0.24, fz);
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.24, 6), stemMat);
+    const stem = new THREE.Mesh(A.stemGeo, A.stemMat);
     stem.position.y = 0.12;
     flGrp.add(stem);
 
     const head = new THREE.Group();
     head.position.y = 0.25;
     head.rotation.x = 0.25;
-    head.add(new THREE.Mesh(new THREE.SphereGeometry(0.045, 7, 5), centerMat));
-    const pMat = new THREE.MeshStandardMaterial({ color: flowerCols[i % flowerCols.length], roughness: 0.55 });
+    head.add(new THREE.Mesh(A.centerGeo, A.centerMat));
+    const pMat = A.petalMats[i % A.petalMats.length];
     for (let p = 0; p < 5; p++) {
       const pa = (p / 5) * Math.PI * 2;
-      const pet = new THREE.Mesh(petalGeo, pMat);
+      const pet = new THREE.Mesh(A.petalGeo, pMat);
       pet.scale.set(0.85, 0.45, 1.25);
       pet.position.set(Math.cos(pa) * 0.075, 0, Math.sin(pa) * 0.075);
       pet.rotation.y = -pa;

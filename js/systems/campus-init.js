@@ -613,7 +613,7 @@ export function initCampus3D(containerId, cbs) {
     initGreenhouseParticlePools(sim.scene);
     bindControls(sim);
     if (touch) optimizeSceneMaterialsForMobile(sim.scene);
-    applyQualityTier(sim, getInitialQualityTier(touch));
+    applyQualityTier(sim, getInitialQualityTier(touch, sim.renderer));
     startAnimationLoop(sim);
     const lobbyEl = document.getElementById('campus-lobby');
     if ((window._pendingEnterFps || (lobbyEl && lobbyEl.classList.contains('hidden'))) && window.setCampusFpsMode) {
