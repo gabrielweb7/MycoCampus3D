@@ -768,9 +768,13 @@ export function bootApp() {
       currentHoverPrompt = txt || '';
       const pill = $('interact-pill');
       if (pill && Date.now() >= getToastUntil()) {
-        // Crachá 3D Diegético exibe os parâmetros e ações no mundo 3D;
-        // Mantém a HUD 2D limpa para eliminar sobreposição de texto
-        pill.classList.add('hidden');
+        if (isTouch() && currentHoverPrompt) {
+          pill.textContent = currentHoverPrompt;
+          pill.classList.remove('hidden');
+        } else {
+          // No Desktop, o Crachá 3D Diegético exibe os parâmetros e ações no mundo 3D
+          pill.classList.add('hidden');
+        }
       }
       refreshMobileAction();
     }

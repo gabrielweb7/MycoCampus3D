@@ -58,7 +58,7 @@ function resolveHoverTargetObj(ctx) {
 export function syncHover3dBadge(ctx, prompt) {
   const badge = ctx.hover3dBadge;
   if (!badge) return;
-  if (!prompt) {
+  if (!prompt || (ctx.isTouchDevice && ctx.isTouchDevice())) {
     hideHover3dBadge(badge);
     return;
   }
