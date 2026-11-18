@@ -130,8 +130,7 @@ export function canDisposeItemInTrash(item) {
   if (item.mesh.userData.isTrash) return false;
   if (item.spawnCtrl) return !!item.spawnCtrl.filled || !!item.spawnCtrl.burned || !!item.spawnCtrl.contaminated || !!item.spawnCtrl.expired;
   if (item.mesh.userData.isPetri) {
-    const p = item.mesh.userData.petriCtrl;
-    return !!(p && p.mode !== 'bare');
+    return true;
   }
   if (item.bowlCtrl) {
     const ing = item.bowlCtrl.ingredients || {};
