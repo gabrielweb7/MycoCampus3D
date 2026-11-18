@@ -28,6 +28,7 @@ import {
   toggleHeldItemPlacement
 } from './held-item-placement.js';
 import { bindControls } from './input-controller.js';
+import { freezeStaticWorld } from '../engine/scene-optimizer.js';
 import { applyQualityTier, getCinemaHitTarget, startAnimationLoop } from './game-loop.js';
 import { registerCampusPublicApi as bindPublicApi } from './campus-api.js';
 
@@ -619,6 +620,8 @@ export function initCampus3D(containerId, cbs) {
     createThermoLaserFx(sim.entityCtx);
     initConfettiSystem(sim.scene);
     initGreenhouseParticlePools(sim.scene);
+    const frozenCount = freezeStaticWorld(sim);
+    logger.info('campus-init', `Cenário estático congelado: ${frozenCount} objetos`);
     bindControls(sim);
     applyQualityTier(sim, getInitialQualityTier(touch, sim.renderer));
     startAnimationLoop(sim);

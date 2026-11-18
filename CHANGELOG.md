@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.109] - 2026-11-18
+### Performance (congelamento de matrizes estaticas do campus)
+- Congelamento de transformacao estatica (freezeStaticWorld): para o recalculo de matriz de milhares de objetos fixos por frame (paredes, vidros, pisos, bancadas, colunas).
+- Reducao macica do tempo de CPU por frame no mobile sem qualquer alteracao visual ou em colisoes.
+
 ## [v0.9.108] - 2026-11-18
 ### Performance (mobile otimizado / PC full quality)
 - Perfil mobile por GPU (Adreno/Mali): tier inicial e teto de auto-upgrade, evitando ciclo sobe/cai.
