@@ -311,6 +311,57 @@ export function getIsMuted() {
   return isMuted;
 }
 
+export function playGnomeGiggle() {
+  if (isMuted || !audioCtx || !masterGain) return;
+  const now = audioCtx.currentTime;
+  [680, 860, 1020, 790].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    const t = now + i * 0.065;
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.18, t + 0.05);
+    g.gain.setValueAtTime(0.08, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.075);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(t);
+    osc.stop(t + 0.08);
+  });
+}
+
+export function playUmbralWhisper() {
+  if (isMuted || !audioCtx || !masterGain) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(98, now);
+  osc.frequency.exponentialRampToValueAtTime(58, now + 0.45);
+  g.gain.setValueAtTime(0.11, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(now);
+  osc.stop(now + 0.52);
+}
+
+export function playBoing() {
+  if (isMuted || !audioCtx || !masterGain) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(190, now);
+  osc.frequency.exponentialRampToValueAtTime(620, now + 0.24);
+  g.gain.setValueAtTime(0.16, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(now);
+  osc.stop(now + 0.34);
+}
+
 export const AudioEngine = {
   playFootstep,
   playHarvest,
@@ -320,6 +371,9 @@ export const AudioEngine = {
   playEmote,
   playLaserBeep,
   playSwitch,
+  playGnomeGiggle,
+  playUmbralWhisper,
+  playBoing,
   setSteam,
   toggleMute,
   isMuted: getIsMuted,

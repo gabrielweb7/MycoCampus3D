@@ -14,6 +14,9 @@ const FLOWER_COLORS = [0xf472b6, 0xc084fc, 0x60a5fa, 0xfb923c, 0xfacc15, 0xf8faf
 let gnomePool = null;
 let shadowGnomePool = null;
 let floraPool = null;
+let fireflyPoints = null;
+let fireflyData = null;
+let trampolinePool = null;
 let sharedGeos = null;
 let floraGeos = null;
 let cachedFlowTextures = null;
@@ -215,6 +218,134 @@ function stepEnchantedFlora(ctx, dt, show) {
   }
 }
 
+function stepFireflies(ctx, dt, show, isDark) {
+  if (!show && !isDark) {
+    if (fireflyPoints) fireflyPoints.visible = false;
+    return;
+  }
+  const px = ctx.playerPos.x;
+  const py = ctx.playerPos.y;
+  const pz = ctx.playerPos.z;
+  const count = 32;
+  if (!fireflyPoints) {
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    fireflyData = [];
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 2 + Math.random() * 14;
+      pos[i * 3] = px + Math.cos(a) * r;
+      pos[i * 3 + 1] = py + 0.5 + Math.random() * 2.5;
+      pos[i * 3 + 2] = pz + Math.sin(a) * r;
+      fireflyData.push({ phase: Math.random() * 6.28, speed: 0.6 + Math.random() * 0.9, hue: i / count });
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 0.22,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.88,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    fireflyPoints = new THREE.Points(geo, mat);
+    ctx.scene.add(fireflyPoints);
+  }
+  fireflyPoints.visible = true;
+  const posAttr = fireflyPoints.geometry.getAttribute('position');
+  const colAttr = fireflyPoints.geometry.getAttribute('color');
+  const tmpC = new THREE.Color();
+  for (let i = 0; i < count; i++) {
+    const d = fireflyData[i];
+    d.phase += dt * d.speed;
+    let x = posAttr.getX(i) + Math.cos(d.phase) * dt * 0.65;
+    let y = posAttr.getY(i) + Math.sin(d.phase * 1.4) * dt * 0.45;
+    let z = posAttr.getZ(i) + Math.sin(d.phase * 0.8) * dt * 0.65;
+    if (Math.hypot(x - px, z - pz) > 18 || y < py - 1 || y > py + 5.5) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 2 + Math.random() * 13;
+      x = px + Math.cos(a) * r;
+      y = py + 0.5 + Math.random() * 2.4;
+      z = pz + Math.sin(a) * r;
+    }
+    posAttr.setXYZ(i, x, y, z);
+    if (isDark) {
+      tmpC.setHSL(i % 2 === 0 ? 0.98 : 0.78, 0.9, 0.52);
+    } else {
+      tmpC.setHSL((d.hue + d.phase * 0.04) % 1, 0.95, 0.65);
+    }
+    colAttr.setXYZ(i, tmpC.r, tmpC.g, tmpC.b);
+  }
+  posAttr.needsUpdate = true;
+  colAttr.needsUpdate = true;
+}
+
+function stepGiantTrampolines(ctx, dt, show) {
+  if (!show) {
+    if (trampolinePool) {
+      for (let i = 0; i < trampolinePool.length; i++) trampolinePool[i].mesh.visible = false;
+    }
+    return;
+  }
+  const px = ctx.playerPos.x;
+  const pz = ctx.playerPos.z;
+  if (!trampolinePool) {
+    trampolinePool = [];
+    const capGeo = new THREE.SphereGeometry(1.15, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    const stemGeo = new THREE.CylinderGeometry(0.28, 0.36, 0.95, 10);
+    const spotGeo = new THREE.SphereGeometry(0.16, 6, 6);
+    const capColors = [0xec4899, 0x8b5cf6];
+    for (let i = 0; i < 2; i++) {
+      const grp = new THREE.Group();
+      const stem = new THREE.Mesh(stemGeo, new THREE.MeshLambertMaterial({ color: 0xfef3c7 }));
+      stem.position.y = 0.45;
+      const cap = new THREE.Mesh(capGeo, new THREE.MeshLambertMaterial({ color: capColors[i], emissive: capColors[i], emissiveIntensity: 0.2 }));
+      cap.position.y = 0.75;
+      cap.scale.set(1.1, 0.65, 1.1);
+      grp.add(stem, cap);
+      for (let s = 0; s < 5; s++) {
+        const a = (s / 5) * Math.PI * 2;
+        const spot = new THREE.Mesh(spotGeo, new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+        spot.position.set(Math.cos(a) * 0.68, 1.15, Math.sin(a) * 0.68);
+        grp.add(spot);
+      }
+      grp.visible = false;
+      ctx.scene.add(grp);
+      trampolinePool.push({ mesh: grp, bounceCooldown: 0, squish: 0 });
+    }
+  }
+
+  for (let i = 0; i < trampolinePool.length; i++) {
+    const tr = trampolinePool[i];
+    if (tr.bounceCooldown > 0) tr.bounceCooldown -= dt;
+    if (tr.squish > 0) tr.squish = Math.max(0, tr.squish - dt * 3.5);
+    const dist = tr.mesh.visible ? Math.hypot(tr.mesh.position.x - px, tr.mesh.position.z - pz) : 999;
+    if (!tr.mesh.visible || dist > 38) {
+      const a = (i * Math.PI) + Math.random() * 1.4;
+      const r = 10 + Math.random() * 12;
+      const tx = Math.max(-70, Math.min(70, px + Math.cos(a) * r));
+      const tz = Math.max(-70, Math.min(70, pz + Math.sin(a) * r));
+      if (Math.abs(tx) < 13 && Math.abs(tz) < 13) continue;
+      tr.mesh.position.set(tx, getGroundHeight(ctx.physCtx, tx, tz, 2), tz);
+      tr.mesh.visible = true;
+    }
+    const sy = 1 - Math.sin(tr.squish * Math.PI) * 0.35;
+    tr.mesh.scale.set(1 + (1 - sy) * 0.3, sy, 1 + (1 - sy) * 0.3);
+
+    const dXZ = Math.hypot(tr.mesh.position.x - px, tr.mesh.position.z - pz);
+    const dY = Math.abs(ctx.playerPos.y - (tr.mesh.position.y + 1.1));
+    if (tr.bounceCooldown <= 0 && dXZ < 1.55 && dY < 1.35) {
+      ctx.playerVelY = 15.2;
+      ctx.onGround = false;
+      tr.bounceCooldown = 0.8;
+      tr.squish = 1;
+      if (window.MycoAudio && window.MycoAudio.playBoing) window.MycoAudio.playBoing();
+    }
+  }
+}
+
 function getSharedGeos() {
   if (sharedGeos) return sharedGeos;
   sharedGeos = {
@@ -245,7 +376,7 @@ function createSingleGnome(tunicColor, isShadow = false) {
   const tunicMat = new THREE.MeshLambertMaterial({ color: isShadow ? 0x050507 : tunicColor });
   const brownMat = new THREE.MeshLambertMaterial({ color: isShadow ? 0x09090b : 0x5c3a21 });
   const goldMat = new THREE.MeshBasicMaterial({ color: isShadow ? 0xef4444 : 0xfacc15 });
-  const eyeMat = new THREE.MeshBasicMaterial({ color: isShadow ? 0xfef2f2 : 0x0f172a });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: isShadow ? 0xf87171 : 0x0f172a });
 
   const legL = new THREE.Group();
   const lLegMesh = new THREE.Mesh(geo.leg, brownMat);
@@ -300,8 +431,10 @@ function createSingleGnome(tunicColor, isShadow = false) {
   stache.position.set(0, -0.045, 0.115);
   const eyeL = new THREE.Mesh(geo.eye, eyeMat);
   eyeL.position.set(-0.045, 0.03, 0.115);
+  if (isShadow) eyeL.scale.setScalar(1.65);
   const eyeR = new THREE.Mesh(geo.eye, eyeMat);
   eyeR.position.set(0.045, 0.03, 0.115);
+  if (isShadow) eyeR.scale.setScalar(1.65);
   const hat = new THREE.Mesh(geo.hat, redHatMat);
   hat.position.set(0, 0.24, -0.01);
   hat.rotation.x = -0.06;
@@ -339,11 +472,44 @@ function pickRoamTarget(gn, px, pz, minR, maxR) {
   gn.targetZ = Math.max(-72, Math.min(72, pz + Math.sin(ang) * dist));
 }
 
+let savedUmbralEnv = null;
+
+function applyUmbralAtmosphere(scene, active) {
+  if (!scene) return;
+  if (active) {
+    if (!savedUmbralEnv) {
+      savedUmbralEnv = {
+        bg: scene.background ? scene.background.clone() : null,
+        fogColor: scene.fog && scene.fog.color ? scene.fog.color.clone() : null,
+        fogNear: scene.fog ? scene.fog.near : null,
+        fogFar: scene.fog ? scene.fog.far : null
+      };
+    }
+    if (scene.background && scene.background.setHex) scene.background.setHex(0x0b0514);
+    if (scene.fog) {
+      if (scene.fog.color) scene.fog.color.setHex(0x120822);
+      scene.fog.near = 6;
+      scene.fog.far = 42;
+    }
+  } else if (savedUmbralEnv) {
+    if (savedUmbralEnv.bg && scene.background) scene.background.copy(savedUmbralEnv.bg);
+    if (scene.fog) {
+      if (savedUmbralEnv.fogColor && scene.fog.color) scene.fog.color.copy(savedUmbralEnv.fogColor);
+      if (savedUmbralEnv.fogNear !== null) scene.fog.near = savedUmbralEnv.fogNear;
+      if (savedUmbralEnv.fogFar !== null) scene.fog.far = savedUmbralEnv.fogFar;
+    }
+    savedUmbralEnv = null;
+  }
+}
+
 export function stepTripGnomes(ctx, dt) {
   stepTripTextureFlow(ctx.scene, dt);
   const freakout = typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive();
   const active = typeof window !== 'undefined' && window.isTripRainbowActive && window.isTripRainbowActive();
+  applyUmbralAtmosphere(ctx.scene, freakout);
   stepEnchantedFlora(ctx, dt, active && !freakout);
+  stepFireflies(ctx, dt, active && !freakout, freakout);
+  stepGiantTrampolines(ctx, dt, active && !freakout);
 
   if (!freakout && shadowGnomePool) {
     for (let i = 0; i < shadowGnomePool.length; i++) shadowGnomePool[i].root.visible = false;
@@ -401,6 +567,7 @@ export function stepTripGnomes(ctx, dt) {
           if (Math.random() < 0.72) {
             gn.root.visible = false;
             gn.respawnTimer = 0.6 + Math.random() * 1.4;
+            if (window.MycoAudio && window.MycoAudio.playUmbralWhisper) window.MycoAudio.playUmbralWhisper();
             continue;
           } else {
             gn.state = 'stare';
@@ -500,6 +667,7 @@ export function stepTripGnomes(ctx, dt) {
       gn.timer = 1.35;
       gn.shrinkTimer = 1.35;
       setGnomeEmote(gn, '😳');
+      if (window.MycoAudio && window.MycoAudio.playGnomeGiggle) window.MycoAudio.playGnomeGiggle();
       const awayAng = Math.atan2(-dzP, -dxP) + (Math.random() - 0.5) * 0.6;
       gn.targetX = Math.max(-72, Math.min(72, gx + Math.cos(awayAng) * 16));
       gn.targetZ = Math.max(-72, Math.min(72, gz + Math.sin(awayAng) * 16));

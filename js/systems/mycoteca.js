@@ -32,10 +32,14 @@ let tripFreakoutActive = false;
 let tripEndsAt = 0;
 let tripStartTimer = null;
 let tripDecayTimer = null;
+let freakoutTimers = [];
 
 function clearTripTimers() {
   if (tripStartTimer) { clearTimeout(tripStartTimer); tripStartTimer = null; }
   if (tripDecayTimer) { clearTimeout(tripDecayTimer); tripDecayTimer = null; }
+  while (freakoutTimers.length) {
+    clearTimeout(freakoutTimers.pop());
+  }
 }
 
 function clearTripVisuals() {
@@ -148,18 +152,18 @@ export function triggerMagicCubensisEffect(onSkyFall) {
     document.body.appendChild(overlay);
   }
 
-  // 20º cogumelo: UMBRAL -> tudo escuro, sombrio e lento (~28s), gnomos pretos com cara de medo correndo e sumindo ao olhar, depois desmaia pro branco
+  // 20º cogumelo: UMBRAL -> noite sombria nítida (~27s), gnomos pretos com olhos brilhantes e cara de medo correndo e sumindo ao olhar, depois desmaia pro branco
   if (tripShroomCount >= 20) {
     tripActive = false;
     tripFreakoutActive = true;
     document.body.classList.remove('myco-trip-active');
     document.body.classList.add('myco-trip-freakout');
-    overlay.style.transition = 'opacity 2.5s ease';
-    overlay.style.opacity = '0.18';
+    overlay.style.transition = 'opacity 1.5s ease';
+    overlay.style.opacity = '0';
     const mandalaEl = document.getElementById('myco-mandala-overlay');
     if (mandalaEl) {
       mandalaEl.style.transition = 'opacity 2.5s ease';
-      mandalaEl.style.opacity = '0.18';
+      mandalaEl.style.opacity = '0.16';
     }
 
     let darkLayer = document.getElementById('myco-freakout-dark');
@@ -168,8 +172,8 @@ export function triggerMagicCubensisEffect(onSkyFall) {
       darkLayer.id = 'myco-freakout-dark';
       darkLayer.style.cssText =
         'position:fixed;inset:0;pointer-events:none;z-index:25;opacity:0;' +
-        'background:radial-gradient(circle at 50% 50%, rgba(10,5,20,0.28) 18%, rgba(2,2,6,0.88) 85%);' +
-        'transition:opacity 3.5s ease;';
+        'background:radial-gradient(circle at 50% 50%, transparent 40%, rgba(4,2,12,0.74) 100%);' +
+        'transition:opacity 2.8s ease;';
       document.body.appendChild(darkLayer);
     }
     requestAnimationFrame(() => { darkLayer.style.opacity = '1'; });
@@ -187,14 +191,14 @@ export function triggerMagicCubensisEffect(onSkyFall) {
       document.body.appendChild(whiteScreen);
     }
     const msgEl = whiteScreen.firstElementChild;
-    setTimeout(() => {
+    freakoutTimers.push(setTimeout(() => {
       document.body.classList.remove('myco-trip-freakout');
       document.body.classList.add('myco-trip-faint');
       whiteScreen.style.opacity = '1';
-      if (msgEl) setTimeout(() => { msgEl.style.opacity = '1'; }, 900);
-    }, 27000);
+      if (msgEl) freakoutTimers.push(setTimeout(() => { msgEl.style.opacity = '1'; }, 900));
+    }, 27000));
 
-    setTimeout(() => {
+    freakoutTimers.push(setTimeout(() => {
       tripFreakoutActive = false;
       if (typeof onSkyFall === 'function') onSkyFall();
       clearTripVisuals();
@@ -202,7 +206,7 @@ export function triggerMagicCubensisEffect(onSkyFall) {
       whiteScreen.style.opacity = '0';
       tripShroomCount = 0;
       tripEndsAt = 0;
-    }, 33000);
+    }, 33000));
     return;
   }
 
