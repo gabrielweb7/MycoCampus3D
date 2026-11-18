@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v0.9.108] - 2026-11-18
+### Performance (mobile otimizado / PC full quality)
+- Perfil mobile por GPU (Adreno/Mali): tier inicial e teto de auto-upgrade, evitando ciclo sobe/cai.
+- PC: qualidade maxima (DPR ate 2x, sombra 2048, alcance 440).
+- Limitador de ~60 FPS em telas de alta taxa; orcamento de luzes sem alocacao por frame.
+- Overlay de desempenho com ?perf=1 (FPS, CPU, draw calls, tris, geo, tex).
+
 ## [v0.9.54] — 2026-11-17
 ### 🎮 Correção da Panela Segurada, Laser Termômetro Preciso, Bandeja Robusta, Agachamento (Ctrl), Gavetas & Armários e Card de Status Limpo
 - **Visibilidade da Panela de Pressão Segurada em 1ª Pessoa (`js/systems/held-item-placement.js`, `js/systems/held-item-loop.js`):**
