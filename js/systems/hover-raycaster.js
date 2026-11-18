@@ -399,7 +399,7 @@ export function updateHoverRay(ctx, customNdc) {
           }
           continue;
         }
-        if (item.mesh.userData.isTable || item.mesh.userData.isHood) {
+        if (item.mesh.userData.isTable || item.mesh.userData.isHood || item.cookerRef || item.mesh.userData.isCookerBase) {
           if (dHit < bestLargeDist) {
             bestLargeDist = dHit; bestLarge = item; bestLargeHit = hit0;
           }

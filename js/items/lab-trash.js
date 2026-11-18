@@ -244,53 +244,34 @@ export function resetDisposableContainer(item) {
   return cleaned;
 }
 
+function disposeAndRemoveItem(ctx, item, toastMsg) {
+  if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
+  const pIdx = ctx.pickableItems.indexOf(item);
+  if (pIdx !== -1) ctx.pickableItems.splice(pIdx, 1);
+  if (ctx.heldItem === item) ctx.heldItem = null;
+  if (ctx.placementGhost) ctx.placementGhost.visible = false;
+  if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+  if (window.MycoAudio) window.MycoAudio.playClick();
+  if (ctx.callbacks.onToast) ctx.callbacks.onToast(toastMsg);
+  ctx.notifyWorldAction();
+  return true;
+}
+
 export function handleTrashDisposal(ctx, item) {
   if (!item || !item.mesh) return false;
 
+  // Descartáveis de uso único (Bags, Potinhos PP5, Placas de Petri e Embalagens): somem por completo na lixeira
   if (item.spawnCtrl && item.spawnCtrl.isBag) {
-    const sp = item.spawnCtrl;
-    sp.filled = false;
-    sp.fillGrams = 0;
-    sp.waterMl = 0;
-    sp.substrateKind = '';
-    sp.sterilized = false;
-    sp.sterilizeProgress = 0;
-    sp.sealed = false;
-    sp.inoculated = false;
-    sp.colonized = false;
-    sp.colonization = 0;
-    sp.contaminated = false;
-    sp.burned = false;
-    sp.expired = false;
-    sp.ageGameDays = 0;
-    updateSpawnVisual(item);
-    item.mesh.position.copy(item.homePos);
-    item.mesh.rotation.set(0, item.homeRy || 0, 0);
-    item.isMoved = false;
-    if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
-    ctx.pendingMovedItems[item.id] = {
-      id: item.id, x: item.homePos.x, y: item.homePos.y, z: item.homePos.z, ry: item.homeRy || 0
-    };
-    ctx.heldItem = null;
-    if (ctx.placementGhost) ctx.placementGhost.visible = false;
-    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
-    if (window.MycoAudio) window.MycoAudio.playClick();
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🗑️ Bag descartado no lixo! Novo bag limpo reposto no estoque.');
-    ctx.notifyWorldAction();
-    return true;
+    return disposeAndRemoveItem(ctx, item, '🗑️ Bag descartado no lixo!');
   }
-
+  if (item.spawnCtrl && item.spawnCtrl.isPP5) {
+    return disposeAndRemoveItem(ctx, item, '🗑️ Potinho PP5 descartado no lixo!');
+  }
+  if (item.mesh && item.mesh.userData && item.mesh.userData.isPetri) {
+    return disposeAndRemoveItem(ctx, item, '🗑️ Placa de Petri descartada no lixo!');
+  }
   if (item.bladePackCtrl && item.bladePackCtrl.empty) {
-    if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
-    const pIdx = ctx.pickableItems.indexOf(item);
-    if (pIdx !== -1) ctx.pickableItems.splice(pIdx, 1);
-    if (ctx.heldItem === item) ctx.heldItem = null;
-    if (ctx.placementGhost) ctx.placementGhost.visible = false;
-    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
-    if (window.MycoAudio) window.MycoAudio.playClick();
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🗑️ Embalagem vazia da lâmina descartada no lixo!');
-    ctx.notifyWorldAction();
-    return true;
+    return disposeAndRemoveItem(ctx, item, '🗑️ Embalagem vazia da lâmina descartada no lixo!');
   }
 
   const cleaned = resetDisposableContainer(item);
@@ -298,7 +279,11 @@ export function handleTrashDisposal(ctx, item) {
   if (cleaned) {
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(item.label);
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🗑️ Conteúdo descartado na lixeira! Recipiente limpo na mão.');
+    if (ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(item.scalpelCtrl
+        ? '🗑️ Lâmina descartada na lixeira! Cabo inox mantido na mão.'
+        : '🗑️ Conteúdo descartado na lixeira! Vidro/recipiente reutilizável limpo na mão.');
+    }
     ctx.notifyWorldAction();
   }
   return cleaned;

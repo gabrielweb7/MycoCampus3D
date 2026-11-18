@@ -754,7 +754,9 @@ export function stepPressureCookers(ctx, dt) {
             const itemMin = cIt.spawnCtrl.minSterilizeMin || 80;
             const itemRate = hasElectricTimer ? potRate * (maxMin / itemMin) : (680 / itemMin);
             cIt.spawnCtrl.sterilizeProgress = Math.min(100, (cIt.spawnCtrl.sterilizeProgress || 0) + dt * itemRate);
-            if (cIt.spawnCtrl.sterilizeProgress >= 100) {
+            const timerOk = !hasElectricTimer || (activeBurner.timerPresetMin || 0) >= itemMin;
+            if (cIt.spawnCtrl.sterilizeProgress >= 100 || (cp.progress >= 100 && cp.mode === 'sterilize' && timerOk)) {
+              cIt.spawnCtrl.sterilizeProgress = 100;
               cIt.spawnCtrl.sterilized = true;
             }
             cIt.spawnCtrl.updateVisual();

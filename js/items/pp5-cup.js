@@ -17,8 +17,8 @@ export const PP5_STACK_AIM_DISTANCE_SQ = 0.0064;
 export function getPP5Meta(filled) {
   return {
     category: 'solid_culture',
-    purpose: 'Potinho PP5 145ml para flocão de milho ou meio PDA/BDA (esterilizar 1h20m)',
-    minSterilizeMin: 80,
+    purpose: 'Potinho PP5 145ml para flocão de milho ou meio PDA/BDA (esterilizar 1h)',
+    minSterilizeMin: 60,
     getWeightGrams: (item) => {
       const sc = item && item.spawnCtrl;
       if (!sc) return 12;
