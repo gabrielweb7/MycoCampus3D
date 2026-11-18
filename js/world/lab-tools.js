@@ -155,9 +155,13 @@ export function buildCampusWingsAndEquipment(ctx) {
   for (let bpi2 = 0; bpi2 < 4; bpi2++) {
     makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi2 + 5), -20.28 + bpi2 * 0.05, 0.810, -11.72);
   }
-  makeTapeRoll(ctx, 'parafilm_lab_01', 'parafilm', -17.75, 0.635, -11.72);
-  makeTapeRoll(ctx, 'parafilm_lab_02', 'parafilm', -17.60, 0.635, -11.72);
-  makeTapeRoll(ctx, 'micropore_lab_01', 'micropore', -17.45, 0.635, -11.72);
+  makeTapeRoll(ctx, 'parafilm_lab_01', 'parafilm', -17.75, 0.460, -11.72);
+  makeTapeRoll(ctx, 'parafilm_lab_02', 'parafilm', -17.60, 0.460, -11.72);
+  makeTapeRoll(ctx, 'micropore_lab_01', 'micropore', -17.45, 0.460, -11.72);
+  makeScalpel(ctx, 'scalpel_03', -17.78, 0.646, -11.72);
+  makeScalpel(ctx, 'scalpel_04', -17.68, 0.646, -11.72);
+  makeScalpelBladePack(ctx, 'scalpel_blade_09', -17.56, 0.646, -11.72);
+  makeScalpelBladePack(ctx, 'scalpel_blade_10', -17.48, 0.646, -11.72);
   const beakerLab3 = makeBeaker1L(ctx, 'beaker_1l_lab_03', -19.55, 0.60, -11.95, 0);
   attachPdaMediumCtrl(beakerLab3, 'beaker', false);
   const pdaBottleLab2 = registerPickable(ctx, 'pda_bottle_lab_02', 'Pó desidratado BDA/PDA 500g', pdaGroup.clone(), -19.25, 0.60, -11.95, 0, 0.15, 0.34, PDA_BOTTLE_META);

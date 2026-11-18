@@ -176,13 +176,8 @@ export function buildBenchCabinets(ctx, cfg) {
         addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, trayW / 2, -0.005, -trayLen / 2);
         addBox(dg, trayW, slotH - 0.07, 0.008, mats.inside, 0, -0.005, -trayLen);
         if (di === 0 || di === 2) {
-          // Organizador azul com bisturis e talheres
+          // Tapete azul organizador para bisturis e lâminas reais
           addBox(dg, trayW - 0.04, 0.012, 0.32, mats.blue, 0, -slotH / 2 + 0.04, -0.2);
-          for (let ui = 0; ui < 4; ui++) {
-            const ux = (ui - 1.5) * 0.07;
-            addBox(dg, 0.012, 0.008, 0.20, mats.handle, ux, -slotH / 2 + 0.052, -0.2);
-            addBox(dg, 0.008, 0.006, 0.05, mats.dark, ux, -slotH / 2 + 0.052, -0.33);
-          }
         }
         let drawerSurf = null;
         const dPart = {
@@ -216,7 +211,8 @@ export function buildBenchCabinets(ctx, cfg) {
             }
           }
         };
-        drawerSurf = registerShelf(dPart, trayBottom, lc - trayW / 2, lc + trayW / 2, yC - slotH / 2 + 0.035, -trayLen, -0.02);
+        const shelfTopOffset = (di === 0 || di === 2) ? 0.046 : 0.035;
+        drawerSurf = registerShelf(dPart, trayBottom, lc - trayW / 2, lc + trayW / 2, yC - slotH / 2 + shelfTopOffset, -trayLen, -0.02);
         const hit = new THREE.Mesh(
           new THREE.BoxGeometry(faceW, slotH, 0.12),
           new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
