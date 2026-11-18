@@ -274,7 +274,7 @@ export function handlePrimaryAction(ctx) {
       }
       return;
     }
-    if (ctx.heldItem.mesh.userData.isPaperTowel && !ctx.placementMode && ctx.hoveredWipeTarget) {
+    if (ctx.heldItem.mesh.userData.isPaperTowel && !ctx.placementMode) {
       wipeWithPaperTowel(ctx, ctx.hoveredWipeTarget);
       return;
     }

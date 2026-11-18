@@ -239,14 +239,21 @@ body.myco-trip-faint #campus-canvas-wrap {
 }
 
 #item-status-card {
-  bottom: 92px;
+  bottom: 164px;
   top: auto;
   z-index: 42;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+#item-status-card.is-dragging {
+  cursor: grabbing;
 }
 
 body.device-touch #item-status-card {
-  top: 64px !important;
-  bottom: auto !important;
+  top: 64px;
+  bottom: auto;
   max-width: min(92vw, 420px);
 }
 
@@ -257,18 +264,6 @@ body.device-touch #item-status-card {
   text-align: center;
   line-height: 1.35;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-}
-
-body.device-touch #item-status-card {
-  bottom: 92px;
-  top: auto;
-  z-index: 42;
-}
-
-body.device-touch #item-status-card {
-  top: 64px !important;
-  bottom: auto !important;
-  max-width: min(92vw, 420px);
 }
 
 #interact-pill {

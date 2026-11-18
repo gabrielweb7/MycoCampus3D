@@ -125,26 +125,32 @@ export function buildBenchCabinets(ctx, cfg) {
 
   const typeCycle = ['shelfDoors', 'bigDoor', 'drawers'];
 
-  function registerShelf(part, mesh, lx0, lx1, topY) {
-    const zA = -D + 0.05;
-    const zB = -0.04;
+  function updateSurfBounds(surf, lx0, lx1, zA, zB) {
     const c1 = toWorld(lx0, zA);
     const c2 = toWorld(lx1, zA);
     const c3 = toWorld(lx0, zB);
     const c4 = toWorld(lx1, zB);
+    surf.minX = Math.min(c1.x, c2.x, c3.x, c4.x);
+    surf.maxX = Math.max(c1.x, c2.x, c3.x, c4.x);
+    surf.minZ = Math.min(c1.z, c2.z, c3.z, c4.z);
+    surf.maxZ = Math.max(c1.z, c2.z, c3.z, c4.z);
+  }
+
+  function registerShelf(part, mesh, lx0, lx1, topY, zA, zB) {
+    const za = typeof zA === 'number' ? zA : -D + 0.05;
+    const zb = typeof zB === 'number' ? zB : -0.04;
     const surf = {
-      minX: Math.min(c1.x, c2.x, c3.x, c4.x),
-      maxX: Math.max(c1.x, c2.x, c3.x, c4.x),
-      minZ: Math.min(c1.z, c2.z, c3.z, c4.z),
-      maxZ: Math.max(c1.z, c2.z, c3.z, c4.z),
+      minX: 0, maxX: 0, minZ: 0, maxZ: 0,
       topY,
       isCabinetShelf: true,
       requiresOpenPart: part
     };
+    updateSurfBounds(surf, lx0, lx1, za, zb);
     ctx.supportSurfaces.push(surf);
     mesh.userData.supportSurface = surf;
     ctx.supportMeshes.push(mesh);
     part.shelves.push(surf);
+    return surf;
   }
 
   for (let mi = 0; mi < count; mi++) {
@@ -178,6 +184,7 @@ export function buildBenchCabinets(ctx, cfg) {
             addBox(dg, 0.008, 0.006, 0.05, mats.dark, ux, -slotH / 2 + 0.052, -0.33);
           }
         }
+        let drawerSurf = null;
         const dPart = {
           id: 'cab_' + key + '_d' + di,
           kind: 'drawer',
@@ -185,9 +192,31 @@ export function buildBenchCabinets(ctx, cfg) {
           open: false,
           progress: 0,
           shelves: [],
-          apply: function (p) { dg.position.z = DRAWER_TRAVEL * smooth(p); }
+          apply: function (p) {
+            const nextZ = DRAWER_TRAVEL * smooth(p);
+            const dz = nextZ - dg.position.z;
+            dg.position.z = nextZ;
+            if (drawerSurf) {
+              if (Math.abs(dz) > 1e-5 && ctx.pickableItems) {
+                const wx = dz * sin;
+                const wz = dz * cos;
+                for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
+                  const it = ctx.pickableItems[pi];
+                  if (!it || !it.mesh || it === ctx.heldItem) continue;
+                  const ip = it.mesh.position;
+                  if (ip.x >= drawerSurf.minX - 0.04 && ip.x <= drawerSurf.maxX + 0.04 &&
+                      ip.z >= drawerSurf.minZ - 0.04 && ip.z <= drawerSurf.maxZ + 0.04 &&
+                      Math.abs(ip.y - drawerSurf.topY) < 0.06) {
+                    ip.x += wx;
+                    ip.z += wz;
+                  }
+                }
+              }
+              updateSurfBounds(drawerSurf, lc - trayW / 2, lc + trayW / 2, -trayLen + nextZ, -0.02 + nextZ);
+            }
+          }
         };
-        registerShelf(dPart, trayBottom, lc - trayW / 2, lc + trayW / 2, yC - slotH / 2 + 0.035);
+        drawerSurf = registerShelf(dPart, trayBottom, lc - trayW / 2, lc + trayW / 2, yC - slotH / 2 + 0.035, -trayLen, -0.02);
         const hit = new THREE.Mesh(
           new THREE.BoxGeometry(faceW, slotH, 0.12),
           new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
@@ -349,16 +378,14 @@ export function isItemInClosedCabinet(ctx, item) {
   const parts = ctx.labCabinets;
   if (!parts || !parts.length || !item || !item.mesh) return false;
   const p = item.mesh.position;
-  // Itens sobre o tampo da bancada (y >= 0.94) nunca estão dentro de armários ou gavetas inferiores
-  if (p.y >= BODY_TOP - 0.02) return false;
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
     if (part.open || !part.shelves.length) continue;
-    const maxShelfH = part.kind === 'drawer' ? 0.15 : 0.32;
+    const maxShelfH = part.kind === 'drawer' ? 0.15 : 0.34;
     for (let si = 0; si < part.shelves.length; si++) {
       const s = part.shelves[si];
       if (p.x >= s.minX - 0.03 && p.x <= s.maxX + 0.03 && p.z >= s.minZ - 0.03 && p.z <= s.maxZ + 0.03 &&
-          p.y >= s.topY - 0.03 && p.y <= Math.min(BODY_TOP - 0.02, s.topY + maxShelfH)) {
+          p.y >= s.topY - 0.03 && p.y <= s.topY + maxShelfH) {
         return true;
       }
     }

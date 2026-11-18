@@ -403,7 +403,7 @@ if ($action === 'sync') {
             if (strpos($sKey, 'wild_') === 0) {
                 $cleanVal = (string)(time() + 20);
             } elseif ($sKey === 'hood_sanitized_until') {
-                $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? (string)(time() + 90) : '0';
+                $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? (string)(time() + 120) : '0';
             } elseif ($sKey === 'burner_level_lab' || $sKey === 'gas_tripod_sub_level' || $sKey === 'gas_tripod_level_sub') {
                 $cleanVal = (string)max(0, min(3, (int)$sVal));
             } elseif ($sKey === 'cinema_lesson') {

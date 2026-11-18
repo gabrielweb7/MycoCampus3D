@@ -95,8 +95,8 @@ export function buildCampusWingsAndEquipment(ctx) {
   createPrecisionScale(ctx, 'precision_scale', -23.1, 1.02, -9.6);
   makeMixingBowl(ctx, 'mixing_bowl_01', -23.1, 1.02, -10.1);
   makeLabSpoon(ctx, 'lab_spoon_01', -23.1, 1.02, -10.35);
-  makeAlcoholSprayBottle(ctx, 'alcohol_spray', -23.1, 1.02, -7.1);
-  makePaperTowelRoll(ctx, 'paper_towel_01', -23.1, 1.02, -7.45);
+  makeAlcoholSprayBottle(ctx, 'alcohol_spray', -22.85, 1.02, -7.1);
+  makePaperTowelRoll(ctx, 'paper_towel_01', -22.85, 1.02, -7.45);
   createHeatSealer(ctx, 'heat_sealer', -23.1, 1.02, -6.2);
   buildLabTrashBin(ctx, -17.3, 0, -9.2);
 
@@ -182,9 +182,9 @@ export function buildCampusWingsAndEquipment(ctx) {
     makeGlovesBox(ctx, 'gloves_box_' + pad2(gi + 1), -23.05, 0.438, 4.9 + gi * 0.65);
     makeFoilRoll(ctx, 'foil_roll_' + pad2(gi + 1), -23.05, 0.438, 7.2 + gi * 0.65);
   }
-  makeAlcoholSprayBottle(ctx, 'alcohol_spray_02', -23.05, 0.438, 9.8);
-  makeAlcoholSprayBottle(ctx, 'alcohol_spray_03', -23.05, 0.438, 10.4);
-  makePaperTowelRoll(ctx, 'paper_towel_02', -23.05, 0.438, 10.1);
+  makeAlcoholSprayBottle(ctx, 'alcohol_spray_02', -22.78, 0.438, 9.8);
+  makeAlcoholSprayBottle(ctx, 'alcohol_spray_03', -22.78, 0.438, 10.4);
+  makePaperTowelRoll(ctx, 'paper_towel_02', -22.78, 0.438, 10.1);
   makeDehydrator(ctx, 'dehydrator_lab', -22.9, 1.02, 2.2);
   for (let mi = 0; mi < 4; mi++) {
     makeTapeRoll(ctx, 'micropore_' + pad2(mi + 1), 'micropore', -23.05, 1.798, 4.8 + mi * 0.45);

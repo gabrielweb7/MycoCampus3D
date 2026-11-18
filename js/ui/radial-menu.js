@@ -95,6 +95,96 @@ function ensureFloatingStyles() {
 }
 
 let _statusDismissTimeout = null;
+const STATUS_CARD_POS_KEY = 'myco_status_card_pos_v1';
+
+function clampStatusCardPos(card, x, y) {
+  const pad = 8;
+  const maxX = Math.max(pad, window.innerWidth - card.offsetWidth - pad);
+  const maxY = Math.max(pad, window.innerHeight - card.offsetHeight - pad);
+  return {
+    x: Math.round(Math.max(pad, Math.min(x, maxX))),
+    y: Math.round(Math.max(pad, Math.min(y, maxY)))
+  };
+}
+
+function applySavedStatusCardPos(card) {
+  try {
+    const raw = localStorage.getItem(STATUS_CARD_POS_KEY);
+    if (!raw) return;
+    const pos = JSON.parse(raw);
+    if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') return;
+    const clamped = clampStatusCardPos(card, pos.x, pos.y);
+    card.style.left = clamped.x + 'px';
+    card.style.top = clamped.y + 'px';
+    card.style.bottom = 'auto';
+    card.style.transform = 'none';
+  } catch {}
+}
+
+function scheduleStatusCardDismiss(card) {
+  if (_statusDismissTimeout) clearTimeout(_statusDismissTimeout);
+  _statusDismissTimeout = setTimeout(() => {
+    card.classList.add('hidden');
+  }, 5000);
+}
+
+function ensureStatusCardDraggable(card) {
+  if (!card || card.dataset.dragBound === '1') return;
+  card.dataset.dragBound = '1';
+
+  let dragging = false;
+  let activePointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let origX = 0;
+  let origY = 0;
+
+  card.addEventListener('pointerdown', (e) => {
+    if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
+    if (e.target && e.target.closest && e.target.closest('#btn-close-status')) return;
+    e.stopPropagation();
+    const rect = card.getBoundingClientRect();
+    dragging = true;
+    activePointerId = e.pointerId;
+    startX = e.clientX;
+    startY = e.clientY;
+    origX = rect.left;
+    origY = rect.top;
+    card.style.left = origX + 'px';
+    card.style.top = origY + 'px';
+    card.style.bottom = 'auto';
+    card.style.transform = 'none';
+    card.classList.add('is-dragging');
+    if (_statusDismissTimeout) clearTimeout(_statusDismissTimeout);
+    if (card.setPointerCapture) {
+      try { card.setPointerCapture(e.pointerId); } catch {}
+    }
+  });
+
+  card.addEventListener('pointermove', (e) => {
+    if (!dragging || (activePointerId !== null && e.pointerId !== activePointerId)) return;
+    e.stopPropagation();
+    const clamped = clampStatusCardPos(card, origX + (e.clientX - startX), origY + (e.clientY - startY));
+    card.style.left = clamped.x + 'px';
+    card.style.top = clamped.y + 'px';
+  });
+
+  const endDrag = (e) => {
+    if (!dragging || (activePointerId !== null && e.pointerId !== activePointerId)) return;
+    dragging = false;
+    activePointerId = null;
+    card.classList.remove('is-dragging');
+    const rect = card.getBoundingClientRect();
+    const clamped = clampStatusCardPos(card, rect.left, rect.top);
+    card.style.left = clamped.x + 'px';
+    card.style.top = clamped.y + 'px';
+    try { localStorage.setItem(STATUS_CARD_POS_KEY, JSON.stringify(clamped)); } catch {}
+    scheduleStatusCardDismiss(card);
+  };
+
+  card.addEventListener('pointerup', endDrag);
+  card.addEventListener('pointercancel', endDrag);
+}
 
 export function showItemStatusCard(item, ctx) {
   if (!item) return;
@@ -154,12 +244,10 @@ export function showItemStatusCard(item, ctx) {
 
   bodyEl.innerHTML = chips.map(c => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${c.color}">${c.icon} ${c.text}</span>`).join('');
 
+  ensureStatusCardDraggable(card);
   card.classList.remove('hidden');
-
-  if (_statusDismissTimeout) clearTimeout(_statusDismissTimeout);
-  _statusDismissTimeout = setTimeout(() => {
-    card.classList.add('hidden');
-  }, 5000);
+  applySavedStatusCardPos(card);
+  scheduleStatusCardDismiss(card);
 }
 
 export function inspectItemToast(ctx, item) {

@@ -70,7 +70,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=0.9.106">
+  <link rel="stylesheet" href="css/game.css?v=0.9.107">
 </head>
 
 <body>
@@ -129,7 +129,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v0.9.106</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v0.9.107</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -211,7 +211,7 @@
 
     <!-- Dedicated Item Status Card (never blocked by menus) -->
     <div id="item-status-card"
-      class="hidden fixed bottom-28 left-1/2 -translate-x-1/2 glass-panel rounded-2xl px-4 py-2.5 z-40 max-w-[94vw] w-max sm:max-w-md border border-emerald-400/50 shadow-2xl backdrop-blur-xl flex flex-col gap-1.5 transition-all pointer-events-auto">
+      class="hidden fixed bottom-28 left-1/2 -translate-x-1/2 glass-panel rounded-2xl px-4 py-2.5 z-40 max-w-[94vw] w-max sm:max-w-md border border-emerald-400/50 shadow-2xl backdrop-blur-xl flex flex-col gap-1.5 transition-opacity pointer-events-auto">
       <div class="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1">
         <div class="flex items-center gap-1.5 font-extrabold text-xs sm:text-sm text-emerald-300">
           <span id="item-status-icon">🔍</span>
@@ -236,12 +236,12 @@
         class="px-2 py-0.5 rounded-full bg-amber-500/20 hover:bg-amber-500/40 text-amber-100 border border-amber-400/50">Sair</button>
     </div>
     <div id="held-item-bar"
-      class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 glass-panel rounded-2xl px-3.5 py-1.5 z-28 flex items-center gap-2.5 border border-emerald-500/50 shadow-2xl backdrop-blur-md">
-      <div class="flex items-center gap-1.5 pr-2 border-r border-slate-700/80">
-        <span class="text-base sm:text-lg">📦</span>
-        <div class="text-left leading-tight">
+      class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 glass-panel rounded-2xl px-3.5 py-1.5 z-28 max-w-[94vw] flex items-center gap-2.5 border border-emerald-500/50 shadow-2xl backdrop-blur-md">
+      <div class="flex items-center gap-1.5 pr-2 border-r border-slate-700/80 min-w-0">
+        <span class="text-base sm:text-lg shrink-0">📦</span>
+        <div class="text-left leading-tight min-w-0">
           <div class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Em Mãos</div>
-          <div id="held-item-bar-name" class="text-xs sm:text-sm font-extrabold text-emerald-300 truncate max-w-[130px] sm:max-w-[220px]">Item</div>
+          <div id="held-item-bar-name" class="text-xs sm:text-sm font-extrabold text-emerald-300 whitespace-normal break-words max-w-[220px] sm:max-w-[300px]">Item</div>
         </div>
       </div>
       <button id="btn-held-drop" type="button" title="Largar item no chão (X)"
@@ -546,10 +546,10 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '0.9.106';</script>
+  <script>window.MYCO_VERSION = '0.9.107';</script>
   <script src="js/vendor/three.min.js?v=r128"></script>
   <script src="js/vendor/OrbitControls.js?v=r128"></script>
-  <script type="module" src="js/main.js?v=0.9.106"></script>
+  <script type="module" src="js/main.js?v=0.9.107"></script>
 </body>
 
 </html>

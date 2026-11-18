@@ -37,8 +37,10 @@ function findPickableHit(ctx, maxDist, filterFn, intersectPickableItem, opts) {
   const nearest = opts && opts.nearest;
   const requireFridgeAccess = opts && opts.requireFridgeAccess;
   const ref = getRefXZ(ctx);
-  let bestDist = maxDist;
-  let best = null;
+  let bestSmallDist = maxDist;
+  let bestSmall = null;
+  let bestBigDist = maxDist;
+  let bestBig = null;
 
   for (let i = 0; i < ctx.pickableItems.length; i++) {
     const cand = ctx.pickableItems[i];
@@ -49,12 +51,20 @@ function findPickableHit(ctx, maxDist, filterFn, intersectPickableItem, opts) {
     const dz = cand.mesh.position.z - ref.z;
     if (dx * dx + dz * dz > 100) continue;
     const hit = intersectPickableItem(ctx.raycaster, cand);
-    if (!hit || hit.distance >= bestDist) continue;
+    if (!hit || hit.distance >= maxDist) continue;
     if (!nearest) return { item: cand, hit };
-    bestDist = hit.distance;
-    best = { item: cand, hit };
+    const isBig = !!(cand.mesh && cand.mesh.userData && cand.mesh.userData.twoHanded);
+    if (isBig) {
+      if (hit.distance < bestBigDist) {
+        bestBigDist = hit.distance;
+        bestBig = { item: cand, hit };
+      }
+    } else if (hit.distance < bestSmallDist) {
+      bestSmallDist = hit.distance;
+      bestSmall = { item: cand, hit };
+    }
   }
-  return best;
+  return bestSmall || bestBig;
 }
 
 function getSyringeTargetHint(spawn, syringeVolume, pdaAgarReady, pdaMedium) {
@@ -147,18 +157,49 @@ function handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
 
 function handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt) {
   if (!ctx.heldItem.mesh.userData.isPaperTowel || ctx.placementMode) return false;
-  const pickHit = findPickableHit(ctx, 4.2, null, intersectPickableItem, { nearest: true });
-  if (!pickHit) return false;
-  const bestTarget = pickHit.item.mesh.userData.isHood ? 'hood' : pickHit.item;
-  const bestLabel = pickHit.item.label;
-  ctx.hoverHit = pickHit.hit;
-  ctx.hoveredWipeTarget = { target: bestTarget, label: bestLabel };
+  let bestTarget = null;
+  let bestLabel = '';
+  let bestDist = 4.2;
+  let bestHitObj = null;
+
+  const pickHit = findPickableHit(ctx, bestDist, null, intersectPickableItem, { nearest: true });
+  if (pickHit) {
+    bestDist = pickHit.hit.distance;
+    bestTarget = pickHit.item.mesh.userData.isHood ? 'hood' : pickHit.item;
+    bestLabel = pickHit.item.label;
+    bestHitObj = pickHit.hit;
+  }
+  if (!bestTarget && ctx.doorHitMeshes && ctx.doorHitMeshes.length) {
+    const dHits = ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false);
+    if (dHits.length > 0 && dHits[0].distance < bestDist && dHits[0].object.userData.doorObj) {
+      bestDist = dHits[0].distance;
+      bestTarget = dHits[0].object.userData.doorObj;
+      bestLabel = bestTarget.label || 'Porta';
+      bestHitObj = dHits[0];
+    }
+  }
+  if (!bestTarget && ctx.blindHitMeshes && ctx.blindHitMeshes.length) {
+    const bHits = ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false);
+    if (bHits.length > 0 && bHits[0].distance < bestDist && bHits[0].object.userData.blindObj) {
+      bestDist = bHits[0].distance;
+      bestTarget = bHits[0].object.userData.blindObj;
+      bestLabel = 'Persiana';
+      bestHitObj = bHits[0];
+    }
+  }
+
   hidePlacementGhost(ctx);
+  ctx.hoverHit = bestHitObj;
+  ctx.hoveredWipeTarget = bestTarget ? { target: bestTarget, label: bestLabel } : null;
+  if (!bestTarget) {
+    setHoverPrompt(ctx, '🧻 Papel Toalha Asséptico • Aponte para item ou Fluxo Laminar com Álcool 70% para secar (120s)');
+    return true;
+  }
   const st = getSanitizationStatus(bestTarget, ctx);
   const wPrompt = st.alcoholWet
-    ? '🧻 Secar Álcool 70% de ' + bestLabel + ' (Concluir desinfecção 90s!)'
+    ? '🧻 Secar Álcool 70% de ' + bestLabel + ' (Concluir desinfecção 120s!)'
     : (st.isSanitized
-      ? '✨🧻 Passar Papel em ' + bestLabel + ' (Resetar proteção para 90s)'
+      ? '✨🧻 Passar Papel em ' + bestLabel + ' (Resetar proteção para 120s)'
       : '⚠️ Passe Álcool 70% (3x) em ' + bestLabel + ' antes de secar');
   setHoverPrompt(ctx, wPrompt);
   return true;

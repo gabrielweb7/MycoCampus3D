@@ -452,7 +452,8 @@ export function updateHoverRay(ctx, customNdc) {
   if (ctx.cabinetHitMeshes && ctx.cabinetHitMeshes.length) {
     const cabHits = ctx.raycaster.intersectObjects(ctx.cabinetHitMeshes, false);
     if (cabHits.length > 0 && cabHits[0].distance < 3.8) {
-      if (!bestSmall || cabHits[0].distance < bestSmallDist) {
+      const smallOnCounter = bestSmall && bestSmall.mesh && bestSmall.mesh.position.y >= 0.94;
+      if (!smallOnCounter && (!bestSmall || cabHits[0].distance < bestSmallDist)) {
         const cPart = cabHits[0].object.userData.cabinetPart;
         if (cPart) {
           ctx.hoverHit = cabHits[0];

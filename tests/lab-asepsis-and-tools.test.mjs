@@ -61,4 +61,13 @@ test('isItemInClosedCabinet detecta item dentro de armário fechado e libera qua
 
   part.open = true;
   assert.equal(isItemInClosedCabinet({ labCabinets: [part] }, itemInside), false);
+
+  // Item na bancada (y = 1.02) acima da gaveta superior fechada (topY = 0.81) nunca deve ser bloqueado
+  const topDrawer = {
+    kind: 'drawer',
+    open: false,
+    shelves: [{ minX: -23.5, maxX: -22.5, minZ: -7.6, maxZ: -6.5, topY: 0.81 }]
+  };
+  const sprayOnCounter = { mesh: { position: { x: -22.85, y: 1.02, z: -7.1 } } };
+  assert.equal(isItemInClosedCabinet({ labCabinets: [topDrawer] }, sprayOnCounter), false);
 });

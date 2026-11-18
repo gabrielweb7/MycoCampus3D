@@ -47,6 +47,7 @@ function getMobileActionIcon(prompt) {
   if (text.indexOf('selar') !== -1 || text.indexOf('seladora') !== -1) return '♨️';
   if (text.indexOf('seringa') !== -1 || text.indexOf('inocular') !== -1) return '💉';
   if (text.indexOf('bisturi') !== -1 || text.indexOf('micélio') !== -1) return '🔪';
+  if (text.indexOf('papel') !== -1 || text.indexOf('secar') !== -1) return '🧻';
   if (text.indexOf('borrifar') !== -1 || text.indexOf('álcool') !== -1) return '💦';
   if (text.indexOf('água') !== -1 || text.indexOf('despejar') !== -1 || text.indexOf('umedecer') !== -1) return '💧';
   if (text.indexOf('misturar') !== -1 || text.indexOf('mistura') !== -1) return '🥄';
@@ -635,7 +636,10 @@ export function bootApp() {
         actBtn.title = 'Apagar Lousa (segure e arraste o dedo)';
       } else if (currentHoldLabel.indexOf('Borrifador') !== -1 || currentHoldLabel.indexOf('Álcool') !== -1) {
         actBtn.textContent = '💦';
-        actBtn.title = 'Borrifar Álcool';
+        actBtn.title = 'Borrifar Álcool 70%';
+      } else if (currentHoldLabel.indexOf('Papel Toalha') !== -1) {
+        actBtn.textContent = '🧻';
+        actBtn.title = 'Secar Álcool 70% (120s)';
       } else if (currentHoldLabel.indexOf('Termômetro') !== -1) {
         actBtn.textContent = '🌡️';
         actBtn.title = 'Medir Temperatura';
