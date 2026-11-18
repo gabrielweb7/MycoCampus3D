@@ -132,10 +132,13 @@ export function buildCampusBuildingWing(ctx, opts) {
 
   addSolidWall(scene, wallSegments, backX, zN, backX, zS, yFloor1, totalH, 0.28, wallMat);
 
+  const wallMinX = cx - w / 2;
+  const wallMaxX = cx + w / 2;
+
   addSolidWall(scene, wallSegments, backX, zN, frontX, zN, yFloor1, h1, 0.28, brickMat(2.5, 1.2));
   if (opts.connectNorth2F) {
-    addSolidWall(scene, wallSegments, backX, zN, cx - 1.6, zN, yFloor2, h2, 0.28, brickMat(1, 1));
-    addSolidWall(scene, wallSegments, cx + 1.6, zN, frontX, zN, yFloor2, h2, 0.28, brickMat(1, 1));
+    addSolidWall(scene, wallSegments, wallMinX, zN, cx - 1.6, zN, yFloor2, h2, 0.28, brickMat(1, 1));
+    addSolidWall(scene, wallSegments, cx + 1.6, zN, wallMaxX, zN, yFloor2, h2, 0.28, brickMat(1, 1));
     const headerN = makeBox(3.2, 0.7, 0.28, 0x334155);
     headerN.position.set(cx, yFloor2 + h2 - 0.35, zN);
     scene.add(headerN);
@@ -145,8 +148,8 @@ export function buildCampusBuildingWing(ctx, opts) {
 
   addSolidWall(scene, wallSegments, backX, zS, frontX, zS, yFloor1, h1, 0.28, brickMat(2.5, 1.2));
   if (opts.connectSouth2F) {
-    addSolidWall(scene, wallSegments, backX, zS, cx - 1.6, zS, yFloor2, h2, 0.28, brickMat(1, 1));
-    addSolidWall(scene, wallSegments, cx + 1.6, zS, frontX, zS, yFloor2, h2, 0.28, brickMat(1, 1));
+    addSolidWall(scene, wallSegments, wallMinX, zS, cx - 1.6, zS, yFloor2, h2, 0.28, brickMat(1, 1));
+    addSolidWall(scene, wallSegments, cx + 1.6, zS, wallMaxX, zS, yFloor2, h2, 0.28, brickMat(1, 1));
     const headerS = makeBox(3.2, 0.7, 0.28, 0x334155);
     headerS.position.set(cx, yFloor2 + h2 - 0.35, zS);
     scene.add(headerS);
