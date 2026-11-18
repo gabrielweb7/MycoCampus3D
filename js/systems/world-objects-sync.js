@@ -44,6 +44,12 @@ export function consumeCampusMovedItems(sim) {
       sim.itemStateSignatures[item.id] = signature;
       const queued = byId[item.id] || (byId[item.id] = { id: item.id });
       queued.state = state;
+      if (queued.x === undefined && (item.isMoved || item.id.indexOf('wild_picked_') === 0)) {
+        queued.x = item.mesh.position.x;
+        queued.y = item.mesh.position.y;
+        queued.z = item.mesh.position.z;
+        queued.ry = item.mesh.rotation.y;
+      }
     });
   }
   const list = Object.values(pending);

@@ -171,6 +171,21 @@ export function buildCampusWingsAndEquipment(ctx) {
   }
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_02', -16.75, 0.245, -11.95);
   makePaperTowelRoll(ctx, 'paper_towel_lab_02', -16.50, 0.245, -11.95);
+  // 4 colheres extras e 6 seringas extras nas gavetas do Lab
+  for (let lsp = 0; lsp < 4; lsp++) {
+    makeLabSpoon(ctx, 'lab_spoon_' + pad2(lsp + 2), -20.52 + lsp * 0.12, 0.635, -11.72);
+  }
+  for (let lsy = 0; lsy < 6; lsy++) {
+    const sr = Math.floor(lsy / 3);
+    const sc = lsy % 3;
+    makeSyringe10ml(ctx, 'syringe_10ml_lab_' + pad2(lsy + 1), -20.52 + sc * 0.14, 0.460, -11.65 - sr * 0.16);
+  }
+  // 5 bacias extras nos armarios (6 bacias no total no Lab)
+  makeMixingBowl(ctx, 'mixing_bowl_02', -18.55, 0.245, -11.95);
+  makeMixingBowl(ctx, 'mixing_bowl_03', -18.20, 0.245, -11.95);
+  makeMixingBowl(ctx, 'mixing_bowl_04', -18.55, 0.60, -11.95);
+  makeMixingBowl(ctx, 'mixing_bowl_05', -18.20, 0.60, -11.95);
+  makeMixingBowl(ctx, 'mixing_bowl_06', -17.02, 0.245, -11.95);
   // 8 frascos de cultura liquida vazios nos armarios do Lab
   for (let lca = 0; lca < 6; lca++) {
     const lcCol = lca % 3;

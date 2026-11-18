@@ -170,13 +170,16 @@ function makeCreativeTree(kind, x, y, z, scale) {
 function getSpeciesShape(spec) {
   const n = spec.scientific;
   if (n.indexOf('Hericium') !== -1) return 'lions_mane';
-  if (n.indexOf('Pleurotus eryngii') !== -1 || n.indexOf('Boletus') !== -1 || n.indexOf('Leccinum') !== -1) return 'king_oyster';
+  if (n.indexOf('Ramaria') !== -1 || n.indexOf('Sparassis') !== -1 || n.indexOf('Clathrus') !== -1) return 'coral';
+  if (n.indexOf('Macrolepiota') !== -1 || n.indexOf('Chlorophyllum') !== -1) return 'parasol';
+  if (n.indexOf('Pleurotus eryngii') !== -1 || n.indexOf('Boletus') !== -1 || n.indexOf('Suillus') !== -1 || n.indexOf('Leccinum') !== -1) return 'king_oyster';
   if (n.indexOf('Pleurotus') !== -1 || n.indexOf('Ganoderma') !== -1 || n.indexOf('Trametes') !== -1 ||
       n.indexOf('Laetiporus') !== -1 || n.indexOf('Auricularia') !== -1 || n.indexOf('Grifola') !== -1 ||
       n.indexOf('Fomes') !== -1 || n.indexOf('Pycnoporus') !== -1 || n.indexOf('Polyporus') !== -1) return 'shelf';
   if (n.indexOf('Flammulina') !== -1 || n.indexOf('Coprinellus') !== -1 || n.indexOf('Mycena') !== -1) return 'enoki';
   if (n.indexOf('Morchella') !== -1) return 'morel';
-  if (n.indexOf('Cantharellus') !== -1 || n.indexOf('Craterellus') !== -1 || n.indexOf('Cookeina') !== -1 || n.indexOf('Sarcoscypha') !== -1) return 'funnel';
+  if (n.indexOf('Cookeina') !== -1 || n.indexOf('Sarcoscypha') !== -1 || n.indexOf('Peziza') !== -1) return 'cup';
+  if (n.indexOf('Cantharellus') !== -1 || n.indexOf('Craterellus') !== -1 || n.indexOf('Lactarius') !== -1 || n.indexOf('Gomphus') !== -1) return 'funnel';
   if (n.indexOf('Cordyceps') !== -1 || n.indexOf('Xylaria') !== -1) return 'cordyceps';
   if (n.indexOf('Calvatia') !== -1 || n.indexOf('Lycoperdon') !== -1 || n.indexOf('Geastrum') !== -1 || n.indexOf('Tuber') !== -1) return 'puffball';
   if (n.indexOf('Amanita muscaria') !== -1) return 'amanita_dots';
@@ -213,10 +216,12 @@ function makeSpeciesMushroomMesh(spec) {
     }
     g.add(cap);
   } else if (shape === 'shelf') {
-    for (let i = 0; i < 3; i++) {
-      const fan = new THREE.Mesh(new THREE.CylinderGeometry(s * (1.0 - i * 0.15), s * 0.45, s * 0.24, 10), capMat);
-      fan.position.set((i - 1) * s * 0.5, s * (0.45 + i * 0.35), i * s * 0.2);
-      fan.rotation.x = 0.22;
+    for (let i = 0; i < 6; i++) {
+      const fanW = 1.05 - (i % 3) * 0.18;
+      const fan = new THREE.Mesh(new THREE.CylinderGeometry(s * fanW, s * 0.38, s * 0.18, 10), capMat);
+      fan.position.set(((i % 3) - 1) * s * 0.48, s * (0.35 + i * 0.24), Math.floor(i / 3) * s * 0.34);
+      fan.rotation.x = 0.26;
+      fan.rotation.z = ((i % 2) - 0.5) * 0.22;
       g.add(fan);
       if (i === 0) cap = fan;
     }
@@ -232,23 +237,74 @@ function makeSpeciesMushroomMesh(spec) {
       if (i === 0) cap = cp;
     }
   } else if (shape === 'king_oyster') {
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.55, s * 0.68, s * 2.1, 10), stemMat);
-    st.position.y = s * 1.05;
-    cap = new THREE.Mesh(new THREE.SphereGeometry(s * 0.88, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), capMat);
-    cap.position.y = s * 2.0;
+    // Estilo Boletus edulis / Porcini: caule robusto + chapéu espesso + 2 filhotes laterais
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.48, s * 0.72, s * 1.9, 10), stemMat);
+    st.position.y = s * 0.95;
+    cap = new THREE.Mesh(new THREE.SphereGeometry(s * 0.98, 12, 7, 0, Math.PI * 2, 0, Math.PI * 0.52), capMat);
+    cap.position.y = s * 1.85;
     g.add(st, cap);
+    [[s * 0.85, 0.52], [-s * 0.68, 0.40]].forEach(([bx, bSc]) => {
+      const bst = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.34 * bSc, s * 0.5 * bSc, s * 1.4 * bSc, 8), stemMat);
+      bst.position.set(bx, s * 0.7 * bSc, s * 0.25);
+      const bcp = new THREE.Mesh(new THREE.SphereGeometry(s * 0.75 * bSc, 9, 5, 0, Math.PI * 2, 0, Math.PI * 0.52), capMat);
+      bcp.position.set(bx, s * 1.35 * bSc, s * 0.25);
+      g.add(bst, bcp);
+    });
   } else if (shape === 'morel') {
     const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.30, s * 0.38, s * 1.3, 8), stemMat);
     st.position.y = s * 0.65;
     cap = new THREE.Mesh(new THREE.ConeGeometry(s * 0.65, s * 1.5, 7), capMat);
     cap.position.y = s * 1.85;
     g.add(st, cap);
+  } else if (shape === 'cup') {
+    // Estilo Sarcoscypha coccinea: taças profundas em grupo
+    for (let i = 0; i < 4; i++) {
+      const scCup = i === 0 ? 1.0 : (0.65 + (i % 2) * 0.18);
+      const ox = (i - 1.5) * s * 0.65;
+      const oz = (i % 2 === 0 ? 0.2 : -0.25) * s;
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.20 * scCup, s * 0.14 * scCup, s * 0.9 * scCup, 7), stemMat);
+      st.position.set(ox, s * 0.45 * scCup, oz);
+      const cup = new THREE.Mesh(new THREE.SphereGeometry(s * 0.55 * scCup, 10, 7, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.65), capMat);
+      cup.position.set(ox, s * 1.15 * scCup, oz);
+      cup.rotation.z = (i - 1.5) * 0.18;
+      g.add(st, cup);
+      if (i === 0) cap = cup;
+    }
   } else if (shape === 'funnel') {
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.40, s * 0.22, s * 1.5, 9), capMat);
-    st.position.y = s * 0.75;
-    cap = new THREE.Mesh(new THREE.CylinderGeometry(s * 1.05, s * 0.42, s * 0.55, 10, 1, true), capMat);
-    cap.position.y = s * 1.65;
-    g.add(st, cap);
+    // Estilo Cantharellus / Craterellus: buquê de trombetas/funis
+    for (let i = 0; i < 4; i++) {
+      const fSc = i === 0 ? 1.0 : 0.72;
+      const ang = (i / 4) * Math.PI * 2;
+      const fx = i === 0 ? 0 : Math.cos(ang) * s * 0.55;
+      const fz = i === 0 ? 0 : Math.sin(ang) * s * 0.55;
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.36 * fSc, s * 0.18 * fSc, s * 1.45 * fSc, 8), capMat);
+      st.position.set(fx, s * 0.72 * fSc, fz);
+      const fn = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.95 * fSc, s * 0.36 * fSc, s * 0.52 * fSc, 10, 1, true), capMat);
+      fn.position.set(fx, s * 1.60 * fSc, fz);
+      fn.rotation.z = (i === 0 ? 0 : Math.cos(ang)) * 0.16;
+      g.add(st, fn);
+      if (i === 0) cap = fn;
+    }
+  } else if (shape === 'coral') {
+    // Estilo Ramaria / Clathrus: ramos ascendentes de coral
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const br = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.14, s * 0.24, s * 1.9, 6), capMat);
+      br.position.set(Math.cos(a) * s * 0.32, s * 0.95, Math.sin(a) * s * 0.32);
+      br.rotation.set(Math.sin(a) * 0.28, 0, -Math.cos(a) * 0.28);
+      g.add(br);
+      if (i === 0) cap = br;
+    }
+  } else if (shape === 'parasol') {
+    // Estilo Macrolepiota procera: haste alta fina + anel + chapéu guarda-sol
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.15, s * 0.24, s * 3.1, 8), stemMat);
+    st.position.y = s * 1.55;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(s * 0.24, s * 0.05, 6, 12), stemMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = s * 2.25;
+    cap = new THREE.Mesh(new THREE.ConeGeometry(s * 1.28, s * 0.42, 14), capMat);
+    cap.position.y = s * 3.15;
+    g.add(st, ring, cap);
   } else if (shape === 'cordyceps') {
     for (let i = 0; i < 3; i++) {
       const club = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.24, s * 0.16, s * (2.2 + i * 0.25), 7), capMat);
@@ -258,9 +314,16 @@ function makeSpeciesMushroomMesh(spec) {
       if (i === 1) cap = club;
     }
   } else if (shape === 'puffball') {
+    // Estilo Lycoperdon perlatum: bola principal + 3 bolinhas na base
     cap = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 0.95, 1), capMat);
-    cap.position.y = s * 0.85;
+    cap.position.y = s * 0.88;
     g.add(cap);
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2;
+      const mini = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 0.42, 1), capMat);
+      mini.position.set(Math.cos(a) * s * 0.72, s * 0.38, Math.sin(a) * s * 0.72);
+      g.add(mini);
+    }
   } else if (shape === 'cubensis') {
     const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.22, s * 0.30, s * 2.3, 8), stemMat);
     st.position.y = s * 1.15;

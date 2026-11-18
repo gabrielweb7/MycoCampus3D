@@ -44,23 +44,44 @@ function mp_build_allowed_items(): array {
         $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
         $items[] = "spawn_bag_empty_$p";
         $items[] = "spawn_jar_empty_$p";
+        $items[] = "liquid_culture_empty_stock_$p";
     }
     foreach (range(1, 20) as $n) {
-        $items[] = 'syringe_10ml_' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+        $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+        $items[] = "syringe_10ml_$p";
+        $items[] = "syringe_10ml_lab_$p";
     }
     foreach (range(1, 40) as $n) {
         $items[] = 'petri_bare_' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
     }
+    foreach (range(1, 12) as $n) {
+        $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+        $items[] = "pp5_cup_$p";
+        $items[] = "scalpel_blade_$p";
+        $items[] = "liquid_culture_empty_cab_$p";
+        $items[] = "liquid_culture_$p";
+        $items[] = "petri_empty_$p";
+    }
+    foreach (range(1, 8) as $n) {
+        $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+        $items[] = "scalpel_$p";
+        $items[] = "lab_spoon_$p";
+        $items[] = "mixing_bowl_$p";
+    }
     foreach (range(1, 4) as $n) {
         $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
         $items[] = "substrate_grain_$p";
+        $items[] = "substrate_wheat_$p";
+        $items[] = "substrate_sorghum_$p";
         $items[] = "substrate_sawdust_$p";
         $items[] = "micropore_$p";
-        $items[] = "scalpel_blade_$p";
+        $items[] = "micropore_lab_$p";
+        $items[] = "parafilm_lab_$p";
+        $items[] = "beaker_1l_lab_$p";
+        $items[] = "pda_bottle_lab_$p";
+        $items[] = "alcohol_spray_lab_$p";
+        $items[] = "paper_towel_lab_$p";
         $items[] = "falcon_15ml_$p";
-    }
-    foreach (range(1, 8) as $n) {
-        $items[] = 'pp5_cup_' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
     }
     foreach (range(1, 2) as $n) {
         $items[] = 'falcon_50ml_' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
@@ -78,10 +99,11 @@ function mp_build_allowed_items(): array {
 define('MP_ITEMS', mp_build_allowed_items());
 
 /**
- * Aceita itens fixos da whitelist ou itens dinâmicos criados no Modo Admin Editor (dyn_<prefab>_<id>).
+ * Aceita itens fixos da whitelist, cogumelos colhidos (wild_picked_*) ou itens dinâmicos do Admin (dyn_*).
  */
 function mp_is_allowed_item_id(string $itemId): bool {
     if (in_array($itemId, MP_ITEMS, true)) return true;
+    if (preg_match('/^wild_picked_[a-z0-9_]{2,40}$/', $itemId)) return true;
     return (bool)preg_match('/^dyn_[a-z0-9_]{2,56}$/', $itemId);
 }
 
@@ -108,13 +130,16 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     if ($isSpawn && isset($raw['spawn']) && is_array($raw['spawn'])) {
         $src = $raw['spawn'];
         $spawn = [];
-        foreach (['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'contaminated', 'burned', 'expired'] as $key) {
+        foreach (['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'contaminated', 'burned', 'expired', 'refrigerated'] as $key) {
             if (array_key_exists($key, $src) && is_bool($src[$key])) $spawn[$key] = $src[$key];
         }
         foreach (['fillGrams' => 5000, 'waterMl' => 5000, 'sterilizeProgress' => 100, 'colonization' => 100, 'ageGameDays' => 365, 'shelfLifeAgeDays' => 365] as $key => $limit) {
             if (array_key_exists($key, $src) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
                 $spawn[$key] = max(0, min($limit, round((float)$src[$key], 2)));
             }
+        }
+        if (array_key_exists('tempC', $src) && is_numeric($src['tempC']) && is_finite((float)$src['tempC'])) {
+            $spawn['tempC'] = max(-20, min(140, round((float)$src['tempC'], 1)));
         }
         $validSubstrates = ['grain', 'sawdust', 'flocao', 'corn'];
         if (strpos($itemId, 'pp5_cup_') === 0) $validSubstrates[] = 'pda';
@@ -130,7 +155,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (in_array($p['mode'] ?? '', ['bare', 'filled', 'empty', 'clean', 'contam', 'colonizing'], true)) {
             $cleanPetri['mode'] = $p['mode'];
         }
-        foreach (['lidOpen', 'sterilized', 'inoculated', 'expired', 'parafilmSealed'] as $boolKey) {
+        foreach (['lidOpen', 'sterilized', 'inoculated', 'expired', 'parafilmSealed', 'refrigerated'] as $boolKey) {
             if (isset($p[$boolKey]) && is_bool($p[$boolKey])) {
                 $cleanPetri[$boolKey] = $p[$boolKey];
             }
@@ -138,10 +163,13 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (isset($p['inoculationMethod']) && is_string($p['inoculationMethod'])) {
             $cleanPetri['inoculationMethod'] = substr($p['inoculationMethod'], 0, 32);
         }
-        foreach (['colonization' => 100, 'ageGameDays' => 365, 'shelfLifeAgeDays' => 365] as $numKey => $maxVal) {
+        foreach (['colonization' => 100, 'ageGameDays' => 365, 'shelfLifeAgeDays' => 365, 'cutWedges' => 4, 'delayedContamAtPct' => 100] as $numKey => $maxVal) {
             if (isset($p[$numKey]) && is_numeric($p[$numKey]) && is_finite((float)$p[$numKey])) {
                 $cleanPetri[$numKey] = max(0, min($maxVal, round((float)$p[$numKey], 2)));
             }
+        }
+        if (isset($p['tempC']) && is_numeric($p['tempC']) && is_finite((float)$p['tempC'])) {
+            $cleanPetri['tempC'] = max(-20, min(140, round((float)$p['tempC'], 1)));
         }
         if ($cleanPetri) $clean['petri'] = $cleanPetri;
     }
@@ -159,13 +187,16 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     if (strpos($itemId, 'liquid_culture') === 0 && isset($raw['culture']) && is_array($raw['culture'])) {
         $src = $raw['culture'];
         $culture = [];
-        foreach (['colonized', 'contaminated', 'expired'] as $key) {
+        foreach (['inoculated', 'colonized', 'contaminated', 'expired', 'refrigerated'] as $key) {
             if (isset($src[$key]) && is_bool($src[$key])) $culture[$key] = $src[$key];
         }
-        foreach (['ageGameDays' => 365, 'shelfLifeAgeDays' => 365] as $key => $limit) {
+        foreach (['colonization' => 100, 'ageGameDays' => 365, 'shelfLifeAgeDays' => 365] as $key => $limit) {
             if (isset($src[$key]) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
                 $culture[$key] = max(0, min($limit, round((float)$src[$key], 2)));
             }
+        }
+        if (isset($src['tempC']) && is_numeric($src['tempC']) && is_finite((float)$src['tempC'])) {
+            $culture['tempC'] = max(-20, min(140, round((float)$src['tempC'], 1)));
         }
         if ($culture) $clean['culture'] = $culture;
     }
@@ -175,8 +206,11 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         isset($raw['pdaMedium']) && is_array($raw['pdaMedium'])) {
         $src = $raw['pdaMedium'];
         $medium = [];
-        foreach (['mixed', 'sterilized', 'burned'] as $key) {
+        foreach (['mixed', 'sterilized', 'burned', 'refrigerated'] as $key) {
             if (isset($src[$key]) && is_bool($src[$key])) $medium[$key] = $src[$key];
+        }
+        if (isset($src['tempC']) && is_numeric($src['tempC']) && is_finite((float)$src['tempC'])) {
+            $medium['tempC'] = max(-20, min(140, round((float)$src['tempC'], 1)));
         }
         foreach (['powderGrams' => 500, 'stirProgress' => 4] as $key => $limit) {
             if ($key === 'powderGrams' && strpos($itemId, 'pp5_cup_') === 0) $limit = 4;
@@ -198,7 +232,38 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
 
     if (strpos($itemId, 'syringe_10ml_') === 0 && isset($raw['syringe']) && is_array($raw['syringe']) &&
         isset($raw['syringe']['volMl']) && is_numeric($raw['syringe']['volMl']) && is_finite((float)$raw['syringe']['volMl'])) {
-        $clean['syringe'] = ['volMl' => max(0, min(10, round((float)$raw['syringe']['volMl'], 1)))];
+        $syr = ['volMl' => max(0, min(10, round((float)$raw['syringe']['volMl'], 1)))];
+        if (isset($raw['syringe']['sourceContam']) && is_bool($raw['syringe']['sourceContam'])) {
+            $syr['sourceContam'] = $raw['syringe']['sourceContam'];
+        }
+        if (isset($raw['syringe']['refrigerated']) && is_bool($raw['syringe']['refrigerated'])) {
+            $syr['refrigerated'] = $raw['syringe']['refrigerated'];
+        }
+        if (isset($raw['syringe']['tempC']) && is_numeric($raw['syringe']['tempC']) && is_finite((float)$raw['syringe']['tempC'])) {
+            $syr['tempC'] = max(-20, min(140, round((float)$raw['syringe']['tempC'], 1)));
+        }
+        if (isset($raw['syringe']['mix']) && is_array($raw['syringe']['mix'])) {
+            $mix = [];
+            foreach (['waterMl', 'distilledMl', 'lcMl', 'pdaMl'] as $mk) {
+                $mv = $raw['syringe']['mix'][$mk] ?? 0;
+                if (is_numeric($mv) && is_finite((float)$mv)) {
+                    $mix[$mk] = max(0, min(10, round((float)$mv, 1)));
+                }
+            }
+            $syr['mix'] = $mix;
+        }
+        $clean['syringe'] = $syr;
+    }
+
+    if (isset($raw['liquidMix']) && is_array($raw['liquidMix'])) {
+        $lm = [];
+        foreach (['waterMl', 'distilledMl', 'lcMl', 'pdaMl'] as $mk) {
+            $mv = $raw['liquidMix'][$mk] ?? 0;
+            if (is_numeric($mv) && is_finite((float)$mv)) {
+                $lm[$mk] = max(0, min(5000, round((float)$mv, 1)));
+            }
+        }
+        if ($lm) $clean['liquidMix'] = $lm;
     }
 
     if (strpos($itemId, 'mixing_bowl_') === 0 && isset($raw['bowl']) && is_array($raw['bowl'])) {
@@ -223,10 +288,37 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
 
     if (strpos($itemId, 'scalpel_') === 0 && isset($raw['scalpel']) && is_array($raw['scalpel'])) {
         $scalpel = [];
-        foreach (['hasBlade', 'sterile', 'hasMycelium'] as $key) {
+        foreach (['hasBlade', 'sterile', 'hasMycelium', 'bladeContaminated', 'cutContaminated'] as $key) {
             if (isset($raw['scalpel'][$key]) && is_bool($raw['scalpel'][$key])) $scalpel[$key] = $raw['scalpel'][$key];
         }
+        if (isset($raw['scalpel']['bladeRemainingMs']) && is_numeric($raw['scalpel']['bladeRemainingMs']) && is_finite((float)$raw['scalpel']['bladeRemainingMs'])) {
+            $scalpel['bladeRemainingMs'] = max(0, min(160000, (int)round((float)$raw['scalpel']['bladeRemainingMs'])));
+        }
         if ($scalpel) $clean['scalpel'] = $scalpel;
+    }
+
+    if (strpos($itemId, 'scalpel_blade_') === 0 && isset($raw['bladePack']) && is_array($raw['bladePack'])) {
+        if (isset($raw['bladePack']['empty']) && is_bool($raw['bladePack']['empty'])) {
+            $clean['bladePack'] = ['empty' => $raw['bladePack']['empty']];
+        }
+    }
+
+    if (strpos($itemId, 'wild_picked_') === 0 && isset($raw['wildMushroom']) && is_array($raw['wildMushroom'])) {
+        $wm = [];
+        if (isset($raw['wildMushroom']['speciesName']) && is_string($raw['wildMushroom']['speciesName'])) {
+            $wm['speciesName'] = substr($raw['wildMushroom']['speciesName'], 0, 80);
+        }
+        if (isset($raw['wildMushroom']['isMagic']) && is_bool($raw['wildMushroom']['isMagic'])) {
+            $wm['isMagic'] = $raw['wildMushroom']['isMagic'];
+        }
+        if (isset($raw['wildMushroom']['removed']) && is_bool($raw['wildMushroom']['removed'])) {
+            $wm['removed'] = $raw['wildMushroom']['removed'];
+        }
+        if ($wm) $clean['wildMushroom'] = $wm;
+    }
+
+    if (isset($raw['sanitizedRemainingSec']) && is_numeric($raw['sanitizedRemainingSec']) && is_finite((float)$raw['sanitizedRemainingSec'])) {
+        $clean['sanitizedRemainingSec'] = max(0, min(300, (int)round((float)$raw['sanitizedRemainingSec'])));
     }
 
     if (strpos($itemId, 'pressure_cooker_') === 0 && isset($raw['cooker']) && is_array($raw['cooker'])) {
