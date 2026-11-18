@@ -1,6 +1,6 @@
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
-import { updateScalpelLabel } from '../items/scalpel.js';
+import { markBladePackEmpty, updateScalpelLabel } from '../items/scalpel.js';
 import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
 import { inoculatePetri, togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
 
@@ -86,6 +86,10 @@ export function handleScalpelTargetAction(ctx) {
   const scalpel = ctx.heldItem.scalpelCtrl;
   const target = ctx.hoveredScalpelTarget;
   if (target.mode === 'blade') {
+    if (target.item && target.item.bladePackCtrl && target.item.bladePackCtrl.empty) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Esta embalagem de lâmina já está vazia! Jogue no lixo.');
+      return;
+    }
     scalpel.hasBlade = true;
     scalpel.sterile = true;
     scalpel.bladeExpired = false;
@@ -94,10 +98,11 @@ export function handleScalpelTargetAction(ctx) {
     scalpel.bladeAttachedAt = performance.now();
     scalpel.hasMycelium = false;
     if (scalpel.bladeMesh) scalpel.bladeMesh.visible = true;
+    markBladePackEmpty(target.item);
     updateScalpelLabel(ctx.heldItem);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada no bisturi!');
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada! Jogue a embalagem vazia no lixo.');
     ctx.notifyWorldAction();
   } else if (target.mode === 'cut') {
     const petri = target.item && target.item.mesh.userData.petriCtrl;
@@ -121,17 +126,18 @@ export function handleScalpelTargetAction(ctx) {
     const usedContamBlade = !scalpel.sterile;
     scalpel.hasMycelium = true;
     scalpel.cutContaminated = usedContamBlade;
-    if (usedContamBlade) {
-      if (petri) {
+    if (petri) {
+      petri.cutWedges = (petri.cutWedges || 0) + 1;
+      if (usedContamBlade) {
         petri.mode = 'contam';
         petri.contaminated = true;
         petri.colonized = false;
-        updatePetriVisual(target.item);
       }
-      if (spawn) {
-        spawn.contaminated = true;
-        spawn.updateVisual();
-      }
+      updatePetriVisual(target.item);
+    }
+    if (usedContamBlade && spawn) {
+      spawn.contaminated = true;
+      spawn.updateVisual();
     }
     updateScalpelLabel(ctx.heldItem);
     if (window.MycoAudio) window.MycoAudio.playClick();
@@ -192,14 +198,19 @@ export function handleScalpelTargetAction(ctx) {
   } else if (target.mode === 'transfer_lc' && target.item && target.item.cultureCtrl) {
     const lc = target.item.cultureCtrl;
     const aseptic = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!ctx.wearingGloves;
+    lc.inoculated = true;
+    lc.colonized = false;
     if (aseptic) {
-      lc.colonized = true;
+      lc.colonization = 2;
       lc.contaminated = false;
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🍄 Cultura Líquida inoculada com sucesso!');
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🍄 Fragmento inserido na Cultura Líquida! Aguarde colonizar até 100%.');
     } else {
+      lc.colonization = 0;
       lc.contaminated = true;
-      lc.colonized = false;
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Cultura Líquida contaminou por falta de assepsia (fluxo/luvas/lâmina estéril)!');
+    }
+    if (target.item.setVolume && target.item.mesh && target.item.mesh.userData.liquidCtrl) {
+      target.item.setVolume(target.item.mesh.userData.liquidCtrl.volMl);
     }
     scalpel.hasMycelium = false;
     scalpel.cutContaminated = false;

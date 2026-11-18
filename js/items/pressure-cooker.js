@@ -556,16 +556,23 @@ export function stepPressureCookers(ctx, dt) {
     const cp = ctx.cookerPots[cpi];
     const potP = cp.potItem.mesh.position;
 
-    // Verifica se possui base perfurada dentro (inclusive se encaixada via posicionamento livre)
+    // Verifica se possui base perfurada e recipientes dentro (inclusive apos reload ou posicionamento livre)
     if (ctx.pickableItems) {
       for (let bi = 0; bi < ctx.pickableItems.length; bi++) {
         const bIt = ctx.pickableItems[bi];
-        if (!bIt || bIt === ctx.heldItem || !bIt.mesh || !bIt.mesh.userData || !bIt.mesh.userData.isCookerBase) continue;
+        if (!bIt || bIt === ctx.heldItem || bIt === cp.potItem || bIt === cp.lidItem || !bIt.mesh) continue;
+        if (ctx.isHeldByRemote && ctx.isHeldByRemote(bIt.id)) continue;
+        const isBase = !!(bIt.mesh.userData && bIt.mesh.userData.isCookerBase);
+        const canEnter = !!(bIt.meta && bIt.meta.compatibilities && bIt.meta.compatibilities.canEnterCooker);
+        if (!isBase && !canEnter) continue;
         const bdx = bIt.mesh.position.x - potP.x;
         const bdz = bIt.mesh.position.z - potP.z;
         const bdy = bIt.mesh.position.y - potP.y;
-        if (bdx * bdx + bdz * bdz < 0.18 * 0.18 && bdy >= -0.02 && bdy <= 0.16) {
-          if (cp.contents.indexOf(bIt) === -1) cp.contents.push(bIt);
+        const maxDy = isBase ? 0.16 : 0.34;
+        if (bdx * bdx + bdz * bdz < 0.19 * 0.19 && bdy >= -0.02 && bdy <= maxDy) {
+          if (cp.contents.indexOf(bIt) === -1 && (isBase || cp.contents.length < 7)) {
+            cp.contents.push(bIt);
+          }
         }
       }
     }

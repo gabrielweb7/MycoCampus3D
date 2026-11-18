@@ -4,7 +4,9 @@ export const CULTURE_REFRIGERATED_SHELF_LIFE_DAYS = 90;
 
 export function createCultureLifecycleState(colonized) {
   return {
+    inoculated: !!colonized,
     colonized: !!colonized,
+    colonization: colonized ? 100 : 0,
     contaminated: false,
     ageGameDays: 0,
     shelfLifeAgeDays: 0,

@@ -238,17 +238,34 @@ export function isCultureAccessibleFromFridge(ctx, item) {
   return !fridge || !fridge.fridgeCtrl || fridge.fridgeCtrl.doorOpen;
 }
 
+function getAnyRefrigeratableCtrl(item) {
+  if (!item || !item.mesh) return null;
+  if (item.mesh.userData && item.mesh.userData.petriCtrl) return item.mesh.userData.petriCtrl;
+  if (item.cultureCtrl) return item.cultureCtrl;
+  if (item.spawnCtrl) return item.spawnCtrl;
+  if (item.syringeCtrl) return item.syringeCtrl;
+  if (item.pdaMediumCtrl) return item.pdaMediumCtrl;
+  return null;
+}
+
+const _tmpFridgeLocal = new THREE.Vector3();
+
 export function stepCultureFridges(ctx, dt) {
   const items = ctx.pickableItems;
   const doorOpenByFridgeId = {};
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     if (item && item.fridgeCtrl) doorOpenByFridgeId[item.id] = !!item.fridgeCtrl.doorOpen;
+    const anyCtrl = getAnyRefrigeratableCtrl(item);
+    if (anyCtrl) {
+      anyCtrl.inFridge = false;
+      anyCtrl.fridgeId = '';
+    }
     const info = getCultureStorageInfo(item);
-    if (!info) continue;
-    const ctrl = info.ctrl;
-    ctrl.inFridge = false;
-    ctrl.fridgeId = '';
+    if (info && info.ctrl) {
+      info.ctrl.inFridge = false;
+      info.ctrl.fridgeId = '';
+    }
   }
 
   for (let fi = 0; fi < items.length; fi++) {
@@ -279,18 +296,54 @@ export function stepCultureFridges(ctx, dt) {
         info.ctrl.fridgeId = fridge.id;
       }
     }
+
+    // Qualquer item com micélio/cultura colocado dentro do volume da geladeira (slants, seringas, potinhos, placas) também gela!
+    for (let pi = 0; pi < items.length; pi++) {
+      const item = items[pi];
+      if (!item || item === ctx.heldItem || item === fridge || item.fridgeCtrl) continue;
+      const anyCtrl = getAnyRefrigeratableCtrl(item);
+      if (!anyCtrl) continue;
+      _tmpFridgeLocal.copy(item.mesh.position);
+      fridge.mesh.worldToLocal(_tmpFridgeLocal);
+      if (Math.abs(_tmpFridgeLocal.x) <= 0.36 && _tmpFridgeLocal.y >= 0.14 && _tmpFridgeLocal.y <= 1.65 && Math.abs(_tmpFridgeLocal.z) <= 0.36) {
+        anyCtrl.inFridge = true;
+        anyCtrl.fridgeId = fridge.id;
+      }
+    }
   }
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
+    const anyCtrl = getAnyRefrigeratableCtrl(item);
+    if (anyCtrl) {
+      stepCultureTemperature(anyCtrl, dt, !!anyCtrl.inFridge, !!doorOpenByFridgeId[anyCtrl.fridgeId]);
+    }
     const info = getCultureStorageInfo(item);
     if (!info || info.kind !== 'vessel' || !(item.cultureCtrl || (item.mesh.userData && item.mesh.userData.cultureCtrl))) continue;
     const culture = info.ctrl;
-    const tempChanged = stepCultureTemperature(culture, dt, !!culture.inFridge, !!doorOpenByFridgeId[culture.fridgeId]);
+    const tempChanged = anyCtrl === culture ? false : stepCultureTemperature(culture, dt, !!culture.inFridge, !!doorOpenByFridgeId[culture.fridgeId]);
     const changed = culture.refrigerated !== culture.lastRenderedRefrigerated;
     if (!item.mesh.userData.liquidCtrl || item.mesh.userData.liquidCtrl.volMl <= 0) continue;
     const lifeStep = stepCultureShelfLife(culture, dt);
-    if (changed || tempChanged || lifeStep > 0) updateCultureLiquidLabel(item);
+    let lcProgressed = false;
+    if (culture.inoculated && !culture.colonized && !culture.contaminated && !culture.expired &&
+        !culture.refrigerated && typeof culture.tempC === 'number' && culture.tempC >= 20 && culture.tempC <= 30) {
+      const prevPct = Math.floor(culture.colonization || 0);
+      culture.colonization = Math.min(100, (culture.colonization || 0) + dt * 0.8);
+      if (culture.colonization >= 100) {
+        culture.colonization = 100;
+        culture.colonized = true;
+        lcProgressed = true;
+        if (item.setVolume) item.setVolume(item.mesh.userData.liquidCtrl.volMl);
+        if (ctx.callbacks && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🍄 Cultura Líquida atingiu 100% de colonização! Guarde na geladeira para durar até 90 dias.');
+        }
+      } else if (Math.floor(culture.colonization) !== prevPct) {
+        lcProgressed = true;
+        if (item.setVolume) item.setVolume(item.mesh.userData.liquidCtrl.volMl);
+      }
+    }
+    if (changed || tempChanged || lifeStep > 0 || lcProgressed) updateCultureLiquidLabel(item);
     if (lifeStep === 2 && ctx.callbacks.onToast) {
       ctx.callbacks.onToast('🕒 A cultura líquida venceu; prepare uma nova cultura.');
     }

@@ -18,7 +18,7 @@ import { markPdaVolumeChanged } from '../items/pda-mix.js';
 import { spawnSprayParticles, fireAlcoholSpray, getSanitizationStatus } from '../items/alcohol-spray.js';
 import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { advanceMixingBowlStir, addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
-import { updateScalpelLabel, stepScalpels } from '../items/scalpel.js';
+import { markBladePackEmpty, updateScalpelLabel, stepScalpels } from '../items/scalpel.js';
 
 const THREE = window.THREE;
 
@@ -248,10 +248,11 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       } else {
         const yOff = ctx.heldItem.cookerRef ? 0.14 : 0.05;
         ctx.heldItem.mesh.position.set(sk.x, sk.y + yOff, sk.z);
-        ctx.heldItem.mesh.rotation.set(-0.42, ctx.playerYaw, -0.15);
+        ctx.heldItem.mesh.rotation.order = 'YXZ';
+        ctx.heldItem.mesh.rotation.set(0.72, ctx.playerYaw, -0.15);
         if (now - (ctx.sinkFilling.dropAt || 0) > 85) {
           ctx.sinkFilling.dropAt = now;
-          _tmpPourFrom.set(0, ctx.heldItem.cookerRef ? 0.26 : 0.14, -0.12).applyEuler(ctx.heldItem.mesh.rotation).add(ctx.heldItem.mesh.position);
+          _tmpPourFrom.set(0, ctx.heldItem.cookerRef ? 0.22 : 0.12, -0.18).applyEuler(ctx.heldItem.mesh.rotation).add(ctx.heldItem.mesh.position);
           _tmpPourDir.set(0, -1, 0);
           spawnSprayParticles(ctx, 0x7dd3fc, 5, _tmpPourFrom, _tmpPourDir, 0.12, 1.1, 0.032, 0.36);
         }
@@ -488,18 +489,14 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         sc.hasMycelium = false;
         if (sc.bladeMesh) sc.bladeMesh.visible = true;
         updateScalpelLabel(bh.scalpel);
-        // Consome o sachê da mão do jogador
+        // Deixa a embalagem vazia na mão do jogador para jogar no lixo
         const packItem = bh.pack;
-        ctx.heldItem = null;
-        if (packItem.mesh && packItem.mesh.parent) packItem.mesh.parent.remove(packItem.mesh);
-        const pIdx = ctx.pickableItems.indexOf(packItem);
-        if (pIdx !== -1) ctx.pickableItems.splice(pIdx, 1);
-        if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+        markBladePackEmpty(packItem);
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(packItem.label);
         ctx.bladeAttachHold = null;
         if (ring) ring.classList.add('hidden');
         if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada no Bisturi!');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada! Jogue a embalagem vazia no lixo.');
         ctx.notifyWorldAction();
       }
     }

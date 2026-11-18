@@ -519,6 +519,7 @@ function handleSpoonOrBowlHover(ctx, intersectPickableItem, setHoverPrompt) {
 
 function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
   if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.isScalpelBladePack) {
+    if (ctx.heldItem.bladePackCtrl && ctx.heldItem.bladePackCtrl.empty) return false;
     const resB = findPickableHit(ctx, 3.5, (sCand) => !!sCand.scalpelCtrl, intersectPickableItem);
     if (!resB) return false;
     ctx.hoverHit = resB.hit;
@@ -532,7 +533,11 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
   let matched = null;
   const res = findPickableHit(ctx, 3.5, (sCand) => {
     if (sCand.mesh.userData.isScalpelBladePack) {
-      matched = { mode: 'blade', prompt: '🔪 Trocar por lâmina #24 estéril' };
+      if (sCand.bladePackCtrl && sCand.bladePackCtrl.empty) {
+        matched = { mode: 'blade', prompt: '🗑️ Embalagem de lâmina vazia (jogue no lixo)' };
+      } else {
+        matched = { mode: 'blade', prompt: '🔪 Trocar por lâmina #24 estéril' };
+      }
       return true;
     }
     const petriCtrl = sCand.mesh.userData.petriCtrl;
@@ -558,7 +563,8 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
       };
       return true;
     }
-    if (sc.hasMycelium && sCand.cultureCtrl && !sCand.cultureCtrl.colonized && !sCand.cultureCtrl.contaminated) {
+    if (sc.hasMycelium && sCand.cultureCtrl && !sCand.cultureCtrl.inoculated && !sCand.cultureCtrl.colonized &&
+        !sCand.cultureCtrl.contaminated && sCand.mesh.userData.liquidCtrl && sCand.mesh.userData.liquidCtrl.volMl > 0) {
       matched = { mode: 'transfer_lc', prompt: '🧪 Inocular fragmento na Cultura Líquida' };
       return true;
     }

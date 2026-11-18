@@ -76,6 +76,18 @@ function drawAgarTexture(pctx, ctrl) {
       pctx.stroke();
     }
     pctx.restore();
+    const cuts = Math.min(4, ctrl.cutWedges || 0);
+    if (cuts > 0) {
+      const offsets = [[154, 96], [88, 152], [156, 154], [92, 92]];
+      for (let ci = 0; ci < cuts; ci++) {
+        const [cx, cy] = offsets[ci];
+        pctx.fillStyle = '#d6c7a1';
+        pctx.fillRect(cx - 12, cy - 12, 24, 24);
+        pctx.strokeStyle = '#92400e';
+        pctx.lineWidth = 1.5;
+        pctx.strokeRect(cx - 12, cy - 12, 24, 24);
+      }
+    }
   } else if (mode === 'contam') {
     pctx.fillStyle = '#4a3f28';
     pctx.beginPath(); pctx.arc(88, 132, 62, 0, Math.PI * 2); pctx.fill();

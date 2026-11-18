@@ -226,7 +226,8 @@ export function showItemStatusCard(item, ctx) {
       chips.push({ icon: '⏰', text: 'Vencida', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
     } else if (petri.mode !== 'bare' && !petri.contaminated) {
       const remD = getCultureRemainingDays(petri);
-      const envTxt = petri.refrigerated ? '❄️ 4°C Refrigerada' : '🌡️ 25°C Ambiente';
+      const pTemp = (typeof petri.tempC === 'number' ? petri.tempC : (petri.refrigerated ? 4.0 : 24.5)).toFixed(1).replace('.', ',');
+      const envTxt = petri.refrigerated ? `❄️ ${pTemp}°C Refrigerada` : `🌡️ ${pTemp}°C Ambiente`;
       chips.push({ icon: '⏳', text: 'Validade: ' + remD + 'd (' + envTxt + ')', color: petri.refrigerated ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
     }
   }

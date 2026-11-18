@@ -27,7 +27,9 @@ export function getPP5Meta(filled) {
       return 12 + (sc.fillGrams || 0) + (sc.waterMl || 0) +
         (liquid ? liquid.volMl : 0) + (medium ? medium.powderGrams : 0);
     },
-    getTempC: (item) => (item && item.spawnCtrl && item.spawnCtrl.inoculated) ? 26.1 : 23.5,
+    getTempC: (item) => (item && item.spawnCtrl && typeof item.spawnCtrl.tempC === 'number')
+      ? item.spawnCtrl.tempC
+      : ((item && item.spawnCtrl && item.spawnCtrl.inoculated) ? 26.1 : 23.5),
     compatibilities: {
       canEnterCooker: true,
       receivesSyringe: !!filled,

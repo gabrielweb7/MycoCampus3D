@@ -140,6 +140,9 @@ export function canDisposeItemInTrash(item) {
   if (item.scalpelCtrl) {
     return !!(item.scalpelCtrl.hasBlade && !item.scalpelCtrl.sterile);
   }
+  if (item.bladePackCtrl) {
+    return !!item.bladePackCtrl.empty;
+  }
   if (item.mesh.userData.liquidCtrl && item.id.indexOf('distilled_jug') !== 0) {
     const hasPda = !!(item.pdaMediumCtrl && (item.pdaMediumCtrl.powderGrams > 0 || item.pdaMediumCtrl.mixed || item.pdaMediumCtrl.burned));
     const hasCulture = !!(item.cultureCtrl && (item.cultureCtrl.colonized || item.cultureCtrl.contaminated || item.cultureCtrl.expired));
@@ -272,6 +275,19 @@ export function handleTrashDisposal(ctx, item) {
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onToast) ctx.callbacks.onToast('🗑️ Bag descartado no lixo! Novo bag limpo reposto no estoque.');
+    ctx.notifyWorldAction();
+    return true;
+  }
+
+  if (item.bladePackCtrl && item.bladePackCtrl.empty) {
+    if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
+    const pIdx = ctx.pickableItems.indexOf(item);
+    if (pIdx !== -1) ctx.pickableItems.splice(pIdx, 1);
+    if (ctx.heldItem === item) ctx.heldItem = null;
+    if (ctx.placementGhost) ctx.placementGhost.visible = false;
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🗑️ Embalagem vazia da lâmina descartada no lixo!');
     ctx.notifyWorldAction();
     return true;
   }

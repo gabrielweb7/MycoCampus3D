@@ -30,6 +30,14 @@ export const SCALPEL_BLADE_EXPIRE_MS = 160000;
 export function updateScalpelLabel(item) {
   if (!item || !item.scalpelCtrl) return;
   const sc = item.scalpelCtrl;
+  if (sc.myceliumChunkMesh) {
+    sc.myceliumChunkMesh.visible = !!sc.hasMycelium;
+    if (sc.myceliumChunkMesh.material) {
+      const dirty = !sc.sterile || !!sc.cutContaminated || !!sc.bladeContaminated || !!sc.bladeExpired;
+      sc.myceliumChunkMesh.material.color.setHex(dirty ? 0x16a34a : 0xf8fafc);
+      sc.myceliumChunkMesh.material.emissive.setHex(dirty ? 0x14532d : 0xe2e8f0);
+    }
+  }
   if (!sc.hasBlade) {
     item.label = 'Bisturi Inox (Sem lâmina)';
   } else if (sc.bladeExpired) {
@@ -80,6 +88,14 @@ export function makeScalpel(ctx, id, px, py, pz) {
   neck.position.set(0, 0.006, -0.052);
   const blade = makeBox(0.011, 0.003, 0.044, bladeMat);
   blade.position.set(0, 0.006, -0.084);
+  const myceliumChunk = makeBox(
+    0.0085,
+    0.0045,
+    0.011,
+    new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xe2e8f0, emissiveIntensity: 0.25, roughness: 0.85 })
+  );
+  myceliumChunk.position.set(0, 0.0085, -0.103);
+  myceliumChunk.visible = false;
   const pickHitbox = makeBox(
     0.055,
     0.036,
@@ -88,7 +104,7 @@ export function makeScalpel(ctx, id, px, py, pz) {
   );
   pickHitbox.position.set(0, 0.016, -0.02);
 
-  sg.add(handle, neck, blade, pickHitbox);
+  sg.add(handle, neck, blade, myceliumChunk, pickHitbox);
   sg.userData.isScalpel = true;
   const item = registerPickable(ctx, id, 'Bisturi Inox (Lâmina #24 Estéril ✅)', sg, px, py, pz, 0, 0.09, 0.02, SCALPEL_META);
   item.scalpelCtrl = {
@@ -97,10 +113,24 @@ export function makeScalpel(ctx, id, px, py, pz) {
     bladeExpired: false,
     bladeAttachedAt: performance.now(),
     hasMycelium: false,
-    bladeMesh: blade
+    bladeMesh: blade,
+    myceliumChunkMesh: myceliumChunk
   };
   updateScalpelLabel(item);
   return item;
+}
+
+export function markBladePackEmpty(item) {
+  if (!item || !item.bladePackCtrl) return;
+  item.bladePackCtrl.empty = true;
+  item.label = 'Embalagem Lâmina #24 (Vazia ⚠️ Jogue no lixo)';
+  const pm = item.bladePackCtrl.packMesh;
+  if (pm && pm.material) {
+    pm.material.color.setHex(0x94a3b8);
+    pm.material.transparent = true;
+    pm.material.opacity = 0.72;
+    pm.material.needsUpdate = true;
+  }
 }
 
 export function makeScalpelBladePack(ctx, id, px, py, pz) {
@@ -125,5 +155,7 @@ export function makeScalpelBladePack(ctx, id, px, py, pz) {
   packHitbox.position.y = 0.014;
   pg.add(pack, packHitbox);
   pg.userData.isScalpelBladePack = true;
-  return registerPickable(ctx, id, 'Sachê Lâmina Bisturi #24 (Estéril)', pg, px, py, pz, 0, 0.06, 0.02, BLADE_PACK_META);
+  const item = registerPickable(ctx, id, 'Sachê Lâmina Bisturi #24 (Estéril)', pg, px, py, pz, 0, 0.06, 0.02, BLADE_PACK_META);
+  item.bladePackCtrl = { empty: false, packMesh: pack };
+  return item;
 }

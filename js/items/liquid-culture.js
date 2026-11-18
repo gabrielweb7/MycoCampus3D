@@ -64,6 +64,8 @@ export function updateCultureLiquidLabel(item) {
   const volumeLabel = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml)';
   if (liquid.volMl <= 0) {
     item.label = volumeLabel + ' • sem cultura líquida';
+  } else if (culture.contaminated) {
+    item.label = volumeLabel + ' • contaminada 🦠';
   } else if (culture.expired) {
     item.label = volumeLabel + ' • cultura vencida';
   } else if (culture.colonized) {
@@ -71,8 +73,12 @@ export function updateCultureLiquidLabel(item) {
     const temperature = tempVal.toFixed(1).replace('.', ',') + '°C' + (culture.refrigerated ? ' ❄️' : '');
     item.label = volumeLabel + ' • 100% colonizada • ' + temperature +
       ' • validade ' + getCultureRemainingDays(culture) + ' dias';
+  } else if (culture.inoculated) {
+    const tempVal = typeof culture.tempC === 'number' ? culture.tempC : (culture.refrigerated ? 4.0 : 24.5);
+    const temperature = tempVal.toFixed(1).replace('.', ',') + '°C' + (culture.refrigerated ? ' ❄️' : '');
+    item.label = volumeLabel + ' • colonizando ' + Math.floor(culture.colonization || 0) + '% • ' + temperature;
   } else {
-    item.label = volumeLabel + ' • colonizando • 24,5°C';
+    item.label = volumeLabel + ' • estéril (não colonizada)';
   }
 }
 
@@ -91,7 +97,13 @@ export function updateContainerVolume(item, newVol) {
     ctrl.liqMesh.scale.y = Math.max(0.02, frac);
     ctrl.liqMesh.position.y = ctrl.baseY + (ctrl.maxH * frac) * 0.5;
     if (ctrl.mycCloud) {
-      ctrl.mycCloud.visible = true;
+      const cCtrl = item.cultureCtrl;
+      const showCloud = !!(cCtrl && (cCtrl.colonized || cCtrl.inoculated));
+      ctrl.mycCloud.visible = showCloud;
+      if (showCloud) {
+        const growthScale = cCtrl.colonized ? 1 : Math.max(0.28, (cCtrl.colonization || 0) / 100);
+        ctrl.mycCloud.scale.set(1.25 * growthScale, 0.55 * growthScale, 1.15 * growthScale);
+      }
       ctrl.mycCloud.position.y = ctrl.baseY + Math.min(ctrl.maxH * frac * 0.45, 0.048);
     }
   }

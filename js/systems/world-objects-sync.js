@@ -144,8 +144,13 @@ export function getReplicatedItemState(sim, item) {
     state.scalpel = {
       hasBlade: !!item.scalpelCtrl.hasBlade,
       sterile: !!item.scalpelCtrl.sterile,
-      hasMycelium: !!item.scalpelCtrl.hasMycelium
+      hasMycelium: !!item.scalpelCtrl.hasMycelium,
+      bladeContaminated: !!item.scalpelCtrl.bladeContaminated,
+      cutContaminated: !!item.scalpelCtrl.cutContaminated
     };
+  }
+  if (item.bladePackCtrl) {
+    state.bladePack = { empty: !!item.bladePackCtrl.empty };
   }
   const containingCooker = sim.cookerPots.find((cooker) => cooker.contents.indexOf(item) !== -1);
   if (containingCooker) {
@@ -304,11 +309,15 @@ export function applyReplicatedItemState(sim, item, state) {
     updateMixingBowlLabel(item);
   }
   if (item.scalpelCtrl && state.scalpel && typeof state.scalpel === 'object') {
-    ['hasBlade', 'sterile', 'hasMycelium'].forEach(function (key) {
+    ['hasBlade', 'sterile', 'hasMycelium', 'bladeContaminated', 'cutContaminated'].forEach(function (key) {
       if (typeof state.scalpel[key] === 'boolean') item.scalpelCtrl[key] = state.scalpel[key];
     });
     if (item.scalpelCtrl.bladeMesh) item.scalpelCtrl.bladeMesh.visible = item.scalpelCtrl.hasBlade;
     updateScalpelLabel(item);
+  }
+  if (item.bladePackCtrl && state.bladePack && state.bladePack.empty) {
+    item.bladePackCtrl.empty = true;
+    item.label = 'Embalagem Lâmina #24 (Vazia ⚠️ Jogue no lixo)';
   }
 
   if (typeof state.containerId === 'string') {
