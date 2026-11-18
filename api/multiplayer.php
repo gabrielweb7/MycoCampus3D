@@ -209,7 +209,7 @@ if ($action === 'sync') {
     $holding = in_array($holding, MP_ITEMS, true) ? $holding : '';
     $seated = $savedPose ? !empty($savedPose['seated']) : !empty($body['seated']);
     $toyMode = (string)($body['toy_mode'] ?? '');
-    $walking = ($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0)));
+    $walking = ($toyMode === 'parachute') ? 5 : (($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0))));
     $inFps = !empty($body['in_fps']) ? 1 : 0;
     $vx = mp_num($body['vx'] ?? 0, 25.0);
     $vz = mp_num($body['vz'] ?? 0, 25.0);
@@ -355,7 +355,7 @@ if ($action === 'sync') {
             'holding' => (string)$p['holding_item'],
             'walking' => ((int)$p['walking'] === 1),
             'seated' => ((int)$p['walking'] === 2),
-            'toy_mode' => ((int)$p['walking'] === 4) ? 'paraglider' : (((int)$p['walking'] === 3) ? 'snowboard' : ''),
+            'toy_mode' => ((int)$p['walking'] === 5) ? 'parachute' : (((int)$p['walking'] === 4) ? 'paraglider' : (((int)$p['walking'] === 3) ? 'snowboard' : '')),
             'in_fps' => (bool)$p['in_fps'],
             'chat' => $p['chat_msg'],
         ];

@@ -9,6 +9,7 @@ import { getGroundHeight, clampPosAgainstWalls } from '../engine/physics.js';
 import { updateCampusAuditoriumSlide, setRankingList } from '../world/staircase-clock.js';
 import { triggerConfettiBurst } from '../entities/confetti.js';
 import { buildAvatarHat, updateCampusPlayers } from '../entities/avatars.js';
+import { createRoundParachuteMesh } from '../entities/vehicles/paraglider.js';
 import { getLabItemGuide } from '../items/item-registry.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
 import { applyQualityTier } from './game-loop.js';
@@ -90,7 +91,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       yaw: sim.playerYaw, pitch: sim.playerPitch,
       holding_item: sim.heldItem ? sim.heldItem.id : '',
       walking: sim.isWalking, seated: !!sim.seatedSeat, in_fps: sim.inFps,
-      toy_mode: (sim.paragliderActive && inAir) ? 'paraglider' : (sim.snowboardActive ? 'snowboard' : ''),
+      toy_mode: (sim.roundParachuteActive && inAir) ? 'parachute' : ((sim.paragliderActive && inAir) ? 'paraglider' : (sim.snowboardActive ? 'snowboard' : '')),
       current_hat: sim.localHat,
       emote: sim.localEmote || (window.isTripRainbowActive && window.isTripRainbowActive() ? 'rainbow_trip' : '')
     };
@@ -133,6 +134,18 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.isCampusParagliderActive = function () { return sim.paragliderActive; };
+
+  window.setCampusRoundParachuteActive = function (active) {
+    sim.roundParachuteActive = !!active;
+    if (sim.roundParachuteActive && !sim.roundParachuteGroup && sim.scene) {
+      sim.roundParachuteGroup = createRoundParachuteMesh(1.0);
+      sim.roundParachuteGroup.visible = false;
+      sim.scene.add(sim.roundParachuteGroup);
+    }
+    if (!sim.roundParachuteActive && sim.roundParachuteGroup) {
+      sim.roundParachuteGroup.visible = false;
+    }
+  };
 
   window.setLocalAvatarHat = function (hatId) {
     sim.localHat = hatId || 'default';

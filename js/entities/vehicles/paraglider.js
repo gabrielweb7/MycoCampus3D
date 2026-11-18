@@ -39,6 +39,39 @@ export function createParagliderWingMesh(scale) {
   return wg;
 }
 
+export function createRoundParachuteMesh(scale) {
+  var pg = new THREE.Group();
+  var s = scale || 1;
+  var gores = 8;
+  var radius = 1.85 * s;
+  var topY = 2.95 * s;
+  var redMat = new THREE.MeshLambertMaterial({ color: 0xef4444, side: THREE.DoubleSide });
+  var whiteMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc, side: THREE.DoubleSide });
+  var segAngle = (Math.PI * 2) / gores;
+
+  for (var i = 0; i < gores; i++) {
+    var geo = new THREE.SphereGeometry(radius, 4, 8, i * segAngle, segAngle, 0, Math.PI * 0.52);
+    var gore = new THREE.Mesh(geo, i % 2 === 0 ? redMat : whiteMat);
+    gore.position.y = topY - radius * 0.15;
+    gore.scale.set(1, 0.72, 1);
+    pg.add(gore);
+  }
+
+  var lineMat = new THREE.LineBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.8 });
+  var linePts = [];
+  var rimY = topY - radius * 0.15;
+  for (var li = 0; li < gores; li++) {
+    var ang = li * segAngle;
+    var rx = Math.cos(ang) * radius * 0.96;
+    var rz = Math.sin(ang) * radius * 0.96;
+    linePts.push(rx, rimY, rz, rx < 0 ? -0.22 * s : 0.22 * s, 0.95 * s, 0);
+  }
+  var lGeo = new THREE.BufferGeometry();
+  lGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePts, 3));
+  pg.add(new THREE.LineSegments(lGeo, lineMat));
+  return pg;
+}
+
 export function buildParagliderRig(ctx) {
   if (ctx.getParagliderGroup()) return;
   var paragliderGroup = createParagliderWingMesh(1.0);

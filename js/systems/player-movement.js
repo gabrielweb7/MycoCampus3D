@@ -159,11 +159,11 @@ export function stepPlayerMovement(ctx, dt, now) {
     }
   }
 
-  if (ctx.paragliderActive && !ctx.onGround) {
-    if (inThermal) {
+  if ((ctx.paragliderActive || ctx.roundParachuteActive) && !ctx.onGround) {
+    if (inThermal && ctx.paragliderActive) {
       ctx.playerVelY += (V.thermalLiftVelocity - ctx.playerVelY) * Math.min(1, dt * 3.5);
     } else {
-      const sinkRate = moveZ < -0.1 ? -5.2 : (moveZ > 0.1 ? -2.15 : -1.55);
+      const sinkRate = ctx.roundParachuteActive ? -2.35 : (moveZ < -0.1 ? -5.2 : (moveZ > 0.1 ? -2.15 : -1.55));
       ctx.playerVelY += (sinkRate - ctx.playerVelY) * Math.min(1, dt * 4.5);
     }
   } else {
@@ -175,6 +175,10 @@ export function stepPlayerMovement(ctx, dt, now) {
     ctx.playerVelY = 0;
     ctx.onGround = true;
     ctx.lastGroundedAt = now;
+    if (ctx.roundParachuteActive) {
+      ctx.roundParachuteActive = false;
+      if (ctx.roundParachuteGroup) ctx.roundParachuteGroup.visible = false;
+    }
   } else {
     ctx.onGround = false;
   }
@@ -220,6 +224,14 @@ export function stepPlayerMovement(ctx, dt, now) {
       ctx.snowboardGroup.rotation.y = ctx.playerYaw - 0.35;
       ctx.snowboardGroup.rotation.x = ctx.snowboardPitch;
       ctx.snowboardGroup.rotation.z = ctx.snowboardRoll;
+    }
+  }
+  if (ctx.roundParachuteGroup) {
+    ctx.roundParachuteGroup.visible = ctx.roundParachuteActive && !ctx.onGround && ctx.inFps;
+    if (ctx.roundParachuteGroup.visible) {
+      ctx.roundParachuteGroup.position.set(ctx.playerPos.x, ctx.playerPos.y + 0.15, ctx.playerPos.z);
+      ctx.roundParachuteGroup.rotation.y = ctx.playerYaw;
+      ctx.roundParachuteGroup.rotation.z = Math.sin((ctx.clock ? ctx.clock.elapsedTime : now * 0.001) * 1.8) * 0.06;
     }
   }
   if (ctx.paragliderGroup) {

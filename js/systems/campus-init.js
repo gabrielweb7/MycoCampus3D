@@ -126,6 +126,8 @@ const sim = {
   snowboardPitch: 0,
   paragliderActive: false,
   paragliderGroup: null,
+  roundParachuteActive: false,
+  roundParachuteGroup: null,
   paragliderRoll: 0,
   thermalColumns: [],
   snapClosePot: null,

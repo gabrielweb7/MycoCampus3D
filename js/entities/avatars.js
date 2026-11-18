@@ -4,7 +4,7 @@
  */
 
 import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
-import { createParagliderWingMesh } from './vehicles/paraglider.js';
+import { createParagliderWingMesh, createRoundParachuteMesh } from './vehicles/paraglider.js';
 
 const THREE = window.THREE;
 
@@ -580,7 +580,16 @@ export function stepMultiplayerAvatars(ctx, dt) {
     const twoH = !!(heldObj && heldObj.mesh.userData.twoHanded);
     if (av.snowboardMesh) av.snowboardMesh.visible = (av.toyMode === 'snowboard');
     if (av.paragliderMesh) av.paragliderMesh.visible = (av.toyMode === 'paraglider');
-    if (av.toyMode === 'paraglider') {
+    if (av.toyMode === 'parachute') {
+      if (!av.roundParachuteMesh) {
+        av.roundParachuteMesh = createRoundParachuteMesh(0.75);
+        av.group.add(av.roundParachuteMesh);
+      }
+      av.roundParachuteMesh.visible = true;
+    } else if (av.roundParachuteMesh) {
+      av.roundParachuteMesh.visible = false;
+    }
+    if (av.toyMode === 'paraglider' || av.toyMode === 'parachute') {
       av.leftLeg.rotation.x = 0.7;
       av.rightLeg.rotation.x = 0.7;
       av.leftArm.rotation.x = -2.4;
