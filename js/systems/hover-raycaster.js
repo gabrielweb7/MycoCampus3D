@@ -3,17 +3,13 @@
  * Responsavel por identificar alvos sob a mira/cursor e atualizar o prompt contextual do HUD.
  */
 
-import { getHeldBoardToolColor } from './chalkboard.js';
 import { cancelHeldItemPlacement, updateHeldItemPlacementPreview } from './held-item-placement.js';
-import { updatePlacementGhostVisual } from '../entities/placement-ghost.js';
+import { resolveHeldItemHover } from './hover-held-handlers.js';
 import { isSeatOccupied } from './world-interactions.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
-import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
 import { BURNER_LEVEL_NAMES } from '../items/pressure-cooker.js';
-import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
-import { PDA_POWDER_DOSE_GRAMS } from '../items/pda-mix.js';
-import { formatSprayHoverPrompt, getSanitizationStatus } from '../items/alcohol-spray.js';
-import { canDisposeItemInTrash } from '../items/lab-trash.js';
+import { isCultureAccessibleFromFridge, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
+import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
 import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import { formatHoverInfo, updateHover3dBadge, hideHover3dBadge } from '../entities/hover-3d-badge.js';
 
@@ -65,6 +61,11 @@ export function syncHover3dBadge(ctx, prompt) {
     hideHover3dBadge(badge);
     return;
   }
+  // Se estiver segurando o termômetro, a temperatura já aparece diretamente no display LCD da pistola
+  if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer) {
+    hideHover3dBadge(badge);
+    return;
+  }
   const targetObj = resolveHoverTargetObj(ctx);
 
   if (!targetObj && !ctx.hoverHit && !ctx.hoveredBoardHit) {
@@ -81,28 +82,23 @@ export function syncHover3dBadge(ctx, prompt) {
   let hasWorldPos = false;
   if (ctx.hoverHit && ctx.hoverHit.point) {
     _tmpBadgeWorldPos.copy(ctx.hoverHit.point);
-    _tmpBadgeWorldPos.y += 0.34;
+    _tmpBadgeWorldPos.y += 0.16;
     hasWorldPos = true;
   } else if (ctx.hoveredBoardHit && ctx.hoveredBoardHit.point) {
     _tmpBadgeWorldPos.copy(ctx.hoveredBoardHit.point);
-    _tmpBadgeWorldPos.y += 0.28;
-    hasWorldPos = true;
-  } else if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer &&
-             ctx.thermoLaserOn && ctx.thermoLaserDot && ctx.thermoLaserDot.visible) {
-    _tmpBadgeWorldPos.copy(ctx.thermoLaserDot.position);
-    _tmpBadgeWorldPos.y += 0.32;
+    _tmpBadgeWorldPos.y += 0.18;
     hasWorldPos = true;
   } else if (targetObj && targetObj.mesh) {
     targetObj.mesh.getWorldPosition(_tmpBadgeWorldPos);
-    _tmpBadgeWorldPos.y += ((targetObj.mesh.userData && targetObj.mesh.userData.height) || targetObj.height || 0.35) + 0.28;
+    _tmpBadgeWorldPos.y += ((targetObj.mesh.userData && targetObj.mesh.userData.height) || targetObj.height || 0.35) + 0.16;
     hasWorldPos = true;
   } else if (targetObj && targetObj.group) {
     targetObj.group.getWorldPosition(_tmpBadgeWorldPos);
-    _tmpBadgeWorldPos.y += 0.52;
+    _tmpBadgeWorldPos.y += 0.24;
     hasWorldPos = true;
   } else if (targetObj && targetObj.position) {
     _tmpBadgeWorldPos.copy(targetObj.position);
-    _tmpBadgeWorldPos.y += 0.52;
+    _tmpBadgeWorldPos.y += 0.24;
     hasWorldPos = true;
   }
 
@@ -124,21 +120,6 @@ function setHoverPrompt(ctx, prompt) {
     ctx.callbacks.onHoverPrompt(prompt);
   }
   syncHover3dBadge(ctx, prompt);
-}
-
-function getSyringeTargetHint(spawn, syringeVolume, pdaAgarReady, pdaMedium) {
-  if (syringeVolume <= 0) return '💉 Seringa vazia • Aspire cultura líquida antes de inocular';
-  if (!spawn.filled) return '🌽 Adicione substrato antes de inocular';
-  if (spawn.burned) return '🔥 Este recipiente foi queimado e não pode ser inoculado';
-  if (spawn.contaminated) return '🦠 Este recipiente está contaminado';
-  if (spawn.inoculated) return '✅ Este recipiente já foi inoculado';
-  if (spawn.substrateKind === 'pda' && (!pdaMedium || !pdaMedium.mixed || !pdaMedium.sterilized || pdaMedium.burned)) {
-    return '♨️ Misture o PDA/BDA e esterilize o PP5 antes de inocular';
-  }
-  if (spawn.isPP5 && (spawn.waterMl || 0) < 35 && !pdaAgarReady) return '💧 Hidrate o PP5 com 35ml de água antes de esterilizar';
-  if (spawn.isBag && !spawn.sealed) return '♨️ Sele o bag antes de esterilizar';
-  if (!spawn.sterilized) return '♨️ Esterilize o recipiente antes de inocular';
-  return '⚠️ Este recipiente ainda não está pronto';
 }
 
 export function firstValidRayHit(hits) {
@@ -198,596 +179,12 @@ export function updateHoverRay(ctx, customNdc) {
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
   ctx.raycaster.setFromCamera(rayNdc, ctx.camera);
 
-  if (ctx.heldItem) {
-    const toolCol = getHeldBoardToolColor(ctx.heldItem);
-    if (toolCol && ctx.chalkboardMeshes.length) {
-      const bHits = ctx.raycaster.intersectObjects(ctx.chalkboardMeshes, false);
-      if (bHits.length > 0 && bHits[0].distance < 3.8 && bHits[0].uv) {
-        ctx.hoveredBoardHit = bHits[0];
-        ctx.hoverHit = bHits[0];
-        ctx.hoveredBoardIndex = bHits[0].object.userData.boardIndex || 0;
-        if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        const touchUi = ctx.isTouchDevice();
-        prompt = toolCol === 'erase'
-          ? (touchUi ? '🧽 Arraste na lousa para apagar' : '🧽 Segure o clique para apagar a lousa')
-          : (touchUi ? '✏️ Arraste na lousa para escrever' : '✏️ Segure o clique para escrever na lousa');
-        setHoverPrompt(ctx, prompt);
-        return;
-      }
-    }
-    if (ctx.heldItem.mesh.userData.isAlcoholSpray && !ctx.placementMode) {
-      const spRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const spRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      let bestTarget = null;
-      let bestLabel = '';
-      let bestDist = 4.2;
-      let bestPoint = null;
-      let bestHitObj = null;
-
-      for (let ai = 0; ai < ctx.pickableItems.length; ai++) {
-        const aCand = ctx.pickableItems[ai];
-        if (aCand === ctx.heldItem || ctx.isHeldByRemote(aCand.id) || isItemInClosedCabinet(ctx, aCand)) continue;
-        const adx = aCand.mesh.position.x - spRefX, adz = aCand.mesh.position.z - spRefZ;
-        if (adx * adx + adz * adz > 100) continue;
-        const aHit = intersectPickableItem(ctx.raycaster, aCand);
-        if (aHit && aHit.distance < bestDist) {
-          bestDist = aHit.distance;
-          bestTarget = aCand.mesh.userData.isHood ? 'hood' : aCand;
-          bestLabel = aCand.label;
-          bestPoint = aHit.point;
-          bestHitObj = aHit;
-        }
-      }
-      if (greenhouseHitMeshes.length > 0) {
-        const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
-        if (ghHits.length > 0 && ghHits[0].distance < bestDist && ghHits[0].object.userData.greenhouseSlot) {
-          const hSlot = ghHits[0].object.userData.greenhouseSlot;
-          bestDist = ghHits[0].distance;
-          bestTarget = hSlot;
-          bestLabel = hSlot.name;
-          bestPoint = ghHits[0].point;
-          bestHitObj = ghHits[0];
-          ctx.hoveredGreenhouseSlot = hSlot;
-        }
-      }
-      if (!bestTarget && ctx.doorHitMeshes.length) {
-        const dHits = ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false);
-        if (dHits.length > 0 && dHits[0].distance < bestDist && dHits[0].object.userData.doorObj) {
-          bestDist = dHits[0].distance;
-          bestTarget = dHits[0].object.userData.doorObj;
-          bestLabel = bestTarget.label || 'Porta';
-          bestPoint = dHits[0].point;
-          bestHitObj = dHits[0];
-        }
-      }
-      if (!bestTarget && ctx.blindHitMeshes.length) {
-        const bHits = ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false);
-        if (bHits.length > 0 && bHits[0].distance < bestDist && bHits[0].object.userData.blindObj) {
-          bestDist = bHits[0].distance;
-          bestTarget = bHits[0].object.userData.blindObj;
-          bestLabel = 'Persiana';
-          bestPoint = bHits[0].point;
-          bestHitObj = bHits[0];
-        }
-      }
-      if (ctx.placementGhost) ctx.placementGhost.visible = false;
-      ctx.hoverHit = bestHitObj;
-      ctx.hoveredSprayTarget = { target: bestTarget, label: bestLabel, hitPoint: bestPoint };
-      setHoverPrompt(ctx, bestTarget
-        ? formatSprayHoverPrompt(bestTarget, bestLabel, ctx)
-        : '🧴 Borrifador Álcool 70% • Clique para borrifar ou aponte em algo (3x higieniza)');
-      return;
-    }
-    if (ctx.heldItem.mesh.userData.isPaperTowel && !ctx.placementMode) {
-      const ptRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const ptRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      let bestTarget = null;
-      let bestLabel = '';
-      let bestDist = 4.2;
-      let bestHitObj = null;
-      for (let ai = 0; ai < ctx.pickableItems.length; ai++) {
-        const aCand = ctx.pickableItems[ai];
-        if (aCand === ctx.heldItem || ctx.isHeldByRemote(aCand.id) || isItemInClosedCabinet(ctx, aCand)) continue;
-        const adx = aCand.mesh.position.x - ptRefX, adz = aCand.mesh.position.z - ptRefZ;
-        if (adx * adx + adz * adz > 100) continue;
-        const aHit = intersectPickableItem(ctx.raycaster, aCand);
-        if (aHit && aHit.distance < bestDist) {
-          bestDist = aHit.distance;
-          bestTarget = aCand.mesh.userData.isHood ? 'hood' : aCand;
-          bestLabel = aCand.label;
-          bestHitObj = aHit;
-        }
-      }
-      if (bestTarget) {
-        ctx.hoverHit = bestHitObj;
-        ctx.hoveredWipeTarget = { target: bestTarget, label: bestLabel };
-        if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        const st = getSanitizationStatus(bestTarget, ctx);
-        const wPrompt = st.alcoholWet
-          ? '🧻 Secar Álcool 70% de ' + bestLabel + ' (Concluir desinfecção 90s!)'
-          : (st.isSanitized
-            ? '✨🧻 Passar Papel em ' + bestLabel + ' (Resetar proteção para 90s)'
-            : '⚠️ Passe Álcool 70% (3x) em ' + bestLabel + ' antes de secar');
-        setHoverPrompt(ctx, wPrompt);
-        return;
-      }
-    }
-    if (!ctx.placementMode && ctx.heldItem.id && ctx.heldItem.id.indexOf('parafilm_') === 0) {
-      const pfRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const pfRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
-        const pCand = ctx.pickableItems[pi];
-        if (pCand === ctx.heldItem || !pCand.mesh || !pCand.mesh.userData.isPetri ||
-            ctx.isHeldByRemote(pCand.id) || isItemInClosedCabinet(ctx, pCand) ||
-            !isCultureAccessibleFromFridge(ctx, pCand)) continue;
-        const pdx = pCand.mesh.position.x - pfRefX, pdz = pCand.mesh.position.z - pfRefZ;
-        if (pdx * pdx + pdz * pdz > 100) continue;
-        const pHit = intersectPickableItem(ctx.raycaster, pCand);
-        if (pHit && pHit.distance < 3.5) {
-          ctx.hoverHit = pHit;
-          ctx.hoveredParafilmTarget = pCand;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          const pc = pCand.mesh.userData.petriCtrl;
-          const pfPrompt = pc.lidOpen
-            ? '⚠️ Feche a tampa da Placa de Petri antes de vedar com Parafilm M'
-            : (pc.parafilmSealed
-              ? '✅ Placa de Petri já vedada com Parafilm M'
-              : (pc.mode === 'bare'
-                ? '🧫 Adicione PDA/BDA e esterilize a placa antes de vedar'
-                : '🎞️ Vedar ' + pCand.label + ' com Parafilm M (Protege contra contaminação)'));
-          setHoverPrompt(ctx, pfPrompt);
-          return;
-        }
-      }
-    }
-    if (!ctx.placementMode && ctx.labTrashMeshes && ctx.labTrashMeshes.length && canDisposeItemInTrash(ctx.heldItem)) {
-      const trHits = ctx.raycaster.intersectObjects(ctx.labTrashMeshes, false);
-      if (trHits.length > 0 && trHits[0].distance < 3.5) {
-        ctx.hoveredTrash = true;
-        ctx.hoverHit = trHits[0];
-        if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        setHoverPrompt(ctx, ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.isBag
-          ? '🗑️ Descartar Bag na Lixeira (repõe novo no estoque)'
-          : '🗑️ Esvaziar conteúdo na Lixeira (limpar recipiente)');
-        return;
-      }
-    }
-    if (ctx.heldItem.pdaReagentCtrl) {
-      const pdaRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const pdaRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
-        const pCand = ctx.pickableItems[pi];
-        if (pCand === ctx.heldItem || !pCand.pdaMediumCtrl || pCand.pdaMediumCtrl.kind !== 'beaker' ||
-            !pCand.meta || !pCand.meta.compatibilities || !pCand.meta.compatibilities.receivesPdaWater ||
-            ctx.isHeldByRemote(pCand.id) || isItemInClosedCabinet(ctx, pCand)) continue;
-        const dx = pCand.mesh.position.x - pdaRefX, dz = pCand.mesh.position.z - pdaRefZ;
-        if (dx * dx + dz * dz > 100) continue;
-        const hit = intersectPickableItem(ctx.raycaster, pCand);
-        if (hit && hit.distance < 3.5) {
-          ctx.hoverHit = hit;
-          ctx.hoveredPdaTarget = pCand;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          setHoverPrompt(ctx, '🧪 Adicionar ' + PDA_POWDER_DOSE_GRAMS + 'g de PDA/BDA ao béquer');
-          return;
-        }
-      }
-    }
-    if (ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.sealsBags) {
-      const hsRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const hsRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let hi = 0; hi < ctx.pickableItems.length; hi++) {
-        const hCand = ctx.pickableItems[hi];
-        if (!hCand.spawnCtrl || !hCand.spawnCtrl.isBag || hCand === ctx.heldItem ||
-            ctx.isHeldByRemote(hCand.id) || isItemInClosedCabinet(ctx, hCand)) continue;
-        const hdx = hCand.mesh.position.x - hsRefX, hdz = hCand.mesh.position.z - hsRefZ;
-        if (hdx * hdx + hdz * hdz > 100) continue;
-        const hHit = intersectPickableItem(ctx.raycaster, hCand);
-        if (!hHit || hHit.distance >= 3.5) continue;
-        ctx.hoverHit = hHit;
-        ctx.hoveredHeatSealerTarget = hCand;
-        if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        const hSc = hCand.spawnCtrl;
-        const hPrompt = canSealSpawnBag(hCand)
-          ? '♨️ Selar ' + hCand.label + ' antes da esterilização'
-          : (!hSc.filled
-            ? '🌾 Preencha o bag com substrato antes de selar'
-            : (hSc.sealed
-              ? '✅ Este bag já está selado'
-              : (hSc.sterilized || hSc.inoculated
-                ? '⚠️ O bag deve ser selado antes da esterilização'
-                : (hSc.burned ? '🔥 Este bag foi queimado' : '🦠 Este bag está contaminado'))));
-        setHoverPrompt(ctx, hPrompt);
-        return;
-      }
-    }
-    if (ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.isBag && !ctx.placementMode) {
-      const hsRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const hsRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let hi = 0; hi < ctx.pickableItems.length; hi++) {
-        const sCand = ctx.pickableItems[hi];
-        if (!sCand || !sCand.meta || !sCand.meta.compatibilities || !sCand.meta.compatibilities.sealsBags ||
-            ctx.isHeldByRemote(sCand.id) || isItemInClosedCabinet(ctx, sCand)) continue;
-        const hdx = sCand.mesh.position.x - hsRefX, hdz = sCand.mesh.position.z - hsRefZ;
-        if (hdx * hdx + hdz * hdz > 100) continue;
-        const sHit = intersectPickableItem(ctx.raycaster, sCand);
-        if (!sHit || sHit.distance >= 3.5) continue;
-        ctx.hoverHit = sHit;
-        ctx.hoveredHeatSealerTarget = ctx.heldItem;
-        if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        const hSc = ctx.heldItem.spawnCtrl;
-        const hPrompt = canSealSpawnBag(ctx.heldItem)
-          ? '♨️ Selar este Bag na Seladora Térmica (na mão!)'
-          : (!hSc.filled
-            ? '🌾 Preencha o bag com substrato antes de selar'
-            : (hSc.sealed ? '✅ Este bag já está selado' : '⚠️ Este bag não pode ser selado agora'));
-        setHoverPrompt(ctx, hPrompt);
-        return;
-      }
-    }
-    if (canItemEnterCooker(ctx.heldItem)) {
-      for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
-        const cp = ctx.cookerPots[ci];
-        if (cp.lidItem.isAttached || cp.contents.length >= 6) continue;
-        const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
-        if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
-          ctx.hoverHit = cpHits[0];
-          ctx.hoveredPotInsert = cp;
-          const isBase = !!(ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isCookerBase);
-          const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
-          if (isBase && ctx.placementGhost) {
-            const potP = cp.potItem.mesh.position;
-            ctx.placementGhost.position.set(potP.x, potP.y + 0.036, potP.z);
-            updatePlacementGhostVisual(ctx.heldItem, !hasBase, cp.potItem.mesh.rotation.y, ctx.clock.elapsedTime);
-          } else if (ctx.placementGhost) {
-            ctx.placementGhost.visible = false;
-          }
-          const potPrompt = isBase
-            ? (hasBase ? '⚠️ Esta panela já possui Base Perfurada' : '⚙️ Clique para encaixar a Base Perfurada (4cm) no fundo')
-            : (!hasBase
-              ? '⚠️ Encaixe primeiro a Base Perfurada (4cm) na panela'
-              : '🍲 Colocar ' + ctx.heldItem.label + ' sobre a Base na Panela');
-          setHoverPrompt(ctx, potPrompt);
-          return;
-        }
-      }
-    }
-    if (ctx.labSinkMeshes && ctx.labSinkMeshes.length) {
-      const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !cp.lidItem.isAttached);
-      const isLiquidHeld = canFillFromSink(ctx.heldItem);
-      if (isPotHeld || isLiquidHeld) {
-        const sHits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
-        if (sHits.length > 0 && sHits[0].distance < 3.5) {
-          ctx.hoverHit = sHits[0];
-          ctx.hoveredSink = sHits[0].object.userData.labSink;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          const sinkLc = ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.liquidCtrl;
-          const sinkPot = ctx.cookerPots.find((cp) => cp.potItem === ctx.heldItem);
-          const volTxt = sinkLc
-            ? ' • ' + Math.round(sinkLc.volMl) + '/' + sinkLc.maxMl + ' ml'
-            : (sinkPot ? ' • ' + (sinkPot.waterMl / 1000).toFixed(1) + '/' + (sinkPot.maxWaterMl / 1000).toFixed(0) + ' L' : '');
-          setHoverPrompt(ctx, '🚰 SEGURE o clique para encher ' + ctx.heldItem.label + volTxt + ' (solte para parar)');
-          return;
-        }
-      }
-    }
-    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl && ctx.heldItem.mesh.userData.liquidCtrl.volMl > 0) {
-      const sourceHasPda = hasPdaContents(ctx.heldItem);
-      const sourceCanPourWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
-        ctx.heldItem.meta.compatibilities.poursWater;
-      if (ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
-          ctx.heldItem.meta.compatibilities.poursWater && !sourceHasPda) {
-        const pdaRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-        const pdaRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-        for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
-          const pCand = ctx.pickableItems[pi];
-          if (pCand === ctx.heldItem || !pCand.pdaMediumCtrl || pCand.pdaMediumCtrl.kind !== 'beaker' ||
-              !pCand.meta || !pCand.meta.compatibilities || !pCand.meta.compatibilities.receivesPdaPowder ||
-              ctx.isHeldByRemote(pCand.id) || isItemInClosedCabinet(ctx, pCand)) continue;
-          const dx = pCand.mesh.position.x - pdaRefX, dz = pCand.mesh.position.z - pdaRefZ;
-          if (dx * dx + dz * dz > 100) continue;
-          const hit = intersectPickableItem(ctx.raycaster, pCand);
-          if (hit && hit.distance < 3.5) {
-            ctx.hoverHit = hit;
-            ctx.hoveredPdaTarget = pCand;
-            if (ctx.placementGhost) ctx.placementGhost.visible = false;
-            const hint = pCand.pdaMediumCtrl.powderGrams > 0
-              ? '💧 Completar o preparo do PDA/BDA com água'
-              : '🧪 Adicione o pó PDA/BDA antes da água';
-            setHoverPrompt(ctx, hint);
-            return;
-          }
-        }
-      }
-      for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
-        if (!sourceCanPourWater || sourceHasPda) break;
-        const cp = ctx.cookerPots[ci];
-        if (cp.lidItem.isAttached || cp.waterMl >= cp.maxWaterMl) continue;
-        const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
-        if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
-          ctx.hoverHit = cpHits[0];
-          ctx.hoveredFillPot = cp;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          setHoverPrompt(ctx, '💧 Despejar água na Panela (' + (cp.waterMl / 1000).toFixed(1) + 'L / 20L)');
-          return;
-        }
-      }
-      const pRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const pRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
-        const pCand = ctx.pickableItems[pi];
-        if (pCand === ctx.heldItem || ctx.isHeldByRemote(pCand.id) ||
-            !isCultureAccessibleFromFridge(ctx, pCand) || isItemInClosedCabinet(ctx, pCand)) continue;
-        const isPourableLc = !!(pCand.mesh && pCand.mesh.userData.liquidCtrl &&
-          pCand.mesh.userData.liquidCtrl.volMl < pCand.mesh.userData.liquidCtrl.maxMl &&
-          !(pCand.spawnCtrl && pCand.spawnCtrl.isPP5) &&
-          pCand.meta && pCand.meta.compatibilities &&
-          (sourceHasPda
-            ? pCand.meta.compatibilities.acceptsPdaMedium
-            : sourceCanPourWater && pCand.meta.compatibilities.receivesWater));
-        const isPourablePP5 = !!(pCand.spawnCtrl && pCand.spawnCtrl.isPP5 &&
-          (sourceHasPda
-            ? !pCand.spawnCtrl.filled && pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.acceptsPdaMedium
-            : sourceCanPourWater && pCand.spawnCtrl.filled && (pCand.spawnCtrl.waterMl || 0) < 35 &&
-              pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.receivesWater));
-        const isPourableBowl = !!(!sourceHasPda && sourceCanPourWater && pCand.bowlCtrl &&
-          pCand.meta && pCand.meta.compatibilities &&
-          pCand.meta.compatibilities.receivesWater);
-        const petriCtrl = pCand.mesh && pCand.mesh.userData.petriCtrl;
-        const isPourablePetri = !!(sourceHasPda && petriCtrl && petriCtrl.mode === 'bare' &&
-          pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.acceptsPdaMedium);
-        if (!isPourableLc && !isPourablePP5 && !isPourableBowl && !isPourablePetri) continue;
-        const pdx = pCand.mesh.position.x - pRefX, pdz = pCand.mesh.position.z - pRefZ;
-        if (pdx * pdx + pdz * pdz > 100) continue;
-        const pHit = intersectPickableItem(ctx.raycaster, pCand);
-        if (pHit && pHit.distance < 3.5) {
-          ctx.hoverHit = pHit;
-          ctx.hoveredPourTarget = pCand;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          const targetPrompt = isPourablePetri
-            ? (petriCtrl.lidOpen
-              ? '🧫 Despejar 20ml de PDA/BDA em ' + pCand.label
-              : '🧫 Abrir a placa no Fluxo Laminar para adicionar 20ml de PDA/BDA')
-            : (isPourablePP5 && sourceHasPda
-              ? '🧪 Transferir meio PDA/BDA para ' + pCand.label
-              : '💧 Umedecer / Despejar água em ' + pCand.label);
-          setHoverPrompt(ctx, targetPrompt);
-          return;
-        }
-      }
-    }
-    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isFlocao) {
-      const fRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const fRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
-        const fCand = ctx.pickableItems[fi];
-        const heldCanAddFlocao = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
-          ctx.heldItem.meta.compatibilities.fillsPP5WithFlocao;
-        const canFlocaoPP5 = !!(heldCanAddFlocao && fCand.spawnCtrl && fCand.spawnCtrl.isPP5 &&
-          !fCand.spawnCtrl.filled && fCand.meta && fCand.meta.compatibilities && fCand.meta.compatibilities.receivesFlocao);
-        const canFlocaoBowl = !!(fCand.bowlCtrl && fCand.meta && fCand.meta.compatibilities &&
-          fCand.meta.compatibilities.receivesIngredients);
-        if ((!canFlocaoPP5 && !canFlocaoBowl) || ctx.isHeldByRemote(fCand.id) || isItemInClosedCabinet(ctx, fCand)) continue;
-        const fdx = fCand.mesh.position.x - fRefX, fdz = fCand.mesh.position.z - fRefZ;
-        if (fdx * fdx + fdz * fdz > 100) continue;
-        const fHit = intersectPickableItem(ctx.raycaster, fCand);
-        if (fHit && fHit.distance < 3.5) {
-          ctx.hoverHit = fHit;
-          ctx.hoveredFlocaoTarget = fCand;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          setHoverPrompt(ctx, canFlocaoBowl ? '🌽 Adicionar +50g de Flocão no Pote de Mistura' : '🌽 Colocar 45g de Flocão em ' + fCand.label);
-          return;
-        }
-      }
-    }
-    if ((ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isLabSpoon) || (ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed)) {
-      const bRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const bRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let bi = 0; bi < ctx.pickableItems.length; bi++) {
-        const bCand = ctx.pickableItems[bi];
-        if (bCand === ctx.heldItem || ctx.isHeldByRemote(bCand.id) || isItemInClosedCabinet(ctx, bCand)) continue;
-        const isSpoonTarget = ctx.heldItem.mesh.userData.isLabSpoon && !!bCand.bowlCtrl;
-        const isPortionTarget = ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed && bCand.spawnCtrl && !bCand.spawnCtrl.filled;
-        if (!isSpoonTarget && !isPortionTarget) continue;
-        const bdx = bCand.mesh.position.x - bRefX, bdz = bCand.mesh.position.z - bRefZ;
-        if (bdx * bdx + bdz * bdz > 100) continue;
-        const bHit = intersectPickableItem(ctx.raycaster, bCand);
-        if (bHit && bHit.distance < 3.5) {
-          ctx.hoverHit = bHit;
-          ctx.hoveredBowlTarget = bCand;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          setHoverPrompt(ctx, isSpoonTarget ? '🥄 Misturar ingredientes no Pote' : '🥣 Porcionar receita em ' + bCand.label);
-          return;
-        }
-      }
-    }
-    if (ctx.heldItem.scalpelCtrl) {
-      const sc = ctx.heldItem.scalpelCtrl;
-      const sRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const sRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let si = 0; si < ctx.pickableItems.length; si++) {
-        const sCand = ctx.pickableItems[si];
-        if (sCand === ctx.heldItem || ctx.isHeldByRemote(sCand.id) ||
-            !isCultureAccessibleFromFridge(ctx, sCand) || isItemInClosedCabinet(ctx, sCand)) continue;
-        const sdx = sCand.mesh.position.x - sRefX, sdz = sCand.mesh.position.z - sRefZ;
-        if (sdx * sdx + sdz * sdz > 100) continue;
-        const sHit = intersectPickableItem(ctx.raycaster, sCand);
-        if (sHit && sHit.distance < 3.5) {
-          if (sCand.mesh.userData.isScalpelBladePack) {
-            ctx.hoverHit = sHit;
-            ctx.hoveredScalpelTarget = { mode: 'blade', item: sCand };
-            if (ctx.placementGhost) ctx.placementGhost.visible = false;
-            setHoverPrompt(ctx, '🔪 Trocar por lâmina #24 estéril');
-            return;
-          }
-          const petriCtrl = sCand.mesh.userData.petriCtrl;
-          if (!sc.hasMycelium && petriCtrl && petriCtrl.mode === 'clean' && petriCtrl.colonization >= 60) {
-            ctx.hoverHit = sHit;
-            ctx.hoveredScalpelTarget = { mode: petriCtrl.lidOpen ? 'cut' : 'open', item: sCand };
-            if (ctx.placementGhost) ctx.placementGhost.visible = false;
-            setHoverPrompt(ctx, petriCtrl.lidOpen
-              ? '🔪 Cortar fragmento de micélio da placa colonizada'
-              : '🧫 Abrir a placa colonizada dentro do Fluxo Laminar');
-            return;
-          }
-          if (!sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60) {
-            ctx.hoverHit = sHit;
-            ctx.hoveredScalpelTarget = { mode: 'cut', item: sCand };
-            if (ctx.placementGhost) ctx.placementGhost.visible = false;
-            setHoverPrompt(ctx, '🔪 Cortar fragmento de micélio (' + sCand.label + ')');
-            return;
-          }
-          if (sc.hasMycelium && petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.sterilized) {
-            ctx.hoverHit = sHit;
-            ctx.hoveredScalpelTarget = { mode: petriCtrl.lidOpen ? 'transfer' : 'open', item: sCand };
-            if (ctx.placementGhost) ctx.placementGhost.visible = false;
-            setHoverPrompt(ctx, petriCtrl.lidOpen
-              ? '🍄 Transferir o fragmento para ' + sCand.label
-              : '🧫 Abrir a placa estéril no Fluxo Laminar');
-            return;
-          }
-          if (sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.filled && !sCand.spawnCtrl.inoculated &&
-              sCand.meta && sCand.meta.compatibilities && sCand.meta.compatibilities.receivesMyceliumCut) {
-            ctx.hoverHit = sHit;
-            ctx.hoveredScalpelTarget = { mode: 'transfer', item: sCand };
-            if (ctx.placementGhost) ctx.placementGhost.visible = false;
-            setHoverPrompt(ctx, '🍄 Transferir micélio para ' + sCand.label);
-            return;
-          }
-        }
-      }
-    }
-    if (ctx.heldItem.id.indexOf('substrate_') === 0) {
-      const gRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const gRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let gi = 0; gi < ctx.pickableItems.length; gi++) {
-        const gCand = ctx.pickableItems[gi];
-        const receivesSubstrate = !!(gCand.spawnCtrl && !gCand.spawnCtrl.filled &&
-          gCand.meta && gCand.meta.compatibilities && gCand.meta.compatibilities.receivesSubstrate);
-        const receivesIngredients = !!(gCand.bowlCtrl && gCand.meta && gCand.meta.compatibilities &&
-          gCand.meta.compatibilities.receivesIngredients);
-        if ((!receivesSubstrate && !receivesIngredients) || ctx.isHeldByRemote(gCand.id) || isItemInClosedCabinet(ctx, gCand)) continue;
-        const gdx = gCand.mesh.position.x - gRefX, gdz = gCand.mesh.position.z - gRefZ;
-        if (gdx * gdx + gdz * gdz > 100) continue;
-        const gHit = intersectPickableItem(ctx.raycaster, gCand);
-        if (gHit && gHit.distance < 3.5) {
-          ctx.hoverHit = gHit;
-          ctx.hoveredGrainTarget = gCand;
-          if (ctx.placementGhost) ctx.placementGhost.visible = false;
-          setHoverPrompt(ctx, receivesIngredients
-            ? '🌾 Adicionar +100g de grãos/substrato no Pote de Mistura'
-            : '🌾 Encher ' + gCand.label + ' com grãos/substrato');
-          return;
-        }
-      }
-    }
-    if (ctx.heldItem.mesh.userData.isSyringe && ctx.heldItem.meta &&
-        ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.transfersLiquidCulture) {
-      const sc = ctx.heldItem.mesh.userData.syrCtrl;
-      const syRefX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-      const syRefZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
-      for (let si = 0; si < ctx.pickableItems.length; si++) {
-        const cand = ctx.pickableItems[si];
-        if (cand === ctx.heldItem || ctx.isHeldByRemote(cand.id) ||
-            !isCultureAccessibleFromFridge(ctx, cand) || isItemInClosedCabinet(ctx, cand)) continue;
-        const sydx = cand.mesh.position.x - syRefX, sydz = cand.mesh.position.z - syRefZ;
-        if (sydx * sydx + sydz * sydz > 100) continue;
-        const sHit = intersectPickableItem(ctx.raycaster, cand);
-        if (sHit && sHit.distance < 4.2) {
-          ctx.hoverHit = sHit;
-          if (cand.mesh.userData.liquidCtrl && !(cand.spawnCtrl && cand.spawnCtrl.isPP5)) {
-            const lc = cand.mesh.userData.liquidCtrl;
-            if (ctx.syringePumping) {
-              ctx.hoveredSyringeTarget = { item: cand, mode: ctx.syringePumping.toVol > ctx.syringePumping.fromVol ? 'draw' : 'inject' };
-              if (ctx.placementGhost) ctx.placementGhost.visible = false;
-              const pPct = Math.round((ctx.syringePumping.elapsed / ctx.syringePumping.duration) * 100);
-              setHoverPrompt(ctx, '⏳ ' + (ctx.syringePumping.toVol > ctx.syringePumping.fromVol ? 'Aspirando Micélio' : 'Injetando de volta') + ' (' + pPct + '%)...');
-              return;
-            }
-            if (sc.volMl < 9.9 && lc.volMl > 0 && canSyringeSource(cand)) {
-              ctx.hoveredSyringeTarget = { item: cand, mode: 'draw' };
-              if (ctx.placementGhost) ctx.placementGhost.visible = false;
-              setHoverPrompt(ctx, '💉 SEGURE o clique para aspirar cultura líquida (' + sc.volMl.toFixed(1) + '/10 ml • solte para parar)');
-              return;
-            } else if (sc.volMl > 0.1 && canSyringeTarget(cand)) {
-              ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
-              if (ctx.placementGhost) ctx.placementGhost.visible = false;
-              setHoverPrompt(ctx, '💉 Seringa com ' + sc.volMl.toFixed(1) + ' ml • SEGURE o clique para devolver ao frasco (solte para parar)');
-              return;
-            } else if (sc.volMl < 9.9 && lc.volMl > 0) {
-              ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
-              setHoverPrompt(ctx, '⚠️ Aspiração disponível apenas em frasco de cultura líquida');
-              return;
-            } else if (sc.volMl > 0.1) {
-              ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
-              setHoverPrompt(ctx, '⚠️ Este recipiente não recebe cultura pela seringa');
-              return;
-            }
-          } else if (cand.mesh.userData.isPetri) {
-            ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
-            const petriCtrl = cand.mesh.userData.petriCtrl;
-            if (petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.sterilized) {
-              if (!petriCtrl.lidOpen) {
-                ctx.hoveredSyringeTarget = { item: cand, mode: 'open' };
-                if (ctx.placementGhost) ctx.placementGhost.visible = false;
-                setHoverPrompt(ctx, '🧫 Clique para abrir a placa no Fluxo Laminar');
-              } else if (sc.volMl >= 1) {
-                ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
-                if (ctx.placementGhost) ctx.placementGhost.visible = false;
-                setHoverPrompt(ctx, '💉 Inocular exatamente 1ml de cultura em ' + cand.label + ' (2s)');
-              } else {
-                setHoverPrompt(ctx, '💉 Aspire cultura líquida até ter pelo menos 1ml para a placa');
-              }
-            } else {
-              const petriMode = petriCtrl && petriCtrl.mode;
-              const hint = petriMode === 'bare'
-                ? '🧫 Adicione PDA e esterilize esta placa antes de inocular'
-                : (petriMode === 'filled'
-                  ? '♨️ Feche a tampa e esterilize o meio PDA/BDA na panela'
-                  : '🧫 Placa com cultura; use bisturi estéril para transferir micélio');
-              setHoverPrompt(ctx, hint);
-            }
-            return;
-          } else if (canSyringeTarget(cand)) {
-            if (sc.volMl > 0) {
-              ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
-              if (ctx.placementGhost) ctx.placementGhost.visible = false;
-              setHoverPrompt(ctx, '💉 Inocular ' + Math.round(sc.volMl) + 'ml em ' + cand.label + ' (2s)');
-            } else {
-              ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
-              setHoverPrompt(ctx, '💉 Seringa vazia • Aspire cultura líquida antes de inocular');
-            }
-            return;
-          } else if (cand.spawnCtrl) {
-            ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
-            const pdaAgarReady = cand.pdaMediumCtrl && cand.pdaMediumCtrl.powderGrams > 0 &&
-              cand.mesh.userData.liquidCtrl && cand.mesh.userData.liquidCtrl.volMl > 0;
-            const spawnPrompt = getSyringeTargetHint(cand.spawnCtrl, sc.volMl, pdaAgarReady, cand.pdaMediumCtrl);
-            setHoverPrompt(ctx, spawnPrompt);
-            return;
-          }
-        }
-      }
-    }
-    if (!ctx.placementMode) {
-      const fridgeTarget = getCultureFridgeStorageTarget(ctx);
-      if (fridgeTarget) {
-        ctx.hoveredFridgeTarget = fridgeTarget;
-        ctx.hoverHit = fridgeTarget.hit || null;
-        if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        const cultureLabel = fridgeTarget.displayLabel;
-        const fridgePrompt = !fridgeTarget.fridge.fridgeCtrl.doorOpen
-          ? '🧊 Abra a geladeira para guardar ' + cultureLabel
-          : (fridgeTarget.slotPosition
-            ? '🧊 Guardar ' + cultureLabel + ' • conservar a 4°C'
-            : '🧊 Geladeira cheia • retire um item antes');
-        setHoverPrompt(ctx, fridgePrompt);
-        return;
-      }
-    }
-    if (ctx.placementMode) {
-      updateHeldItemPlacementPreview(ctx, rayNdc);
-      return;
-    }
+  if (resolveHeldItemHover(ctx, rayNdc, {
+    intersectPickableItem,
+    setHoverPrompt,
+    updateHeldItemPlacementPreview
+  })) {
+    return;
   }
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
 
@@ -949,10 +346,11 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
+  let bestSmall = null, bestSmallDist = Infinity, bestSmallHit = null;
+  let bestLarge = null, bestLargeDist = Infinity, bestLargeHit = null;
+  let bestBlocked = null, bestBlockedDist = Infinity, bestBlockedHit = null;
+
   if (!prompt && !ctx.heldItem) {
-    let bestSmall = null, bestSmallDist = Infinity, bestSmallHit = null;
-    let bestLarge = null, bestLargeDist = Infinity, bestLargeHit = null;
-    let bestBlocked = null, bestBlockedDist = Infinity, bestBlockedHit = null;
     for (let i = 0; i < ctx.pickableItems.length; i++) {
       let item = ctx.pickableItems[i];
       if (item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem) ||

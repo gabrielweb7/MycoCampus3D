@@ -49,6 +49,7 @@ import {
 } from '../items/pda-mix.js';
 
 const THREE = window.THREE;
+const _tmpDropPt = THREE ? new THREE.Vector3() : null;
 const _vZero2 = new THREE.Vector2(0, 0);
 
 export { setHeldTwoHandedGhost, updateHoverRay, firstValidRayHit, isSeatOccupied };
@@ -82,7 +83,7 @@ export function dropHeldItem(ctx) {
   ctx.lastSyringeTargetItem = null;
   if (!ctx.placementMode) ctx.heldRotY = ctx.playerYaw || 0;
 
-  const candPt = new THREE.Vector3();
+  const candPt = _tmpDropPt;
   const baseYaw = ctx.playerYaw || 0;
   const radii = [0.75, 1.15, 1.55, 0.45];
   const angleOffsets = [0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.4, -2.4, Math.PI];

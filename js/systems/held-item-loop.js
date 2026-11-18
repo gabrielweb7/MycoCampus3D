@@ -149,10 +149,10 @@ function updateThermometerLaser(ctx, dt, now) {
   } else {
     const rOrig = ctx.raycaster.ray.origin;
     const rDir = ctx.raycaster.ray.direction;
-    const endPt = new THREE.Vector3().copy(rOrig).addScaledVector(rDir, 25.0);
+    _tmpSkyEnd.copy(rOrig).addScaledVector(rDir, 25.0);
     const lArrG = ctx.thermoLaserLine.geometry.attributes.position.array;
     lArrG[0] = _tmpMuzzlePos.x; lArrG[1] = _tmpMuzzlePos.y; lArrG[2] = _tmpMuzzlePos.z;
-    lArrG[3] = endPt.x; lArrG[4] = endPt.y; lArrG[5] = endPt.z;
+    lArrG[3] = _tmpSkyEnd.x; lArrG[4] = _tmpSkyEnd.y; lArrG[5] = _tmpSkyEnd.z;
     ctx.thermoLaserLine.geometry.attributes.position.needsUpdate = true;
     ctx.thermoLaserLine.visible = true;
     ctx.thermoLaserDot.visible = false;

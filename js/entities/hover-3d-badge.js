@@ -6,11 +6,12 @@
  */
 
 const THREE = window.THREE;
+const _tmpBadgeProj = THREE ? new THREE.Vector3() : null;
 
 export function createHover3dBadge(scene) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
-  canvas.height = 180;
+  canvas.height = 150;
   const ctx = canvas.getContext('2d');
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -27,7 +28,7 @@ export function createHover3dBadge(scene) {
   const sprite = new THREE.Sprite(mat);
   sprite.renderOrder = 9999;
   sprite.visible = false;
-  sprite.scale.set(1.5, 0.52, 1);
+  sprite.scale.set(0.36, 0.11, 1);
 
   if (scene) {
     scene.add(sprite);
@@ -110,61 +111,64 @@ export function formatHoverInfo(prompt, targetObj) {
 }
 
 /**
- * Renderiza o cartão diegético no canvas da textura
+ * Renderiza o cartão diegético no canvas da textura (Estilo AR Sci-Fi Compacto e Moderno)
  */
 function renderBadgeTexture(badgeState, title, params, action) {
   const { canvas, ctx, texture } = badgeState;
   const w = canvas.width;
   const h = canvas.height;
 
-  ctx.clearRect(0, 0, w, h);
+  ctx.clearRect(0, 0, 0 + w, 0 + h);
 
   // Fundo com vidro escuro translúcido (Glassmorphism sci-fi)
   ctx.save();
-  ctx.fillStyle = 'rgba(10, 18, 32, 0.90)';
-  roundRect(ctx, 10, 8, w - 20, h - 16, 22);
+  ctx.fillStyle = 'rgba(10, 16, 28, 0.92)';
+  roundRect(ctx, 8, 6, w - 16, h - 12, 18);
   ctx.fill();
 
-  // Borda neon degradê esmeralda/ciano com brilho
-  const grad = ctx.createLinearGradient(10, 8, w - 20, h - 16);
-  grad.addColorStop(0, 'rgba(52, 211, 153, 0.9)');
-  grad.addColorStop(1, 'rgba(56, 189, 248, 0.9)');
+  // Borda neon degradê esmeralda/ciano sutil e nítida
+  const grad = ctx.createLinearGradient(8, 6, w - 16, h - 12);
+  grad.addColorStop(0, 'rgba(52, 211, 153, 0.85)');
+  grad.addColorStop(1, 'rgba(56, 189, 248, 0.85)');
   ctx.strokeStyle = grad;
-  ctx.lineWidth = 3.5;
-  ctx.shadowColor = 'rgba(52, 211, 153, 0.6)';
-  ctx.shadowBlur = 10;
+  ctx.lineWidth = 2.4;
+  ctx.shadowColor = 'rgba(56, 189, 248, 0.4)';
+  ctx.shadowBlur = 6;
   ctx.stroke();
   ctx.restore();
 
-  // Divisor sutil
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
-  ctx.lineWidth = 1.2;
+  // Divisor sutil entre título/parâmetros e ação
+  const divY = params ? 98 : 82;
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+  ctx.lineWidth = 1.0;
   ctx.beginPath();
-  ctx.moveTo(30, params ? 116 : 96);
-  ctx.lineTo(w - 30, params ? 116 : 96);
+  ctx.moveTo(24, divY);
+  ctx.lineTo(w - 24, divY);
   ctx.stroke();
 
-  // Linha 1: Título do Objeto (Branco Brilhante)
+  // Linha 1: Título do Objeto (Branco Nítido e Moderno)
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 28px "Segoe UI", Roboto, system-ui, sans-serif';
+  ctx.font = 'bold 23px "Segoe UI", -apple-system, Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const displayTitle = title.length > 30 ? title.slice(0, 29) + '…' : title;
-  ctx.fillText(displayTitle, w / 2, params ? 44 : 54);
+  const displayTitle = title.length > 32 ? title.slice(0, 31) + '…' : title;
+  ctx.fillText(displayTitle, w / 2, params ? 38 : 46);
 
-  // Linha 2: Parâmetros / Estado em tempo real (Ciano Celeste)
+  // Linha 2: Parâmetros / Estado em tempo real (Pill Ciano Celeste)
   if (params) {
+    ctx.save();
     ctx.fillStyle = '#38bdf8';
-    ctx.font = '600 20px "Segoe UI", Roboto, system-ui, sans-serif';
-    const displayParams = params.length > 38 ? params.slice(0, 37) + '…' : params;
-    ctx.fillText(displayParams, w / 2, 82);
+    ctx.font = '600 17px "Segoe UI", -apple-system, Roboto, sans-serif';
+    const displayParams = params.length > 40 ? params.slice(0, 39) + '…' : params;
+    ctx.fillText(displayParams, w / 2, 70);
+    ctx.restore();
   }
 
-  // Linha 3: Ação contextual (Âmbar / Menta de alto contraste)
+  // Linha 3: Ação contextual (Dourado/Menta vibrante)
   ctx.fillStyle = '#fde047';
-  ctx.font = 'bold 22px "Segoe UI", Roboto, system-ui, sans-serif';
-  const displayAction = action.length > 34 ? action.slice(0, 33) + '…' : action;
-  ctx.fillText('👉 ' + displayAction, w / 2, params ? 148 : 138);
+  ctx.font = 'bold 19px "Segoe UI", -apple-system, Roboto, sans-serif';
+  const displayAction = action.length > 36 ? action.slice(0, 35) + '…' : action;
+  ctx.fillText('👉 ' + displayAction, w / 2, params ? 124 : 115);
 
   texture.needsUpdate = true;
 }
@@ -190,34 +194,34 @@ export function updateHover3dBadge(badgeState, data, camera, now) {
     renderBadgeTexture(badgeState, title, params, action);
   }
 
-  // Posição base acima do objeto com leve levitação senoidal
+  // Posição base acima do objeto com levitação senoidal muito sutil
   badgeState.targetPos.copy(worldPos);
-  const floatOffset = Math.sin((now || performance.now()) * 0.0035) * 0.035;
+  const floatOffset = Math.sin((now || performance.now()) * 0.003) * 0.015;
 
   if (!badgeState.visible) {
     // Primeiro frame visível: salta direto para a posição
     badgeState.currentPos.copy(badgeState.targetPos);
   } else {
-    // Lerp suave para não vibrar se a mira oscilar
+    // Lerp suave para estabilidade visual
     badgeState.currentPos.lerp(badgeState.targetPos, 0.35);
   }
 
   badgeState.sprite.position.copy(badgeState.currentPos);
   badgeState.sprite.position.y += floatOffset;
 
-  // Escala dinâmica adaptada à distância da câmera (mantém legibilidade perfeita de 0.8m a 6m)
+  // Escala compacta e moderna adaptada à distância da câmera (30cm de largura a 1m)
   if (camera) {
     const dist = camera.position.distanceTo(badgeState.sprite.position);
-    const s = Math.max(1.05, Math.min(2.5, dist * 0.38));
-    badgeState.sprite.scale.set(s * 1.5, s * 0.53, 1);
+    const s = Math.max(0.18, Math.min(0.42, dist * 0.14));
+    badgeState.sprite.scale.set(s * 1.8, s * 0.53, 1);
 
     // Evita que o crachá 3D projete atrás da barra de menu superior (#hud-top-bar)
-    // Projeta em coordenadas de tela NDC (-1 a +1)
-    const _proj = new THREE.Vector3().copy(badgeState.sprite.position).project(camera);
-    if (_proj.y > 0.42 && _proj.z < 1.0) {
-      // Rebaixa suavemente a altura 3D para manter o crachá abaixo da barra superior
-      const pullDown = (_proj.y - 0.42) * dist * 0.55;
-      badgeState.sprite.position.y -= pullDown;
+    if (_tmpBadgeProj) {
+      _tmpBadgeProj.copy(badgeState.sprite.position).project(camera);
+      if (_tmpBadgeProj.y > 0.42 && _tmpBadgeProj.z < 1.0) {
+        const pullDown = (_tmpBadgeProj.y - 0.42) * dist * 0.55;
+        badgeState.sprite.position.y -= pullDown;
+      }
     }
   }
 

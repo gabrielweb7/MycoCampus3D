@@ -138,7 +138,7 @@ export async function syncMultiplayer() {
     if (stateChanges && window.requeueCampusStateChanges) window.requeueCampusStateChanges(stateChanges);
   } finally {
     appState.syncInFlight = false;
-    if (appState.syncQueued) {
+    if (appState.syncQueued && appState.syncFailures === 0) {
       syncMultiplayer();
     }
   }
