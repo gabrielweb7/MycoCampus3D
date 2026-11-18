@@ -496,6 +496,16 @@ export function bootApp() {
 
   const verEl = $('app-version');
   if (verEl) verEl.textContent = 'v' + getAppVersion();
+  fetch('VERSION?_=' + Date.now(), { cache: 'no-store' })
+    .then((r) => (r.ok ? r.text() : ''))
+    .then((v) => {
+      const liveVer = (v || '').trim();
+      if (/^\d+\.\d+\.\d+$/.test(liveVer)) {
+        window.MYCO_VERSION = liveVer;
+        if (verEl) verEl.textContent = 'v' + liveVer;
+      }
+    })
+    .catch(() => {});
   let mobilePlacementModeActive = false;
   let currentHoldLabel = '';
   let currentHoverPrompt = '';
