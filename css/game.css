@@ -151,18 +151,45 @@ body.device-tablet #fps-hint {
   display: none !important;
 }
 
-@keyframes mycoPsychedelicCanvas {
-  0% { filter: hue-rotate(0deg) saturate(1.4) contrast(1.06); transform: scale(1); }
-  25% { filter: hue-rotate(110deg) saturate(2.3) contrast(1.14); transform: scale(1.028); }
-  50% { filter: hue-rotate(220deg) saturate(2.6) contrast(1.16); transform: scale(1.012); }
-  75% { filter: hue-rotate(310deg) saturate(2.2) contrast(1.12); transform: scale(1.032); }
-  100% { filter: hue-rotate(360deg) saturate(1.4) contrast(1.06); transform: scale(1); }
+@keyframes mycoTripL1 {
+  0%, 100% { filter: hue-rotate(0deg) saturate(1.6) contrast(1.06); transform: scale(1); }
+  50% { filter: hue-rotate(180deg) saturate(2.3) contrast(1.14); transform: scale(1.028); }
+}
+@keyframes mycoTripL2 {
+  0%, 100% { filter: hue-rotate(0deg) saturate(2.4) contrast(1.15); transform: scale(1.02) rotate(-2.5deg); }
+  50% { filter: hue-rotate(240deg) saturate(3.0) contrast(1.22); transform: scale(1.05) rotate(2.5deg); }
+}
+@keyframes mycoTripL3 {
+  0% { filter: hue-rotate(0deg) saturate(3.2) contrast(1.25); transform: scale(1.04) rotate(-8deg) skewX(2deg); }
+  50% { filter: hue-rotate(200deg) saturate(3.8) contrast(1.3); transform: scale(1.08) rotate(8deg) skewX(-2deg); }
+  100% { filter: hue-rotate(360deg) saturate(3.2) contrast(1.25); transform: scale(1.04) rotate(-8deg) skewX(2deg); }
+}
+@keyframes mycoTripUpsideDown {
+  0% { filter: hue-rotate(0deg) saturate(3.5); transform: scale(1.06) rotate(0deg); }
+  45% { filter: hue-rotate(180deg) saturate(4.0) brightness(1.35); transform: scale(1.08) rotate(180deg); }
+  100% { filter: hue-rotate(360deg) saturate(2.0) brightness(2.0); transform: scale(1.02) rotate(180deg); }
 }
 
-body.myco-trip-active #campus-canvas-wrap {
-  animation: mycoPsychedelicCanvas 3.2s ease-in-out infinite;
-  transform-origin: center center;
+@keyframes mycoPrismSpin {
+  from { transform: scale(1.35) rotate(0deg); }
+  to { transform: scale(1.35) rotate(360deg); }
 }
+
+body.myco-trip-1 #campus-canvas-wrap,
+body.myco-trip-2 #campus-canvas-wrap,
+body.myco-trip-3 #campus-canvas-wrap,
+body.myco-trip-4 #campus-canvas-wrap {
+  will-change: transform, filter;
+}
+body.myco-trip-1 #myco-magic-overlay { animation: mycoPrismSpin 12s linear infinite; }
+body.myco-trip-2 #myco-magic-overlay { animation: mycoPrismSpin 7s linear infinite; }
+body.myco-trip-3 #myco-magic-overlay { animation: mycoPrismSpin 4s linear infinite; }
+body.myco-trip-4 #myco-magic-overlay { animation: mycoPrismSpin 2s linear infinite; }
+
+body.myco-trip-1 #campus-canvas-wrap { animation: mycoTripL1 3.4s ease-in-out infinite; transform-origin: center center; }
+body.myco-trip-2 #campus-canvas-wrap { animation: mycoTripL2 2.6s ease-in-out infinite; transform-origin: center center; }
+body.myco-trip-3 #campus-canvas-wrap { animation: mycoTripL3 2.0s ease-in-out infinite; transform-origin: center center; }
+body.myco-trip-4 #campus-canvas-wrap { animation: mycoTripUpsideDown 2.6s ease-in-out forwards; transform-origin: center center; }
 
 #interact-pill {
   top: 76px;
@@ -173,18 +200,45 @@ body.myco-trip-active #campus-canvas-wrap {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
-body.device-phone @keyframes mycoPsychedelicCanvas {
-  0% { filter: hue-rotate(0deg) saturate(1.4) contrast(1.06); transform: scale(1); }
-  25% { filter: hue-rotate(110deg) saturate(2.3) contrast(1.14); transform: scale(1.028); }
-  50% { filter: hue-rotate(220deg) saturate(2.6) contrast(1.16); transform: scale(1.012); }
-  75% { filter: hue-rotate(310deg) saturate(2.2) contrast(1.12); transform: scale(1.032); }
-  100% { filter: hue-rotate(360deg) saturate(1.4) contrast(1.06); transform: scale(1); }
+body.device-phone @keyframes mycoTripL1 {
+  0%, 100% { filter: hue-rotate(0deg) saturate(1.6) contrast(1.06); transform: scale(1); }
+  50% { filter: hue-rotate(180deg) saturate(2.3) contrast(1.14); transform: scale(1.028); }
+}
+@keyframes mycoTripL2 {
+  0%, 100% { filter: hue-rotate(0deg) saturate(2.4) contrast(1.15); transform: scale(1.02) rotate(-2.5deg); }
+  50% { filter: hue-rotate(240deg) saturate(3.0) contrast(1.22); transform: scale(1.05) rotate(2.5deg); }
+}
+@keyframes mycoTripL3 {
+  0% { filter: hue-rotate(0deg) saturate(3.2) contrast(1.25); transform: scale(1.04) rotate(-8deg) skewX(2deg); }
+  50% { filter: hue-rotate(200deg) saturate(3.8) contrast(1.3); transform: scale(1.08) rotate(8deg) skewX(-2deg); }
+  100% { filter: hue-rotate(360deg) saturate(3.2) contrast(1.25); transform: scale(1.04) rotate(-8deg) skewX(2deg); }
+}
+@keyframes mycoTripUpsideDown {
+  0% { filter: hue-rotate(0deg) saturate(3.5); transform: scale(1.06) rotate(0deg); }
+  45% { filter: hue-rotate(180deg) saturate(4.0) brightness(1.35); transform: scale(1.08) rotate(180deg); }
+  100% { filter: hue-rotate(360deg) saturate(2.0) brightness(2.0); transform: scale(1.02) rotate(180deg); }
 }
 
-body.myco-trip-active #campus-canvas-wrap {
-  animation: mycoPsychedelicCanvas 3.2s ease-in-out infinite;
-  transform-origin: center center;
+@keyframes mycoPrismSpin {
+  from { transform: scale(1.35) rotate(0deg); }
+  to { transform: scale(1.35) rotate(360deg); }
 }
+
+body.myco-trip-1 #campus-canvas-wrap,
+body.myco-trip-2 #campus-canvas-wrap,
+body.myco-trip-3 #campus-canvas-wrap,
+body.myco-trip-4 #campus-canvas-wrap {
+  will-change: transform, filter;
+}
+body.myco-trip-1 #myco-magic-overlay { animation: mycoPrismSpin 12s linear infinite; }
+body.myco-trip-2 #myco-magic-overlay { animation: mycoPrismSpin 7s linear infinite; }
+body.myco-trip-3 #myco-magic-overlay { animation: mycoPrismSpin 4s linear infinite; }
+body.myco-trip-4 #myco-magic-overlay { animation: mycoPrismSpin 2s linear infinite; }
+
+body.myco-trip-1 #campus-canvas-wrap { animation: mycoTripL1 3.4s ease-in-out infinite; transform-origin: center center; }
+body.myco-trip-2 #campus-canvas-wrap { animation: mycoTripL2 2.6s ease-in-out infinite; transform-origin: center center; }
+body.myco-trip-3 #campus-canvas-wrap { animation: mycoTripL3 2.0s ease-in-out infinite; transform-origin: center center; }
+body.myco-trip-4 #campus-canvas-wrap { animation: mycoTripUpsideDown 2.6s ease-in-out forwards; transform-origin: center center; }
 
 #interact-pill {
   top: 70px;

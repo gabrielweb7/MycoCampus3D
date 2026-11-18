@@ -47,10 +47,17 @@ export function handleWorldInteraction(ctx) {
     if (window.MycoAudio) window.MycoAudio.playHarvest();
     const spName = (ctx.hoveredMushroom.capMesh && ctx.hoveredMushroom.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
     const disc = registerDiscoveredSpecies(spName);
-    if (ctx.hoveredMushroom.id && ctx.hoveredMushroom.id.indexOf('wild_poop_') === 0) {
-      triggerMagicCubensisEffect();
+    const isMagic = (ctx.hoveredMushroom.id && ctx.hoveredMushroom.id.indexOf('wild_poop_') === 0) ||
+      spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1;
+    if (isMagic) {
+      triggerMagicCubensisEffect(() => {
+        if (ctx.playerPos) {
+          ctx.playerPos.y = 26;
+          if (typeof ctx.playerVelY === 'number') ctx.playerVelY = 0;
+        }
+      });
       if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast(`🍄✨ Você comeu Cubensis Dourado! (+40 XP • Micoteca: ${disc.list.length}/100)`);
+        ctx.callbacks.onToast(`🍄✨ Você comeu ${spName}! (+40 XP • Micoteca: ${disc.list.length}/100)`);
       }
     } else if (disc.isNew && ctx.callbacks.onToast) {
       ctx.callbacks.onToast(`📖 Nova espécie na Micoteca (${disc.list.length}/100): ${spName}`);
