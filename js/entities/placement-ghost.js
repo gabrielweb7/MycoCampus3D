@@ -588,7 +588,7 @@ export function dropUnsupportedItems(ctx) {
       return;
     }
     var ignoreTargetSurf = item.fridgeCtrl ? 'fridge' : item.mesh.userData.dynamicSurface;
-    var supportedY = getItemGroundHeight(physCtx, item.mesh.position.x, item.mesh.position.z, item.mesh.position.y, ignoreTargetSurf, item.mesh.position.y + 0.18);
+    var supportedY = getItemGroundHeight(physCtx, item.mesh.position.x, item.mesh.position.z, item.mesh.position.y, ignoreTargetSurf, item.mesh.position.y + 0.04);
     if (!item.mesh.userData.isTable) {
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
@@ -597,7 +597,7 @@ export function dropUnsupportedItems(ctx) {
         if (item.mesh.userData.isHood && s.isHood) continue;
         if (item.mesh.position.x >= s.minX - 0.09 && item.mesh.position.x <= s.maxX + 0.09 &&
           item.mesh.position.z >= s.minZ - 0.09 && item.mesh.position.z <= s.maxZ + 0.09 &&
-          item.mesh.position.y >= s.topY - 0.28) {
+          item.mesh.position.y >= s.topY - 0.04) {
           supportedY = Math.max(supportedY, s.topY);
         }
       }

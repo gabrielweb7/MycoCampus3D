@@ -67,6 +67,7 @@ function ensureFloatingStyles() {
       border-color: #39ff14;
       transform: translateY(-1px);
     }
+    body.device-touch .myco-float-key { display: none; }
     .myco-float-key {
       display: inline-flex;
       align-items: center;

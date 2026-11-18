@@ -649,12 +649,16 @@ export function bootApp() {
       } else if (currentHoldLabel.indexOf('Seladora') !== -1) {
         actBtn.textContent = '♨️';
         actBtn.title = 'Selar Bag Preenchido';
+      } else if (currentHoldLabel.indexOf('Luva') !== -1) {
+        actBtn.textContent = '🧤';
+        actBtn.title = currentHoverPrompt || 'Luvas de Nitrilo';
       } else if (currentHoverPrompt) {
         actBtn.textContent = getMobileActionIcon(currentHoverPrompt);
         actBtn.title = currentHoverPrompt;
       } else {
-        actBtn.textContent = '✋';
-        actBtn.title = currentHoldLabel;
+        actBtn.style.display = 'none';
+        actBtn.dataset.action = '';
+        return;
       }
       if (currentHoverPrompt) {
         actBtn.title = currentHoverPrompt;

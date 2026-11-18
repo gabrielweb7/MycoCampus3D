@@ -522,24 +522,29 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   if (!prompt && ctx.heldItem) {
+    const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
     if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
       const petriCtrl = ctx.heldItem.mesh.userData.petriCtrl;
       if (petriCtrl) {
         prompt = petriCtrl.lidOpen
-          ? '🧫 Clique para fechar a tampa da placa'
-          : '🧫 Clique para abrir a tampa (Fluxo Laminar ligado e higienizado)';
+          ? (isTouch ? '🧫 Toque para fechar a tampa da placa' : '🧫 Clique para fechar a tampa da placa')
+          : (isTouch ? '🧫 Toque para abrir a tampa (Fluxo Laminar ligado e higienizado)' : '🧫 Clique para abrir a tampa (Fluxo Laminar ligado e higienizado)');
       }
     } else if (ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
-      prompt = (ctx.wearingGloves ? '🧤 Clique para retirar Luvas de Nitrilo' : '🧤 Clique para calçar Luvas de Nitrilo Estéreis') + ' • G/Q para posicionar';
+      prompt = isTouch
+        ? (ctx.wearingGloves ? '🧤 Toque para retirar Luvas de Nitrilo' : '🧤 Toque para calçar Luvas de Nitrilo Estéreis')
+        : ((ctx.wearingGloves ? '🧤 Clique para retirar Luvas de Nitrilo' : '🧤 Clique para calçar Luvas de Nitrilo Estéreis') + ' • G/Q para posicionar');
     } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer) {
       if (ctx.thermoLaserOn) {
-        prompt = '🔴 [SCAN] ' + (ctx.thermoTargetLabel || 'Ambiente') + ': ' + ctx.thermoCurrentTemp.toFixed(1) + '°C (Clique: Desligar Laser • G/Q ou clique dir.: posicionar)';
+        prompt = '🔴 [SCAN] ' + (ctx.thermoTargetLabel || 'Ambiente') + ': ' + ctx.thermoCurrentTemp.toFixed(1) + '°C' +
+          (isTouch ? ' (Toque: Desligar Laser)' : ' (Clique: Desligar Laser • G/Q ou clique dir.: posicionar)');
       } else {
-        prompt = '🔫 Laser DESLIGADO • Última: ' + ctx.thermoCurrentTemp.toFixed(1) + '°C [HOLD] (Clique: Ligar Laser • G/Q ou clique dir.: posicionar)';
+        prompt = '🔫 Laser DESLIGADO • Última: ' + ctx.thermoCurrentTemp.toFixed(1) + '°C [HOLD]' +
+          (isTouch ? ' (Toque: Ligar Laser)' : ' (Clique: Ligar Laser • G/Q ou clique dir.: posicionar)');
       }
     } else {
       ctx.placementValid = false;
-      prompt = '📦 Pressione G/Q para posicionar este item';
+      if (!isTouch) prompt = '📦 Pressione G/Q para posicionar este item';
     }
   }
   setHoverPrompt(ctx, prompt);

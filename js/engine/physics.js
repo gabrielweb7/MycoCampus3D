@@ -20,7 +20,7 @@ export function terrainHeight(x, z) {
   return blend * hills + mtn;
 }
 
-export function getGroundHeight(ctx, x, z, refY, ignoreSurf) {
+export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
   let h = terrainHeight(x, z);
   const curY = refY !== undefined ? refY : ctx.playerPos.y;
 
@@ -47,6 +47,7 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf) {
     const ss = supportSurfaces[u];
     if (ignoreSurf && ss === ignoreSurf) continue;
     if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
+    if (typeof maxSurfTopY === 'number' && ss.topY > maxSurfTopY) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
     const sW = ss.maxX - ss.minX;
     const sD = ss.maxZ - ss.minZ;
@@ -77,7 +78,7 @@ export function getSupportSurfaceAt(ctx, x, z, margin, ignoreSurf, maxTopY) {
 }
 
 export function getItemGroundHeight(ctx, x, z, refY, ignoreSurf, maxTopY) {
-  const gh = getGroundHeight(ctx, x, z, refY !== undefined ? refY : 3.0, ignoreSurf);
+  const gh = getGroundHeight(ctx, x, z, refY !== undefined ? refY : 3.0, ignoreSurf, maxTopY);
   const ss = getSupportSurfaceAt(ctx, x, z, 0.08, ignoreSurf, maxTopY);
   if (ss && ss.topY > gh) return ss.topY;
   return gh;

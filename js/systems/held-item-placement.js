@@ -45,7 +45,12 @@ export function beginHeldItemPlacement(ctx) {
   ctx.heldRotY = ctx.playerYaw || 0;
   setPlacementMode(ctx, true);
   if (ctx.callbacks.onToast) {
-    ctx.callbacks.onToast('📦 Mire o local e clique para posicionar. Pressione Esc para cancelar.');
+    const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
+    ctx.callbacks.onToast(
+      isTouch
+        ? '📦 Mire o local e toque para posicionar.'
+        : '📦 Mire o local e clique para posicionar. Pressione Esc para cancelar.'
+    );
   }
   return true;
 }
@@ -74,10 +79,11 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
   updatePlacementGhostVisual(ctx.heldItem, ctx.placementValid, ctx.heldRotY, ctx.clock.elapsedTime);
   ctx.placementGhost.visible = true;
 
+  const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
   const prompt = ctx.snapClosePot
     ? '🍲 Fechar tampa na Panela de Pressão'
     : (ctx.placementValid
-      ? '📦 Clique para posicionar: ' + ctx.heldItem.label
+      ? (isTouch ? '📦 Toque para posicionar: ' : '📦 Clique para posicionar: ') + ctx.heldItem.label
       : (getPlacementBlockedReason() || '🚫 Local bloqueado (espaço ocupado)'));
   if (ctx.hover3dBadge) hideHover3dBadge(ctx.hover3dBadge);
   if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
