@@ -229,7 +229,7 @@ export function bindControls(ctx) {
       el.closest('select') ||
       el.closest('textarea') ||
       el.closest('form') ||
-      el.closest('#campus-hud') ||
+      el.closest('#hud-top-bar') ||
       el.closest('#hud-secondary-tools') ||
       el.closest('#chat-container') ||
       el.closest('#myco-floating-actions') ||
@@ -246,6 +246,13 @@ export function bindControls(ctx) {
   }
 
   window.addEventListener('touchstart', function (e) {
+    if (touchLookId !== null) {
+      let stillActive = false;
+      for (let k = 0; k < e.touches.length; k++) {
+        if (e.touches[k].identifier === touchLookId) { stillActive = true; break; }
+      }
+      if (!stillActive) touchLookId = null;
+    }
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (isUiTouch(t.target)) continue;
@@ -292,8 +299,15 @@ export function bindControls(ctx) {
       }
     }
   }
-  window.addEventListener('touchend', resetTouchLook, { passive: true });
-  window.addEventListener('touchcancel', resetTouchLook, { passive: true });
+  window.addEventListener('touchend', function (e) {
+    resetTouchLook(e);
+    if (e.touches.length === 0) touchLookId = null;
+  }, { passive: true });
+  window.addEventListener('touchcancel', function (e) {
+    resetTouchLook(e);
+    if (e.touches.length === 0) touchLookId = null;
+  }, { passive: true });
+  window.addEventListener('blur', function () { touchLookId = null; });
 
   window.addEventListener('resize', function () {
     ctx.camera.aspect = window.innerWidth / window.innerHeight;
