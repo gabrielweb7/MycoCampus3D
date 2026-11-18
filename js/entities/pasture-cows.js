@@ -191,8 +191,10 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
 
 export function createPastureAndCows(ctx) {
   if (!THREE || !ctx || !ctx.scene) return;
-  ctx.pastureCows = [];
-  ctx.cowPoops = [];
+  ctx.pastureCows = ctx.pastureCows || [];
+  ctx.pastureCows.length = 0;
+  ctx.cowPoops = ctx.cowPoops || [];
+  ctx.cowPoops.length = 0;
   ctx.cowHitMeshes = ctx.cowHitMeshes || [];
 
   for (let i = 0; i < 6; i++) {
@@ -233,6 +235,7 @@ export function petCow(cowObj) {
   cowObj.health = Math.min(100, (cowObj.health || 100) + 5);
   cowObj.mood = 'Feliz 💚 (Muuu!)';
   cowObj.state = 'curious';
+  cowObj.happyTimer = 3.0;
   return `🐄 ${cowObj.name}: Muuu! 💚 (Saúde ${cowObj.health}%)`;
 }
 
@@ -337,8 +340,14 @@ export function stepPastureCows(ctx, dt) {
     cow.mesh.rotation.y = cow.yaw;
 
     // 3. Animação (só quando visível para manter FPS alto)
+    if (cow.happyTimer > 0) cow.happyTimer = Math.max(0, cow.happyTimer - dt);
     if (cow.mesh.visible) {
-      if (cow.speed > 0.01) {
+      if (cow.happyTimer > 0) {
+        const bounce = Math.abs(Math.sin(syncClock * 10.0 + i)) * 0.14;
+        cow.mesh.position.y += bounce;
+        cow.tail.rotation.z = Math.sin(syncClock * 18.0) * 0.65;
+        cow.head.rotation.x = -0.12 + Math.sin(syncClock * 8.0) * 0.14;
+      } else if (cow.speed > 0.01) {
         cow.walkPhase += dt * cow.speed * 5.2;
         const swing = Math.sin(cow.walkPhase) * 0.44;
         cow.legs[0].rotation.x = swing;

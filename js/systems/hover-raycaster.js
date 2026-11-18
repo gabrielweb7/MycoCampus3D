@@ -48,7 +48,7 @@ function resolveHoverTargetObj(ctx) {
     (ctx.hoveredBurnerSwitch ? { label: ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé Fogareiro a Gás' : 'Fogareiro Elétrico' } : null) ||
     (ctx.hoveredStirSwitch ? { label: 'Agitador Magnético' } : null) ||
     (ctx.hoveredHoodSwitch ? { label: 'Capela de Fluxo Laminar' } : null) ||
-    (ctx.hoveredCow ? { label: `🐄 ${ctx.hoveredCow.name} • Saúde ${ctx.hoveredCow.health}% • ${ctx.hoveredCow.mood}`, mesh: ctx.hoveredCow.mesh } : null) ||
+    (ctx.hoveredCow ? { label: `🐄 ${ctx.hoveredCow.name}`, mesh: ctx.hoveredCow.mesh } : null) ||
     (ctx.hoveredSwitch ? { label: 'Interruptor de Luz' } : null) ||
     (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer && ctx.thermoLaserOn
       ? { label: ctx.thermoTargetLabel || 'Termômetro Infravermelho' }
