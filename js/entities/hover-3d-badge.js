@@ -167,7 +167,7 @@ function renderBadgeTexture(badgeState, title, params, action) {
   ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
   for (let i = 0; i < actionLines.length; i++) maxLineW = Math.max(maxLineW, ctx.measureText(actionLines[i]).width);
 
-  const boxW = Math.min(w - 20, Math.max(220, Math.ceil(maxLineW) + 64));
+  const boxW = Math.min(w - 20, Math.max(150, Math.ceil(maxLineW) + 38));
   const boxX = (w - boxW) * 0.5;
 
   const padTop = 26;

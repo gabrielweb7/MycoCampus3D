@@ -293,7 +293,7 @@ export function applyReplicatedItemState(sim, item, state) {
 
   const meshData = item.mesh.userData || {};
   if (meshData.petriCtrl && state.petri && typeof state.petri.mode === 'string' &&
-      ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
+    ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
     const petri = meshData.petriCtrl;
     const incomingPetri = state.petri;
     petri.mode = incomingPetri.mode;
@@ -354,7 +354,7 @@ export function applyReplicatedItemState(sim, item, state) {
     updateContainerVolume(item, state.liquid.volMl);
   }
   if (item.pdaReagentCtrl && state.pdaReagent && typeof state.pdaReagent.remainingGrams === 'number' &&
-      Number.isFinite(state.pdaReagent.remainingGrams)) {
+    Number.isFinite(state.pdaReagent.remainingGrams)) {
     item.pdaReagentCtrl.remainingGrams = Math.max(0, Math.min(item.pdaReagentCtrl.maxGrams, state.pdaReagent.remainingGrams));
     updatePdaReagentLabel(item);
   }

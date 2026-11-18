@@ -123,6 +123,13 @@ export function makePetriDish(mode) {
   const glassMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.08, metalness: 0.15 });
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(PETRI_SIDE_RADIUS, PETRI_SIDE_RADIUS, 0.018, 22, 1, true), glassMat);
   rim.position.y = 0.009;
+  const dishBottom = new THREE.Mesh(new THREE.CylinderGeometry(PETRI_SIDE_RADIUS, PETRI_SIDE_RADIUS, 0.003, 22), glassMat);
+  dishBottom.position.y = 0.0015;
+  const pickHitbox = new THREE.Mesh(
+    new THREE.CylinderGeometry(PETRI_DISH_RADIUS, PETRI_DISH_RADIUS, 0.022, 14),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
+  );
+  pickHitbox.position.y = 0.011;
   const lidPivot = new THREE.Group();
   lidPivot.position.set(-PETRI_DISH_RADIUS, 0.021, 0);
   const lid = new THREE.Mesh(new THREE.CylinderGeometry(PETRI_DISH_RADIUS, PETRI_DISH_RADIUS, PETRI_LID_THICKNESS, 22), glassMat);
@@ -172,7 +179,7 @@ export function makePetriDish(mode) {
   parafilmRing.position.y = 0.017;
   parafilmRing.visible = false;
   ctrl.parafilmMesh = parafilmRing;
-  pg.add(rim, lidPivot, parafilmRing);
+  pg.add(rim, dishBottom, pickHitbox, lidPivot, parafilmRing);
   pg.userData.isPetri = true;
   pg.userData.petriCtrl = ctrl;
   return pg;
