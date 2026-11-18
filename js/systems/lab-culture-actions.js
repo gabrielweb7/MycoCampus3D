@@ -2,7 +2,7 @@ import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
-import { inoculatePetri, togglePetriLid } from '../items/petri-dish.js';
+import { inoculatePetri, togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
 
 export function handleFlocaoTargetAction(ctx) {
   const target = ctx.hoveredFlocaoTarget;
@@ -88,6 +88,10 @@ export function handleScalpelTargetAction(ctx) {
   if (target.mode === 'blade') {
     scalpel.hasBlade = true;
     scalpel.sterile = true;
+    scalpel.bladeExpired = false;
+    scalpel.bladeContaminated = false;
+    scalpel.cutContaminated = false;
+    scalpel.bladeAttachedAt = performance.now();
     scalpel.hasMycelium = false;
     if (scalpel.bladeMesh) scalpel.bladeMesh.visible = true;
     updateScalpelLabel(ctx.heldItem);
@@ -98,8 +102,8 @@ export function handleScalpelTargetAction(ctx) {
   } else if (target.mode === 'cut') {
     const petri = target.item && target.item.mesh.userData.petriCtrl;
     const spawn = target.item && target.item.spawnCtrl;
-    if (!scalpel.hasBlade || !scalpel.sterile) {
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Encaixe uma lâmina estéril #24 no bisturi antes de coletar micélio.');
+    if (!scalpel.hasBlade) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Encaixe uma lâmina #24 no bisturi antes de coletar micélio.');
       return;
     }
     if (!isAsepticWorkArea(ctx, target.item)) {
@@ -114,11 +118,29 @@ export function handleScalpelTargetAction(ctx) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ O micélio deste recipiente não está viável para transferência.');
       return;
     }
+    const usedContamBlade = !scalpel.sterile;
     scalpel.hasMycelium = true;
+    scalpel.cutContaminated = usedContamBlade;
+    if (usedContamBlade) {
+      if (petri) {
+        petri.mode = 'contam';
+        petri.contaminated = true;
+        petri.colonized = false;
+        updatePetriVisual(target.item);
+      }
+      if (spawn) {
+        spawn.contaminated = true;
+        spawn.updateVisual();
+      }
+    }
     updateScalpelLabel(ctx.heldItem);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Fragmento de micélio coletado! Transfira para uma placa estéril ou frasco/bag de spawn.');
+    if (ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(usedContamBlade
+        ? '🦠 Lâmina contaminada! Você contaminou esta cultura e coletou um fragmento contaminado.'
+        : '🔪 Fragmento de micélio coletado! Transfira para uma placa estéril ou frasco/bag de spawn.');
+    }
     ctx.notifyWorldAction();
   } else if (target.mode === 'biopsy' && target.item && target.item.wildMushroomCtrl) {
     if (!scalpel.hasBlade) {
@@ -132,6 +154,7 @@ export function handleScalpelTargetAction(ctx) {
     scalpel.hasMycelium = true;
     scalpel.biopsySpecies = wm.speciesName;
     scalpel.biopsyAseptic = hoodOk && bladeOk && glovesOk;
+    scalpel.cutContaminated = !bladeOk;
     updateScalpelLabel(ctx.heldItem);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
@@ -151,7 +174,7 @@ export function handleScalpelTargetAction(ctx) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A placa de destino precisa estar estéril, aberta e dentro da área asséptica.');
       return;
     }
-    const sterileTransfer = scalpel.sterile && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item);
+    const sterileTransfer = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item);
     if (!inoculatePetri(target.item, 'mycelium', sterileTransfer)) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir o fragmento para esta placa.');
       return;
@@ -160,6 +183,7 @@ export function handleScalpelTargetAction(ctx) {
       ? '🍄 Fragmento transferido! Acompanhe o crescimento do micélio branco.'
       : '🦠 A transferência contaminou a placa; higienize o Fluxo Laminar, use luvas e lâmina estéril.');
     scalpel.hasMycelium = false;
+    scalpel.cutContaminated = false;
     scalpel.biopsyAseptic = true;
     scalpel.sterile = false;
     updateScalpelLabel(ctx.heldItem);
@@ -167,7 +191,7 @@ export function handleScalpelTargetAction(ctx) {
     ctx.notifyWorldAction();
   } else if (target.mode === 'transfer_lc' && target.item && target.item.cultureCtrl) {
     const lc = target.item.cultureCtrl;
-    const aseptic = scalpel.sterile && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!ctx.wearingGloves;
+    const aseptic = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!ctx.wearingGloves;
     if (aseptic) {
       lc.colonized = true;
       lc.contaminated = false;
@@ -178,6 +202,7 @@ export function handleScalpelTargetAction(ctx) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Cultura Líquida contaminou por falta de assepsia (fluxo/luvas/lâmina estéril)!');
     }
     scalpel.hasMycelium = false;
+    scalpel.cutContaminated = false;
     scalpel.biopsyAseptic = true;
     scalpel.sterile = false;
     updateScalpelLabel(ctx.heldItem);
@@ -196,7 +221,7 @@ export function handleScalpelTargetAction(ctx) {
     }
     const isAseptic = isAsepticWorkArea(ctx, target.item);
     spawn.inoculated = true;
-    if (!scalpel.sterile || !spawn.sterilized || (!isAseptic && Math.random() < 0.45)) {
+    if (!scalpel.sterile || scalpel.cutContaminated || !spawn.sterilized || (!isAseptic && Math.random() < 0.45)) {
       spawn.contaminated = true;
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Contaminação na transferência! Use lâmina estéril, substrato esterilizado (1h20m) e Fluxo Laminar higienizado!');
     } else if (ctx.callbacks.onToast) {
@@ -204,6 +229,7 @@ export function handleScalpelTargetAction(ctx) {
     }
     spawn.updateVisual();
     scalpel.hasMycelium = false;
+    scalpel.cutContaminated = false;
     scalpel.sterile = false;
     updateScalpelLabel(ctx.heldItem);
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);

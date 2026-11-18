@@ -5,7 +5,9 @@ import {
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
 import { hideHover3dBadge } from '../entities/hover-3d-badge.js';
+import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
+import { updateScalpelLabel } from '../items/scalpel.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
 
@@ -102,6 +104,28 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   if (held.wildMushroomCtrl && held.wildMushroomCtrl.bodyGroup) {
     held.wildMushroomCtrl.bodyGroup.rotation.z = Math.PI / 2;
     held.wildMushroomCtrl.bodyGroup.position.y = held.wildMushroomCtrl.sideRestY ?? 0.05;
+  }
+  if (held.scalpelCtrl && held.scalpelCtrl.hasBlade && held.scalpelCtrl.sterile) {
+    const nowPerf = performance.now();
+    const onSanitizedHood = isAsepticWorkArea(ctx, held);
+    const onSanitizedSurface = !!(ctx.pickableItems && ctx.pickableItems.some(function (cand) {
+      if (!cand || cand === held || !cand.mesh) return false;
+      if (!cand.mesh.userData.isTray && !cand.mesh.userData.isTable) return false;
+      if ((cand.sanitizedUntil || 0) <= nowPerf) return false;
+      const rad = (cand.radius || 0.35) + 0.12;
+      return Math.abs(point.x - cand.mesh.position.x) <= rad &&
+        Math.abs(point.z - cand.mesh.position.z) <= rad &&
+        Math.abs(point.y - cand.mesh.position.y) <= 0.16;
+    }));
+    if (!onSanitizedHood && !onSanitizedSurface) {
+      held.scalpelCtrl.sterile = false;
+      held.scalpelCtrl.bladeExpired = true;
+      held.scalpelCtrl.bladeContaminated = true;
+      updateScalpelLabel(held);
+      if (ctx.callbacks && ctx.callbacks.onToast) {
+        ctx.callbacks.onToast('🦠 Lâmina do bisturi contaminou ao encostar em superfície não desinfectada!');
+      }
+    }
   }
   held.isMoved = true;
 

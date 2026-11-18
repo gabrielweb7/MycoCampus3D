@@ -482,6 +482,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         sc.hasBlade = true;
         sc.sterile = true;
         sc.bladeExpired = false;
+        sc.bladeContaminated = false;
+        sc.cutContaminated = false;
         sc.bladeAttachedAt = now;
         sc.hasMycelium = false;
         if (sc.bladeMesh) sc.bladeMesh.visible = true;
