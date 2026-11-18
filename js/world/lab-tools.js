@@ -162,9 +162,9 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeScalpel(ctx, 'scalpel_04', -17.68, 0.646, -11.72);
   makeScalpelBladePack(ctx, 'scalpel_blade_09', -17.56, 0.646, -11.72);
   makeScalpelBladePack(ctx, 'scalpel_blade_10', -17.48, 0.646, -11.72);
-  const beakerLab3 = makeBeaker1L(ctx, 'beaker_1l_lab_03', -19.55, 0.60, -11.95, 0);
+  const beakerLab3 = makeBeaker1L(ctx, 'beaker_1l_lab_03', -19.64, 0.60, -11.95, 0);
   attachPdaMediumCtrl(beakerLab3, 'beaker', false);
-  const pdaBottleLab2 = registerPickable(ctx, 'pda_bottle_lab_02', 'Pó desidratado BDA/PDA 500g', pdaGroup.clone(), -19.25, 0.60, -11.95, 0, 0.15, 0.34, PDA_BOTTLE_META);
+  const pdaBottleLab2 = registerPickable(ctx, 'pda_bottle_lab_02', 'Pó desidratado BDA/PDA 500g', pdaGroup.clone(), -19.42, 0.60, -11.95, 0, 0.15, 0.34, PDA_BOTTLE_META);
   attachPdaReagentCtrl(pdaBottleLab2);
   for (let ppEx = 0; ppEx < 4; ppEx++) {
     makePP5Cup145ml(ctx, 'pp5_cup_' + pad2(ppEx + 9), false, -16.92 + ppEx * 0.13, 0.60, -11.95);
@@ -186,14 +186,14 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeMixingBowl(ctx, 'mixing_bowl_04', -18.55, 0.60, -11.95);
   makeMixingBowl(ctx, 'mixing_bowl_05', -18.20, 0.60, -11.95);
   makeMixingBowl(ctx, 'mixing_bowl_06', -17.02, 0.245, -11.95);
-  // 8 frascos de cultura liquida vazios nos armarios do Lab
+  // 8 frascos de cultura liquida vazios nos armarios do Lab (afastados da divisoria)
   for (let lca = 0; lca < 6; lca++) {
     const lcCol = lca % 3;
     const lcRow = Math.floor(lca / 3);
-    makeLiquidJar800(ctx, 'liquid_culture_empty_cab_' + pad2(lca + 1), -19.58 + lcCol * 0.24, 0.245, -12.04 + lcRow * 0.20, 0);
+    makeLiquidJar800(ctx, 'liquid_culture_empty_cab_' + pad2(lca + 1), -19.62 + lcCol * 0.18, 0.245, -12.04 + lcRow * 0.20, 0);
   }
-  makeLiquidJar800(ctx, 'liquid_culture_empty_cab_07', -19.00, 0.60, -12.04, 0);
-  makeLiquidJar800(ctx, 'liquid_culture_empty_cab_08', -19.00, 0.60, -11.84, 0);
+  makeLiquidJar800(ctx, 'liquid_culture_empty_cab_07', -19.20, 0.60, -12.04, 0);
+  makeLiquidJar800(ctx, 'liquid_culture_empty_cab_08', -19.20, 0.60, -11.84, 0);
 
   // Estantes Porta-Pallet & Estoque do Deposito
   addStoragePortaPalletRack(ctx, -23.05, 8.0, 7.6, 0.86, Math.PI / 2);
