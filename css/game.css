@@ -191,11 +191,19 @@ body.device-tablet #fps-hint {
 }
 
 @keyframes mycoTripFreakout {
-  0% { filter: saturate(2.5) contrast(1.4) brightness(0.95); transform: scale(1.02) rotate(0deg); }
-  25% { filter: saturate(0.4) contrast(2.2) brightness(0.42) invert(0.08); transform: scale(1.06) rotate(-14deg); }
-  55% { filter: saturate(0.15) contrast(2.8) brightness(0.16) invert(0.14); transform: scale(1.08) rotate(180deg); }
-  85% { filter: saturate(0.1) contrast(3.0) brightness(0.08); transform: scale(1.04) rotate(180deg); }
-  100% { filter: saturate(0.2) contrast(1.5) brightness(0.04); transform: scale(1.0) rotate(180deg); }
+  0%, 100% {
+    filter: brightness(0.30) contrast(1.85) saturate(0.38) hue-rotate(-25deg);
+    transform: scale(1.01) skewX(0.9deg) rotate(-0.8deg);
+  }
+  50% {
+    filter: brightness(0.22) contrast(2.15) saturate(0.25) hue-rotate(35deg);
+    transform: scale(1.035) skewX(-1.1deg) rotate(0.8deg);
+  }
+}
+
+@keyframes mycoTripFaint {
+  0% { filter: brightness(0.26) contrast(2.0); transform: scale(1.02) rotate(0deg); }
+  100% { filter: brightness(0.05) contrast(1.5); transform: scale(1.0) rotate(180deg); }
 }
 
 @keyframes mycoPrismSpin {
@@ -203,13 +211,9 @@ body.device-tablet #fps-hint {
   to { transform: scale(1.35) rotate(360deg); }
 }
 
-@keyframes mycoCreatureLurk {
-  0%, 100% { opacity: 0.25; transform: scale(0.96) translateY(0); }
-  50% { opacity: 0.92; transform: scale(1.06) translateY(-8px); }
-}
-
 body.myco-trip-active #campus-canvas-wrap,
-body.myco-trip-freakout #campus-canvas-wrap {
+body.myco-trip-freakout #campus-canvas-wrap,
+body.myco-trip-faint #campus-canvas-wrap {
   will-change: transform, filter;
   transform-origin: center center;
 }
@@ -227,7 +231,11 @@ body.myco-trip-active #campus-canvas-wrap {
 }
 
 body.myco-trip-freakout #campus-canvas-wrap {
-  animation: mycoTripFreakout 4.2s ease-in-out forwards;
+  animation: mycoTripFreakout 11s ease-in-out infinite;
+}
+
+body.myco-trip-faint #campus-canvas-wrap {
+  animation: mycoTripFaint 2.4s ease-in forwards;
 }
 
 #interact-pill {

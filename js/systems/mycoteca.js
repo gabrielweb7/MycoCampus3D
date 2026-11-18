@@ -28,6 +28,7 @@ export function registerDiscoveredSpecies(speciesName) {
 
 let tripShroomCount = 0;
 let tripActive = false;
+let tripFreakoutActive = false;
 let tripEndsAt = 0;
 let tripStartTimer = null;
 let tripDecayTimer = null;
@@ -39,7 +40,7 @@ function clearTripTimers() {
 
 function clearTripVisuals() {
   if (typeof document === 'undefined') return;
-  document.body.classList.remove('myco-trip-active', 'myco-trip-freakout');
+  document.body.classList.remove('myco-trip-active', 'myco-trip-freakout', 'myco-trip-faint');
   document.documentElement.style.removeProperty('--trip-sat');
   document.documentElement.style.removeProperty('--trip-con');
   document.documentElement.style.removeProperty('--trip-bri');
@@ -52,21 +53,28 @@ function clearTripVisuals() {
 }
 
 export function isTripRainbowActive() {
-  return tripActive && tripShroomCount >= 1 && tripShroomCount < 20;
+  return tripActive && !tripFreakoutActive && tripShroomCount >= 1 && tripShroomCount < 20;
+}
+
+export function isTripFreakoutActive() {
+  return tripFreakoutActive;
 }
 
 export function getTripSpeedMultiplier() {
+  if (tripFreakoutActive) return 0.92;
   if (!tripActive || tripShroomCount <= 0 || tripShroomCount >= 20) return 1;
   return 1 + Math.min(0.45, tripShroomCount * 0.03);
 }
 
 export function getTripTextureFlowStrength() {
+  if (tripFreakoutActive) return 0.55;
   if (!tripActive || tripShroomCount < 3 || tripShroomCount >= 20) return 0;
   return Math.min(1, (tripShroomCount - 2) * 0.09);
 }
 
 if (typeof window !== 'undefined') {
   window.isTripRainbowActive = isTripRainbowActive;
+  window.isTripFreakoutActive = isTripFreakoutActive;
   window.getTripSpeedMultiplier = getTripSpeedMultiplier;
   window.getTripTextureFlowStrength = getTripTextureFlowStrength;
 }
@@ -140,38 +148,28 @@ export function triggerMagicCubensisEffect(onSkyFall) {
     document.body.appendChild(overlay);
   }
 
-  // 20º cogumelo: SURTO CABULOSO -> vira tela, tudo preto/medonho, seres estranhos, desmaia no branco e cai do céu
+  // 20º cogumelo: UMBRAL -> tudo escuro, sombrio e lento (~28s), gnomos pretos com cara de medo correndo e sumindo ao olhar, depois desmaia pro branco
   if (tripShroomCount >= 20) {
     tripActive = false;
+    tripFreakoutActive = true;
     document.body.classList.remove('myco-trip-active');
     document.body.classList.add('myco-trip-freakout');
-    overlay.style.transition = 'opacity 0.5s ease';
-    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 2.5s ease';
+    overlay.style.opacity = '0.18';
+    const mandalaEl = document.getElementById('myco-mandala-overlay');
+    if (mandalaEl) {
+      mandalaEl.style.transition = 'opacity 2.5s ease';
+      mandalaEl.style.opacity = '0.18';
+    }
 
     let darkLayer = document.getElementById('myco-freakout-dark');
     if (!darkLayer) {
       darkLayer = document.createElement('div');
       darkLayer.id = 'myco-freakout-dark';
       darkLayer.style.cssText =
-        'position:fixed;inset:0;pointer-events:none;z-index:55;opacity:0;' +
-        'background:radial-gradient(circle at 50% 50%, rgba(5,5,10,0.65) 15%, rgba(0,0,0,0.97) 75%);' +
-        'transition:opacity 1.4s ease;overflow:hidden;';
-      darkLayer.innerHTML =
-        '<svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%;opacity:0.9;">' +
-        '<g style="animation:mycoCreatureLurk 1.3s ease-in-out infinite;">' +
-        '<path d="M70,480 Q95,290 150,275 Q180,265 205,330 Q220,400 230,480 Z" fill="#030306"/>' +
-        '<circle cx="136" cy="318" r="6" fill="#ef4444"/><circle cx="164" cy="316" r="6" fill="#ef4444"/>' +
-        '<path d="M132,344 Q150,362 168,342" stroke="#dc2626" stroke-width="3" fill="none"/>' +
-        '</g>' +
-        '<g style="animation:mycoCreatureLurk 1.05s ease-in-out infinite 0.35s;">' +
-        '<path d="M585,490 Q610,250 670,235 Q725,245 750,490 Z" fill="#020205"/>' +
-        '<ellipse cx="648" cy="292" rx="8" ry="4" fill="#facc15"/><ellipse cx="688" cy="294" rx="8" ry="4" fill="#facc15"/>' +
-        '<path d="M640,326 L655,318 L668,328 L682,318 L695,327" stroke="#eab308" stroke-width="2.5" fill="none"/>' +
-        '</g>' +
-        '<g style="animation:mycoCreatureLurk 0.9s ease-in-out infinite 0.6s;">' +
-        '<path d="M340,30 Q395,125 450,30 Z" fill="#020204"/>' +
-        '<circle cx="382" cy="64" r="4.5" fill="#f87171"/><circle cx="408" cy="64" r="4.5" fill="#f87171"/>' +
-        '</g></svg>';
+        'position:fixed;inset:0;pointer-events:none;z-index:25;opacity:0;' +
+        'background:radial-gradient(circle at 50% 50%, rgba(10,5,20,0.28) 18%, rgba(2,2,6,0.88) 85%);' +
+        'transition:opacity 3.5s ease;';
       document.body.appendChild(darkLayer);
     }
     requestAnimationFrame(() => { darkLayer.style.opacity = '1'; });
@@ -182,7 +180,7 @@ export function triggerMagicCubensisEffect(onSkyFall) {
       whiteScreen.id = 'myco-white-ascend';
       whiteScreen.style.cssText =
         'position:fixed;inset:0;pointer-events:none;z-index:60;opacity:0;background:#ffffff;' +
-        'display:flex;align-items:center;justify-content:center;transition:opacity 1.8s ease;';
+        'display:flex;align-items:center;justify-content:center;transition:opacity 2.2s ease;';
       whiteScreen.innerHTML =
         '<div style="color:#334155;font-size:clamp(20px,3.6vw,34px);font-weight:300;line-height:1.5;letter-spacing:0.05em;text-align:center;padding:24px;opacity:0;transition:opacity 1.4s ease;">' +
         'Às vezes é bom não exagerar,<br>pequeno gafanhoto!...<br>Ainda não é sua hora.. volte e termine seu trabalho!</div>';
@@ -190,18 +188,21 @@ export function triggerMagicCubensisEffect(onSkyFall) {
     }
     const msgEl = whiteScreen.firstElementChild;
     setTimeout(() => {
+      document.body.classList.remove('myco-trip-freakout');
+      document.body.classList.add('myco-trip-faint');
       whiteScreen.style.opacity = '1';
-      if (msgEl) setTimeout(() => { msgEl.style.opacity = '1'; }, 800);
-    }, 3600);
+      if (msgEl) setTimeout(() => { msgEl.style.opacity = '1'; }, 900);
+    }, 27000);
 
     setTimeout(() => {
+      tripFreakoutActive = false;
       if (typeof onSkyFall === 'function') onSkyFall();
       clearTripVisuals();
       if (msgEl) msgEl.style.opacity = '0';
       whiteScreen.style.opacity = '0';
       tripShroomCount = 0;
       tripEndsAt = 0;
-    }, 8800);
+    }, 33000);
     return;
   }
 

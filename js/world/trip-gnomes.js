@@ -8,8 +8,10 @@ const THREE = window.THREE;
 
 const TUNIC_COLORS = [0x2563eb, 0x16a34a, 0x7c3aed, 0x0d9488, 0xd97706];
 const CALM_EMOTES = ['😊', '🍄', '✨', '👀', '🌿'];
+const FEAR_EMOTES = ['😱', '😨', '👁️', '💀'];
 
 let gnomePool = null;
+let shadowGnomePool = null;
 let sharedGeos = null;
 let cachedFlowTextures = null;
 let flowTime = 0;
@@ -81,17 +83,17 @@ function getSharedGeos() {
   return sharedGeos;
 }
 
-function createSingleGnome(tunicColor) {
+function createSingleGnome(tunicColor, isShadow = false) {
   const geo = getSharedGeos();
   const root = new THREE.Group();
 
-  const skinMat = new THREE.MeshLambertMaterial({ color: 0xf6c39b });
-  const redHatMat = new THREE.MeshLambertMaterial({ color: 0xdc2626 });
-  const whiteMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
-  const tunicMat = new THREE.MeshLambertMaterial({ color: tunicColor });
-  const brownMat = new THREE.MeshLambertMaterial({ color: 0x5c3a21 });
-  const goldMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+  const skinMat = new THREE.MeshLambertMaterial({ color: isShadow ? 0x334155 : 0xf6c39b });
+  const redHatMat = new THREE.MeshLambertMaterial({ color: isShadow ? 0x09090b : 0xdc2626 });
+  const whiteMat = new THREE.MeshLambertMaterial({ color: isShadow ? 0x1e293b : 0xf8fafc });
+  const tunicMat = new THREE.MeshLambertMaterial({ color: isShadow ? 0x050507 : tunicColor });
+  const brownMat = new THREE.MeshLambertMaterial({ color: isShadow ? 0x09090b : 0x5c3a21 });
+  const goldMat = new THREE.MeshBasicMaterial({ color: isShadow ? 0xef4444 : 0xfacc15 });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: isShadow ? 0xfef2f2 : 0x0f172a });
 
   const legL = new THREE.Group();
   const lLegMesh = new THREE.Mesh(geo.leg, brownMat);
@@ -137,7 +139,7 @@ function createSingleGnome(tunicColor) {
   const headGrp = new THREE.Group();
   headGrp.position.set(0, 0.50, 0);
   const head = new THREE.Mesh(geo.head, skinMat);
-  const nose = new THREE.Mesh(geo.nose, new THREE.MeshLambertMaterial({ color: 0xf47272 }));
+  const nose = new THREE.Mesh(geo.nose, new THREE.MeshLambertMaterial({ color: isShadow ? 0x1e293b : 0xf47272 }));
   nose.position.set(0, -0.01, 0.13);
   const beard = new THREE.Mesh(geo.beard, whiteMat);
   beard.rotation.x = Math.PI;
@@ -187,7 +189,120 @@ function pickRoamTarget(gn, px, pz, minR, maxR) {
 
 export function stepTripGnomes(ctx, dt) {
   stepTripTextureFlow(ctx.scene, dt);
+  const freakout = typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive();
   const active = typeof window !== 'undefined' && window.isTripRainbowActive && window.isTripRainbowActive();
+
+  if (!freakout && shadowGnomePool) {
+    for (let i = 0; i < shadowGnomePool.length; i++) shadowGnomePool[i].root.visible = false;
+  }
+
+  if (freakout) {
+    if (gnomePool) {
+      for (let i = 0; i < gnomePool.length; i++) gnomePool[i].root.visible = false;
+    }
+    const px = ctx.playerPos.x;
+    const pz = ctx.playerPos.z;
+    const fwdX = -Math.sin(ctx.playerYaw || 0);
+    const fwdZ = -Math.cos(ctx.playerYaw || 0);
+
+    if (!shadowGnomePool) {
+      shadowGnomePool = Array.from({ length: 7 }, () => {
+        const gn = createSingleGnome(0x050507, true);
+        gn.respawnTimer = 0;
+        gn.gazeDecided = false;
+        ctx.scene.add(gn.root);
+        return gn;
+      });
+    }
+
+    for (let i = 0; i < shadowGnomePool.length; i++) {
+      const gn = shadowGnomePool[i];
+      if (!gn.root.visible) {
+        gn.respawnTimer -= dt;
+        if (gn.respawnTimer > 0) continue;
+        // Nasce fora do centro direto do olhar ou ao redor na escuridão
+        const backAng = Math.atan2(-fwdZ, -fwdX) + (Math.random() - 0.5) * 2.5;
+        const dist = 9 + Math.random() * 11;
+        const sx = Math.max(-72, Math.min(72, px + Math.cos(backAng) * dist));
+        const sz = Math.max(-72, Math.min(72, pz + Math.sin(backAng) * dist));
+        gn.root.position.set(sx, getGroundHeight(ctx.physCtx, sx, sz, 2), sz);
+        pickRoamTarget(gn, px, pz, 6, 18);
+        gn.state = 'sprint';
+        gn.timer = 1.6 + Math.random() * 2.2;
+        gn.gazeDecided = false;
+        setGnomeEmote(gn, FEAR_EMOTES[i % FEAR_EMOTES.length]);
+        gn.root.visible = true;
+      }
+
+      const gx = gn.root.position.x;
+      const gz = gn.root.position.z;
+      const toGnomeX = gx - px;
+      const toGnomeZ = gz - pz;
+      const distP = Math.hypot(toGnomeX, toGnomeZ) || 1;
+      const dot = (fwdX * (toGnomeX / distP)) + (fwdZ * (toGnomeZ / distP));
+
+      // Se o jogador olhar direto para o gnomo preto, na maioria das vezes ele some na hora; às vezes fica encarando
+      if (dot > 0.87 && distP < 24) {
+        if (!gn.gazeDecided) {
+          gn.gazeDecided = true;
+          if (Math.random() < 0.72) {
+            gn.root.visible = false;
+            gn.respawnTimer = 0.6 + Math.random() * 1.4;
+            continue;
+          } else {
+            gn.state = 'stare';
+            gn.timer = 1.6;
+            setGnomeEmote(gn, '😱');
+          }
+        }
+      } else {
+        gn.gazeDecided = false;
+      }
+
+      gn.timer -= dt;
+      let speed = 0;
+      if (gn.state === 'stare') {
+        const lookYaw = Math.atan2(px - gx, pz - gz);
+        gn.root.rotation.y += Math.atan2(Math.sin(lookYaw - gn.root.rotation.y), Math.cos(lookYaw - gn.root.rotation.y)) * Math.min(1, dt * 10);
+        if (gn.timer <= 0) {
+          gn.state = 'sprint';
+          gn.timer = 2.0 + Math.random() * 2.0;
+          const awayAng = Math.atan2(gz - pz, gx - px) + (Math.random() - 0.5) * 1.2;
+          gn.targetX = Math.max(-72, Math.min(72, gx + Math.cos(awayAng) * 16));
+          gn.targetZ = Math.max(-72, Math.min(72, gz + Math.sin(awayAng) * 16));
+          setGnomeEmote(gn, FEAR_EMOTES[Math.floor(Math.random() * FEAR_EMOTES.length)]);
+        }
+      } else {
+        speed = 9.2;
+        if (Math.hypot(gn.targetX - gx, gn.targetZ - gz) < 1.1 || gn.timer <= 0) {
+          pickRoamTarget(gn, px, pz, 7, 19);
+          gn.timer = 1.4 + Math.random() * 1.8;
+          setGnomeEmote(gn, FEAR_EMOTES[Math.floor(Math.random() * FEAR_EMOTES.length)]);
+        }
+      }
+
+      if (speed > 0) {
+        const tx = gn.targetX - gx;
+        const tz = gn.targetZ - gz;
+        const tLen = Math.hypot(tx, tz) || 1;
+        const step = Math.min(tLen, speed * dt);
+        const nx = gx + (tx / tLen) * step;
+        const nz = gz + (tz / tLen) * step;
+        gn.root.position.set(nx, getGroundHeight(ctx.physCtx, nx, nz, gn.root.position.y + 0.5), nz);
+        const moveYaw = Math.atan2(tx, tz);
+        gn.root.rotation.y += Math.atan2(Math.sin(moveYaw - gn.root.rotation.y), Math.cos(moveYaw - gn.root.rotation.y)) * Math.min(1, dt * 12);
+        gn.phase += dt * 26;
+        const sw = Math.sin(gn.phase) * 0.85;
+        gn.legL.rotation.x = sw;
+        gn.legR.rotation.x = -sw;
+        gn.armL.rotation.x = -sw * 0.85;
+        gn.armR.rotation.x = sw * 0.85;
+        gn.root.position.y += Math.abs(Math.sin(gn.phase)) * 0.06;
+      }
+    }
+    return;
+  }
+
   if (!active) {
     if (gnomePool) {
       for (let i = 0; i < gnomePool.length; i++) gnomePool[i].root.visible = false;
