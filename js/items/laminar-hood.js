@@ -88,7 +88,7 @@ export function buildLaminarHoodAndBenches(ctx) {
       buildBenchCabinets(ctx, Object.assign({ bx, bz, bw, bd }, opts.cabinets));
       if (!ctx._benchLedSwitchBuilt) {
         ctx._benchLedSwitchBuilt = true;
-        buildBenchLedSwitch(ctx, bx - bw / 2 + 0.04, 1.48, bz, bx, bz);
+        buildBenchLedSwitch(ctx, bx - bw / 2 + 0.012, 1.48, bz, bx, bz);
       }
     } else {
       const cab = makeBox(bw, 0.82, bd, 0xe2e8f0, { roughness: 0.55 });

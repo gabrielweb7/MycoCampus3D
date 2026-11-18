@@ -284,6 +284,7 @@ export function buildBenchLedSwitch(ctx, sx, sy, sz, benchX, benchZ) {
   if (!THREE || !ctx || !ctx.scene) return null;
   const swGroup = new THREE.Group();
   swGroup.position.set(sx, sy, sz);
+  swGroup.rotation.y = Math.PI / 2;
 
   const plate = new THREE.Mesh(
     new THREE.BoxGeometry(0.11, 0.16, 0.025),
@@ -301,9 +302,10 @@ export function buildBenchLedSwitch(ctx, sx, sy, sz, benchX, benchZ) {
   swGroup.add(plate, rocker, led);
   ctx.scene.add(swGroup);
 
-  // Luminária LED acima da bancada
+  // Luminária LED grudada na parede ao longo da bancada
   const lampGroup = new THREE.Group();
-  lampGroup.position.set(benchX, 2.65, benchZ);
+  lampGroup.position.set(sx + 0.06, 2.55, benchZ);
+  lampGroup.rotation.y = Math.PI / 2;
   const tubeMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, emissive: 0xe0f2fe, emissiveIntensity: 0.95, roughness: 0.2
   });
