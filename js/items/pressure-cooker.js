@@ -648,8 +648,9 @@ export function stepPressureCookers(ctx, dt) {
     }
 
     if (cp.statusSprite) {
+      const isHeld = ctx.heldItem === cp.potItem || ctx.heldItem === cp.lidItem;
       const pDist = Math.hypot(potP.x - ctx.playerPos.x, potP.z - ctx.playerPos.z);
-      const showHud = pDist < 10.5 && (cp.burned || cp.temp > 26 || cp.psi > 0.1 || cp.progress > 0 || activeBurner);
+      const showHud = !isHeld && pDist < 10.5 && (cp.burned || cp.temp > 26 || cp.psi > 0.1 || cp.progress > 0 || activeBurner);
       cp.statusSprite.visible = showHud;
       if (showHud) {
         let stageTitle = '', stageSub = '', barPct = 0, barCol = '#38bdf8', borderCol = '#38bdf8';
