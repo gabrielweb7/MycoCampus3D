@@ -94,6 +94,22 @@ input, textarea, select, [contenteditable="true"] {
   max-height: 85dvh;
 }
 
+#mycoteca-modal > div {
+  width: min(94vw, 920px);
+  max-height: 86dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#mycoteca-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
 .chat-bar-wrap {
   width: min(92vw, 380px);
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));

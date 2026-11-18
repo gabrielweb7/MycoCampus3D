@@ -20,7 +20,7 @@ export async function syncMultiplayer() {
   appState.isInitialSync = false;
 
   const pose = window.getCampusPlayerPose();
-  const moved = window.consumeCampusMovedItems();
+  const moved = firstSync ? [] : window.consumeCampusMovedItems();
   const strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
   const stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
   const chatToSend = appState.pendingChatMsg;
@@ -114,6 +114,9 @@ export async function syncMultiplayer() {
       }
       if (data.item_states && window.applyCampusItemStates) {
         window.applyCampusItemStates(data.item_states);
+      }
+      if (firstSync && window.markCampusInitialItemStatesApplied) {
+        window.markCampusInitialItemStatesApplied();
       }
       if (!data.state_unchanged && data.world_state && window.applyCampusWorldState) {
         if (typeof data.server_ts === 'number') data.world_state._serverTs = data.server_ts;

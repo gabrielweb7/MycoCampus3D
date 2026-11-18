@@ -15,11 +15,23 @@ import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 
+export function markCampusInitialItemStatesApplied(sim) {
+  if (!sim) return;
+  sim.itemStateSignatures = {};
+  (sim.pickableItems || []).forEach(function (item) {
+    const state = getReplicatedItemState(sim, item);
+    if (state) {
+      sim.itemStateSignatures[item.id] = JSON.stringify(state);
+    }
+  });
+  sim.initialItemStatesApplied = true;
+}
+
 export function consumeCampusMovedItems(sim) {
   const pending = sim.pendingMovedItems;
   const byId = pending;
   const now = performance.now();
-  if (!sim.nextItemStateSyncAt || now >= sim.nextItemStateSyncAt) {
+  if (sim.initialItemStatesApplied && (!sim.nextItemStateSyncAt || now >= sim.nextItemStateSyncAt)) {
     sim.nextItemStateSyncAt = now + 1000;
     sim.itemStateSignatures = sim.itemStateSignatures || {};
     sim.pickableItems.forEach(function (item) {

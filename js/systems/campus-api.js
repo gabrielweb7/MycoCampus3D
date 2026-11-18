@@ -142,6 +142,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
     }
   };
 
+  window.markCampusInitialItemStatesApplied = function () { return worldSync.markCampusInitialItemStatesApplied(sim); };
   window.consumeCampusMovedItems = function () { return worldSync.consumeCampusMovedItems(sim); };
   window.requeueCampusMovedItems = function (list) { return worldSync.requeueCampusMovedItems(sim, list); };
   window.applyCampusWorldObjects = function (objectsMap) { return worldSync.applyCampusWorldObjects(sim, objectsMap); };

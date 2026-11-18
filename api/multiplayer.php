@@ -285,7 +285,7 @@ if ($action === 'sync') {
     }
     $pdo->prepare($sql)->execute($params);
 
-    if (!empty($body['moved_items']) && is_array($body['moved_items'])) {
+    if (!$initSync && !empty($body['moved_items']) && is_array($body['moved_items'])) {
         $batchPlaceholders = [];
         $batchParams = [];
         $statePlaceholders = [];

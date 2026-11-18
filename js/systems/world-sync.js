@@ -4,6 +4,7 @@
  */
 
 export {
+  markCampusInitialItemStatesApplied,
   consumeCampusMovedItems,
   requeueCampusMovedItems,
   applyCampusItemStates,
