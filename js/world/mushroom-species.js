@@ -316,6 +316,8 @@ export function buildExpandedForestAndMushrooms(ctx) {
     const kind = treeKinds[i % treeKinds.length];
     const tree = makeCreativeTree(kind, tx, ty, tz, 0.85 + seededRand(i + 99) * 0.65);
     scene.add(tree);
+    tree.updateMatrixWorld(true);
+    tree.traverse((ch) => { ch.matrixAutoUpdate = false; });
     ctx.forestCullGroups.push({ obj: tree, x: tx, z: tz, maxDistSq: 62 * 62 });
 
     if (i % 3 === 0) {

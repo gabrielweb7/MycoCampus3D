@@ -556,7 +556,8 @@ export function initCampus3D(containerId, cbs) {
     });
     sim.renderer.setSize(window.innerWidth, window.innerHeight);
     sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75));
-    sim.renderer.shadowMap.enabled = true;
+    sim.renderer.shadowMap.enabled = !touch;
+    sim.renderer.shadowMap.autoUpdate = !touch;
     sim.renderer.shadowMap.type = touch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     sim.renderer.outputEncoding = THREE.sRGBEncoding;
     if (THREE.ACESFilmicToneMapping) {
@@ -578,7 +579,7 @@ export function initCampus3D(containerId, cbs) {
     sim.envHemi = hemi;
     const sun = new THREE.DirectionalLight(0xfffbeb, touch ? 1.02 : 0.95);
     sun.position.set(45, 65, 38);
-    sun.castShadow = true;
+    sun.castShadow = !touch;
     const shSize = touch ? 1024 : camCfg.desktopShadowSize;
     sun.shadow.mapSize.set(shSize, shSize);
     sun.shadow.bias = -0.0005;
