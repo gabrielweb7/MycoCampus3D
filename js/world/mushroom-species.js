@@ -330,6 +330,8 @@ export function buildExpandedForestAndMushrooms(ctx) {
       logMesh.rotation.y = seededRand(i + 400) * Math.PI;
       logMesh.position.set(lx, ly + 0.18, lz);
       scene.add(logMesh);
+      logMesh.updateMatrixWorld(true);
+      logMesh.matrixAutoUpdate = false;
       ctx.forestCullGroups.push({ obj: logMesh, x: lx, z: lz, maxDistSq: 54 * 54 });
       woodLogs.push({ x: lx, y: ly + 0.36, z: lz });
     }
@@ -364,6 +366,8 @@ export function buildExpandedForestAndMushrooms(ctx) {
     cap.userData.wildMushId = id;
     cap.userData.speciesName = `${spec.common} (${spec.scientific})`;
     scene.add(g);
+    g.updateMatrixWorld(true);
+    g.traverse((ch) => { ch.matrixAutoUpdate = false; });
 
     wildMushrooms.push({
       id,

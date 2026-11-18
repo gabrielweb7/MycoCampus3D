@@ -271,6 +271,8 @@ export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
     g.add(flGrp);
   }
   scene.add(g);
+  g.updateMatrixWorld(true);
+  g.traverse((ch) => { ch.matrixAutoUpdate = false; });
 }
 
 let benchWoodMat = null;
@@ -362,6 +364,8 @@ export function createBench(scene, seatMeshes, x, z, rotY) {
   });
 
   scene.add(g);
+  g.updateMatrixWorld(true);
+  g.traverse((ch) => { ch.matrixAutoUpdate = false; });
 }
 
 export function createCampusLamp(scene, x, z) {
@@ -373,6 +377,8 @@ export function createCampusLamp(scene, x, z) {
   bulb.position.y = 3.45;
   g.add(pole, bulb);
   scene.add(g);
+  g.updateMatrixWorld(true);
+  g.traverse((ch) => { ch.matrixAutoUpdate = false; });
 }
 
 export function createBanner(scene, x, y, z, rotY, colorHex, emblem) {

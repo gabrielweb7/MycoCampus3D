@@ -931,18 +931,24 @@ export function stepPressureCookers(ctx, dt) {
       if (telEl) telEl.style.display = 'none';
     } else {
       const lines = [];
-      for (let i = 0; i < cookerPots.length; i++) {
-        const cp = cookerPots[i];
+      const pots = ctx.cookerPots || [];
+      for (let i = 0; i < pots.length; i++) {
+        const cp = pots[i];
+        if (!cp || !cp.potItem || !cp.potItem.mesh) continue;
         const d = Math.hypot(cp.potItem.mesh.position.x - ctx.playerPos.x, cp.potItem.mesh.position.z - ctx.playerPos.z);
-        if (d < 4.5 && (cp.temp > 28 || cp.waterMl > 0 || cp.contents.length > 0)) {
+        if (d < 4.5 && (cp.temp > 28 || cp.waterMl > 0 || (cp.contents && cp.contents.length > 0))) {
           const pct = Math.round(cp.progress || 0);
           lines.push(`🍲 ${Math.round(cp.temp)}°C • ${cp.psi.toFixed(1)} PSI • ${pct}%`);
           break;
         }
       }
-      for (let i = 0; i < burnerStations.length; i++) {
-        const b = burnerStations[i];
-        const d = Math.hypot(b.x - ctx.playerPos.x, b.z - ctx.playerPos.z);
+      const burners = ctx.burnerStations || [];
+      for (let i = 0; i < burners.length; i++) {
+        const b = burners[i];
+        if (!b) continue;
+        const bx = b.mesh ? b.mesh.position.x : (b.x || 0);
+        const bz = b.mesh ? b.mesh.position.z : (b.z || 0);
+        const d = Math.hypot(bx - ctx.playerPos.x, bz - ctx.playerPos.z);
         if (d < 4.5 && (b.on || b.timerPresetMin > 0)) {
           let tTxt = 'LIVRE';
           if (b.timerPresetMin > 0) {

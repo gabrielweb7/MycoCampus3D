@@ -260,16 +260,31 @@ export function stepAutoQuality(now, deps) {
     const fps = qualityState.currentFps;
     const r = deps && deps.renderer;
 
-    // 1º nível de inteligência: resolução dinâmica contínua (sem trocar preset/efeitos)
+    // 1º nível de inteligência: resolução dinâmica contínua com deadband estável (só ajusta após 2s fora da faixa)
     if (r && qualityState.baseRatio) {
       let next = qualityState.dynScale || 1;
-      if (fps < 42 && next > 0.62) next = Math.max(0.62, next - 0.12);
-      else if (fps >= 58 && next < 1) next = Math.min(1, next + 0.06);
+      if (fps < 42 && next > 0.62) {
+        qualityState.lowFpsStreak++;
+        qualityState.highFpsStreak = 0;
+        if (qualityState.lowFpsStreak >= 2) {
+          next = Math.max(0.62, Math.round((next - 0.12) * 100) / 100);
+          qualityState.lowFpsStreak = 0;
+        }
+      } else if (fps >= 57 && next < 1) {
+        qualityState.highFpsStreak++;
+        qualityState.lowFpsStreak = 0;
+        if (qualityState.highFpsStreak >= 3) {
+          next = Math.min(1, Math.round((next + 0.08) * 100) / 100);
+          qualityState.highFpsStreak = 0;
+        }
+      } else {
+        qualityState.lowFpsStreak = 0;
+        qualityState.highFpsStreak = 0;
+      }
       if (next !== qualityState.dynScale) {
         qualityState.dynScale = next;
         r.setPixelRatio(qualityState.baseRatio * next);
         r.setSize(window.innerWidth, window.innerHeight, false);
-        qualityState.lowFpsStreak = 0;
         if (deps.onQualityChange) deps.onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps });
         return;
       }
