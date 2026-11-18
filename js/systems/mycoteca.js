@@ -22,7 +22,7 @@ export function registerDiscoveredSpecies(speciesName) {
   list.push(clean);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch (e) {}
+  } catch (e) { }
   return { list, isNew: true };
 }
 
@@ -199,7 +199,7 @@ export function triggerMagicCubensisEffect(onSkyFall) {
         'display:flex;align-items:center;justify-content:center;transition:opacity 1.8s ease;';
       blackFaint.innerHTML =
         '<div style="color:#e2e8f0;font-size:clamp(20px,3.6vw,34px);font-weight:300;line-height:1.5;letter-spacing:0.05em;text-align:center;padding:24px;opacity:0;transition:opacity 1.4s ease;">' +
-        'O véu se rasgou, mas a terra ainda não te aceitou...<br>Volte do céu, pequeno gafanhoto —<br>o que você plantou ainda respira lá embaixo.</div>';
+        'Nem todo abismo quer te guardar...<br>Alguns só te lembram de onde você veio.</div>';
       document.body.appendChild(blackFaint);
     }
     const msgEl = blackFaint.firstElementChild;
