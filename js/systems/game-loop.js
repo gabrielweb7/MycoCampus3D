@@ -338,6 +338,7 @@ export function startAnimationLoop(ctx) {
       stepUfoAbduction(ctx, dt);
       stepDehydrators(ctx, dt);
       stepForestDistanceCulling(ctx);
+      qualityMod.stepMobileItemCulling(ctx, now);
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);
       dropUnsupportedItems(ctx.entityCtx);

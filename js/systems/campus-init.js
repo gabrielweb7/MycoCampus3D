@@ -5,7 +5,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
-import { getInitialQualityTier } from '../core/quality.js';
+import { getInitialQualityTier, optimizeSceneMaterialsForMobile } from '../core/quality.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
@@ -552,7 +552,6 @@ export function initCampus3D(containerId, cbs) {
 
     sim.renderer = new THREE.WebGLRenderer({
       antialias: !touch,
-      precision: touch ? 'mediump' : 'highp',
       powerPreference: 'high-performance'
     });
     sim.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -613,6 +612,7 @@ export function initCampus3D(containerId, cbs) {
     initConfettiSystem(sim.scene);
     initGreenhouseParticlePools(sim.scene);
     bindControls(sim);
+    if (touch) optimizeSceneMaterialsForMobile(sim.scene);
     applyQualityTier(sim, getInitialQualityTier(touch));
     startAnimationLoop(sim);
     logger.info('campus-init', 'Campus 3D inicializado com sucesso');

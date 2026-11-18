@@ -13,10 +13,10 @@ const TIER_CONFIGS = {
     min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0  }
   },
   mobile: {
-    high:   { ratioCap: 1.15, shadows: false, soft: false, far: 240, aura: true,  weatherParticles: 100, forestScale: 0.80, toneMap: false, blur: false, maxLights: 2  },
-    medium: { ratioCap: 0.90, shadows: false, soft: false, far: 185, aura: false, weatherParticles: 40,  forestScale: 0.60, toneMap: false, blur: false, maxLights: 1  },
-    low:    { fixedRatio: 0.75, shadows: false, soft: false, far: 145, aura: false, weatherParticles: 0,   forestScale: 0.45, toneMap: false, blur: false, maxLights: 0  },
-    min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 115, aura: false, weatherParticles: 0,   forestScale: 0.32, toneMap: false, blur: false, maxLights: 0  }
+    high:   { ratioCap: 1.00, shadows: false, soft: false, far: 210, aura: true,  weatherParticles: 80,  forestScale: 0.72, toneMap: false, blur: false, maxLights: 2, itemCullDist: 26 },
+    medium: { ratioCap: 0.85, shadows: false, soft: false, far: 165, aura: false, weatherParticles: 30,  forestScale: 0.55, toneMap: false, blur: false, maxLights: 1, itemCullDist: 20 },
+    low:    { fixedRatio: 0.70, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.40, toneMap: false, blur: false, maxLights: 0, itemCullDist: 15 },
+    min:    { fixedRatio: 0.55, shadows: false, soft: false, far: 105, aura: false, weatherParticles: 0,   forestScale: 0.28, toneMap: false, blur: false, maxLights: 0, itemCullDist: 12 }
   }
 };
 
@@ -26,6 +26,7 @@ export const qualityState = {
   auraEnabled: true,
   forestScale: 1.0,
   maxPointLights: 99,
+  itemCullDist: 999,
   fpsFrames: 0,
   fpsLastSampleAt: 0,
   fpsLastFrameAt: 0,
@@ -128,6 +129,7 @@ export function applyQualityTier(tier, deps) {
   qualityState.auraEnabled = cfg.aura;
   qualityState.forestScale = cfg.forestScale;
   qualityState.maxPointLights = cfg.maxLights !== undefined ? cfg.maxLights : 99;
+  qualityState.itemCullDist = cfg.itemCullDist !== undefined ? cfg.itemCullDist : 999;
   if (scene) stepPointLightBudget(scene, null, true);
   if (onQualityChange) {
     onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps: qualityState.currentFps });
@@ -178,6 +180,62 @@ export function stepPointLightBudget(scene, playerPos, force = false) {
 
   for (let i = 0; i < sorted.length; i++) {
     cachedPointLights[sorted[i].idx].light.visible = i < maxLights;
+  }
+}
+
+let lastItemCullAt = 0;
+
+export function optimizeSceneMaterialsForMobile(scene) {
+  if (!scene || !THREE || !THREE.MeshLambertMaterial) return;
+  const converted = new Map();
+  scene.traverse((obj) => {
+    if (!obj || (!obj.isMesh && !obj.isInstancedMesh) || !obj.material) return;
+    if (Array.isArray(obj.material)) return;
+    const m = obj.material;
+    if (!m.isMeshStandardMaterial) return;
+    // Mantém vidros/metais muito reflexivos; converte materiais foscos/orgânicos para Lambert (4x mais rápido no mobile)
+    if (m.transparent && m.opacity < 0.85) return;
+    if ((m.metalness || 0) > 0.35) return;
+    let lambert = converted.get(m);
+    if (!lambert) {
+      lambert = new THREE.MeshLambertMaterial({
+        color: m.color,
+        map: m.map || null,
+        emissive: m.emissive,
+        emissiveIntensity: m.emissiveIntensity !== undefined ? m.emissiveIntensity : 1,
+        side: m.side,
+        transparent: m.transparent,
+        opacity: m.opacity,
+        depthWrite: m.depthWrite,
+        vertexColors: m.vertexColors
+      });
+      converted.set(m, lambert);
+    }
+    obj.material = lambert;
+  });
+}
+
+export function stepMobileItemCulling(ctx, now) {
+  const maxDist = qualityState.itemCullDist;
+  if (!ctx || !ctx.pickableItems || !ctx.playerPos || maxDist >= 900) return;
+  if (now - lastItemCullAt < 240) return;
+  lastItemCullAt = now;
+  const px = ctx.playerPos.x;
+  const pz = ctx.playerPos.z;
+  const maxSq = maxDist * maxDist;
+  const items = ctx.pickableItems;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (!it || !it.mesh) continue;
+    if (it === ctx.heldItem) {
+      it.mesh.visible = true;
+      continue;
+    }
+    const ud = it.mesh.userData;
+    if (ud && (ud.isTable || ud.isHood || ud.isRack || it.fridgeCtrl)) continue;
+    const dx = it.mesh.position.x - px;
+    const dz = it.mesh.position.z - pz;
+    it.mesh.visible = (dx * dx + dz * dz) <= maxSq;
   }
 }
 
