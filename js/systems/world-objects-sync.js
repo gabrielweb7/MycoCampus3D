@@ -50,7 +50,7 @@ export function requeueCampusMovedItems(sim, list) {
   });
 }
 
-function getReplicatedItemState(sim, item) {
+export function getReplicatedItemState(sim, item) {
   if (!item || !item.mesh) return null;
   const state = {};
   const meshData = item.mesh.userData || {};
@@ -155,10 +155,17 @@ function getReplicatedItemState(sim, item) {
       contents: cooker.contents.slice(0, 6).map((content) => content.id)
     };
   }
+  const meta = item.meta || meshData.itemMeta;
+  if (meta && typeof meta.serializeState === 'function') {
+    const customState = meta.serializeState(item, sim);
+    if (customState && typeof customState === 'object') {
+      state.custom = customState;
+    }
+  }
   return Object.keys(state).length ? state : null;
 }
 
-function applyReplicatedItemState(sim, item, state) {
+export function applyReplicatedItemState(sim, item, state) {
   if (!item || !state || typeof state !== 'object') return;
   const spawn = item.spawnCtrl || (item.mesh.userData && item.mesh.userData.spawnCtrl);
   if (spawn && state.spawn && typeof state.spawn === 'object') {
@@ -323,6 +330,10 @@ function applyReplicatedItemState(sim, item, state) {
       }
       updateCookerWaterVisual(cooker);
     }
+  }
+  const meta = item.meta || (item.mesh && item.mesh.userData && item.mesh.userData.itemMeta);
+  if (meta && typeof meta.applyState === 'function' && state.custom && typeof state.custom === 'object') {
+    meta.applyState(item, state.custom, sim);
   }
 }
 
