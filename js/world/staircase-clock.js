@@ -263,7 +263,7 @@ export function buildClockTowerAndAuditorium(ctx) {
 
   // Alas laterais simetricas da Reitoria caminhaveis com porta aberta (z = -40.2..-33.8)
   [-9.5, 9.5].forEach(function (ax) {
-    addWalkableSlab(ctx.scene, ctx.walkableFloors, ax, baseY, -37.0, 11.0, 0.2, 6.4, 0x334155);
+    addWalkableSlab(ctx.scene, ctx.walkableFloors, ax, baseY + 0.02, -37.0, 11.0, 0.04, 6.4, 0x334155);
     var rRoof = makeBox(11.4, 0.45, 6.8, 0x64748b);
     rRoof.position.set(ax, baseY + 6.3, -37.0);
     registerSnowable(rRoof.material);

@@ -696,6 +696,7 @@ export function bootApp() {
   window.initCampus3D('campus-canvas-wrap', {
     onHarvestMushroom: (mushId) => harvestMushroom(mushId),
     onHarvestGreenhouse: (slot) => harvestGreenhouseSlot(slot),
+    onDehydrateReward: () => harvestMushroom('dehydrator_crisp'),
     onOpenLessons: () => {
       renderLessonsModal();
       $('lesson-modal')?.classList.remove('hidden');

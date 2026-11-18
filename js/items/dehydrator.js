@@ -79,8 +79,9 @@ export function interactDehydrator(ctx, item) {
     dc.on = false;
     updateDehydratorVisual(item);
     if (ctx.markItemMoved) ctx.markItemMoved(item);
+    if (ctx.callbacks && ctx.callbacks.onDehydrateReward) ctx.callbacks.onDehydrateReward();
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('✨ Cogumelo Desidratado Crocante (0% umidade) retirado!');
+      ctx.callbacks.onToast('✨ Cogumelo Desidratado Crocante (0% umidade) retirado! +15 XP');
     }
     return true;
   }

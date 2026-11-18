@@ -145,6 +145,87 @@ export function canDisposeItemInTrash(item) {
   return false;
 }
 
+export function isContaminatedOrBurned(item) {
+  if (!item || !item.mesh) return false;
+  if (item.spawnCtrl) return !!(item.spawnCtrl.contaminated || item.spawnCtrl.burned || item.spawnCtrl.expired);
+  if (item.mesh.userData.isPetri && item.mesh.userData.petriCtrl) {
+    const p = item.mesh.userData.petriCtrl;
+    return !!(p.contaminated || p.expired || p.mode === 'contam');
+  }
+  if (item.pdaMediumCtrl && item.pdaMediumCtrl.burned) return true;
+  if (item.cultureCtrl && (item.cultureCtrl.contaminated || item.cultureCtrl.expired)) return true;
+  return false;
+}
+
+export function resetDisposableContainer(item) {
+  if (!item || !item.mesh) return false;
+  let cleaned = false;
+  if (item.spawnCtrl && !item.spawnCtrl.isBag) {
+    const sp = item.spawnCtrl;
+    sp.filled = false;
+    sp.fillGrams = 0;
+    sp.waterMl = 0;
+    sp.substrateKind = '';
+    sp.sterilized = false;
+    sp.sterilizeProgress = 0;
+    sp.sealed = false;
+    sp.inoculated = false;
+    sp.colonized = false;
+    sp.colonization = 0;
+    sp.contaminated = false;
+    sp.burned = false;
+    sp.expired = false;
+    sp.ageGameDays = 0;
+    sp.shelfLifeAgeDays = 0;
+    updateSpawnVisual(item);
+    cleaned = true;
+  }
+  if (item.mesh.userData.isPetri && item.mesh.userData.petriCtrl) {
+    const p = item.mesh.userData.petriCtrl;
+    p.mode = 'bare';
+    p.sterilized = false;
+    p.inoculated = false;
+    p.inoculationMethod = '';
+    p.colonization = 0;
+    p.contaminated = false;
+    p.parafilmSealed = false;
+    p.expired = false;
+    p.ageGameDays = 0;
+    p.shelfLifeAgeDays = 0;
+    p.lidOpen = false;
+    updatePetriVisual(item);
+    cleaned = true;
+  }
+  if (item.bowlCtrl) {
+    item.bowlCtrl.ingredients = { flocao: 0, water: 0, corn: 0, sawdust: 0 };
+    item.bowlCtrl.mixed = false;
+    item.bowlCtrl.stirCount = 0;
+    updateMixingBowlLabel(item);
+    cleaned = true;
+  }
+  if (item.pdaMediumCtrl) {
+    item.pdaMediumCtrl.powderGrams = 0;
+    item.pdaMediumCtrl.mixed = false;
+    item.pdaMediumCtrl.stirProgress = 0;
+    item.pdaMediumCtrl.sterilized = false;
+    item.pdaMediumCtrl.burned = false;
+    updatePdaMediumVisual(item);
+    cleaned = true;
+  }
+  if (item.cultureCtrl) {
+    item.cultureCtrl.colonized = false;
+    item.cultureCtrl.contaminated = false;
+    item.cultureCtrl.expired = false;
+    item.cultureCtrl.ageGameDays = 0;
+    item.cultureCtrl.shelfLifeAgeDays = 0;
+  }
+  if (item.mesh.userData.liquidCtrl && item.id.indexOf('distilled_jug') !== 0) {
+    updateContainerVolume(item, 0);
+    cleaned = true;
+  }
+  return cleaned;
+}
+
 export function handleTrashDisposal(ctx, item) {
   if (!item || !item.mesh) return false;
 
@@ -181,59 +262,7 @@ export function handleTrashDisposal(ctx, item) {
     return true;
   }
 
-  let cleaned = false;
-  if (item.spawnCtrl) {
-    const sp = item.spawnCtrl;
-    sp.filled = false;
-    sp.fillGrams = 0;
-    sp.waterMl = 0;
-    sp.substrateKind = '';
-    sp.sterilized = false;
-    sp.sterilizeProgress = 0;
-    sp.sealed = false;
-    sp.inoculated = false;
-    sp.colonized = false;
-    sp.colonization = 0;
-    sp.contaminated = false;
-    sp.burned = false;
-    sp.expired = false;
-    sp.ageGameDays = 0;
-    updateSpawnVisual(item);
-    cleaned = true;
-  }
-  if (item.mesh.userData.isPetri && item.mesh.userData.petriCtrl) {
-    const p = item.mesh.userData.petriCtrl;
-    p.mode = 'bare';
-    p.sterilized = false;
-    p.inoculated = false;
-    p.inoculationMethod = '';
-    p.colonization = 0;
-    p.expired = false;
-    p.ageGameDays = 0;
-    p.lidOpen = false;
-    updatePetriVisual(item);
-    cleaned = true;
-  }
-  if (item.bowlCtrl) {
-    item.bowlCtrl.ingredients = { flocao: 0, water: 0, corn: 0, sawdust: 0 };
-    item.bowlCtrl.mixed = false;
-    item.bowlCtrl.stirCount = 0;
-    updateMixingBowlLabel(item);
-    cleaned = true;
-  }
-  if (item.pdaMediumCtrl) {
-    item.pdaMediumCtrl.powderGrams = 0;
-    item.pdaMediumCtrl.mixed = false;
-    item.pdaMediumCtrl.stirProgress = 0;
-    item.pdaMediumCtrl.sterilized = false;
-    item.pdaMediumCtrl.burned = false;
-    updatePdaMediumVisual(item);
-    cleaned = true;
-  }
-  if (item.mesh.userData.liquidCtrl && item.id.indexOf('distilled_jug') !== 0) {
-    updateContainerVolume(item, 0);
-    cleaned = true;
-  }
+  const cleaned = resetDisposableContainer(item);
 
   if (cleaned) {
     if (window.MycoAudio) window.MycoAudio.playClick();

@@ -179,7 +179,7 @@ export function makeTextSprite(text, colorHex) {
   var canvas = document.createElement('canvas');
   canvas.width = 512; canvas.height = 96;
   var tex = new THREE.CanvasTexture(canvas);
-  var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true });
   var sp = new THREE.Sprite(mat);
   sp.scale.set(2.2, 0.42, 1);
   updateTextSprite(sp, text, colorHex);

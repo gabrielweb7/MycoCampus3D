@@ -226,7 +226,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   const pTex = new THREE.CanvasTexture(pCanvas);
   pTex.generateMipmaps = false;
   pTex.minFilter = THREE.LinearFilter;
-  const pSpriteMat = new THREE.SpriteMaterial({ map: pTex, transparent: true, depthTest: false });
+  const pSpriteMat = new THREE.SpriteMaterial({ map: pTex, transparent: true, depthTest: true });
   const pSprite = new THREE.Sprite(pSpriteMat);
   pSprite.scale.set(1.05, 0.37, 1);
   pSprite.position.set(0, 0.80, 0);
@@ -790,7 +790,8 @@ export function stepPressureCookers(ctx, dt) {
     if (cp.statusSprite) {
       const isHeld = ctx.heldItem === cp.potItem || ctx.heldItem === cp.lidItem;
       const pDist = Math.hypot(potP.x - ctx.playerPos.x, potP.z - ctx.playerPos.z);
-      const showHud = !isHeld && pDist < 10.5 && (cp.burned || cp.temp > 26 || cp.psi > 0.1 || cp.progress > 0 || activeBurner);
+      const pDy = Math.abs((potP.y || 0) - (ctx.playerPos.y || 0));
+      const showHud = !isHeld && pDist < 5.5 && pDy < 2.2 && (cp.burned || cp.temp > 26 || cp.psi > 0.1 || cp.progress > 0 || activeBurner);
       cp.statusSprite.visible = showHud;
       if (showHud) {
         let stageTitle = '', stageSub = '', barPct = 0, barCol = '#38bdf8', borderCol = '#38bdf8';

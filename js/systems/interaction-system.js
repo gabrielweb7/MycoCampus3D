@@ -25,7 +25,7 @@ import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray } from '../items/alcohol-spray.js';
 import { wipeWithPaperTowel } from '../items/paper-towel.js';
-import { handleTrashDisposal } from '../items/lab-trash.js';
+import { handleTrashDisposal, isContaminatedOrBurned, resetDisposableContainer } from '../items/lab-trash.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { interactDehydrator } from '../items/dehydrator.js';
@@ -367,6 +367,14 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (ctx.hoveredSink) {
+      if (isContaminatedOrBurned(ctx.heldItem) && resetDisposableContainer(ctx.heldItem)) {
+        triggerSinkStream(ctx.hoveredSink, 500);
+        if (window.MycoAudio) window.MycoAudio.playSpray();
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🚰 Recipiente lavado na pia! Pronto para reesterilizar.');
+        ctx.notifyWorldAction();
+        return;
+      }
       const medium = ctx.heldItem.pdaMediumCtrl;
       const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !cp.lidItem.isAttached);
       if (hasPdaContents(ctx.heldItem)) {
