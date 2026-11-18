@@ -556,7 +556,19 @@ export function stepPressureCookers(ctx, dt) {
     const cp = ctx.cookerPots[cpi];
     const potP = cp.potItem.mesh.position;
 
-    // Verifica se possui base perfurada dentro
+    // Verifica se possui base perfurada dentro (inclusive se encaixada via posicionamento livre)
+    if (ctx.pickableItems) {
+      for (let bi = 0; bi < ctx.pickableItems.length; bi++) {
+        const bIt = ctx.pickableItems[bi];
+        if (!bIt || bIt === ctx.heldItem || !bIt.mesh || !bIt.mesh.userData || !bIt.mesh.userData.isCookerBase) continue;
+        const bdx = bIt.mesh.position.x - potP.x;
+        const bdz = bIt.mesh.position.z - potP.z;
+        const bdy = bIt.mesh.position.y - potP.y;
+        if (bdx * bdx + bdz * bdz < 0.18 * 0.18 && bdy >= -0.02 && bdy <= 0.16) {
+          if (cp.contents.indexOf(bIt) === -1) cp.contents.push(bIt);
+        }
+      }
+    }
     cp.hasBase = cp.contents.some((it) => it && it.mesh && it.mesh.userData && it.mesh.userData.isCookerBase);
 
     let activeBurner = null;

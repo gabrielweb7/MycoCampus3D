@@ -227,7 +227,9 @@ export function findPlacementTarget(ctx, customNdc) {
       if (targetPot.lidItem && targetPot.lidItem.isAttached && targetPot.lidItem !== heldItem) continue;
       _tmpPlaceCenter.set(targetPot.mesh.position.x, targetPot.mesh.position.y + 0.24, targetPot.mesh.position.z);
       var camDist = origin.distanceTo(_tmpPlaceCenter);
-      var potHits = raycaster.intersectObject(targetPot.mesh, true);
+      var potHits = raycaster.intersectObject(targetPot.mesh, true).filter(function (h) {
+        return !h.object.userData || !h.object.userData.ignoreRay;
+      });
       if (potHits.length > 0 && potHits[0].distance < 4.5) {
         ctx.setSnapClosePot(targetPot);
         ctx.setHeldRotY(targetPot.mesh.rotation.y);

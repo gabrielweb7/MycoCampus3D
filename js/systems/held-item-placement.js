@@ -99,6 +99,10 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   held.mesh.visible = true;
   held.mesh.position.copy(point);
   held.mesh.rotation.set(0, ctx.heldRotY, 0);
+  if (held.wildMushroomCtrl && held.wildMushroomCtrl.bodyGroup) {
+    held.wildMushroomCtrl.bodyGroup.rotation.z = Math.PI / 2;
+    held.wildMushroomCtrl.bodyGroup.position.y = held.wildMushroomCtrl.sideRestY ?? 0.05;
+  }
   held.isMoved = true;
 
   if (snapCloseLid && held.potItem && ctx.snapClosePot) {

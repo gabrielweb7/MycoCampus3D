@@ -80,8 +80,15 @@ export function makeScalpel(ctx, id, px, py, pz) {
   neck.position.set(0, 0.006, -0.052);
   const blade = makeBox(0.011, 0.003, 0.044, bladeMat);
   blade.position.set(0, 0.006, -0.084);
+  const pickHitbox = makeBox(
+    0.055,
+    0.036,
+    0.21,
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
+  );
+  pickHitbox.position.set(0, 0.016, -0.02);
 
-  sg.add(handle, neck, blade);
+  sg.add(handle, neck, blade, pickHitbox);
   sg.userData.isScalpel = true;
   const item = registerPickable(ctx, id, 'Bisturi Inox (Lâmina #24 Estéril ✅)', sg, px, py, pz, 0, 0.09, 0.02, SCALPEL_META);
   item.scalpelCtrl = {
@@ -109,7 +116,14 @@ export function makeScalpelBladePack(ctx, id, px, py, pz) {
 
   const pack = makeBox(0.028, 0.004, 0.085, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.35 }));
   pack.position.y = 0.004;
-  pg.add(pack);
+  const packHitbox = makeBox(
+    0.052,
+    0.028,
+    0.11,
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
+  );
+  packHitbox.position.y = 0.014;
+  pg.add(pack, packHitbox);
   pg.userData.isScalpelBladePack = true;
   return registerPickable(ctx, id, 'Sachê Lâmina Bisturi #24 (Estéril)', pg, px, py, pz, 0, 0.06, 0.02, BLADE_PACK_META);
 }

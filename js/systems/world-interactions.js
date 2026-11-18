@@ -58,10 +58,25 @@ export function handleWorldInteraction(ctx) {
     const isMagic = (wm.id && wm.id.indexOf('wild_poop_') === 0) ||
       spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1;
 
-    const heldGroup = wm.group.clone();
-    heldGroup.visible = true;
-    heldGroup.position.set(0, 0, 0);
+    const cloned = wm.group.clone();
+    cloned.visible = true;
+    cloned.position.set(0, 0, 0);
+    cloned.rotation.set(0, 0, 0);
+    const mBox = new THREE.Box3().setFromObject(cloned);
+    const mCenter = new THREE.Vector3();
+    const mSize = new THREE.Vector3();
+    mBox.getCenter(mCenter);
+    mBox.getSize(mSize);
+    cloned.position.set(-mCenter.x, -mBox.min.y, -mCenter.z);
+
+    const bodyGroup = new THREE.Group();
+    bodyGroup.add(cloned);
+
+    const heldGroup = new THREE.Group();
+    heldGroup.add(bodyGroup);
     heldGroup.scale.setScalar(0.65);
+
+    const sideRestY = Math.max(0.03, mSize.x * 0.5);
     const pickedId = 'wild_picked_' + Date.now().toString(36);
     const mItem = registerPickable(ctx, pickedId, '🍄 ' + spName, heldGroup, 0, 0, 0, 0, 0.14, 0.20, {
       category: 'specimen',
@@ -69,7 +84,7 @@ export function handleWorldInteraction(ctx) {
       weightGrams: 18,
       compatibilities: { canEnterCooker: false }
     });
-    mItem.wildMushroomCtrl = { speciesName: spName, isMagic };
+    mItem.wildMushroomCtrl = { speciesName: spName, isMagic, bodyGroup, sideRestY };
     ctx.heldItem = mItem;
     ctx.lastPickupAt = performance.now();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(mItem.label);

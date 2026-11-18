@@ -314,7 +314,7 @@ function handleCookerLidSnapHover(ctx, setHoverPrompt) {
     const cp = ctx.cookerPots[ci];
     const targetPot = cp.potItem;
     if (targetPot.lidItem && targetPot.lidItem.isAttached && targetPot.lidItem !== ctx.heldItem) continue;
-    const cpHits = ctx.raycaster.intersectObject(targetPot.mesh, true);
+    const cpHits = ctx.raycaster.intersectObject(targetPot.mesh, true).filter((h) => !h.object.userData || !h.object.userData.ignoreRay);
     if (cpHits.length > 0 && cpHits[0].distance < 4.5) {
       ctx.hoverHit = cpHits[0];
       ctx.hoveredSnapPot = targetPot;
@@ -327,11 +327,11 @@ function handleCookerLidSnapHover(ctx, setHoverPrompt) {
 }
 
 function handleCookerInsertHover(ctx, setHoverPrompt) {
-  if (!canItemEnterCooker(ctx.heldItem)) return false;
+  if (ctx.placementMode || !canItemEnterCooker(ctx.heldItem)) return false;
   for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
     const cp = ctx.cookerPots[ci];
     if ((cp.lidItem && cp.lidItem.isAttached) || cp.contents.length >= 6) continue;
-    const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
+    const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true).filter((h) => !h.object.userData || !h.object.userData.ignoreRay);
     if (cpHits.length > 0 && cpHits[0].distance < 3.5) {
       ctx.hoverHit = cpHits[0];
       ctx.hoveredPotInsert = cp;
