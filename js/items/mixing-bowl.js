@@ -94,7 +94,8 @@ export function updateMixingBowlLabel(item) {
       }
     }
   }
-  const status = bc.mixed ? '✅ Receita Homogênea' : '🥄 Misture c/ colher';
+  const kindCount = Object.values(bc.ingredients).filter((v) => v > 0).length;
+  const status = bc.mixed ? '✅ Receita Homogênea' : (kindCount < 2 ? '➕ Adicione outro ingrediente' : '🥄 Misture c/ colher');
   item.label = 'Pote Mistura (' + parts.join(' + ') + ' = ' + totalG + 'g • ' + status + ')';
 }
 
@@ -113,7 +114,9 @@ export function advanceMixingBowlStir(item, dt) {
   if (!item || !item.bowlCtrl) return { done: false, empty: true, progress: 0 };
   const bc = item.bowlCtrl;
   const total = Object.values(bc.ingredients).reduce((a, b) => a + b, 0);
+  const kindCount = Object.values(bc.ingredients).filter((v) => v > 0).length;
   if (total <= 0) return { done: false, empty: true, progress: 0 };
+  if (kindCount < 2) return { done: false, empty: false, needTwo: true, progress: 0 };
   if (bc.mixed) return { done: true, empty: false, progress: 1 };
   bc.stirProgress = Math.min(1, (bc.stirProgress || 0) + dt / 3.0);
   if (bc.stirProgress >= 1) {

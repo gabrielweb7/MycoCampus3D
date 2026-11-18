@@ -511,8 +511,13 @@ function handleSpoonOrBowlHover(ctx, intersectPickableItem, setHoverPrompt) {
   ctx.hoverHit = res.hit;
   ctx.hoveredBowlTarget = res.item;
   hidePlacementGhost(ctx);
+  const spoonKindCount = isSpoonTarget && res.item.bowlCtrl
+    ? Object.values(res.item.bowlCtrl.ingredients || {}).filter((v) => v > 0).length
+    : 0;
   setHoverPrompt(ctx, isSpoonTarget
-    ? (res.item.bowlCtrl && res.item.bowlCtrl.mixed ? '✅ Receita já homogênea' : '🥄 Segure 3s para misturar no Pote')
+    ? (res.item.bowlCtrl && res.item.bowlCtrl.mixed
+      ? '✅ Receita já homogênea'
+      : (spoonKindCount < 2 ? '⚠️ Adicione pelo menos 2 ingredientes antes de misturar' : '🥄 Segure 3s para misturar no Pote'))
     : '🥣 Porcionar receita em ' + res.item.label);
   return true;
 }

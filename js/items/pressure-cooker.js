@@ -186,7 +186,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
       return 5200 + (cpState ? Math.round(cpState.waterMl) : 0);
     }
   });
-  const potItem = registerPickable(ctx, potId, 'Panela de Pressão 20L (' + labelSuffix + ')', potGroup, px, py, pz, 0, 0.30, 0.42, potMeta);
+  const potItem = registerPickable(ctx, potId, 'Panela de Pressão 20L', potGroup, px, py, pz, 0, 0.30, 0.42, potMeta);
 
   const lidGroup = new THREE.Group();
   const lidRim = new THREE.Mesh(new THREE.CylinderGeometry(0.248, 0.256, 0.045, 22), steelMat);
@@ -224,7 +224,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   const valveSteam = createSteamEmitter(lidGroup, 0.17);
   const openPotSteam = createSteamEmitter(potGroup, 0.37);
 
-  const lidItem = registerPickable(ctx, lidId, 'Tampa da Panela (' + labelSuffix + ')', lidGroup, px, py + 0.36, pz, 0, 0.26, 0.16, PRESSURE_LID_META);
+  const lidItem = registerPickable(ctx, lidId, 'Tampa da Panela 20L', lidGroup, px, py + 0.36, pz, 0, 0.26, 0.16, PRESSURE_LID_META);
   lidItem.potItem = potItem;
   lidItem.isAttached = true;
   potItem.lidItem = lidItem;
