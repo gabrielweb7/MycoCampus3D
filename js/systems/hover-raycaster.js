@@ -331,13 +331,18 @@ export function updateHoverRay(ctx, customNdc) {
     for (let m = 0; m < ctx.wildMushrooms.length; m++) {
       const wm = ctx.wildMushrooms[m];
       if (!wm.active) continue;
-      const mdx = wm.group.position.x - refX, mdz = wm.group.position.z - refZ;
+      const wmX = wm.worldX !== undefined ? wm.worldX : wm.group.position.x;
+      const wmZ = wm.worldZ !== undefined ? wm.worldZ : wm.group.position.z;
+      const mdx = wmX - refX, mdz = wmZ - refZ;
       if (mdx * mdx + mdz * mdz > maxMushSq) continue;
       const mHits = ctx.raycaster.intersectObject(wm.group, true);
       if (mHits.length > 0 && mHits[0].distance < 4.5) {
         ctx.hoverHit = mHits[0];
         ctx.hoveredMushroom = wm;
-        prompt = '🍄 Colher Cogumelo (+25 XP)';
+        const isPoop = wm.id && wm.id.indexOf('wild_poop_') === 0;
+        prompt = isPoop
+          ? '🍄 Colher Cubensis Dourado (+40 XP • +1 Cogu)'
+          : '🍄 Colher Cogumelo (+25 XP)';
         break;
       }
     }

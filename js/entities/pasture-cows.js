@@ -169,22 +169,29 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
   myceliumGroup.scale.setScalar(0.05);
   g.add(myceliumGroup);
 
-  // Cubensis reais (pins -> haste c/ véu roxo -> chapéu campanulado dourado c/ borda creme)
+  // Cubensis reais com LatheGeometry (perfil campanulado orgânico + véu fino roxo)
   const cubensisGroup = new THREE.Group();
   cubensisGroup.visible = false;
   const stemMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.65 });
-  const veilMat = new THREE.MeshStandardMaterial({ color: 0x581c87, roughness: 0.8 });
-  const capTopMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.45 });
-  const capUmboMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.4 });
-  const capRimMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.55 });
-  const gillsMat = new THREE.MeshStandardMaterial({ color: 0x3f2e26, roughness: 0.85, side: THREE.DoubleSide });
-  const spotDotMat = new THREE.MeshBasicMaterial({ color: 0xfef9c3 });
+  const veilMat = new THREE.MeshStandardMaterial({ color: 0x4c1d95, roughness: 0.85, side: THREE.DoubleSide });
+  const capMat = new THREE.MeshStandardMaterial({ color: 0xc97b1e, roughness: 0.42 });
+  const gillsMat = new THREE.MeshStandardMaterial({ color: 0x3b2820, roughness: 0.88, side: THREE.DoubleSide });
+
+  const capProfile = [
+    new THREE.Vector2(0.001, 0.056),
+    new THREE.Vector2(0.022, 0.052),
+    new THREE.Vector2(0.050, 0.036),
+    new THREE.Vector2(0.078, 0.015),
+    new THREE.Vector2(0.090, 0.000),
+    new THREE.Vector2(0.084, -0.004)
+  ];
+  const capGeo = new THREE.LatheGeometry(capProfile, 16);
 
   const caps = [];
   const mushParts = [];
   const patternType = Math.floor(hash01(variantSeed, 99) * 3);
   const offsets = patternType === 0
-    ? [[0, 0, 1.48]] // 1 grande!
+    ? [[0, 0, 1.45]] // 1 grande!
     : (patternType === 1
       ? [[-0.06, 0.03, 1.05], [0.07, -0.04, 0.92]] // 2 médios
       : [[0, 0, 1.0], [-0.08, 0.06, 0.78], [0.09, -0.05, 0.85]]); // 3 em tufo
@@ -195,37 +202,26 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
     mg.scale.setScalar(off[2]);
 
     const stemPivot = new THREE.Group();
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.20, 9), stemMat);
-    st.position.y = 0.10;
-    const veilRing = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.006, 6, 12), veilMat);
-    veilRing.rotation.x = Math.PI / 2;
-    veilRing.rotation.z = 0.2;
-    veilRing.position.y = 0.125;
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.024, 0.21, 10), stemMat);
+    st.position.y = 0.105;
+    // Anel/véu fino caído na haste igual à foto real do Cubensis
+    const veilRing = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.030, 0.022, 10, 1, true), veilMat);
+    veilRing.position.y = 0.135;
+    veilRing.rotation.z = 0.15;
     stemPivot.add(st, veilRing);
     mg.add(stemPivot);
 
     const capGroup = new THREE.Group();
-    capGroup.position.y = 0.195;
-    const dome = new THREE.Mesh(new THREE.ConeGeometry(0.088, 0.052, 14), capTopMat);
-    dome.position.y = 0.022;
-    const umbo = new THREE.Mesh(new THREE.SphereGeometry(0.034, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), capUmboMat);
-    umbo.position.y = 0.035;
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.011, 6, 14), capRimMat);
-    rim.rotation.x = Math.PI / 2;
-    const gills = new THREE.Mesh(new THREE.CircleGeometry(0.082, 14), gillsMat);
+    capGroup.position.y = 0.205;
+    const dome = new THREE.Mesh(capGeo, capMat);
+    const gills = new THREE.Mesh(new THREE.CircleGeometry(0.083, 16), gillsMat);
     gills.rotation.x = Math.PI / 2;
     gills.position.y = -0.002;
-    for (let di = 0; di < 4; di++) {
-      const ang = di * Math.PI * 0.5 + 0.4;
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 5, 5), spotDotMat);
-      dot.position.set(Math.cos(ang) * 0.036, 0.030, Math.sin(ang) * 0.036);
-      capGroup.add(dot);
-    }
     dome.userData.wildMushId = poopId;
     dome.userData.speciesName = patternType === 0
-      ? 'Cubensis Dourado Gigante (Psilocybe cubensis • +40 XP)'
-      : 'Cubensis Dourado do Pasto (Psilocybe cubensis • +40 XP)';
-    capGroup.add(dome, umbo, rim, gills);
+      ? 'Cubensis Dourado Gigante (Psilocybe cubensis)'
+      : 'Cubensis Dourado do Pasto (Psilocybe cubensis)';
+    capGroup.add(dome, gills);
     mg.add(capGroup);
 
     cubensisGroup.add(mg);
@@ -441,6 +437,8 @@ export function stepPastureCows(ctx, dt) {
         wildEntry: {
           id: poopId,
           group: poopVis.cubensisGroup,
+          worldX: pxPos,
+          worldZ: pzPos,
           capMesh: poopVis.caps[0],
           active: false,
           respawnAt: 0
