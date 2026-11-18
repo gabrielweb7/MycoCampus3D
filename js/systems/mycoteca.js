@@ -54,10 +54,12 @@ function clearTripVisuals() {
   if (mandala) mandala.style.opacity = '0';
   const darkLayer = document.getElementById('myco-freakout-dark');
   if (darkLayer) darkLayer.style.opacity = '0';
+  const blackFaint = document.getElementById('myco-black-faint');
+  if (blackFaint) blackFaint.style.opacity = '0';
 }
 
 export function isTripRainbowActive() {
-  return tripActive && !tripFreakoutActive && tripShroomCount >= 1 && tripShroomCount < 20;
+  return tripActive && !tripFreakoutActive && tripShroomCount >= 1 && tripShroomCount < 8;
 }
 
 export function isTripFreakoutActive() {
@@ -66,14 +68,14 @@ export function isTripFreakoutActive() {
 
 export function getTripSpeedMultiplier() {
   if (tripFreakoutActive) return 0.92;
-  if (!tripActive || tripShroomCount <= 0 || tripShroomCount >= 20) return 1;
-  return 1 + Math.min(0.45, tripShroomCount * 0.03);
+  if (!tripActive || tripShroomCount <= 0 || tripShroomCount >= 8) return 1;
+  return 1 + Math.min(0.42, tripShroomCount * 0.06);
 }
 
 export function getTripTextureFlowStrength() {
   if (tripFreakoutActive) return 0.55;
-  if (!tripActive || tripShroomCount < 3 || tripShroomCount >= 20) return 0;
-  return Math.min(1, (tripShroomCount - 2) * 0.09);
+  if (!tripActive || tripShroomCount < 2 || tripShroomCount >= 8) return 0;
+  return Math.min(1, (tripShroomCount - 1) * 0.16);
 }
 
 if (typeof window !== 'undefined') {
@@ -85,9 +87,9 @@ if (typeof window !== 'undefined') {
 
 function applyProgressiveColorVars(count) {
   const root = document.documentElement.style;
-  const sat = 1.35 + count * 0.09;
-  const con = 1.04 + count * 0.012;
-  const bri = 1.02 + Math.min(0.14, count * 0.008);
+  const sat = 1.35 + count * 0.22;
+  const con = 1.04 + count * 0.025;
+  const bri = 1.02 + Math.min(0.14, count * 0.02);
   root.setProperty('--trip-sat', sat.toFixed(2));
   root.setProperty('--trip-con', con.toFixed(2));
   root.setProperty('--trip-bri', bri.toFixed(2));
@@ -139,7 +141,7 @@ function scheduleTripEnd(overlay) {
 export function triggerMagicCubensisEffect(onSkyFall) {
   if (typeof document === 'undefined') return;
   clearTripTimers();
-  tripShroomCount = Math.min(20, tripShroomCount + 1);
+  tripShroomCount = Math.min(8, tripShroomCount + 1);
 
   let overlay = document.getElementById('myco-magic-overlay');
   if (!overlay) {
@@ -152,8 +154,8 @@ export function triggerMagicCubensisEffect(onSkyFall) {
     document.body.appendChild(overlay);
   }
 
-  // 20º cogumelo: UMBRAL -> noite sombria nítida (~27s), gnomos pretos com olhos brilhantes e cara de medo correndo e sumindo ao olhar, depois desmaia pro branco
-  if (tripShroomCount >= 20) {
+  // 8º cogumelo: UMBRAL -> sombrio + cambaleio (~24s), desmaia pro PRETO com a mensagem, depois clarão BRANCO e cai de paraquedas!
+  if (tripShroomCount >= 8) {
     tripActive = false;
     tripFreakoutActive = true;
     document.body.classList.remove('myco-trip-active');
@@ -180,35 +182,60 @@ export function triggerMagicCubensisEffect(onSkyFall) {
     requestAnimationFrame(() => { darkLayer.style.opacity = '1'; });
     if (window.MycoAudio && window.MycoAudio.playUmbralWhisper) window.MycoAudio.playUmbralWhisper();
 
-    let whiteScreen = document.getElementById('myco-white-ascend');
-    if (!whiteScreen) {
-      whiteScreen = document.createElement('div');
-      whiteScreen.id = 'myco-white-ascend';
-      whiteScreen.style.cssText =
-        'position:fixed;inset:0;pointer-events:none;z-index:60;opacity:0;background:#ffffff;' +
-        'display:flex;align-items:center;justify-content:center;transition:opacity 2.2s ease;';
-      whiteScreen.innerHTML =
-        '<div style="color:#334155;font-size:clamp(20px,3.6vw,34px);font-weight:300;line-height:1.5;letter-spacing:0.05em;text-align:center;padding:24px;opacity:0;transition:opacity 1.4s ease;">' +
+    let blackFaint = document.getElementById('myco-black-faint');
+    if (!blackFaint) {
+      blackFaint = document.createElement('div');
+      blackFaint.id = 'myco-black-faint';
+      blackFaint.style.cssText =
+        'position:fixed;inset:0;pointer-events:none;z-index:59;opacity:0;background:#000000;' +
+        'display:flex;align-items:center;justify-content:center;transition:opacity 1.8s ease;';
+      blackFaint.innerHTML =
+        '<div style="color:#e2e8f0;font-size:clamp(20px,3.6vw,34px);font-weight:300;line-height:1.5;letter-spacing:0.05em;text-align:center;padding:24px;opacity:0;transition:opacity 1.4s ease;">' +
         'Às vezes é bom não exagerar,<br>pequeno gafanhoto!...<br>Ainda não é sua hora.. volte e termine seu trabalho!</div>';
-      document.body.appendChild(whiteScreen);
+      document.body.appendChild(blackFaint);
     }
-    const msgEl = whiteScreen.firstElementChild;
+    const msgEl = blackFaint.firstElementChild;
+
+    let whiteFlash = document.getElementById('myco-white-ascend');
+    if (!whiteFlash) {
+      whiteFlash = document.createElement('div');
+      whiteFlash.id = 'myco-white-ascend';
+      whiteFlash.style.cssText =
+        'position:fixed;inset:0;pointer-events:none;z-index:62;opacity:0;background:#ffffff;' +
+        'transition:opacity 0.55s ease;';
+      document.body.appendChild(whiteFlash);
+    } else {
+      whiteFlash.innerHTML = '';
+      whiteFlash.style.transition = 'opacity 0.55s ease';
+    }
+
+    // 1) Aos 24s: tomba e desmaia pro PRETO TOTAL
     freakoutTimers.push(setTimeout(() => {
       document.body.classList.remove('myco-trip-freakout');
       document.body.classList.add('myco-trip-faint');
-      whiteScreen.style.opacity = '1';
-      if (msgEl) freakoutTimers.push(setTimeout(() => { msgEl.style.opacity = '1'; }, 900));
-    }, 27000));
+      blackFaint.style.opacity = '1';
+      // 2) A mensagem aparece no fundo preto
+      if (msgEl) freakoutTimers.push(setTimeout(() => { msgEl.style.opacity = '1'; }, 1200));
+    }, 24000));
 
+    // 3) Aos 30s: do nada, tudo fica BRANCO!
+    freakoutTimers.push(setTimeout(() => {
+      if (msgEl) msgEl.style.opacity = '0';
+      whiteFlash.style.transition = 'opacity 0.45s ease';
+      whiteFlash.style.opacity = '1';
+    }, 30000));
+
+    // 4) Aos 31.2s: teleporta pro céu de paraquedas e o branco abre suave!
     freakoutTimers.push(setTimeout(() => {
       tripFreakoutActive = false;
       if (typeof onSkyFall === 'function') onSkyFall();
       clearTripVisuals();
-      if (msgEl) msgEl.style.opacity = '0';
-      whiteScreen.style.opacity = '0';
+      blackFaint.style.opacity = '0';
+      whiteFlash.style.transition = 'opacity 1.8s ease';
+      whiteFlash.style.opacity = '0';
       tripShroomCount = 0;
       tripEndsAt = 0;
-    }, 33000));
+    }, 31200));
     return;
   }
 
