@@ -40,6 +40,9 @@ function updateThermometerLaser(ctx, dt, now) {
     return;
   }
 
+  if (now - (ctx._lastThermoRayAt || 0) < 65) return;
+  ctx._lastThermoRayAt = now;
+
   _tmpMuzzlePos.set(0, 0.155, -0.09).applyEuler(ctx.heldItem.mesh.rotation).add(ctx.heldItem.mesh.position);
   ctx.raycaster.setFromCamera(ctx.inFps ? _vZero2 : ctx.pointerNdc, ctx.camera);
 

@@ -548,7 +548,7 @@ export function initCampus3D(containerId, cbs) {
     );
     sim.camera.position.set(-14, 16, 26);
 
-    sim.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    sim.renderer = new THREE.WebGLRenderer({ antialias: !touch, powerPreference: 'high-performance' });
     sim.renderer.setSize(window.innerWidth, window.innerHeight);
     sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75));
     sim.renderer.shadowMap.enabled = true;

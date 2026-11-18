@@ -13,9 +13,9 @@ const TIER_CONFIGS = {
     min:    { fixedRatio: 0.55, shadows: false, soft: false, far: 135, aura: false, weatherParticles: 0 }
   },
   mobile: {
-    high:   { ratioCap: 1.5, shadows: true,  soft: false, far: 300, aura: true,  weatherParticles: 240 },
-    medium: { ratioCap: 1.0, shadows: false, soft: false, far: 210, aura: true,  weatherParticles: 90 },
-    low:    { fixedRatio: 0.82, shadows: false, soft: false, far: 165, aura: false, weatherParticles: 0 },
+    high:   { ratioCap: 1.25, shadows: false, soft: false, far: 260, aura: true,  weatherParticles: 160 },
+    medium: { ratioCap: 1.0,  shadows: false, soft: false, far: 205, aura: true,  weatherParticles: 80 },
+    low:    { fixedRatio: 0.80, shadows: false, soft: false, far: 160, aura: false, weatherParticles: 0 },
     min:    { fixedRatio: 0.62, shadows: false, soft: false, far: 125, aura: false, weatherParticles: 0 }
   }
 };
