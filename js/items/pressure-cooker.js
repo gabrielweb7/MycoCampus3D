@@ -224,6 +224,8 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   pCanvas.width = 360; pCanvas.height = 128;
   const pCtx = pCanvas.getContext('2d');
   const pTex = new THREE.CanvasTexture(pCanvas);
+  pTex.generateMipmaps = false;
+  pTex.minFilter = THREE.LinearFilter;
   const pSpriteMat = new THREE.SpriteMaterial({ map: pTex, transparent: true, depthTest: false });
   const pSprite = new THREE.Sprite(pSpriteMat);
   pSprite.scale.set(1.05, 0.37, 1);
@@ -387,6 +389,8 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   tCanvas.width = 256; tCanvas.height = 64;
   const tCtx = tCanvas.getContext('2d');
   const tTex = new THREE.CanvasTexture(tCanvas);
+  tTex.generateMipmaps = false;
+  tTex.minFilter = THREE.LinearFilter;
   const timerScreen = new THREE.Mesh(
     new THREE.PlaneGeometry(0.16, 0.042),
     new THREE.MeshBasicMaterial({ map: tTex })
@@ -690,9 +694,9 @@ export function stepPressureCookers(ctx, dt) {
 
     const canAdvanceProcess = activeBurner && hasWater && cp.lidItem.isAttached && !cp.burned &&
       (!hasContainers || (hasBase && waterLevelOk)) && (
-      (cp.mode === 'sterilize' && cp.psi >= 14.2) ||
-      (cp.mode === 'pasteurize' && cp.temp >= 74 && cp.temp <= 90)
-    );
+        (cp.mode === 'sterilize' && cp.psi >= 14.2) ||
+        (cp.mode === 'pasteurize' && cp.temp >= 74 && cp.temp <= 90)
+      );
 
     if (canAdvanceProcess) {
       if (cp.progress < 100) {
@@ -722,7 +726,7 @@ export function stepPressureCookers(ctx, dt) {
             const medium = cIt.pdaMediumCtrl;
             const liquidCtrl = cIt.mesh && cIt.mesh.userData && cIt.mesh.userData.liquidCtrl;
             if (cp.mode === 'sterilize' && cp.progress >= 100 && medium.mixed && !medium.burned &&
-                liquidCtrl && isPdaRecipeBalanced(medium, liquidCtrl.volMl)) {
+              liquidCtrl && isPdaRecipeBalanced(medium, liquidCtrl.volMl)) {
               medium.sterilized = true;
               if (cIt.spawnCtrl && cIt.spawnCtrl.substrateKind === 'pda') {
                 cIt.spawnCtrl.sterilized = true;
@@ -733,7 +737,7 @@ export function stepPressureCookers(ctx, dt) {
             }
           }
           if (cIt && cIt.mesh.userData.petriCtrl && cIt.mesh.userData.petriCtrl.mode === 'filled' &&
-              cp.mode === 'sterilize' && cp.progress >= 100) {
+            cp.mode === 'sterilize' && cp.progress >= 100) {
             sterilizePetri(cIt);
           }
         }
@@ -917,5 +921,60 @@ export function stepPressureCookers(ctx, dt) {
       ? Math.max(0, Math.min(1, 1 - (nearestSteamDist - 2) / 10)) * (0.45 + 0.55 * bestSteamFactor)
       : 0;
     window.MycoAudio.setSteam(steamVol > 0.01, steamVol);
+  }
+
+  // Painel 2D nítido no Mobile/Tablet para ler Panela e Timer do Fogareiro mesmo em resolução reduzida
+  if (typeof document !== 'undefined') {
+    const isMobileUi = !!(ctx.isTouchDevice && ctx.isTouchDevice());
+    let telEl = document.getElementById('mobile-lab-telemetry');
+    if (!isMobileUi || !ctx.inFps) {
+      if (telEl) telEl.style.display = 'none';
+    } else {
+      const lines = [];
+      for (let i = 0; i < cookerPots.length; i++) {
+        const cp = cookerPots[i];
+        const d = Math.hypot(cp.potItem.mesh.position.x - ctx.playerPos.x, cp.potItem.mesh.position.z - ctx.playerPos.z);
+        if (d < 4.5 && (cp.temp > 28 || cp.waterMl > 0 || cp.contents.length > 0)) {
+          const pct = Math.round(cp.progress || 0);
+          lines.push(`🍲 ${Math.round(cp.temp)}°C • ${cp.psi.toFixed(1)} PSI • ${pct}%`);
+          break;
+        }
+      }
+      for (let i = 0; i < burnerStations.length; i++) {
+        const b = burnerStations[i];
+        const d = Math.hypot(b.x - ctx.playerPos.x, b.z - ctx.playerPos.z);
+        if (d < 4.5 && (b.on || b.timerPresetMin > 0)) {
+          let tTxt = 'LIVRE';
+          if (b.timerPresetMin > 0) {
+            const rem = Math.max(0, Math.ceil((b.timerRemainingSec || 0) / BURNER_GAME_MIN_SECONDS));
+            const hh = Math.floor(rem / 60);
+            const mm = rem % 60;
+            tTxt = (hh > 0 ? hh + 'h' : '') + String(mm).padStart(2, '0') + 'm';
+          }
+          lines.push(`🔥 Fogareiro ${b.on ? ('N' + (b.level || 1)) : 'OFF'} • ⏱️ ${tTxt}`);
+          break;
+        }
+      }
+      if (lines.length) {
+        if (!telEl) {
+          telEl = document.createElement('div');
+          telEl.id = 'mobile-lab-telemetry';
+          telEl.style.cssText =
+            'position:fixed;top:56px;right:10px;z-index:26;pointer-events:none;' +
+            'background:rgba(15,23,42,0.92);border:1px solid rgba(52,211,153,0.45);' +
+            'border-radius:12px;padding:6px 10px;color:#f8fafc;font-size:12px;font-weight:700;' +
+            'line-height:1.45;box-shadow:0 8px 20px rgba(0,0,0,0.45);max-width:62vw;';
+          document.body.appendChild(telEl);
+        }
+        const nextTxt = lines.join('\n');
+        if (telEl.textContent !== nextTxt) {
+          telEl.style.whiteSpace = 'pre-line';
+          telEl.textContent = nextTxt;
+        }
+        telEl.style.display = 'block';
+      } else if (telEl) {
+        telEl.style.display = 'none';
+      }
+    }
   }
 }
