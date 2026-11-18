@@ -53,8 +53,11 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
   body.position.y = 0.028;
   const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.004, 18), ppMat);
   bottom.position.y = 0.002;
+  const lidPivot = new THREE.Group();
+  lidPivot.position.set(-0.044, 0.058, 0);
   const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.046, 0.008, 18), ppMat);
-  lid.position.y = 0.058;
+  lid.position.set(0.044, 0, 0);
+  lidPivot.add(lid);
 
   // Textura flocao de milho
   const fc = document.createElement('canvas'); fc.width = 128; fc.height = 128;
@@ -83,7 +86,7 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
     new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.62, roughness: 0.14 })
   );
   liquidMesh.visible = false;
-  cg.add(flocaoMesh, liquidMesh, mycOverlay, body, bottom, lid);
+  cg.add(flocaoMesh, liquidMesh, mycOverlay, body, bottom, lidPivot);
   cg.userData.liquidCtrl = {
     volMl: 0,
     maxMl: 100,
@@ -103,7 +106,10 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
     waterMl: filled ? 35 : 0,
     substrateKind: filled ? 'flocao' : '',
     fillMesh: flocaoMesh,
-    minSterilizeMin: 80, // 1h20m
+    lidPivot,
+    lidOpen: false,
+    lidProgress: 0,
+    minSterilizeMin: 60, // 1h minimo para potinho flocao
     sterilizeProgress: filled ? 100 : 0,
     baseLabel: filled ? 'Potinho PP5 145ml (Flocão)' : 'Potinho PP5 145ml Vazio',
     sterilized: false,
@@ -157,4 +163,28 @@ export function preparePP5ForPda(item) {
   }
   spawn.updateVisual();
   return true;
+}
+
+export function setPP5LidOpen(item, open, instant = false) {
+  const sc = item && item.spawnCtrl;
+  if (!sc || !sc.isPP5 || !sc.lidPivot) return false;
+  const next = !!open;
+  if (sc.lidOpen === next && !instant) return false;
+  sc.lidOpen = next;
+  if (instant) {
+    sc.lidProgress = next ? 1 : 0;
+    sc.lidPivot.rotation.z = 1.95 * sc.lidProgress;
+  }
+  return true;
+}
+
+export function togglePP5Lid(ctx, item) {
+  const sc = item && item.spawnCtrl;
+  if (!sc || !sc.isPP5) return false;
+  const changed = setPP5LidOpen(item, !sc.lidOpen, false);
+  if (changed) {
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
+  }
+  return changed;
 }

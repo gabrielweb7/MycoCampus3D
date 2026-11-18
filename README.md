@@ -18,15 +18,15 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25` (atualmente em `v0.9.153`), o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.153"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25` (atualmente em `v1.0.0`), o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=1.0.0"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`.
 > - Posicionamento e fantasma 3D: `systems/held-item-placement.js` e `entities/placement-ghost.js`
 > - Ações de cultura (flocão, mistura, bisturi, clonagem e genética): `systems/lab-culture-actions.js`
 > - Persistência e validação MP: `systems/world-objects-sync.js`, `api/multiplayer.php` e `api/multiplayer_schema.php`
 > - Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD, Discord (/discord) e Modais (?v=0.9.153)
-├── VERSION                    # Versão semântica atual do projeto (0.9.153)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD, Discord (/discord) e Modais (?v=1.0.0)
+├── VERSION                    # Versão semântica atual do projeto (1.0.0)
 ├── error.php                  # Painel online privado para consultar erros recentes
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs

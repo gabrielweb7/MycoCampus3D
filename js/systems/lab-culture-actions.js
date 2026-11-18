@@ -3,6 +3,7 @@ import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../i
 import { markBladePackEmpty, updateScalpelLabel } from '../items/scalpel.js';
 import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
 import { inoculatePetri, togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
+import { togglePP5Lid } from '../items/pp5-cup.js';
 
 export function handleFlocaoTargetAction(ctx) {
   const target = ctx.hoveredFlocaoTarget;
@@ -194,6 +195,8 @@ export function handleScalpelTargetAction(ctx) {
     ctx.notifyWorldAction();
   } else if (target.mode === 'open' && target.item && target.item.mesh.userData.isPetri) {
     togglePetriLid(ctx, target.item);
+  } else if (target.mode === 'open' && target.item && target.item.spawnCtrl && target.item.spawnCtrl.isPP5) {
+    togglePP5Lid(ctx, target.item);
   } else if (target.mode === 'transfer' && target.item && target.item.mesh.userData.petriCtrl) {
     const petri = target.item.mesh.userData.petriCtrl;
     const receivesMyceliumCut = target.item.meta && target.item.meta.compatibilities &&

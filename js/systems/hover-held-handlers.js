@@ -575,7 +575,11 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
     }
     if (sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.filled && !sCand.spawnCtrl.inoculated &&
         sCand.meta && sCand.meta.compatibilities && sCand.meta.compatibilities.receivesMyceliumCut) {
-      matched = { mode: 'transfer', prompt: '🍄 Transferir micélio para ' + sCand.label };
+      if (sCand.spawnCtrl.isPP5 && !sCand.spawnCtrl.lidOpen) {
+        matched = { mode: 'open', prompt: '🥣 Abrir tampa do potinho no Fluxo Laminar' };
+      } else {
+        matched = { mode: 'transfer', prompt: '🍄 Transferir micélio para ' + sCand.label };
+      }
       return true;
     }
     return false;
@@ -645,10 +649,34 @@ function handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt) {
     return false;
   }
   const sc = ctx.heldItem.mesh.userData.syrCtrl;
-  const res = findPickableHit(ctx, 4.2, null, intersectPickableItem, { requireFridgeAccess: true });
+  const res = findPickableHit(
+    ctx,
+    4.2,
+    (cand) => !!(
+      (cand.mesh && cand.mesh.userData && (cand.mesh.userData.liquidCtrl || cand.mesh.userData.isPetri)) ||
+      cand.spawnCtrl
+    ),
+    intersectPickableItem,
+    { nearest: true, requireFridgeAccess: true }
+  );
   if (!res) return false;
   const cand = res.item;
   ctx.hoverHit = res.hit;
+
+  if (cand.spawnCtrl && cand.spawnCtrl.isPP5 && cand.spawnCtrl.filled && !cand.spawnCtrl.inoculated) {
+    if (!cand.spawnCtrl.lidOpen) {
+      ctx.hoveredSyringeTarget = { item: cand, mode: 'open' };
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, '🥣 Clique para abrir a tampa do potinho no Fluxo Laminar');
+      return true;
+    }
+    if (sc.volMl >= 1) {
+      ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, '💉 Pingar 1ml de cultura em ' + cand.label + ' (2s)');
+      return true;
+    }
+  }
 
   if (cand.mesh.userData.liquidCtrl && !(cand.spawnCtrl && cand.spawnCtrl.isPP5)) {
     const lc = cand.mesh.userData.liquidCtrl;

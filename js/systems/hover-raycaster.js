@@ -380,7 +380,7 @@ export function updateHoverRay(ctx, customNdc) {
     for (let i = 0; i < ctx.pickableItems.length; i++) {
       let item = ctx.pickableItems[i];
       if (item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem) ||
-          !isCultureAccessibleFromFridge(ctx, item) || isItemInClosedCabinet(ctx, item)) continue;
+        !isCultureAccessibleFromFridge(ctx, item) || isItemInClosedCabinet(ctx, item)) continue;
       if (ctx.isHeldByRemote(item.id)) continue;
       const idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
       if (idx * idx + idz * idz > maxPickSq) continue;

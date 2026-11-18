@@ -10,6 +10,7 @@ import { togglePetriLid } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
 import { getSyringeMixParts } from '../items/syringe.js';
+import { togglePP5Lid } from '../items/pp5-cup.js';
 import { getSanitizationStatus } from '../items/alcohol-spray.js';
 import { getCultureRemainingDays } from '../items/culture-lifecycle.js';
 import { isPdaRecipeBalanced } from '../items/pda-mix.js';
@@ -235,6 +236,13 @@ export function showItemStatusCard(item, ctx) {
 
   const sp = item.spawnCtrl;
   if (sp) {
+    if (sp.isPP5) {
+      chips.push({
+        icon: sp.lidOpen ? '⚠️' : '✅',
+        text: sp.lidOpen ? 'Tampa Aberta' : 'Tampa Fechada',
+        color: sp.lidOpen ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+      });
+    }
     if (sp.filled) {
       const subNames = { flocao: 'Flocão de Milho', corn: 'Milho de Pipoca', wheat: 'Trigo em Grão', sorghum: 'Sorgo', sawdust: 'Serragem', grain: 'Grãos' };
       const subLbl = subNames[sp.substrateKind] || (sp.isPP5 ? 'Flocão de Milho' : 'Grãos');
@@ -249,7 +257,7 @@ export function showItemStatusCard(item, ctx) {
   }
 
   const lc = item.mesh && item.mesh.userData && item.mesh.userData.liquidCtrl;
-  if (lc) {
+  if (lc && !(sp && sp.isPP5 && lc.volMl <= 0)) {
     chips.push({ icon: '💧', text: 'Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + ' ml', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
     if (item.liquidMix) {
       const mParts = [];
@@ -543,6 +551,14 @@ function buildContextActions(ctx) {
         run: () => togglePetriLid(ctx, target)
       });
     }
+    if (target.spawnCtrl && target.spawnCtrl.isPP5) {
+      actions.push({
+        id: 'pp5_lid_' + target.id + '_' + (target.spawnCtrl.lidOpen ? '1' : '0'),
+        icon: '🥣',
+        label: target.spawnCtrl.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
+        run: () => togglePP5Lid(ctx, target)
+      });
+    }
     actions.push({
       id: 'inspect_' + target.id,
       icon: '🔍',
@@ -561,6 +577,13 @@ function buildContextActions(ctx) {
         icon: '🧫',
         label: held.mesh.userData.petriCtrl?.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
         run: () => togglePetriLid(ctx, held)
+      });
+    } else if (held.spawnCtrl && held.spawnCtrl.isPP5) {
+      actions.push({
+        id: 'held_pp5_lid_' + held.id,
+        icon: '🥣',
+        label: held.spawnCtrl.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
+        run: () => togglePP5Lid(ctx, held)
       });
     }
     return actions;

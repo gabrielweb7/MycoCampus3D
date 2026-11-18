@@ -3,7 +3,7 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { registerPickable, makeScaleTex } from './item-registry.js';
+import { registerPickable, makeScaleTex, updateItemBounds } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
 
 const THREE = window.THREE;
@@ -98,6 +98,28 @@ export function makeFalconRack(ctx, rx, ry, rz) {
     rg.add(post);
   });
   rg.add(topPlate, botPlate);
-  ctx.scene.add(rg);
-  return rg;
+  const rackSurf = {
+    minX: rx - 0.12,
+    maxX: rx + 0.12,
+    minZ: rz - 0.08,
+    maxZ: rz + 0.08,
+    topY: ry + 0.012
+  };
+  if (ctx.supportSurfaces) ctx.supportSurfaces.push(rackSurf);
+  if (ctx.supportMeshes) {
+    botPlate.userData.supportSurface = rackSurf;
+    ctx.supportMeshes.push(botPlate);
+  }
+  rg.userData.isTray = true;
+  rg.userData.isFalconRack = true;
+  rg.userData.tableDims = { w: 0.24, h: 0.012, d: 0.16, surfOffset: 0 };
+  rg.userData.dynamicSurface = rackSurf;
+  rg.userData.updateBounds = updateItemBounds;
+  const rackItem = registerPickable(ctx, 'falcon_rack_lab', 'Suporte Azul de Tubos Falcon', rg, rx, ry, rz, 0, 0.14, 0.08, {
+    category: 'tool',
+    purpose: 'Suporte para transportar e organizar Tubos Falcon / Slants',
+    weightGrams: 180,
+    compatibilities: { canEnterCooker: false, supportsItemsOnSurface: true }
+  });
+  return rackItem.mesh;
 }

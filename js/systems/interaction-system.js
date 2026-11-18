@@ -331,6 +331,10 @@ export function handlePrimaryAction(ctx) {
         togglePetriLid(ctx, tgt.item);
         return;
       }
+      if (tgt.mode === 'open' && tgt.item && tgt.item.spawnCtrl && tgt.item.spawnCtrl.isPP5) {
+        togglePP5Lid(ctx, tgt.item);
+        return;
+      }
       if (tgt.mode === 'draw' && !canSyringeSource(tgt.item)) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Só é possível aspirar uma cultura líquida colonizada e dentro da validade.');
         return;

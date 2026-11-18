@@ -254,6 +254,21 @@ export function stepSpawnColonization(ctx, dt) {
   for (let sgi = 0; sgi < ctx.spawnGrowItems.length; sgi++) {
     const sgIt = ctx.spawnGrowItems[sgi];
     const sc = sgIt.spawnCtrl;
+    if (sc && sc.isPP5 && sc.lidPivot) {
+      const targetP = sc.lidOpen ? 1 : 0;
+      if (Math.abs((sc.lidProgress || 0) - targetP) > 0.005) {
+        sc.lidProgress = (sc.lidProgress || 0) + (targetP - (sc.lidProgress || 0)) * Math.min(1, dt * 10);
+        sc.lidPivot.rotation.z = 1.95 * sc.lidProgress;
+      }
+      if (sc.lidOpen && sc.filled && sc.sterilized && !sc.contaminated && !isAsepticWorkArea(ctx, sgIt)) {
+        sc.contaminated = true;
+        sc.updateVisual();
+        if (ctx.callbacks && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🦠 O potinho aberto fora do Fluxo Laminar foi contaminado!');
+        }
+        ctx.notifyWorldAction();
+      }
+    }
     if (sc && sc.inoculated && !sc.contaminated && !sc.burned) {
       let changed = false;
       const spawnRate = sc.refrigerated
