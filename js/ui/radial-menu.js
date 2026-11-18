@@ -288,7 +288,35 @@ export function showItemStatusCard(item, ctx) {
     }
   }
 
-  if (item.meta && item.meta.purpose && chips.length <= 1) {
+  if (item.scalpelCtrl) {
+    const sc = item.scalpelCtrl;
+    chips.push({
+      icon: !sc.hasBlade ? '⚪' : (sc.sterile ? '✅' : '🦠'),
+      text: !sc.hasBlade ? 'Sem lâmina' : (sc.sterile ? 'Lâmina #24 Estéril' : 'Lâmina Contaminada'),
+      color: !sc.hasBlade ? 'bg-slate-700/60 text-slate-300 border-slate-600/40' : (sc.sterile ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-600/30 text-rose-300 border-rose-500/50')
+    });
+    if (sc.hasMycelium) {
+      chips.push({ icon: '🍄', text: 'Com fragmento de micélio', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+    }
+  }
+
+  if (item.bladePackCtrl) {
+    chips.push({
+      icon: item.bladePackCtrl.empty ? '🗑️' : '✅',
+      text: item.bladePackCtrl.empty ? 'Embalagem Vazia (Jogar no lixo)' : 'Lâmina #24 Estéril Lacrada',
+      color: item.bladePackCtrl.empty ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+    });
+  }
+
+  if (item.pdaReagentCtrl) {
+    chips.push({
+      icon: '🧪',
+      text: 'Pó BDA/PDA: ' + Math.round(item.pdaReagentCtrl.remainingGrams || 0) + 'g',
+      color: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+    });
+  }
+
+  if (item.meta && item.meta.purpose && chips.length <= 2) {
     chips.push({ icon: 'ℹ️', text: item.meta.purpose, color: 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
   }
 

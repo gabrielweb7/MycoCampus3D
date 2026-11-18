@@ -442,9 +442,9 @@ export function updateHoverRay(ctx, customNdc) {
           ? '🧊 Fechar Porta da Geladeira (4°C)'
           : '🧊 Abrir Porta da Geladeira (4°C)';
       } else if (ctx.hoveredPickable.mesh.userData.twoHanded) {
-        prompt = '🙌 Pegar ' + ctx.hoveredPickable.label + ' (2 mãos)';
+        prompt = '🙌 ' + ctx.hoveredPickable.label + ' (2 mãos)';
       } else {
-        prompt = '✋ Pegar ' + ctx.hoveredPickable.label;
+        prompt = ctx.hoveredPickable.label;
       }
     }
   }

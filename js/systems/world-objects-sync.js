@@ -197,9 +197,13 @@ export function applyReplicatedItemState(sim, item, state) {
   const spawn = item.spawnCtrl || (item.mesh.userData && item.mesh.userData.spawnCtrl);
   if (spawn && state.spawn && typeof state.spawn === 'object') {
     const incoming = state.spawn;
-    ['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'expired', 'contaminated', 'burned'].forEach(function (key) {
+    ['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'expired', 'contaminated', 'burned', 'refrigerated'].forEach(function (key) {
       if (typeof incoming[key] === 'boolean') spawn[key] = incoming[key];
     });
+    if (typeof incoming.tempC === 'number' && Number.isFinite(incoming.tempC)) {
+      spawn.tempC = Math.max(-20, Math.min(140, incoming.tempC));
+      spawn.lastRenderedTempInt = Math.round(spawn.tempC);
+    }
     ['fillGrams', 'waterMl', 'sterilizeProgress', 'colonization', 'ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
       if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
         const maxValue = key === 'colonization' || key === 'sterilizeProgress' ? 100 : 1000;
