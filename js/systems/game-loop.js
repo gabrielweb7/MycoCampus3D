@@ -5,6 +5,7 @@
 
 import { logger } from '../core/logger.js';
 import * as qualityMod from '../core/quality.js';
+import { perfBegin, perfEnd } from '../core/perf-overlay.js';
 import {
   getCinemaHitTarget as cinemaHitTarget,
   drawCinemaVideoFrame as cinemaDrawFrame
@@ -45,6 +46,8 @@ let lastMobileHoverAt = 0;
 let lastDesktopHoverAt = 0;
 let animationStarted = false;
 let frameErrorLogged = false;
+let lastTickAt = 0;
+const FRAME_MIN_MS = 15.2;
 
 const _qualityArg = {
   renderer: null,
@@ -305,7 +308,13 @@ export function startAnimationLoop(ctx) {
 
   function tick() {
     requestAnimationFrame(tick);
+    // Limita a ~60 FPS em telas de alta taxa (90/120 Hz): poupa bateria e evita
+    // throttling térmico. 15.2ms < 16.67ms, então telas de 60 Hz nunca são puladas.
+    const tickAt = performance.now();
+    if (tickAt - lastTickAt < FRAME_MIN_MS) return;
+    lastTickAt = tickAt;
     try {
+      perfBegin();
       const dt = Math.min(0.05, ctx.clock.getDelta());
       const now = performance.now();
       stepAutoQuality(ctx, now);
@@ -373,6 +382,7 @@ export function startAnimationLoop(ctx) {
       stepMultiplayerAvatars(_mpAvatarsArg, dt);
 
       ctx.renderer.render(ctx.scene, ctx.camera);
+      perfEnd(ctx.renderer, qualityMod.qualityState);
       frameErrorLogged = false;
     } catch (err) {
       if (!frameErrorLogged) {

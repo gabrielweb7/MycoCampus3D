@@ -7,7 +7,7 @@ export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
 
 const TIER_CONFIGS = {
   desktop: {
-    high:   { ratioCap: 1.50, shadows: true,  soft: true,  far: 420, aura: true,  weatherParticles: 650, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 99 },
+    high:   { ratioCap: 2.00, shadows: true,  soft: true,  far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 99 },
     medium: { ratioCap: 1.00, shadows: false, soft: false, far: 250, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 4  },
     low:    { fixedRatio: 0.78, shadows: false, soft: false, far: 175, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false, maxLights: 1  },
     min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0  }
@@ -79,7 +79,9 @@ export function getInitialQualityTier(isTouchDevice, renderer) {
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined;
 
   if (!isTouchDevice) {
-    if ((typeof memory === 'number' && memory <= 4) || (typeof cores === 'number' && cores <= 2)) {
+    qualityState.tierCeilingIdx = 0;
+    // PC: qualidade máxima. Só cai de cara em máquinas realmente fracas.
+    if ((typeof memory === 'number' && memory <= 2) || (typeof cores === 'number' && cores <= 2)) {
       return 'medium';
     }
     return 'high';
@@ -91,7 +93,34 @@ export function getInitialQualityTier(isTouchDevice, renderer) {
     return 'low';
   }
   if (typeof memory === 'number' && memory <= 3) return 'medium';
+
+  // GPU fraca (ex.: Redmi Note 7 = Adreno 512, 4 GB): começa em 'medium'
+  // para não pagar sombra/tone mapping de cara. O auto-FPS sobe sozinho se sobrar folga.
+  const gpuClass = classifyMobileGpu(renderer);
+  // Teto do auto-upgrade: GPU fraca/média nunca sobe para um preset que ela não sustenta
+  // (evita ciclo sobe→cai a cada ~18s).
+  qualityState.tierCeilingIdx = gpuClass === 'weak' ? 2 : (gpuClass === 'mid' ? 1 : 0);
+  if (gpuClass === 'weak') return 'low';
+  if (gpuClass === 'mid') return 'medium';
+  // Android com GPU desconhecida: perfil otimizado por padrão; iPhone/GPU forte: high.
+  if (gpuClass === 'unknown' && !/iphone|ipad|mac/i.test(navigator.userAgent || '')) return 'medium';
   return 'high';
+}
+
+function classifyMobileGpu(renderer) {
+  try {
+    const gl = renderer && renderer.getContext && renderer.getContext();
+    const dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    if (!dbg) return 'unknown';
+    const r = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
+    // Adreno 3xx/4xx/5xx baixos, Mali-4xx/T-series, PowerVR antigos
+    if (/adreno.*\b(3\d\d|4\d\d)\b/.test(r)) return 'weak';
+    if (/mali-(4|t)\d+/.test(r) || /powervr/.test(r)) return 'weak';
+    // Adreno 5xx/6xx baixos (508-619), Mali-G5x/G7x de entrada
+    if (/adreno.*\b(5\d\d|60\d|61\d)\b/.test(r)) return 'mid';
+    if (/mali-g(3|5|6)\d/.test(r)) return 'mid';
+  } catch (e) {}
+  return 'unknown';
 }
 
 export function applyQualityTier(tier, deps) {
@@ -203,19 +232,30 @@ export function stepPointLightBudget(scene, playerPos, force = false) {
   const maxLights = qualityState.maxPointLights;
   const px = playerPos ? playerPos.x : 0;
   const pz = playerPos ? playerPos.z : 0;
-  const sorted = cachedPointLights.map((entry, idx) => {
-    const p = entry.light.position;
+  const n = cachedPointLights.length;
+  if (_lightOrder.length !== n) {
+    _lightOrder = new Array(n);
+    _lightD2 = new Float32Array(n);
+  }
+  for (let i = 0; i < n; i++) {
+    const p = cachedPointLights[i].light.position;
     const dx = p.x - px;
     const dz = p.z - pz;
-    return { idx, d2: dx * dx + dz * dz };
-  }).sort((a, b) => a.d2 - b.d2);
+    _lightD2[i] = dx * dx + dz * dz;
+    _lightOrder[i] = i;
+  }
+  _lightOrder.sort(_lightCmp);
 
-  for (let i = 0; i < sorted.length; i++) {
-    const entry = cachedPointLights[sorted[i].idx];
+  for (let i = 0; i < n; i++) {
+    const entry = cachedPointLights[_lightOrder[i]];
     if (!entry.light.visible) continue; // interruptor desligado
     entry.light.intensity = i < maxLights ? entry.baseIntensity : 0;
   }
 }
+
+let _lightOrder = [];
+let _lightD2 = new Float32Array(0);
+function _lightCmp(a, b) { return _lightD2[a] - _lightD2[b]; }
 
 let lastItemCullAt = 0;
 
@@ -376,7 +416,7 @@ export function stepAutoQuality(now, deps) {
         applyQualityTier(QUALITY_TIERS_ORDER[idx + 1], deps);
         return;
       }
-    } else if (qualityState.currentFps >= 57 && idx > 0 && (now - qualityState.lastDowngradeAt) > 18000) {
+    } else if (qualityState.currentFps >= 57 && idx > (qualityState.tierCeilingIdx || 0) && (now - qualityState.lastDowngradeAt) > 18000) {
       qualityState.highFpsStreak++;
       qualityState.lowFpsStreak = 0;
       if (qualityState.highFpsStreak >= 6) {

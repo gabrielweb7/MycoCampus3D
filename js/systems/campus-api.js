@@ -102,7 +102,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       sim.qualityMode = mode;
       saveQualityMode(mode);
       if (mode === 'auto') {
-        applyQualityTier(sim, getInitialQualityTier(sim.isTouchDevice()));
+        applyQualityTier(sim, getInitialQualityTier(sim.isTouchDevice(), sim.renderer));
       } else {
         applyQualityTier(sim, mode);
       }

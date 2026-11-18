@@ -31,7 +31,7 @@ export const GAME_CONFIG = Object.freeze({
     farDesktop: 440,
     farTouch: 210,
     touchShadowSize: 768,
-    desktopShadowSize: 1536
+    desktopShadowSize: 2048
   },
   lab: {
     autoclaveTargetTempC: 121,
