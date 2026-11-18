@@ -451,8 +451,6 @@ export function updateHoverRay(ctx, customNdc) {
         prompt = fridge.fridgeCtrl.doorOpen
           ? '🧊 Fechar Porta da Geladeira (4°C)'
           : '🧊 Abrir Porta da Geladeira (4°C)';
-      } else if (ctx.hoveredPickable.mesh.userData.twoHanded) {
-        prompt = '🙌 ' + ctx.hoveredPickable.label + ' (2 mãos)';
       } else {
         prompt = ctx.hoveredPickable.label;
       }
