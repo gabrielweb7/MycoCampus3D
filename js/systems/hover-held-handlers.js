@@ -651,19 +651,19 @@ function handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt) {
       ctx.hoveredSyringeTarget = { item: cand, mode: ctx.syringePumping.toVol > ctx.syringePumping.fromVol ? 'draw' : 'inject' };
       hidePlacementGhost(ctx);
       const pPct = Math.round((ctx.syringePumping.elapsed / ctx.syringePumping.duration) * 100);
-      setHoverPrompt(ctx, '⏳ ' + (ctx.syringePumping.toVol > ctx.syringePumping.fromVol ? 'Aspirando Micélio' : 'Injetando de volta') + ' (' + pPct + '%)...');
+      setHoverPrompt(ctx, '⏳ ' + (ctx.syringePumping.toVol > ctx.syringePumping.fromVol ? 'Aspirando líquido' : 'Injetando líquido') + ' (' + pPct + '%)...');
       return true;
     }
     if (sc.volMl < 9.9 && lc.volMl > 0 && canSyringeSource(cand)) {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'draw' };
       hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, '💉 SEGURE o clique para aspirar cultura líquida (' + sc.volMl.toFixed(1) + '/10 ml • solte para parar)');
+      setHoverPrompt(ctx, '💉 SEGURE o clique para aspirar de ' + cand.label + ' (' + sc.volMl.toFixed(1) + '/10 ml)');
       return true;
     }
     if (sc.volMl > 0.1 && canSyringeTarget(cand)) {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
       hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, '💉 Seringa com ' + sc.volMl.toFixed(1) + ' ml • SEGURE o clique para devolver ao frasco (solte para parar)');
+      setHoverPrompt(ctx, '💉 SEGURE o clique para injetar ' + sc.volMl.toFixed(1) + ' ml em ' + cand.label);
       return true;
     }
     ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };

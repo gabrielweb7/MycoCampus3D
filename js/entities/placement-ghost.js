@@ -148,6 +148,10 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
     var clone = item.mesh.clone(true);
     clone.position.set(0, 0, 0);
     clone.rotation.set(0, 0, 0);
+    if (item.wildMushroomCtrl && clone.children && clone.children[0]) {
+      clone.children[0].rotation.z = Math.PI / 2;
+      clone.children[0].position.y = item.wildMushroomCtrl.sideRestY ?? 0.05;
+    }
     clone.visible = true;
     prepareGhostCloneMesh(clone, placementHoloMats);
     placementHoloWrap.add(clone);
@@ -376,15 +380,24 @@ export function isPlacementBlocked(ctx, pt) {
   if (ctx.supportSurfaces) {
     for (var csi = 0; csi < ctx.supportSurfaces.length; csi++) {
       var cs = ctx.supportSurfaces[csi];
-      if (!cs.isCabinetShelf) continue;
+      if (!cs.isCabinetShelf && !cs.isCultureFridgeShelf) continue;
       if (pt.x >= cs.minX - 0.05 && pt.x <= cs.maxX + 0.05 &&
           pt.z >= cs.minZ - 0.05 && pt.z <= cs.maxZ + 0.05 &&
           Math.abs(pt.y - cs.topY) < 0.12) {
+        var hUdCab = heldItem.mesh.userData;
+        if (cs.isCultureFridgeShelf) {
+          var isCultureItem = !!(heldItem.cultureCtrl || heldItem.spawnCtrl || heldItem.pdaMediumCtrl ||
+            (hUdCab && (hUdCab.isPetri || hUdCab.cultureCtrl || hUdCab.isSyringe)));
+          if (!isCultureItem) {
+            placementBlockedReason = '🚫 Apenas culturas podem ser guardadas na geladeira!';
+            return true;
+          }
+          break;
+        }
         if (cs.requiresOpenPart && !cs.requiresOpenPart.open) {
           placementBlockedReason = '🚫 Abra a porta do armário para guardar itens dentro';
           return true;
         }
-        var hUdCab = heldItem.mesh.userData;
         if (hUdCab.isTable || hUdCab.isHood || hUdCab.isCultureFridge || hUdCab.twoHanded || heldH > 0.35) {
           placementBlockedReason = '🚫 Objeto grande demais para guardar dentro do armário';
           return true;

@@ -11,16 +11,57 @@ export const SYRINGE_META = {
   purpose: 'Aspirar cultura líquida e inocular vidros, bags e placas de Petri',
   maxVolumeMl: 10,
   baseTempC: 23.6,
+  getTempC: (item) => {
+    const s = item && item.mesh && item.mesh.userData && item.mesh.userData.syrCtrl;
+    if (s && typeof s.tempC === 'number') return s.tempC;
+    return (s && s.refrigerated) ? 4.0 : 23.6;
+  },
   getWeightGrams: (item) => 12 + ((item && item.mesh && item.mesh.userData.syrCtrl) ? item.mesh.userData.syrCtrl.volMl : 0),
   compatibilities: { canEnterCooker: false, transfersLiquidCulture: true },
   connections: ['liquid_culture', 'spawn_jar', 'spawn_bag', 'petri_dish']
 };
+
+export function getSyringeMixParts(sc) {
+  if (!sc || !sc.mix) return [];
+  const parts = [];
+  if (sc.mix.lcMl > 0.05) parts.push(`${sc.mix.lcMl.toFixed(1)}ml Cultura Líquida`);
+  if (sc.mix.distilledMl > 0.05) parts.push(`${sc.mix.distilledMl.toFixed(1)}ml Água Destilada`);
+  if (sc.mix.waterMl > 0.05) parts.push(`${sc.mix.waterMl.toFixed(1)}ml Água`);
+  if (sc.mix.pdaMl > 0.05) parts.push(`${sc.mix.pdaMl.toFixed(1)}ml Meio PDA`);
+  return parts;
+}
+
+export function addSyringeMix(item, kind, deltaMl) {
+  const sc = item && item.mesh && item.mesh.userData && item.mesh.userData.syrCtrl;
+  if (!sc) return;
+  if (!sc.mix) sc.mix = { waterMl: 0, distilledMl: 0, lcMl: 0, pdaMl: 0 };
+  if (deltaMl > 0) {
+    const key = kind === 'lc' ? 'lcMl' : (kind === 'distilled' ? 'distilledMl' : (kind === 'pda' ? 'pdaMl' : 'waterMl'));
+    sc.mix[key] = Math.max(0, (sc.mix[key] || 0) + deltaMl);
+  } else if (deltaMl < 0) {
+    const total = (sc.mix.waterMl || 0) + (sc.mix.distilledMl || 0) + (sc.mix.lcMl || 0) + (sc.mix.pdaMl || 0);
+    if (total > 0.001) {
+      const keep = Math.max(0, (total + deltaMl) / total);
+      sc.mix.waterMl *= keep;
+      sc.mix.distilledMl *= keep;
+      sc.mix.lcMl *= keep;
+      sc.mix.pdaMl *= keep;
+    }
+  }
+}
 
 export function updateSyringeVolume(item, newVol) {
   if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
   const sc = item.mesh.userData.syrCtrl;
   const clamped = Math.max(0, Math.min(10, Number(newVol) || 0));
   sc.volMl = clamped;
+  if (clamped <= 0.05 && sc.mix) {
+    sc.mix.waterMl = 0;
+    sc.mix.distilledMl = 0;
+    sc.mix.lcMl = 0;
+    sc.mix.pdaMl = 0;
+    sc.sourceContam = false;
+  }
   const frac = clamped / 10;
   if (clamped <= 0.05) {
     sc.liqMesh.visible = false;
@@ -28,12 +69,26 @@ export function updateSyringeVolume(item, newVol) {
     sc.liqMesh.visible = true;
     sc.liqMesh.scale.y = Math.max(0.02, frac);
     sc.liqMesh.position.y = 0.085 + (0.09 * frac) * 0.5;
+    if (sc.liqMesh.material) {
+      const m = sc.mix || {};
+      const hasLc = (m.lcMl || 0) > 0.05 || (m.pdaMl || 0) > 0.05;
+      const hasWater = (m.waterMl || 0) > 0.05 || (m.distilledMl || 0) > 0.05;
+      sc.liqMesh.material.color.setHex(hasLc && hasWater ? 0xfde68a : (hasLc ? 0xfef08a : 0x7dd3fc));
+    }
   }
   sc.plunger.position.y = 0.095 + 0.09 * frac;
   const dispVal = Math.round(clamped * 10) / 10;
-  item.label = clamped > 0.1
-    ? 'Seringa 10ml (' + (dispVal % 1 === 0 ? dispVal.toFixed(0) : dispVal.toFixed(1)) + 'ml CL)'
-    : 'Seringa 10ml (Vazia)';
+  const volTxt = dispVal % 1 === 0 ? dispVal.toFixed(0) : dispVal.toFixed(1);
+  const parts = getSyringeMixParts(sc);
+  if (clamped <= 0.1) {
+    item.label = 'Seringa 10ml (Vazia)';
+  } else if (parts.length > 1) {
+    item.label = 'Seringa 10ml (Mistura ' + volTxt + 'ml)';
+  } else if (parts.length === 1) {
+    item.label = 'Seringa 10ml (' + parts[0] + ')';
+  } else {
+    item.label = 'Seringa 10ml (' + volTxt + 'ml CL)';
+  }
 }
 
 export function makeSyringe10ml(ctx, id, px, py, pz) {
@@ -67,7 +122,13 @@ export function makeSyringe10ml(ctx, id, px, py, pz) {
   layWrap.position.set(0.12, 0.022, 0);
   sg.add(layWrap);
   sg.userData.isSyringe = true;
-  sg.userData.syrCtrl = { volMl: 0, liqMesh, plunger };
+  sg.userData.syrCtrl = {
+    volMl: 0,
+    liqMesh,
+    plunger,
+    mix: { waterMl: 0, distilledMl: 0, lcMl: 0, pdaMl: 0 },
+    sourceContam: false
+  };
   const item = registerPickable(ctx, id, 'Seringa 10ml (Vazia)', sg, px, py, pz, 0, 0.14, 0.06, SYRINGE_META);
   item.setVolume = function (v) { updateSyringeVolume(item, v); };
   updateSyringeVolume(item, 0);

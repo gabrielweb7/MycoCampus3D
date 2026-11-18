@@ -41,6 +41,11 @@ export function getPetriMeta(mode) {
         : (mode === 'empty' ? 'Placa estéril com PDA pronta para inoculação' : 'Cultivo de micélio em meio sólido BDA/PDA')),
     weightGrams: isBare ? 18 : 38,
     baseTempC: mode === 'contam' ? 26.8 : 25.0,
+    getTempC: (item) => {
+      const p = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
+      if (p && typeof p.tempC === 'number') return p.tempC;
+      return (p && p.refrigerated) ? 4.0 : (mode === 'contam' ? 26.8 : 25.0);
+    },
     compatibilities: {
       canEnterCooker: mode === 'filled',
       receivesSyringe: false,

@@ -106,10 +106,11 @@ export function formatHoverInfo(prompt, targetObj) {
   if (params && title.includes(params)) {
     params = '';
   }
-  const stripEmojis = (s) => String(s || '').replace(/^[\s\p{Extended_Pictographic}\uFE0F\u200D]+/gu, '').trim();
+  const stripEmojis = (s) => String(s || '').replace(/^[\s\p{Extended_Pictographic}\uFE0F\u200D\u2600-\u27BF]+/gu, '').trim();
   const cleanAction = stripEmojis(action);
-  const cleanTitleNoParen = stripEmojis(title).replace(/\s*\([^)]+\)/g, '').trim();
-  if (/^Pegar\b/i.test(cleanAction) || cleanAction === stripEmojis(title) || cleanAction === cleanTitleNoParen) {
+  const cleanTitle = stripEmojis(title);
+  const cleanTitleNoParen = cleanTitle.replace(/\s*\([^)]+\)/g, '').trim();
+  if (/^Pegar\b/i.test(cleanAction) || action === title || cleanAction === cleanTitle || cleanAction === cleanTitleNoParen) {
     action = '';
   }
 

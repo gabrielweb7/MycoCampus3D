@@ -9,6 +9,7 @@ import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooke
 import { togglePetriLid } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
+import { getSyringeMixParts } from '../items/syringe.js';
 import { getSanitizationStatus } from '../items/alcohol-spray.js';
 import { getCultureRemainingDays } from '../items/culture-lifecycle.js';
 import { isPdaRecipeBalanced } from '../items/pda-mix.js';
@@ -248,7 +249,38 @@ export function showItemStatusCard(item, ctx) {
   }
 
   const lc = item.mesh && item.mesh.userData && item.mesh.userData.liquidCtrl;
-  if (lc) chips.push({ icon: '💧', text: 'Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + ' ml', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+  if (lc) {
+    chips.push({ icon: '💧', text: 'Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + ' ml', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+    if (item.liquidMix) {
+      const mParts = [];
+      if (item.liquidMix.lcMl > 0.05) mParts.push(item.liquidMix.lcMl.toFixed(1) + 'ml CL');
+      if (item.liquidMix.distilledMl > 0.05) mParts.push(item.liquidMix.distilledMl.toFixed(1) + 'ml Destilada');
+      if (item.liquidMix.waterMl > 0.05) mParts.push(item.liquidMix.waterMl.toFixed(1) + 'ml Água');
+      if (item.liquidMix.pdaMl > 0.05) mParts.push(item.liquidMix.pdaMl.toFixed(1) + 'ml PDA');
+      if (mParts.length) {
+        chips.push({ icon: '🧪', text: 'Mistura: ' + mParts.join(' + '), color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' });
+      }
+    }
+  }
+
+  const syr = item.mesh && item.mesh.userData && item.mesh.userData.syrCtrl;
+  if (syr) {
+    const parts = getSyringeMixParts(syr);
+    if (syr.volMl <= 0.05) {
+      chips.push({ icon: '💉', text: 'Seringa Vazia (0/10 ml)', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    } else {
+      chips.push({ icon: '💉', text: 'Volume: ' + syr.volMl.toFixed(1) + '/10 ml', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+      if (parts.length) {
+        chips.push({ icon: '🧪', text: 'Mistura: ' + parts.join(' + '), color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' });
+      }
+      const hasLc = !!(syr.mix && syr.mix.lcMl > 0.05);
+      chips.push({
+        icon: syr.sourceContam ? '🦠' : (hasLc ? '🍄' : '💧'),
+        text: syr.sourceContam ? 'Contaminada' : (hasLc ? 'Com micélio vivo' : 'Sem micélio (água/meio)'),
+        color: syr.sourceContam ? 'bg-rose-600/30 text-rose-300 border-rose-500/50' : (hasLc ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-sky-500/20 text-sky-300 border-sky-500/30')
+      });
+    }
+  }
 
   const cc = item.cultureCtrl || (item.mesh && item.mesh.userData && item.mesh.userData.cultureCtrl);
   if (cc && (!lc || lc.volMl > 0)) {

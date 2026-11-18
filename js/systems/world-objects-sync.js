@@ -137,7 +137,26 @@ export function getReplicatedItemState(sim, item) {
     };
   }
   const syringe = meshData.syrCtrl;
-  if (syringe) state.syringe = { volMl: Math.round((syringe.volMl || 0) * 10) / 10 };
+  if (syringe) {
+    state.syringe = {
+      volMl: Math.round((syringe.volMl || 0) * 10) / 10,
+      sourceContam: !!syringe.sourceContam,
+      mix: syringe.mix ? {
+        waterMl: Math.round((syringe.mix.waterMl || 0) * 10) / 10,
+        distilledMl: Math.round((syringe.mix.distilledMl || 0) * 10) / 10,
+        lcMl: Math.round((syringe.mix.lcMl || 0) * 10) / 10,
+        pdaMl: Math.round((syringe.mix.pdaMl || 0) * 10) / 10
+      } : null
+    };
+  }
+  if (item.liquidMix) {
+    state.liquidMix = {
+      waterMl: Math.round((item.liquidMix.waterMl || 0) * 10) / 10,
+      distilledMl: Math.round((item.liquidMix.distilledMl || 0) * 10) / 10,
+      lcMl: Math.round((item.liquidMix.lcMl || 0) * 10) / 10,
+      pdaMl: Math.round((item.liquidMix.pdaMl || 0) * 10) / 10
+    };
+  }
   if (item.bowlCtrl) {
     state.bowl = {
       ingredients: {
@@ -325,7 +344,24 @@ export function applyReplicatedItemState(sim, item, state) {
     updatePdaMediumVisual(item);
   }
   if (meshData.syrCtrl && state.syringe && typeof state.syringe.volMl === 'number') {
+    if (state.syringe.mix && typeof state.syringe.mix === 'object') {
+      meshData.syrCtrl.mix = {
+        waterMl: Math.max(0, Number(state.syringe.mix.waterMl) || 0),
+        distilledMl: Math.max(0, Number(state.syringe.mix.distilledMl) || 0),
+        lcMl: Math.max(0, Number(state.syringe.mix.lcMl) || 0),
+        pdaMl: Math.max(0, Number(state.syringe.mix.pdaMl) || 0)
+      };
+    }
+    meshData.syrCtrl.sourceContam = !!state.syringe.sourceContam;
     updateSyringeVolume(item, state.syringe.volMl);
+  }
+  if (state.liquidMix && typeof state.liquidMix === 'object') {
+    item.liquidMix = {
+      waterMl: Math.max(0, Number(state.liquidMix.waterMl) || 0),
+      distilledMl: Math.max(0, Number(state.liquidMix.distilledMl) || 0),
+      lcMl: Math.max(0, Number(state.liquidMix.lcMl) || 0),
+      pdaMl: Math.max(0, Number(state.liquidMix.pdaMl) || 0)
+    };
   }
   if (item.bowlCtrl && state.bowl && typeof state.bowl === 'object') {
     const ingredients = state.bowl.ingredients || {};

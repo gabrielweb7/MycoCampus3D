@@ -84,6 +84,9 @@ export function canSyringeTarget(item) {
   if (item.pdaMediumCtrl && hasPdaContents(item) &&
       (!spawnCtrl || spawnCtrl.substrateKind !== 'pda')) return false;
   const liquid = item.mesh.userData.liquidCtrl;
+  if (liquid && !(spawnCtrl && spawnCtrl.isPP5)) {
+    return liquid.volMl < liquid.maxMl;
+  }
   const pdaAgarReady = item.pdaMediumCtrl && item.pdaMediumCtrl.powderGrams > 0 &&
     liquid && liquid.volMl > 0;
   if (spawnCtrl && (
@@ -117,10 +120,8 @@ export function canFillFromSink(item) {
 
 export function canSyringeSource(item) {
   if (!item || !item.mesh || !item.mesh.userData.liquidCtrl || item.mesh.userData.liquidCtrl.volMl <= 0) return false;
-  const culture = item.cultureCtrl || item.mesh.userData.cultureCtrl;
-  if (culture && (!culture.colonized || culture.contaminated || culture.expired)) return false;
-  const meta = item.meta || item.mesh.userData.itemMeta;
-  return !!(meta && meta.compatibilities && meta.compatibilities.providesLiquidCulture);
+  if (item.spawnCtrl && item.spawnCtrl.isPP5) return false;
+  return true;
 }
 
 export function hasPdaContents(item) {

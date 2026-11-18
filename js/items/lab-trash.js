@@ -207,6 +207,8 @@ export function resetDisposableContainer(item) {
     item.scalpelCtrl.hasBlade = false;
     item.scalpelCtrl.sterile = false;
     item.scalpelCtrl.bladeExpired = false;
+    item.scalpelCtrl.bladeContaminated = false;
+    item.scalpelCtrl.cutContaminated = false;
     item.scalpelCtrl.bladeAttachedAt = 0;
     item.scalpelCtrl.hasMycelium = false;
     if (item.scalpelCtrl.bladeMesh) item.scalpelCtrl.bladeMesh.visible = false;

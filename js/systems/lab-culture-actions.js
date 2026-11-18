@@ -184,6 +184,7 @@ export function handleScalpelTargetAction(ctx) {
     let contamRisk = 0;
     if (!ctx.wearingGloves) contamRisk += 0.25;
     if (!((target.item.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
+    if (!((ctx.heldItem.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
     if (!inoculatePetri(target.item, 'mycelium', sterileTransfer, contamRisk)) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir o fragmento para esta placa.');
       return;

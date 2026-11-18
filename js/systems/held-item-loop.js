@@ -6,7 +6,7 @@ import { GAME_CONFIG } from '../core/config.js';
 import { getGroundHeight } from '../engine/physics.js';
 import { getVirtualDayFrac } from '../world/staircase-clock.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
-import { updateSyringeVolume } from '../items/syringe.js';
+import { addSyringeMix, updateSyringeVolume } from '../items/syringe.js';
 import { getItemBaseTempC } from '../items/item-registry.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { inoculatePetri } from '../items/petri-dish.js';
@@ -642,9 +642,47 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ctx.callbacks.onHoverPrompt('💉 ' + (isDraw ? 'Aspirando' : 'Injetando') + ': ' + curVol.toFixed(1) + ' / 10.0 ml (solte para parar)');
       }
       if (pRatio >= 1.0) {
+        const scMix = ctx.heldItem.mesh.userData.syrCtrl && ctx.heldItem.mesh.userData.syrCtrl.mix;
+        const hadLc = !!(scMix && scMix.lcMl > 0.05);
+        const finalD = ctx.syringePumping.toVol - ctx.syringePumping.fromVol;
+        if (finalD > 0.01 && syringeTarget) {
+          let drawKind = 'water';
+          if (syringeTarget.id && syringeTarget.id.indexOf('distilled_jug') === 0) drawKind = 'distilled';
+          else if (syringeTarget.cultureCtrl && syringeTarget.cultureCtrl.colonized) drawKind = 'lc';
+          else if (syringeTarget.pdaMediumCtrl && syringeTarget.pdaMediumCtrl.powderGrams > 0) drawKind = 'pda';
+          if (syringeTarget.cultureCtrl && syringeTarget.cultureCtrl.contaminated && ctx.heldItem.mesh.userData.syrCtrl) {
+            ctx.heldItem.mesh.userData.syrCtrl.sourceContam = true;
+          }
+          addSyringeMix(ctx.heldItem, drawKind, finalD);
+        } else if (finalD < -0.01 && syringeTarget && targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
+          const injMl = -finalD;
+          const totalMix = scMix ? ((scMix.waterMl || 0) + (scMix.distilledMl || 0) + (scMix.lcMl || 0) + (scMix.pdaMl || 0)) : 0;
+          if (!syringeTarget.liquidMix) syringeTarget.liquidMix = { waterMl: 0, distilledMl: 0, lcMl: 0, pdaMl: 0 };
+          if (totalMix > 0.01) {
+            syringeTarget.liquidMix.waterMl += injMl * ((scMix.waterMl || 0) / totalMix);
+            syringeTarget.liquidMix.distilledMl += injMl * ((scMix.distilledMl || 0) / totalMix);
+            syringeTarget.liquidMix.lcMl += injMl * ((scMix.lcMl || 0) / totalMix);
+            syringeTarget.liquidMix.pdaMl += injMl * ((scMix.pdaMl || 0) / totalMix);
+          } else {
+            syringeTarget.liquidMix.waterMl += injMl;
+          }
+          addSyringeMix(ctx.heldItem, null, -injMl);
+          if (hadLc && syringeTarget.cultureCtrl && !syringeTarget.cultureCtrl.inoculated && !syringeTarget.cultureCtrl.contaminated) {
+            const aseptic = isAsepticWorkArea(ctx, syringeTarget) && !ctx.heldItem.mesh.userData.syrCtrl.sourceContam;
+            syringeTarget.cultureCtrl.inoculated = true;
+            if (aseptic) {
+              syringeTarget.cultureCtrl.colonization = 2;
+              if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Cultura Líquida inoculada pela seringa! Aguarde colonizar até 100%.');
+            } else {
+              syringeTarget.cultureCtrl.contaminated = true;
+              if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Injeção fora do fluxo laminar contaminou a Cultura Líquida!');
+            }
+          }
+        } else if (finalD < -0.01) {
+          addSyringeMix(ctx.heldItem, null, finalD);
+        }
         updateSyringeVolume(ctx.heldItem, ctx.syringePumping.toVol);
         if (targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
-          const finalD = ctx.syringePumping.toVol - ctx.syringePumping.fromVol;
           updateContainerVolume(syringeTarget, Math.max(0, ctx.syringePumping.startJarVol - finalD));
         } else if (targetSpawn) {
           const spTarget = syringeTarget;
