@@ -146,6 +146,9 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (in_array($src['substrateKind'] ?? '', $validSubstrates, true)) {
             $spawn['substrateKind'] = $src['substrateKind'];
         }
+        if (isset($src['speciesName']) && is_string($src['speciesName'])) {
+            $spawn['speciesName'] = substr($src['speciesName'], 0, 80);
+        }
         if ($spawn) $clean['spawn'] = $spawn;
     }
 
@@ -162,6 +165,9 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         }
         if (isset($p['inoculationMethod']) && is_string($p['inoculationMethod'])) {
             $cleanPetri['inoculationMethod'] = substr($p['inoculationMethod'], 0, 32);
+        }
+        if (isset($p['speciesName']) && is_string($p['speciesName'])) {
+            $cleanPetri['speciesName'] = substr($p['speciesName'], 0, 80);
         }
         foreach (['colonization' => 100, 'ageGameDays' => 365, 'shelfLifeAgeDays' => 365, 'cutWedges' => 4, 'delayedContamAtPct' => 100] as $numKey => $maxVal) {
             if (isset($p[$numKey]) && is_numeric($p[$numKey]) && is_finite((float)$p[$numKey])) {
@@ -197,6 +203,9 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         }
         if (isset($src['tempC']) && is_numeric($src['tempC']) && is_finite((float)$src['tempC'])) {
             $culture['tempC'] = max(-20, min(140, round((float)$src['tempC'], 1)));
+        }
+        if (isset($src['speciesName']) && is_string($src['speciesName'])) {
+            $culture['speciesName'] = substr($src['speciesName'], 0, 80);
         }
         if ($culture) $clean['culture'] = $culture;
     }
@@ -241,6 +250,9 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         }
         if (isset($raw['syringe']['tempC']) && is_numeric($raw['syringe']['tempC']) && is_finite((float)$raw['syringe']['tempC'])) {
             $syr['tempC'] = max(-20, min(140, round((float)$raw['syringe']['tempC'], 1)));
+        }
+        if (isset($raw['syringe']['speciesName']) && is_string($raw['syringe']['speciesName'])) {
+            $syr['speciesName'] = substr($raw['syringe']['speciesName'], 0, 80);
         }
         if (isset($raw['syringe']['mix']) && is_array($raw['syringe']['mix'])) {
             $mix = [];

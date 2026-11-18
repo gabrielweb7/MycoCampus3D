@@ -307,6 +307,7 @@ export function interactGreenhouseSlot(slot, ctx) {
 
       slot.stage = 1;
       slot.growth = 25;
+      if (sp.speciesName) slot.speciesName = sp.speciesName;
       slot.humidity = Math.max(85, slot.humidity);
       if (window.MycoAudio) window.MycoAudio.playHarvest();
       triggerSporeBurst(slot.x, slot.y + 0.25, slot.z, slot.color);

@@ -92,7 +92,8 @@ export function getReplicatedItemState(sim, item) {
       contaminated: !!spawn.contaminated,
       burned: !!spawn.burned,
       tempC: typeof spawn.tempC === 'number' ? Math.round(spawn.tempC * 10) / 10 : 24.5,
-      refrigerated: !!spawn.refrigerated
+      refrigerated: !!spawn.refrigerated,
+      speciesName: spawn.speciesName || ''
     };
   }
   const petri = meshData.petriCtrl;
@@ -104,6 +105,7 @@ export function getReplicatedItemState(sim, item) {
       inoculated: !!petri.inoculated,
       parafilmSealed: !!petri.parafilmSealed,
       inoculationMethod: petri.inoculationMethod === 'mycelium' ? 'mycelium' : (petri.inoculationMethod === 'liquid' ? 'liquid' : ''),
+      speciesName: petri.speciesName || '',
       colonization: Math.round((petri.colonization || 0) * 10) / 10,
       ageGameDays: Math.round((petri.ageGameDays || 0) * 10) / 10,
       shelfLifeAgeDays: Math.round((petri.shelfLifeAgeDays || 0) * 10) / 10,
@@ -128,7 +130,8 @@ export function getReplicatedItemState(sim, item) {
       shelfLifeAgeDays: Math.round((culture.shelfLifeAgeDays || 0) * 10) / 10,
       expired: !!culture.expired,
       tempC: typeof culture.tempC === 'number' ? Math.round(culture.tempC * 10) / 10 : 24.5,
-      refrigerated: !!culture.refrigerated
+      refrigerated: !!culture.refrigerated,
+      speciesName: culture.speciesName || ''
     };
   }
   if (item.pdaReagentCtrl) {
@@ -152,6 +155,7 @@ export function getReplicatedItemState(sim, item) {
       sourceContam: !!syringe.sourceContam,
       tempC: typeof syringe.tempC === 'number' ? Math.round(syringe.tempC * 10) / 10 : 24.5,
       refrigerated: !!syringe.refrigerated,
+      speciesName: syringe.speciesName || '',
       mix: syringe.mix ? {
         waterMl: Math.round((syringe.mix.waterMl || 0) * 10) / 10,
         distilledMl: Math.round((syringe.mix.distilledMl || 0) * 10) / 10,
@@ -252,6 +256,7 @@ export function applyReplicatedItemState(sim, item, state) {
       spawn.tempC = Math.max(-20, Math.min(140, incoming.tempC));
       spawn.lastRenderedTempInt = Math.round(spawn.tempC);
     }
+    if (typeof incoming.speciesName === 'string') spawn.speciesName = incoming.speciesName.slice(0, 80);
     ['fillGrams', 'waterMl', 'sterilizeProgress', 'colonization', 'ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
       if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
         const maxValue = key === 'colonization' || key === 'sterilizeProgress' ? 100 : 1000;
@@ -310,6 +315,7 @@ export function applyReplicatedItemState(sim, item, state) {
       petri.tempC = Math.max(-20, Math.min(140, incomingPetri.tempC));
       petri.lastRenderedTempInt = Math.round(petri.tempC);
     }
+    if (typeof incomingPetri.speciesName === 'string') petri.speciesName = incomingPetri.speciesName.slice(0, 80);
     if (typeof incomingPetri.colonization === 'number' && Number.isFinite(incomingPetri.colonization)) {
       petri.colonization = Math.max(0, Math.min(100, incomingPetri.colonization));
     }
@@ -344,6 +350,7 @@ export function applyReplicatedItemState(sim, item, state) {
       culture.tempC = Math.max(-20, Math.min(140, state.culture.tempC));
       culture.lastRenderedTempInt = Math.round(culture.tempC);
     }
+    if (typeof state.culture.speciesName === 'string') culture.speciesName = state.culture.speciesName.slice(0, 80);
     ['ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
       if (typeof state.culture[key] === 'number' && Number.isFinite(state.culture[key])) {
         culture[key] = Math.max(0, Math.min(1000, state.culture[key]));
@@ -392,6 +399,7 @@ export function applyReplicatedItemState(sim, item, state) {
       meshData.syrCtrl.lastRenderedTempInt = Math.round(meshData.syrCtrl.tempC);
     }
     if (typeof state.syringe.refrigerated === 'boolean') meshData.syrCtrl.refrigerated = state.syringe.refrigerated;
+    if (typeof state.syringe.speciesName === 'string') meshData.syrCtrl.speciesName = state.syringe.speciesName.slice(0, 80);
     updateSyringeVolume(item, state.syringe.volMl);
   }
   if (state.liquidMix && typeof state.liquidMix === 'object') {

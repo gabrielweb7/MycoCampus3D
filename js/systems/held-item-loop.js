@@ -191,7 +191,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ctx.heldItem.wildMushroomCtrl.bodyGroup.rotation.z = 0;
         ctx.heldItem.wildMushroomCtrl.bodyGroup.position.y = 0;
       }
-      _tmpHandLocal.set(0.24, -0.32 + reachY, -0.46 - reachZ);
+      _tmpHandLocal.set(0.24, -0.26 + reachY, -0.46 - reachZ);
     } else {
       _tmpHandLocal.set(0.30, -0.22 + reachY, -0.58 - reachZ);
     }
@@ -653,6 +653,9 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
           if (syringeTarget.cultureCtrl && syringeTarget.cultureCtrl.contaminated && ctx.heldItem.mesh.userData.syrCtrl) {
             ctx.heldItem.mesh.userData.syrCtrl.sourceContam = true;
           }
+          if (syringeTarget.cultureCtrl && syringeTarget.cultureCtrl.speciesName && ctx.heldItem.mesh.userData.syrCtrl) {
+            ctx.heldItem.mesh.userData.syrCtrl.speciesName = syringeTarget.cultureCtrl.speciesName;
+          }
           addSyringeMix(ctx.heldItem, drawKind, finalD);
         } else if (finalD < -0.01 && syringeTarget && targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
           const injMl = -finalD;
@@ -670,6 +673,9 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
           if (hadLc && syringeTarget.cultureCtrl && !syringeTarget.cultureCtrl.inoculated && !syringeTarget.cultureCtrl.contaminated) {
             const aseptic = isAsepticWorkArea(ctx, syringeTarget) && !ctx.heldItem.mesh.userData.syrCtrl.sourceContam;
             syringeTarget.cultureCtrl.inoculated = true;
+            if (ctx.heldItem.mesh.userData.syrCtrl.speciesName) {
+              syringeTarget.cultureCtrl.speciesName = ctx.heldItem.mesh.userData.syrCtrl.speciesName;
+            }
             if (aseptic) {
               syringeTarget.cultureCtrl.colonization = 2;
               if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Cultura Líquida inoculada pela seringa! Aguarde colonizar até 100%.');
@@ -689,6 +695,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
           const spCtrl = targetSpawn;
           const isAseptic = isAsepticWorkArea(ctx, spTarget);
           spCtrl.inoculated = true;
+          const syrSp = ctx.heldItem.mesh.userData.syrCtrl && ctx.heldItem.mesh.userData.syrCtrl.speciesName;
+          if (syrSp) spCtrl.speciesName = syrSp;
           if (!spCtrl.sterilized && Math.random() < 0.85) {
             spCtrl.contaminated = true;
             if (ctx.callbacks.onToast) {
@@ -707,7 +715,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
           const doseMl = ctx.syringePumping.amountMl || 1;
           if (petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.lidOpen && petriCtrl.sterilized) {
             const aseptic = isAsepticWorkArea(ctx, petriTarget);
-            inoculatePetri(petriTarget, 'liquid', aseptic);
+            const syrSp = ctx.heldItem.mesh.userData.syrCtrl && ctx.heldItem.mesh.userData.syrCtrl.speciesName;
+            inoculatePetri(petriTarget, 'liquid', aseptic, 0, syrSp || '');
             if (ctx.callbacks.onToast) {
               ctx.callbacks.onToast(aseptic
                 ? '💉 ' + doseMl + 'ml inoculado. O micélio branco começará a crescer na placa.'

@@ -122,7 +122,8 @@ export function handleWorldInteraction(ctx) {
 
     const heldGroup = new THREE.Group();
     heldGroup.add(bodyGroup);
-    heldGroup.scale.setScalar(0.65);
+    const normScale = mSize.y > 0.01 ? Math.max(0.55, Math.min(2.2, 0.24 / mSize.y)) : 0.65;
+    heldGroup.scale.setScalar(normScale);
 
     const sideRestY = Math.max(0.03, mSize.x * 0.5);
     const pickedId = 'wild_picked_' + Date.now().toString(36);

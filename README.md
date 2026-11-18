@@ -18,11 +18,15 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25`, o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.40"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`. Posicionamento fica em `systems/held-item-placement.js`; ações de cultura (flocão, mistura e bisturi) ficam em `systems/lab-culture-actions.js`. Zero bundler, 100% compatível com Apache/PHP/cPanel.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25` (atualmente em `v0.9.153`), o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=0.9.153"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`.
+> - Posicionamento e fantasma 3D: `systems/held-item-placement.js` e `entities/placement-ghost.js`
+> - Ações de cultura (flocão, mistura, bisturi, clonagem e genética): `systems/lab-culture-actions.js`
+> - Persistência e validação MP: `systems/world-objects-sync.js`, `api/multiplayer.php` e `api/multiplayer_schema.php`
+> - Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD e Modais (?v=0.9.40)
-├── VERSION                    # Versão semântica atual do projeto (0.9.40)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD, Discord (/discord) e Modais (?v=0.9.153)
+├── VERSION                    # Versão semântica atual do projeto (0.9.153)
 ├── error.php                  # Painel online privado para consultar erros recentes
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
@@ -35,7 +39,8 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 │   ├── db.php                 # Conexão PDO, migrações cacheadas (v8) e autenticação por token
 │   ├── auth.php               # Login/registro, XP, módulos, missão prática, cosméticos, ranking e Admin
 │   ├── error.php              # Recebe erros do navegador e lista relatórios para o Admin
-│   └── multiplayer.php        # Sincronização em tempo real (avatares, objetos em lote, lousas, chat)
+│   ├── multiplayer.php        # Sincronização em tempo real (avatares, objetos em lote, lousas, chat)
+│   └── multiplayer_schema.php # Whitelist de itens (incl. wild_picked_*), sanitização de estados e chaves globais
 │
 ├── database/
 │   └── schema.sql             # Definição DDL completa das tabelas MySQL (schema_version 8)

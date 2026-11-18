@@ -358,6 +358,11 @@ export function showItemStatusCard(item, ctx) {
     });
   }
 
+  const itemSpecies = (petri && petri.speciesName) || (cc && cc.speciesName) || (sp && sp.speciesName) || (syr && syr.speciesName) || (item.scalpelCtrl && item.scalpelCtrl.biopsySpecies) || '';
+  if (itemSpecies) {
+    chips.push({ icon: '🧬', text: 'Espécie: ' + itemSpecies, color: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' });
+  }
+
   if (item.meta && item.meta.purpose && chips.length <= 2) {
     chips.push({ icon: 'ℹ️', text: item.meta.purpose, color: 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
   }

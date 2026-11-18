@@ -335,10 +335,11 @@ export function updatePetriVisual(item) {
             ? 'Micélio branco em crescimento: ' + Math.floor(ctrl.colonization) + '%'
             : (ctrl.mode === 'contam' ? (ctrl.expired ? 'Cultura vencida; micélio perdeu viabilidade' : 'Cultivo contaminado por mofo ou bactéria') : 'Cultivo de micélio em meio sólido BDA/PDA'))));
   }
+  const spSuffix = ctrl.speciesName ? (' [' + ctrl.speciesName + ']') : '';
   if (ctrl.mode === 'clean') {
-    item.label = 'Placa de Petri (Micélio • 100% colonizada)';
+    item.label = 'Placa de Petri' + spSuffix + ' (Micélio • 100% colonizada)';
   } else if (ctrl.mode === 'colonizing') {
-    item.label = 'Placa de Petri (Micélio crescendo • ' + Math.floor(ctrl.colonization) + '%)';
+    item.label = 'Placa de Petri' + spSuffix + ' (Micélio crescendo • ' + Math.floor(ctrl.colonization) + '%)';
   } else if (ctrl.mode === 'contam') {
     item.label = ctrl.expired ? 'Placa de Petri (Cultura vencida)' : 'Placa Contaminada (Mofo/Bactéria)';
   } else if (ctrl.mode === 'bare') {
@@ -398,13 +399,14 @@ export function sterilizePetri(item) {
   return true;
 }
 
-export function inoculatePetri(item, method, sterile, contamRisk = 0) {
+export function inoculatePetri(item, method, sterile, contamRisk = 0, speciesName = '') {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl || ctrl.mode !== 'empty' || !ctrl.lidOpen || !ctrl.sterilized) return false;
   ctrl.inoculated = true;
   ctrl.colonized = false;
   ctrl.contaminated = false;
   ctrl.inoculationMethod = method === 'mycelium' ? 'mycelium' : 'liquid';
+  if (speciesName) ctrl.speciesName = speciesName;
   ctrl.ageGameDays = 0;
   ctrl.shelfLifeAgeDays = 0;
   ctrl.colonization = 0;
