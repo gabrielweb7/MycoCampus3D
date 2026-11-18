@@ -60,9 +60,15 @@ export function getTripSpeedMultiplier() {
   return 1 + Math.min(0.45, tripShroomCount * 0.03);
 }
 
+export function getTripTextureFlowStrength() {
+  if (!tripActive || tripShroomCount < 3 || tripShroomCount >= 20) return 0;
+  return Math.min(1, (tripShroomCount - 2) * 0.09);
+}
+
 if (typeof window !== 'undefined') {
   window.isTripRainbowActive = isTripRainbowActive;
   window.getTripSpeedMultiplier = getTripSpeedMultiplier;
+  window.getTripTextureFlowStrength = getTripTextureFlowStrength;
 }
 
 function applyProgressiveColorVars(count) {

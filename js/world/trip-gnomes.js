@@ -2,7 +2,7 @@
  * MycoCampus3D — Gnomos da Brisa (aparecem andando, correndo, observando e fugindo se chegar perto)
  */
 import { getGroundHeight } from '../engine/physics.js';
-import { createTextSprite, updateTextSprite } from '../entities/avatars.js';
+import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
 
 const THREE = window.THREE;
 
@@ -11,6 +11,55 @@ const CALM_EMOTES = ['😊', '🍄', '✨', '👀', '🌿'];
 
 let gnomePool = null;
 let sharedGeos = null;
+let cachedFlowTextures = null;
+let flowTime = 0;
+let flowWasActive = false;
+
+function collectFlowTextures(scene) {
+  const seen = new Set();
+  const list = [];
+  if (!scene) return list;
+  scene.traverse((obj) => {
+    const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
+    for (let i = 0; i < mats.length; i++) {
+      const m = mats[i];
+      if (!m) continue;
+      const tex = m.map;
+      if (tex && !seen.has(tex) && tex.wrapS === THREE.RepeatWrapping && tex.wrapT === THREE.RepeatWrapping) {
+        seen.add(tex);
+        list.push({ tex, baseX: tex.offset.x, baseY: tex.offset.y, phase: list.length * 0.7 });
+      }
+    }
+  });
+  return list;
+}
+
+function stepTripTextureFlow(scene, dt) {
+  const strength = typeof window !== 'undefined' && window.getTripTextureFlowStrength
+    ? window.getTripTextureFlowStrength()
+    : 0;
+  if (strength <= 0) {
+    if (flowWasActive && cachedFlowTextures) {
+      for (let i = 0; i < cachedFlowTextures.length; i++) {
+        const entry = cachedFlowTextures[i];
+        entry.tex.offset.set(entry.baseX, entry.baseY);
+      }
+      flowWasActive = false;
+      flowTime = 0;
+    }
+    return;
+  }
+  if (!cachedFlowTextures) cachedFlowTextures = collectFlowTextures(scene);
+  flowWasActive = true;
+  flowTime += dt;
+  const drift = (flowTime * 0.012 * strength) % 1;
+  for (let i = 0; i < cachedFlowTextures.length; i++) {
+    const entry = cachedFlowTextures[i];
+    const waveX = Math.sin(flowTime * 0.42 + entry.phase) * 0.032 * strength;
+    const waveY = Math.cos(flowTime * 0.36 + entry.phase) * 0.032 * strength;
+    entry.tex.offset.set(entry.baseX + drift + waveX, entry.baseY + drift * 0.65 + waveY);
+  }
+}
 
 function getSharedGeos() {
   if (sharedGeos) return sharedGeos;
@@ -104,7 +153,7 @@ function createSingleGnome(tunicColor) {
   hat.rotation.x = -0.06;
   headGrp.add(head, nose, beard, stache, eyeL, eyeR, hat);
 
-  const emoteSprite = createTextSprite('😊', '#fde047', 160);
+  const emoteSprite = makeTextSprite('😊', '#fde047');
   emoteSprite.position.set(0, 0.98, 0);
   emoteSprite.scale.set(0.55, 0.22, 1);
 
@@ -137,6 +186,7 @@ function pickRoamTarget(gn, px, pz, minR, maxR) {
 }
 
 export function stepTripGnomes(ctx, dt) {
+  stepTripTextureFlow(ctx.scene, dt);
   const active = typeof window !== 'undefined' && window.isTripRainbowActive && window.isTripRainbowActive();
   if (!active) {
     if (gnomePool) {
