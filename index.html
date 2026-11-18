@@ -226,6 +226,12 @@
     </div>
 
     <!-- Dedicated Held Item Action Bar (PC & Mobile) -->
+    <div id="admin-edit-banner"
+      class="hidden fixed top-14 left-1/2 -translate-x-1/2 z-28 px-3.5 py-1.5 rounded-full bg-amber-950/90 border border-amber-400/70 text-amber-200 text-xs font-bold shadow-lg flex items-center gap-2 backdrop-blur-md">
+      <span>🛠️ MODO EDIÇÃO ATIVO • Arraste bancadas com tudo em cima</span>
+      <button id="btn-exit-admin-edit" type="button"
+        class="px-2 py-0.5 rounded-full bg-amber-500/20 hover:bg-amber-500/40 text-amber-100 border border-amber-400/50">Sair</button>
+    </div>
     <div id="held-item-bar"
       class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 glass-panel rounded-2xl px-3.5 py-1.5 z-28 flex items-center gap-2.5 border border-emerald-500/50 shadow-2xl backdrop-blur-md">
       <div class="flex items-center gap-1.5 pr-2 border-r border-slate-700/80">
@@ -475,7 +481,9 @@
 
       <div id="admin-editor-bar"
         class="px-3 sm:px-4 py-2 border-b border-slate-700/40 flex flex-wrap gap-2 items-center bg-slate-950/40 text-xs">
-        <span class="text-amber-300 font-bold">🛠️ Editor:</span>
+        <button id="btn-admin-edit-mode"
+          class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold border border-amber-500/40">🛠️
+          Modo Edição: OFF</button>
         <select id="admin-prefab-select"
           class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-400">
           <option value="table_stainless">Bancada Inox (1.6m)</option>

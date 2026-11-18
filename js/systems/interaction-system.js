@@ -28,6 +28,7 @@ import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { handleTrashDisposal } from '../items/lab-trash.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { getItemsSupportedBy } from './surface-group-move.js';
 import { fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
@@ -704,7 +705,29 @@ export function handlePrimaryAction(ctx) {
       }
     }
     ctx.hoveredPickable.trayContents = null;
-    if (ctx.hoveredPickable.mesh && ctx.hoveredPickable.mesh.userData.isTray) {
+    if (ctx.adminEditMode && ctx.hoveredPickable.mesh &&
+        (ctx.hoveredPickable.mesh.userData.dynamicSurface || ctx.hoveredPickable.mesh.userData.dynamicSurfaces)) {
+      const hostMesh = ctx.hoveredPickable.mesh;
+      hostMesh.updateMatrixWorld(true);
+      const hRy = hostMesh.rotation.y || 0;
+      const supported = getItemsSupportedBy(ctx, ctx.hoveredPickable);
+      if (supported.length > 0) {
+        const carried = [];
+        const _locVec = new THREE.Vector3();
+        for (let si = 0; si < supported.length; si++) {
+          const cand = supported[si];
+          if (!cand || !cand.mesh) continue;
+          cand.mesh.getWorldPosition(_locVec);
+          hostMesh.worldToLocal(_locVec);
+          carried.push({
+            item: cand,
+            localOffset: _locVec.clone(),
+            localRotY: (cand.mesh.rotation.y || 0) - hRy
+          });
+        }
+        ctx.hoveredPickable.trayContents = carried.length ? carried : null;
+      }
+    } else if (ctx.hoveredPickable.mesh && ctx.hoveredPickable.mesh.userData.isTray) {
       const trayMesh = ctx.hoveredPickable.mesh;
       trayMesh.updateMatrixWorld(true);
       const tRy = trayMesh.rotation.y;

@@ -297,6 +297,37 @@ function bindModalsAndToolbar() {
     };
   }
 
+  const btnAdminEditMode = $('btn-admin-edit-mode');
+  const adminEditBanner = $('admin-edit-banner');
+  function syncAdminEditModeUi(active) {
+    if (btnAdminEditMode) {
+      btnAdminEditMode.textContent = active ? '🛠️ Modo Edição: ON' : '🛠️ Modo Edição: OFF';
+      btnAdminEditMode.classList.toggle('bg-amber-600', active);
+      btnAdminEditMode.classList.toggle('text-white', active);
+    }
+    if (adminEditBanner) adminEditBanner.classList.toggle('hidden', !active);
+  }
+  if (btnAdminEditMode) {
+    btnAdminEditMode.onclick = () => {
+      const ed = window.getCampusAdminEditor ? window.getCampusAdminEditor() : null;
+      if (!ed) return;
+      const next = ed.setEditMode(!ed.isEditMode());
+      syncAdminEditModeUi(next);
+      showAdminNotice(next
+        ? '🛠️ Modo Edição ATIVADO! Agora você pode pegar e mover bancadas com tudo em cima e editar/deletar itens.'
+        : '🛠️ Modo Edição desativado.');
+    };
+  }
+  const btnExitAdminEdit = $('btn-exit-admin-edit');
+  if (btnExitAdminEdit) {
+    btnExitAdminEdit.onclick = () => {
+      const ed = window.getCampusAdminEditor ? window.getCampusAdminEditor() : null;
+      if (!ed) return;
+      ed.setEditMode(false);
+      syncAdminEditModeUi(false);
+    };
+  }
+
   const btnAdminAddPrefab = $('btn-admin-add-prefab');
   if (btnAdminAddPrefab) {
     btnAdminAddPrefab.onclick = async () => {

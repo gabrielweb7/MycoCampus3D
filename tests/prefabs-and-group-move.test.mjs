@@ -10,7 +10,7 @@ globalThis.window = globalThis.window || {
 };
 
 const { registerItemPrefab, getItemPrefab, listItemPrefabs, spawnItemFromPrefab } = await import('../js/items/item-prefabs.js');
-const { getItemsSupportedBy, moveItemWithSupported } = await import('../js/systems/surface-group-move.js');
+const { getItemsSupportedBy, moveItemWithSupported, dropSupportedItemsToGround } = await import('../js/systems/surface-group-move.js');
 
 function makeMesh(x, y, z, ry = 0, userData = {}) {
   return {
@@ -91,4 +91,25 @@ test('moveItemWithSupported move mesa + bandeja + petri em cima, rotacionando e 
   assert.ok(Math.abs(petri.mesh.position.x - 10) < 1e-6);
   assert.ok(Math.abs(petri.mesh.position.z - 3.5) < 1e-6);
   assert.equal(floorItem.mesh.position.x, 5);
+});
+
+test('dropSupportedItemsToGround faz itens em cima e dentro da panela caírem ao deletar pai', () => {
+  const tableSurf = { minX: -1, maxX: 1, minZ: -1, maxZ: 1, topY: 1.0 };
+  const table = {
+    id: 'table_del',
+    mesh: makeMesh(0, 0, 0, 0, { dynamicSurface: tableSurf })
+  };
+  const beaker = {
+    id: 'beaker_on_table',
+    mesh: makeMesh(0.2, 1.0, 0.3, 0, {})
+  };
+  const moved = [];
+  const ctx = {
+    pickableItems: [table, beaker],
+    markItemMoved: (it) => moved.push(it.id)
+  };
+  const dropped = dropSupportedItemsToGround(ctx, table, () => 0);
+  assert.deepEqual(dropped.map((i) => i.id), ['beaker_on_table']);
+  assert.equal(beaker.mesh.position.y, 0);
+  assert.deepEqual(moved, ['beaker_on_table']);
 });

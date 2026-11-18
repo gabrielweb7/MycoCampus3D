@@ -115,3 +115,41 @@ export function moveItemWithSupported(ctx, parentItem, newPos, newRy) {
 
   return { movedCount: 1 + children.length, children };
 }
+
+/**
+ * Faz todos os itens apoiados sobre `parentItem` (ou dentro, se for panela)
+ * caírem para o chão/superfície abaixo antes de `parentItem` ser removido.
+ * @param {object} ctx
+ * @param {object} parentItem
+ * @param {function(number, number, number): number} [getGroundY]
+ * @returns {Array<object>}
+ */
+export function dropSupportedItemsToGround(ctx, parentItem, getGroundY) {
+  if (!ctx || !parentItem || !parentItem.mesh) return [];
+  const toDrop = new Set(getItemsSupportedBy(ctx, parentItem));
+
+  if (Array.isArray(ctx.cookerPots)) {
+    for (let i = 0; i < ctx.cookerPots.length; i++) {
+      const cp = ctx.cookerPots[i];
+      if (cp.potItem === parentItem && Array.isArray(cp.contents)) {
+        cp.contents.forEach((c) => { if (c) toDrop.add(c); });
+        cp.contents = [];
+        cp.hasBase = false;
+      }
+    }
+  }
+
+  const dropped = [];
+  const ignoreSurf = parentItem.mesh.userData ? parentItem.mesh.userData.dynamicSurface : null;
+  toDrop.forEach((child) => {
+    if (!child || !child.mesh || child === parentItem) return;
+    const p = child.mesh.position;
+    const gy = typeof getGroundY === 'function' ? getGroundY(p.x, p.z, p.y, ignoreSurf) : 0;
+    child.mesh.position.set(p.x, gy, p.z);
+    child.isMoved = true;
+    updateItemBounds(child);
+    if (ctx.markItemMoved) ctx.markItemMoved(child);
+    dropped.push(child);
+  });
+  return dropped;
+}

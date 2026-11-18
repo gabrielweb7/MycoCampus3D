@@ -10,7 +10,8 @@ import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { makeLabTray } from '../items/lab-tray.js';
 import { makeAlcoholSprayBottle } from '../items/alcohol-spray.js';
 import { getPetriMeta, makePetriDish } from '../items/petri-dish.js';
-import { moveItemWithSupported } from './surface-group-move.js';
+import { moveItemWithSupported, dropSupportedItemsToGround } from './surface-group-move.js';
+import { getItemGroundHeight } from '../engine/physics.js';
 import { apiPost } from '../services/api-client.js';
 import { events } from '../core/events.js';
 
@@ -160,6 +161,9 @@ export async function adminAddPrefabAtPlayer(sim, prefabId) {
 
 export async function adminRemoveTargetItem(sim, item) {
   if (!item) return false;
+  dropSupportedItemsToGround(sim, item, (x, z, refY, ignoreSurf) =>
+    getItemGroundHeight(sim.physCtx || sim, x, z, refY, ignoreSurf)
+  );
   removeItemLocally(sim, item);
   await apiPost('api/multiplayer.php?action=admin_layout_edit', {
     item_id: item.id,
@@ -167,6 +171,15 @@ export async function adminRemoveTargetItem(sim, item) {
   }, true);
   events.emit('sync:now');
   return true;
+}
+
+export function setAdminEditMode(sim, active) {
+  if (!sim) return false;
+  sim.adminEditMode = !!active;
+  if (sim.callbacks && sim.callbacks.onAdminEditModeChange) {
+    sim.callbacks.onAdminEditModeChange(sim.adminEditMode);
+  }
+  return sim.adminEditMode;
 }
 
 export async function adminEditTargetItem(sim, item, opts) {

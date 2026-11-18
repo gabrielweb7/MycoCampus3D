@@ -157,6 +157,8 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.applyCampusLayoutEdits = function (edits) { return adminEditor.applyCampusLayoutEdits(sim, edits); };
   window.getCampusAdminEditor = function () {
     return {
+      isEditMode: () => !!sim.adminEditMode,
+      setEditMode: (active) => adminEditor.setAdminEditMode(sim, active),
       getPrefabs: () => adminEditor.getAdminPrefabOptions(),
       getTargetItem: () => sim.heldItem || sim.hoveredPickable || null,
       addPrefab: (prefabId) => adminEditor.adminAddPrefabAtPlayer(sim, prefabId),
