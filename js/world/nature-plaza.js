@@ -124,6 +124,8 @@ export function buildNatureWorld(ctx) {
   });
 }
 
+const LITE_FLORA = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
 export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
   const g = new THREE.Group();
   g.position.set(cx, 0, cz);
@@ -200,7 +202,7 @@ export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
   const leafGeo = new THREE.SphereGeometry(0.09, 7, 6);
   const petalGeo = new THREE.SphereGeometry(0.055, 6, 5);
 
-  for (let pi = 0; pi < 3; pi++) {
+  for (let pi = 0; pi < (LITE_FLORA ? 0 : 3); pi++) {
     const pa = (pi / 3) * Math.PI * 2 + 0.5;
     const px = Math.cos(pa) * rx * 0.52;
     const pz = Math.sin(pa) * rz * 0.52;
@@ -224,8 +226,9 @@ export function createFlowerBed(scene, cx, cz, rx, rz, rotY) {
     g.add(potGrp);
   }
 
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2;
+  const flowerCount = LITE_FLORA ? 6 : 12;
+  for (let i = 0; i < flowerCount; i++) {
+    const a = (i / flowerCount) * Math.PI * 2;
     const fx = Math.cos(a) * rx * 0.78;
     const fz = Math.sin(a) * rz * 0.78;
     const flGrp = new THREE.Group();
@@ -482,10 +485,20 @@ export function buildPlaza(ctx) {
   mStem.position.set(fx, 1.98, fz); mStem.castShadow = true;
   const mCap = new THREE.Mesh(
     new THREE.SphereGeometry(1.18, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.56),
-    new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.36, emissive: 0x7f1d1d, emissiveIntensity: 0.22 })
+    new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.36, emissive: 0x7f1d1d, emissiveIntensity: 0.22, side: THREE.DoubleSide })
   );
   mCap.position.set(fx, 2.58, fz); mCap.castShadow = true;
-  scene.add(mStem, mCap);
+  const mGills = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.29, 1.158, 0.14, 22),
+    new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.78 })
+  );
+  mGills.position.set(fx, 2.43, fz);
+  const mRing = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.29, 0.41, 0.12, 16),
+    new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.65 })
+  );
+  mRing.position.set(fx, 2.16, fz);
+  scene.add(mStem, mCap, mGills, mRing);
   for (let s = 0; s < 8; s++) {
     const ang = (s / 8) * Math.PI * 2;
     const rSpot = s % 2 === 0 ? 0.96 : 0.68;

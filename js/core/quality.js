@@ -98,6 +98,8 @@ export function applyQualityTier(tier, deps) {
   const profile = isTouchDevice ? TIER_CONFIGS.mobile : TIER_CONFIGS.desktop;
   const cfg = profile[tier] || profile.medium;
   const ratio = cfg.fixedRatio !== undefined ? cfg.fixedRatio : Math.min(dpr, cfg.ratioCap);
+  qualityState.baseRatio = ratio;
+  qualityState.dynScale = 1;
 
   renderer.setPixelRatio(ratio);
   renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -149,26 +151,16 @@ export function stepPointLightBudget(scene, playerPos, force = false) {
   if (!cachedPointLights) {
     cachedPointLights = [];
     scene.traverse((obj) => {
-      if (obj && obj.isPointLight) {
-        cachedPointLights.push({ light: obj, baseVisible: obj.visible });
+      // Ignora luzes dinâmicas (ex.: chama do fogareiro começa com intensidade 0)
+      if (obj && obj.isPointLight && obj.intensity > 0) {
+        cachedPointLights.push({ light: obj, baseIntensity: obj.intensity });
       }
     });
   }
 
+  // Usa intensidade (não "visible") para nunca mudar a contagem de luzes:
+  // evita recompilar todos os shaders (travadas) e respeita os interruptores das salas.
   const maxLights = qualityState.maxPointLights;
-  if (maxLights >= cachedPointLights.length) {
-    for (let i = 0; i < cachedPointLights.length; i++) {
-      cachedPointLights[i].light.visible = true;
-    }
-    return;
-  }
-  if (maxLights <= 0) {
-    for (let i = 0; i < cachedPointLights.length; i++) {
-      cachedPointLights[i].light.visible = false;
-    }
-    return;
-  }
-
   const px = playerPos ? playerPos.x : 0;
   const pz = playerPos ? playerPos.z : 0;
   const sorted = cachedPointLights.map((entry, idx) => {
@@ -179,7 +171,9 @@ export function stepPointLightBudget(scene, playerPos, force = false) {
   }).sort((a, b) => a.d2 - b.d2);
 
   for (let i = 0; i < sorted.length; i++) {
-    cachedPointLights[sorted[i].idx].light.visible = i < maxLights;
+    const entry = cachedPointLights[sorted[i].idx];
+    if (!entry.light.visible) continue; // interruptor desligado
+    entry.light.intensity = i < maxLights ? entry.baseIntensity : 0;
   }
 }
 
@@ -264,6 +258,25 @@ export function stepAutoQuality(now, deps) {
 
   if (qualityState.mode === 'auto' && now >= qualityState.warmupUntil) {
     const idx = QUALITY_TIERS_ORDER.indexOf(qualityState.tier);
+    const fps = qualityState.currentFps;
+    const r = deps && deps.renderer;
+
+    // 1º nível de inteligência: resolução dinâmica contínua (sem trocar preset/efeitos)
+    if (r && qualityState.baseRatio) {
+      let next = qualityState.dynScale || 1;
+      if (fps < 42 && next > 0.62) next = Math.max(0.62, next - 0.12);
+      else if (fps >= 58 && next < 1) next = Math.min(1, next + 0.06);
+      if (next !== qualityState.dynScale) {
+        qualityState.dynScale = next;
+        r.setPixelRatio(qualityState.baseRatio * next);
+        r.setSize(window.innerWidth, window.innerHeight, false);
+        qualityState.lowFpsStreak = 0;
+        if (deps.onQualityChange) deps.onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps });
+        return;
+      }
+    }
+
+    // 2º nível: só troca o preset quando a resolução já está no limite
     const downThresholds = { high: 46, medium: 38, low: 28, min: 0 };
     if (qualityState.currentFps < (downThresholds[qualityState.tier] || 0) && idx < QUALITY_TIERS_ORDER.length - 1) {
       qualityState.lowFpsStreak++;
