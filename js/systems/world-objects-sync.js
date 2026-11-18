@@ -83,7 +83,9 @@ export function getReplicatedItemState(sim, item) {
       shelfLifeAgeDays: Math.round((spawn.shelfLifeAgeDays || 0) * 10) / 10,
       expired: !!spawn.expired,
       contaminated: !!spawn.contaminated,
-      burned: !!spawn.burned
+      burned: !!spawn.burned,
+      tempC: typeof spawn.tempC === 'number' ? Math.round(spawn.tempC * 10) / 10 : 24.5,
+      refrigerated: !!spawn.refrigerated
     };
   }
   const petri = meshData.petriCtrl;
@@ -98,7 +100,11 @@ export function getReplicatedItemState(sim, item) {
       colonization: Math.round((petri.colonization || 0) * 10) / 10,
       ageGameDays: Math.round((petri.ageGameDays || 0) * 10) / 10,
       shelfLifeAgeDays: Math.round((petri.shelfLifeAgeDays || 0) * 10) / 10,
-      expired: !!petri.expired
+      expired: !!petri.expired,
+      cutWedges: Math.max(0, Math.min(4, petri.cutWedges || 0)),
+      delayedContamAtPct: Math.round((petri.delayedContamAtPct || 0) * 10) / 10,
+      tempC: typeof petri.tempC === 'number' ? Math.round(petri.tempC * 10) / 10 : 24.5,
+      refrigerated: !!petri.refrigerated
     };
   }
   if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
@@ -107,11 +113,15 @@ export function getReplicatedItemState(sim, item) {
   const culture = item.cultureCtrl || meshData.cultureCtrl;
   if (culture) {
     state.culture = {
+      inoculated: !!culture.inoculated,
       colonized: !!culture.colonized,
+      colonization: Math.round((culture.colonization || 0) * 10) / 10,
       contaminated: !!culture.contaminated,
       ageGameDays: Math.round((culture.ageGameDays || 0) * 10) / 10,
       shelfLifeAgeDays: Math.round((culture.shelfLifeAgeDays || 0) * 10) / 10,
-      expired: !!culture.expired
+      expired: !!culture.expired,
+      tempC: typeof culture.tempC === 'number' ? Math.round(culture.tempC * 10) / 10 : 24.5,
+      refrigerated: !!culture.refrigerated
     };
   }
   if (item.pdaReagentCtrl) {
@@ -235,9 +245,19 @@ export function applyReplicatedItemState(sim, item, state) {
     const petri = meshData.petriCtrl;
     const incomingPetri = state.petri;
     petri.mode = incomingPetri.mode;
-    ['sterilized', 'inoculated', 'expired', 'parafilmSealed'].forEach(function (key) {
+    ['sterilized', 'inoculated', 'expired', 'parafilmSealed', 'refrigerated'].forEach(function (key) {
       if (typeof incomingPetri[key] === 'boolean') petri[key] = incomingPetri[key];
     });
+    if (typeof incomingPetri.cutWedges === 'number' && Number.isFinite(incomingPetri.cutWedges)) {
+      petri.cutWedges = Math.max(0, Math.min(4, incomingPetri.cutWedges));
+    }
+    if (typeof incomingPetri.delayedContamAtPct === 'number' && Number.isFinite(incomingPetri.delayedContamAtPct)) {
+      petri.delayedContamAtPct = Math.max(0, Math.min(100, incomingPetri.delayedContamAtPct));
+    }
+    if (typeof incomingPetri.tempC === 'number' && Number.isFinite(incomingPetri.tempC)) {
+      petri.tempC = Math.max(-20, Math.min(140, incomingPetri.tempC));
+      petri.lastRenderedTempInt = Math.round(petri.tempC);
+    }
     if (typeof incomingPetri.colonization === 'number' && Number.isFinite(incomingPetri.colonization)) {
       petri.colonization = Math.max(0, Math.min(100, incomingPetri.colonization));
     }
@@ -262,9 +282,16 @@ export function applyReplicatedItemState(sim, item, state) {
   }
   const culture = item.cultureCtrl || (meshData && meshData.cultureCtrl);
   if (culture && state.culture && typeof state.culture === 'object') {
-    ['colonized', 'contaminated', 'expired'].forEach(function (key) {
+    ['inoculated', 'colonized', 'contaminated', 'expired', 'refrigerated'].forEach(function (key) {
       if (typeof state.culture[key] === 'boolean') culture[key] = state.culture[key];
     });
+    if (typeof state.culture.colonization === 'number' && Number.isFinite(state.culture.colonization)) {
+      culture.colonization = Math.max(0, Math.min(100, state.culture.colonization));
+    }
+    if (typeof state.culture.tempC === 'number' && Number.isFinite(state.culture.tempC)) {
+      culture.tempC = Math.max(-20, Math.min(140, state.culture.tempC));
+      culture.lastRenderedTempInt = Math.round(culture.tempC);
+    }
     ['ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
       if (typeof state.culture[key] === 'number' && Number.isFinite(state.culture[key])) {
         culture[key] = Math.max(0, Math.min(1000, state.culture[key]));
