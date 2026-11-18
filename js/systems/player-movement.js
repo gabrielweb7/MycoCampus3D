@@ -183,7 +183,8 @@ export function stepPlayerMovement(ctx, dt, now) {
     window.MycoAudio.playFootstep(sType);
   }
 
-  const wantsJump = (now <= ctx.jumpBufferUntil) || ctx.keys['Space'] || ctx.jumpHeld;
+  const isCrawlingUmbral = typeof window !== 'undefined' && window.isTripCrawlingActive && window.isTripCrawlingActive();
+  const wantsJump = !isCrawlingUmbral && ((now <= ctx.jumpBufferUntil) || ctx.keys['Space'] || ctx.jumpHeld);
   if (wantsJump && (ctx.onGround || (now - ctx.lastGroundedAt < P.coyoteTimeMs && ctx.playerVelY <= 0))) {
     if (ctx.seatedSeat) ctx.seatedSeat = null;
     ctx.playerVelY = ctx.paragliderActive ? P.paragliderJumpVelocity : (ctx.snowboardActive ? P.snowboardJumpVelocity : P.jumpVelocity);
@@ -206,7 +207,7 @@ export function stepPlayerMovement(ctx, dt, now) {
   const crouchDrop = ctx.crouchProgress * 0.76;
 
   const baseEyeH = ctx.seatedSeat ? P.seatedEyeHeight : (ctx.snowboardActive ? P.snowboardEyeHeight : P.eyeHeight);
-  const eyeH = baseEyeH - crouchDrop;
+  const eyeH = isCrawlingUmbral ? 0.34 : (baseEyeH - crouchDrop);
   if (ctx.seatedSeat) {
     ctx.playerPos.set(ctx.seatedSeat.x, ctx.seatedSeat.y, ctx.seatedSeat.z);
     ctx.playerVelY = 0;
@@ -235,9 +236,12 @@ export function stepPlayerMovement(ctx, dt, now) {
   ctx.camera.rotation.order = 'YXZ';
   ctx.camera.rotation.y = ctx.playerYaw;
   ctx.camera.rotation.x = ctx.playerPitch;
-  const umbralSway = (typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive())
-    ? Math.sin((ctx.clock ? ctx.clock.elapsedTime : now * 0.001) * 2.2) * 0.085
-    : 0;
+  const tCam = ctx.clock ? ctx.clock.elapsedTime : now * 0.001;
+  const umbralSway = isCrawlingUmbral
+    ? (1.12 + Math.sin(tCam * 1.8) * 0.06)
+    : ((typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive())
+      ? Math.sin(tCam * 2.2) * 0.085
+      : 0);
   ctx.camera.rotation.z = umbralSway + (ctx.snowboardActive ? ctx.snowboardRoll * 0.35 : ((ctx.paragliderActive && !ctx.onGround) ? ctx.paragliderRoll * 0.45 : 0));
 
   // Bracos em 1a pessoa

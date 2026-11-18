@@ -29,6 +29,7 @@ export function registerDiscoveredSpecies(speciesName) {
 let tripShroomCount = 0;
 let tripActive = false;
 let tripFreakoutActive = false;
+let tripCrawlingActive = false;
 let tripEndsAt = 0;
 let tripStartTimer = null;
 let tripDecayTimer = null;
@@ -43,6 +44,7 @@ function clearTripTimers() {
 }
 
 function clearTripVisuals() {
+  tripCrawlingActive = false;
   if (typeof document === 'undefined') return;
   document.body.classList.remove('myco-trip-active', 'myco-trip-freakout', 'myco-trip-faint');
   document.documentElement.style.removeProperty('--trip-sat');
@@ -66,7 +68,12 @@ export function isTripFreakoutActive() {
   return tripFreakoutActive;
 }
 
+export function isTripCrawlingActive() {
+  return tripCrawlingActive;
+}
+
 export function getTripSpeedMultiplier() {
+  if (tripCrawlingActive) return 0.24;
   if (tripFreakoutActive) return 0.92;
   if (!tripActive || tripShroomCount <= 0 || tripShroomCount >= 8) return 1;
   return 1 + Math.min(0.42, tripShroomCount * 0.06);
@@ -81,6 +88,7 @@ export function getTripTextureFlowStrength() {
 if (typeof window !== 'undefined') {
   window.isTripRainbowActive = isTripRainbowActive;
   window.isTripFreakoutActive = isTripFreakoutActive;
+  window.isTripCrawlingActive = isTripCrawlingActive;
   window.getTripSpeedMultiplier = getTripSpeedMultiplier;
   window.getTripTextureFlowStrength = getTripTextureFlowStrength;
 }
@@ -191,7 +199,7 @@ export function triggerMagicCubensisEffect(onSkyFall) {
         'display:flex;align-items:center;justify-content:center;transition:opacity 1.8s ease;';
       blackFaint.innerHTML =
         '<div style="color:#e2e8f0;font-size:clamp(20px,3.6vw,34px);font-weight:300;line-height:1.5;letter-spacing:0.05em;text-align:center;padding:24px;opacity:0;transition:opacity 1.4s ease;">' +
-        'Às vezes é bom não exagerar,<br>pequeno gafanhoto!...<br>Ainda não é sua hora.. volte e termine seu trabalho!</div>';
+        'O véu se rasgou, mas a terra ainda não te aceitou...<br>Volte do céu, pequeno gafanhoto —<br>o que você plantou ainda respira lá embaixo.</div>';
       document.body.appendChild(blackFaint);
     }
     const msgEl = blackFaint.firstElementChild;
@@ -209,25 +217,30 @@ export function triggerMagicCubensisEffect(onSkyFall) {
       whiteFlash.style.transition = 'opacity 0.55s ease';
     }
 
-    // 1) Aos 24s: tomba e desmaia pro PRETO TOTAL
+    // 1) Aos 18s: cai no chão de lado e só consegue se arrastar
+    freakoutTimers.push(setTimeout(() => {
+      tripCrawlingActive = true;
+    }, 18000));
+
+    // 2) Aos 26s: desmaia pro PRETO TOTAL e vem a mensagem
     freakoutTimers.push(setTimeout(() => {
       document.body.classList.remove('myco-trip-freakout');
       document.body.classList.add('myco-trip-faint');
       blackFaint.style.opacity = '1';
-      // 2) A mensagem aparece no fundo preto
       if (msgEl) freakoutTimers.push(setTimeout(() => { msgEl.style.opacity = '1'; }, 1200));
-    }, 24000));
+    }, 26000));
 
-    // 3) Aos 30s: do nada, tudo fica BRANCO!
+    // 3) Aos 32s: do nada, tudo fica BRANCO!
     freakoutTimers.push(setTimeout(() => {
       if (msgEl) msgEl.style.opacity = '0';
       whiteFlash.style.transition = 'opacity 0.45s ease';
       whiteFlash.style.opacity = '1';
-    }, 30000));
+    }, 32000));
 
-    // 4) Aos 31.2s: teleporta pro céu de paraquedas e o branco abre suave!
+    // 4) Aos 33.2s: teleporta pro céu de paraquedas e o branco abre suave!
     freakoutTimers.push(setTimeout(() => {
       tripFreakoutActive = false;
+      tripCrawlingActive = false;
       if (typeof onSkyFall === 'function') onSkyFall();
       clearTripVisuals();
       blackFaint.style.opacity = '0';
@@ -235,7 +248,7 @@ export function triggerMagicCubensisEffect(onSkyFall) {
       whiteFlash.style.opacity = '0';
       tripShroomCount = 0;
       tripEndsAt = 0;
-    }, 31200));
+    }, 33200));
     return;
   }
 
