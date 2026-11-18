@@ -615,6 +615,11 @@ export function initCampus3D(containerId, cbs) {
     if (touch) optimizeSceneMaterialsForMobile(sim.scene);
     applyQualityTier(sim, getInitialQualityTier(touch));
     startAnimationLoop(sim);
+    const lobbyEl = document.getElementById('campus-lobby');
+    if ((window._pendingEnterFps || (lobbyEl && lobbyEl.classList.contains('hidden'))) && window.setCampusFpsMode) {
+      window._pendingEnterFps = false;
+      window.setCampusFpsMode(true);
+    }
     logger.info('campus-init', 'Campus 3D inicializado com sucesso');
   });
 }

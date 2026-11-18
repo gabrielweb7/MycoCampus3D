@@ -87,7 +87,11 @@ export function enterCampus(user, token) {
   loadLabQuestProgress();
   if ($('campus-lobby')) $('campus-lobby').classList.add('hidden');
   if ($('campus-hud')) $('campus-hud').classList.remove('hidden');
-  if (window.setCampusFpsMode) window.setCampusFpsMode(true);
+  window._pendingEnterFps = true;
+  if (window.setCampusFpsMode) {
+    window._pendingEnterFps = false;
+    window.setCampusFpsMode(true);
+  }
   setTimeout(() => {
     const hint = $('fps-hint');
     if (hint) hint.classList.add('faded');
