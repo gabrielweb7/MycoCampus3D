@@ -262,10 +262,12 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     const hideInPlaceMode = !!(ctx.placementMode && (isTwoHanded || (ud && (ud.isCultureFridge || ud.isHood || ud.isTable))));
     ctx.heldItem.mesh.visible = !hideInPlaceMode;
 
+    const heldPos = ctx.heldItem.mesh.position;
+
     // Follow attached cooker lid
     if (ctx.heldItem.lidItem && ctx.heldItem.lidItem.isAttached && ctx.heldItem.lidItem.mesh) {
       ctx.heldItem.lidItem.mesh.visible = true;
-      ctx.heldItem.lidItem.mesh.position.set(_tmpHandPos.x, _tmpHandPos.y + 0.36, _tmpHandPos.z);
+      ctx.heldItem.lidItem.mesh.position.set(heldPos.x, heldPos.y + 0.36, heldPos.z);
       ctx.heldItem.lidItem.mesh.rotation.copy(ctx.heldItem.mesh.rotation);
     }
 
@@ -276,12 +278,12 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         if (!cItem || !cItem.mesh) return;
         cItem.mesh.visible = true;
         if (cItem.mesh.userData && cItem.mesh.userData.isCookerBase) {
-          cItem.mesh.position.set(_tmpHandPos.x, _tmpHandPos.y + 0.036, _tmpHandPos.z);
+          cItem.mesh.position.set(heldPos.x, heldPos.y + 0.036, heldPos.z);
           cItem.mesh.rotation.set(0, ctx.heldItem.mesh.rotation.y, 0);
         } else {
           const ox = nonBaseIdx % 2 === 0 ? -0.065 : 0.065;
           const oz = nonBaseIdx < 2 ? -0.055 : 0.055;
-          cItem.mesh.position.set(_tmpHandPos.x + ox, _tmpHandPos.y + 0.080, _tmpHandPos.z + oz);
+          cItem.mesh.position.set(heldPos.x + ox, heldPos.y + 0.080, heldPos.z + oz);
           nonBaseIdx++;
         }
       });
