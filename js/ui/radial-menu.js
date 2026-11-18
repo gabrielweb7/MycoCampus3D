@@ -250,6 +250,31 @@ export function showItemStatusCard(item, ctx) {
   const lc = item.mesh && item.mesh.userData && item.mesh.userData.liquidCtrl;
   if (lc) chips.push({ icon: '💧', text: 'Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + ' ml', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
 
+  const cc = item.cultureCtrl || (item.mesh && item.mesh.userData && item.mesh.userData.cultureCtrl);
+  if (cc && (!lc || lc.volMl > 0)) {
+    chips.push({ icon: cc.contaminated ? '⚠️' : '✅', text: cc.contaminated ? 'Não Estéril' : 'Estéril', color: cc.contaminated ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+    if (cc.colonized) {
+      chips.push({ icon: '🍄', text: 'Colonizada (100%)', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+    } else if (cc.inoculated) {
+      chips.push({ icon: '🍄', text: 'Colonizando (' + Math.round(cc.colonization || 0) + '%)', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+    } else {
+      chips.push({ icon: '⚪', text: 'Não Colonizada', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    }
+    if (cc.contaminated) {
+      chips.push({ icon: '🦠', text: 'Contaminada', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+    } else {
+      chips.push({ icon: '💚', text: 'Saudável', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+    }
+    if (cc.expired) {
+      chips.push({ icon: '⏰', text: 'Vencida', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    } else if (!cc.contaminated) {
+      const remD = getCultureRemainingDays(cc);
+      const cTemp = (typeof cc.tempC === 'number' ? cc.tempC : (cc.refrigerated ? 4.0 : 24.5)).toFixed(1).replace('.', ',');
+      const cEnvTxt = cc.refrigerated ? `❄️ ${cTemp}°C Refrigerada` : `🌡️ ${cTemp}°C Ambiente`;
+      chips.push({ icon: '⏳', text: 'Validade: ' + remD + 'd (' + cEnvTxt + ')', color: cc.refrigerated ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
+    }
+  }
+
   const med = item.pdaMediumCtrl;
   if (med && ((med.powderGrams || 0) > 0 || med.mixed || med.sterilized || med.burned)) {
     if ((med.powderGrams || 0) > 0) {
