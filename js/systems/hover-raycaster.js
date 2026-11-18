@@ -69,6 +69,11 @@ export function syncHover3dBadge(ctx, prompt) {
   }
   const targetObj = resolveHoverTargetObj(ctx);
 
+  if (targetObj && ctx.cookerPots && ctx.cookerPots.some((cp) => (cp.potItem === targetObj || cp.lidItem === targetObj) && cp.pSprite && cp.pSprite.visible)) {
+    hideHover3dBadge(badge);
+    return;
+  }
+
   if (!targetObj && !ctx.hoverHit && !ctx.hoveredBoardHit) {
     hideHover3dBadge(badge);
     return;

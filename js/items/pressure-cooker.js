@@ -590,12 +590,14 @@ export function stepPressureCookers(ctx, dt) {
     const hasWater = cp.waterMl > 5;
     const heatRate = heatLvl === 1 ? 2.8 : (heatLvl === 2 ? 4.8 : (heatLvl === 3 ? 7.5 : 0));
 
-    // Evaporacao da agua conforme fogo & temperatura
+    // Evaporacao realista: panela tampada perde pouco vapor (dura 20m, 1h30 ou 2h com folga se encheu 3.0-4.0L)
     let evapRateMl = 0;
     if (activeBurner && hasWater && cp.temp >= 96) {
-      const baseEvap = heatLvl === 1 ? 4.5 : (heatLvl === 2 ? 10.0 : 26.0);
       const lidClosed = !!(cp.lidItem && cp.lidItem.isAttached);
-      evapRateMl = lidClosed ? baseEvap : baseEvap * 1.85;
+      const baseEvap = lidClosed
+        ? (heatLvl === 1 ? 0.6 : (heatLvl === 2 ? 1.2 : 2.2))
+        : (heatLvl === 1 ? 4.5 : (heatLvl === 2 ? 10.0 : 22.0));
+      evapRateMl = baseEvap;
       cp.waterMl = Math.max(0, cp.waterMl - evapRateMl * dt);
       updateCookerWaterVisual(cp);
     }
@@ -717,7 +719,7 @@ export function stepPressureCookers(ctx, dt) {
     const hasBase = cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
     cp.hasBase = hasBase;
     const hasContainers = cp.contents.some((it) => it && (!it.mesh || !it.mesh.userData.isCookerBase));
-    const waterTooLow = cp.waterMl < 3000;
+    const waterTooLow = cp.waterMl < 2600;
     const waterTooHigh = cp.waterMl > 4000;
     const waterLevelOk = !waterTooLow && !waterTooHigh;
 
