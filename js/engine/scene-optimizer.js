@@ -1,18 +1,17 @@
 /**
- * MycoCampus3D — Otimizador de Cena & Congelador de Matrizes Estáticas
- * Congela a transformação de milhares de elementos que nunca se movem
- * (paredes, vidros, pisos, montanhas, calçadas, bancadas, colunas).
- * Economiza tempo maciço de CPU por frame no mobile sem alterar nada visualmente.
+ * MycoCampus3D — Otimizador de Cena Seguro
+ * Congela apenas MESHES de geometria 100% estática (paredes, calçadas, vidros fixos, colunas).
+ * NUNCA toca na Câmera, na Scene, em Grupos, em controles ou em elementos móveis.
  */
 
 export function freezeStaticWorld(sim) {
   if (!sim || !sim.scene) return 0;
   const scene = sim.scene;
 
-  // Garante que todo o grafo de cena tenha suas matrizes mundiais perfeitamente calculadas
+  // Garante que o grafo de cena inicial tenha suas matrizes calculadas
   scene.updateMatrixWorld(true);
 
-  // Conjunto de raízes e nós dinâmicos que NUNCA devem ser congelados
+  // Conjunto de nós e árvores dinâmicas que NUNCA podem ter matrixAutoUpdate alterado
   const dynamicObjects = new Set();
 
   function markDynamicTree(obj) {
@@ -24,6 +23,10 @@ export function freezeStaticWorld(sim) {
       }
     }
   }
+
+  // A Câmera e a Scene NUNCA podem ser congeladas!
+  dynamicObjects.add(scene);
+  markDynamicTree(sim.camera);
 
   // 1. Elementos do jogador e UI 3D
   markDynamicTree(sim.localAvatar && sim.localAvatar.group);
@@ -96,10 +99,13 @@ export function freezeStaticWorld(sim) {
     }
   }
 
-  // 7. Congela tudo o que é puramente estático
+  // 7. Apenas MESHES estáticas (paredes, calçadas, vidros, lajes) são congeladas.
+  // Grupos, câmeras e objetos auxiliares continuam com auto-update normal.
   let frozenCount = 0;
   scene.traverse((obj) => {
-    if (!obj || dynamicObjects.has(obj)) return;
+    if (!obj || !obj.isMesh) return;
+    if (obj.isCamera || obj === sim.camera || obj === scene) return;
+    if (dynamicObjects.has(obj)) return;
     if (obj.userData && (obj.userData.isDynamic || obj.userData.keepDynamic)) return;
 
     obj.matrixAutoUpdate = false;
