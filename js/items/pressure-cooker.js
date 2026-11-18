@@ -647,13 +647,12 @@ export function stepPressureCookers(ctx, dt) {
         else cp.temp = Math.max(targetPastTemp, cp.temp - dt * 2.0);
         cp.psi = Math.max(0, cp.psi - dt * 2.0);
       } else {
-        const targetTemp = heatLvl === 1 ? 108 : LAB.autoclaveTargetTempC;
+        const targetTemp = LAB.autoclaveTargetTempC;
         if (cp.temp < targetTemp) {
           cp.temp = Math.min(targetTemp, cp.temp + dt * heatRate);
-        } else if (heatLvl >= 2 && cp.psi < LAB.autoclaveTargetPsi && cp.progress < 100) {
-          cp.psi = Math.min(LAB.autoclaveTargetPsi, cp.psi + dt * (heatLvl === 3 ? 3.2 : 1.8));
-        } else if (heatLvl === 1 && cp.psi > 6.0) {
-          cp.psi = Math.max(6.0, cp.psi - dt * 0.8);
+        } else if (cp.psi < LAB.autoclaveTargetPsi) {
+          const psiRate = heatLvl === 3 ? 3.2 : (heatLvl === 2 ? 2.2 : 0.9);
+          cp.psi = Math.min(LAB.autoclaveTargetPsi, cp.psi + dt * psiRate);
         }
       }
     } else {
