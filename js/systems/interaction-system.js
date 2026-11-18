@@ -629,16 +629,7 @@ export function handlePrimaryAction(ctx) {
       if (handleMixingBowlTargetAction(ctx)) return;
     }
     if (ctx.hoveredScalpelTarget && ctx.hoveredScalpelTarget.mode === 'attach_blade_to_scalpel' && ctx.hoveredScalpelTarget.item && ctx.hoveredScalpelTarget.item.scalpelCtrl) {
-      const targetScalpel = ctx.hoveredScalpelTarget.item;
-      const sc = targetScalpel.scalpelCtrl;
-      sc.hasBlade = true;
-      sc.sterile = true;
-      sc.hasMycelium = false;
-      if (sc.bladeMesh) sc.bladeMesh.visible = true;
-      updateScalpelLabel(targetScalpel);
-      if (window.MycoAudio) window.MycoAudio.playClick();
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada no Bisturi!');
-      ctx.notifyWorldAction();
+      ctx.bladeAttachHold = { pack: ctx.heldItem, scalpel: ctx.hoveredScalpelTarget.item, progress: 0, soundAt: 0 };
       return;
     }
     if (ctx.hoveredScalpelTarget && ctx.heldItem.scalpelCtrl &&

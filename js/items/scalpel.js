@@ -25,17 +25,41 @@ export const BLADE_PACK_META = {
   connections: ['scalpel']
 };
 
+export const SCALPEL_BLADE_EXPIRE_MS = 160000;
+
 export function updateScalpelLabel(item) {
   if (!item || !item.scalpelCtrl) return;
   const sc = item.scalpelCtrl;
   if (!sc.hasBlade) {
     item.label = 'Bisturi Inox (Sem lâmina)';
+  } else if (sc.bladeExpired) {
+    item.label = 'Bisturi Inox (Lâmina Contaminada ⚠️ Descarte no lixo)';
   } else if (sc.hasMycelium) {
     item.label = 'Bisturi Inox (Com fragmento de Micélio)';
   } else if (sc.sterile) {
     item.label = 'Bisturi Inox (Lâmina #24 Estéril ✅)';
   } else {
-    item.label = 'Bisturi Inox (Lâmina usada ⚠️ Troque)';
+    item.label = 'Bisturi Inox (Lâmina usada ⚠️ Descarte no lixo)';
+  }
+}
+
+export function stepScalpels(ctx, now) {
+  if (!ctx || !ctx.pickableItems) return;
+  for (let i = 0; i < ctx.pickableItems.length; i++) {
+    const it = ctx.pickableItems[i];
+    const sc = it && it.scalpelCtrl;
+    if (!sc || !sc.hasBlade || !sc.sterile || !sc.bladeAttachedAt) continue;
+    if (now - sc.bladeAttachedAt >= SCALPEL_BLADE_EXPIRE_MS) {
+      sc.sterile = false;
+      sc.bladeExpired = true;
+      updateScalpelLabel(it);
+      if (ctx.heldItem === it && ctx.callbacks && ctx.callbacks.onHoldChange) {
+        ctx.callbacks.onHoldChange(it.label);
+      }
+      if (ctx.callbacks && ctx.callbacks.onToast) {
+        ctx.callbacks.onToast('⚠️ Lâmina do bisturi contaminou após 160s! Descarte no lixo e encaixe uma nova.');
+      }
+    }
   }
 }
 
@@ -57,6 +81,8 @@ export function makeScalpel(ctx, id, px, py, pz) {
   item.scalpelCtrl = {
     hasBlade: true,
     sterile: true,
+    bladeExpired: false,
+    bladeAttachedAt: performance.now(),
     hasMycelium: false,
     bladeMesh: blade
   };

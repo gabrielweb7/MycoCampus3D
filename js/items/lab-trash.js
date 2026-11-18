@@ -10,6 +10,7 @@ import { updateSpawnVisual } from './spawn-containers.js';
 import { updatePetriVisual } from './petri-dish.js';
 import { updateMixingBowlLabel } from './mixing-bowl.js';
 import { updatePdaMediumVisual } from './pda-mix.js';
+import { updateScalpelLabel } from './scalpel.js';
 
 const THREE = window.THREE;
 
@@ -136,6 +137,9 @@ export function canDisposeItemInTrash(item) {
     const ing = item.bowlCtrl.ingredients || {};
     return !!(item.bowlCtrl.mixed || (ing.flocao || 0) + (ing.water || 0) + (ing.corn || 0) + (ing.sawdust || 0) > 0);
   }
+  if (item.scalpelCtrl) {
+    return !!(item.scalpelCtrl.hasBlade && !item.scalpelCtrl.sterile);
+  }
   if (item.mesh.userData.liquidCtrl && item.id.indexOf('distilled_jug') !== 0) {
     const hasPda = !!(item.pdaMediumCtrl && (item.pdaMediumCtrl.powderGrams > 0 || item.pdaMediumCtrl.mixed || item.pdaMediumCtrl.burned));
     const hasCulture = !!(item.cultureCtrl && (item.cultureCtrl.colonized || item.cultureCtrl.contaminated || item.cultureCtrl.expired));
@@ -194,6 +198,16 @@ export function resetDisposableContainer(item) {
     p.shelfLifeAgeDays = 0;
     p.lidOpen = false;
     updatePetriVisual(item);
+    cleaned = true;
+  }
+  if (item.scalpelCtrl && item.scalpelCtrl.hasBlade) {
+    item.scalpelCtrl.hasBlade = false;
+    item.scalpelCtrl.sterile = false;
+    item.scalpelCtrl.bladeExpired = false;
+    item.scalpelCtrl.bladeAttachedAt = 0;
+    item.scalpelCtrl.hasMycelium = false;
+    if (item.scalpelCtrl.bladeMesh) item.scalpelCtrl.bladeMesh.visible = false;
+    updateScalpelLabel(item);
     cleaned = true;
   }
   if (item.bowlCtrl) {

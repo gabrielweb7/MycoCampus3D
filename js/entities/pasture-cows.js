@@ -17,7 +17,15 @@ export const POOP_CUBENSIS_GROW_SEC = 30;
 export const POOP_TOTAL_LIFETIME_SEC = 120; // 30s crescendo + 90s disponível antes de desaparecer
 export const MAX_ACTIVE_POOPS = 18;
 
-const PASTURE_BOUNDS = { minX: 40, maxX: 74, minZ: -12, maxZ: 28 };
+const PASTURE_BOUNDS = { minX: -72, maxX: 74, minZ: -68, maxZ: 68 };
+const HERD_MIGRATION_SPOTS = [
+  { x: 56, z: 8 },
+  { x: 38, z: -26 },
+  { x: -34, z: -34 },
+  { x: -48, z: 18 },
+  { x: 10, z: 46 },
+  { x: 46, z: 36 }
+];
 const COW_NAMES = ['Mimosa', 'Estrela', 'Pipoca', 'Bela', 'Malhada', 'Flor'];
 
 function hash01(a, b) {
@@ -241,51 +249,12 @@ export function createPastureAndCows(ctx) {
   ctx.cowPoops.length = 0;
   ctx.cowHitMeshes = ctx.cowHitMeshes || [];
 
-  // Cerca rústica do pasto + Porteira interativa + Cocho de Feno & Bebedouro
+  // Cocho de Feno e Bebedouro no pasto (sem cercas, permitindo migração livre pelo campus)
   const fenceGroup = new THREE.Group();
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
   const hayMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.95 });
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, transparent: true, opacity: 0.85 });
 
-  function addFencePost(fx, fz) {
-    const fy = terrainHeight(fx, fz);
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.15, 0.16), woodMat);
-    post.position.set(fx, fy + 0.55, fz);
-    fenceGroup.add(post);
-  }
-  function addFenceRail(x1, z1, x2, z2) {
-    const len = Math.hypot(x2 - x1, z2 - z1);
-    const ang = Math.atan2(x2 - x1, z2 - z1);
-    const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2;
-    const my = terrainHeight(mx, mz);
-    [0.42, 0.82].forEach((ry) => {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.10, len), woodMat);
-      rail.position.set(mx, my + ry, mz);
-      rail.rotation.y = ang;
-      fenceGroup.add(rail);
-    });
-  }
-  for (let x = PASTURE_BOUNDS.minX; x <= PASTURE_BOUNDS.maxX; x += 6) {
-    addFencePost(x, PASTURE_BOUNDS.minZ);
-    addFencePost(x, PASTURE_BOUNDS.maxZ);
-    if (x + 6 <= PASTURE_BOUNDS.maxX) {
-      addFenceRail(x, PASTURE_BOUNDS.minZ, x + 6, PASTURE_BOUNDS.minZ);
-      addFenceRail(x, PASTURE_BOUNDS.maxZ, x + 6, PASTURE_BOUNDS.maxZ);
-    }
-  }
-  for (let z = PASTURE_BOUNDS.minZ; z <= PASTURE_BOUNDS.maxZ; z += 6) {
-    addFencePost(PASTURE_BOUNDS.maxX, z);
-    if (z + 6 <= PASTURE_BOUNDS.maxZ) {
-      addFenceRail(PASTURE_BOUNDS.maxX, z, PASTURE_BOUNDS.maxX, z + 6);
-    }
-    if (Math.abs(z - 8) > 3.5) {
-      addFencePost(PASTURE_BOUNDS.minX, z);
-      if (z + 6 <= PASTURE_BOUNDS.maxZ && Math.abs(z + 3 - 8) > 3.0) {
-        addFenceRail(PASTURE_BOUNDS.minX, z, PASTURE_BOUNDS.minX, z + 6);
-      }
-    }
-  }
-  // Cocho de Feno e Bebedouro no centro do pasto (x=57, z=8)
   const ty = terrainHeight(57, 8);
   const trough = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.42, 0.9), woodMat);
   trough.position.set(57, ty + 0.21, 8);
@@ -348,6 +317,17 @@ export function stepPastureCows(ctx, dt) {
     ? ctx.serverTimeSec + ((performance.now() - (ctx.serverTimeSyncAt || 0)) / 1000)
     : (Date.now() / 1000);
   const steerBucket = Math.floor(syncClock / 4);
+  const herdSpot = HERD_MIGRATION_SPOTS[Math.floor(syncClock / 28) % HERD_MIGRATION_SPOTS.length];
+  let herdCx = 0, herdCz = 0, herdN = 0;
+  for (let hi = 0; hi < ctx.pastureCows.length; hi++) {
+    const hc = ctx.pastureCows[hi];
+    if (hc && !hc.abducted) {
+      herdCx += hc.mesh.position.x;
+      herdCz += hc.mesh.position.z;
+      herdN++;
+    }
+  }
+  if (herdN > 0) { herdCx /= herdN; herdCz /= herdN; }
 
   for (let i = 0; i < ctx.pastureCows.length; i++) {
     const cow = ctx.pastureCows[i];
@@ -391,10 +371,14 @@ export function stepPastureCows(ctx, dt) {
           cow.state = 'wander';
           cow.speed = cow.baseSpeed;
           cow.mood = 'Passeando 🌤️';
-          if (rAct > 0.82) {
-            cow.yaw = Math.atan2(57 - cx, 8 - cz); // Vai até o cocho!
+          if (herdN > 1 && Math.hypot(herdCx - cx, herdCz - cz) > 7.0) {
+            cow.yaw = Math.atan2(herdCx - cx, herdCz - cz) + (hash01(i + 13, steerBucket) - 0.5) * 0.45;
+            cow.mood = 'Seguindo o rebanho 🐄';
+          } else if (rAct > 0.55) {
+            cow.yaw = Math.atan2(herdSpot.x - cx, herdSpot.z - cz) + (hash01(i + 19, steerBucket) - 0.5) * 0.55;
+            cow.mood = 'Migrando 🌿';
           } else {
-            cow.yaw += (hash01(i + 19, steerBucket) - 0.5) * 2.0;
+            cow.yaw += (hash01(i + 19, steerBucket) - 0.5) * 1.4;
           }
         }
       }
@@ -417,24 +401,31 @@ export function stepPastureCows(ctx, dt) {
         }
       }
 
+      if (cow.turnCooldown > 0) cow.turnCooldown = Math.max(0, cow.turnCooldown - dt);
       if (blocked) {
-        // Desvia suavemente para ângulo livre
-        let escaped = false;
-        for (const offset of [0.8, -0.8, 1.6, -1.6, Math.PI]) {
-          const tryYaw = cow.yaw + offset;
-          const tx = cx + Math.sin(tryYaw) * cow.speed * dt;
-          const tz = cz + Math.cos(tryYaw) * cow.speed * dt;
-          if (tx >= PASTURE_BOUNDS.minX && tx <= PASTURE_BOUNDS.maxX &&
-              tz >= PASTURE_BOUNDS.minZ && tz <= PASTURE_BOUNDS.maxZ &&
-              !isBlockedAt(ctx, tx, tz, 0.95)) {
-            cow.yaw = tryYaw;
-            nx = tx; nz = tz;
-            escaped = true;
-            break;
+        if ((cow.turnCooldown || 0) <= 0) {
+          let escaped = false;
+          for (const offset of [0.7, -0.7, 1.4, -1.4, Math.PI * 0.75]) {
+            const tryYaw = cow.yaw + offset;
+            const tx = cx + Math.sin(tryYaw) * cow.speed * dt;
+            const tz = cz + Math.cos(tryYaw) * cow.speed * dt;
+            if (tx >= PASTURE_BOUNDS.minX && tx <= PASTURE_BOUNDS.maxX &&
+                tz >= PASTURE_BOUNDS.minZ && tz <= PASTURE_BOUNDS.maxZ &&
+                !isBlockedAt(ctx, tx, tz, 0.95)) {
+              cow.yaw = tryYaw;
+              nx = tx; nz = tz;
+              escaped = true;
+              break;
+            }
           }
-        }
-        if (!escaped) {
-          cow.yaw += Math.PI * 0.75;
+          if (!escaped) {
+            cow.yaw += Math.PI * 0.65;
+            cow.turnCooldown = 0.55;
+            nx = cx; nz = cz;
+          } else {
+            cow.turnCooldown = 0.25;
+          }
+        } else {
           nx = cx; nz = cz;
         }
       }

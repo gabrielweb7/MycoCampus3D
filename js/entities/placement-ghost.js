@@ -581,7 +581,7 @@ export function dropUnsupportedItems(ctx) {
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
-      recentlyDropped[item.id] = now + 1500;
+      recentlyDropped[item.id] = Math.max(recentlyDropped[item.id] || 0, now + 15000);
       pendingMovedItems[item.id] = {
         id: item.id, x: item.homePos.x, y: item.homePos.y, z: item.homePos.z, ry: item.homeRy
       };
@@ -623,13 +623,13 @@ export function dropUnsupportedItems(ctx) {
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
     } else if (item.mesh.position.y > supportedY + 0.015) {
       anyFalling = true;
-      recentlyDropped[item.id] = now + 1500;
+      recentlyDropped[item.id] = Math.max(recentlyDropped[item.id] || 0, now + 15000);
       item.mesh.position.y = Math.max(supportedY, item.mesh.position.y - 0.18);
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       if (item.lidItem && item.lidItem.isAttached) {
         var attLid = item.lidItem;
         attLid.mesh.position.set(item.mesh.position.x, item.mesh.position.y + 0.36, item.mesh.position.z);
-        recentlyDropped[attLid.id] = now + 1500;
+        recentlyDropped[attLid.id] = Math.max(recentlyDropped[attLid.id] || 0, now + 15000);
       }
       if (Math.abs(item.mesh.position.y - supportedY) < 0.005) {
         item.mesh.position.y = supportedY;
