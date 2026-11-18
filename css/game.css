@@ -238,6 +238,18 @@ body.myco-trip-faint #campus-canvas-wrap {
   animation: mycoTripFaint 2.4s ease-in forwards;
 }
 
+#item-status-card {
+  bottom: 92px;
+  top: auto;
+  z-index: 42;
+}
+
+body.device-touch #item-status-card {
+  top: 64px !important;
+  bottom: auto !important;
+  max-width: min(92vw, 420px);
+}
+
 #interact-pill {
   top: 76px;
   bottom: auto;
@@ -247,7 +259,19 @@ body.myco-trip-faint #campus-canvas-wrap {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
-body.device-touch #interact-pill {
+body.device-touch #item-status-card {
+  bottom: 92px;
+  top: auto;
+  z-index: 42;
+}
+
+body.device-touch #item-status-card {
+  top: 64px !important;
+  bottom: auto !important;
+  max-width: min(92vw, 420px);
+}
+
+#interact-pill {
   top: 108px !important;
   font-size: 12px;
   font-weight: 600;
