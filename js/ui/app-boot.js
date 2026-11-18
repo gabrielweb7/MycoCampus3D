@@ -465,23 +465,51 @@ function bindModalsAndToolbar() {
     });
   }
 
-  // Mobile Chat Toggle
+  // Mobile Chat Toggle & Keyboard Viewport Handling
   const chatContainer = $('chat-container');
   const btnChatToggle = $('btn-mobile-chat-toggle');
   const btnChatClose = $('btn-mobile-chat-close');
   const chatInput = $('chat-input');
+
+  const updateChatKeyboardOffset = () => {
+    if (!chatContainer) return;
+    if (!isTouch() || !chatContainer.classList.contains('chat-expanded') || !window.visualViewport) {
+      chatContainer.style.removeProperty('--chat-kb-offset');
+      return;
+    }
+    const vv = window.visualViewport;
+    const kbHeight = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+    chatContainer.style.setProperty('--chat-kb-offset', `${Math.round(kbHeight + 14)}px`);
+  };
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateChatKeyboardOffset);
+    window.visualViewport.addEventListener('scroll', updateChatKeyboardOffset);
+  }
+
+  if (chatContainer) {
+    chatContainer.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
+    chatContainer.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+  }
+
   if (btnChatToggle && chatContainer) {
     btnChatToggle.onclick = (e) => {
       e.stopPropagation();
       if (window.MycoAudio) window.MycoAudio.playClick();
+      if (window.clearCampusKeys) window.clearCampusKeys();
       chatContainer.classList.add('chat-expanded');
-      setTimeout(() => { chatInput?.focus(); }, 60);
+      if (isTouch()) document.body.classList.add('chat-typing');
+      if (chatInput) chatInput.focus();
+      updateChatKeyboardOffset();
     };
   }
   if (btnChatClose && chatContainer) {
     btnChatClose.onclick = (e) => {
       e.stopPropagation();
       chatContainer.classList.remove('chat-expanded');
+      document.body.classList.remove('chat-typing');
+      if (chatInput) chatInput.blur();
+      updateChatKeyboardOffset();
     };
   }
 }
@@ -497,9 +525,11 @@ function bindChatAndShortcuts() {
       syncMultiplayer();
     }
     inp.blur();
+    document.body.classList.remove('chat-typing');
     const chatContainer = $('chat-container');
     if (chatContainer && isTouch()) {
       chatContainer.classList.remove('chat-expanded');
+      chatContainer.style.removeProperty('--chat-kb-offset');
     }
   }
 
@@ -513,7 +543,17 @@ function bindChatAndShortcuts() {
 
   const chatInput = $('chat-input');
   if (chatInput) {
-    chatInput.addEventListener('focus', () => { if (window.clearCampusKeys) window.clearCampusKeys(); });
+    chatInput.addEventListener('focus', () => {
+      if (window.clearCampusKeys) window.clearCampusKeys();
+      if (isTouch()) document.body.classList.add('chat-typing');
+    });
+    chatInput.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (document.activeElement !== chatInput) {
+          document.body.classList.remove('chat-typing');
+        }
+      }, 120);
+    });
     chatInput.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Escape') {

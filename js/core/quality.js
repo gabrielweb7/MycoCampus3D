@@ -13,10 +13,10 @@ const TIER_CONFIGS = {
     min:    { fixedRatio: 0.55, shadows: false, soft: false, far: 135, aura: false, weatherParticles: 0 }
   },
   mobile: {
-    high:   { ratioCap: 1.75, shadows: true,  soft: false, far: 340, aura: true,  weatherParticles: 360 },
-    medium: { ratioCap: 1.35, shadows: false, soft: false, far: 250, aura: true,  weatherParticles: 200 },
-    low:    { fixedRatio: 0.95, shadows: false, soft: false, far: 180, aura: true,  weatherParticles: 60 },
-    min:    { fixedRatio: 0.65, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0 }
+    high:   { ratioCap: 1.5, shadows: true,  soft: false, far: 300, aura: true,  weatherParticles: 240 },
+    medium: { ratioCap: 1.0, shadows: false, soft: false, far: 210, aura: true,  weatherParticles: 90 },
+    low:    { fixedRatio: 0.82, shadows: false, soft: false, far: 165, aura: false, weatherParticles: 0 },
+    min:    { fixedRatio: 0.62, shadows: false, soft: false, far: 125, aura: false, weatherParticles: 0 }
   }
 };
 
@@ -37,8 +37,11 @@ export function getInitialQualityTier(isTouchDevice) {
 
   const memory = navigator.deviceMemory;
   const cores = navigator.hardwareConcurrency;
-  if ((typeof memory === 'number' && memory <= 3) ||
+  if ((typeof memory === 'number' && memory <= 2) ||
       (typeof cores === 'number' && cores <= 4)) {
+    return 'low';
+  }
+  if (typeof memory === 'number' && memory <= 3) {
     return 'medium';
   }
   return 'high';

@@ -47,6 +47,12 @@ html, body {
   touch-action: none;
 }
 
+input, textarea, select, [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: manipulation;
+}
+
 #campus-canvas-wrap {
   position: fixed;
   inset: 0;
@@ -255,19 +261,23 @@ body.device-phone #crosshair {
   border-width: 2px;
 }
 
-body.device-phone #chat-form {
-  max-width: min(220px, calc(100vw - 235px)) !important;
-  bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+body.device-phone .glass-panel {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(15, 23, 42, 0.93);
 }
 
 body.device-phone #chat-input {
-  padding: 5px 10px !important;
-  font-size: 11px !important;
+  font-size: 16px !important;
+  padding: 6px 12px !important;
+  min-height: 36px;
 }
 
-body.device-phone #chat-form button[type="submit"] {
-  padding: 5px 10px !important;
-  font-size: 11px !important;
+body.device-phone #chat-form button[type="submit"],
+body.device-phone #btn-mobile-chat-close {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  min-height: 36px;
 }
 
 body.device-tablet #mobile-joystick-zone {
@@ -548,18 +558,29 @@ body.device-touch #held-item-bar #btn-held-rotate {
 #chat-container {
   position: fixed;
   left: 50%;
-  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--chat-kb-offset, 14px) + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   pointer-events: auto;
-  z-index: 21;
+  touch-action: manipulation;
+  z-index: 45;
 }
 
 #btn-mobile-chat-toggle {
   display: none;
+  touch-action: manipulation;
+  cursor: pointer;
 }
 
 #btn-mobile-chat-close {
   display: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+body.chat-typing #mobile-joystick-zone,
+body.chat-typing #mobile-actions {
+  pointer-events: none !important;
+  opacity: 0.28;
 }
 
 @media (max-width: 768px) {
@@ -567,14 +588,14 @@ body.device-touch #held-item-bar #btn-held-rotate {
     display: inline-flex !important;
     align-items: center;
     gap: 6px;
-    padding: 6px 14px;
-    background: rgba(15, 23, 42, 0.85);
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 8px 16px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(52, 211, 153, 0.45);
     border-radius: 9999px;
     color: #f8fafc;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
   }
 
   #chat-container:not(.chat-expanded) #chat-form {
@@ -587,19 +608,68 @@ body.device-touch #held-item-bar #btn-held-rotate {
 
   #chat-container.chat-expanded #chat-form {
     display: flex !important;
-    width: min(88vw, 360px);
-    background: rgba(15, 23, 42, 0.94);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(52, 211, 153, 0.45);
+    width: min(92vw, 380px);
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(52, 211, 153, 0.55);
     border-radius: 9999px;
-    padding: 3px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+    padding: 4px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.72);
   }
 
   #btn-mobile-chat-close {
-    display: block !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    color: #cbd5e1;
+    font-weight: 700;
   }
+}
+
+body.device-phone #btn-mobile-chat-toggle,
+body.device-tablet #btn-mobile-chat-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  border-radius: 9999px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+body.device-phone #chat-container:not(.chat-expanded) #chat-form,
+body.device-tablet #chat-container:not(.chat-expanded) #chat-form {
+  display: none !important;
+}
+
+body.device-phone #chat-container.chat-expanded #btn-mobile-chat-toggle,
+body.device-tablet #chat-container.chat-expanded #btn-mobile-chat-toggle {
+  display: none !important;
+}
+
+body.device-phone #chat-container.chat-expanded #chat-form,
+body.device-tablet #chat-container.chat-expanded #chat-form {
+  display: flex !important;
+  width: min(92vw, 380px);
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(52, 211, 153, 0.55);
+  border-radius: 9999px;
+  padding: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.72);
+}
+
+body.device-phone #btn-mobile-chat-close,
+body.device-tablet #btn-mobile-chat-close {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  color: #cbd5e1;
+  font-weight: 700;
 }
 
 /* HUD Top Actions & Professor Toolbar - Permanently Hidden per user request */
