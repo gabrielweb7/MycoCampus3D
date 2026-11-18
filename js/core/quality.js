@@ -13,10 +13,10 @@ const TIER_CONFIGS = {
     min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0  }
   },
   mobile: {
-    high:   { ratioCap: 1.20, shadows: false, soft: false, far: 155, aura: true,  weatherParticles: 70,  forestScale: 0.68, toneMap: false, blur: false, maxLights: 2, itemCullDist: 48 },
-    medium: { ratioCap: 1.00, shadows: false, soft: false, far: 120, aura: false, weatherParticles: 25,  forestScale: 0.52, toneMap: false, blur: false, maxLights: 1, itemCullDist: 42 },
-    low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 95,  aura: false, weatherParticles: 0,   forestScale: 0.40, toneMap: false, blur: false, maxLights: 0, itemCullDist: 34 },
-    min:    { fixedRatio: 0.75, shadows: false, soft: false, far: 76,  aura: false, weatherParticles: 0,   forestScale: 0.30, toneMap: false, blur: false, maxLights: 0, itemCullDist: 28 }
+    high:   { ratioCap: 1.50, shadows: true,  soft: false, far: 210, aura: true,  weatherParticles: 160, forestScale: 0.86, toneMap: true,  blur: false, maxLights: 3, itemCullDist: 64, shadowExtent: 22, shadowMap: 768, shadowEvery: 2 },
+    medium: { ratioCap: 1.15, shadows: false, soft: false, far: 150, aura: true,  weatherParticles: 50,  forestScale: 0.62, toneMap: false, blur: false, maxLights: 2, itemCullDist: 46 },
+    low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 110, aura: false, weatherParticles: 0,   forestScale: 0.44, toneMap: false, blur: false, maxLights: 1, itemCullDist: 36 },
+    min:    { fixedRatio: 0.70, shadows: false, soft: false, far: 84,  aura: false, weatherParticles: 0,   forestScale: 0.32, toneMap: false, blur: false, maxLights: 0, itemCullDist: 28 }
   }
 };
 
@@ -27,6 +27,13 @@ export const qualityState = {
   forestScale: 1.0,
   maxPointLights: 99,
   itemCullDist: 999,
+  shadowsActive: false,
+  shadowExtent: 0,
+  shadowEvery: 2,
+  lambertBaked: false,
+  _shx: 1e9,
+  _shz: 1e9,
+  _shFrame: 0,
   fpsFrames: 0,
   fpsLastSampleAt: 0,
   fpsLastFrameAt: 0,
@@ -78,12 +85,12 @@ export function getInitialQualityTier(isTouchDevice, renderer) {
     return 'high';
   }
 
-  if ((typeof memory === 'number' && memory <= 2) || (typeof cores === 'number' && cores <= 4)) {
+  // iPhone não expõe deviceMemory e vários Androids bons reportam 4 núcleos.
+  // Começa alto; o auto-FPS reduz resolução e só então desce o preset.
+  if ((typeof memory === 'number' && memory <= 2) || (typeof cores === 'number' && cores > 0 && cores <= 2)) {
     return 'low';
   }
-  if ((typeof memory === 'number' && memory <= 4) || (typeof cores === 'number' && cores <= 6)) {
-    return 'medium';
-  }
+  if (typeof memory === 'number' && memory <= 3) return 'medium';
   return 'high';
 }
 
@@ -105,14 +112,48 @@ export function applyQualityTier(tier, deps) {
   renderer.outputEncoding = THREE.sRGBEncoding;
   if (THREE.ACESFilmicToneMapping !== undefined && THREE.NoToneMapping !== undefined) {
     renderer.toneMapping = cfg.toneMap ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+    renderer.toneMappingExposure = cfg.toneMap ? (isTouchDevice ? 1.06 : 1.02) : 1;
   }
   if (renderer.shadowMap) {
     renderer.shadowMap.enabled = cfg.shadows;
-    renderer.shadowMap.autoUpdate = cfg.shadows;
+    // No celular o mapa só redesenha quando stepMobileSunShadow pede.
+    renderer.shadowMap.autoUpdate = cfg.shadows && !isTouchDevice;
     renderer.shadowMap.type = cfg.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
-    renderer.shadowMap.needsUpdate = true;
+    renderer.shadowMap.needsUpdate = cfg.shadows;
   }
-  if (envSun) envSun.castShadow = cfg.shadows;
+  if (envSun) {
+    envSun.castShadow = cfg.shadows;
+    if (cfg.shadows && cfg.shadowExtent) {
+      const ext = cfg.shadowExtent;
+      const cam = envSun.shadow.camera;
+      cam.left = -ext;
+      cam.right = ext;
+      cam.top = ext;
+      cam.bottom = -ext;
+      cam.near = 1;
+      cam.far = 150;
+      cam.updateProjectionMatrix();
+      envSun.shadow.bias = -0.0008;
+      if (envSun.shadow.normalBias !== undefined) envSun.shadow.normalBias = 0.025;
+      const ms = cfg.shadowMap || 768;
+      if (envSun.shadow.mapSize.x !== ms) {
+        envSun.shadow.mapSize.set(ms, ms);
+        if (envSun.shadow.map) {
+          envSun.shadow.map.dispose();
+          envSun.shadow.map = null;
+        }
+      }
+    }
+  }
+  qualityState.shadowsActive = !!(cfg.shadows && isTouchDevice && cfg.shadowExtent);
+  qualityState.shadowExtent = cfg.shadowExtent || 0;
+  qualityState.shadowEvery = cfg.shadowEvery || 2;
+  qualityState._shx = 1e9;
+  qualityState._shz = 1e9;
+  if (isTouchDevice && tier !== 'high' && scene && !qualityState.lambertBaked) {
+    optimizeSceneMaterialsForMobile(scene);
+    qualityState.lambertBaked = true;
+  }
   if (weatherPoints && weatherPoints.geometry) {
     weatherPoints.geometry.setDrawRange(0, cfg.weatherParticles);
     weatherPoints.visible = cfg.weatherParticles > 0;
@@ -187,8 +228,10 @@ export function optimizeSceneMaterialsForMobile(scene) {
     const m = obj.material;
     if (!m.isMeshStandardMaterial) return;
     // Mantém vidros/metais muito reflexivos; converte materiais foscos/orgânicos para Lambert (4x mais rápido no mobile)
+    if (m.userData && m.userData.keepPbr) return;
     if (m.transparent && m.opacity < 0.85) return;
     if ((m.metalness || 0) > 0.35) return;
+    if (m.vertexColors) return;
     let lambert = converted.get(m);
     if (!lambert) {
       lambert = new THREE.MeshLambertMaterial({
@@ -238,6 +281,32 @@ export function stepMobileItemCulling(ctx, now) {
   }
 }
 
+/**
+ * Sombra local no celular: o sol acompanha o jogador num quadrado curto,
+ * então o mapa 768 fica nítido e a floresta instanciada não entra no passe.
+ * O mapa só é redesenhado a cada shadowEvery frames.
+ */
+export function stepMobileSunShadow(renderer, sun, playerPos) {
+  if (!qualityState.shadowsActive || !renderer || !sun || !playerPos) return;
+  const ext = qualityState.shadowExtent || 22;
+  const map = sun.shadow.mapSize.x || 768;
+  const texel = (ext * 2) / map;
+  const sx = Math.round(playerPos.x / texel) * texel;
+  const sz = Math.round(playerPos.z / texel) * texel;
+  // environment.js grava a direção do sol a partir da origem, todo frame.
+  const dx = sun.position.x;
+  const dy = sun.position.y;
+  const dz = sun.position.z;
+  sun.target.position.set(sx, 0, sz);
+  sun.target.updateMatrixWorld();
+  sun.position.set(sx + dx, dy, sz + dz);
+  qualityState._shx = sx;
+  qualityState._shz = sz;
+  qualityState._shFrame++;
+  const every = qualityState.shadowEvery || 2;
+  if (qualityState._shFrame % every === 0) renderer.shadowMap.needsUpdate = true;
+}
+
 export function stepAutoQuality(now, deps) {
   if (typeof document !== 'undefined' && document.hidden) {
     qualityState.fpsLastFrameAt = now;
@@ -269,11 +338,11 @@ export function stepAutoQuality(now, deps) {
     // 1º nível de inteligência: resolução dinâmica contínua com deadband estável (só ajusta após 2s fora da faixa)
     if (r && qualityState.baseRatio) {
       let next = qualityState.dynScale || 1;
-      if (fps < 42 && next > 0.78) {
+      if (fps < 50 && next > 0.68) {
         qualityState.lowFpsStreak++;
         qualityState.highFpsStreak = 0;
         if (qualityState.lowFpsStreak >= 2) {
-          next = Math.max(0.78, Math.round((next - 0.10) * 100) / 100);
+          next = Math.max(0.68, Math.round((next - 0.08) * 100) / 100);
           qualityState.lowFpsStreak = 0;
         }
       } else if (fps >= 57 && next < 1) {

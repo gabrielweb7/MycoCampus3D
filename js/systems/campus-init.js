@@ -5,7 +5,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
-import { getInitialQualityTier, optimizeSceneMaterialsForMobile } from '../core/quality.js';
+import { getInitialQualityTier } from '../core/quality.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
@@ -478,6 +478,7 @@ export function initCampus3D(containerId, cbs) {
     sim.scene = new THREE.Scene();
     sim.scene.background = new THREE.Color(0x60a5fa);
     sim.scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0022);
+    const touch = sim.isTouchDevice();
 
     sim.rainbowMesh = createRainbowMesh();
     sim.scene.add(sim.rainbowMesh);
@@ -511,12 +512,16 @@ export function initCampus3D(containerId, cbs) {
     sim.scene.add(sim.starPoints);
 
     sim.envCloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe0f2fe, emissiveIntensity: 0.22 });
-    for (let cl = 0; cl < 24; cl++) {
+    sim.envCloudMat.userData.keepPbr = true;
+    const cloudCount = touch ? 14 : 24;
+    const puffSegW = touch ? 8 : 10;
+    const puffSegH = touch ? 6 : 8;
+    for (let cl = 0; cl < cloudCount; cl++) {
       const cg = new THREE.Group();
-      const ca = (cl / 24) * Math.PI * 2;
+      const ca = (cl / cloudCount) * Math.PI * 2;
       cg.position.set(Math.cos(ca) * (55 + (cl % 4) * 24), 30 + (cl % 5) * 4.5, Math.sin(ca) * (55 + (cl % 4) * 24));
       for (let cp = 0; cp < 3; cp++) {
-        const puff = new THREE.Mesh(new THREE.SphereGeometry(5 + (cp % 2) * 2.5, 10, 8), sim.envCloudMat);
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(5 + (cp % 2) * 2.5, puffSegW, puffSegH), sim.envCloudMat);
         puff.position.set((cp - 1) * 5.2, (cp % 2) * 1.4, 0);
         puff.scale.set(1.3, 0.65, 1.0);
         cg.add(puff);
@@ -540,7 +545,6 @@ export function initCampus3D(containerId, cbs) {
     sim.weatherPoints.frustumCulled = false;
     sim.scene.add(sim.weatherPoints);
 
-    const touch = sim.isTouchDevice();
     const camCfg = GAME_CONFIG.camera;
     sim.camera = new THREE.PerspectiveCamera(
       camCfg.fov,
@@ -552,11 +556,13 @@ export function initCampus3D(containerId, cbs) {
 
     sim.renderer = new THREE.WebGLRenderer({
       antialias: !touch,
+      alpha: false,
+      stencil: false,
       powerPreference: 'high-performance'
     });
     sim.renderer.setSize(window.innerWidth, window.innerHeight);
     sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75));
-    sim.renderer.shadowMap.enabled = !touch;
+    sim.renderer.shadowMap.enabled = true;
     sim.renderer.shadowMap.autoUpdate = !touch;
     sim.renderer.shadowMap.type = touch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     sim.renderer.outputEncoding = THREE.sRGBEncoding;
@@ -579,8 +585,8 @@ export function initCampus3D(containerId, cbs) {
     sim.envHemi = hemi;
     const sun = new THREE.DirectionalLight(0xfffbeb, touch ? 1.02 : 0.95);
     sun.position.set(45, 65, 38);
-    sun.castShadow = !touch;
-    const shSize = touch ? 1024 : camCfg.desktopShadowSize;
+    sun.castShadow = true;
+    const shSize = touch ? 768 : camCfg.desktopShadowSize;
     sun.shadow.mapSize.set(shSize, shSize);
     sun.shadow.bias = -0.0005;
     sun.shadow.camera.left = -85;
@@ -589,6 +595,7 @@ export function initCampus3D(containerId, cbs) {
     sun.shadow.camera.bottom = -85;
     sun.shadow.camera.far = 220;
     sim.scene.add(sun);
+    sim.scene.add(sun.target);
     sim.envSun = sun;
 
     sim.clock = new THREE.Clock();
@@ -613,7 +620,6 @@ export function initCampus3D(containerId, cbs) {
     initConfettiSystem(sim.scene);
     initGreenhouseParticlePools(sim.scene);
     bindControls(sim);
-    if (touch) optimizeSceneMaterialsForMobile(sim.scene);
     applyQualityTier(sim, getInitialQualityTier(touch, sim.renderer));
     startAnimationLoop(sim);
     const lobbyEl = document.getElementById('campus-lobby');

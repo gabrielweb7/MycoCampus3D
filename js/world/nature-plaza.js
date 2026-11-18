@@ -5,11 +5,12 @@ import { makeBox, getTextures } from '../engine/textures.js';
 import { terrainHeight } from '../engine/physics.js';
 
 const THREE = window.THREE;
+const LITE_FLORA = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
 export function buildNatureWorld(ctx) {
   const { scene, solidColliders, wildMushrooms } = ctx;
   const size = 480;
-  const segs = 140;
+  const segs = LITE_FLORA ? 84 : 140;
   const geo = new THREE.PlaneGeometry(size, size, segs, segs);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
@@ -32,6 +33,7 @@ export function buildNatureWorld(ctx) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.computeVertexNormals();
   const terrainSnowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0.02 });
+  terrainSnowMat.userData.keepPbr = true;
   const terrain = new THREE.Mesh(geo, terrainSnowMat);
   terrain.receiveShadow = true;
   scene.add(terrain);
@@ -67,9 +69,9 @@ export function buildNatureWorld(ctx) {
   const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
   const cone1Inst = new THREE.InstancedMesh(cone1Geo, cone1Mat, count);
   const cone2Inst = new THREE.InstancedMesh(cone2Geo, cone2Mat, count);
-  trunkInst.castShadow = true;
-  cone1Inst.castShadow = true;
-  cone2Inst.castShadow = true;
+  trunkInst.castShadow = !LITE_FLORA;
+  cone1Inst.castShadow = !LITE_FLORA;
+  cone2Inst.castShadow = !LITE_FLORA;
 
   const dummy = new THREE.Object3D();
   treePositions.forEach((tp, i) => {
@@ -123,8 +125,6 @@ export function buildNatureWorld(ctx) {
     wildMushrooms.push({ id: `wild_${idx}`, group: g, capMesh: cap, active: true, respawnAt: 0 });
   });
 }
-
-const LITE_FLORA = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
 let sharedBedAssets = null;
 function getSharedBedAssets() {

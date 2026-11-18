@@ -38,7 +38,7 @@ export const GAME_CONFIG = Object.freeze({
     autoclaveTargetPsi: 15.0,
     autoclaveLockPsi: 1.5,
     autoclaveOverheatSec: 16.0,
-    sanitizationDurationMs: 90000,
+    sanitizationDurationMs: 120000,
     syringePumpDurationSec: 2.0,
     scaleRefreshMs: 150
   },

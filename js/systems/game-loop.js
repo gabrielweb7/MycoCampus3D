@@ -122,6 +122,7 @@ function syncQualityArg(ctx) {
   _qualityArg.weatherPoints = ctx.weatherPoints;
   _qualityArg.isTouchDevice = ctx.isTouchDevice();
   _qualityArg.onQualityChange = ctx.callbacks.onQualityChange;
+  _qualityArg.scene = ctx.scene;
 }
 
 export function applyQualityTier(ctx, tier) {
@@ -197,6 +198,7 @@ export function updateDynamicEnvironment(ctx, dt) {
   _envArg.fountainDropsAttr = ctx.fountainDropsAttr;
 
   envUpdate(dt, _envArg);
+  qualityMod.stepMobileSunShadow(ctx.renderer, ctx.envSun, ctx.playerPos);
   ctx.envTime = _envArg.envTime;
   ctx.lastWeatherMode = _envArg.lastWeatherMode;
   ctx.weatherMode = _envArg.weatherMode;

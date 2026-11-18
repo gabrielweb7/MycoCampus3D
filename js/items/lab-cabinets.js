@@ -349,13 +349,16 @@ export function isItemInClosedCabinet(ctx, item) {
   const parts = ctx.labCabinets;
   if (!parts || !parts.length || !item || !item.mesh) return false;
   const p = item.mesh.position;
+  // Itens sobre o tampo da bancada (y >= 0.94) nunca estão dentro de armários ou gavetas inferiores
+  if (p.y >= BODY_TOP - 0.02) return false;
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
     if (part.open || !part.shelves.length) continue;
+    const maxShelfH = part.kind === 'drawer' ? 0.15 : 0.32;
     for (let si = 0; si < part.shelves.length; si++) {
       const s = part.shelves[si];
       if (p.x >= s.minX - 0.03 && p.x <= s.maxX + 0.03 && p.z >= s.minZ - 0.03 && p.z <= s.maxZ + 0.03 &&
-          p.y >= s.topY - 0.03 && p.y <= s.topY + 0.34) {
+          p.y >= s.topY - 0.03 && p.y <= Math.min(BODY_TOP - 0.02, s.topY + maxShelfH)) {
         return true;
       }
     }

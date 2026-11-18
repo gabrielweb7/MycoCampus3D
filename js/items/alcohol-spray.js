@@ -37,7 +37,13 @@ export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
   nozzle.position.set(0, 0.235, 0.025);
   const trig = makeBox(0.012, 0.045, 0.018, 0x0284c7, { noShadow: true });
   trig.position.set(0, 0.212, 0.042);
-  ag.add(bottle, neck, nozzle, trig);
+  // Hitbox invisível ampliada para facilitar clique/toque no borrifador
+  const hitProxy = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.11, 0.28, 8),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  hitProxy.position.y = 0.14;
+  ag.add(bottle, neck, nozzle, trig, hitProxy);
   ag.userData.isAlcoholSpray = true;
   ag.userData.sprayTrig = trig;
   ag.userData.sprayNozzle = nozzle;
@@ -124,7 +130,12 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
   const spDir = new THREE.Vector3(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
   spawnSprayParticles(ctx, 0xe0f2fe, 30, spOrigin, spDir, 0.95, 2.5, 0.032, 0.45);
 
-  if (!sprayInfo || !sprayInfo.target) return;
+  if (!sprayInfo || !sprayInfo.target) {
+    if (!ctx.hoveredGreenhouseSlot && ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast('🧴 Aponte para o Fluxo Laminar, bancada ou item próximo para borrifar Álcool 70% (3x).');
+    }
+    return;
+  }
 
   const target = sprayInfo.target;
   const label = sprayInfo.label || 'Objeto';
@@ -133,7 +144,7 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
   const st = getSanitizationStatus(target, ctx);
 
   if (st.alcoholWet) {
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧻 ' + label + ' já está com Álcool 70%! Agora passe o Papel Toalha para secar.');
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧻 ' + label + ' já está com Álcool 70%! Agora passe o Papel Toalha para secar (120s).');
     return;
   }
 
@@ -143,7 +154,7 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
     } else if (typeof target === 'object') {
       target.alcoholWet = true;
     }
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧴 Álcool reaplicado em ' + label + '! Seque com Papel Toalha para resetar os 90s.');
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧴 Álcool reaplicado em ' + label + '! Seque com Papel Toalha para resetar os 120s.');
     return;
   }
 

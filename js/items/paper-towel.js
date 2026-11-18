@@ -1,6 +1,6 @@
 /**
  * Rolo de Papel Toalha Asseptico (MycoCampus3D)
- * Etapa 2 do ciclo de desinfeccao: seca o Alcool 70% aplicado e reseta o tempo de protecao (90s).
+ * Etapa 2 do ciclo de desinfeccao: seca o Alcool 70% aplicado e reseta o tempo de protecao (120s).
  */
 
 import { registerPickable } from './item-registry.js';
@@ -9,7 +9,7 @@ const THREE = window.THREE;
 
 export const PAPER_TOWEL_META = {
   category: 'sanitization',
-  purpose: 'Secar Álcool 70% e finalizar o ciclo de desinfecção asséptica (90s)',
+  purpose: 'Secar Álcool 70% e finalizar o ciclo de desinfecção asséptica (120s)',
   weightGrams: 220,
   baseTempC: 22.0,
   compatibilities: {
@@ -38,13 +38,20 @@ export function makePaperTowelRoll(ctx, id, px, py, pz) {
   flap.position.set(0.058, 0.10, 0.02);
   flap.rotation.y = 0.35;
 
-  pg.add(roll, core, flap);
+  // Hitbox invisível ampliada para facilitar clique/toque no papel toalha
+  const hitProxy = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.11, 0.26, 8),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  hitProxy.position.y = 0.12;
+
+  pg.add(roll, core, flap, hitProxy);
   pg.userData.isPaperTowel = true;
   return registerPickable(ctx, id, 'Papel Toalha Asséptico', pg, px, py, pz, 0, 0.12, 0.21, PAPER_TOWEL_META);
 }
 
 /**
- * Seca o alcool 70% e finaliza/reseta o temporizador de desinfeccao (90s).
+ * Seca o alcool 70% e finaliza/reseta o temporizador de desinfeccao (120s).
  */
 export function wipeWithPaperTowel(ctx, wipeInfo) {
   if (window.MycoAudio) window.MycoAudio.playSpray();
@@ -71,14 +78,14 @@ export function wipeWithPaperTowel(ctx, wipeInfo) {
     }
     ctx.hoodAlcoholWet = false;
     ctx.hoodSanitizeHits = 0;
-    ctx.hoodSanitizedUntil = Date.now() + 90000;
+    ctx.hoodSanitizedUntil = Date.now() + 120000;
     ctx.queueWorldStateChange('hood_sanitized_until', 1);
     if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('sanitize_hood');
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks && ctx.callbacks.onToast) {
       ctx.callbacks.onToast(hadWet
-        ? '✨🧻 Fluxo Laminar seco e 100% desinfectado (90s)!'
-        : '✨🧻 Proteção do Fluxo Laminar resetada para 90s!');
+        ? '✨🧻 Fluxo Laminar seco e 100% desinfectado (120s)!'
+        : '✨🧻 Proteção do Fluxo Laminar resetada para 120s!');
     }
     return;
   }
@@ -93,14 +100,14 @@ export function wipeWithPaperTowel(ctx, wipeInfo) {
   }
 
   target.alcoholWet = false;
-  target.sanitizedUntil = nowPerf + 90000;
-  target._sanitizeUntil = nowPerf + 90000;
+  target.sanitizedUntil = nowPerf + 120000;
+  target._sanitizeUntil = nowPerf + 120000;
   target._sanitizeHits = 0;
 
   if (window.MycoAudio) window.MycoAudio.playClick();
   if (ctx.callbacks && ctx.callbacks.onToast) {
     ctx.callbacks.onToast(hadWet
-      ? '✨🧻 ' + label + ' seco e 100% desinfectado (90s)!'
-      : '✨🧻 Desinfecção de ' + label + ' resetada para 90s!');
+      ? '✨🧻 ' + label + ' seco e 100% desinfectado (120s)!'
+      : '✨🧻 Desinfecção de ' + label + ' resetada para 120s!');
   }
 }
