@@ -171,6 +171,14 @@ export function buildCampusWingsAndEquipment(ctx) {
   }
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_02', -16.75, 0.245, -11.95);
   makePaperTowelRoll(ctx, 'paper_towel_lab_02', -16.50, 0.245, -11.95);
+  // 8 frascos de cultura liquida vazios nos armarios do Lab
+  for (let lca = 0; lca < 6; lca++) {
+    const lcCol = lca % 3;
+    const lcRow = Math.floor(lca / 3);
+    makeLiquidJar800(ctx, 'liquid_culture_empty_cab_' + pad2(lca + 1), -19.58 + lcCol * 0.24, 0.245, -12.04 + lcRow * 0.20, 0);
+  }
+  makeLiquidJar800(ctx, 'liquid_culture_empty_cab_07', -19.00, 0.60, -12.04, 0);
+  makeLiquidJar800(ctx, 'liquid_culture_empty_cab_08', -19.00, 0.60, -11.84, 0);
 
   // Estantes Porta-Pallet & Estoque do Deposito
   addStoragePortaPalletRack(ctx, -23.05, 8.0, 7.6, 0.86, Math.PI / 2);
@@ -235,6 +243,12 @@ export function buildCampusWingsAndEquipment(ctx) {
     const sRow = Math.floor(syi / 10);
     const sCol = syi % 10;
     makeSyringe10ml(ctx, 'syringe_10ml_' + pad2(syi + 1), -21.75 + sCol * 0.43, 1.118, 12.78 + sRow * 0.34);
+  }
+  // 10 frascos de cultura liquida vazios no estoque (prateleira superior da estante 3)
+  for (let lce = 0; lce < 10; lce++) {
+    const eRow = Math.floor(lce / 5);
+    const eCol = lce % 5;
+    makeLiquidJar800(ctx, 'liquid_culture_empty_stock_' + pad2(lce + 1), -21.65 + eCol * 0.42, 1.798, 12.78 + eRow * 0.34, 0);
   }
 
   // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
