@@ -28,19 +28,21 @@ export function registerDiscoveredSpecies(speciesName) {
 
 export function triggerMagicCubensisEffect() {
   if (typeof document === 'undefined') return;
+  document.body.classList.add('myco-trip-active');
   let overlay = document.getElementById('myco-magic-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'myco-magic-overlay';
     overlay.style.cssText =
-      'position:fixed;inset:0;pointer-events:none;z-index:24;opacity:0;' +
-      'background:radial-gradient(circle at 50% 50%, rgba(250,204,21,0.12), rgba(168,85,247,0.22), rgba(16,185,129,0.16));' +
-      'transition:opacity 0.6s ease;';
+      'position:fixed;inset:0;pointer-events:none;z-index:24;opacity:0;mix-blend-mode:screen;' +
+      'background:conic-gradient(from 45deg at 50% 50%, rgba(236,72,153,0.28), rgba(168,85,247,0.32), rgba(56,189,248,0.28), rgba(250,204,21,0.28), rgba(236,72,153,0.28));' +
+      'transition:opacity 0.7s ease;';
     document.body.appendChild(overlay);
   }
   overlay.style.opacity = '1';
   if (overlay._hideTimer) clearTimeout(overlay._hideTimer);
   overlay._hideTimer = setTimeout(() => {
     overlay.style.opacity = '0';
-  }, 5000);
+    document.body.classList.remove('myco-trip-active');
+  }, 7000);
 }

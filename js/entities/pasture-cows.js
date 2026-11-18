@@ -549,7 +549,7 @@ export function stepPastureCows(ctx, dt) {
       p.myceliumGroup.scale.set(mycFrac, 1, mycFrac);
     }
 
-    if (p.ageSec >= 10 && p.mushParts) {
+    if (p.ageSec >= 10 && p.mushParts && (!p.grown || p.wildEntry.active)) {
       p.cubensisGroup.visible = true;
       const pinFrac = Math.min(1, (p.ageSec - 10) / 10); // 10s..20s
       const growFrac = Math.min(1, Math.max(0, (p.ageSec - 20) / 10)); // 20s..30s

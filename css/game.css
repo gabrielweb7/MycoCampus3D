@@ -151,6 +151,19 @@ body.device-tablet #fps-hint {
   display: none !important;
 }
 
+@keyframes mycoPsychedelicCanvas {
+  0% { filter: hue-rotate(0deg) saturate(1.4) contrast(1.06); transform: scale(1); }
+  25% { filter: hue-rotate(110deg) saturate(2.3) contrast(1.14); transform: scale(1.028); }
+  50% { filter: hue-rotate(220deg) saturate(2.6) contrast(1.16); transform: scale(1.012); }
+  75% { filter: hue-rotate(310deg) saturate(2.2) contrast(1.12); transform: scale(1.032); }
+  100% { filter: hue-rotate(360deg) saturate(1.4) contrast(1.06); transform: scale(1); }
+}
+
+body.myco-trip-active #campus-canvas-wrap {
+  animation: mycoPsychedelicCanvas 3.2s ease-in-out infinite;
+  transform-origin: center center;
+}
+
 #interact-pill {
   top: 76px;
   bottom: auto;
@@ -160,7 +173,20 @@ body.device-tablet #fps-hint {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
-body.device-phone #interact-pill {
+body.device-phone @keyframes mycoPsychedelicCanvas {
+  0% { filter: hue-rotate(0deg) saturate(1.4) contrast(1.06); transform: scale(1); }
+  25% { filter: hue-rotate(110deg) saturate(2.3) contrast(1.14); transform: scale(1.028); }
+  50% { filter: hue-rotate(220deg) saturate(2.6) contrast(1.16); transform: scale(1.012); }
+  75% { filter: hue-rotate(310deg) saturate(2.2) contrast(1.12); transform: scale(1.032); }
+  100% { filter: hue-rotate(360deg) saturate(1.4) contrast(1.06); transform: scale(1); }
+}
+
+body.myco-trip-active #campus-canvas-wrap {
+  animation: mycoPsychedelicCanvas 3.2s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+#interact-pill {
   top: 70px;
   bottom: auto;
   max-width: 90vw;
