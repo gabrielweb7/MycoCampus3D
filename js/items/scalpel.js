@@ -66,14 +66,20 @@ export function stepScalpels(ctx, now) {
 export function makeScalpel(ctx, id, px, py, pz) {
   const sg = new THREE.Group();
   const steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.90, roughness: 0.18 });
-  const bladeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.95, roughness: 0.10 });
+  const bladeMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0x475569,
+    emissiveIntensity: 0.35,
+    metalness: 0.72,
+    roughness: 0.12
+  });
 
   const handle = makeBox(0.012, 0.004, 0.125, steelMat);
   handle.position.set(0, 0.006, 0.02);
   const neck = makeBox(0.007, 0.003, 0.026, steelMat);
   neck.position.set(0, 0.006, -0.052);
-  const blade = makeBox(0.008, 0.0018, 0.036, bladeMat);
-  blade.position.set(0, 0.006, -0.080);
+  const blade = makeBox(0.011, 0.003, 0.044, bladeMat);
+  blade.position.set(0, 0.006, -0.084);
 
   sg.add(handle, neck, blade);
   sg.userData.isScalpel = true;

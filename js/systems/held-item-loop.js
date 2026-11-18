@@ -186,6 +186,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       _tmpHandLocal.set(0, -0.48, -0.95);
     } else if (ud && ud.isTray) {
       _tmpHandLocal.set(0.14, -0.26 + reachY, -0.58 - reachZ);
+    } else if (ctx.heldItem.wildMushroomCtrl) {
+      _tmpHandLocal.set(0.24, -0.32 + reachY, -0.46 - reachZ);
     } else {
       _tmpHandLocal.set(0.30, -0.22 + reachY, -0.58 - reachZ);
     }

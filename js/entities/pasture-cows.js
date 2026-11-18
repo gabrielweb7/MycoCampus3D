@@ -174,7 +174,7 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
     patch.position.set(m[0], m[1], m[2]);
     myceliumGroup.add(patch);
   });
-  myceliumGroup.scale.setScalar(0.05);
+  myceliumGroup.visible = false;
   g.add(myceliumGroup);
 
   // Cubensis reais com LatheGeometry (perfil campanulado orgânico + véu fino roxo)
