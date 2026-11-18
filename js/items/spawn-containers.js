@@ -256,8 +256,11 @@ export function stepSpawnColonization(ctx, dt) {
     const sc = sgIt.spawnCtrl;
     if (sc && sc.inoculated && !sc.contaminated && !sc.burned) {
       let changed = false;
-      if (sc.colonization < 100 && !sc.refrigerated && isCultureIncubationTemperatureSuitable(sgIt, ctx)) {
-        sc.colonization = Math.min(100, sc.colonization + dt * 4.2);
+      const spawnRate = sc.refrigerated
+        ? (4.2 * 0.2)
+        : (isCultureIncubationTemperatureSuitable(sgIt, ctx) ? 4.2 : 0);
+      if (sc.colonization < 100 && spawnRate > 0) {
+        sc.colonization = Math.min(100, sc.colonization + dt * spawnRate);
         changed = true;
       }
       if (sc.colonization >= 100 && !sc.colonized) {

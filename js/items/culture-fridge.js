@@ -326,10 +326,12 @@ export function stepCultureFridges(ctx, dt) {
     if (!item.mesh.userData.liquidCtrl || item.mesh.userData.liquidCtrl.volMl <= 0) continue;
     const lifeStep = stepCultureShelfLife(culture, dt);
     let lcProgressed = false;
-    if (culture.inoculated && !culture.colonized && !culture.contaminated && !culture.expired &&
-        !culture.refrigerated && typeof culture.tempC === 'number' && culture.tempC >= 20 && culture.tempC <= 30) {
+    const lcRate = culture.refrigerated
+      ? (0.8 * 0.2)
+      : (typeof culture.tempC === 'number' && culture.tempC >= 20 && culture.tempC <= 30 ? 0.8 : 0);
+    if (culture.inoculated && !culture.colonized && !culture.contaminated && !culture.expired && lcRate > 0) {
       const prevPct = Math.floor(culture.colonization || 0);
-      culture.colonization = Math.min(100, (culture.colonization || 0) + dt * 0.8);
+      culture.colonization = Math.min(100, (culture.colonization || 0) + dt * lcRate);
       if (culture.colonization >= 100) {
         culture.colonization = 100;
         culture.colonized = true;

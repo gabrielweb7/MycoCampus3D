@@ -65,7 +65,7 @@ function drawAgarTexture(pctx, ctrl) {
   pctx.fillRect(0, 0, 256, 256);
   if (mode === 'clean' || mode === 'colonizing') {
     const progress = mode === 'clean' ? 100 : Math.max(0, Math.min(100, ctrl.colonization || 0));
-    const radius = 6 + Math.sqrt(progress / 100) * 122;
+    const radius = mode === 'clean' ? 128 : (10 + (progress / 100) * 118);
     pctx.save();
     pctx.beginPath();
     pctx.arc(128, 128, radius, 0, Math.PI * 2);
@@ -244,7 +244,9 @@ export function stepPetriCultures(ctx, dt) {
     if (ctrl.mode === 'colonizing' && !ctrl.expired) {
       const previousProgress = Math.floor(ctrl.colonization);
       const previousMode = ctrl.mode;
-      const growthRate = !ctrl.refrigerated && isCultureIncubationTemperatureSuitable(item, ctx) ? 0.8 : 0;
+      const growthRate = ctrl.refrigerated
+        ? (0.8 * 0.2)
+        : (isCultureIncubationTemperatureSuitable(item, ctx) ? 0.8 : 0);
       ctrl.colonization = Math.min(100, ctrl.colonization + dt * growthRate);
       if (ctrl.delayedContamAtPct && ctrl.colonization >= ctrl.delayedContamAtPct) {
         ctrl.delayedContamAtPct = 0;
