@@ -233,10 +233,16 @@ export function showItemStatusCard(item, ctx) {
   if (lc) chips.push({ icon: '💧', text: 'Líquido: ' + Math.round(lc.volMl) + '/' + lc.maxMl + ' ml', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
 
   const med = item.pdaMediumCtrl;
-  if (med) {
-    chips.push({ icon: '🧪', text: 'Pó PDA: ' + (med.powderGrams || 0) + 'g', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' });
+  if (med && ((med.powderGrams || 0) > 0 || med.mixed || med.sterilized || med.burned)) {
+    if ((med.powderGrams || 0) > 0) {
+      chips.push({ icon: '🧪', text: 'Pó PDA: ' + med.powderGrams + 'g', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' });
+    }
     if (med.mixed) chips.push({ icon: '🌀', text: 'Misturado', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' });
-    chips.push({ icon: med.sterilized ? '✅' : '⏳', text: med.sterilized ? 'Esterilizado' : 'Pendente Esterilização', color: med.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    if (med.burned) {
+      chips.push({ icon: '🔥', text: 'Queimado', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+    } else {
+      chips.push({ icon: med.sterilized ? '✅' : '⏳', text: med.sterilized ? 'Esterilizado' : 'Pendente Esterilização', color: med.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    }
   }
 
   if (item.meta && item.meta.purpose && chips.length <= 1) {

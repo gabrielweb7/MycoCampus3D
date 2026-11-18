@@ -115,14 +115,14 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeSyringe10ml(ctx, 'syringe_10ml_b', -19.70, 0.918, -10.64);
   makeInfraredThermometer(ctx, 'infrared_thermometer', -20.0, 0.91, -10.2);
 
-  // Estante azul + Tubos Falcon 15ml (azul) e 50ml (laranja)
-  makeFalconRack(ctx, -19.25, 0.91, -10.35);
-  const falcon15a = makeFalconTube(ctx, 'falcon_15ml_01', 15, -19.31, 0.92, -10.39, 0);
-  const falcon15b = makeFalconTube(ctx, 'falcon_15ml_02', 15, -19.26, 0.92, -10.39, 10);
-  const falcon15c = makeFalconTube(ctx, 'falcon_15ml_03', 15, -19.21, 0.92, -10.39, 0);
-  const falcon15d = makeFalconTube(ctx, 'falcon_15ml_04', 15, -19.16, 0.92, -10.39, 0);
-  const falcon50a = makeFalconTube(ctx, 'falcon_50ml_01', 50, -19.30, 0.92, -10.30, 0);
-  const falcon50b = makeFalconTube(ctx, 'falcon_50ml_02', 50, -19.20, 0.92, -10.30, 35);
+  // Estante azul + Tubos Falcon 15ml (azul) e 50ml (laranja) sobre a bancada norte fixa (y = 1.02)
+  makeFalconRack(ctx, -20.50, 1.02, -12.00);
+  const falcon15a = makeFalconTube(ctx, 'falcon_15ml_01', 15, -20.56, 1.03, -12.04, 0);
+  const falcon15b = makeFalconTube(ctx, 'falcon_15ml_02', 15, -20.51, 1.03, -12.04, 10);
+  const falcon15c = makeFalconTube(ctx, 'falcon_15ml_03', 15, -20.46, 1.03, -12.04, 0);
+  const falcon15d = makeFalconTube(ctx, 'falcon_15ml_04', 15, -20.41, 1.03, -12.04, 0);
+  const falcon50a = makeFalconTube(ctx, 'falcon_50ml_01', 50, -20.55, 1.03, -11.95, 0);
+  const falcon50b = makeFalconTube(ctx, 'falcon_50ml_02', 50, -20.45, 1.03, -11.95, 35);
   [falcon15a, falcon15b, falcon15c, falcon15d].forEach((item) => attachPdaMediumCtrl(item, 'falcon', true));
   [falcon50a, falcon50b].forEach((item) => attachPdaMediumCtrl(item, 'falcon', false));
 
