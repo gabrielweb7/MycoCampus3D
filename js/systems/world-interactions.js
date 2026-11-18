@@ -12,6 +12,54 @@ import { grabSportBall, throwHeldSportBall } from './sports-physics.js';
 import { registerDiscoveredSpecies, triggerMagicCubensisEffect } from './mycoteca.js';
 import { registerPickable } from '../items/item-registry.js';
 
+function createPersistedMushroomMesh(isMagic) {
+  const THREE = window.THREE;
+  const g = new THREE.Group();
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.65 });
+  const capMat = new THREE.MeshStandardMaterial({ color: isMagic ? 0xa1551c : 0xd97706, roughness: 0.45, side: THREE.DoubleSide });
+  const veilMat = new THREE.MeshStandardMaterial({ color: 0x4c1d95, roughness: 0.85, side: THREE.DoubleSide });
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.022, 0.16, 10), stemMat);
+  stem.position.y = 0.08;
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.052, 14), capMat);
+  cap.position.y = 0.175;
+  const veil = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.028, 0.02, 10, 1, true), veilMat);
+  veil.position.y = 0.13;
+  g.add(stem, cap, veil);
+  return g;
+}
+
+export function spawnPersistedWildMushroom(ctx, pickedId, wildState) {
+  const THREE = window.THREE;
+  const spName = (wildState && wildState.speciesName) || 'Cubensis Dourado do Pasto (Psilocybe cubensis)';
+  const isMagic = !wildState || wildState.isMagic !== false;
+  const cloned = createPersistedMushroomMesh(isMagic);
+  const mBox = new THREE.Box3().setFromObject(cloned);
+  const mCenter = new THREE.Vector3();
+  const mSize = new THREE.Vector3();
+  mBox.getCenter(mCenter);
+  mBox.getSize(mSize);
+  cloned.position.set(-mCenter.x, -mBox.min.y, -mCenter.z);
+
+  const bodyGroup = new THREE.Group();
+  bodyGroup.add(cloned);
+  const sideRestY = Math.max(0.03, mSize.x * 0.5);
+  bodyGroup.rotation.z = Math.PI / 2;
+  bodyGroup.position.y = sideRestY;
+
+  const heldGroup = new THREE.Group();
+  heldGroup.add(bodyGroup);
+  heldGroup.scale.setScalar(0.65);
+
+  const mItem = registerPickable(ctx, pickedId, '🍄 ' + spName, heldGroup, 0, 0, 0, 0, 0.14, 0.20, {
+    category: 'specimen',
+    purpose: 'Comer ou levar ao Fluxo Laminar para clonar com bisturi',
+    weightGrams: 18,
+    compatibilities: { canEnterCooker: false }
+  });
+  mItem.wildMushroomCtrl = { speciesName: spName, isMagic, bodyGroup, sideRestY };
+  return mItem;
+}
+
 export function isSeatOccupied(remoteAvatars, seat) {
   if (!seat) return false;
   for (const avId in remoteAvatars) {

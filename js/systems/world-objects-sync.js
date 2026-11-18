@@ -4,6 +4,7 @@
 
 import { getItemGroundHeight } from '../engine/physics.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
+import { spawnPersistedWildMushroom } from './world-interactions.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateSyringeVolume } from '../items/syringe.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
@@ -133,7 +134,9 @@ export function getReplicatedItemState(sim, item) {
       mixed: !!item.pdaMediumCtrl.mixed,
       stirProgress: Math.round((item.pdaMediumCtrl.stirProgress || 0) * 10) / 10,
       sterilized: !!item.pdaMediumCtrl.sterilized,
-      burned: !!item.pdaMediumCtrl.burned
+      burned: !!item.pdaMediumCtrl.burned,
+      tempC: typeof item.pdaMediumCtrl.tempC === 'number' ? Math.round(item.pdaMediumCtrl.tempC * 10) / 10 : 24.5,
+      refrigerated: !!item.pdaMediumCtrl.refrigerated
     };
   }
   const syringe = meshData.syrCtrl;
@@ -141,6 +144,8 @@ export function getReplicatedItemState(sim, item) {
     state.syringe = {
       volMl: Math.round((syringe.volMl || 0) * 10) / 10,
       sourceContam: !!syringe.sourceContam,
+      tempC: typeof syringe.tempC === 'number' ? Math.round(syringe.tempC * 10) / 10 : 24.5,
+      refrigerated: !!syringe.refrigerated,
       mix: syringe.mix ? {
         waterMl: Math.round((syringe.mix.waterMl || 0) * 10) / 10,
         distilledMl: Math.round((syringe.mix.distilledMl || 0) * 10) / 10,
@@ -170,16 +175,34 @@ export function getReplicatedItemState(sim, item) {
     };
   }
   if (item.scalpelCtrl) {
+    const nowPerf = performance.now();
+    const bladeRemMs = (item.scalpelCtrl.hasBlade && item.scalpelCtrl.sterile && item.scalpelCtrl.bladeAttachedAt)
+      ? Math.round(Math.max(0, 160000 - (nowPerf - item.scalpelCtrl.bladeAttachedAt)) / 5000) * 5000
+      : 0;
     state.scalpel = {
       hasBlade: !!item.scalpelCtrl.hasBlade,
       sterile: !!item.scalpelCtrl.sterile,
       hasMycelium: !!item.scalpelCtrl.hasMycelium,
       bladeContaminated: !!item.scalpelCtrl.bladeContaminated,
-      cutContaminated: !!item.scalpelCtrl.cutContaminated
+      cutContaminated: !!item.scalpelCtrl.cutContaminated,
+      bladeRemainingMs: bladeRemMs
     };
   }
   if (item.bladePackCtrl) {
     state.bladePack = { empty: !!item.bladePackCtrl.empty };
+  }
+  if (item.wildMushroomCtrl) {
+    state.wildMushroom = {
+      speciesName: item.wildMushroomCtrl.speciesName || 'Cubensis Dourado do Pasto (Psilocybe cubensis)',
+      isMagic: !!item.wildMushroomCtrl.isMagic,
+      removed: !!item.wildMushroomCtrl.removed
+    };
+  }
+  const sanRemSec = (item.sanitizedUntil || 0) > performance.now()
+    ? Math.round(((item.sanitizedUntil - performance.now()) / 1000) / 5) * 5
+    : 0;
+  if (sanRemSec > 0) {
+    state.sanitizedRemainingSec = sanRemSec;
   }
   const containingCooker = sim.cookerPots.find((cooker) => cooker.contents.indexOf(item) !== -1);
   if (containingCooker) {
@@ -341,6 +364,11 @@ export function applyReplicatedItemState(sim, item, state) {
     ['mixed', 'sterilized', 'burned'].forEach(function (key) {
       if (typeof state.pdaMedium[key] === 'boolean') medium[key] = state.pdaMedium[key];
     });
+    if (typeof state.pdaMedium.tempC === 'number' && Number.isFinite(state.pdaMedium.tempC)) {
+      medium.tempC = Math.max(-20, Math.min(140, state.pdaMedium.tempC));
+      medium.lastRenderedTempInt = Math.round(medium.tempC);
+    }
+    if (typeof state.pdaMedium.refrigerated === 'boolean') medium.refrigerated = state.pdaMedium.refrigerated;
     updatePdaMediumVisual(item);
   }
   if (meshData.syrCtrl && state.syringe && typeof state.syringe.volMl === 'number') {
@@ -353,6 +381,11 @@ export function applyReplicatedItemState(sim, item, state) {
       };
     }
     meshData.syrCtrl.sourceContam = !!state.syringe.sourceContam;
+    if (typeof state.syringe.tempC === 'number' && Number.isFinite(state.syringe.tempC)) {
+      meshData.syrCtrl.tempC = Math.max(-20, Math.min(140, state.syringe.tempC));
+      meshData.syrCtrl.lastRenderedTempInt = Math.round(meshData.syrCtrl.tempC);
+    }
+    if (typeof state.syringe.refrigerated === 'boolean') meshData.syrCtrl.refrigerated = state.syringe.refrigerated;
     updateSyringeVolume(item, state.syringe.volMl);
   }
   if (state.liquidMix && typeof state.liquidMix === 'object') {
@@ -379,8 +412,16 @@ export function applyReplicatedItemState(sim, item, state) {
     ['hasBlade', 'sterile', 'hasMycelium', 'bladeContaminated', 'cutContaminated'].forEach(function (key) {
       if (typeof state.scalpel[key] === 'boolean') item.scalpelCtrl[key] = state.scalpel[key];
     });
+    if (typeof state.scalpel.bladeRemainingMs === 'number' && state.scalpel.bladeRemainingMs > 0) {
+      item.scalpelCtrl.bladeAttachedAt = performance.now() - (160000 - state.scalpel.bladeRemainingMs);
+    }
     if (item.scalpelCtrl.bladeMesh) item.scalpelCtrl.bladeMesh.visible = item.scalpelCtrl.hasBlade;
     updateScalpelLabel(item);
+  }
+  if (typeof state.sanitizedRemainingSec === 'number' && state.sanitizedRemainingSec > 0) {
+    const untilPerf = performance.now() + state.sanitizedRemainingSec * 1000;
+    item.sanitizedUntil = untilPerf;
+    item._sanitizeUntil = untilPerf;
   }
   if (item.bladePackCtrl && state.bladePack && state.bladePack.empty) {
     item.bladePackCtrl.empty = true;
@@ -429,9 +470,14 @@ export function applyCampusItemStates(sim, itemStates) {
   if (!itemStates || typeof itemStates !== 'object') return;
   const itemsById = new Map(sim.pickableItems.map((item) => [item.id, item]));
   Object.keys(itemStates).forEach(function (itemId) {
-    const item = itemsById.get(itemId);
+    let item = itemsById.get(itemId);
+    const st = itemStates[itemId];
+    if (!item && itemId.indexOf('wild_picked_') === 0 && st && st.wildMushroom && !st.wildMushroom.removed) {
+      item = spawnPersistedWildMushroom(sim, itemId, st.wildMushroom);
+      if (item) itemsById.set(itemId, item);
+    }
     if (!item) return;
-    applyReplicatedItemState(sim, item, itemStates[itemId]);
+    applyReplicatedItemState(sim, item, st);
     sim.itemStateSignatures = sim.itemStateSignatures || {};
     const currentState = getReplicatedItemState(sim, item);
     if (currentState) sim.itemStateSignatures[itemId] = JSON.stringify(currentState);

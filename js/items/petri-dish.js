@@ -206,11 +206,6 @@ export function setPetriLidOpen(item, open, immediate) {
 export function togglePetriLid(ctx, item) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl) return false;
-  if (!ctrl.lidOpen && !isAsepticWorkArea(ctx, item)) {
-    const reason = getAsepticWorkAreaReason(ctx, item) || 'Para abrir uma placa, ligue e higienize o Fluxo Laminar e mantenha a placa na área de trabalho.';
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ ' + reason);
-    return false;
-  }
   const changed = setPetriLidOpen(item, !ctrl.lidOpen, false);
   if (changed) {
     if (window.MycoAudio) window.MycoAudio.playClick();
