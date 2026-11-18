@@ -207,10 +207,10 @@ function handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt) {
   }
   const st = getSanitizationStatus(bestTarget, ctx);
   const wPrompt = st.alcoholWet
-    ? '🧻 Secar Álcool 70% de ' + bestLabel + ' (Concluir desinfecção 120s!)'
+    ? '🧻 Secar Álcool 70% de ' + bestLabel + ' (Desinfectar 120s!)'
     : (st.isSanitized
-      ? '✨🧻 Passar Papel em ' + bestLabel + ' (Resetar proteção para 120s)'
-      : '⚠️ Passe Álcool 70% (3x) em ' + bestLabel + ' antes de secar');
+      ? '✨ [DESINFECTADO • ' + st.remainingSec + 's] ' + bestLabel + ' — Passar Papel reseta 120s'
+      : '⚠️ Passe Álcool 70% em ' + bestLabel + ' antes de secar');
   setHoverPrompt(ctx, wPrompt);
   return true;
 }

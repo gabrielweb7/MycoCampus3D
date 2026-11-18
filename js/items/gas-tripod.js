@@ -288,12 +288,12 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
 
   tg.add(valve1, knob1, valve2, knob2, valveHit, tee, butterflyWing1, butterflyWing2);
 
-  // 8. Mangueira Espiralada Preta Conectada ao Botijão GLP P13
+  // 8. Mangueira Espiralada Preta Conectada ao Regulador no Topo do Botijão GLP P13
   const hoseCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(manifoldX - pipeLen - 0.04, totalH - 0.060, 0),
-    new THREE.Vector3(manifoldX - pipeLen - 0.12, totalH - 0.16, -0.05),
-    new THREE.Vector3(manifoldX - pipeLen - 0.06, totalH - 0.32, -0.15),
-    new THREE.Vector3(-0.46, 0.44, -0.20)
+    new THREE.Vector3(manifoldX - pipeLen - 0.14, totalH - 0.12, -0.06),
+    new THREE.Vector3(-0.36, 0.52, -0.18),
+    new THREE.Vector3(-0.43, 0.465, -0.22)
   ]);
   const hoseMesh = new THREE.Mesh(new THREE.TubeGeometry(hoseCurve, 20, 0.009, 8, false), hoseMat);
   tg.add(hoseMesh);
@@ -314,10 +314,17 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   const cylCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.078, 0.088, 0.075, 16, 1, true), gasMat);
   cylCollar.position.set(-0.46, 0.43, -0.22);
 
-  const cylValve = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.045, 10), brassMat);
-  cylValve.position.set(-0.46, 0.44, -0.20);
+  const cylValve = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.055, 10), brassMat);
+  cylValve.position.set(-0.46, 0.445, -0.22);
 
-  tg.add(cylBody, cylWeld, cylTop, cylCollar, cylValve);
+  const cylReg = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.022, 12), brassMat);
+  cylReg.position.set(-0.46, 0.468, -0.22);
+
+  const cylNipple = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.036, 8), brassMat);
+  cylNipple.rotation.z = Math.PI / 2;
+  cylNipple.position.set(-0.442, 0.465, -0.22);
+
+  tg.add(cylBody, cylWeld, cylTop, cylCollar, cylValve, cylReg, cylNipple);
 
   // 9. Superfície Superior e Hitbox de Apoio para Panela
   const topHit = new THREE.Mesh(

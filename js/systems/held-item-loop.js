@@ -15,7 +15,8 @@ import { drawThermoScreen } from '../entities/thermo-laser.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { markPdaVolumeChanged } from '../items/pda-mix.js';
-import { spawnSprayParticles } from '../items/alcohol-spray.js';
+import { spawnSprayParticles, fireAlcoholSpray, getSanitizationStatus } from '../items/alcohol-spray.js';
+import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { advanceMixingBowlStir } from '../items/mixing-bowl.js';
 
 const THREE = window.THREE;
@@ -424,6 +425,20 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     if (stopPour) {
       if (ph.any) ctx.notifyWorldAction();
       ctx.pourHold = null;
+    }
+  }
+
+  if (ctx.isPrimaryDown && !ctx.placementMode && ctx.heldItem && ctx.heldItem.mesh) {
+    if (ctx.heldItem.mesh.userData.isAlcoholSpray && now - (ctx._lastSprayLoopAt || 0) >= 260) {
+      ctx._lastSprayLoopAt = now;
+      fireAlcoholSpray(ctx, ctx.hoveredSprayTarget);
+      if (ctx.hoveredGreenhouseSlot) ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
+    } else if (ctx.heldItem.mesh.userData.isPaperTowel && ctx.hoveredWipeTarget && now - (ctx._lastWipeLoopAt || 0) >= 220) {
+      const wSt = getSanitizationStatus(ctx.hoveredWipeTarget.target, ctx);
+      if (wSt.alcoholWet || wSt.isSanitized) {
+        ctx._lastWipeLoopAt = now;
+        wipeWithPaperTowel(ctx, ctx.hoveredWipeTarget);
+      }
     }
   }
 

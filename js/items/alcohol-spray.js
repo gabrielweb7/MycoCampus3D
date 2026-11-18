@@ -86,15 +86,12 @@ export function getSanitizationStatus(target, ctx) {
 export function formatSprayHoverPrompt(target, label, ctx) {
   const st = getSanitizationStatus(target, ctx);
   if (st.alcoholWet) {
-    return '🧻 [ÁLCOOL APLICADO] ' + label + ' — Passe Papel Toalha para secar e finalizar!';
+    return '🧻 [MOLHADO C/ ÁLCOOL 70%] ' + label + ' — Passe Papel Toalha para secar!';
   }
   if (st.isSanitized) {
-    return '✨ [●●● DESINFECTADO • ' + st.remainingSec + 's] ' + label + ' — Borrifar + Papel Toalha reseta o tempo';
+    return '✨ [DESINFECTADO • ' + st.remainingSec + 's] ' + label + ' — Borrifar + Papel reseta';
   }
-  const dots = st.hits === 0 ? '○○○ 0/3' : (st.hits === 1 ? '●○○ 1/3' : '●●○ 2/3');
-  const rem = 3 - st.hits;
-  const statusTxt = st.hits === 0 ? 'Não higienizado' : (st.hits === 1 ? 'Higienizando' : 'Quase limpo');
-  return '🧴 [' + dots + '] ' + statusTxt + ' (' + label + ') • Clique +' + rem + 'x e seque com Papel';
+  return '🧴 Não higienizado (' + label + ') • Clique ou segure para borrifar Álcool 70%';
 }
 
 export function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, speed, size, life) {
@@ -132,48 +129,16 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
 
   if (!sprayInfo || !sprayInfo.target) {
     if (!ctx.hoveredGreenhouseSlot && ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🧴 Aponte para o Fluxo Laminar, bancada ou item próximo para borrifar Álcool 70% (3x).');
+      ctx.callbacks.onToast('🧴 Aponte para o Fluxo Laminar, bancada ou item próximo para borrifar Álcool 70%.');
     }
     return;
   }
 
   const target = sprayInfo.target;
   const label = sprayInfo.label || 'Objeto';
-  const nowPerf = performance.now();
   const isHood = target === 'hood' || (target.mesh && target.mesh.userData && target.mesh.userData.isHood);
   const st = getSanitizationStatus(target, ctx);
 
-  if (st.alcoholWet) {
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧻 ' + label + ' já está com Álcool 70%! Agora passe o Papel Toalha para secar (120s).');
-    return;
-  }
-
-  if (st.isSanitized) {
-    if (isHood) {
-      ctx.hoodAlcoholWet = true;
-    } else if (typeof target === 'object') {
-      target.alcoholWet = true;
-    }
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧴 Álcool reaplicado em ' + label + '! Seque com Papel Toalha para resetar os 120s.');
-    return;
-  }
-
-  const nextHits = Math.min(3, st.hits + 1);
-  if (isHood) {
-    ctx.hoodSanitizeHits = nextHits;
-  } else if (typeof target === 'object') {
-    target._sanitizeHits = nextHits;
-  }
-
-  if (nextHits < 3) {
-    const dots = nextHits === 1 ? '●○○ 1/3' : '●●○ 2/3';
-    if (ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🧴 [' + dots + '] Aplicado em ' + label + ' — faltam ' + (3 - nextHits) + ' borrifada(s)!');
-    }
-    return;
-  }
-
-  // 3/3 = Molhado com alcool 70%; falta secar com Papel Toalha para completar o ciclo!
   if (isHood) {
     ctx.hoodAlcoholWet = true;
     ctx.hoodSanitizeHits = 0;
@@ -182,13 +147,42 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
     target._sanitizeHits = 0;
   }
 
+  // Respinga e molha itens próximos ao redor/abaixo do ponto atingido (ex.: placa + bandeja + bisturi)
+  let extraWet = 0;
+  if (sprayInfo.hitPoint && ctx.pickableItems) {
+    const hp = sprayInfo.hitPoint;
+    for (let i = 0; i < ctx.pickableItems.length; i++) {
+      const it = ctx.pickableItems[i];
+      if (!it || !it.mesh || it === ctx.heldItem || it === target) continue;
+      if (it.mesh.userData && it.mesh.userData.isHood) {
+        if (!ctx.hoodAlcoholWet && Math.abs(hp.x - it.mesh.position.x) <= 0.9 && Math.abs(hp.z - it.mesh.position.z) <= 0.6) {
+          ctx.hoodAlcoholWet = true;
+          ctx.hoodSanitizeHits = 0;
+          extraWet++;
+        }
+        continue;
+      }
+      const dx = it.mesh.position.x - hp.x;
+      const dz = it.mesh.position.z - hp.z;
+      const dy = hp.y - it.mesh.position.y;
+      if (dx * dx + dz * dz <= 0.42 * 0.42 && dy >= -0.25 && dy <= 0.45) {
+        if (!it.alcoholWet) {
+          it.alcoholWet = true;
+          it._sanitizeHits = 0;
+          extraWet++;
+        }
+      }
+    }
+  }
+
   const burstPos = sprayInfo.hitPoint
     ? sprayInfo.hitPoint.clone()
     : spOrigin.clone().addScaledVector(spDir, 1.4);
   spawnSprayParticles(ctx, 0x38bdf8, 22, burstPos, new THREE.Vector3(0, 1, 0), 1.6, 0.6, 0.04, 0.55);
   if (window.MycoAudio) window.MycoAudio.playClick();
-  if (ctx.callbacks.onToast) {
-    ctx.callbacks.onToast('🧻 [●●● 3/3 ÁLCOOL APLICADO] Agora passe o Papel Toalha em ' + label + ' para secar e concluir!');
+  if (ctx.callbacks && ctx.callbacks.onToast && (!st.alcoholWet || extraWet > 0)) {
+    const extraTxt = extraWet > 0 ? ` (+${extraWet} ao redor)` : '';
+    ctx.callbacks.onToast(`🧻 Álcool 70% aplicado em ${label}${extraTxt}! Agora seque com Papel Toalha.`);
   }
 }
 
