@@ -325,12 +325,17 @@ export function setBurnerLevel(burner, level) {
   if (burner.ledMat) {
     burner.ledMat.color.setHex(lvl === 0 ? 0xef4444 : (lvl === 1 ? 0x38bdf8 : (lvl === 2 ? 0xf59e0b : 0x22c55e)));
   }
-  if (burner.knobGroup) {
-    if (burner.kind === 'gas_tripod') {
-      burner.knobGroup.rotation.x = lvl * 0.6;
-    } else {
-      burner.knobGroup.rotation.z = -lvl * 0.65;
+  if (burner.kind === 'gas_tripod') {
+    if (burner.knob1) {
+      // Registro 1 (anel interno de caulim): abre em Fogo Baixo e permanece aberto em Médio/Alto
+      burner.knob1.rotation.x = lvl >= 1 ? (lvl === 1 ? 0.6 : 1.2) : 0;
     }
+    if (burner.knob2) {
+      // Registro 2 (anel externo de caulim): só abre a partir de Fogo Médio (lvl 2) e Alto (lvl 3)
+      burner.knob2.rotation.x = lvl >= 2 ? (lvl === 2 ? 0.6 : 1.2) : 0;
+    }
+  } else if (burner.knobGroup) {
+    burner.knobGroup.rotation.z = -lvl * 0.65;
   }
 }
 
@@ -340,7 +345,7 @@ export function stepPressureCookers(ctx, dt) {
   let anyPotSteaming = false;
   for (let bni = 0; bni < ctx.burnerDevices.length; bni++) {
     const bnd = ctx.burnerDevices[bni];
-    const lvl = bnd.on ? (bnd.level || 3) : 0;
+    const lvl = bnd.on ? (bnd.level || 0) : 0;
     const targetHeat = lvl === 0 ? 0 : (lvl === 1 ? 0.38 : (lvl === 2 ? 0.68 : 1.0));
     if (bnd.heat < targetHeat) {
       bnd.heat = Math.min(targetHeat, (bnd.heat || 0) + dt * 0.55);
@@ -349,35 +354,64 @@ export function stepPressureCookers(ctx, dt) {
     }
     const h = bnd.heat;
     const pulse = h > 0.15 ? Math.sin(ctx.clock.elapsedTime * 5.0) * 0.08 * h : 0;
+
     if (bnd.kind === 'gas_tripod') {
-      const isLit = h > 0.04;
-      const flicker = isLit ? Math.sin(ctx.clock.elapsedTime * 16.0) * 0.05 * h : 0;
-      if (bnd.flameRing) {
-        bnd.flameRing.visible = isLit;
-        const sc = 0.72 + h * 0.45 + pulse * 0.35 + flicker;
-        bnd.flameRing.scale.set(sc, sc, sc);
+      const flicker = lvl > 0 ? (Math.sin(ctx.clock.elapsedTime * 18.0) * 0.08 + Math.cos(ctx.clock.elapsedTime * 27.0) * 0.05) : 0;
+
+      // 0 = DESLIGADO: Ambos os anéis de caulim apagados
+      if (lvl === 0 || h <= 0.02) {
+        if (bnd.innerFlamesGroup) bnd.innerFlamesGroup.visible = false;
+        if (bnd.outerFlamesGroup) bnd.outerFlamesGroup.visible = false;
+        if (bnd.flameLight) bnd.flameLight.intensity = 0;
       }
-      if (bnd.innerFlame) {
-        bnd.innerFlame.visible = isLit;
-        const scIn = 0.76 + h * 0.40 + pulse * 0.25;
-        bnd.innerFlame.scale.set(scIn, scIn, scIn);
+      // 1 = FOGO BAIXO: APENAS anel central (queimador pequeno) aceso nos 6 bicos de caulim! O anel externo fica 100% desligado!
+      else if (lvl === 1) {
+        if (bnd.innerFlamesGroup) {
+          bnd.innerFlamesGroup.visible = true;
+          const sc = Math.max(0.4, 0.70 + flicker * 0.4);
+          bnd.innerFlamesGroup.scale.set(sc, sc * 0.82, sc);
+        }
+        if (bnd.outerFlamesGroup) {
+          bnd.outerFlamesGroup.visible = false; // 100% apagado!
+        }
+        if (bnd.flameLight) {
+          bnd.flameLight.intensity = 0.45 + flicker * 0.3;
+          bnd.flameLight.distance = 2.2;
+        }
       }
-      if (bnd.flameTips) {
-        bnd.flameTips.visible = h > 0.52;
-        const scTip = 0.78 + h * 0.45 + flicker * 1.5;
-        bnd.flameTips.scale.set(scTip, scTip, scTip);
+      // 2 = FOGO MÉDIO: Ambos os anéis (interno e externo) acesos em potência moderada!
+      else if (lvl === 2) {
+        if (bnd.innerFlamesGroup) {
+          bnd.innerFlamesGroup.visible = true;
+          const sc = Math.max(0.6, 0.95 + flicker * 0.5);
+          bnd.innerFlamesGroup.scale.set(sc, sc, sc);
+        }
+        if (bnd.outerFlamesGroup) {
+          bnd.outerFlamesGroup.visible = true;
+          const scOut = Math.max(0.6, 0.90 + flicker * 0.5);
+          bnd.outerFlamesGroup.scale.set(scOut, scOut, scOut);
+        }
+        if (bnd.flameLight) {
+          bnd.flameLight.intensity = 1.05 + flicker * 0.7;
+          bnd.flameLight.distance = 3.0;
+        }
       }
-      if (bnd.flameLight) {
-        bnd.flameLight.intensity = isLit ? (0.45 + h * 1.6 + Math.sin(ctx.clock.elapsedTime * 22.0) * 0.22 * h) : 0;
-      }
-      if (bnd.coilMat) {
-        bnd.coilMat.opacity = Math.min(0.95, 0.40 + h * 0.55 + pulse);
-      }
-      if (bnd.innerFlameMat) {
-        bnd.innerFlameMat.opacity = Math.min(0.98, 0.50 + h * 0.48);
-      }
-      if (bnd.flameTipsMat) {
-        bnd.flameTipsMat.opacity = Math.min(0.85, (h - 0.45) * 1.6);
+      // 3 = FOGO ALTO: Ambos os anéis em potência máxima, chamas altas e vivas saindo de todos os bicos!
+      else if (lvl === 3) {
+        if (bnd.innerFlamesGroup) {
+          bnd.innerFlamesGroup.visible = true;
+          const sc = Math.max(0.8, 1.35 + flicker * 0.9);
+          bnd.innerFlamesGroup.scale.set(sc, sc * 1.35, sc);
+        }
+        if (bnd.outerFlamesGroup) {
+          bnd.outerFlamesGroup.visible = true;
+          const scOut = Math.max(0.8, 1.30 + flicker * 0.85);
+          bnd.outerFlamesGroup.scale.set(scOut, scOut * 1.30, scOut);
+        }
+        if (bnd.flameLight) {
+          bnd.flameLight.intensity = 1.95 + flicker * 1.5;
+          bnd.flameLight.distance = 3.8;
+        }
       }
     } else {
       bnd.coilMat.emissiveIntensity = h * 2.2 + pulse;

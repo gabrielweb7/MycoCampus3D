@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 8;
+const MC_SCHEMA_VERSION = 9;
 const MC_TOKEN_TTL_DAYS = 30;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -130,6 +130,30 @@ function mc_migrate(PDO $pdo): void {
         } catch (Throwable $e) {}
         try {
             $pdo->exec("ALTER TABLE mc_auth_tokens ADD INDEX idx_tokens_last_used (last_used)");
+        } catch (Throwable $e) {}
+
+        // v8 -> v9: Tabelas de layout persistente do Modo Admin Editor (edições em tempo real + padrão salvo)
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS mc_world_layout_edits (
+                item_id VARCHAR(64) PRIMARY KEY,
+                prefab_id VARCHAR(64) NOT NULL DEFAULT '',
+                label VARCHAR(96) NOT NULL DEFAULT '',
+                scale DOUBLE NOT NULL DEFAULT 1,
+                removed TINYINT(1) NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $pdo->exec("CREATE TABLE IF NOT EXISTS mc_admin_layout_defaults (
+                item_id VARCHAR(64) PRIMARY KEY,
+                prefab_id VARCHAR(64) NOT NULL DEFAULT '',
+                label VARCHAR(96) NOT NULL DEFAULT '',
+                scale DOUBLE NOT NULL DEFAULT 1,
+                x DOUBLE NOT NULL DEFAULT 0,
+                y DOUBLE NOT NULL DEFAULT 0,
+                z DOUBLE NOT NULL DEFAULT 0,
+                ry DOUBLE NOT NULL DEFAULT 0,
+                removed TINYINT(1) NOT NULL DEFAULT 0,
+                saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         } catch (Throwable $e) {}
 
         try {

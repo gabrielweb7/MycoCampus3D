@@ -60,7 +60,84 @@ if ($action === 'reset_world') {
     }
     $pdo->exec('DELETE FROM mc_world_objects');
     $pdo->exec('DELETE FROM mc_world_item_states');
-    mc_json(['ok' => true]);
+    $pdo->exec('DELETE FROM mc_world_layout_edits');
+
+    // Se o Admin salvou um layout padrão, restaura tudo para a posição/configuração definida por ele
+    $defaults = $pdo->query('SELECT item_id, prefab_id, label, scale, x, y, z, ry, removed FROM mc_admin_layout_defaults')->fetchAll();
+    if ($defaults) {
+        $insObj = $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)');
+        $insEdit = $pdo->prepare('INSERT INTO mc_world_layout_edits (item_id, prefab_id, label, scale, removed) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE prefab_id=VALUES(prefab_id), label=VALUES(label), scale=VALUES(scale), removed=VALUES(removed)');
+        foreach ($defaults as $def) {
+            $iid = (string)$def['item_id'];
+            $removed = (int)$def['removed'] ? 1 : 0;
+            if (!$removed) {
+                $insObj->execute([$iid, (float)$def['x'], (float)$def['y'], (float)$def['z'], (float)$def['ry']]);
+            }
+            if ($def['prefab_id'] !== '' || $def['label'] !== '' || abs((float)$def['scale'] - 1.0) > 0.001 || $removed) {
+                $insEdit->execute([$iid, (string)$def['prefab_id'], (string)$def['label'], (float)$def['scale'], $removed]);
+            }
+        }
+    }
+    mc_json(['ok' => true, 'restored_from_default' => count($defaults)]);
+}
+
+if ($action === 'save_world_default') {
+    $user = mc_require_user($pdo);
+    if (!mc_is_professor($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
+    }
+    $snapshot = is_array($body['items'] ?? null) ? $body['items'] : [];
+    $pdo->exec('DELETE FROM mc_admin_layout_defaults');
+    $insDef = $pdo->prepare('INSERT INTO mc_admin_layout_defaults (item_id, prefab_id, label, scale, x, y, z, ry, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $insObj = $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)');
+    $count = 0;
+    foreach (array_slice($snapshot, 0, 500) as $row) {
+        if (!is_array($row)) continue;
+        $iid = (string)($row['id'] ?? '');
+        if (!mp_is_allowed_item_id($iid)) continue;
+        $prefabId = substr(preg_replace('/[^a-zA-Z0-9_]/', '', (string)($row['prefab_id'] ?? '')), 0, 64);
+        $label = mb_substr(trim((string)($row['label'] ?? '')), 0, 96);
+        $scale = max(0.25, min(4.0, (float)($row['scale'] ?? 1.0)));
+        $removed = !empty($row['removed']) ? 1 : 0;
+        $x = mp_num($row['x'] ?? 0, MP_WORLD_LIMIT);
+        $y = mp_num($row['y'] ?? 0, 50.0);
+        $z = mp_num($row['z'] ?? 0, MP_WORLD_LIMIT);
+        $ry = mp_num($row['ry'] ?? 0, 1000.0);
+        $insDef->execute([$iid, $prefabId, $label, $scale, $x, $y, $z, $ry, $removed]);
+        if (!$removed) {
+            $insObj->execute([$iid, $x, $y, $z, $ry]);
+        }
+        $count++;
+    }
+    mc_json(['ok' => true, 'saved_count' => $count]);
+}
+
+if ($action === 'admin_layout_edit') {
+    $user = mc_require_user($pdo);
+    if (!mc_is_professor($user)) {
+        mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
+    }
+    $iid = (string)($body['item_id'] ?? '');
+    if (!mp_is_allowed_item_id($iid)) {
+        mc_json(['ok' => false, 'error' => 'ID de item inválido.'], 400);
+    }
+    $prefabId = substr(preg_replace('/[^a-zA-Z0-9_]/', '', (string)($body['prefab_id'] ?? '')), 0, 64);
+    $label = mb_substr(trim((string)($body['label'] ?? '')), 0, 96);
+    $scale = max(0.25, min(4.0, (float)($body['scale'] ?? 1.0)));
+    $removed = !empty($body['removed']) ? 1 : 0;
+
+    $pdo->prepare('INSERT INTO mc_world_layout_edits (item_id, prefab_id, label, scale, removed) VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE prefab_id=IF(VALUES(prefab_id)<>"", VALUES(prefab_id), prefab_id), label=VALUES(label), scale=VALUES(scale), removed=VALUES(removed)')
+        ->execute([$iid, $prefabId, $label, $scale, $removed]);
+
+    if (!$removed && array_key_exists('x', $body) && array_key_exists('y', $body) && array_key_exists('z', $body)) {
+        $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)')
+            ->execute([$iid, mp_num($body['x'], MP_WORLD_LIMIT), mp_num($body['y'], 50.0), mp_num($body['z'], MP_WORLD_LIMIT), mp_num($body['ry'] ?? 0, 1000.0)]);
+    } elseif ($removed) {
+        $pdo->prepare('DELETE FROM mc_world_objects WHERE item_id = ?')->execute([$iid]);
+    }
+    mc_json(['ok' => true, 'item_id' => $iid]);
 }
 
 if ($action === 'set_slide') {
@@ -213,10 +290,10 @@ if ($action === 'sync') {
         $batchParams = [];
         $statePlaceholders = [];
         $stateParams = [];
-        foreach (array_slice($body['moved_items'], 0, count(MP_ITEMS)) as $item) {
+        foreach (array_slice($body['moved_items'], 0, 300) as $item) {
             if (!is_array($item)) continue;
             $iid = (string)($item['id'] ?? '');
-            if (!in_array($iid, MP_ITEMS, true)) continue;
+            if (!mp_is_allowed_item_id($iid)) continue;
             if (array_key_exists('x', $item) && array_key_exists('y', $item) && array_key_exists('z', $item)) {
                 $batchPlaceholders[] = '(?, ?, ?, ?, ?)';
                 $batchParams[] = $iid;
@@ -427,6 +504,24 @@ if ($action === 'sync') {
         }
     }
 
+    $clientLayoutVer = (string)($body['layout_ver'] ?? '');
+    $layoutMeta = $pdo->query('SELECT COUNT(*) AS c, COALESCE(MAX(updated_at), "") AS u FROM mc_world_layout_edits')->fetch();
+    $layoutVer = $layoutMeta ? ((string)$layoutMeta['c'] . ':' . (string)$layoutMeta['u']) : '0:';
+    $layoutUnchanged = (!$initSync && $clientLayoutVer !== '' && $clientLayoutVer === $layoutVer);
+    $layoutEdits = null;
+    if (!$layoutUnchanged) {
+        $layoutEdits = new stdClass();
+        foreach ($pdo->query('SELECT item_id, prefab_id, label, scale, removed FROM mc_world_layout_edits')->fetchAll() as $le) {
+            $leId = (string)$le['item_id'];
+            $layoutEdits->{$leId} = [
+                'prefab_id' => (string)$le['prefab_id'],
+                'label' => (string)$le['label'],
+                'scale' => (float)$le['scale'],
+                'removed' => ((int)$le['removed'] === 1),
+            ];
+        }
+    }
+
     $resp = [
         'ok' => true,
         'server_ts' => $nowTs,
@@ -437,8 +532,10 @@ if ($action === 'sync') {
         'players' => $players,
         'obj_ver' => $objVer,
         'state_ver' => $stateVer,
+        'layout_ver' => $layoutVer,
         'objects_unchanged' => $objectsUnchanged,
         'state_unchanged' => $stateUnchanged,
+        'layout_unchanged' => $layoutUnchanged,
         'board_strokes' => $boardStrokes,
         'board_last_id' => $lastBoardId,
     ];
@@ -448,6 +545,9 @@ if ($action === 'sync') {
     }
     if (!$stateUnchanged) {
         $resp['world_state'] = $state;
+    }
+    if (!$layoutUnchanged) {
+        $resp['layout_edits'] = $layoutEdits;
     }
     mc_json($resp);
 }

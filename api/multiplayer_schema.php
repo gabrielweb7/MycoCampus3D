@@ -78,6 +78,14 @@ function mp_build_allowed_items(): array {
 define('MP_ITEMS', mp_build_allowed_items());
 
 /**
+ * Aceita itens fixos da whitelist ou itens dinâmicos criados no Modo Admin Editor (dyn_<prefab>_<id>).
+ */
+function mp_is_allowed_item_id(string $itemId): bool {
+    if (in_array($itemId, MP_ITEMS, true)) return true;
+    return (bool)preg_match('/^dyn_[a-z0-9_]{2,56}$/', $itemId);
+}
+
+/**
  * Sanitiza o JSON de estado interno de cada objeto interativo antes de salvar no MySQL.
  */
 function mp_clean_item_state(string $itemId, $raw): ?string {
@@ -249,6 +257,13 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     if (strpos($itemId, 'culture_fridge_') === 0 && isset($raw['fridge']) && is_array($raw['fridge'])) {
         if (isset($raw['fridge']['doorOpen']) && is_bool($raw['fridge']['doorOpen'])) {
             $clean['fridge'] = ['doorOpen' => $raw['fridge']['doorOpen']];
+        }
+    }
+
+    if (isset($raw['custom']) && is_array($raw['custom'])) {
+        $customJson = json_encode($raw['custom'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (is_string($customJson) && strlen($customJson) <= 2048) {
+            $clean['custom'] = $raw['custom'];
         }
     }
 

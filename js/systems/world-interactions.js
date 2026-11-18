@@ -181,7 +181,14 @@ export function handleWorldInteraction(ctx) {
     ctx.queueWorldStateChange(bId, ctx.hoveredBurnerSwitch.on ? 1 : 0);
     ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, ctx.hoveredBurnerSwitch.level || 0);
     if (ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🔥 ' + (ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé a Gás' : 'Fogareiro') + ': ' + BURNER_LEVEL_NAMES[nextLvl]);
+      let desc = BURNER_LEVEL_NAMES[nextLvl];
+      if (ctx.hoveredBurnerSwitch.kind === 'gas_tripod') {
+        if (nextLvl === 0) desc = 'DESLIGADO';
+        else if (nextLvl === 1) desc = 'FOGO BAIXO (Apenas Anel Central)';
+        else if (nextLvl === 2) desc = 'FOGO MÉDIO (Queimador Duplo)';
+        else if (nextLvl === 3) desc = 'FOGO ALTO (Potência Máxima)';
+      }
+      ctx.callbacks.onToast('🔥 ' + (ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé a Gás' : 'Fogareiro') + ': ' + desc);
     }
     if (ctx.hoveredBurnerSwitch.on && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('cooker_heat');
     return true;
