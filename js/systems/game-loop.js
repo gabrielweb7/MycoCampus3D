@@ -136,6 +136,7 @@ export function stepAutoQuality(ctx, now) {
   qualityMod.qualityState.mode = ctx.qualityMode;
   syncQualityArg(ctx);
   qualityMod.stepAutoQuality(now, _qualityArg);
+  qualityMod.stepPointLightBudget(ctx.scene, ctx.playerPos);
   ctx.qualityTier = qualityMod.qualityState.tier;
   ctx.auraEnabled = qualityMod.qualityState.auraEnabled;
 }

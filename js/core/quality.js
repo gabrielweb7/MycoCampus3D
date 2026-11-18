@@ -7,16 +7,16 @@ export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
 
 const TIER_CONFIGS = {
   desktop: {
-    high:   { ratioCap: 1.50, shadows: true,  soft: true,  far: 420, aura: true,  weatherParticles: 650, forestScale: 1.00, toneMap: true,  blur: true  },
-    medium: { ratioCap: 1.00, shadows: false, soft: false, far: 250, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true  },
-    low:    { fixedRatio: 0.78, shadows: false, soft: false, far: 175, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false },
-    min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false }
+    high:   { ratioCap: 1.50, shadows: true,  soft: true,  far: 420, aura: true,  weatherParticles: 650, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 99 },
+    medium: { ratioCap: 1.00, shadows: false, soft: false, far: 250, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 4  },
+    low:    { fixedRatio: 0.78, shadows: false, soft: false, far: 175, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false, maxLights: 1  },
+    min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0  }
   },
   mobile: {
-    high:   { ratioCap: 1.25, shadows: false, soft: false, far: 260, aura: true,  weatherParticles: 140, forestScale: 0.85, toneMap: true,  blur: false },
-    medium: { ratioCap: 1.00, shadows: false, soft: false, far: 195, aura: true,  weatherParticles: 60,  forestScale: 0.65, toneMap: false, blur: false },
-    low:    { fixedRatio: 0.80, shadows: false, soft: false, far: 150, aura: false, weatherParticles: 0,   forestScale: 0.48, toneMap: false, blur: false },
-    min:    { fixedRatio: 0.62, shadows: false, soft: false, far: 120, aura: false, weatherParticles: 0,   forestScale: 0.34, toneMap: false, blur: false }
+    high:   { ratioCap: 1.15, shadows: false, soft: false, far: 240, aura: true,  weatherParticles: 100, forestScale: 0.80, toneMap: false, blur: false, maxLights: 2  },
+    medium: { ratioCap: 0.90, shadows: false, soft: false, far: 185, aura: false, weatherParticles: 40,  forestScale: 0.60, toneMap: false, blur: false, maxLights: 1  },
+    low:    { fixedRatio: 0.75, shadows: false, soft: false, far: 145, aura: false, weatherParticles: 0,   forestScale: 0.45, toneMap: false, blur: false, maxLights: 0  },
+    min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 115, aura: false, weatherParticles: 0,   forestScale: 0.32, toneMap: false, blur: false, maxLights: 0  }
   }
 };
 
@@ -25,6 +25,7 @@ export const qualityState = {
   tier: 'high',
   auraEnabled: true,
   forestScale: 1.0,
+  maxPointLights: 99,
   fpsFrames: 0,
   fpsLastSampleAt: 0,
   fpsLastFrameAt: 0,
@@ -126,10 +127,58 @@ export function applyQualityTier(tier, deps) {
   }
   qualityState.auraEnabled = cfg.aura;
   qualityState.forestScale = cfg.forestScale;
+  qualityState.maxPointLights = cfg.maxLights !== undefined ? cfg.maxLights : 99;
+  if (scene) stepPointLightBudget(scene, null, true);
   if (onQualityChange) {
     onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps: qualityState.currentFps });
   }
   return qualityState;
+}
+
+let cachedPointLights = null;
+let lastLightBudgetAt = 0;
+
+export function stepPointLightBudget(scene, playerPos, force = false) {
+  if (!scene) return;
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (!force && now - lastLightBudgetAt < 450) return;
+  lastLightBudgetAt = now;
+
+  if (!cachedPointLights) {
+    cachedPointLights = [];
+    scene.traverse((obj) => {
+      if (obj && obj.isPointLight) {
+        cachedPointLights.push({ light: obj, baseVisible: obj.visible });
+      }
+    });
+  }
+
+  const maxLights = qualityState.maxPointLights;
+  if (maxLights >= cachedPointLights.length) {
+    for (let i = 0; i < cachedPointLights.length; i++) {
+      cachedPointLights[i].light.visible = true;
+    }
+    return;
+  }
+  if (maxLights <= 0) {
+    for (let i = 0; i < cachedPointLights.length; i++) {
+      cachedPointLights[i].light.visible = false;
+    }
+    return;
+  }
+
+  const px = playerPos ? playerPos.x : 0;
+  const pz = playerPos ? playerPos.z : 0;
+  const sorted = cachedPointLights.map((entry, idx) => {
+    const p = entry.light.position;
+    const dx = p.x - px;
+    const dz = p.z - pz;
+    return { idx, d2: dx * dx + dz * dz };
+  }).sort((a, b) => a.d2 - b.d2);
+
+  for (let i = 0; i < sorted.length; i++) {
+    cachedPointLights[sorted[i].idx].light.visible = i < maxLights;
+  }
 }
 
 export function stepAutoQuality(now, deps) {
@@ -139,7 +188,7 @@ export function stepAutoQuality(now, deps) {
     qualityState.fpsFrames = 0;
     return;
   }
-  if (qualityState.fpsLastFrameAt > 0 && (now - qualityState.fpsLastFrameAt) < 200) {
+  if (qualityState.fpsLastFrameAt > 0 && (now - qualityState.fpsLastFrameAt) < 1000) {
     qualityState.fpsFrames++;
   }
   qualityState.fpsLastFrameAt = now;
