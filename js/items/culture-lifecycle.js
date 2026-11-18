@@ -1,6 +1,6 @@
-export const CULTURE_GAME_DAY_SECONDS = 10;
-export const CULTURE_ROOM_SHELF_LIFE_DAYS = 30;
-export const CULTURE_REFRIGERATED_SHELF_LIFE_DAYS = 60;
+export const CULTURE_GAME_DAY_SECONDS = 86400;
+export const CULTURE_ROOM_SHELF_LIFE_DAYS = 15;
+export const CULTURE_REFRIGERATED_SHELF_LIFE_DAYS = 90;
 
 export function createCultureLifecycleState(colonized) {
   return {
