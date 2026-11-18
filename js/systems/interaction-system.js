@@ -742,12 +742,18 @@ export function handlePrimaryAction(ctx) {
         } else if (ctx.callbacks.onToast) {
           ctx.callbacks.onToast(`🍄 Você comeu ${wm.speciesName}!`);
         }
+        wm.removed = true;
+        ctx.pendingMovedItems[eatenItem.id] = {
+          id: eatenItem.id,
+          state: { wildMushroom: { speciesName: wm.speciesName, isMagic: !!wm.isMagic, removed: true } }
+        };
         ctx.heldItem = null;
         if (eatenItem.mesh && eatenItem.mesh.parent) eatenItem.mesh.parent.remove(eatenItem.mesh);
         const idx = ctx.pickableItems.indexOf(eatenItem);
         if (idx !== -1) ctx.pickableItems.splice(idx, 1);
         if (ctx.placementGhost) ctx.placementGhost.visible = false;
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+        ctx.notifyWorldAction();
         return;
       }
       if (ctx.heldItem && ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
