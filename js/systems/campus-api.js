@@ -4,7 +4,7 @@
  */
 
 import { GAME_CONFIG } from '../core/config.js';
-import { getInitialQualityTier, qualityState } from '../core/quality.js';
+import { getInitialQualityTier, qualityState, saveQualityMode } from '../core/quality.js';
 import { getGroundHeight, clampPosAgainstWalls } from '../engine/physics.js';
 import { updateCampusAuditoriumSlide, setRankingList } from '../world/staircase-clock.js';
 import { triggerConfettiBurst } from '../entities/confetti.js';
@@ -100,6 +100,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.setCampusQualityMode = function (mode) {
     if (mode === 'auto' || qualityTiersOrder.indexOf(mode) !== -1) {
       sim.qualityMode = mode;
+      saveQualityMode(mode);
       if (mode === 'auto') {
         applyQualityTier(sim, getInitialQualityTier(sim.isTouchDevice()));
       } else {

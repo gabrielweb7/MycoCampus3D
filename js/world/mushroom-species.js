@@ -3,6 +3,7 @@
  * Inclui espécies lignícolas (madeira/troncos), de mata (solo) e de pasto,
  * além de 5 tipos de árvores e culling por distância para manter 60 FPS.
  */
+import { qualityState } from '../core/quality.js';
 
 import { terrainHeight } from '../engine/physics.js';
 
@@ -379,16 +380,29 @@ export function buildExpandedForestAndMushrooms(ctx) {
 /**
  * Oculta árvores/troncos e cogumelos distantes para manter FPS alto no PC e Mobile.
  */
+let lastForestCullAt = 0;
+let lastForestCullX = 9999;
+let lastForestCullZ = 9999;
+
 export function stepForestDistanceCulling(ctx) {
   if (!ctx || !ctx.playerPos) return;
   const px = ctx.playerPos.x;
   const pz = ctx.playerPos.z;
+  const now = performance.now();
+  const movedSq = (px - lastForestCullX) * (px - lastForestCullX) + (pz - lastForestCullZ) * (pz - lastForestCullZ);
+  if (now - lastForestCullAt < 180 && movedSq < 4.0) return;
+  lastForestCullAt = now;
+  lastForestCullX = px;
+  lastForestCullZ = pz;
+
+  const scale = qualityState.forestScale || 1;
+  const scaleSq = scale * scale;
   const fList = ctx.forestCullGroups;
   if (fList) {
     for (let i = 0; i < fList.length; i++) {
       const it = fList[i];
       const dx = it.x - px, dz = it.z - pz;
-      it.obj.visible = (dx * dx + dz * dz) <= it.maxDistSq;
+      it.obj.visible = (dx * dx + dz * dz) <= (it.maxDistSq * scaleSq);
     }
   }
   const mList = ctx.mushroomCullGroups;
@@ -396,7 +410,7 @@ export function stepForestDistanceCulling(ctx) {
     for (let i = 0; i < mList.length; i++) {
       const it = mList[i];
       const dx = it.x - px, dz = it.z - pz;
-      it.obj.visible = (dx * dx + dz * dz) <= it.maxDistSq;
+      it.obj.visible = (dx * dx + dz * dz) <= (it.maxDistSq * scaleSq);
     }
   }
 }
