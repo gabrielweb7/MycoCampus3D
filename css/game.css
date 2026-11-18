@@ -248,7 +248,7 @@ body.myco-trip-faint #campus-canvas-wrap {
 }
 
 body.device-touch #interact-pill {
-  top: 98px;
+  top: 108px !important;
   font-size: 12px;
   font-weight: 600;
   padding: 6px 14px;
@@ -475,9 +475,14 @@ body.device-desktop #btn-mobile-chat-toggle {
   touch-action: manipulation;
 }
 
+body.device-touch #hud-top-bar > .glass-panel {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
 body.device-touch #held-item-bar {
-  bottom: auto;
-  top: 56px;
+  bottom: auto !important;
+  top: 62px !important;
   max-width: calc(100vw - 20px);
   padding: 5px 10px;
   gap: 6px;
