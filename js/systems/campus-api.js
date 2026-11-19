@@ -73,7 +73,12 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.rotateCampusHeldItem = function (deltaRad) {
-    if (sim.heldItem) sim.heldRotY += (typeof deltaRad === 'number' ? deltaRad : Math.PI / 4);
+    if (sim.heldItem) {
+      sim.heldRotY += (typeof deltaRad === 'number' ? deltaRad : Math.PI / 4);
+      if (sim.placementMode && sim.placementGhost && sim.updateHoverRay) {
+        sim.updateHoverRay(sim.inFps ? null : sim.pointerNdc);
+      }
+    }
   };
 
   window.setCampusJoystick = function (dx, dy) {

@@ -3,6 +3,7 @@
  * Detecção de Hardware & Qualidade Adaptativa (Mobile Antigo, Mobile Novo & PC)
  */
 import { getFullViewportSize, syncViewportCssVars } from '../ui/dom-helpers.js';
+import { shouldHideHeldInPlacementMode } from '../entities/placement-ghost.js';
 
 const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
 
@@ -453,9 +454,7 @@ export function stepMobileItemCulling(ctx, now) {
     const it = items[i];
     if (!it || !it.mesh) continue;
     if (it === ctx.heldItem) {
-      const hUd = it.mesh.userData;
-      const hideHeld = !!(ctx.placementMode && hUd && (hUd.twoHanded || hUd.isCultureFridge || hUd.isHood || hUd.isTable));
-      it.mesh.visible = !hideHeld;
+      it.mesh.visible = !shouldHideHeldInPlacementMode(ctx);
       continue;
     }
     const ud = it.mesh.userData;

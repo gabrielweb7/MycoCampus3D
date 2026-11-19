@@ -19,6 +19,7 @@ import { spawnSprayParticles, fireAlcoholSpray, getSanitizationStatus } from '..
 import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { advanceMixingBowlStir, addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { markBladePackEmpty, updateScalpelLabel, stepScalpels } from '../items/scalpel.js';
+import { shouldHideHeldInPlacementMode } from '../entities/placement-ghost.js';
 
 const THREE = window.THREE;
 
@@ -471,15 +472,15 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
     }
 
-    // Esconde itens grandes (twoHanded/geladeira/capela/mesa) durante o modo posicionamento para não tampar o fantasma
-    const hideInPlaceMode = !!(ctx.placementMode && (isTwoHanded || (ud && (ud.isCultureFridge || ud.isHood || ud.isTable))));
+    // Esconde o item segurado (e tampa/conteúdo acoplado) no modo posicionamento [G] para exibir só o fantasma
+    const hideInPlaceMode = shouldHideHeldInPlacementMode(ctx);
     ctx.heldItem.mesh.visible = !hideInPlaceMode;
 
     const heldPos = ctx.heldItem.mesh.position;
 
     // Follow attached cooker lid
     if (ctx.heldItem.lidItem && ctx.heldItem.lidItem.isAttached && ctx.heldItem.lidItem.mesh) {
-      ctx.heldItem.lidItem.mesh.visible = true;
+      ctx.heldItem.lidItem.mesh.visible = !hideInPlaceMode;
       ctx.heldItem.lidItem.mesh.position.set(heldPos.x, heldPos.y + 0.36, heldPos.z);
       ctx.heldItem.lidItem.mesh.rotation.copy(ctx.heldItem.mesh.rotation);
     }
@@ -490,7 +491,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       const potQuat = ctx.heldItem.mesh.quaternion;
       ctx.heldItem.cookerRef.contents.forEach(function (cItem) {
         if (!cItem || !cItem.mesh) return;
-        cItem.mesh.visible = true;
+        cItem.mesh.visible = !hideInPlaceMode;
         if (cItem.mesh.userData && cItem.mesh.userData.isCookerBase) {
           _tmpPourFrom.set(0, 0.036, 0).applyQuaternion(potQuat).add(heldPos);
           cItem.mesh.position.copy(_tmpPourFrom);
@@ -512,7 +513,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       for (let tci = 0; tci < ctx.heldItem.trayContents.length; tci++) {
         const tc = ctx.heldItem.trayContents[tci];
         if (!tc.item || !tc.item.mesh) continue;
-        tc.item.mesh.visible = true;
+        tc.item.mesh.visible = !hideInPlaceMode;
         if (tc.localOffset) {
           _tmpLookPt.copy(tc.localOffset);
           ctx.heldItem.mesh.localToWorld(_tmpLookPt);

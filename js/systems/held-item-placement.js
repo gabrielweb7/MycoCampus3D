@@ -3,6 +3,7 @@ import {
   getPlacementBlockedReason,
   isPlacementBlocked,
   markItemsFalling,
+  shouldHideHeldInPlacementMode,
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
 import { hideHover3dBadge } from '../entities/hover-3d-badge.js';
@@ -12,18 +13,29 @@ import { updateScalpelLabel } from '../items/scalpel.js';
 import { saveLocalMovedObject } from './world-objects-sync.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
+const _vPlaceZero2 = new window.THREE.Vector2(0, 0);
 
-export function setHeldTwoHandedGhost(item, active) {
+function syncHeldAttachedVisibility(item, visible) {
   if (!item || !item.mesh) return;
-  item.mesh.visible = true;
-  if (item.lidItem) {
-    item.lidItem.mesh.visible = true;
+  item.mesh.visible = visible;
+  if (item.lidItem && item.lidItem.isAttached && item.lidItem.mesh) {
+    item.lidItem.mesh.visible = visible;
   }
   if (item.cookerRef && Array.isArray(item.cookerRef.contents)) {
     item.cookerRef.contents.forEach(function (cItem) {
-      if (cItem && cItem.mesh) cItem.mesh.visible = true;
+      if (cItem && cItem.mesh) cItem.mesh.visible = visible;
     });
   }
+  if (item.trayContents && item.trayContents.length) {
+    for (let i = 0; i < item.trayContents.length; i++) {
+      const tc = item.trayContents[i];
+      if (tc && tc.item && tc.item.mesh) tc.item.mesh.visible = visible;
+    }
+  }
+}
+
+export function setHeldTwoHandedGhost(item, active) {
+  syncHeldAttachedVisibility(item, true);
 }
 
 function setPlacementMode(ctx, active) {
@@ -49,6 +61,17 @@ export function beginHeldItemPlacement(ctx) {
   if (ctx.thermoLaserDot) ctx.thermoLaserDot.visible = false;
   ctx.heldRotY = ctx.playerYaw || 0;
   setPlacementMode(ctx, true);
+  if (shouldHideHeldInPlacementMode(ctx)) {
+    syncHeldAttachedVisibility(ctx.heldItem, false);
+  }
+  if (ctx.placementGhost && ctx.camera) {
+    const initNdc = ctx.inFps ? _vPlaceZero2 : ctx.pointerNdc;
+    if (ctx.raycaster && initNdc) {
+      ctx.raycaster.far = 24;
+      ctx.raycaster.setFromCamera(initNdc, ctx.camera);
+    }
+    updateHeldItemPlacementPreview(ctx, initNdc);
+  }
   if (ctx.callbacks.onToast) {
     const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
     ctx.callbacks.onToast(
@@ -62,7 +85,7 @@ export function beginHeldItemPlacement(ctx) {
 
 export function cancelHeldItemPlacement(ctx) {
   if (!ctx.placementMode) return false;
-  if (ctx.heldItem && ctx.heldItem.mesh) ctx.heldItem.mesh.visible = true;
+  syncHeldAttachedVisibility(ctx.heldItem, true);
   setPlacementMode(ctx, false);
   return true;
 }

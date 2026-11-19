@@ -388,6 +388,7 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   body.userData.supportSurface = bSurf;
   coilHit.userData.supportSurface = bSurf;
   ctx.supportMeshes.push(body, coilHit);
+  bg.userData.twoHanded = true;
   bg.userData.isBurner = true;
   bg.userData.tableDims = { w: 0.54, h: 0.088, d: 0.58, surfOffset: 0 };
   bg.userData.dynamicSurface = bSurf;

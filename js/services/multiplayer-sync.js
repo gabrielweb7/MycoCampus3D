@@ -6,6 +6,7 @@ import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
 import { $, showFloatingToast } from '../ui/dom-helpers.js';
 import { applySlideTo3D } from '../ui/hud-lobby.js';
+import { markPendingAutoUpdateNotice } from '../ui/whats-new-modal.js';
 
 export async function syncMultiplayer() {
   if (!appState.currentUser) return;
@@ -86,6 +87,7 @@ export async function syncMultiplayer() {
         if (guardedVer !== data.app_version) {
           window._reloadingVersion = true;
           try { sessionStorage.setItem('myco_reload_guard', `${data.app_version}|${Date.now()}`); } catch (e) {}
+          markPendingAutoUpdateNotice(data.app_version);
           showFloatingToast(`🔄 Nova versão v${data.app_version} disponível! Atualizando...`);
           setTimeout(() => {
             const base = window.location.pathname || '/';

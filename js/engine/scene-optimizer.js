@@ -64,7 +64,7 @@ function collectDynamicObjects(sim) {
   markDynamicTree(sim.localAvatar && sim.localAvatar.group);
   markDynamicTree(sim.fpsArmGroup);
   markDynamicTree(sim.fpsLeftArmGroup);
-  markDynamicTree(sim.placementGhost && sim.placementGhost.root);
+  markDynamicTree(sim.placementGhost && (sim.placementGhost.root || sim.placementGhost));
   markDynamicTree(sim.hover3dBadge && (sim.hover3dBadge.sprite || sim.hover3dBadge.mesh));
   markDynamicTree(sim.thermoLaserLine);
   markDynamicTree(sim.thermoLaserDot);

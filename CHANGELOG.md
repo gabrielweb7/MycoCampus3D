@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.7] - 2026-11-19
+### Ghost de Posicionamento Corrigido no Fogareiro/Todos os Itens & Modal Automático de Novidades (5s)
+- **Ghost de Posicionamento `[G]` (`js/engine/scene-optimizer.js`, `js/entities/placement-ghost.js`, `js/systems/held-item-placement.js`, `js/systems/held-item-loop.js`, `js/core/quality.js`, `js/items/pressure-cooker.js`, `js/systems/hover-held-handlers.js`, `js/systems/campus-api.js`, `js/ui/app-boot.js`):**
+  - Corrigido `markDynamicTree(sim.placementGhost)` no otimizador de cena (antes referenciava `.root` inexistente e congelava `matrixAutoUpdate = false` no anel/ponto do ghost).
+  - Unificado `shouldHideHeldInPlacementMode(ctx)` para ocultar qualquer item segurado (incluindo fogareiro elétrico com `twoHanded = true`, tampa acoplada e itens da bandeja) durante `[G]` para nunca bloquear a visão nem o ghost.
+  - `prepareGhostCloneMesh` agora ignora malhas/hitboxes invisíveis (`colorWrite: false`, `opacity <= 0.02`, `visible: false`, sprites/linhas/pontos) e garante `matrixAutoUpdate: true` + `frustumCulled: false`.
+  - `[G]` e `[R]` atualizam o preview imediatamente no primeiro frame e exibem `#interact-pill` também no desktop durante o posicionamento.
+- **Modal Automático "O que mudou" (`js/ui/whats-new-modal.js`, `js/ui/app-boot.js`, `js/services/multiplayer-sync.js`):**
+  - Adicionado modal em linguagem simples mostrando título, lista de melhorias/correções da atualização, barra regressiva de auto-fechamento em `5s` e botão `✕` (disparado ao carregar nova versão e após atualização automática via sync).
+
 ## [v1.4.6] - 2026-11-19
 ### Correção Completa de Movimentação, Raycast, Piscamento & Persistência de Itens (Panela, Fogareiros e Bancadas)
 - **Raycast nos Fogareiros & Tripé GLP (`js/items/pressure-cooker.js`, `js/items/gas-tripod.js`):**

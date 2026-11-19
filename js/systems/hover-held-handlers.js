@@ -1024,8 +1024,6 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
 
   // No modo Posicionar (G/Q), prioriza o preview de posicionamento para que lousa/pia/outros alvos não congelem o ghost!
   if (ctx.placementMode) {
-    if (handleCookerLidSnapHover(ctx, setHoverPrompt)) return true;
-    if (handleFridgeStorageHover(ctx, setHoverPrompt)) return true;
     updateHeldItemPlacementPreview(ctx, rayNdc);
     return true;
   }
@@ -1051,9 +1049,5 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
   if (handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleFridgeStorageHover(ctx, setHoverPrompt)) return true;
 
-  if (ctx.placementMode) {
-    updateHeldItemPlacementPreview(ctx, rayNdc);
-    return true;
-  }
   return false;
 }

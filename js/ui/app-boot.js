@@ -47,6 +47,7 @@ import {
   showAdminNotice
 } from './modal-admin.js';
 import { setupMobileJoystick } from './mobile-controls.js';
+import { checkAndShowWhatsNewModal, showWhatsNewModal } from './whats-new-modal.js';
 
 function getMobileActionIcon(prompt) {
   const text = String(prompt || '').toLocaleLowerCase('pt-BR');
@@ -707,7 +708,15 @@ export function bootApp() {
   }, 20000);
 
   const verEl = $('app-version');
-  if (verEl) verEl.textContent = 'v' + getAppVersion();
+  if (verEl) {
+    verEl.textContent = 'v' + getAppVersion();
+    verEl.title = 'Clique para ver as novidades desta atualização';
+    verEl.classList.add('cursor-pointer', 'hover:text-emerald-300');
+    verEl.addEventListener('click', () => {
+      releaseInputForModal();
+      showWhatsNewModal(window.MYCO_VERSION || getAppVersion(), 0);
+    });
+  }
   fetch('VERSION?_=' + Date.now(), { cache: 'no-store' })
     .then((r) => (r.ok ? r.text() : ''))
     .then((v) => {
@@ -902,7 +911,7 @@ export function bootApp() {
       const pill = $('interact-pill');
       const hint = $('fps-hint');
       if (pill && Date.now() >= getToastUntil()) {
-        if (isTouch() && currentHoverPrompt) {
+        if ((isTouch() || mobilePlacementModeActive) && currentHoverPrompt) {
           pill.textContent = currentHoverPrompt;
           pill.classList.remove('hidden');
           if (hint) hint.style.opacity = '0';
@@ -1009,6 +1018,9 @@ export function bootApp() {
 
   tryResumeSession();
   if (window.setCampusCinemaLessons) window.setCampusCinemaLessons(LESSONS);
+  setTimeout(() => {
+    checkAndShowWhatsNewModal(window.MYCO_VERSION || getAppVersion());
+  }, 450);
   setTimeout(() => {
     checkForApkUpdate().catch(() => {});
   }, 1500);

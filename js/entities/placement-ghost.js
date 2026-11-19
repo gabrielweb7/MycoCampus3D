@@ -75,6 +75,14 @@ export function getPlacementBlockedReason() {
   return placementBlockedReason;
 }
 
+/**
+ * Indica se o item segurado deve ser ocultado da mão durante o modo posicionamento [G],
+ * evitando que equipamentos e itens bloqueiem o campo de visão e o fantasma.
+ */
+export function shouldHideHeldInPlacementMode(ctx) {
+  return !!(ctx && ctx.placementMode && ctx.heldItem);
+}
+
 export function createPlacementGhost(scene) {
   placementGhost = new THREE.Group();
   placementRing = new THREE.Mesh(
@@ -101,8 +109,18 @@ export function createPlacementGhost(scene) {
   return placementGhost;
 }
 
+function isInvisibleGhostMaterial(mat) {
+  if (!mat) return true;
+  if (Array.isArray(mat)) {
+    return mat.length === 0 || mat.every(isInvisibleGhostMaterial);
+  }
+  return mat.visible === false || mat.colorWrite === false || (!!mat.transparent && (mat.opacity || 0) <= 0.02);
+}
+
 function prepareGhostCloneMesh(rootGroup, matList) {
   rootGroup.traverse(function (ch) {
+    ch.matrixAutoUpdate = true;
+    ch.frustumCulled = false;
     ch.userData.ignoreRay = true;
     ch.userData.supportSurface = null;
     ch.userData.dynamicSurface = null;
@@ -114,14 +132,27 @@ function prepareGhostCloneMesh(rootGroup, matList) {
     ch.userData.isHood = false;
     ch.userData.isBurner = false;
     ch.userData.isStirrer = false;
-    if (ch.isPoints) {
+    if (!ch.visible || ch.isPoints || ch.isLine || ch.isSprite) {
       ch.visible = false;
       return;
     }
     if (ch.isMesh && ch.material) {
+      if (isInvisibleGhostMaterial(ch.material)) {
+        ch.visible = false;
+        return;
+      }
       ch.castShadow = false;
       ch.receiveShadow = false;
       var cloneOneMat = function (origM) {
+        if (origM.visible === false || origM.colorWrite === false || (origM.transparent && (origM.opacity || 0) <= 0.02)) {
+          var hiddenM = origM.clone();
+          hiddenM.visible = false;
+          hiddenM.opacity = 0;
+          hiddenM.colorWrite = false;
+          hiddenM.depthWrite = false;
+          matList.push(hiddenM);
+          return hiddenM;
+        }
         var m = origM.clone();
         m.userData._baseColor = m.color ? m.color.clone() : new THREE.Color(0xffffff);
         m.transparent = true;
@@ -142,6 +173,10 @@ function prepareGhostCloneMesh(rootGroup, matList) {
 
 export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
   if (!placementGhost || !item) return;
+  placementGhost.matrixAutoUpdate = true;
+  if (placementRing) placementRing.matrixAutoUpdate = true;
+  if (placementDot) placementDot.matrixAutoUpdate = true;
+  if (placementHoloWrap) placementHoloWrap.matrixAutoUpdate = true;
   var hasLid = !!(item.lidItem && item.lidItem.isAttached);
   if (placementGhostItemId !== item.id || placementGhostHasLid !== hasLid) {
     while (placementHoloWrap.children.length > 0) {
