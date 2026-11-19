@@ -2,6 +2,10 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.2.1] - 2026-11-18
+### Modais 100% Responsivos no Mobile (Scroll Interno & Fechamento Seguro)
+- Corrigido o layout de `#greenhouse-modal` e aplicada regra universal em `css/game.css` para todos os modais (`[id$="-modal"]`): altura máxima travada dentro da tela com *safe-area*, header fixo (`✕ Fechar` sempre visível), scroll interno suave (`touch-action: pan-y`) e fechamento tocando fora do card (`app-boot.js`, `modal-greenhouse.js`).
+
 ## [v1.2.0] - 2026-11-18
 ### Estufa Climatizada Inteligente (24 Bolos, Automação & Equipamentos 3D)
 - **Nova Estufa Industrial (`js/world/greenhouse.js`, `js/world/lab-tools.js`):**

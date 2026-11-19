@@ -263,6 +263,19 @@ function bindModalsAndToolbar() {
     btnCloseMycoteca.onclick = () => $('mycoteca-modal')?.classList.add('hidden');
   }
 
+  // Permite fechar qualquer modal tocando no fundo escuro fora do card (seguro no celular)
+  ['guide-modal', 'lesson-modal', 'ranking-modal', 'shop-modal', 'map-modal', 'quest-modal', 'admin-modal', 'mycoteca-modal'].forEach((mId) => {
+    const mEl = $(mId);
+    if (mEl) {
+      mEl.addEventListener('click', (e) => {
+        if (e.target === mEl) {
+          if (window.MycoAudio) window.MycoAudio.playClick();
+          mEl.classList.add('hidden');
+        }
+      });
+    }
+  });
+
   const btnEmotes = $('btn-open-emotes');
   if (btnEmotes) {
     btnEmotes.onclick = () => {

@@ -94,12 +94,59 @@ input, textarea, select, [contenteditable="true"] {
   max-height: 85dvh;
 }
 
+/* Garante que TODOS os modais caibam 100% na tela mobile (retrato/paisagem) com header fixo e scroll interno */
+[id$="-modal"] {
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)) !important;
+  box-sizing: border-box;
+}
+
+[id$="-modal"] > div {
+  width: min(94vw, 760px);
+  max-width: 94vw !important;
+  max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+[id$="-modal"] > div.modal-card-md {
+  width: min(94vw, 500px);
+}
+
+[id$="-modal"] > div > :first-child {
+  flex-shrink: 0 !important;
+}
+
+#guide-modal > div > nav,
+#shop-modal > div > div:nth-child(2),
+#admin-modal > div > div:nth-child(2),
+#admin-modal > div > #admin-notice {
+  flex-shrink: 0 !important;
+}
+
+#guide-modal > div > div:last-child,
+#lesson-modal > div > #lessons-body,
+#ranking-modal > div > #ranking-body,
+#shop-modal > div > #shop-grid,
+#map-modal > div > #map-sectors-grid,
+#quest-modal > div > #quest-body,
+#admin-modal > div > #admin-user-list,
+#greenhouse-modal > div > #greenhouse-modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+#apk-update-modal > div {
+  width: min(92vw, 390px);
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 #mycoteca-modal > div {
   width: min(94vw, 920px);
-  max-height: 86dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
 #mycoteca-grid {

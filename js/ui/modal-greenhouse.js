@@ -130,6 +130,13 @@ export function bindGreenhouseModalControls() {
     close();
   });
 
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      close();
+    }
+  });
+
   $('gh-btn-mode-auto')?.addEventListener('click', () => {
     if (window.MycoAudio) window.MycoAudio.playClick();
     applySettings({ autoMode: true });

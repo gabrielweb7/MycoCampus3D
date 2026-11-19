@@ -105,7 +105,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=1.2.0">
+  <link rel="stylesheet" href="css/game.css?v=1.2.1">
 </head>
 
 <body>
@@ -170,7 +170,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.2.0</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.2.1</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -586,20 +586,20 @@
   <!-- Estufa Climatizada Automática Modal -->
   <div id="greenhouse-modal"
     class="hidden fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-2 sm:p-4">
-    <div class="glass-panel rounded-2xl w-full max-w-3xl max-h-[90dvh] flex flex-col border border-emerald-500/45 overflow-hidden shadow-2xl">
-      <div class="p-4 border-b border-slate-700/60 flex flex-wrap items-center justify-between gap-2 bg-slate-900/50">
-        <div>
-          <h2 class="text-base sm:text-lg font-extrabold text-emerald-300">🍄 Estufa Climatizada Inteligente</h2>
-          <p class="text-xs text-slate-400">Umidificador Ultrassônico, Exaustor de CO₂, Climatizador 3 Fans &amp; 24 Bolos</p>
+    <div class="glass-panel rounded-2xl w-full flex flex-col border border-emerald-500/45 overflow-hidden shadow-2xl">
+      <div class="p-3 sm:p-4 border-b border-slate-700/60 flex items-center justify-between gap-2 bg-slate-900/50">
+        <div class="min-w-0">
+          <h2 class="text-sm sm:text-lg font-extrabold text-emerald-300 truncate">🍄 Estufa Climatizada</h2>
+          <p class="hidden sm:block text-xs text-slate-400">Umidificador Ultrassônico, Exaustor de CO₂, Climatizador 3 Fans &amp; 24 Bolos</p>
         </div>
-        <div class="flex items-center gap-2">
-          <span id="gh-status-badge" class="px-2.5 py-1 rounded-full text-xs font-bold border bg-emerald-500/20 border-emerald-400/40 text-emerald-300">Ideal (Auto)</span>
-          <button id="btn-close-greenhouse"
-            class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">✕ Fechar</button>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="gh-status-badge" class="px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border bg-emerald-500/20 border-emerald-400/40 text-emerald-300">Ideal (Auto)</span>
+          <button id="btn-close-greenhouse" type="button"
+            class="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-bold shrink-0">✕ Fechar</button>
         </div>
       </div>
 
-      <div class="p-4 overflow-y-auto space-y-4 text-xs">
+      <div id="greenhouse-modal-body" class="p-3 sm:p-4 overflow-y-auto space-y-3 sm:space-y-4 text-xs">
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div class="rounded-xl bg-slate-900/80 border border-sky-500/30 p-3">
             <div class="text-slate-400 text-[11px]">💧 Umidade (UR)</div>
@@ -708,9 +708,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '1.2.0';</script>
+  <script>window.MYCO_VERSION = '1.2.1';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=1.2.0"></script>
+  <script type="module" src="js/main.js?v=1.2.1"></script>
 </body>
 
 </html>
