@@ -4,6 +4,7 @@
 
 import { getHeldBoardToolColor } from './chalkboard.js';
 import { syncViewportCssVars } from '../ui/dom-helpers.js';
+import { setTelescopeZoom } from '../world/plaza-telescope.js';
 
 export function bindControls(ctx) {
   // Previne fechamento acidental da aba do navegador durante a sessão de jogo
@@ -88,6 +89,11 @@ export function bindControls(ctx) {
     if (e.code === 'Escape' && window.isCampusRadialMenuOpen && window.isCampusRadialMenuOpen()) {
       e.preventDefault();
       window.closeCampusRadialMenu();
+      return;
+    }
+    if (e.code === 'Escape' && ctx.telescopeZoomActive) {
+      e.preventDefault();
+      setTelescopeZoom(ctx, false);
       return;
     }
     if (e.code === 'Escape' && ctx.placementMode) {

@@ -3,6 +3,8 @@
  */
 
 import { triggerConfettiBurst } from '../entities/confetti.js';
+import { recordSportScore } from '../world/sports-scoreboard.js';
+import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
 
 function getBallStateKey(sb) {
   return sb.kind === 'soccer' ? 'ball_soccer' : 'ball_basket';
@@ -138,8 +140,10 @@ export function stepSportBalls(ctx, dt) {
     if (sb.kind === 'soccer' && sb.goalCooldown <= 0 && (bPos.x < -61.2 || bPos.x > -38.8) && Math.abs(bPos.z - (-15)) < 2.1 && bPos.y < 2.1) {
       sb.goalCooldown = 1.6;
       triggerConfettiBurst(bPos.x, bPos.y + 0.6, bPos.z);
+      const res = recordSportScore('soccer');
+      addLocalMycoCoins(res.coins);
       if (window.MycoAudio) window.MycoAudio.playHarvest();
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚽ GOOOOL! 🎉');
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast(`⚽ GOOOOL! Placar: ⚽ ${res.soccerGoals} (+🪙 ${res.coins} MycoCoins!)`);
       syncSportBallState(ctx, sb);
     }
 
@@ -151,8 +155,11 @@ export function stepSportBalls(ctx, dt) {
         if (hDist < 0.34 && Math.abs(bPos.y - hoop.y) < 0.25) {
           sb.goalCooldown = 1.6;
           triggerConfettiBurst(hoop.x, hoop.y + 0.3, hoop.z);
+          const res = recordSportScore('basketball');
+          addLocalMycoCoins(res.coins);
           if (window.MycoAudio) window.MycoAudio.playHarvest();
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🏀 CESTA! Chuá! 🎉');
+          const comboTxt = res.streak >= 2 ? ` 🔥 COMBO x${res.streak}!` : '';
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast(`🏀 CESTA!${comboTxt} Placar: 🏀 ${res.basketPoints} (+🪙 ${res.coins} MycoCoins!)`);
           syncSportBallState(ctx, sb);
           break;
         }

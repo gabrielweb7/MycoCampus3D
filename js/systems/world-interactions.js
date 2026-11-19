@@ -12,6 +12,7 @@ import { grabSportBall, throwHeldSportBall } from './sports-physics.js';
 import { registerDiscoveredSpecies, triggerMagicCubensisEffect } from './mycoteca.js';
 import { registerPickable } from '../items/item-registry.js';
 import { interactGardenTarget } from '../world/campus-garden.js';
+import { setTelescopeZoom } from '../world/plaza-telescope.js';
 
 function createPersistedMushroomMesh(isMagic) {
   const THREE = window.THREE;
@@ -301,6 +302,15 @@ export function handleWorldInteraction(ctx) {
     const msg = petCow(ctx.hoveredCow);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks && ctx.callbacks.onToast && msg) ctx.callbacks.onToast(msg);
+    return true;
+  }
+  if (ctx.hoveredTelescope) {
+    setTelescopeZoom(ctx, !ctx.telescopeZoomActive);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    return true;
+  }
+  if (ctx.telescopeZoomActive) {
+    setTelescopeZoom(ctx, false);
     return true;
   }
   if (ctx.hoveredBurnerTimer) {

@@ -294,6 +294,46 @@ export function handleScalpelTargetAction(ctx) {
     updateScalpelLabel(ctx.heldItem);
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
     ctx.notifyWorldAction();
+  } else if (target.mode === 'crossbreed' && target.item && target.item.mesh.userData.petriCtrl) {
+    const petri = target.item.mesh.userData.petriCtrl;
+    const aseptic = scalpel.sterile && !scalpel.cutContaminated && isAsepticWorkArea(ctx, target.item) && !!(ctx.wearingGloves && !ctx.glovesExpired);
+    if (!petri.lidOpen || petri.mode !== 'clean' || petri.contaminated) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Para cruzar cepas, abra uma Placa colonizada saudável no Fluxo Laminar.');
+      return;
+    }
+    if (!aseptic) {
+      petri.mode = 'contam';
+      petri.contaminated = true;
+      petri.colonized = false;
+      updatePetriVisual(target.item);
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Cruzamento falhou e contaminou! Use Fluxo Laminar higienizado, luvas e lâmina estéril.');
+    } else {
+      const isGold = ((petri.speciesName || '').length + (scalpel.biopsySpecies || '').length) % 2 === 0;
+      petri.hybridMutant = isGold ? 'gold' : 'albino';
+      petri.generation = 3;
+      const baseName = petri.speciesName || 'Psilocybe cubensis';
+      const variantTag = isGold ? '🌟 Linhagem Dourada F1' : '✨ Albino Híbrido F1';
+      petri.speciesName = `${baseName} • ${variantTag}`;
+      target.item.label = `🧫 Petri (${variantTag} T3 ⭐)`;
+      if (petri.colonyMat && petri.colonyMat.color) {
+        petri.colonyMat.color.setHex(isGold ? 0xfacc15 : 0xf8fafc);
+        if (petri.colonyMat.emissive) {
+          petri.colonyMat.emissive.setHex(isGold ? 0xca8a04 : 0xbae6fd);
+          petri.colonyMat.emissiveIntensity = 0.25;
+        }
+      }
+      if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
+      if (ctx.callbacks.onToast) {
+        ctx.callbacks.onToast(`🧬✨ SUCESSO! Cruzamento gerou cepa rara "${petri.speciesName}" (T3 Elite)!`);
+      }
+    }
+    scalpel.hasMycelium = false;
+    scalpel.isSporeSample = false;
+    scalpel.cutContaminated = false;
+    scalpel.biopsyAseptic = true;
+    updateScalpelLabel(ctx.heldItem);
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+    ctx.notifyWorldAction();
   } else if (target.mode === 'transfer_lc' && target.item && target.item.cultureCtrl) {
     const lc = target.item.cultureCtrl;
     const aseptic = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!(ctx.wearingGloves && !ctx.glovesExpired);

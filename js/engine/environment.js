@@ -4,6 +4,7 @@
 import { snowableEntries, getTextures } from './textures.js';
 import { stepRainbow } from './rainbow.js';
 import { updateCelestialSkyDome } from './sky-constellations.js';
+import { stepRainPuddles } from './rain-puddles.js';
 
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
@@ -81,6 +82,7 @@ export function updateDynamicEnvironment(dt, env) {
 
   const targetSnow = weatherMode === 'snow' ? 1 : 0;
   env.snowMix += (targetSnow - env.snowMix) * Math.min(1, dt * 0.25);
+  if (env.rainPuddles) stepRainPuddles(env.rainPuddles, weatherMode, dt);
 
   const skyCol = _cSkyWork.copy(_cSkyDay);
   if (sunY < 0.24 && sunY > -0.18) {

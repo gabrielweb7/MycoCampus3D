@@ -958,7 +958,27 @@ export function isHoldingPackOrCrateForStand(held) {
   if (!held) return false;
   if (held.deliveryCrateCtrl && held.deliveryCrateCtrl.packsCount > 0) return true;
   if (held.mushroomBagCtrl && held.mushroomBagCtrl.filled && held.mushroomBagCtrl.sealed) return true;
+  if (held.organicBasketCtrl && held.organicBasketCtrl.packsValue > 0) return true;
   return false;
+}
+
+function consumeHeldStandItem(ctx, held, packsVal) {
+  roadStandState.availablePacks += packsVal;
+  roadStandState.npcSpawnCooldown = Math.min(roadStandState.npcSpawnCooldown, 1.2);
+  if (held.mesh && held.mesh.parent) held.mesh.parent.remove(held.mesh);
+  disposeObjectResources(held.mesh);
+  if (Array.isArray(ctx.pickableItems)) {
+    const idx = ctx.pickableItems.indexOf(held);
+    if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+  }
+  if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
+    ctx.pickableMap.delete(held.id);
+  }
+  ctx.heldItem = null;
+  if (ctx.placementGhost) ctx.placementGhost.visible = false;
+  if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+  syncRoadStandVisual();
+  playAudio('playClick');
 }
 
 export function interactRoadsideStand(ctx) {
@@ -982,23 +1002,18 @@ export function interactRoadsideStand(ctx) {
     return true;
   }
 
+  if (held && held.organicBasketCtrl && held.organicBasketCtrl.packsValue > 0) {
+    const packsVal = held.organicBasketCtrl.packsValue;
+    consumeHeldStandItem(ctx, held, packsVal);
+    if (onToast) {
+      onToast(`🚗🧺 Cesta Orgânica da Horta (+${packsVal} lotes) colocada no Empório! Carros já estão vindo comprar!`);
+    }
+    if (ctx.notifyWorldAction) ctx.notifyWorldAction();
+    return true;
+  }
+
   if (held && held.mushroomBagCtrl && held.mushroomBagCtrl.filled && held.mushroomBagCtrl.sealed) {
-    roadStandState.availablePacks += 1;
-    roadStandState.npcSpawnCooldown = Math.min(roadStandState.npcSpawnCooldown, 1.2);
-    if (held.mesh && held.mesh.parent) held.mesh.parent.remove(held.mesh);
-    disposeObjectResources(held.mesh);
-    if (Array.isArray(ctx.pickableItems)) {
-      const idx = ctx.pickableItems.indexOf(held);
-      if (idx !== -1) ctx.pickableItems.splice(idx, 1);
-    }
-    if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
-      ctx.pickableMap.delete(held.id);
-    }
-    ctx.heldItem = null;
-    if (ctx.placementGhost) ctx.placementGhost.visible = false;
-    if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
-    syncRoadStandVisual();
-    playAudio('playClick');
+    consumeHeldStandItem(ctx, held, 1);
     if (onToast) {
       onToast('🚗📦 1 pacote selado colocado no Quiosque Drive-Thru! Um cliente de carro já está a caminho!');
     }

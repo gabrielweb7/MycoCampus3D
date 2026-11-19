@@ -689,6 +689,15 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
       };
       return true;
     }
+    if (sc.hasMycelium && petriCtrl && petriCtrl.mode === 'clean' && !petriCtrl.contaminated && !petriCtrl.hybridMutant) {
+      matched = {
+        mode: petriCtrl.lidOpen ? 'crossbreed' : 'open',
+        prompt: petriCtrl.lidOpen
+          ? '🧬 Cruzar genéticas na Placa de Petri (Gerar Híbrido Albino/Dourado)'
+          : '🧫 Abrir placa colonizada no Fluxo Laminar para cruzamento genético'
+      };
+      return true;
+    }
     if (sc.hasMycelium && sCand.cultureCtrl && !sCand.cultureCtrl.inoculated && !sCand.cultureCtrl.colonized &&
         !sCand.cultureCtrl.contaminated && sCand.mesh.userData.liquidCtrl && sCand.mesh.userData.liquidCtrl.volMl > 0) {
       matched = { mode: 'transfer_lc', prompt: '🧪 Inocular fragmento na Cultura Líquida' };
@@ -1084,7 +1093,9 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
       ctx.hoverHit = stHits[0];
       ctx.hoveredRoadSaleStand = true;
       hidePlacementGhost(ctx);
-      const count = held.deliveryCrateCtrl ? held.deliveryCrateCtrl.packsCount : 1;
+      const count = held.deliveryCrateCtrl
+        ? held.deliveryCrateCtrl.packsCount
+        : (held.organicBasketCtrl ? held.organicBasketCtrl.packsValue : 1);
       setHoverPrompt(ctx, `🚗💵 Colocar ${count} pacote(s) no Quiosque Drive-Thru da Estrada (Valor: 🪙 ${count * MYCOCOIN_PRICE_PER_PACK} MycoCoins — Clientes vêm de carro!)`);
       return true;
     }

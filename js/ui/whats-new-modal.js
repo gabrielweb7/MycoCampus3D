@@ -7,15 +7,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
-  '1.7.0': {
-    title: '✨ Novidades da Atualização v1.7.0',
-    subtitle: 'Seu campus ficou ainda mais mágico e completo! Veja o que mudou:',
+  '1.8.0': {
+    title: '✨ Novidades da Atualização v1.8.0',
+    subtitle: 'Novas mecânicas incríveis mantendo o FPS leve! Veja o que chegou:',
     items: [
-      { icon: '🌠', text: 'Estrelas cadentes, nomes das constelações no céu noturno, vagalumes permanentes na mata e janelas das casas iluminadas à noite!' },
-      { icon: '🪙', text: 'MycoCoins salvas na sua conta do servidor (MySQL) e visíveis no Ranking do Campus!' },
-      { icon: '🍄', text: 'Recompensas da Micoteca: ganhe bônus de 🪙 MycoCoins e medalhas ao descobrir 10, 25, 50, 75 e 100 espécies!' },
-      { icon: '🌧️', text: 'Som de chuva no telhado e trovões distantes em dias chuvosos, além de botão rápido [📦 Mover] na barra flutuante [1..4].' },
-      { icon: '🛒', text: 'Loja com aba de Equipamentos/Insumos, Pedidos VIP no Empório (+🪙 180) e Missão completa em 8 etapas.' }
+      { icon: '🔭', text: 'Luneta Astronômica na Praça: clique nela para dar zoom de 2.8x nas constelações e estrelas cadentes da noite!' },
+      { icon: '🧬', text: 'Cruzamento Genético (Albino & Dourado): use o bisturi com micélio sobre outra Placa colonizada no Fluxo Laminar para criar cepas F1 raras!' },
+      { icon: '🧺', text: 'Cestas Orgânicas da Horta: cada 3 tomates/alfaces colhidos rendem uma Cesta vendável no Empório Drive-Thru (+🪙 240)!' },
+      { icon: '🏆', text: 'Placar 3D na Quadra + Combo de Basquete/Futebol pagando +🪙 15 a +🪙 25 por gol ou cesta!' },
+      { icon: '💧', text: 'Poças reflexivas na Praça quando chove (1 único instanced draw call que some ao secar) + luz nas janelas à noite!' }
     ]
   }
 };

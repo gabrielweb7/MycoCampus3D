@@ -10,7 +10,10 @@ import { syncViewportCssVars } from '../ui/dom-helpers.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { createCelestialSkyDome } from '../engine/sky-constellations.js';
+import { createRainPuddles } from '../engine/rain-puddles.js';
 import { buildNatureWorld, buildPlaza, nightLampGlows } from '../world/nature-plaza.js';
+import { buildPlazaTelescope } from '../world/plaza-telescope.js';
+import { buildSportsScoreboard } from '../world/sports-scoreboard.js';
 import { buildExpandedForestAndMushrooms } from '../world/mushroom-species.js';
 import { createPastureAndCows } from '../entities/pasture-cows.js';
 import { buildStaircaseAndBridge, buildClockTowerAndAuditorium } from '../world/staircase-clock.js';
@@ -255,6 +258,9 @@ const sim = {
   moonDisc: null,
   starPoints: null,
   celestialDome: null,
+  rainPuddles: null,
+  hoveredTelescope: false,
+  telescopeZoomActive: false,
   nightLampGlows,
   envTime: 14,
   weatherPoints: null,
@@ -668,6 +674,9 @@ export function initCampus3D(containerId, cbs) {
     buildClockTowerAndAuditorium(wbCtx);
     buildCampusWingsAndEquipment(wbCtx);
     buildOuterCampus(wbCtx);
+    buildPlazaTelescope(wbCtx);
+    buildSportsScoreboard(sim.scene);
+    sim.rainPuddles = createRainPuddles(sim.scene);
     ensureCoreAdminPrefabs();
     restoreLocalWorldObjects(sim);
     createPastureAndCows(wbCtx);

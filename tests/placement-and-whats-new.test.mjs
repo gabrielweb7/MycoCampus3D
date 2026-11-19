@@ -107,18 +107,18 @@ test('updatePlacementGhostVisual funciona com userData circular (ownerItem no fo
   assert.equal(clonedRoot.children[0].visible, true);
 });
 
-test('RELEASE_NOTES_CATALOG tem notas simples da v1.7.0 e markPendingAutoUpdateNotice atualiza storage', () => {
-  const store = new Map([['myco_seen_whats_new_v', '1.6.0']]);
+test('RELEASE_NOTES_CATALOG tem notas simples da v1.8.0 e markPendingAutoUpdateNotice atualiza storage', () => {
+  const store = new Map([['myco_seen_whats_new_v', '1.7.0']]);
   globalThis.localStorage = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: (k) => store.delete(k)
   };
-  markPendingAutoUpdateNotice('1.7.0');
+  markPendingAutoUpdateNotice('1.8.0');
   assert.equal(store.get('myco_seen_whats_new_v'), undefined);
-  assert.equal(store.get('myco_just_updated_v'), '1.7.0');
-  assert.ok(RELEASE_NOTES_CATALOG['1.7.0']);
-  assert.ok(RELEASE_NOTES_CATALOG['1.7.0'].items.length >= 4);
+  assert.equal(store.get('myco_just_updated_v'), '1.8.0');
+  assert.ok(RELEASE_NOTES_CATALOG['1.8.0']);
+  assert.ok(RELEASE_NOTES_CATALOG['1.8.0'].items.length >= 4);
 });
 
 test('força dos cogumelos mantém cores sem mandala e só ativa gnomos após >3 doses', async () => {
@@ -219,4 +219,31 @@ test('SHOP_SUPPLIES e LAB_QUEST_STEPS estão completos e marcos da Micoteca dão
   assert.ok(lastRes.rewardMilestone);
   assert.equal(lastRes.rewardMilestone.count, 10);
   assert.equal(lastRes.rewardMilestone.coins, 50);
+});
+
+test('sports-scoreboard, rain-puddles e Cesta Orgânica da Horta funcionam sem overhead', async () => {
+  const { recordSportScore } = await import('../js/world/sports-scoreboard.js');
+  const { stepRainPuddles } = await import('../js/engine/rain-puddles.js');
+  const { isHoldingPackOrCrateForStand } = await import('../js/items/dehydration-packaging.js');
+
+  const s1 = recordSportScore('basketball');
+  assert.equal(s1.coins, 15);
+  assert.equal(s1.streak, 1);
+  const s2 = recordSportScore('basketball');
+  assert.equal(s2.coins, 25);
+  assert.equal(s2.streak, 2);
+
+  const puddleCtrl = {
+    inst: { visible: false, setMatrixAt() {}, instanceMatrix: { needsUpdate: false } },
+    mat: { opacity: 0 },
+    wetness: 0,
+    lastAppliedScale: -1
+  };
+  stepRainPuddles(puddleCtrl, 'clear', 1.0);
+  assert.equal(puddleCtrl.inst.visible, false);
+  stepRainPuddles(puddleCtrl, 'rain', 1.0);
+  assert.equal(puddleCtrl.inst.visible, true);
+  assert.ok(puddleCtrl.mat.opacity > 0);
+
+  assert.equal(isHoldingPackOrCrateForStand({ organicBasketCtrl: { packsValue: 2 } }), true);
 });

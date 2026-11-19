@@ -9,7 +9,7 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { getCachedCanvasTexture, disposeObjectResources } from '../items/item-registry.js';
+import { getCachedCanvasTexture, disposeObjectResources, registerPickable } from '../items/item-registry.js';
 import { resetMonotubToCleanEmpty } from '../items/monotub.js';
 import { createBanner } from './nature-plaza.js';
 
@@ -27,11 +27,44 @@ export const gardenState = {
   compostCakes: 1,
   soilRichness: 45, // 0..100%
   totalHarvested: 0,
+  readyBaskets: 0,
   compostFillMesh: null,
   basketItems: [],
   currentCompostFrac: 0.37,
   targetCompostFrac: 0.37
 };
+
+function makeOrganicGardenBasket(ctx, px, py, pz) {
+  const g = new THREE.Group();
+  const woodM = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.78 });
+  const tomM = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.32 });
+  const letM = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.65 });
+  const crateBase = makeBox(0.32, 0.14, 0.24, woodM);
+  crateBase.position.y = 0.07;
+  g.add(crateBase);
+  for (let i = 0; i < 2; i++) {
+    const tom = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), tomM);
+    tom.position.set(-0.06 + i * 0.11, 0.17, -0.03);
+    const letHead = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), letM);
+    letHead.position.set(-0.05 + i * 0.11, 0.165, 0.05);
+    g.add(tom, letHead);
+  }
+  const id = 'organic_basket_' + Date.now().toString(36);
+  const item = registerPickable(
+    ctx,
+    id,
+    '🧺 Cesta Orgânica da Horta (Tomates & Alface • Entregue no Empório +🪙 240!)',
+    g,
+    px, py, pz, 0, 0.18, 0.22,
+    {
+      category: 'produce',
+      purpose: 'Cesta fresca da horta adubada com micélio — venda no Empório Drive-Thru por MycoCoins',
+      weightGrams: 1800
+    }
+  );
+  item.organicBasketCtrl = { packsValue: 2 };
+  return item;
+}
 
 function updateHarvestBasketVisual() {
   if (!gardenState.basketItems || !gardenState.basketItems.length) return;
@@ -491,9 +524,27 @@ export function interactGardenTarget(ctx, target) {
   }
 
   if (target.type === 'harvest_basket') {
+    if (gardenState.readyBaskets > 0 && !ctx.heldItem) {
+      gardenState.readyBaskets--;
+      const px = ctx.playerPos ? ctx.playerPos.x : 16;
+      const py = ctx.playerPos ? ctx.playerPos.y : 0.2;
+      const pz = ctx.playerPos ? ctx.playerPos.z : 17;
+      const basketItem = makeOrganicGardenBasket(ctx, px, py, pz);
+      ctx.heldItem = basketItem;
+      ctx.lastPickupAt = performance.now();
+      if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(basketItem.label);
+      if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
+      if (onToast) {
+        onToast('🧺 Cesta Orgânica na mão! Leve ao Empório Drive-Thru na Estrada Sul para vender (+2 lotes = 🪙 240 MycoCoins)!');
+      }
+      return true;
+    }
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (onToast) {
-      onToast(`🧺 Cesta de Colheita Orgânica da Horta • ${gardenState.totalHarvested} colheita(s) acumuladas (Alfaces & Tomates cultivados no húmus de cogumelos)!`);
+      const need = 3 - (gardenState.totalHarvested % 3);
+      onToast(gardenState.readyBaskets > 0
+        ? `🧺 ${gardenState.readyBaskets} Cesta(s) pronta(s)! Esvazie as mãos para pegar e vender no Empório!`
+        : `🧺 Cesta Orgânica (${gardenState.totalHarvested} colheitas • faltam ${need} para montar 1 Cesta vendável no Empório)!`);
     }
     return true;
   }
@@ -504,6 +555,9 @@ export function interactGardenTarget(ctx, target) {
       pl.stage = 0;
       pl.growth = 0;
       gardenState.totalHarvested++;
+      if (gardenState.totalHarvested % 3 === 0) {
+        gardenState.readyBaskets++;
+      }
       updatePlantVisual(pl);
       updateHarvestBasketVisual();
       if (ctx.callbacks && ctx.callbacks.onHarvestMushroom) {

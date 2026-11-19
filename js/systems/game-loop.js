@@ -98,6 +98,7 @@ const _envArg = {
   moonDisc: null,
   starPoints: null,
   celestialDome: null,
+  rainPuddles: null,
   nightLampGlows: null,
   envSun: null,
   envHemi: null,
@@ -199,6 +200,7 @@ export function updateDynamicEnvironment(ctx, dt) {
   _envArg.moonDisc = ctx.moonDisc;
   _envArg.starPoints = ctx.starPoints;
   _envArg.celestialDome = ctx.celestialDome;
+  _envArg.rainPuddles = ctx.rainPuddles;
   _envArg.nightLampGlows = ctx.nightLampGlows;
   _envArg.envSun = ctx.envSun;
   _envArg.envHemi = ctx.envHemi;

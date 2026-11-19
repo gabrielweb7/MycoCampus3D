@@ -19,6 +19,7 @@ import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import { formatHoverInfo, updateHover3dBadge, hideHover3dBadge } from '../entities/hover-3d-badge.js';
 import { gardenHitMeshes, gardenState } from '../world/campus-garden.js';
 import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
+import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -222,6 +223,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredMushroomBagSealTarget = null;
   ctx.hoveredDeliveryCrateTarget = null;
   ctx.hoveredRoadSaleStand = false;
+  ctx.hoveredTelescope = false;
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
@@ -633,7 +635,9 @@ export function updateHoverRay(ctx, customNdc) {
       if (gt.type === 'compost_box') {
         prompt = `🌱 Caixa de Substrato da Horta (${gardenState.compostCakes} bolos • Fertilidade ${Math.round(gardenState.soilRichness)}%) • Traga Bolos Secos após 4 Flushs!`;
       } else if (gt.type === 'harvest_basket') {
-        prompt = `🧺 Cesta de Colheita Orgânica da Horta (${gardenState.totalHarvested} colheitas • Alfaces & Tomates do Húmus de Cogumelos)`;
+        prompt = gardenState.readyBaskets > 0
+          ? `🧺 Pegar Cesta Orgânica PRONTA (${gardenState.readyBaskets} disponível • Entregar no Empório +🪙 240)`
+          : `🧺 Cesta da Horta (${gardenState.totalHarvested} colheitas • Colha 3 plantas p/ montar Cesta vendável!)`;
       } else if (gt.type === 'plant' && gt.plant) {
         const pl = gt.plant;
         if (pl.stage === 2) {
@@ -645,6 +649,16 @@ export function updateHoverRay(ctx, customNdc) {
           prompt = `🌿 ${pl.name} • ${stTxt} (${Math.floor(pl.growth)}%) • Adube na Caixa de Substrato ao lado!`;
         }
       }
+    }
+  }
+  if (!prompt && telescopeHitMeshes.length > 0) {
+    const tHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(telescopeHitMeshes, false), 4.5);
+    if (tHit && tHit.object && tHit.object.userData && tHit.object.userData.isTelescope) {
+      ctx.hoverHit = tHit;
+      ctx.hoveredTelescope = true;
+      prompt = ctx.telescopeZoomActive
+        ? '🔭 Sair do Zoom da Luneta Astronômica'
+        : '🔭 Olhar na Luneta Astronômica (Zoom no Céu & Constelações)';
     }
   }
   if (!prompt && ctx.blindHitMeshes.length) {

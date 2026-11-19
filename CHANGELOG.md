@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.8.0] - 2026-11-19
+### Luneta na Praça, Poças de Chuva Instanciadas, Placar Esportivo, Cruzamento Genético & Cestas da Horta no Empório
+- **Luneta Astronômica & Poças de Chuva Leves (`js/world/plaza-telescope.js`, `js/engine/rain-puddles.js`, `js/engine/environment.js`):**
+  - Luneta interativa na Praça Central (`fov` 26° / 2.8x zoom) com overlay astronômico para observar as constelações e estrelas cadentes sem custo extra de FPS.
+  - Poças de chuva em `InstancedMesh` único (invisíveis e custo zero quando secas).
+- **Placar 3D nos Esportes (`js/world/sports-scoreboard.js`, `js/systems/sports-physics.js`):**
+  - Placar na quadra atualizado sob demanda (`CanvasTexture` sem redesenho por frame), combo streak de cestas e recompensas de `+🪙 15` a `+🪙 25 MycoCoins` por gol ou cesta.
+- **Cruzamento Genético & Cestas da Horta (`js/systems/lab-culture-actions.js`, `js/systems/hover-held-handlers.js`, `js/world/campus-garden.js`, `js/items/dehydration-packaging.js`):**
+  - Bisturi com micélio cruza cepas sobre outra Placa de Petri colonizada dentro do Fluxo Laminar para gerar `Albino Híbrido F1` ou `Linhagem Dourada F1`.
+  - Cada 3 alfaces/tomates orgânicos colhidos na Horta formam uma `Cesta Orgânica` vendável no Empório Drive-Thru (`+2` lotes / `+🪙 240 MycoCoins`).
+
 ## [v1.7.0] - 2026-11-19
 ### Estrelas Cadentes, Nomes das Constelações, Luz nas Janelas, MycoCoins no MySQL & Recompensas da Micoteca
 - **Céu & Noite Mais Vivos (`js/engine/sky-constellations.js`, `js/world/buildings.js`, `js/engine/environment.js`, `js/world/trip-gnomes.js`):**
