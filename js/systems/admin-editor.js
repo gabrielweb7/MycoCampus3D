@@ -17,6 +17,13 @@ import { makeMixingBowl } from '../items/mixing-bowl.js';
 import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
 import { makeInfraredThermometer } from '../items/thermometer.js';
 import { makeDehydrator } from '../items/dehydrator.js';
+import { makeMonotub24L } from '../items/monotub.js';
+import { makeSilicaStorageJar } from '../items/lab-advanced-tools.js';
+import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
+import { makeMushroomBag, makeDeliveryCrate } from '../items/dehydration-packaging.js';
+import { makeSyringe10ml } from '../items/syringe.js';
+import { makeFlocao500g } from '../items/flocao-corn.js';
+import { saveLocalMovedObject } from './world-objects-sync.js';
 import { moveItemWithSupported, dropSupportedItemsToGround } from './surface-group-move.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { apiPost } from '../services/api-client.js';
@@ -112,6 +119,87 @@ export function ensureCoreAdminPrefabs() {
     category: 'equipment',
     factory: (ctx, opts) => makeDehydrator(ctx, opts.id || ('dyn_dehydrator_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
   });
+
+  registerItemPrefab('monotub_24l', {
+    label: 'Caixa Monotub 24L',
+    category: 'equipment',
+    factory: (ctx, opts) => makeMonotub24L(ctx, opts.id || ('dyn_monotub_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('silica_jar', {
+    label: 'Pote com Sílica Gel',
+    category: 'equipment',
+    factory: (ctx, opts) => makeSilicaStorageJar(ctx, opts.id || ('dyn_silica_' + Date.now().toString(36)), opts.x, opts.y, opts.z, 0)
+  });
+
+  registerItemPrefab('spawn_jar', {
+    label: 'Vidro 800ml (Spawn)',
+    category: 'glassware',
+    factory: (ctx, opts) => makeSpawnJar800(ctx, opts.id || ('dyn_spawn_jar_' + Date.now().toString(36)), false, opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('spawn_bag', {
+    label: 'Bag de Cultivo 1,5kg',
+    category: 'glassware',
+    factory: (ctx, opts) => makeSpawnBag1500(ctx, opts.id || ('dyn_spawn_bag_' + Date.now().toString(36)), false, opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('mylar_bag', {
+    label: 'Saco Mylar (Embalagem)',
+    category: 'tools',
+    factory: (ctx, opts) => makeMushroomBag(ctx, opts.id || ('dyn_mylar_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('delivery_crate', {
+    label: 'Caixa de Entrega',
+    category: 'equipment',
+    factory: (ctx, opts) => makeDeliveryCrate(ctx, opts.id || ('dyn_crate_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('syringe_10ml', {
+    label: 'Seringa Estéril 10ml',
+    category: 'tools',
+    factory: (ctx, opts) => makeSyringe10ml(ctx, opts.id || ('dyn_syringe_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('flocao_500g', {
+    label: 'Flocão de Milho 500g',
+    category: 'tools',
+    factory: (ctx, opts) => makeFlocao500g(ctx, opts.id || ('dyn_flocao_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+}
+
+export function spawnShopItemNearPlayer(sim, prefabId) {
+  if (!sim) return null;
+  ensureCoreAdminPrefabs();
+  const px = sim.playerPos ? sim.playerPos.x : 0;
+  const pz = sim.playerPos ? sim.playerPos.z : 10;
+  const yaw = sim.playerYaw || 0;
+  const tx = px - Math.sin(yaw) * 1.15;
+  const tz = pz - Math.cos(yaw) * 1.15;
+  const baseY = sim.playerPos ? sim.playerPos.y : 0;
+  const ty = getItemGroundHeight(sim.physCtx, tx, tz, baseY + 1.2);
+  const item = spawnItemFromPrefab(sim, prefabId, { x: tx, y: ty, z: tz, ry: yaw });
+  if (!item) return null;
+  if (item.mesh && item.mesh.userData && item.mesh.userData.updateBounds) {
+    item.mesh.userData.updateBounds(item);
+  }
+  item.isMoved = true;
+  item.movedAt = performance.now();
+  sim.pendingMovedItems = sim.pendingMovedItems || {};
+  sim.pendingMovedItems[item.id] = {
+    id: item.id,
+    x: tx,
+    y: ty,
+    z: tz,
+    ry: yaw,
+    prefabId: prefabId
+  };
+  saveLocalMovedObject(item);
+  sim._stackPhysicsDirty = true;
+  markItemsFalling(sim);
+  if (sim.notifyWorldAction) sim.notifyWorldAction();
+  return item;
 }
 
 function removeFromArray(arr, val) {

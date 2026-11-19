@@ -1068,11 +1068,16 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       }
     }
 
+    const isVip = (roadStandState.totalSoldPacks % 3 === 2) || Math.random() < 0.28;
     roadStandState.activeNpcOrder = {
       profile,
+      isVip,
       phase: 'driving_in', // driving_in -> walking_to_stand -> paying_happy -> walking_to_car -> driving_away
       timer: 0
     };
+    if (isVip && actor.avatar && actor.avatar.labelSprite) {
+      updateTextSprite(actor.avatar.labelSprite, `⭐ VIP: ${profile.name}`, '#fde047');
+    }
     return;
   }
 
@@ -1157,9 +1162,10 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         }
       }
       if (soldOne) {
+        const earnedCoins = order.isVip ? Math.round(MYCOCOIN_PRICE_PER_PACK * 1.5) : MYCOCOIN_PRICE_PER_PACK;
         roadStandState.totalSoldPacks++;
-        roadStandState.totalCoinsEarned += MYCOCOIN_PRICE_PER_PACK;
-        const newBalance = addLocalMycoCoins(MYCOCOIN_PRICE_PER_PACK);
+        roadStandState.totalCoinsEarned += earnedCoins;
+        const newBalance = addLocalMycoCoins(earnedCoins);
         syncRoadStandVisual();
         actor.heldPack.visible = true;
         if (actor.avatar) {
@@ -1168,15 +1174,23 @@ export function stepRoadsideMushroomSales(ctx, dt) {
             if (actor.avatar.faceTex) actor.avatar.faceTex.needsUpdate = true;
           }
           if (actor.avatar.chatSprite) {
-            updateTextSprite(actor.avatar.chatSprite, '😍🍄 +🪙 120! Obrigado!', '#34d399');
+            updateTextSprite(
+              actor.avatar.chatSprite,
+              order.isVip ? `⭐😍 VIP +🪙 ${earnedCoins}!` : `😍🍄 +🪙 ${earnedCoins}! Obrigado!`,
+              order.isVip ? '#fde047' : '#34d399'
+            );
             actor.avatar.chatSprite.visible = true;
           }
         }
         if (ctx && ctx.callbacks && ctx.callbacks.onHarvestMushroom) {
           ctx.callbacks.onHarvestMushroom('sale_pack_' + roadStandState.totalSoldPacks);
         }
+        if (ctx && ctx.callbacks && ctx.callbacks.onLabStep) {
+          ctx.callbacks.onLabStep('sell_pack');
+        }
         if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast(`🚗💵 ${order.profile.name}: ${order.profile.quote} (Saldo: 🪙 ${newBalance} MycoCoins)`);
+          const vipPrefix = order.isVip ? `⭐ PEDIDO VIP (+🪙 ${earnedCoins})! ` : '';
+          ctx.callbacks.onToast(`🚗💵 ${vipPrefix}${order.profile.name}: ${order.profile.quote} (Saldo: 🪙 ${newBalance} MycoCoins)`);
         }
       }
     }

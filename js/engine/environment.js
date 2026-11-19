@@ -3,6 +3,7 @@
  */
 import { snowableEntries, getTextures } from './textures.js';
 import { stepRainbow } from './rainbow.js';
+import { updateCelestialSkyDome } from './sky-constellations.js';
 
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
@@ -10,7 +11,7 @@ const _Obj3DCtor = THREE && THREE.Object3D ? THREE.Object3D : null;
 
 const _cSkyDay = _ColorCtor ? new _ColorCtor(0x60a5fa) : null;
 const _cSkySunset = _ColorCtor ? new _ColorCtor(0xf97316) : null;
-const _cSkyNight = _ColorCtor ? new _ColorCtor(0x0b132b) : null;
+const _cSkyNight = _ColorCtor ? new _ColorCtor(0x05091a) : null;
 const _cSkyWork = _ColorCtor ? new _ColorCtor() : null;
 const _cPartly = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
 const _cOvercast = _ColorCtor ? new _ColorCtor(0x94a3b8) : null;
@@ -110,10 +111,19 @@ export function updateDynamicEnvironment(dt, env) {
     env.moonDisc.position.set(-sunX * 165, -sunY * 145, -45);
     env.moonDisc.visible = sunY < 0.08;
   }
-  if (env.starPoints) {
+  if (env.celestialDome) {
+    updateCelestialSkyDome(env.celestialDome, dayFrac, sunY, weatherMode, env.envTime);
+  } else if (env.starPoints) {
     const starOp = Math.max(0, Math.min(0.9, (-sunY - 0.02) * 2.4)) * (weatherMode === 'rain' || weatherMode === 'overcast' ? 0.2 : 1);
     env.starPoints.visible = starOp > 0.02;
     env.starPoints.material.opacity = starOp;
+  }
+  if (env.nightLampGlows && env.nightLampGlows.length) {
+    const nightFactor = Math.max(0, Math.min(1, (-sunY + 0.12) / 0.34));
+    const lampInt = 0.22 + nightFactor * 1.45;
+    for (let li = 0; li < env.nightLampGlows.length; li++) {
+      env.nightLampGlows[li].emissiveIntensity = lampInt;
+    }
   }
 
   if (env.envSun) {

@@ -685,6 +685,7 @@ export function interactMonotub(ctx, tubItem) {
         onToast(`🍄 Flush ${doneFlush}/${MONOTUB_MAX_FLUSHES} colhido! Cogumelo fresco na mão (leve à Desidratadora ou tire Esporos). Borrife água no bolo (${Math.round(mc.humidity)}% UR) p/ o Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}!`);
       }
     }
+    if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('monotub_harvest');
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
   }

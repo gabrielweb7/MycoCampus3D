@@ -472,7 +472,10 @@ export function stepPressureCookers(ctx, dt) {
           ctx.queueWorldStateChange(bId, 0);
           ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, 0);
         }
-        if (window.MycoAudio) window.MycoAudio.playSwitch();
+        if (window.MycoAudio) {
+          if (window.MycoAudio.playTimerDone) window.MycoAudio.playTimerDone();
+          else window.MycoAudio.playSwitch();
+        }
         if (ctx.callbacks && ctx.callbacks.onToast) {
           ctx.callbacks.onToast('⏰ Timer do Fogareiro (' + formatBurnerTimerLabel(bnd.timerPresetMin) + ') concluído! Desligado automaticamente.');
         }

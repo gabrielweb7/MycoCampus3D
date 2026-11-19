@@ -97,6 +97,8 @@ const _envArg = {
   sunHalo: null,
   moonDisc: null,
   starPoints: null,
+  celestialDome: null,
+  nightLampGlows: null,
   envSun: null,
   envHemi: null,
   isTouch: false,
@@ -196,6 +198,8 @@ export function updateDynamicEnvironment(ctx, dt) {
   _envArg.sunHalo = ctx.sunHalo;
   _envArg.moonDisc = ctx.moonDisc;
   _envArg.starPoints = ctx.starPoints;
+  _envArg.celestialDome = ctx.celestialDome;
+  _envArg.nightLampGlows = ctx.nightLampGlows;
   _envArg.envSun = ctx.envSun;
   _envArg.envHemi = ctx.envHemi;
   _envArg.isTouch = ctx.isTouchDevice();
@@ -411,6 +415,11 @@ export function startAnimationLoop(ctx) {
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);
       stepConfetti(dt);
+      if (typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.stepAmbience && ctx.playerPos) {
+        const sunYNow = Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2);
+        const insideWing = Math.abs(ctx.playerPos.x) > 13 && Math.abs(ctx.playerPos.x) < 25 && Math.abs(ctx.playerPos.z) < 16;
+        window.MycoAudio.stepAmbience(sunYNow, !insideWing, sunYNow < -0.05, dt);
+      }
 
       if (ctx.localEmoteTimer > 0) {
         ctx.localEmoteTimer -= dt;

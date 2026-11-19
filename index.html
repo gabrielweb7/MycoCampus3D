@@ -119,7 +119,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=1.5.0">
+  <link rel="stylesheet" href="css/game.css?v=1.6.0">
 </head>
 
 <body>
@@ -193,7 +193,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.5.0</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.6.0</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -213,12 +213,14 @@
         <span class="hidden sm:inline text-sky-300 font-bold" title="Jogadores Online">🌐 <span id="hud-online">1</span></span>
 
         <!-- Primary quick actions (always visible on mobile & desktop, compact so it never overflows) -->
+        <button id="btn-hud-clock" type="button" title="Ciclo Dia/Noite & Constelações (Clique para alternar horário)"
+          class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-indigo-950/75 hover:bg-indigo-800 text-amber-200 font-bold border border-indigo-400/50 flex items-center gap-1 whitespace-nowrap">☀️ 12:00</button>
         <button id="btn-open-map" type="button" title="Mapa & Teleporte Rápido" data-i18n-title="hud.map_title"
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️
           <span class="hidden sm:inline" data-i18n="hud.map">Mapa</span></button>
         <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório" data-i18n-title="hud.quest_title"
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪
-          <span class="hidden sm:inline" data-i18n="hud.quest">Missão</span> <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/5</span></button>
+          <span class="hidden sm:inline" data-i18n="hud.quest">Missão</span> <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/8</span></button>
         <button id="btn-open-shop" type="button" title="Loja de Cosméticos, Chapéus & Brinquedos" data-i18n-title="hud.shop_title"
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
           <span data-i18n="hud.shop">Loja</span></button>
@@ -462,12 +464,15 @@
       </div>
       <div
         class="px-5 py-2.5 bg-purple-950/40 border-b border-purple-500/20 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <button id="shop-tab-hats" data-i18n="modal.shop_hats"
             class="px-3 py-1 rounded-lg bg-purple-600 text-white font-bold text-xs transition">🎩 Chapéus</button>
           <button id="shop-tab-toys" data-i18n="modal.shop_toys"
             class="px-3 py-1 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🏂
             Brinquedos</button>
+          <button id="shop-tab-supplies"
+            class="px-3 py-1 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🧪
+            Equipamentos</button>
         </div>
         <div class="flex items-center gap-3 font-bold">
           <span class="text-yellow-300">🪙 <span id="shop-user-coins">250</span> MycoCoins</span>
@@ -847,9 +852,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '1.5.0';</script>
+  <script>window.MYCO_VERSION = '1.6.0';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=1.5.0"></script>
+  <script type="module" src="js/main.js?v=1.6.0"></script>
 </body>
 
 </html>

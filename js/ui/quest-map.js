@@ -5,6 +5,7 @@ import { appState } from '../core/state.js';
 import { apiPost } from '../services/api-client.js';
 import { $, escapeHtml, showFloatingToast } from './dom-helpers.js';
 import { updateUserHud } from './hud-lobby.js';
+import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
 
 export const CAMPUS_SECTORS = [
   { id: 'plaza', icon: '🏛️', name: 'Praça Central', desc: 'Ponto inicial, fonte e torre do relógio', x: 0, y: 0, z: 10.5, yaw: 0 },
@@ -20,11 +21,14 @@ export const CAMPUS_SECTORS = [
 ];
 
 export const LAB_QUEST_STEPS = [
-  { key: 'sanitize_hood', icon: '🧴', title: '1. Higienizar a Capela', desc: 'Pegue um Borrifador de Álcool 70% e borrife dentro da Capela de Fluxo Laminar.' },
-  { key: 'hood_on', icon: '🌬️', title: '2. Ligar o Fluxo Laminar', desc: 'Clique no interruptor da Capela de Fluxo Laminar para ligar o filtro HEPA.' },
-  { key: 'cooker_heat', icon: '🔥', title: '3. Esterilizar na Autoclave', desc: 'Coloque um frasco/bag na Panela de Pressão ou ligue o Fogareiro Industrial.' },
-  { key: 'syringe_use', icon: '💉', title: '4. Inocular com Seringa', desc: 'Use a Seringa 10ml em um frasco de Cultura Líquida ou spawn.' },
-  { key: 'greenhouse_care', icon: '🍄', title: '5. Cuidar da Estufa', desc: 'Vá até a Estufa e borrife água ou colha um bloco maduro de cogumelos.' }
+  { key: 'sanitize_hood', icon: '🧴', title: '1. Higienizar a Capela', desc: 'Pegue um Borrifador de Álcool 70% e borrife dentro da Capela de Fluxo Laminar.', coins: 30 },
+  { key: 'hood_on', icon: '🌬️', title: '2. Ligar o Fluxo Laminar', desc: 'Clique no interruptor da Capela de Fluxo Laminar para ligar o filtro HEPA.', coins: 30 },
+  { key: 'cooker_heat', icon: '🔥', title: '3. Esterilizar na Autoclave', desc: 'Coloque um frasco/bag na Panela de Pressão ou ligue o Fogareiro Industrial.', coins: 40 },
+  { key: 'syringe_use', icon: '💉', title: '4. Inocular com Seringa', desc: 'Use a Seringa 10ml em um frasco de Cultura Líquida ou spawn.', coins: 40 },
+  { key: 'greenhouse_care', icon: '🍄', title: '5. Cuidar da Estufa', desc: 'Vá até a Estufa e borrife água ou colha um bloco maduro de cogumelos.', coins: 45 },
+  { key: 'monotub_harvest', icon: '📦', title: '6. Colher no Monotub 24L', desc: 'Misture/nivele o substrato no Monotub LED e colha um flush maduro.', coins: 60 },
+  { key: 'dry_pack', icon: '♨️', title: '7. Desidratar & Embalar', desc: 'Seque cogumelos na Desidratadora (55°C), armazene com Sílica ou empacote no Saco Mylar.', coins: 75 },
+  { key: 'sell_pack', icon: '🚗', title: '8. Vender no Empório Drive-Thru', desc: 'Leve pacotes selados ou a Caixa de Entrega ao Empório da Estrada Sul!', coins: 100 }
 ];
 
 let labQuestDone = {};
@@ -68,9 +72,13 @@ export async function completeLabStep(stepKey) {
 
   let doneCount = 0;
   LAB_QUEST_STEPS.forEach((st) => { if (labQuestDone[st.key]) doneCount++; });
+  const coinBonus = stepObj.coins || 30;
+  addLocalMycoCoins(coinBonus);
+  updateUserHud();
 
   if (doneCount < LAB_QUEST_STEPS.length) {
-    showFloatingToast(`✅ Etapa concluída (${doneCount}/5): ${stepObj.title}`, 3600);
+    if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
+    showFloatingToast(`✅ Etapa concluída (${doneCount}/${LAB_QUEST_STEPS.length}): ${stepObj.title} (+🪙 ${coinBonus} MycoCoins!)`, 3800);
   } else {
     try {
       const res = await apiPost('api/auth.php?action=complete_lab_quest', {}, true);
@@ -78,10 +86,11 @@ export async function completeLabStep(stepKey) {
         appState.currentUser = res.user;
         updateUserHud();
         if (res.new_quest) {
-          if (window.MycoAudio) window.MycoAudio.playEmote('cheer');
-          showFloatingToast('🏆 Missão Prática 5/5 Concluída! +100 XP no seu perfil!', 4500);
+          if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
+          else if (window.MycoAudio) window.MycoAudio.playEmote('cheer');
+          showFloatingToast(`🏆 Jornada completa ${LAB_QUEST_STEPS.length}/${LAB_QUEST_STEPS.length}! +100 XP +🪙 ${coinBonus} MycoCoins!`, 4600);
         } else {
-          showFloatingToast('🧪 Missão Prática 5/5 completa!', 3200);
+          showFloatingToast(`🧪 Missão Prática ${LAB_QUEST_STEPS.length}/${LAB_QUEST_STEPS.length} completa!`, 3200);
         }
       }
     } catch (e) {}
@@ -127,7 +136,7 @@ export function renderQuestModal() {
   header.className = 'p-3 rounded-xl bg-slate-900/80 border border-emerald-500/30 space-y-1.5';
   header.innerHTML =
     `<div class="flex items-center justify-between font-bold text-white">` +
-    `<span>Progresso da Prática</span><span class="text-emerald-300">${doneCount}/5 (${pct}%)</span></div>` +
+    `<span>Progresso da Jornada</span><span class="text-emerald-300">${doneCount}/${LAB_QUEST_STEPS.length} (${pct}%)</span></div>` +
     `<div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">` +
     `<div class="h-full bg-emerald-400 transition-all" style="width:${pct}%"></div></div>`;
   body.appendChild(header);

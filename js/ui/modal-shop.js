@@ -21,6 +21,23 @@ export const COSMETIC_TOYS = [
   { id: 'paraglider', name: 'Paraglider MycoWing', desc: 'Salte das montanhas, pegue correntes térmicas e voe pelo campus! (Atalho: P)', req_xp: 150, req_mushrooms: 3, price_coins: 240, icon: '🪂' }
 ];
 
+export const SHOP_SUPPLIES = [
+  { id: 'sup_pp5', prefabId: 'pp5_cup', name: 'Copo PP5 145ml', desc: 'Recipiente extra para ágar PDA ou grãos.', price_coins: 30, icon: '🥤' },
+  { id: 'sup_syringe', prefabId: 'syringe_10ml', name: 'Seringa Estéril 10ml', desc: 'Nova seringa extra para inoculação rápida.', price_coins: 40, icon: '💉' },
+  { id: 'sup_petri', prefabId: 'petri_empty', name: 'Placa de Petri (PDA)', desc: 'Placa de cultivo para isolar genética.', price_coins: 45, icon: '🧫' },
+  { id: 'sup_mylar', prefabId: 'mylar_bag', name: 'Saco Mylar Metalizado', desc: 'Saco para embalar 10g/25g e vender no Empório.', price_coins: 45, icon: '🛍️' },
+  { id: 'sup_flocao', prefabId: 'flocao_500g', name: 'Flocão de Milho 500g', desc: 'Substrato nutritivo para potes PP5 e misturas.', price_coins: 50, icon: '🌽' },
+  { id: 'sup_spray', prefabId: 'alcohol_spray', name: 'Borrifador Álcool 70%', desc: 'Higienizador extra para suas bancadas.', price_coins: 60, icon: '🧴' },
+  { id: 'sup_spawn_jar', prefabId: 'spawn_jar', name: 'Vidro 800ml (Spawn)', desc: 'Mais espaço para cultivar grãos inoculados.', price_coins: 70, icon: '🫙' },
+  { id: 'sup_spawn_bag', prefabId: 'spawn_bag', name: 'Bag de Cultivo 1,5kg', desc: 'Saco filtrante grande de cultivo e colonização.', price_coins: 85, icon: '🍄' },
+  { id: 'sup_lc', prefabId: 'liquid_culture', name: 'Frasco Cultura Líquida 800ml', desc: 'Vidro com tampa de porta autoclavável.', price_coins: 90, icon: '🧪' },
+  { id: 'sup_crate', prefabId: 'delivery_crate', name: 'Caixa de Entrega', desc: 'Transporte até 4 pacotes direto para o Drive-Thru.', price_coins: 110, icon: '📤' },
+  { id: 'sup_silica', prefabId: 'silica_jar', name: 'Pote com Sílica Gel', desc: 'Conserve até 8 lotes de cogumelos crocantes.', price_coins: 140, icon: '💎' },
+  { id: 'sup_monotub', prefabId: 'monotub_24l', name: 'Caixa Monotub 24L', desc: 'Expanda sua produção com frutificação em massa.', price_coins: 260, icon: '📦' },
+  { id: 'sup_dehydrator', prefabId: 'dehydrator', name: 'Desidratadora de Cogumelos', desc: 'Seque mais lotes simultâneos até 0% umidade.', price_coins: 380, icon: '♨️' },
+  { id: 'sup_table', prefabId: 'table_stainless', name: 'Bancada Inox (1.6m)', desc: 'Mesa móvel adicional para ampliar seu laboratório.', price_coins: 320, icon: '🛠️' }
+];
+
 let activeShopTab = 'hats';
 
 function toast3D(msg) {
@@ -77,11 +94,63 @@ export function renderShopModal() {
 
   const tabHats = $('shop-tab-hats');
   const tabToys = $('shop-tab-toys');
+  const tabSupplies = $('shop-tab-supplies');
   if (tabHats && tabToys) {
     tabHats.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'hats' ? 'bg-purple-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
     tabToys.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'toys' ? 'bg-cyan-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+    if (tabSupplies) {
+      tabSupplies.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'supplies' ? 'bg-emerald-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+      tabSupplies.onclick = () => { activeShopTab = 'supplies'; renderShopModal(); };
+    }
     tabHats.onclick = () => { activeShopTab = 'hats'; renderShopModal(); };
     tabToys.onclick = () => { activeShopTab = 'toys'; renderShopModal(); };
+  }
+
+  if (activeShopTab === 'supplies') {
+    SHOP_SUPPLIES.forEach((sup) => {
+      const canBuy = userCoins >= sup.price_coins;
+      const card = document.createElement('div');
+      card.className = 'glass-panel rounded-xl p-3 flex flex-col justify-between border border-emerald-500/35';
+      card.innerHTML =
+        `<div class="space-y-1.5">` +
+          `<div class="flex items-center gap-2">` +
+            `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">${sup.icon}</span>` +
+            `<div>` +
+              `<div class="font-bold text-white text-xs">${escapeHtml(sup.name)}</div>` +
+              `<div class="text-[11px] text-slate-400">${escapeHtml(sup.desc)}</div>` +
+            `</div>` +
+          `</div>` +
+          `<div class="pt-1 text-[11px] font-bold text-yellow-300">🪙 ${sup.price_coins} MycoCoins</div>` +
+        `</div>`;
+      const btnWrap = document.createElement('div');
+      btnWrap.className = 'pt-3';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      if (canBuy) {
+        btn.className = 'w-full py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow transition';
+        btn.textContent = `🛒 Comprar & Entregar (🪙 ${sup.price_coins})`;
+        btn.onclick = () => {
+          const spawned = window.spawnCampusShopItem ? window.spawnCampusShopItem(sup.prefabId) : null;
+          if (!spawned) {
+            toast3D('⚠️ Entre no Campus 3D para receber sua entrega!');
+            return;
+          }
+          addLocalMycoCoins(-sup.price_coins);
+          if (window.MycoAudio && window.MycoAudio.playCashRegister) window.MycoAudio.playCashRegister();
+          updateUserHud();
+          $('shop-modal')?.classList.add('hidden');
+          toast3D(`📦 ${sup.name} entregue bem à sua frente!`);
+        };
+      } else {
+        btn.disabled = true;
+        btn.className = 'w-full py-1.5 rounded-lg bg-slate-800/80 text-slate-500 font-semibold text-xs border border-slate-700/40';
+        btn.textContent = `🔒 Faltam ${sup.price_coins - userCoins} MycoCoins`;
+      }
+      btnWrap.appendChild(btn);
+      card.appendChild(btnWrap);
+      grid.appendChild(card);
+    });
+    return;
   }
 
   const list = activeShopTab === 'toys' ? COSMETIC_TOYS : COSMETIC_HATS;

@@ -16,9 +16,52 @@ var rankingScroll = 0;
 var auditoriumCtx = null;
 var auditoriumTex = null;
 
-// Ciclo completo de 40 minutos reais (20 min dia + 20 min noite) sincronizado para todos via UTC
+var dayTimeOffsetFrac = null;
+var DAY_CYCLE_SECONDS = 1200; // Ciclo completo de 20 minutos reais (dia + entardecer + noite estrelada + amanhecer)
+
 export function getVirtualDayFrac() {
-  return ((Date.now() / 1000) % 2400) / 2400; // 0.0=00h, 0.25=06h, 0.50=12h, 0.75=18h
+  if (typeof dayTimeOffsetFrac === 'number') {
+    return ((dayTimeOffsetFrac + ((Date.now() / 1000) % DAY_CYCLE_SECONDS) / DAY_CYCLE_SECONDS) % 1 + 1) % 1;
+  }
+  return ((Date.now() / 1000) % DAY_CYCLE_SECONDS) / DAY_CYCLE_SECONDS; // 0.0=00h, 0.25=06h, 0.50=12h, 0.75=18h
+}
+
+const TIME_PRESETS = [
+  { name: 'Tempo Real', frac: null },
+  { name: 'Entardecer 🌅', frac: 0.74 },
+  { name: 'Noite Estrelada 🌌', frac: 0.94 },
+  { name: 'Amanhecer 🌄', frac: 0.25 },
+  { name: 'Meio-Dia ☀️', frac: 0.50 }
+];
+var timePresetIdx = 0;
+
+export function cycleDayTimePreset() {
+  timePresetIdx = (timePresetIdx + 1) % TIME_PRESETS.length;
+  const preset = TIME_PRESETS[timePresetIdx];
+  if (preset.frac === null) {
+    dayTimeOffsetFrac = null;
+  } else {
+    const base = ((Date.now() / 1000) % DAY_CYCLE_SECONDS) / DAY_CYCLE_SECONDS;
+    dayTimeOffsetFrac = ((preset.frac - base) % 1 + 1) % 1;
+  }
+  lastClockMin = -1;
+  return preset.name;
+}
+
+export function getFormattedCampusClock() {
+  var frac = getVirtualDayFrac();
+  var totalMin = Math.floor(frac * 1440);
+  var h = Math.floor(totalMin / 60) % 24;
+  var m = totalMin % 60;
+  var hh = (h < 10 ? '0' : '') + h;
+  var mm = (m < 10 ? '0' : '') + m;
+  var icon = (h >= 19 || h < 5) ? '🌌' : ((h === 5 || h === 6) ? '🌄' : ((h === 17 || h === 18) ? '🌅' : '☀️'));
+  return {
+    icon,
+    text: `${icon} ${hh}:${mm}`,
+    isNight: h >= 19 || h < 5,
+    hour: h
+  };
 }
 
 export function updateClockTexture() {

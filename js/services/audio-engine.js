@@ -486,6 +486,105 @@ export function playCarHonk() {
   } catch (e) {}
 }
 
+let ambienceTimer = 1.5;
+
+export function playTimerDone() {
+  const c = getAudioContext();
+  if (!c || getIsMuted()) return;
+  try {
+    const t = c.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      const st = t + i * 0.17;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1480, st);
+      g.gain.setValueAtTime(0.0001, st);
+      g.gain.exponentialRampToValueAtTime(0.11, st + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, st + 0.12);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(st);
+      osc.stop(st + 0.13);
+    }
+  } catch (e) {}
+}
+
+export function playQuestComplete() {
+  const c = getAudioContext();
+  if (!c || getIsMuted()) return;
+  try {
+    const t = c.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((f, i) => {
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      const st = t + i * 0.08;
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, st);
+      g.gain.setValueAtTime(0.0001, st);
+      g.gain.exponentialRampToValueAtTime(0.12, st + 0.018);
+      g.gain.exponentialRampToValueAtTime(0.0001, st + 0.25);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(st);
+      osc.stop(st + 0.26);
+    });
+  } catch (e) {}
+}
+
+export function stepAmbience(sunY, isOutdoors, isNight, dt) {
+  ambienceTimer -= dt || 0.016;
+  if (ambienceTimer > 0) return;
+  const c = audioCtx;
+  if (!c || c.state !== 'running' || getIsMuted()) {
+    ambienceTimer = 2.0;
+    return;
+  }
+  try {
+    const t = c.currentTime;
+    if (isNight && isOutdoors) {
+      ambienceTimer = 3.2 + Math.random() * 2.8;
+      for (let i = 0; i < 3; i++) {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        const st = t + i * 0.09;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(4150 + (i % 2) * 140, st);
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(0.018, st + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, st + 0.06);
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(st);
+        osc.stop(st + 0.07);
+      }
+    } else if (!isNight && isOutdoors && sunY > 0.05) {
+      ambienceTimer = 4.2 + Math.random() * 4.5;
+      const baseF = 1950 + Math.random() * 750;
+      for (let i = 0; i < 2; i++) {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        const st = t + i * 0.14;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseF, st);
+        osc.frequency.exponentialRampToValueAtTime(baseF * 1.32, st + 0.07);
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(0.022, st + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, st + 0.10);
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(st);
+        osc.stop(st + 0.11);
+      }
+    } else {
+      ambienceTimer = 3.0;
+    }
+  } catch (e) {
+    ambienceTimer = 4.0;
+  }
+}
+
 export const AudioEngine = {
   playFootstep,
   playHarvest,
@@ -497,12 +596,15 @@ export const AudioEngine = {
   playGreenhouseDoorBeep,
   playCashRegister,
   playCarHonk,
+  playTimerDone,
+  playQuestComplete,
   playSwitch,
   playGnomeGiggle,
   playUmbralWhisper,
   playBoing,
   playUfoBeam,
   setSteam,
+  stepAmbience,
   toggleMute,
   isMuted: getIsMuted,
   unlock

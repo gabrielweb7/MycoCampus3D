@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.6.0] - 2026-11-19
+### Dia/Noite & Constelações Reais, Loja de Insumos/Equipamentos, Pedidos VIP, Áudio Ambiente & Botão Mover Mobile
+- **Céu Dinâmico & Constelações Famosas (`js/engine/sky-constellations.js`, `js/engine/environment.js`, `js/world/staircase-clock.js`, `js/world/nature-plaza.js`, `index.html`):**
+  - Adicionada abóbada celeste rotativa com 7 constelações reais (Órion, Cruzeiro do Sul, Ursa Maior, Cassiopeia, Escorpião, Cisne e Plêiades), estrelas com cores espectrais e cintilação passando ao longo da noite, iluminação dos postes da praça ao anoitecer e botão `#btn-hud-clock` no HUD para alternar ou acompanhar o ciclo Dia/Noite.
+- **Loja de Equipamentos & Insumos + Persistência Completa (`js/ui/modal-shop.js`, `js/systems/admin-editor.js`, `js/systems/world-objects-sync.js`):**
+  - Nova aba `#shop-tab-supplies` (`SHOP_SUPPLIES`) na Loja permitindo comprar insumos, vidros, sílica gel, Monotubs, desidratadoras e bancadas com `🪙 MycoCoins`, entregues na frente do jogador com salvamento automático de prefabs e estados internos no `localStorage`.
+- **Missões 8 Etapas, Pedidos VIP, Áudio & Mobile (`js/ui/quest-map.js`, `js/items/dehydration-packaging.js`, `js/services/audio-engine.js`, `js/ui/mobile-controls.js`, `js/ui/app-boot.js`):**
+  - Jornada Prática ampliada para 8 etapas com recompensa em MycoCoins e som `playQuestComplete`; Clientes VIP no Drive-Thru pagando +50% (`🪙 180`); sons de alarme `playTimerDone` no fogareiro/desidratadora e ambiência dia/noite (`stepAmbience`); e botão `📦 Mover` visível também ao mirar itens no celular.
+
 ## [v1.5.0] - 2026-11-19
 ### Experiência Visual da "Força" Mais Limpa (Sem Mandala Girando) & Gnomos Após 3 Doses
 - **Remoção da Mandala Girando (`js/systems/mycoteca.js`, `css/game.css`):**

@@ -7,15 +7,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
-  '1.5.0': {
-    title: '✨ Novidades da Atualização v1.5.0',
-    subtitle: 'Seu jogo recebeu melhorias! Veja o que mudou:',
+  '1.6.0': {
+    title: '✨ Novidades da Atualização v1.6.0',
+    subtitle: 'Grande atualização do MycoCampus3D! Veja tudo o que chegou:',
     items: [
-      { icon: '🌈', text: 'Visual da força mais limpo: removida a mandala girando da tela, ficando só as cores bonitas; os gnomos agora só aparecem após comer mais de 3 vezes.' },
-      { icon: '🔥', text: 'Fantasminha do Fogareiro, Balança, Agitador e Bandeja aparecendo normalmente ao apertar [G] para posicionar.' },
-      { icon: '🔬', text: 'Lamparina a Álcool, Microscópio 1000x, Desidratadora e equipamentos já podem ser movidos livremente (clique, [G] ou Botão Direito).' },
-      { icon: '🗄️', text: 'Clique protegido na estante: persianas, portas e itens atrás de estantes, bancadas e paredes não abrem mais por acidente.' },
-      { icon: '📢', text: 'Aviso automático de novidades: sempre que o jogo atualizar, esta janelinha mostra o que mudou e fecha em 5s.' }
+      { icon: '🌌', text: 'Ciclo Dia/Noite com Constelações Famosas reais (Órion, Cruzeiro do Sul, Ursa Maior, Cassiopeia, Escorpião, Cisne e Plêiades) passando no céu + relógio no topo para trocar o horário quando quiser!' },
+      { icon: '🛒', text: 'Nova aba Equipamentos & Insumos na Loja: gaste suas 🪙 MycoCoins para comprar copos PP5, seringas, bags, sílica gel, Monotubs e desidratadoras extras!' },
+      { icon: '⭐', text: 'Pedidos VIP no Empório Drive-Thru pagando +50% bônus (🪙 180 MycoCoins) e Jornada Prática expandida para 8 missões recompensadoras.' },
+      { icon: '💾', text: 'Salvamento completo local de itens e estados (conteúdo, secagem, colonização) + sons de alarme ao concluir fogareiro/desidratadora e sons de natureza dia/noite.' },
+      { icon: '📦', text: 'Botão 📦 Mover dedicado também no celular ao mirar em microscópios, desidratadoras, geladeiras e bancadas.' }
     ]
   }
 };

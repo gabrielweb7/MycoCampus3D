@@ -107,18 +107,18 @@ test('updatePlacementGhostVisual funciona com userData circular (ownerItem no fo
   assert.equal(clonedRoot.children[0].visible, true);
 });
 
-test('RELEASE_NOTES_CATALOG tem notas simples da v1.5.0 e markPendingAutoUpdateNotice atualiza storage', () => {
-  const store = new Map([['myco_seen_whats_new_v', '1.4.9']]);
+test('RELEASE_NOTES_CATALOG tem notas simples da v1.6.0 e markPendingAutoUpdateNotice atualiza storage', () => {
+  const store = new Map([['myco_seen_whats_new_v', '1.5.0']]);
   globalThis.localStorage = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: (k) => store.delete(k)
   };
-  markPendingAutoUpdateNotice('1.5.0');
+  markPendingAutoUpdateNotice('1.6.0');
   assert.equal(store.get('myco_seen_whats_new_v'), undefined);
-  assert.equal(store.get('myco_just_updated_v'), '1.5.0');
-  assert.ok(RELEASE_NOTES_CATALOG['1.5.0']);
-  assert.ok(RELEASE_NOTES_CATALOG['1.5.0'].items.length >= 4);
+  assert.equal(store.get('myco_just_updated_v'), '1.6.0');
+  assert.ok(RELEASE_NOTES_CATALOG['1.6.0']);
+  assert.ok(RELEASE_NOTES_CATALOG['1.6.0'].items.length >= 4);
 });
 
 test('força dos cogumelos mantém cores sem mandala e só ativa gnomos após >3 doses', async () => {
@@ -162,4 +162,44 @@ test('força dos cogumelos mantém cores sem mandala e só ativa gnomos após >3
   assert.ok(byId.get('myco-magic-overlay'));
   resetMagicCubensisEffect();
   delete globalThis.document;
+});
+
+test('FAMOUS_CONSTELLATIONS inclui Órion, Cruzeiro do Sul, Ursa Maior, Escorpião e gira no céu noturno', async () => {
+  const {
+    FAMOUS_CONSTELLATIONS,
+    equatorialToDomeXYZ,
+    updateCelestialSkyDome
+  } = await import('../js/engine/sky-constellations.js');
+  const ids = FAMOUS_CONSTELLATIONS.map((c) => c.id);
+  assert.ok(ids.includes('orion'));
+  assert.ok(ids.includes('crux'));
+  assert.ok(ids.includes('ursa_major'));
+  assert.ok(ids.includes('cassiopeia'));
+  assert.ok(ids.includes('scorpius'));
+  const xyz = equatorialToDomeXYZ(88.8, 24.4, 204);
+  assert.equal(xyz.length, 3);
+  assert.ok(xyz[1] > 12);
+
+  const dome = {
+    group: { visible: false, rotation: { y: 0, z: 0 } },
+    bgMat: { opacity: 0 },
+    conStarMat: { opacity: 0 },
+    conLineMat: { opacity: 0 }
+  };
+  updateCelestialSkyDome(dome, 0.5, 0.8, 'clear', 10);
+  assert.equal(dome.group.visible, false);
+  updateCelestialSkyDome(dome, 0.94, -0.6, 'clear', 25);
+  assert.equal(dome.group.visible, true);
+  assert.ok(dome.conStarMat.opacity > 0.5);
+  assert.ok(dome.conLineMat.opacity > 0.1);
+  assert.notEqual(dome.group.rotation.y, 0);
+});
+
+test('SHOP_SUPPLIES e LAB_QUEST_STEPS estão completos para a v1.6.0', async () => {
+  const { SHOP_SUPPLIES } = await import('../js/ui/modal-shop.js');
+  const { LAB_QUEST_STEPS } = await import('../js/ui/quest-map.js');
+  assert.ok(SHOP_SUPPLIES.length >= 10);
+  assert.ok(SHOP_SUPPLIES.some((s) => s.prefabId === 'monotub_24l'));
+  assert.ok(SHOP_SUPPLIES.some((s) => s.prefabId === 'dehydrator'));
+  assert.equal(LAB_QUEST_STEPS.length, 8);
 });

@@ -6,7 +6,7 @@
 import { GAME_CONFIG } from '../core/config.js';
 import { getInitialQualityTier, qualityState, saveQualityMode } from '../core/quality.js';
 import { getGroundHeight, clampPosAgainstWalls } from '../engine/physics.js';
-import { updateCampusAuditoriumSlide, setRankingList } from '../world/staircase-clock.js';
+import { updateCampusAuditoriumSlide, setRankingList, cycleDayTimePreset, getFormattedCampusClock } from '../world/staircase-clock.js';
 import { triggerConfettiBurst } from '../entities/confetti.js';
 import { buildAvatarHat, updateCampusPlayers } from '../entities/avatars.js';
 import { createRoundParachuteMesh } from '../entities/vehicles/paraglider.js';
@@ -84,6 +84,33 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.setCampusJoystick = function (dx, dy) {
     sim.joyX = dx;
     sim.joyY = dy;
+  };
+
+  window.cycleCampusDayTime = function () {
+    const presetName = cycleDayTimePreset();
+    const clk = getFormattedCampusClock();
+    if (sim.callbacks && sim.callbacks.onToast) {
+      sim.callbacks.onToast(`🕰️ Horário do Céu: ${presetName} (${clk.text})`);
+    }
+    return clk;
+  };
+
+  window.getCampusClockInfo = function () {
+    return getFormattedCampusClock();
+  };
+
+  window.pickCampusHoveredItemForMove = function () {
+    return !sim.heldItem && sim.hoveredPickable && sim.pickHoveredItemForMove
+      ? sim.pickHoveredItemForMove()
+      : false;
+  };
+
+  window.hasCampusHoveredPickable = function () {
+    return !!(sim && !sim.heldItem && sim.hoveredPickable);
+  };
+
+  window.spawnCampusShopItem = function (prefabId) {
+    return adminEditor.spawnShopItemNearPlayer(sim, prefabId);
   };
 
   window.getCampusPlayerPose = function () {

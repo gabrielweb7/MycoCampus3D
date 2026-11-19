@@ -404,12 +404,18 @@ export function createBench(scene, seatMeshes, x, z, rotY) {
   g.traverse((ch) => { ch.matrixAutoUpdate = false; });
 }
 
+export const nightLampGlows = [];
+
 export function createCampusLamp(scene, x, z) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 3.4, 8), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.65 }));
   pole.position.y = 1.7; pole.castShadow = true;
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 10), new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfacc15, emissiveIntensity: 0.85 }));
+  const bulbMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfacc15, emissiveIntensity: 0.35 });
+  bulbMat.userData.keepPbr = true;
+  bulbMat.userData.shared = true;
+  nightLampGlows.push(bulbMat);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 10), bulbMat);
   bulb.position.y = 3.45;
   g.add(pole, bulb);
   scene.add(g);

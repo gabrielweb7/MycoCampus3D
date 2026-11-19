@@ -232,6 +232,11 @@ export function setupMobileJoystick() {
   }
 
   bindTouchTap($('btn-mobile-place'), () => {
-    if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
+    const pose = window.getCampusPlayerPose && window.getCampusPlayerPose();
+    if (pose && pose.holding_item) {
+      if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
+    } else if (window.pickCampusHoveredItemForMove) {
+      window.pickCampusHoveredItemForMove();
+    }
   });
 }

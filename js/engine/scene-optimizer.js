@@ -77,6 +77,7 @@ function collectDynamicObjects(sim) {
   markDynamicTree(sim.sunHalo);
   markDynamicTree(sim.moonDisc);
   markDynamicTree(sim.starPoints);
+  markDynamicTree(sim.celestialDome && sim.celestialDome.group);
   markDynamicTree(sim.weatherPoints);
   markDynamicTree(sim.envSun);
   markDynamicTree(sim.envSun && sim.envSun.target);

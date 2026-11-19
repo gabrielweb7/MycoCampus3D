@@ -213,10 +213,14 @@ export function stepDehydrators(ctx, dt) {
     if (dc.progress >= 100) {
       dc.crisp = true;
       updateDehydratorVisual(item);
+      if (typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.playTimerDone) {
+        window.MycoAudio.playTimerDone();
+      }
       if (ctx.markItemMoved) ctx.markItemMoved(item);
       if (ctx.callbacks && ctx.callbacks.onToast) {
         ctx.callbacks.onToast('✅ Desidratadora: 3 Cogumelos Crocantes (10g • 0% umidade) prontos!');
       }
+      if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('dry_pack');
     } else if (Math.floor(dc.progress) % 8 === 0) {
       updateDehydratorVisual(item);
     }

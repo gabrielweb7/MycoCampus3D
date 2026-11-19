@@ -16,6 +16,7 @@ import { PP5_STACK_SPACING, PP5_STACK_ALIGNMENT_RADIUS } from '../items/pp5-cup.
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
+import { spawnItemFromPrefab } from '../items/item-prefabs.js';
 
 const LOCAL_MOVED_STORAGE_KEY = 'myco_local_world_objects_v1';
 
@@ -38,15 +39,21 @@ function writeLocalMovedMap(map) {
   } catch (e) {}
 }
 
-export function saveLocalMovedObject(item) {
+export function saveLocalMovedObject(item, state) {
   if (!item || !item.id || !item.mesh) return;
   const map = readLocalMovedMap();
-  map[item.id] = {
+  const prev = map[item.id] || {};
+  const entry = {
     x: Number(item.mesh.position.x.toFixed(4)),
     y: Number(item.mesh.position.y.toFixed(4)),
     z: Number(item.mesh.position.z.toFixed(4)),
     ry: Number((item.mesh.rotation.y || 0).toFixed(4))
   };
+  const prefabId = (item.meta && item.meta.prefabId) || (item.mesh.userData && item.mesh.userData.prefabId) || prev.prefabId;
+  if (prefabId) entry.prefabId = prefabId;
+  if (state !== undefined) entry.state = state;
+  else if (prev.state !== undefined) entry.state = prev.state;
+  map[item.id] = entry;
   writeLocalMovedMap(map);
 }
 
@@ -59,7 +66,26 @@ export function restoreLocalWorldObjects(sim) {
   if (!sim || !Array.isArray(sim.pickableItems)) return;
   const localMap = readLocalMovedMap();
   if (!localMap || !Object.keys(localMap).length) return;
+  // Instancia primeiro quaisquer itens extras comprados na Loja / Prefabs salvos localmente
+  Object.keys(localMap).forEach((itemId) => {
+    const saved = localMap[itemId];
+    if (!saved || !saved.prefabId) return;
+    if (sim.findPickable && sim.findPickable(itemId)) return;
+    spawnItemFromPrefab(sim, saved.prefabId, {
+      id: itemId,
+      x: saved.x || 0,
+      y: saved.y || 0,
+      z: saved.z || 0,
+      ry: saved.ry || 0
+    });
+  });
   applyCampusWorldObjects(sim, localMap);
+  Object.keys(localMap).forEach((itemId) => {
+    const saved = localMap[itemId];
+    if (!saved || !saved.state) return;
+    const item = sim.findPickable ? sim.findPickable(itemId) : null;
+    if (item) applyReplicatedItemState(sim, item, saved.state);
+  });
 }
 
 export function markCampusInitialItemStatesApplied(sim) {
@@ -109,6 +135,7 @@ export function consumeCampusMovedItems(sim) {
       const signature = JSON.stringify(state);
       if (sim.itemStateSignatures[item.id] === signature) continue;
       sim.itemStateSignatures[item.id] = signature;
+      saveLocalMovedObject(item, state);
       const queued = byId[item.id] || (byId[item.id] = { id: item.id });
       queued.state = state;
       if (queued.x === undefined && (item.isMoved || item.id.indexOf('wild_picked_') === 0)) {

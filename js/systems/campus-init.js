@@ -9,7 +9,8 @@ import { getInitialQualityTier, getSavedQualityMode, qualityState } from '../cor
 import { syncViewportCssVars } from '../ui/dom-helpers.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
-import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
+import { createCelestialSkyDome } from '../engine/sky-constellations.js';
+import { buildNatureWorld, buildPlaza, nightLampGlows } from '../world/nature-plaza.js';
 import { buildExpandedForestAndMushrooms } from '../world/mushroom-species.js';
 import { createPastureAndCows } from '../entities/pasture-cows.js';
 import { buildStaircaseAndBridge, buildClockTowerAndAuditorium } from '../world/staircase-clock.js';
@@ -25,6 +26,7 @@ import {
   triggerGreenhouseVentPulse
 } from '../world/greenhouse.js';
 import { buildOuterCampus } from '../world/outer-campus.js';
+import { ensureCoreAdminPrefabs } from './admin-editor.js';
 import { initConfettiSystem } from '../entities/confetti.js';
 import { buildFirstPersonArm } from '../entities/first-person-arm.js';
 import { initThermoDisplay, createThermoLaserFx } from '../entities/thermo-laser.js';
@@ -252,6 +254,8 @@ const sim = {
   sunHalo: null,
   moonDisc: null,
   starPoints: null,
+  celestialDome: null,
+  nightLampGlows,
   envTime: 14,
   weatherPoints: null,
   weatherPosAttr: null,
@@ -551,19 +555,8 @@ export function initCampus3D(containerId, cbs) {
     );
     sim.scene.add(sim.sunDisc, sim.sunHalo, sim.moonDisc);
 
-    const starCount = 320;
-    const starPos = new Float32Array(starCount * 3);
-    for (let st = 0; st < starCount; st++) {
-      const sTheta = Math.random() * Math.PI * 2;
-      const sPhi = Math.random() * Math.PI * 0.44;
-      starPos[st * 3] = Math.cos(sTheta) * Math.cos(sPhi) * 210;
-      starPos[st * 3 + 1] = Math.sin(sPhi) * 210 + 18;
-      starPos[st * 3 + 2] = Math.sin(sTheta) * Math.cos(sPhi) * 210;
-    }
-    const starGeo = new THREE.BufferGeometry();
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    sim.starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xf8fafc, size: 1.4, transparent: true, opacity: 0, fog: false }));
-    sim.scene.add(sim.starPoints);
+    sim.celestialDome = createCelestialSkyDome(sim.scene);
+    sim.starPoints = sim.celestialDome ? sim.celestialDome.bgStars : null;
 
     sim.envCloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe0f2fe, emissiveIntensity: 0.22 });
     sim.envCloudMat.userData.keepPbr = true;
@@ -675,6 +668,7 @@ export function initCampus3D(containerId, cbs) {
     buildClockTowerAndAuditorium(wbCtx);
     buildCampusWingsAndEquipment(wbCtx);
     buildOuterCampus(wbCtx);
+    ensureCoreAdminPrefabs();
     restoreLocalWorldObjects(sim);
     createPastureAndCows(wbCtx);
     buildFirstPersonArm(sim.entityCtx);

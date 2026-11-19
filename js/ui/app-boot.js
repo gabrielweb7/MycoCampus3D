@@ -783,15 +783,29 @@ export function bootApp() {
         actBtn.title = currentHoverPrompt;
         actBtn.setAttribute('aria-label', currentHoverPrompt);
       }
+      const placeBtnHeld = $('btn-mobile-place');
+      if (placeBtnHeld) placeBtnHeld.style.display = 'flex';
     } else if (currentHoverPrompt) {
       actBtn.style.display = 'flex';
       actBtn.dataset.action = 'interact';
       actBtn.textContent = getMobileActionIcon(currentHoverPrompt);
       actBtn.title = currentHoverPrompt;
       actBtn.setAttribute('aria-label', currentHoverPrompt);
+      const placeBtnEmpty = $('btn-mobile-place');
+      const canMoveHovered = !!(window.hasCampusHoveredPickable && window.hasCampusHoveredPickable());
+      if (placeBtnEmpty) {
+        placeBtnEmpty.style.display = canMoveHovered ? 'flex' : 'none';
+        if (canMoveHovered) {
+          placeBtnEmpty.textContent = '📦';
+          placeBtnEmpty.title = 'Mover item para outro local';
+          placeBtnEmpty.classList.remove('placement-active');
+        }
+      }
     } else {
       actBtn.style.display = 'none';
       actBtn.dataset.action = '';
+      const placeBtnIdle = $('btn-mobile-place');
+      if (placeBtnIdle) placeBtnIdle.style.display = 'none';
     }
   }
 
@@ -1000,6 +1014,23 @@ export function bootApp() {
 
   bindModalsAndToolbar();
   bindChatAndShortcuts();
+
+  const hudClockBtn = $('btn-hud-clock');
+  const syncHudClockText = () => {
+    if (!hudClockBtn || !window.getCampusClockInfo) return;
+    const info = window.getCampusClockInfo();
+    if (info && info.text) hudClockBtn.textContent = info.text;
+  };
+  if (hudClockBtn) {
+    hudClockBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      if (window.cycleCampusDayTime) window.cycleCampusDayTime();
+      syncHudClockText();
+    });
+    setInterval(syncHudClockText, 1000);
+    setTimeout(syncHudClockText, 600);
+  }
 
   document.addEventListener('visibilitychange', () => {
     if (!appState.currentUser) return;
