@@ -2,7 +2,14 @@
  * Sincronizacao de Dispositivos Fixos, Lousas, Portas, Luzes, Estufa e Cinema (MycoCampus3D)
  */
 
-import { greenhouseSlots, greenhouseEnv, updateGreenhouseSlotMesh, updateGreenhousePanelDisplay } from '../world/greenhouse.js';
+import {
+  greenhouseSlots,
+  greenhouseEnv,
+  updateGreenhouseSlotMesh,
+  updateGreenhousePanelDisplay,
+  inferKindFromSpecies,
+  inferColorFromSpecies
+} from '../world/greenhouse.js';
 import { applyStrokeToBoard } from './chalkboard.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { setBurnerLevel } from '../items/pressure-cooker.js';
@@ -214,6 +221,9 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
   syncEnvNum('greenhouse_target_hum', (v) => { greenhouseEnv.targetHumidity = v; });
   syncEnvNum('greenhouse_target_co2', (v) => { greenhouseEnv.targetCo2 = v; });
   syncEnvNum('greenhouse_target_temp', (v) => { greenhouseEnv.targetTempC = v / 10; });
+  syncEnvNum('greenhouse_hum', (v) => { if (Math.abs(greenhouseEnv.humidity - v) > 4) greenhouseEnv.humidity = v; });
+  syncEnvNum('greenhouse_co2', (v) => { if (Math.abs(greenhouseEnv.co2Ppm - v) > 80) greenhouseEnv.co2Ppm = v; });
+  syncEnvNum('greenhouse_temp', (v) => { if (Math.abs(greenhouseEnv.tempC - (v / 10)) > 1.2) greenhouseEnv.tempC = v / 10; });
   syncEnvNum('greenhouse_humidifier', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.humidifierPower = v; });
   syncEnvNum('greenhouse_exhaust', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.exhaustPower = v; });
   syncEnvNum('greenhouse_cooler', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.coolerActive = Number(v) === 1; });
@@ -245,11 +255,16 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
       if (spName && slot.speciesName !== spName) {
         slot.speciesName = spName;
         slot.name = spName;
+        slot.kind = inferKindFromSpecies(spName);
+        slot.color = inferColorFromSpecies(spName);
         slotDirty = true;
       }
     }
     if (stateMap[kStage] !== undefined && sim.pendingStateChanges[kStage] === undefined && !(sim.recentlyChangedState[kStage] > now)) {
       const newStage = parseInt(stateMap[kStage], 10);
+      if (newStage >= 0 && slot.empty && stateMap[kEmpty] === undefined) {
+        slot.empty = false;
+      }
       if (!slot.empty && slot.stage !== newStage) {
         slot.stage = newStage;
         slotDirty = true;

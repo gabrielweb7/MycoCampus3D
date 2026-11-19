@@ -18,6 +18,7 @@ const {
   greenhouseEnv,
   stepGreenhouse,
   applyGreenhouseAutomationSettings,
+  restoreGreenhouseOptimal,
   triggerGreenhouseMistPulse,
   triggerGreenhouseVentPulse,
   isHoldingColonizedSpawn
@@ -39,13 +40,13 @@ test('estufa possui 24 lugares em 2 estantes x 3 andares com slots livres e ocup
 test('automação da estufa controla umidade, CO2, temperatura e crescimento dos bolos', () => {
   applyGreenhouseAutomationSettings({
     autoMode: true,
-    targetHumidity: 92,
-    targetCo2: 600,
-    targetTempC: 22.0,
+    targetHumidity: 90,
+    targetCo2: 650,
+    targetTempC: 23.0,
     lightOn: true
   });
   assert.equal(greenhouseEnv.autoMode, true);
-  assert.equal(greenhouseEnv.targetHumidity, 92);
+  assert.equal(greenhouseEnv.targetHumidity, 90);
 
   greenhouseEnv.humidity = 75;
   greenhouseEnv.co2Ppm = 1100;
@@ -60,6 +61,64 @@ test('automação da estufa controla umidade, CO2, temperatura e crescimento dos
   const prevCo2 = greenhouseEnv.co2Ppm;
   triggerGreenhouseVentPulse();
   assert.ok(greenhouseEnv.co2Ppm < prevCo2);
+});
+
+test('simulação de estresse biológico detecta excesso de umidade, secura, excesso de FAE, CO2 alto, calor e frio e recupera no Auto', () => {
+  const noopCtx = { queueWorldStateChange: () => {} };
+
+  // 1. Excesso de umidade (>95.5%)
+  applyGreenhouseAutomationSettings({ autoMode: false, humidifierPower: 3, exhaustPower: 0, coolerActive: true, targetTempC: 23.0, lightOn: true });
+  greenhouseEnv.humidity = 98;
+  greenhouseEnv.co2Ppm = 650;
+  greenhouseEnv.tempC = 23.0;
+  stepGreenhouse(noopCtx, 1.0);
+  assert.equal(greenhouseEnv.primaryStress, 'excess_humidity');
+  assert.ok(greenhouseSlots[0].health < 100);
+
+  // 2. Baixa umidade (<74%)
+  greenhouseEnv.humidity = 65;
+  stepGreenhouse(noopCtx, 1.0);
+  assert.equal(greenhouseEnv.primaryStress, 'low_humidity');
+
+  // 3. Excesso de FAE (exaustor forte + CO2 baixo + umidade <86%)
+  applyGreenhouseAutomationSettings({ autoMode: false, humidifierPower: 0, exhaustPower: 2, coolerActive: true, targetTempC: 23.0, lightOn: true });
+  greenhouseEnv.humidity = 82;
+  greenhouseEnv.co2Ppm = 430;
+  stepGreenhouse(noopCtx, 1.0);
+  assert.equal(greenhouseEnv.primaryStress, 'excess_fae');
+
+  // 4. CO2 alto (>1100 ppm)
+  applyGreenhouseAutomationSettings({ autoMode: false, humidifierPower: 1, exhaustPower: 0 });
+  greenhouseEnv.humidity = 89;
+  greenhouseEnv.co2Ppm = 1400;
+  stepGreenhouse(noopCtx, 1.0);
+  assert.equal(greenhouseEnv.primaryStress, 'high_co2');
+
+  // 5. Muito calor (>27°C)
+  greenhouseEnv.co2Ppm = 650;
+  greenhouseEnv.tempC = 29.0;
+  greenhouseEnv.coolerActive = false;
+  stepGreenhouse(noopCtx, 1.0);
+  assert.equal(greenhouseEnv.primaryStress, 'heat_stress');
+
+  // 6. Muito frio (<17.5°C)
+  applyGreenhouseAutomationSettings({ autoMode: false, coolerActive: true, targetTempC: 15.0 });
+  greenhouseEnv.tempC = 15.5;
+  stepGreenhouse(noopCtx, 1.0);
+  assert.equal(greenhouseEnv.primaryStress, 'cold_stress');
+
+  // 7. Restaurar ideal recupera saúde dos bolos
+  const healthBeforeHeal = greenhouseSlots[0].health;
+  restoreGreenhouseOptimal(noopCtx);
+  greenhouseEnv.humidity = 90;
+  greenhouseEnv.co2Ppm = 650;
+  greenhouseEnv.tempC = 23.0;
+  for (let i = 0; i < greenhouseSlots.length; i++) {
+    if (!greenhouseSlots[i].empty) greenhouseSlots[i].humidity = 90;
+  }
+  stepGreenhouse(noopCtx, 2.0);
+  assert.equal(greenhouseEnv.primaryStress, 'none');
+  assert.ok(greenhouseSlots[0].health > healthBeforeHeal);
 });
 
 test('isHoldingColonizedSpawn aceita bag/PP5 colonizado limpo e rejeita contaminado', () => {

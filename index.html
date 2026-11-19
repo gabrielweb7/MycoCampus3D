@@ -105,7 +105,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=1.2.1">
+  <link rel="stylesheet" href="css/game.css?v=1.2.2">
 </head>
 
 <body>
@@ -170,7 +170,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.2.1</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.2.2</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -600,22 +600,31 @@
       </div>
 
       <div id="greenhouse-modal-body" class="p-3 sm:p-4 overflow-y-auto space-y-3 sm:space-y-4 text-xs">
+        <div id="gh-health-alert" class="rounded-xl bg-emerald-950/60 border border-emerald-500/40 px-3 py-2 text-xs text-emerald-200 font-semibold flex flex-wrap items-center justify-between gap-2">
+          <span id="gh-health-alert-text">✅ Todos os bolos saudáveis • Microclima ideal</span>
+          <button id="gh-btn-auto-heal" type="button" class="hidden px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 font-extrabold text-[11px]">🤖 Restaurar Ideal</button>
+        </div>
+
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          <div class="rounded-xl bg-slate-900/80 border border-sky-500/30 p-3">
+          <div class="rounded-xl bg-slate-900/80 border border-sky-500/30 p-2.5 sm:p-3">
             <div class="text-slate-400 text-[11px]">💧 Umidade (UR)</div>
-            <div id="gh-val-hum" class="text-lg font-extrabold text-sky-300">88%</div>
+            <div id="gh-val-hum" class="text-base sm:text-lg font-extrabold text-sky-300">88%</div>
+            <div id="gh-sub-hum" class="text-[10px] text-slate-400">Umidificador: N1</div>
           </div>
-          <div class="rounded-xl bg-slate-900/80 border border-emerald-500/30 p-3">
+          <div class="rounded-xl bg-slate-900/80 border border-emerald-500/30 p-2.5 sm:p-3">
             <div class="text-slate-400 text-[11px]">🌬️ CO₂ (FAE)</div>
-            <div id="gh-val-co2" class="text-lg font-extrabold text-emerald-300">620 ppm</div>
+            <div id="gh-val-co2" class="text-base sm:text-lg font-extrabold text-emerald-300">620 ppm</div>
+            <div id="gh-sub-co2" class="text-[10px] text-slate-400">Exaustor: N1</div>
           </div>
-          <div class="rounded-xl bg-slate-900/80 border border-amber-500/30 p-3">
+          <div class="rounded-xl bg-slate-900/80 border border-amber-500/30 p-2.5 sm:p-3">
             <div class="text-slate-400 text-[11px]">🌡️ Temperatura</div>
-            <div id="gh-val-temp" class="text-lg font-extrabold text-amber-300">23.0°C</div>
+            <div id="gh-val-temp" class="text-base sm:text-lg font-extrabold text-amber-300">23.0°C</div>
+            <div id="gh-sub-temp" class="text-[10px] text-slate-400">3 Fans: ON</div>
           </div>
-          <div class="rounded-xl bg-slate-900/80 border border-purple-500/30 p-3">
-            <div class="text-slate-400 text-[11px]">💡 LED Grow</div>
-            <div id="gh-val-light" class="text-lg font-extrabold text-purple-300">ON</div>
+          <div class="rounded-xl bg-slate-900/80 border border-purple-500/30 p-2.5 sm:p-3">
+            <div class="text-slate-400 text-[11px]">❤️ Saúde Média</div>
+            <div id="gh-val-health" class="text-base sm:text-lg font-extrabold text-emerald-300">100%</div>
+            <div id="gh-val-light" class="text-[10px] text-purple-300">LED Grow: ON</div>
           </div>
         </div>
 
@@ -677,9 +686,12 @@
           </div>
           <div class="flex flex-wrap items-center justify-between gap-2">
             <span class="font-bold text-cyan-300">❄️ Climatizador (3 Ventoinhas):</span>
-            <div class="flex gap-1.5">
+            <div class="flex flex-wrap items-center gap-1.5">
               <button id="gh-cooler-off" type="button">OFF</button>
               <button id="gh-cooler-on" type="button">ON</button>
+              <button id="gh-manual-temp-minus" type="button" class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 font-bold">-</button>
+              <span id="gh-manual-temp-label" class="px-1.5 font-extrabold text-cyan-200">23.0°C</span>
+              <button id="gh-manual-temp-plus" type="button" class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 font-bold">+</button>
             </div>
           </div>
         </div>
@@ -708,9 +720,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '1.2.1';</script>
+  <script>window.MYCO_VERSION = '1.2.2';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=1.2.1"></script>
+  <script type="module" src="js/main.js?v=1.2.2"></script>
 </body>
 
 </html>

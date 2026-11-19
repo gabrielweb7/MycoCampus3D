@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.2.2] - 2026-11-18
+### Revisão Completa da Automação & Estresse Biológico da Estufa
+- **Simulação Real de Saúde (`health 0–100%`) e Estresse nos Bolos (`js/world/greenhouse.js`):**
+  - Detecta e penaliza crescimento/saúde em **Excesso de Umidade (>95,5%)**, **Baixa Umidade (<74%)**, **Excesso de FAE/Vento**, **CO₂ Alto (>1100 ppm)**, **Muito Calor (>27°C)**, **Muito Frio (<17,5°C)** e **Sem Luz LED Grow**, com recuperação gradual quando volta ao clima ideal.
+  - Ajustada a taxa de remoção de $\text{CO}_2$ do exaustor e o aquecimento ambiente ao desligar o climatizador (`29,5°C`).
+  - Corrigido o layout da tela LCD 3D para zero sobreposição e adicionada linha de alerta ao vivo.
+- **Painel & Multiplayer (`index.html`, `js/ui/modal-greenhouse.js`, `js/systems/world-devices-sync.js`):**
+  - Adicionado banner de diagnóstico com botão **"🤖 Restaurar Ideal"**, ajuste de temperatura direto no Modo Manual, status `❤️ Saúde %` e estresse em cada um dos 24 bolos, além de sincronização de `greenhouse_hum/co2/temp` e espécie/cor no multiplayer.
+
 ## [v1.2.1] - 2026-11-18
 ### Modais 100% Responsivos no Mobile (Scroll Interno & Fechamento Seguro)
 - Corrigido o layout de `#greenhouse-modal` e aplicada regra universal em `css/game.css` para todos os modais (`[id$="-modal"]`): altura máxima travada dentro da tela com *safe-area*, header fixo (`✕ Fechar` sempre visível), scroll interno suave (`touch-action: pan-y`) e fechamento tocando fora do card (`app-boot.js`, `modal-greenhouse.js`).

@@ -24,7 +24,7 @@ const SPECIES_PRESETS = [
   { name: 'Reishi Vermelho', sci: 'Ganoderma lucidum', color: 0xb91c1c, kind: 'shiitake' }
 ];
 
-function inferKindFromSpecies(speciesName) {
+export function inferKindFromSpecies(speciesName) {
   const s = String(speciesName || '').toLowerCase();
   if (s.includes('juba') || s.includes('hericium') || s.includes('lion')) return 'lion';
   if (s.includes('shimeji') || s.includes('pleurotus') || s.includes('ostra')) return 'shimeji';
@@ -32,7 +32,7 @@ function inferKindFromSpecies(speciesName) {
   return 'shiitake';
 }
 
-function inferColorFromSpecies(speciesName) {
+export function inferColorFromSpecies(speciesName) {
   const s = String(speciesName || '').toLowerCase();
   if (s.includes('dourad')) return 0xfacc15;
   if (s.includes('salm') || s.includes('rosa') || s.includes('djamor')) return 0xfb7185;
@@ -96,6 +96,9 @@ function buildInitialSlots() {
           flush: 1,
           humidity: isEmpty ? 85 : init.hum,
           growth: isEmpty ? 0 : init.growth,
+          health: 100,
+          stressType: 'none',
+          stressReason: '',
           color: preset.color,
           group: null,
           blockMesh: null,
@@ -129,6 +132,9 @@ export var greenhouseEnv = {
   exhaustPower: 1,    // 0=OFF, 1=Baixo, 2=Forte
   coolerActive: true,
   climateScore: 100,
+  avgHealth: 100,
+  primaryStress: 'none',
+  stressAdvice: '',
   statusLevel: 'optimal', // optimal | adjusting | alert
   statusLabel: 'Ideal (Auto)'
 };
@@ -225,6 +231,10 @@ function getGreenhouseCapMat(col, roughness, emissiveHex, emissiveInt) {
 function getSlotLedMaterial(slot) {
   const assets = getSharedGreenhouseAssets();
   if (slot.empty || slot.stage < 0) return assets.ledSlateMat;
+  if ((slot.health !== undefined && slot.health < 60) || (slot.stressType && slot.stressType !== 'none' && slot.health < 80)) {
+    return assets.ledRedMat;
+  }
+  if (slot.stressType && slot.stressType !== 'none') return assets.ledAmberMat;
   if (slot.stage === 3) return assets.ledGreenMat;
   if (slot.humidity < 60) return assets.ledRedMat;
   if (slot.humidity < 75) return assets.ledAmberMat;
@@ -475,6 +485,10 @@ export function updateGreenhouseSlotMesh(slot) {
   if (slot.ledMesh) {
     slot.ledMesh.material = getSlotLedMaterial(slot);
   }
+  if (slot.mushGroup) {
+    const hScale = slot.health !== undefined ? (0.72 + (Math.max(10, slot.health) / 100) * 0.28) : 1.0;
+    slot.mushGroup.scale.set(hScale, hScale, hScale);
+  }
 
   const stage = slot.stage;
   const col = slot.color;
@@ -578,41 +592,44 @@ export function updateGreenhousePanelDisplay() {
   c.lineWidth = 6;
   c.strokeRect(4, 4, w - 8, h - 8);
 
-  c.fillStyle = '#10b981';
-  c.font = 'bold 24px system-ui, sans-serif';
-  c.fillText('ESTUFA INTELIGENTE • ' + (greenhouseEnv.autoMode ? 'AUTO' : 'MANUAL'), 20, 38);
+  c.fillStyle = greenhouseEnv.statusLevel === 'alert' ? '#f87171' : '#10b981';
+  c.font = 'bold 22px system-ui, sans-serif';
+  c.fillText('ESTUFA • ' + (greenhouseEnv.autoMode ? 'AUTO' : 'MANUAL') + ' • ' + greenhouseEnv.statusLabel, 20, 36);
 
   c.fillStyle = '#94a3b8';
-  c.font = '18px system-ui, sans-serif';
+  c.font = '16px system-ui, sans-serif';
   let activeBlocks = 0;
   let matureBlocks = 0;
   for (let i = 0; i < greenhouseSlots.length; i++) {
     if (!greenhouseSlots[i].empty && greenhouseSlots[i].stage >= 0) activeBlocks++;
     if (!greenhouseSlots[i].empty && greenhouseSlots[i].stage === 3) matureBlocks++;
   }
-  c.fillText(`Bolos: ${activeBlocks}/${greenhouseSlots.length}   •   Maduros: ${matureBlocks}   •   Score: ${Math.round(greenhouseEnv.climateScore)}%`, 20, 68);
+  c.fillText(`Bolos: ${activeBlocks}/${greenhouseSlots.length}  •  Maduros: ${matureBlocks}  •  Saúde: ${Math.round(greenhouseEnv.avgHealth)}%`, 20, 64);
 
   c.fillStyle = '#0f172a';
-  c.fillRect(18, 84, w - 36, 182);
+  c.fillRect(16, 80, w - 32, 188);
 
-  c.font = 'bold 22px monospace';
-  c.fillStyle = '#38bdf8';
-  c.fillText(`💧 UR: ${Math.round(greenhouseEnv.humidity)}% (Alvo ${greenhouseEnv.targetHumidity}%)`, 30, 120);
+  c.font = 'bold 18px monospace';
+  c.fillStyle = greenhouseEnv.humidity > 95 || greenhouseEnv.humidity < 75 ? '#f87171' : '#38bdf8';
+  c.fillText(`UR: ${Math.round(greenhouseEnv.humidity)}% (Alvo ${greenhouseEnv.targetHumidity}%)`, 26, 114);
   c.fillStyle = greenhouseEnv.humidifierPower > 0 ? '#34d399' : '#64748b';
-  c.fillText(`UMID: ${greenhouseEnv.humidifierPower > 0 ? 'N' + greenhouseEnv.humidifierPower : 'OFF'}`, 350, 120);
+  c.fillText(`UMID: ${greenhouseEnv.humidifierPower > 0 ? 'N' + greenhouseEnv.humidifierPower : 'OFF'}`, 356, 114);
 
-  c.fillStyle = greenhouseEnv.co2Ppm > 1200 ? '#f87171' : '#a7f3d0';
-  c.fillText(`🌬️ CO2: ${Math.round(greenhouseEnv.co2Ppm)}ppm (${greenhouseEnv.targetCo2})`, 30, 162);
+  c.fillStyle = greenhouseEnv.co2Ppm > 1100 ? '#f87171' : '#a7f3d0';
+  c.fillText(`CO2: ${Math.round(greenhouseEnv.co2Ppm)}ppm (${greenhouseEnv.targetCo2})`, 26, 152);
   c.fillStyle = greenhouseEnv.exhaustPower > 0 ? '#34d399' : '#64748b';
-  c.fillText(`EXAU: ${greenhouseEnv.exhaustPower > 0 ? 'N' + greenhouseEnv.exhaustPower : 'OFF'}`, 350, 162);
+  c.fillText(`EXAU: ${greenhouseEnv.exhaustPower > 0 ? 'N' + greenhouseEnv.exhaustPower : 'OFF'}`, 356, 152);
 
-  c.fillStyle = '#fde68a';
-  c.fillText(`🌡️ TEMP: ${greenhouseEnv.tempC.toFixed(1)}°C (Alvo ${greenhouseEnv.targetTempC}°)`, 30, 204);
+  c.fillStyle = (greenhouseEnv.tempC > 27 || greenhouseEnv.tempC < 17.5) ? '#f87171' : '#fde68a';
+  c.fillText(`TEMP: ${greenhouseEnv.tempC.toFixed(1)}C (Alvo ${greenhouseEnv.targetTempC.toFixed(1)}C)`, 26, 190);
   c.fillStyle = greenhouseEnv.coolerActive ? '#38bdf8' : '#64748b';
-  c.fillText(`3FAN: ${greenhouseEnv.coolerActive ? 'ON' : 'OFF'}`, 350, 204);
+  c.fillText(`3FAN: ${greenhouseEnv.coolerActive ? 'ON' : 'OFF'}`, 356, 190);
 
-  c.fillStyle = greenhouseEnv.lightOn ? '#fef08a' : '#64748b';
-  c.fillText(`💡 LED GROW: ${greenhouseEnv.lightOn ? 'LIGADO' : 'DESLIGADO'}   [CLIQUE P/ CONFIG]`, 30, 246);
+  c.fillStyle = greenhouseEnv.primaryStress !== 'none' ? '#fb7185' : (greenhouseEnv.lightOn ? '#fef08a' : '#94a3b8');
+  const bottomLine = greenhouseEnv.primaryStress !== 'none'
+    ? `ALERTA: ${greenhouseEnv.stressAdvice}`.slice(0, 42)
+    : `LED GROW: ${greenhouseEnv.lightOn ? 'LIGADO' : 'OFF'}  •  CLIQUE P/ CONFIG`;
+  c.fillText(bottomLine, 26, 238);
 
   panelLcdTex.needsUpdate = true;
 
@@ -945,9 +962,9 @@ export function buildGreenhouseBench(scene, ctx) {
 export function applyGreenhouseAutomationSettings(partial, ctx) {
   if (!partial || typeof partial !== 'object') return;
   if (typeof partial.autoMode === 'boolean') greenhouseEnv.autoMode = partial.autoMode;
-  if (typeof partial.targetHumidity === 'number') greenhouseEnv.targetHumidity = Math.max(65, Math.min(96, Math.round(partial.targetHumidity)));
-  if (typeof partial.targetCo2 === 'number') greenhouseEnv.targetCo2 = Math.max(420, Math.min(1500, Math.round(partial.targetCo2)));
-  if (typeof partial.targetTempC === 'number') greenhouseEnv.targetTempC = Math.max(16, Math.min(28, Math.round(partial.targetTempC * 2) / 2));
+  if (typeof partial.targetHumidity === 'number') greenhouseEnv.targetHumidity = Math.max(55, Math.min(98, Math.round(partial.targetHumidity)));
+  if (typeof partial.targetCo2 === 'number') greenhouseEnv.targetCo2 = Math.max(420, Math.min(2000, Math.round(partial.targetCo2)));
+  if (typeof partial.targetTempC === 'number') greenhouseEnv.targetTempC = Math.max(14, Math.min(32, Math.round(partial.targetTempC * 2) / 2));
   if (typeof partial.lightOn === 'boolean') greenhouseEnv.lightOn = partial.lightOn;
   if (typeof partial.humidifierPower === 'number') greenhouseEnv.humidifierPower = Math.max(0, Math.min(3, Math.round(partial.humidifierPower)));
   if (typeof partial.exhaustPower === 'number') greenhouseEnv.exhaustPower = Math.max(0, Math.min(2, Math.round(partial.exhaustPower)));
@@ -964,6 +981,16 @@ export function applyGreenhouseAutomationSettings(partial, ctx) {
     ctx.queueWorldStateChange('greenhouse_cooler', greenhouseEnv.coolerActive ? 1 : 0);
     ctx.queueWorldStateChange('greenhouse_light', greenhouseEnv.lightOn ? 1 : 0);
   }
+}
+
+export function restoreGreenhouseOptimal(ctx) {
+  return applyGreenhouseAutomationSettings({
+    autoMode: true,
+    targetHumidity: 90,
+    targetCo2: 650,
+    targetTempC: 23.0,
+    lightOn: true
+  }, ctx);
 }
 
 export function triggerGreenhouseMistPulse(ctx) {
@@ -1162,6 +1189,66 @@ export function interactGreenhouseSlot(slot, ctx) {
   }
 }
 
+function evaluateClimateStress() {
+  if (greenhouseEnv.tempC > 27.0) {
+    return {
+      type: 'heat_stress',
+      reason: 'Muito calor',
+      advice: `Muito calor (${greenhouseEnv.tempC.toFixed(1)}°C) — Ligue o Climatizador ou reduza a temp. para 20–25°C`,
+      severity: Math.min(3, (greenhouseEnv.tempC - 27.0) * 0.9 + 0.6)
+    };
+  }
+  if (greenhouseEnv.tempC < 17.5) {
+    return {
+      type: 'cold_stress',
+      reason: 'Muito frio',
+      advice: `Muito frio (${greenhouseEnv.tempC.toFixed(1)}°C) — Ajuste o Climatizador para 20–25°C`,
+      severity: Math.min(3, (17.5 - greenhouseEnv.tempC) * 0.9 + 0.6)
+    };
+  }
+  if (greenhouseEnv.humidity > 95.5) {
+    return {
+      type: 'excess_humidity',
+      reason: 'Excesso de umidade',
+      advice: `Excesso de umidade (${Math.round(greenhouseEnv.humidity)}% UR) — Risco de encharcar! Reduza umidificador ou ligue exaustor`,
+      severity: Math.min(3, (greenhouseEnv.humidity - 95.0) * 0.75 + 0.7)
+    };
+  }
+  if (greenhouseEnv.humidity < 74.0) {
+    return {
+      type: 'low_humidity',
+      reason: 'Ar seco / baixa umidade',
+      advice: `Baixa umidade (${Math.round(greenhouseEnv.humidity)}% UR) — Bolos ressecando! Aumente o umidificador (alvo 85–92%)`,
+      severity: Math.min(3, (74.0 - greenhouseEnv.humidity) * 0.16 + 0.6)
+    };
+  }
+  if (greenhouseEnv.exhaustPower === 2 && greenhouseEnv.co2Ppm < 470 && greenhouseEnv.humidity < 86) {
+    return {
+      type: 'excess_fae',
+      reason: 'Excesso de FAE / Vento',
+      advice: `Excesso de FAE (${Math.round(greenhouseEnv.co2Ppm)} ppm + vento forte) — Diminua o exaustor para não secar os bolos`,
+      severity: 1.2
+    };
+  }
+  if (greenhouseEnv.co2Ppm > 1100) {
+    return {
+      type: 'high_co2',
+      reason: 'CO₂ alto (pouco FAE)',
+      advice: `CO₂ alto (${Math.round(greenhouseEnv.co2Ppm)} ppm) — Ligue ou aumente o Exaustor para renovar o ar`,
+      severity: Math.min(3, (greenhouseEnv.co2Ppm - 1100) / 350 + 0.6)
+    };
+  }
+  if (!greenhouseEnv.lightOn) {
+    return {
+      type: 'no_light',
+      reason: 'Sem luz LED Grow',
+      advice: 'LED Grow desligado — Ligue a iluminação para formação saudável dos chapéus',
+      severity: 0.55
+    };
+  }
+  return { type: 'none', reason: '', advice: '', severity: 0 };
+}
+
 export function stepGreenhouse(ctx, dt) {
   let activeCount = 0;
   for (let i = 0; i < greenhouseSlots.length; i++) {
@@ -1177,11 +1264,11 @@ export function stepGreenhouse(ctx, dt) {
     else greenhouseEnv.humidifierPower = 0;
 
     const co2Diff = greenhouseEnv.co2Ppm - greenhouseEnv.targetCo2;
-    if (co2Diff > 160) greenhouseEnv.exhaustPower = 2;
-    else if (co2Diff > -30) greenhouseEnv.exhaustPower = 1;
+    if (co2Diff > 180) greenhouseEnv.exhaustPower = 2;
+    else if (co2Diff > -40) greenhouseEnv.exhaustPower = 1;
     else greenhouseEnv.exhaustPower = 0;
 
-    greenhouseEnv.coolerActive = Math.abs(greenhouseEnv.tempC - greenhouseEnv.targetTempC) > 0.25 || activeCount > 0;
+    greenhouseEnv.coolerActive = Math.abs(greenhouseEnv.tempC - greenhouseEnv.targetTempC) > 0.20 || activeCount > 0;
   }
 
   // 2. Dinâmica física de Umidade, CO2 e Temperatura da Câmara
@@ -1191,11 +1278,11 @@ export function stepGreenhouse(ctx, dt) {
   greenhouseEnv.humidity = Math.max(32, Math.min(99, greenhouseEnv.humidity + (mistGain - exhaustDryLoss - ambientLoss) * dt));
 
   const co2Produced = activeCount * 2.2 + 4.0;
-  const co2Removed = greenhouseEnv.exhaustPower * 28.0;
+  const co2Removed = greenhouseEnv.exhaustPower * 40.0;
   greenhouseEnv.co2Ppm = Math.max(410, Math.min(2500, greenhouseEnv.co2Ppm + (co2Produced - co2Removed) * dt));
 
-  const ambientTemp = 26.5;
-  const tempRate = greenhouseEnv.coolerActive ? 0.45 : 0.12;
+  const ambientTemp = 29.5;
+  const tempRate = greenhouseEnv.coolerActive ? 0.55 : 0.20;
   const tempGoal = greenhouseEnv.coolerActive ? greenhouseEnv.targetTempC : ambientTemp;
   if (greenhouseEnv.tempC < tempGoal) {
     greenhouseEnv.tempC = Math.min(tempGoal, greenhouseEnv.tempC + tempRate * dt);
@@ -1203,20 +1290,21 @@ export function stepGreenhouse(ctx, dt) {
     greenhouseEnv.tempC = Math.max(tempGoal, greenhouseEnv.tempC - tempRate * dt);
   }
 
-  // Score de qualidade do microclima
-  const humErr = Math.max(0, Math.abs(greenhouseEnv.humidity - 90) - 6);
-  const co2Err = Math.max(0, (greenhouseEnv.co2Ppm - 950) / 35);
-  const tempErr = Math.max(0, Math.abs(greenhouseEnv.tempC - 22.5) - 3.5) * 4;
-  const lightPenalty = greenhouseEnv.lightOn ? 0 : 12;
-  greenhouseEnv.climateScore = Math.max(15, Math.min(100, 100 - humErr * 2 - co2Err - tempErr - lightPenalty));
-  greenhouseEnv.statusLevel = greenhouseEnv.climateScore >= 80
-    ? 'optimal'
-    : (greenhouseEnv.climateScore >= 55 ? 'adjusting' : 'alert');
-  greenhouseEnv.statusLabel = greenhouseEnv.statusLevel === 'optimal'
-    ? (greenhouseEnv.autoMode ? 'Ideal (Auto)' : 'Ideal (Manual)')
-    : (greenhouseEnv.statusLevel === 'adjusting' ? 'Ajustando' : 'Alerta Microclima!');
+  // 3. Avaliação de estresse biológico e Score do microclima
+  const stress = evaluateClimateStress();
+  greenhouseEnv.primaryStress = stress.type;
+  greenhouseEnv.stressAdvice = stress.advice;
 
-  // 3. Animação das ventoinhas (Climatizador 3 fans + Exaustor)
+  const humErr = greenhouseEnv.humidity > 95
+    ? (greenhouseEnv.humidity - 95) * 6.5
+    : Math.max(0, 82 - greenhouseEnv.humidity) * 2.2;
+  const co2Err = Math.max(0, (greenhouseEnv.co2Ppm - 950) / 28);
+  const faeErr = stress.type === 'excess_fae' ? 22 : 0;
+  const tempErr = Math.max(0, Math.abs(greenhouseEnv.tempC - 22.5) - 3.5) * 6;
+  const lightPenalty = greenhouseEnv.lightOn ? 0 : 12;
+  greenhouseEnv.climateScore = Math.max(10, Math.min(100, 100 - humErr - co2Err - faeErr - tempErr - lightPenalty));
+
+  // 4. Animação das ventoinhas (Climatizador 3 fans + Exaustor)
   if (greenhouseEnv.coolerActive && coolerFans.length > 0) {
     for (let f = 0; f < coolerFans.length; f++) {
       coolerFans[f].rotation.x += dt * 11.5;
@@ -1226,18 +1314,49 @@ export function stepGreenhouse(ctx, dt) {
     exhaustFan.rotation.z += dt * (greenhouseEnv.exhaustPower === 2 ? 15.0 : 8.5);
   }
 
-  // 4. Crescimento de todos os 24 bolos baseado no microclima real
-  const climateMultiplier = (0.45 + (greenhouseEnv.climateScore / 100) * 0.95) * (greenhouseEnv.lightOn ? 1.0 : 0.72);
+  // 5. Saúde e Crescimento de todos os 24 bolos baseado no microclima real
+  let healthSum = 0;
+  let healthCount = 0;
+  const climateMultiplier = (0.25 + (greenhouseEnv.climateScore / 100) * 1.15) * (greenhouseEnv.lightOn ? 1.0 : 0.70);
   for (let gi = 0; gi < greenhouseSlots.length; gi++) {
     const gSlot = greenhouseSlots[gi];
     if (gSlot.empty || gSlot.stage < 0) continue;
 
     // A umidade de cada bolo converge suavemente para a umidade ambiente da estufa
-    gSlot.humidity += (greenhouseEnv.humidity - gSlot.humidity) * Math.min(1, dt * 0.14);
+    gSlot.humidity += (greenhouseEnv.humidity - gSlot.humidity) * Math.min(1, dt * 0.16);
     gSlot.humidity = Math.max(20, Math.min(99, gSlot.humidity));
 
-    if (gSlot.humidity >= 60 && gSlot.stage < 3) {
-      gSlot.growth += dt * (gSlot.humidity / 100) * 1.75 * climateMultiplier;
+    const prevHealth = typeof gSlot.health === 'number' ? gSlot.health : 100;
+    const prevStress = gSlot.stressType || 'none';
+
+    if (stress.type !== 'none') {
+      gSlot.health = Math.max(10, prevHealth - stress.severity * 2.8 * dt);
+      gSlot.stressType = stress.type;
+      gSlot.stressReason = stress.reason;
+    } else if (gSlot.humidity < 72 || gSlot.humidity > 96) {
+      const localType = gSlot.humidity > 96 ? 'excess_humidity' : 'low_humidity';
+      gSlot.health = Math.max(10, prevHealth - 2.2 * dt);
+      gSlot.stressType = localType;
+      gSlot.stressReason = localType === 'excess_humidity' ? 'Bolo encharcado' : 'Bolo seco';
+    } else {
+      gSlot.health = Math.min(100, prevHealth + 4.0 * dt);
+      gSlot.stressType = 'none';
+      gSlot.stressReason = '';
+    }
+
+    healthSum += gSlot.health;
+    healthCount++;
+
+    const crossedLedThreshold =
+      (prevStress !== gSlot.stressType) ||
+      (prevHealth >= 60 && gSlot.health < 60) ||
+      (prevHealth < 60 && gSlot.health >= 60) ||
+      (prevHealth >= 80 && gSlot.health < 80) ||
+      (prevHealth < 80 && gSlot.health >= 80);
+
+    if (gSlot.humidity >= 60 && gSlot.health >= 30 && greenhouseEnv.tempC >= 15.5 && greenhouseEnv.tempC <= 30.5 && gSlot.stage < 3) {
+      const healthFactor = 0.45 + (gSlot.health / 100) * 0.55;
+      gSlot.growth += dt * (gSlot.humidity / 100) * 1.75 * climateMultiplier * healthFactor;
       if (gSlot.growth >= 100) {
         gSlot.stage++;
         gSlot.growth = 0;
@@ -1245,9 +1364,21 @@ export function stepGreenhouse(ctx, dt) {
         if (ctx && ctx.queueWorldStateChange) {
           ctx.queueWorldStateChange('greenhouse_slot_' + gSlot.id + '_stage', gSlot.stage);
         }
+      } else if (crossedLedThreshold) {
+        updateGreenhouseSlotMesh(gSlot);
       }
+    } else if (crossedLedThreshold) {
+      updateGreenhouseSlotMesh(gSlot);
     }
   }
+
+  greenhouseEnv.avgHealth = healthCount > 0 ? (healthSum / healthCount) : 100;
+  greenhouseEnv.statusLevel = (greenhouseEnv.climateScore < 60 || greenhouseEnv.avgHealth < 65 || stress.severity >= 1.0)
+    ? 'alert'
+    : ((greenhouseEnv.climateScore < 85 || stress.type !== 'none') ? 'adjusting' : 'optimal');
+  greenhouseEnv.statusLabel = greenhouseEnv.statusLevel === 'optimal'
+    ? (greenhouseEnv.autoMode ? 'Ideal (Auto)' : 'Ideal (Manual)')
+    : (greenhouseEnv.statusLevel === 'adjusting' ? 'Atenção' : 'Estresse!');
 
   panelRefreshAccum += dt;
   if (panelRefreshAccum >= 1.0) {

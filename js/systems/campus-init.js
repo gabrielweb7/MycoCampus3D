@@ -19,6 +19,7 @@ import {
   interactGreenhouseSlot,
   greenhouseEnv,
   applyGreenhouseAutomationSettings,
+  restoreGreenhouseOptimal,
   triggerGreenhouseMistPulse,
   triggerGreenhouseVentPulse
 } from '../world/greenhouse.js';
@@ -364,6 +365,9 @@ const sim = {
   },
   applyGreenhouseAutomationSettings: function (partial) {
     return applyGreenhouseAutomationSettings(partial, sim);
+  },
+  restoreGreenhouseOptimal: function () {
+    return restoreGreenhouseOptimal(sim);
   },
   triggerGreenhouseMistPulse: function () {
     return triggerGreenhouseMistPulse(sim);
