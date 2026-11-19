@@ -108,6 +108,20 @@ export function disposeObjectResources(root) {
   });
 }
 
+export function attachSurfaceOwner(surf, entry) {
+  if (!surf) return;
+  try {
+    Object.defineProperty(surf, 'ownerItem', {
+      value: entry || null,
+      writable: true,
+      configurable: true,
+      enumerable: false
+    });
+  } catch (_e) {
+    surf.ownerItem = entry || null;
+  }
+}
+
 export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, height, meta) {
   mesh.position.set(x, y, z);
   mesh.rotation.y = ry || 0;
@@ -139,10 +153,10 @@ export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, heig
   mesh.userData.pickableId = id;
   mesh.userData.pickableLabel = label;
   mesh.userData.itemMeta = resolvedMeta;
-  if (mesh.userData.dynamicSurface) mesh.userData.dynamicSurface.ownerItem = entry;
+  if (mesh.userData.dynamicSurface) attachSurfaceOwner(mesh.userData.dynamicSurface, entry);
   if (Array.isArray(mesh.userData.dynamicSurfaces)) {
     for (let dsi = 0; dsi < mesh.userData.dynamicSurfaces.length; dsi++) {
-      if (mesh.userData.dynamicSurfaces[dsi]) mesh.userData.dynamicSurfaces[dsi].ownerItem = entry;
+      if (mesh.userData.dynamicSurfaces[dsi]) attachSurfaceOwner(mesh.userData.dynamicSurfaces[dsi], entry);
     }
   }
   ctx.pickableItems.push(entry);
@@ -370,7 +384,7 @@ export function updateItemBounds(item) {
     const hw = (w * cRot + d * sRot) / 2;
     const hd = (w * sRot + d * cRot) / 2;
     if (surf) {
-      surf.ownerItem = item;
+      attachSurfaceOwner(surf, item);
       surf.minX = px - hw + 0.02; surf.maxX = px + hw - 0.02;
       surf.minZ = pz - hd + 0.02; surf.maxZ = pz + hd - 0.02;
       surf.topY = py + h + (dims.surfOffset || 0) * sy;

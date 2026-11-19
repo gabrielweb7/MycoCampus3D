@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.9] - 2026-11-19
+### Correção Definitiva do Ghost de Fogareiro/Equipamentos & Movimento Livre de Lamparina/Microscópio
+- **Bug de Referência Circular no Ghost (`js/entities/placement-ghost.js`, `js/items/item-registry.js`):**
+  - Identificado e corrigido crash silencioso em `item.mesh.clone(true)`: `THREE.Object3D.clone()` serializava `userData` via `JSON.stringify`, quebrando em itens com `dynamicSurface.ownerItem` circular (Fogareiro Elétrico, Tripé GLP, Balança, Agitador, Bandeja, Mesas).
+  - Substituído por clonagem visual pura `cloneVisualGroupForGhost` sem copiar/serializar `userData` e definida propriedade `ownerItem` como não-enumerável via `attachSurfaceOwner`.
+- **Mover Lamparina a Álcool, Microscópio 1000x & Qualquer Equipamento (`js/systems/interaction-system.js`, `js/systems/input-controller.js`, `js/systems/campus-init.js`, `js/items/lab-advanced-tools.js`):**
+  - Clique com a mão vazia na Lamparina a Álcool passa a pegá-la na mão normalmente (flambar bisturi/seringa continua automático ao segurá-los).
+  - Tecla `[G]` / `[Q]` ou **Botão Direito** apontando para qualquer item no mundo agora pega e inicia o modo de posicionamento diretamente (Microscópio, Desidratadora, Geladeira, Monotub, Lamparina, etc.), além do botão `📦 Mover` no modal do Microscópio.
+
 ## [v1.4.8] - 2026-11-19
 ### Proteção de Oclusão em Estantes, Bancadas e Paredes (Fim de Cliques Acidentais em Persianas)
 - **Oclusão por Raio 3D (`js/systems/hover-held-handlers.js`, `js/systems/hover-raycaster.js`):**

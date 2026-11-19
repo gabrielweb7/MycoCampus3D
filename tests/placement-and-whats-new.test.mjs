@@ -34,8 +34,9 @@ class MockObj {
     this.userData = {};
     this.children = [];
     this.position = { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; }, copy(p) { Object.assign(this, p); } };
-    this.rotation = { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } };
-    this.scale = { x: 1, y: 1, z: 1, set(x, y, z) { this.x = x; this.y = y; this.z = z; } };
+    this.rotation = { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; }, copy(r) { Object.assign(this, r); } };
+    this.quaternion = { x: 0, y: 0, z: 0, w: 1, copy(q) { Object.assign(this, q); } };
+    this.scale = { x: 1, y: 1, z: 1, set(x, y, z) { this.x = x; this.y = y; this.z = z; }, copy(s) { Object.assign(this, s); } };
   }
   add(child) { this.children.push(child); }
   remove(child) { this.children = this.children.filter((c) => c !== child); }
@@ -44,12 +45,8 @@ class MockObj {
     for (const c of this.children) c.traverse(fn);
   }
   clone() {
-    const c = new MockObj(this.isMesh, this.material);
-    c.visible = this.visible;
-    c.matrixAutoUpdate = this.matrixAutoUpdate;
-    c.userData = { ...this.userData };
-    c.children = this.children.map((ch) => ch.clone());
-    return c;
+    JSON.stringify(this.userData); // Simula Three.js Object3D.clone(true) que falha em circularidade
+    throw new Error('updatePlacementGhostVisual nao deve chamar THREE.Object3D.clone()');
   }
 }
 
@@ -82,7 +79,7 @@ test('shouldHideHeldInPlacementMode oculta qualquer item em modo [G]', () => {
   assert.equal(shouldHideHeldInPlacementMode({ placementMode: true, heldItem: item }), true);
 });
 
-test('updatePlacementGhostVisual reativa matrixAutoUpdate após freeze e oculta hitboxes invisíveis', () => {
+test('updatePlacementGhostVisual funciona com userData circular (ownerItem no fogareiro) e oculta hitboxes invisíveis', () => {
   const scene = { add() {} };
   const ghost = createPlacementGhost(scene);
   // Simula bug antigo onde freezeStaticWorld congelava ring/dot
@@ -90,30 +87,36 @@ test('updatePlacementGhostVisual reativa matrixAutoUpdate após freeze e oculta 
   ghost.children[1].matrixAutoUpdate = false;
 
   const burnerRoot = new MockObj(false);
+  const bSurf = {};
+  const burnerItem = { id: 'burner_lab', mesh: burnerRoot };
+  bSurf.ownerItem = burnerItem; // Referência circular intencional igual registerPickable antigo
+  burnerRoot.userData.dynamicSurface = bSurf;
   const body = new MockObj(true, new MockMat({ color: 0x0f172a }));
+  body.userData.supportSurface = bSurf;
   const coilHit = new MockObj(true, new MockMat({ transparent: true, opacity: 0, colorWrite: false }));
+  coilHit.userData.supportSurface = bSurf;
   burnerRoot.add(body);
   burnerRoot.add(coilHit);
 
-  updatePlacementGhostVisual({ id: 'burner_lab', mesh: burnerRoot }, true, 0.5, 1.0);
+  updatePlacementGhostVisual(burnerItem, true, 0.5, 1.0);
 
   assert.equal(ghost.children[0].matrixAutoUpdate, true);
   assert.equal(ghost.children[1].matrixAutoUpdate, true);
   const clonedRoot = ghost.children[2].children[0];
+  assert.equal(clonedRoot.children.length, 1);
   assert.equal(clonedRoot.children[0].visible, true);
-  assert.equal(clonedRoot.children[1].visible, false);
 });
 
-test('RELEASE_NOTES_CATALOG tem notas simples da v1.4.8 e markPendingAutoUpdateNotice atualiza storage', () => {
-  const store = new Map([['myco_seen_whats_new_v', '1.4.7']]);
+test('RELEASE_NOTES_CATALOG tem notas simples da v1.4.9 e markPendingAutoUpdateNotice atualiza storage', () => {
+  const store = new Map([['myco_seen_whats_new_v', '1.4.8']]);
   globalThis.localStorage = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: (k) => store.delete(k)
   };
-  markPendingAutoUpdateNotice('1.4.8');
+  markPendingAutoUpdateNotice('1.4.9');
   assert.equal(store.get('myco_seen_whats_new_v'), undefined);
-  assert.equal(store.get('myco_just_updated_v'), '1.4.8');
-  assert.ok(RELEASE_NOTES_CATALOG['1.4.8']);
-  assert.ok(RELEASE_NOTES_CATALOG['1.4.8'].items.length >= 4);
+  assert.equal(store.get('myco_just_updated_v'), '1.4.9');
+  assert.ok(RELEASE_NOTES_CATALOG['1.4.9']);
+  assert.ok(RELEASE_NOTES_CATALOG['1.4.9'].items.length >= 4);
 });

@@ -117,58 +117,70 @@ function isInvisibleGhostMaterial(mat) {
   return mat.visible === false || mat.colorWrite === false || (!!mat.transparent && (mat.opacity || 0) <= 0.02);
 }
 
-function prepareGhostCloneMesh(rootGroup, matList) {
-  rootGroup.traverse(function (ch) {
-    ch.matrixAutoUpdate = true;
-    ch.frustumCulled = false;
-    ch.userData.ignoreRay = true;
-    ch.userData.supportSurface = null;
-    ch.userData.dynamicSurface = null;
-    ch.userData.burnerSwitchIdx = null;
-    ch.userData.stirSwitch = null;
-    ch.userData.hoodSwitch = null;
-    ch.userData.scaleObj = null;
-    ch.userData.isTable = false;
-    ch.userData.isHood = false;
-    ch.userData.isBurner = false;
-    ch.userData.isStirrer = false;
-    if (!ch.visible || ch.isPoints || ch.isLine || ch.isSprite) {
-      ch.visible = false;
-      return;
+function cloneGhostMaterial(origM, matList) {
+  if (origM.visible === false || origM.colorWrite === false || (origM.transparent && (origM.opacity || 0) <= 0.02)) {
+    var hiddenM = origM.clone();
+    hiddenM.visible = false;
+    hiddenM.opacity = 0;
+    hiddenM.colorWrite = false;
+    hiddenM.depthWrite = false;
+    matList.push(hiddenM);
+    return hiddenM;
+  }
+  var m = origM.clone();
+  m.userData._baseColor = m.color ? m.color.clone() : new THREE.Color(0xffffff);
+  m.transparent = true;
+  var origOp = origM.transparent ? origM.opacity : 1.0;
+  m.opacity = origM.transparent ? Math.max(0.38, origOp * 0.90) : 0.76;
+  m.depthWrite = false;
+  matList.push(m);
+  return m;
+}
+
+/**
+ * Clona apenas a hierarquia visual do item para o fantasma de posicionamento sem
+ * serializar `userData` via JSON (evita crash em referências circulares como `ownerItem`).
+ */
+function cloneVisualGroupForGhost(src, matList, isRoot) {
+  if (!src) return null;
+  if (!isRoot && (!src.visible || src.isPoints || src.isLine || src.isSprite || src.isLight)) {
+    return null;
+  }
+
+  var dst = null;
+  if (src.isMesh && src.material) {
+    if (isInvisibleGhostMaterial(src.material)) return null;
+    var clonedMat = Array.isArray(src.material)
+      ? src.material.map(function (m) { return cloneGhostMaterial(m, matList); })
+      : cloneGhostMaterial(src.material, matList);
+    dst = new THREE.Mesh(src.geometry, clonedMat);
+    dst.castShadow = false;
+    dst.receiveShadow = false;
+  } else {
+    dst = new THREE.Group();
+  }
+
+  if (src.position && dst.position) dst.position.copy(src.position);
+  if (src.quaternion && dst.quaternion && typeof dst.quaternion.copy === 'function') {
+    dst.quaternion.copy(src.quaternion);
+  } else if (src.rotation && dst.rotation && typeof dst.rotation.copy === 'function') {
+    dst.rotation.copy(src.rotation);
+  }
+  if (src.scale && dst.scale && typeof dst.scale.copy === 'function') {
+    dst.scale.copy(src.scale);
+  }
+  dst.visible = true;
+  dst.matrixAutoUpdate = true;
+  dst.frustumCulled = false;
+  dst.userData = { ignoreRay: true };
+
+  if (src.children && src.children.length) {
+    for (var i = 0; i < src.children.length; i++) {
+      var childClone = cloneVisualGroupForGhost(src.children[i], matList, false);
+      if (childClone) dst.add(childClone);
     }
-    if (ch.isMesh && ch.material) {
-      if (isInvisibleGhostMaterial(ch.material)) {
-        ch.visible = false;
-        return;
-      }
-      ch.castShadow = false;
-      ch.receiveShadow = false;
-      var cloneOneMat = function (origM) {
-        if (origM.visible === false || origM.colorWrite === false || (origM.transparent && (origM.opacity || 0) <= 0.02)) {
-          var hiddenM = origM.clone();
-          hiddenM.visible = false;
-          hiddenM.opacity = 0;
-          hiddenM.colorWrite = false;
-          hiddenM.depthWrite = false;
-          matList.push(hiddenM);
-          return hiddenM;
-        }
-        var m = origM.clone();
-        m.userData._baseColor = m.color ? m.color.clone() : new THREE.Color(0xffffff);
-        m.transparent = true;
-        var origOp = origM.transparent ? origM.opacity : 1.0;
-        m.opacity = origM.transparent ? Math.max(0.38, origOp * 0.90) : 0.76;
-        m.depthWrite = false;
-        matList.push(m);
-        return m;
-      };
-      if (Array.isArray(ch.material)) {
-        ch.material = ch.material.map(cloneOneMat);
-      } else {
-        ch.material = cloneOneMat(ch.material);
-      }
-    }
-  });
+  }
+  return dst;
 }
 
 export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
@@ -188,24 +200,26 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
       }
     }
     placementHoloMats = [];
-    var clone = item.mesh.clone(true);
-    clone.position.set(0, 0, 0);
-    clone.rotation.set(0, 0, 0);
-    if (item.wildMushroomCtrl && clone.children && clone.children[0]) {
-      clone.children[0].rotation.z = Math.PI / 2;
-      clone.children[0].position.y = item.wildMushroomCtrl.sideRestY ?? 0.05;
+    var clone = cloneVisualGroupForGhost(item.mesh, placementHoloMats, true);
+    if (clone) {
+      clone.position.set(0, 0, 0);
+      clone.rotation.set(0, 0, 0);
+      if (item.wildMushroomCtrl && clone.children && clone.children[0]) {
+        clone.children[0].rotation.z = Math.PI / 2;
+        clone.children[0].position.y = item.wildMushroomCtrl.sideRestY ?? 0.05;
+      }
+      clone.visible = true;
+      placementHoloWrap.add(clone);
     }
-    clone.visible = true;
-    prepareGhostCloneMesh(clone, placementHoloMats);
-    placementHoloWrap.add(clone);
 
     if (hasLid && item.lidItem && item.lidItem.mesh) {
-      var lidClone = item.lidItem.mesh.clone(true);
-      lidClone.position.set(0, 0.36, 0);
-      lidClone.rotation.set(0, 0, 0);
-      lidClone.visible = true;
-      prepareGhostCloneMesh(lidClone, placementHoloMats);
-      placementHoloWrap.add(lidClone);
+      var lidClone = cloneVisualGroupForGhost(item.lidItem.mesh, placementHoloMats, true);
+      if (lidClone) {
+        lidClone.position.set(0, 0.36, 0);
+        lidClone.rotation.set(0, 0, 0);
+        lidClone.visible = true;
+        placementHoloWrap.add(lidClone);
+      }
     }
 
     placementGhostItemId = item.id;

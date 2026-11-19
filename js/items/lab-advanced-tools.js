@@ -79,7 +79,7 @@ export function makeAlcoholLamp(ctx, id, px, py, pz) {
   const item = registerPickable(
     ctx,
     id,
-    '🔥 Lamparina a Álcool (Acesa • Aponte Bisturi ou Seringa para flambar e esterilizar)',
+    '🔥 Lamparina a Álcool (Acesa • Clique mover • Flambar Bisturi/Seringa)',
     g,
     px,
     py,
@@ -106,8 +106,8 @@ export function makeAlcoholLamp(ctx, id, px, py, pz) {
       const lit = item.alcoholLampCtrl.lit;
       flameGroup.visible = lit;
       item.label = lit
-        ? '🔥 Lamparina a Álcool (Acesa • Flambar Bisturi/Seringa para esterilizar 100%)'
-        : '🕯️ Lamparina a Álcool (Apagada • Clique para acender)';
+        ? '🔥 Lamparina a Álcool (Acesa • Clique mover • Flambar Bisturi/Seringa)'
+        : '🕯️ Lamparina a Álcool (Apagada • Clique mover)';
     }
   };
   alcoholLamps.push(item);
@@ -269,7 +269,7 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
   const item = registerPickable(
     ctx,
     id,
-    '🔬 Microscópio Óptico Binocular 1000x (Clique c/ amostra ou mão livre para analisar hifas e esporos)',
+    '🔬 Microscópio Óptico 1000x (Clique analisar • [G]/Botão Dir. mover)',
     g,
     px,
     py,
@@ -403,8 +403,12 @@ function ensureMicroscopeModalDom() {
           <h2 class="text-sm sm:text-base font-extrabold text-cyan-300 truncate">🔬 Microscópio Óptico Binocular (1000x)</h2>
           <p id="micro-specimen-title" class="text-[11px] text-slate-300 truncate">Lâmina em foco</p>
         </div>
-        <button id="btn-close-microscope" type="button"
-          class="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-bold shrink-0">✕ Fechar</button>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button id="btn-move-microscope" type="button"
+            class="px-2.5 py-1.5 rounded-lg bg-emerald-600/85 hover:bg-emerald-500 text-white text-xs font-bold">📦 Mover</button>
+          <button id="btn-close-microscope" type="button"
+            class="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-bold">✕ Fechar</button>
+        </div>
       </div>
       <div class="p-3 sm:p-4 overflow-y-auto space-y-3 text-xs flex flex-col items-center">
         <div class="relative rounded-full p-1.5 bg-slate-950 border-4 border-cyan-500/60 shadow-inner">
@@ -423,6 +427,7 @@ function ensureMicroscopeModalDom() {
       microscopeAnimFrame = null;
     }
   };
+  modal._closeModal = close;
   modal.querySelector('#btn-close-microscope')?.addEventListener('click', close);
   modal.addEventListener('click', (e) => {
     if (e.target === modal) close();
@@ -430,7 +435,7 @@ function ensureMicroscopeModalDom() {
   return modal;
 }
 
-export function interactLabMicroscope(ctx) {
+export function interactLabMicroscope(ctx, scopeItem) {
   const info = analyzeSpecimenForMicroscope(ctx && ctx.heldItem);
   if (ctx && ctx.pickableItems) {
     for (let i = 0; i < ctx.pickableItems.length; i++) {
@@ -446,6 +451,16 @@ export function interactLabMicroscope(ctx) {
   }
   const modal = ensureMicroscopeModalDom();
   if (!modal) return true;
+
+  const moveBtn = modal.querySelector('#btn-move-microscope');
+  if (moveBtn) {
+    moveBtn.onclick = () => {
+      if (modal._closeModal) modal._closeModal();
+      if (ctx && ctx.pickHoveredItemForMove && scopeItem) {
+        ctx.pickHoveredItemForMove(scopeItem);
+      }
+    };
+  }
 
   const titleEl = modal.querySelector('#micro-specimen-title');
   const diagEl = modal.querySelector('#micro-diagnosis-box');

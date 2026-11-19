@@ -31,7 +31,7 @@ import { initThermoDisplay, createThermoLaserFx } from '../entities/thermo-laser
 import { createPlacementGhost } from '../entities/placement-ghost.js';
 import { createHover3dBadge } from '../entities/hover-3d-badge.js';
 import { buildCuteAvatar } from '../entities/avatars.js';
-import { dropHeldItem, handlePrimaryAction, updateHoverRay } from './interaction-system.js';
+import { dropHeldItem, handlePrimaryAction, pickHoveredItemForMove, updateHoverRay } from './interaction-system.js';
 import {
   cancelHeldItemPlacement,
   toggleHeldItemPlacement
@@ -385,6 +385,7 @@ const sim = {
 
   getCinemaHitTarget: function (uv) { return getCinemaHitTarget(sim, uv); },
   dropHeldItem: function () { return dropHeldItem(sim); },
+  pickHoveredItemForMove: function (explicitItem) { return pickHoveredItemForMove(sim, explicitItem); },
   toggleHeldItemPlacement: function () { return toggleHeldItemPlacement(sim); },
   cancelHeldItemPlacement: function () { return cancelHeldItemPlacement(sim); },
   handlePrimaryAction: function () { return handlePrimaryAction(sim); },

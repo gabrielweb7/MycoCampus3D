@@ -959,11 +959,7 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable.microscopeCtrl) {
-      interactLabMicroscope(ctx);
-      return;
-    }
-    if (!ctx.adminEditMode && ctx.hoveredPickable.alcoholLampCtrl) {
-      interactAlcoholLamp(ctx, ctx.hoveredPickable);
+      interactLabMicroscope(ctx, ctx.hoveredPickable);
       return;
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable.monotubCtrl) {
@@ -984,111 +980,125 @@ export function handlePrimaryAction(ctx) {
       }
       return;
     }
-    if (!ctx.adminEditMode && ctx.hoveredPickable.mesh.userData.isBlockedPickup && ctx.hoveredPickable.mesh.userData.isBlockedPickup(ctx.hoveredPickable)) {
-      if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast(ctx.hoveredPickable.mesh.userData.isBurner
-          ? '🚫 Retire a panela de cima antes de mover o Fogareiro'
-          : '🚫 Retire os objetos de cima antes de mover ' + ctx.hoveredPickable.label);
-      }
-      return;
+    pickUpTargetItem(ctx, ctx.hoveredPickable, !!ctx.adminEditMode);
+  }
+}
+
+function pickUpTargetItem(ctx, targetItem, startPlacement) {
+  if (!ctx || !targetItem) return false;
+  if (!ctx.adminEditMode && targetItem.mesh.userData.isBlockedPickup && targetItem.mesh.userData.isBlockedPickup(targetItem)) {
+    if (ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(targetItem.mesh.userData.isBurner
+        ? '🚫 Retire a panela de cima antes de mover o Fogareiro'
+        : '🚫 Retire os objetos de cima antes de mover ' + targetItem.label);
     }
-    if (ctx.hoveredPickable.potItem && ctx.hoveredPickable.isAttached) {
-      for (let cpLockIdx = 0; cpLockIdx < ctx.cookerPots.length; cpLockIdx++) {
-        const cpLock = ctx.cookerPots[cpLockIdx];
-        if (cpLock.lidItem === ctx.hoveredPickable && cpLock.psi >= 1.5) {
-          if (window.MycoAudio) window.MycoAudio.playClick();
-          if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('🔒 Tampa travada pela pressão (' + cpLock.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar (< 1.5 PSI).');
-          }
-          return;
+    return false;
+  }
+  if (targetItem.potItem && targetItem.isAttached) {
+    for (let cpLockIdx = 0; cpLockIdx < ctx.cookerPots.length; cpLockIdx++) {
+      const cpLock = ctx.cookerPots[cpLockIdx];
+      if (cpLock.lidItem === targetItem && cpLock.psi >= 1.5) {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🔒 Tampa travada pela pressão (' + cpLock.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar (< 1.5 PSI).');
         }
-      }
-      const lidIt = ctx.hoveredPickable;
-      lidIt.isAttached = false;
-      ctx.heldItem = lidIt;
-      ctx.lastPickupAt = performance.now();
-      setHeldTwoHandedGhost(ctx.heldItem, false);
-      if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-      ctx.notifyWorldAction();
-      return;
-    }
-    if (ctx.hoveredPickable.lidItem) {
-      for (let cpPotIdx = 0; cpPotIdx < ctx.cookerPots.length; cpPotIdx++) {
-        const cpPot = ctx.cookerPots[cpPotIdx];
-        if (cpPot.potItem === ctx.hoveredPickable && cpPot.psi >= 1.5) {
-          if (window.MycoAudio) window.MycoAudio.playClick();
-          if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('🔒 Panela pressurizada (' + cpPot.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar.');
-          }
-          return;
-        }
+        return false;
       }
     }
-    for (let cpIdx = 0; cpIdx < ctx.cookerPots.length; cpIdx++) {
-      const cp = ctx.cookerPots[cpIdx];
-      const idxInPot = cp.contents.indexOf(ctx.hoveredPickable);
-      if (idxInPot !== -1) {
-        cp.contents.splice(idxInPot, 1);
-        if (ctx.hoveredPickable.mesh && ctx.hoveredPickable.mesh.userData.isCookerBase) {
-          cp.hasBase = cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
+    const lidIt = targetItem;
+    lidIt.isAttached = false;
+    ctx.heldItem = lidIt;
+    ctx.lastPickupAt = performance.now();
+    setHeldTwoHandedGhost(ctx.heldItem, false);
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+    if (startPlacement) beginHeldItemPlacement(ctx);
+    ctx.notifyWorldAction();
+    return true;
+  }
+  if (targetItem.lidItem) {
+    for (let cpPotIdx = 0; cpPotIdx < ctx.cookerPots.length; cpPotIdx++) {
+      const cpPot = ctx.cookerPots[cpPotIdx];
+      if (cpPot.potItem === targetItem && cpPot.psi >= 1.5) {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🔒 Panela pressurizada (' + cpPot.psi.toFixed(1) + ' PSI)! Desligue o fogareiro e aguarde despressurizar.');
         }
+        return false;
       }
     }
-    ctx.hoveredPickable.trayContents = null;
-    if (ctx.adminEditMode && ctx.hoveredPickable.mesh &&
-        (ctx.hoveredPickable.mesh.userData.dynamicSurface || ctx.hoveredPickable.mesh.userData.dynamicSurfaces)) {
-      const hostMesh = ctx.hoveredPickable.mesh;
-      hostMesh.updateMatrixWorld(true);
-      const hRy = hostMesh.rotation.y || 0;
-      const supported = getItemsSupportedBy(ctx, ctx.hoveredPickable);
-      if (supported.length > 0) {
-        const carried = [];
-        const _locVec = new THREE.Vector3();
-        for (let si = 0; si < supported.length; si++) {
-          const cand = supported[si];
-          if (!cand || !cand.mesh) continue;
-          cand.mesh.getWorldPosition(_locVec);
-          hostMesh.worldToLocal(_locVec);
-          carried.push({
-            item: cand,
-            localOffset: _locVec.clone(),
-            localRotY: (cand.mesh.rotation.y || 0) - hRy
-          });
-        }
-        ctx.hoveredPickable.trayContents = carried.length ? carried : null;
+  }
+  for (let cpIdx = 0; cpIdx < ctx.cookerPots.length; cpIdx++) {
+    const cp = ctx.cookerPots[cpIdx];
+    const idxInPot = cp.contents.indexOf(targetItem);
+    if (idxInPot !== -1) {
+      cp.contents.splice(idxInPot, 1);
+      if (targetItem.mesh && targetItem.mesh.userData.isCookerBase) {
+        cp.hasBase = cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
       }
-    } else if (ctx.hoveredPickable.mesh && ctx.hoveredPickable.mesh.userData.isTray) {
-      const trayMesh = ctx.hoveredPickable.mesh;
-      trayMesh.updateMatrixWorld(true);
-      const tRy = trayMesh.rotation.y;
+    }
+  }
+  targetItem.trayContents = null;
+  if (ctx.adminEditMode && targetItem.mesh &&
+      (targetItem.mesh.userData.dynamicSurface || targetItem.mesh.userData.dynamicSurfaces)) {
+    const hostMesh = targetItem.mesh;
+    hostMesh.updateMatrixWorld(true);
+    const hRy = hostMesh.rotation.y || 0;
+    const supported = getItemsSupportedBy(ctx, targetItem);
+    if (supported.length > 0) {
       const carried = [];
       const _locVec = new THREE.Vector3();
-      for (let ti = 0; ti < ctx.pickableItems.length; ti++) {
-        const cand = ctx.pickableItems[ti];
-        if (!cand || cand === ctx.hoveredPickable || !cand.mesh || ctx.isHeldByRemote(cand.id)) continue;
-        if (cand.mesh.userData.isTable || cand.mesh.userData.isHood || cand.mesh.userData.isTray) continue;
+      for (let si = 0; si < supported.length; si++) {
+        const cand = supported[si];
+        if (!cand || !cand.mesh) continue;
         cand.mesh.getWorldPosition(_locVec);
-        trayMesh.worldToLocal(_locVec);
-        if (Math.abs(_locVec.x) <= 0.22 && Math.abs(_locVec.z) <= 0.16 &&
-          _locVec.y >= -0.05 && _locVec.y <= 0.38) {
-          carried.push({
-            item: cand,
-            localOffset: _locVec.clone(),
-            localRotY: cand.mesh.rotation.y - tRy
-          });
-        }
+        hostMesh.worldToLocal(_locVec);
+        carried.push({
+          item: cand,
+          localOffset: _locVec.clone(),
+          localRotY: (cand.mesh.rotation.y || 0) - hRy
+        });
       }
-      if (carried.length) ctx.hoveredPickable.trayContents = carried;
+      targetItem.trayContents = carried.length ? carried : null;
     }
-    ctx.heldItem = ctx.hoveredPickable;
-    cancelHeldItemPlacement(ctx);
-    ctx.lastPickupAt = performance.now();
-    ctx.heldRotY = ctx.heldItem.mesh.rotation.y;
-    setHeldTwoHandedGhost(ctx.heldItem, true);
-    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-    if (ctx.adminEditMode) {
-      beginHeldItemPlacement(ctx);
+  } else if (targetItem.mesh && targetItem.mesh.userData.isTray) {
+    const trayMesh = targetItem.mesh;
+    trayMesh.updateMatrixWorld(true);
+    const tRy = trayMesh.rotation.y;
+    const carried = [];
+    const _locVec = new THREE.Vector3();
+    for (let ti = 0; ti < ctx.pickableItems.length; ti++) {
+      const cand = ctx.pickableItems[ti];
+      if (!cand || cand === targetItem || !cand.mesh || ctx.isHeldByRemote(cand.id)) continue;
+      if (cand.mesh.userData.isTable || cand.mesh.userData.isHood || cand.mesh.userData.isTray) continue;
+      cand.mesh.getWorldPosition(_locVec);
+      trayMesh.worldToLocal(_locVec);
+      if (Math.abs(_locVec.x) <= 0.22 && Math.abs(_locVec.z) <= 0.16 &&
+        _locVec.y >= -0.05 && _locVec.y <= 0.38) {
+        carried.push({
+          item: cand,
+          localOffset: _locVec.clone(),
+          localRotY: cand.mesh.rotation.y - tRy
+        });
+      }
     }
-    ctx.notifyWorldAction();
+    if (carried.length) targetItem.trayContents = carried;
   }
+  ctx.heldItem = targetItem;
+  cancelHeldItemPlacement(ctx);
+  ctx.lastPickupAt = performance.now();
+  ctx.heldRotY = ctx.heldItem.mesh.rotation.y;
+  setHeldTwoHandedGhost(ctx.heldItem, true);
+  if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+  if (startPlacement) {
+    beginHeldItemPlacement(ctx);
+  }
+  ctx.notifyWorldAction();
+  return true;
+}
+
+export function pickHoveredItemForMove(ctx, explicitItem) {
+  if (!ctx || ctx.heldItem) return false;
+  const target = explicitItem || ctx.hoveredPickable;
+  if (!target) return false;
+  return pickUpTargetItem(ctx, target, true);
 }

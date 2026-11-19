@@ -50,6 +50,8 @@ export function bindControls(ctx) {
     if (e.code === 'KeyG' || e.code === 'KeyQ') {
       if (ctx.heldItem) {
         ctx.toggleHeldItemPlacement();
+      } else if (ctx.hoveredPickable && ctx.pickHoveredItemForMove) {
+        ctx.pickHoveredItemForMove();
       }
     }
     if (e.code === 'KeyR' && ctx.heldItem) {
@@ -174,9 +176,13 @@ export function bindControls(ctx) {
     if ((e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) || (performance.now() - lastTouchEndAt < 700)) {
       return;
     }
-    if (e.button === 2 && ctx.heldItem) {
+    if (e.button === 2 && (ctx.heldItem || (ctx.hoveredPickable && ctx.pickHoveredItemForMove))) {
       e.preventDefault();
-      ctx.toggleHeldItemPlacement();
+      if (ctx.heldItem) {
+        ctx.toggleHeldItemPlacement();
+      } else {
+        ctx.pickHoveredItemForMove();
+      }
       return;
     }
     if (e.button !== 0) return;
