@@ -17,7 +17,7 @@ $fallbackVersionName = is_string($fallbackVersion) && trim($fallbackVersion) !==
 $data = [
     'versionCode' => 1,
     'versionName' => $fallbackVersionName,
-    'apkUrl' => 'https://alquimistasmagicos.com.br/MycoCampus3D.apk',
+    'apkUrl' => 'https://mycocampus3d.alquimistasmagicos.com.br/MycoCampus3D.apk',
     'notes' => '',
     'mandatory' => false,
 ];
