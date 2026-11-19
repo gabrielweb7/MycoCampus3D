@@ -138,7 +138,7 @@ export function applyQualityTier(tier, deps) {
 
   renderer.setPixelRatio(ratio);
   renderer.setSize(window.innerWidth, window.innerHeight, false);
-  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   if (THREE.ACESFilmicToneMapping !== undefined && THREE.NoToneMapping !== undefined) {
     renderer.toneMapping = cfg.toneMap ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
     renderer.toneMappingExposure = cfg.toneMap ? (isTouchDevice ? 1.06 : 1.02) : 1;

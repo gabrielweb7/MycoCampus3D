@@ -2,6 +2,8 @@
  * MycoCampus3D — Ponto de Entrada Único (ES Modules)
  * Orquestra configuração, depuração centralizada, serviços, motor 3D e camada de UI.
  */
+// PRIMEIRO import: publica window.THREE (three.js r187) antes dos outros módulos.
+import './vendor/three-global.js';
 import { getAppVersion } from './core/constants.js';
 import { GAME_CONFIG } from './core/config.js';
 import { logger, installGlobalErrorHandlers } from './core/logger.js';

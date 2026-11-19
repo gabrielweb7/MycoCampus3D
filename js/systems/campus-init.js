@@ -566,7 +566,7 @@ export function initCampus3D(containerId, cbs) {
     sim.renderer.shadowMap.enabled = true;
     sim.renderer.shadowMap.autoUpdate = !touch;
     sim.renderer.shadowMap.type = touch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-    sim.renderer.outputEncoding = THREE.sRGBEncoding;
+    sim.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (THREE.ACESFilmicToneMapping) {
       sim.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       sim.renderer.toneMappingExposure = touch ? 1.05 : 1.02;
