@@ -99,6 +99,7 @@ function buildInitialSlots() {
           health: 100,
           stressType: 'none',
           stressReason: '',
+          stressReasons: [],
           color: preset.color,
           group: null,
           blockMesh: null,
@@ -562,16 +563,22 @@ export function updateGreenhouseSlotMesh(slot) {
   }
 
   if (slot.badgeSprite) {
-    const showBadge = !slot.empty && (slot.stage === 3 || slot.id < 4);
+    const showBadge = !slot.empty && (slot.stage === 3 || slot.id < 4 || (slot.stressType && slot.stressType !== 'none'));
     slot.badgeSprite.visible = showBadge;
     if (showBadge) {
       const sNames = ['Micélio', 'Primórdios', 'Crescendo', '✨ MADURO!'];
       const sColors = ['#94a3b8', '#38bdf8', '#fbbf24', '#34d399'];
-      const badgeKey = `${slot.name}|${slot.stage}|${Math.round(slot.humidity / 5)}`;
+      const slotHealth = typeof slot.health === 'number' ? Math.round(slot.health) : 100;
+      const isStressed = slot.stressType && slot.stressType !== 'none';
+      const badgeColor = isStressed ? '#f87171' : sColors[slot.stage];
+      const statusTag = isStressed
+        ? `⚠️ Estressado (${slotHealth}%): ${slot.stressReason}`
+        : `${sNames[slot.stage]} • ❤️ ${slotHealth}% • ${Math.round(slot.humidity)}% UR`;
+      const badgeKey = `${slot.name}|${slot.stage}|${Math.round(slot.humidity / 5)}|${Math.round(slotHealth / 10)}|${slot.stressReason || ''}`;
       if (badgeKey !== slot.lastBadgeKey) {
         slot.lastBadgeKey = badgeKey;
-        const infoText = `${slot.name}\n${sNames[slot.stage]} • ${Math.round(slot.humidity)}% UR`;
-        updateTextSprite(slot.badgeSprite, infoText, sColors[slot.stage]);
+        const infoText = `${slot.name}\n${statusTag}`;
+        updateTextSprite(slot.badgeSprite, infoText, badgeColor);
       }
     }
   }
@@ -1185,68 +1192,71 @@ export function interactGreenhouseSlot(slot, ctx) {
     const stageNames = ['Micélio colonizando', 'Primórdios (Pins)', 'Crescimento médio', 'Maduro para colheita'];
     const stLabel = stageNames[slot.stage] || 'Em cultivo';
     const hum = Math.round(slot.humidity);
-    callbacks.onToast(`🍄 ${slot.name} (${slot.rackName} • Andar ${slot.tier} • Flush ${slot.flush}/3) — ${stLabel} (${hum}% UR)`);
+    const slotHealth = typeof slot.health === 'number' ? Math.round(slot.health) : 100;
+    const diagText = (slot.stressReasons && slot.stressReasons.length > 0)
+      ? `⚠️ Estressado (${slotHealth}%) • Diagnóstico: ${slot.stressReasons.join(' + ')}`
+      : `❤️ Saudável (${slotHealth}%)`;
+    callbacks.onToast(`🍄 ${slot.name} (${slot.rackName} • A${slot.tier} • Flush ${slot.flush}/3) — ${stLabel} (${hum}% UR) • ${diagText}`);
   }
 }
 
 function evaluateClimateStress() {
+  const types = [];
+  const reasons = [];
+  const advices = [];
+  let severity = 0;
+
   if (greenhouseEnv.tempC > 27.0) {
-    return {
-      type: 'heat_stress',
-      reason: 'Muito calor',
-      advice: `Muito calor (${greenhouseEnv.tempC.toFixed(1)}°C) — Ligue o Climatizador ou reduza a temp. para 20–25°C`,
-      severity: Math.min(3, (greenhouseEnv.tempC - 27.0) * 0.9 + 0.6)
-    };
+    types.push('heat_stress');
+    reasons.push('Muito calor');
+    advices.push(`Muito calor (${greenhouseEnv.tempC.toFixed(1)}°C)`);
+    severity += Math.min(2.5, (greenhouseEnv.tempC - 27.0) * 0.8 + 0.5);
   }
   if (greenhouseEnv.tempC < 17.5) {
-    return {
-      type: 'cold_stress',
-      reason: 'Muito frio',
-      advice: `Muito frio (${greenhouseEnv.tempC.toFixed(1)}°C) — Ajuste o Climatizador para 20–25°C`,
-      severity: Math.min(3, (17.5 - greenhouseEnv.tempC) * 0.9 + 0.6)
-    };
+    types.push('cold_stress');
+    reasons.push('Muito frio');
+    advices.push(`Muito frio (${greenhouseEnv.tempC.toFixed(1)}°C)`);
+    severity += Math.min(2.5, (17.5 - greenhouseEnv.tempC) * 0.8 + 0.5);
   }
   if (greenhouseEnv.humidity > 95.5) {
-    return {
-      type: 'excess_humidity',
-      reason: 'Excesso de umidade',
-      advice: `Excesso de umidade (${Math.round(greenhouseEnv.humidity)}% UR) — Risco de encharcar! Reduza umidificador ou ligue exaustor`,
-      severity: Math.min(3, (greenhouseEnv.humidity - 95.0) * 0.75 + 0.7)
-    };
+    types.push('excess_humidity');
+    reasons.push('Excesso de umidade');
+    advices.push(`Excesso de umidade (${Math.round(greenhouseEnv.humidity)}% UR)`);
+    severity += Math.min(2.5, (greenhouseEnv.humidity - 95.0) * 0.7 + 0.6);
   }
   if (greenhouseEnv.humidity < 74.0) {
-    return {
-      type: 'low_humidity',
-      reason: 'Ar seco / baixa umidade',
-      advice: `Baixa umidade (${Math.round(greenhouseEnv.humidity)}% UR) — Bolos ressecando! Aumente o umidificador (alvo 85–92%)`,
-      severity: Math.min(3, (74.0 - greenhouseEnv.humidity) * 0.16 + 0.6)
-    };
+    types.push('low_humidity');
+    reasons.push('Baixa umidade (seco)');
+    advices.push(`Ar seco (${Math.round(greenhouseEnv.humidity)}% UR)`);
+    severity += Math.min(2.5, (74.0 - greenhouseEnv.humidity) * 0.15 + 0.5);
   }
   if (greenhouseEnv.exhaustPower === 2 && greenhouseEnv.co2Ppm < 470 && greenhouseEnv.humidity < 86) {
-    return {
-      type: 'excess_fae',
-      reason: 'Excesso de FAE / Vento',
-      advice: `Excesso de FAE (${Math.round(greenhouseEnv.co2Ppm)} ppm + vento forte) — Diminua o exaustor para não secar os bolos`,
-      severity: 1.2
-    };
+    types.push('excess_fae');
+    reasons.push('Excesso de FAE (vento)');
+    advices.push(`Excesso de FAE (${Math.round(greenhouseEnv.co2Ppm)} ppm + vento forte)`);
+    severity += 1.0;
   }
   if (greenhouseEnv.co2Ppm > 1100) {
-    return {
-      type: 'high_co2',
-      reason: 'CO₂ alto (pouco FAE)',
-      advice: `CO₂ alto (${Math.round(greenhouseEnv.co2Ppm)} ppm) — Ligue ou aumente o Exaustor para renovar o ar`,
-      severity: Math.min(3, (greenhouseEnv.co2Ppm - 1100) / 350 + 0.6)
-    };
+    types.push('high_co2');
+    reasons.push('CO₂ alto (pouco FAE)');
+    advices.push(`CO₂ alto (${Math.round(greenhouseEnv.co2Ppm)} ppm)`);
+    severity += Math.min(2.5, (greenhouseEnv.co2Ppm - 1100) / 350 + 0.5);
   }
   if (!greenhouseEnv.lightOn) {
-    return {
-      type: 'no_light',
-      reason: 'Sem luz LED Grow',
-      advice: 'LED Grow desligado — Ligue a iluminação para formação saudável dos chapéus',
-      severity: 0.55
-    };
+    types.push('no_light');
+    reasons.push('Sem luz LED Grow');
+    advices.push('LED Grow desligado');
+    severity += 0.45;
   }
-  return { type: 'none', reason: '', advice: '', severity: 0 };
+
+  return {
+    type: types[0] || 'none',
+    types,
+    reasons,
+    reason: reasons.join(' + '),
+    advice: advices.join(' • '),
+    severity: Math.min(5.0, severity)
+  };
 }
 
 export function stepGreenhouse(ctx, dt) {
@@ -1328,19 +1338,25 @@ export function stepGreenhouse(ctx, dt) {
 
     const prevHealth = typeof gSlot.health === 'number' ? gSlot.health : 100;
     const prevStress = gSlot.stressType || 'none';
+    const prevReason = gSlot.stressReason || '';
+    const slotReasons = stress.reasons ? stress.reasons.slice() : [];
 
-    if (stress.type !== 'none') {
-      gSlot.health = Math.max(10, prevHealth - stress.severity * 2.8 * dt);
-      gSlot.stressType = stress.type;
-      gSlot.stressReason = stress.reason;
-    } else if (gSlot.humidity < 72 || gSlot.humidity > 96) {
-      const localType = gSlot.humidity > 96 ? 'excess_humidity' : 'low_humidity';
-      gSlot.health = Math.max(10, prevHealth - 2.2 * dt);
-      gSlot.stressType = localType;
-      gSlot.stressReason = localType === 'excess_humidity' ? 'Bolo encharcado' : 'Bolo seco';
+    if (gSlot.humidity > 96 && slotReasons.indexOf('Excesso de umidade') === -1) {
+      slotReasons.push('Bolo encharcado');
+    } else if (gSlot.humidity < 72 && slotReasons.indexOf('Baixa umidade (seco)') === -1) {
+      slotReasons.push('Bolo seco');
+    }
+
+    if (slotReasons.length > 0) {
+      const localPenalty = (stress.type === 'none') ? 2.2 : stress.severity * 2.8;
+      gSlot.health = Math.max(10, prevHealth - localPenalty * dt);
+      gSlot.stressType = stress.type !== 'none' ? stress.type : (gSlot.humidity > 96 ? 'excess_humidity' : 'low_humidity');
+      gSlot.stressReasons = slotReasons;
+      gSlot.stressReason = slotReasons.join(' + ');
     } else {
       gSlot.health = Math.min(100, prevHealth + 4.0 * dt);
       gSlot.stressType = 'none';
+      gSlot.stressReasons = [];
       gSlot.stressReason = '';
     }
 
@@ -1349,6 +1365,7 @@ export function stepGreenhouse(ctx, dt) {
 
     const crossedLedThreshold =
       (prevStress !== gSlot.stressType) ||
+      (prevReason !== gSlot.stressReason) ||
       (prevHealth >= 60 && gSlot.health < 60) ||
       (prevHealth < 60 && gSlot.health >= 60) ||
       (prevHealth >= 80 && gSlot.health < 80) ||

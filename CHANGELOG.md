@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.2.3] - 2026-11-18
+### Correção Crítica do Climatizador (`0°C`) + Diagnóstico Múltiplo nos Próprios Bolos & Modal Enxuto
+- **Correção da sanitização no back-end (`api/multiplayer.php`, `js/systems/world-devices-sync.js`):**
+  - Corrigido o bug que convertia `greenhouse_temp`, `greenhouse_target_temp`, `greenhouse_hum`, `greenhouse_co2`, `greenhouse_humidifier`, `greenhouse_exhaust`, `greenhouse_slot_4..23_*` e `ball_soccer`/`ball_basket` para `'0'`/`'1'` ao salvar no MySQL (causando a leitura travada em `0.0°C`).
+  - Adicionada proteção e autocorreção inicial no cliente caso valores antigos corrompidos (`0`) ainda estejam no banco.
+- **Diagnóstico Múltiplo nos Próprios Bolos (`js/world/greenhouse.js`, `js/systems/hover-raycaster.js`):**
+  - Cada bolo exibe em seu status (ao mirar, clicar ou no crachá 3D) **Saúde %** (`Saudável` vs `Estressado`) e **todos os motivos simultâneos** (ex.: `Muito calor + Excesso de umidade + CO₂ alto + Sem luz LED Grow`).
+- **Painel da Estufa Mais Limpo (`index.html`, `js/ui/modal-greenhouse.js`):**
+  - Removida a lista extensa dos 24 slots do modal, mantendo apenas o resumo enxuto de bolos ativos/maduros/estressados junto aos controles do clima.
+
 ## [v1.2.2] - 2026-11-18
 ### Revisão Completa da Automação & Estresse Biológico da Estufa
 - **Simulação Real de Saúde (`health 0–100%`) e Estresse nos Bolos (`js/world/greenhouse.js`):**

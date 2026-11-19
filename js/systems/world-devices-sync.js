@@ -208,26 +208,34 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
   }
 
   let envChanged = false;
-  const syncEnvNum = (key, applyFn) => {
+  const syncEnvNum = (key, minVal, maxVal, applyFn) => {
     if (stateMap[key] !== undefined && sim.pendingStateChanges[key] === undefined && !(sim.recentlyChangedState[key] > now)) {
       const val = parseFloat(stateMap[key]);
-      if (Number.isFinite(val)) {
+      if (Number.isFinite(val) && val >= minVal && val <= maxVal) {
         applyFn(val);
         envChanged = true;
+      } else if (isInitial && sim.queueWorldStateChange) {
+        // Cura valores antigos/corrompidos (ex: 0 gravado antes da sanitização no PHP)
+        if (key === 'greenhouse_target_temp') sim.queueWorldStateChange(key, Math.round(greenhouseEnv.targetTempC * 10));
+        else if (key === 'greenhouse_temp') sim.queueWorldStateChange(key, Math.round(greenhouseEnv.tempC * 10));
+        else if (key === 'greenhouse_target_hum') sim.queueWorldStateChange(key, greenhouseEnv.targetHumidity);
+        else if (key === 'greenhouse_hum') sim.queueWorldStateChange(key, Math.round(greenhouseEnv.humidity));
+        else if (key === 'greenhouse_target_co2') sim.queueWorldStateChange(key, greenhouseEnv.targetCo2);
+        else if (key === 'greenhouse_co2') sim.queueWorldStateChange(key, Math.round(greenhouseEnv.co2Ppm));
       }
     }
   };
-  syncEnvNum('greenhouse_auto', (v) => { greenhouseEnv.autoMode = Number(v) === 1; });
-  syncEnvNum('greenhouse_target_hum', (v) => { greenhouseEnv.targetHumidity = v; });
-  syncEnvNum('greenhouse_target_co2', (v) => { greenhouseEnv.targetCo2 = v; });
-  syncEnvNum('greenhouse_target_temp', (v) => { greenhouseEnv.targetTempC = v / 10; });
-  syncEnvNum('greenhouse_hum', (v) => { if (Math.abs(greenhouseEnv.humidity - v) > 4) greenhouseEnv.humidity = v; });
-  syncEnvNum('greenhouse_co2', (v) => { if (Math.abs(greenhouseEnv.co2Ppm - v) > 80) greenhouseEnv.co2Ppm = v; });
-  syncEnvNum('greenhouse_temp', (v) => { if (Math.abs(greenhouseEnv.tempC - (v / 10)) > 1.2) greenhouseEnv.tempC = v / 10; });
-  syncEnvNum('greenhouse_humidifier', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.humidifierPower = v; });
-  syncEnvNum('greenhouse_exhaust', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.exhaustPower = v; });
-  syncEnvNum('greenhouse_cooler', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.coolerActive = Number(v) === 1; });
-  syncEnvNum('greenhouse_light', (v) => { greenhouseEnv.lightOn = Number(v) === 1; });
+  syncEnvNum('greenhouse_auto', 0, 1, (v) => { greenhouseEnv.autoMode = Number(v) === 1; });
+  syncEnvNum('greenhouse_target_hum', 55, 98, (v) => { greenhouseEnv.targetHumidity = v; });
+  syncEnvNum('greenhouse_target_co2', 420, 2000, (v) => { greenhouseEnv.targetCo2 = v; });
+  syncEnvNum('greenhouse_target_temp', 140, 320, (v) => { greenhouseEnv.targetTempC = v / 10; });
+  syncEnvNum('greenhouse_hum', 20, 100, (v) => { if (Math.abs(greenhouseEnv.humidity - v) > 4) greenhouseEnv.humidity = v; });
+  syncEnvNum('greenhouse_co2', 380, 2500, (v) => { if (Math.abs(greenhouseEnv.co2Ppm - v) > 80) greenhouseEnv.co2Ppm = v; });
+  syncEnvNum('greenhouse_temp', 100, 400, (v) => { if (Math.abs(greenhouseEnv.tempC - (v / 10)) > 1.2) greenhouseEnv.tempC = v / 10; });
+  syncEnvNum('greenhouse_humidifier', 0, 3, (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.humidifierPower = v; });
+  syncEnvNum('greenhouse_exhaust', 0, 2, (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.exhaustPower = v; });
+  syncEnvNum('greenhouse_cooler', 0, 1, (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.coolerActive = Number(v) === 1; });
+  syncEnvNum('greenhouse_light', 0, 1, (v) => { greenhouseEnv.lightOn = Number(v) === 1; });
   if (envChanged) updateGreenhousePanelDisplay();
 
   for (let gi = 0; gi < greenhouseSlots.length; gi++) {

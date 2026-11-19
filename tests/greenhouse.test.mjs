@@ -107,6 +107,18 @@ test('simulação de estresse biológico detecta excesso de umidade, secura, exc
   stepGreenhouse(noopCtx, 1.0);
   assert.equal(greenhouseEnv.primaryStress, 'cold_stress');
 
+  // 6b. Múltiplos diagnósticos simultâneos no mesmo bolo
+  applyGreenhouseAutomationSettings({ autoMode: false, humidifierPower: 3, exhaustPower: 0, coolerActive: false, lightOn: false });
+  greenhouseEnv.humidity = 98;
+  greenhouseEnv.co2Ppm = 1450;
+  greenhouseEnv.tempC = 29.0;
+  stepGreenhouse(noopCtx, 1.0);
+  assert.ok(greenhouseSlots[0].stressReasons.includes('Muito calor'));
+  assert.ok(greenhouseSlots[0].stressReasons.includes('Excesso de umidade'));
+  assert.ok(greenhouseSlots[0].stressReasons.includes('CO₂ alto (pouco FAE)'));
+  assert.ok(greenhouseSlots[0].stressReasons.includes('Sem luz LED Grow'));
+  assert.ok(greenhouseSlots[0].stressReasons.length >= 4);
+
   // 7. Restaurar ideal recupera saúde dos bolos
   const healthBeforeHeal = greenhouseSlots[0].health;
   restoreGreenhouseOptimal(noopCtx);
@@ -136,4 +148,9 @@ test('back-end PHP aceita 24 slots e chaves da estufa automatizada', () => {
   const schema = fs.readFileSync('api/multiplayer_schema.php', 'utf8');
   assert.ok(schema.includes('greenhouse_auto'), 'multiplayer_schema.php deve aceitar greenhouse_auto');
   assert.ok(schema.includes('greenhouse_slot_([0-9]|1[0-9]|2[0-3])_'), 'multiplayer_schema.php deve aceitar slots 0..23');
+
+  const mp = fs.readFileSync('api/multiplayer.php', 'utf8');
+  assert.ok(mp.includes("sKey === 'greenhouse_temp'"), 'multiplayer.php deve sanitizar greenhouse_temp sem virar 0/1');
+  assert.ok(mp.includes("sKey === 'greenhouse_target_temp'"), 'multiplayer.php deve sanitizar greenhouse_target_temp');
+  assert.ok(mp.includes("greenhouse_slot_([0-9]|1[0-9]|2[0-3])_humidity"), 'multiplayer.php deve sanitizar umidade dos 24 slots');
 });

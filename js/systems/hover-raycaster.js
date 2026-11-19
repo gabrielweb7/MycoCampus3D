@@ -568,7 +568,11 @@ export function updateHoverRay(ctx, customNdc) {
           ctx.hoveredGreenhouseSlot = hSlot;
           const isHoldingSpray = ctx.heldItem && (ctx.heldItem.id.indexOf('alcohol_spray') !== -1 || ctx.heldItem.id.indexOf('spray') !== -1);
           const hasColonizedSpawn = isHoldingColonizedSpawn(ctx.heldItem);
-          const loc = `${hSlot.rackName} • Andar ${hSlot.tier}`;
+          const loc = `${hSlot.rackName} • A${hSlot.tier}`;
+          const hPct = typeof hSlot.health === 'number' ? Math.round(hSlot.health) : 100;
+          const diagLabel = (hSlot.stressReasons && hSlot.stressReasons.length > 0)
+            ? `⚠️ Estressado (${hPct}%): ${hSlot.stressReasons.join(' + ')}`
+            : `❤️ Saudável (${hPct}%)`;
           if (hasColonizedSpawn) {
             prompt = (hSlot.empty || hSlot.stage <= 0)
               ? `🍄 Colocar Spawn (${ctx.heldItem.label}) em ${loc} (+50 XP na colheita)`
@@ -576,12 +580,12 @@ export function updateHoverRay(ctx, customNdc) {
           } else if (hSlot.empty || hSlot.stage < 0) {
             prompt = `📦 ${hSlot.name} (${loc}) • Traga Spawn colonizado ou clique para iniciar cultivo`;
           } else if (hSlot.stage === 3) {
-            prompt = `🍄 Colher ${hSlot.name} (${loc} • Flush ${hSlot.flush}/3) (+50 XP e +2 Cogumelos)`;
+            prompt = `🍄 Colher ${hSlot.name} (${loc} • Flush ${hSlot.flush}/3) • ${diagLabel} • (+50 XP)`;
           } else if (isHoldingSpray) {
-            prompt = `💦 Borrifar ${hSlot.name} (${loc} • ${Math.round(hSlot.humidity)}% UR)`;
+            prompt = `💦 Borrifar ${hSlot.name} (${loc} • ${Math.round(hSlot.humidity)}% UR) • ${diagLabel}`;
           } else {
             const stText = hSlot.stage === 0 ? 'Micélio' : (hSlot.stage === 1 ? 'Primórdios' : 'Crescendo');
-            prompt = `🌱 ${hSlot.name} (${loc}) • ${Math.round(hSlot.humidity)}% UR • ${stText}`;
+            prompt = `🌱 ${hSlot.name} (${loc}) • ${stText} (${Math.round(hSlot.humidity)}% UR) • ${diagLabel}`;
           }
         }
       }

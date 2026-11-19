@@ -2,7 +2,7 @@
  * MycoCampus3D — Modal de Controle & Automação da Estufa Climatizada (24 Bolos)
  */
 import { greenhouseEnv, greenhouseSlots } from '../world/greenhouse.js';
-import { $, escapeHtml, releaseInputForModal } from './dom-helpers.js';
+import { $, releaseInputForModal } from './dom-helpers.js';
 
 let refreshTimer = null;
 
@@ -104,54 +104,20 @@ export function renderGreenhouseModal() {
   setActiveBtn('gh-light-toggle', greenhouseEnv.lightOn, 'bg-amber-300 text-slate-950 border-amber-200');
   if ($('gh-light-toggle')) $('gh-light-toggle').textContent = greenhouseEnv.lightOn ? '💡 LED Grow: LIGADO' : '💡 LED Grow: DESLIGADO';
 
-  const slotsGrid = $('gh-slots-grid');
-  if (slotsGrid) {
-    let matureCount = 0;
-    let emptyCount = 0;
-    let stressedCount = 0;
-    const html = greenhouseSlots.map((slot) => {
-      if (slot.empty || slot.stage < 0) emptyCount++;
-      if (!slot.empty && slot.stage === 3) matureCount++;
+  let matureCount = 0;
+  let emptyCount = 0;
+  let stressedCount = 0;
+  for (let i = 0; i < greenhouseSlots.length; i++) {
+    const slot = greenhouseSlots[i];
+    if (slot.empty || slot.stage < 0) emptyCount++;
+    else {
+      if (slot.stage === 3) matureCount++;
       const slotHealth = typeof slot.health === 'number' ? Math.round(slot.health) : 100;
-      const isStressed = !slot.empty && ((slot.stressType && slot.stressType !== 'none') || slotHealth < 80);
-      if (isStressed) stressedCount++;
-
-      const badge = slot.empty || slot.stage < 0
-        ? '<span class="text-slate-400">📦 Livre</span>'
-        : (isStressed
-          ? `<span class="text-rose-300 font-bold">⚠️ ${slotHealth}%</span>`
-          : (slot.stage === 3
-            ? '<span class="text-emerald-300 font-extrabold">✨ Maduro!</span>'
-            : (slot.stage === 2
-              ? '<span class="text-amber-300">🌱 Crescendo</span>'
-              : (slot.stage === 1
-                ? '<span class="text-sky-300">🔬 Pins</span>'
-                : '<span class="text-slate-300">⚪ Micélio</span>'))));
-      const borderCls = slot.empty || slot.stage < 0
-        ? 'border-slate-700/60 bg-slate-900/50'
-        : (isStressed
-          ? 'border-rose-500/55 bg-rose-950/35'
-          : (slot.stage === 3 ? 'border-emerald-400/60 bg-emerald-950/35' : 'border-slate-700 bg-slate-900/80'));
-
-      const subLine = slot.empty
-        ? `${escapeHtml(slot.rackName)} • Livre`
-        : (slot.stressReason
-          ? `⚠️ ${escapeHtml(slot.stressReason)} • ${Math.round(slot.humidity)}% UR`
-          : `${escapeHtml(slot.rackName)} • ${Math.round(slot.humidity)}% UR • ❤️ ${slotHealth}%`);
-
-      return `<div class="rounded-xl border ${borderCls} p-2 text-[11px] flex flex-col justify-between gap-1">` +
-        `<div class="flex items-center justify-between gap-1">` +
-          `<span class="font-bold text-slate-200 truncate">#${slot.id + 1} • A${slot.tier}</span>` +
-          badge +
-        `</div>` +
-        `<div class="text-slate-300 font-semibold truncate">${escapeHtml(slot.name)}</div>` +
-        `<div class="text-[10px] ${isStressed ? 'text-rose-200' : 'text-slate-400'} truncate">${subLine}</div>` +
-      `</div>`;
-    }).join('');
-    slotsGrid.innerHTML = html;
-    if ($('gh-slots-summary')) {
-      $('gh-slots-summary').textContent = `${24 - emptyCount}/24 ativos • ${matureCount} maduros • ${stressedCount > 0 ? stressedCount + ' estressados' : emptyCount + ' livres'}`;
+      if ((slot.stressType && slot.stressType !== 'none') || slotHealth < 80) stressedCount++;
     }
+  }
+  if ($('gh-slots-summary')) {
+    $('gh-slots-summary').textContent = `${greenhouseSlots.length - emptyCount}/${greenhouseSlots.length} ativos • ${matureCount} maduros • ${stressedCount > 0 ? stressedCount + ' estressados' : emptyCount + ' livres'}`;
   }
 }
 

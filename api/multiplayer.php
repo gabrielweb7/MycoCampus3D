@@ -386,10 +386,41 @@ if ($action === 'sync') {
                 $stUpsert->execute(['auditorium_presenter', (string)$user['display_name']]);
             } elseif ($sKey === 'auditorium_presenter') {
                 continue;
-            } elseif (preg_match('/^greenhouse_slot_[0-3]_humidity$/', $sKey)) {
+            } elseif (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_humidity$/', $sKey)) {
                 $cleanVal = (string)max(0, min(100, (int)round((float)$sVal)));
-            } elseif (preg_match('/^greenhouse_slot_[0-3]_stage$/', $sKey)) {
+            } elseif (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_stage$/', $sKey)) {
+                $cleanVal = (string)max(-1, min(3, (int)$sVal));
+            } elseif (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_empty$/', $sKey)) {
+                $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
+            } elseif (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_species$/', $sKey)) {
+                $cleanVal = mb_substr(trim(strip_tags((string)$sVal)), 0, 80);
+            } elseif ($sKey === 'greenhouse_hum') {
+                $cleanVal = (string)max(20, min(100, (int)round((float)$sVal)));
+            } elseif ($sKey === 'greenhouse_target_hum') {
+                $cleanVal = (string)max(55, min(98, (int)round((float)$sVal)));
+            } elseif ($sKey === 'greenhouse_co2') {
+                $cleanVal = (string)max(380, min(2500, (int)round((float)$sVal)));
+            } elseif ($sKey === 'greenhouse_target_co2') {
+                $cleanVal = (string)max(420, min(2000, (int)round((float)$sVal)));
+            } elseif ($sKey === 'greenhouse_temp') {
+                $cleanVal = (string)max(100, min(400, (int)round((float)$sVal)));
+            } elseif ($sKey === 'greenhouse_target_temp') {
+                $cleanVal = (string)max(140, min(320, (int)round((float)$sVal)));
+            } elseif ($sKey === 'greenhouse_humidifier') {
                 $cleanVal = (string)max(0, min(3, (int)$sVal));
+            } elseif ($sKey === 'greenhouse_exhaust') {
+                $cleanVal = (string)max(0, min(2, (int)$sVal));
+            } elseif ($sKey === 'ball_soccer' || $sKey === 'ball_basket') {
+                $parts = array_map('trim', explode(',', (string)$sVal));
+                if (count($parts) !== 6) continue;
+                $cleanParts = [];
+                $validBall = true;
+                foreach ($parts as $p) {
+                    if (!is_numeric($p) || !is_finite((float)$p)) { $validBall = false; break; }
+                    $cleanParts[] = (string)round(max(-500.0, min(500.0, (float)$p)), 2);
+                }
+                if (!$validBall) continue;
+                $cleanVal = implode(',', $cleanParts);
             } elseif (strpos($sKey, 'cooker_mode_') === 0) {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             } else {
