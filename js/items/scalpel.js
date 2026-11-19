@@ -80,7 +80,10 @@ export function updateScalpelLabel(item) {
   } else if (sc.bladeExpired) {
     item.label = 'Bisturi Inox (Lâmina Contaminada ⚠️ Descarte no lixo)';
   } else if (sc.hasMycelium) {
-    item.label = 'Bisturi Inox (Com fragmento de Micélio)';
+    const spSuffix = sc.biopsySpecies ? ` • ${sc.biopsySpecies}` : '';
+    item.label = sc.isSporeSample
+      ? `Bisturi Inox (Com ponto de Esporos${spSuffix})`
+      : `Bisturi Inox (Com fragmento de Micélio${spSuffix})`;
   } else if (sc.sterile) {
     item.label = 'Bisturi Inox (Lâmina #24 Estéril ✅)';
   } else {

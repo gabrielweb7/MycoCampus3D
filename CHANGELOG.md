@@ -2,6 +2,20 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.3.0] - 2026-11-19
+### Ciclo Completo de Micologia: Carimbo de Esporos, Pasteurização (Coco + Vermiculita), Monotub 24L com Estante LED, 4 Flushs & Horta Orgânica
+- **Coleta de Esporos na Placa de Petri & Germinação com Bisturi (`js/items/petri-dish.js`, `js/items/scalpel.js`, `js/systems/hover-held-handlers.js`, `js/systems/lab-culture-actions.js`):**
+  - Ao segurar um cogumelo colhido e apontar para uma **Placa de Petri Vazia aberta**, o jogador deposita o **Carimbo de Esporos (Spore Print)** radial das lamelas.
+  - Com o **Bisturi Estéril (#24)** no Fluxo Laminar, é possível raspar um **Ponto de Esporos** do carimbo e germiná-lo tanto em **Placa de Petri estéril (PDA)** quanto em **Potinho PP5 de Flocão**, replicar entre placas/flocões/spawns e conservar na Geladeira (`4°C`).
+- **Vermiculita + Pó de Coco + Água & Pasteurização (`js/items/storage-rack.js`, `js/items/mixing-bowl.js`, `js/items/spawn-containers.js`, `js/items/pressure-cooker.js`, `js/world/lab-tools.js`):**
+  - Adicionados **Saco de Vermiculita 5kg** e **Saco de Pó de Coco 5kg** na Sala de Substratos para misturar com água no Pote de Mistura e porcionar em Bags 1,5kg ou Vidros 800ml para **Pasteurização (75–85°C)** na Panela de Pressão.
+- **Caixa Monotub 24L Transparente + Nova Estante Exclusiva com Luz LED Direcional (`js/items/monotub.js`, `js/world/greenhouse.js`):**
+  - Criado o **Monotub 24L Transparente** fiel às fotos reais (liner preto inferior, presilhas pretas laterais, furos de FAE com lã acrílica/polyfill e tampa articulada).
+  - Passo a passo completo: abrir a tampa → higienizar com Álcool 70% e secar com Papel Toalha → adicionar Spawn Colonizado + Substrato Pasteurizado → **Misturar** → **Nivelar o bolo** (só permite nivelar após misturar) → fechar tampa e colonizar até 100% → levar para a **Nova Estante Exclusiva de Monotubes com Luz LED embaixo de cada prateleira** para orientar a frutificação.
+  - Suporte a até **4 Flushs (`1/4 .. 4/4`)** em todos os bolos (Monotub 24L e Estufa), risco de contaminação por **Trichoderma (mofo verde)** se montado sem assepsia, e transformação em **Bolo Seco Esgotado** após o 4º flush.
+- **Horta Orgânica Externa com Alfaces, Tomates e Caixa de Substrato (`js/world/campus-garden.js`):**
+  - Construída ao sul da Estufa com **Caixa de Substrato & Compostagem**, **Canteiro de Alfaces Crespas** e **Canteiro de Tomateiros**. Jogar os bolos secos esgotados (após os 4 flushs) na Caixa de Substrato aduba o solo e acelera a colheita de alfaces e tomates maduros.
+
 ## [v1.2.6] - 2026-11-19
 ### Correção da Faixa Preta Inferior no iPhone em Modo Tela de Início (Landscape Fullscreen)
 - **Eliminação da Tarja Preta Inferior no iOS Standalone Horizontal (`css/game.css`, `js/ui/dom-helpers.js`, `js/core/quality.js`, `js/systems/campus-init.js`, `js/systems/input-controller.js`, `manifest.webmanifest`):**

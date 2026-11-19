@@ -13,6 +13,12 @@ import { PDA_POWDER_DOSE_GRAMS } from '../items/pda-mix.js';
 import { formatSprayHoverPrompt, getSanitizationStatus } from '../items/alcohol-spray.js';
 import { canDisposeItemInTrash } from '../items/lab-trash.js';
 import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
+import {
+  monotubRackHitMeshes,
+  isHoldingColonizedGrainSpawn,
+  isHoldingPasteurizedBulkSubstrate
+} from '../items/monotub.js';
+import { gardenHitMeshes, isHoldingSpentCakeForCompost } from '../world/campus-garden.js';
 
 function getRefXZ(ctx) {
   return {
@@ -546,6 +552,15 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
       return true;
     }
     const petriCtrl = sCand.mesh.userData.petriCtrl;
+    if (!sc.hasMycelium && petriCtrl && petriCtrl.mode === 'spore_print') {
+      matched = {
+        mode: petriCtrl.lidOpen ? 'scrape_spores' : 'open',
+        prompt: petriCtrl.lidOpen
+          ? '🔪 Raspar ponto de esporos do Carimbo (' + (petriCtrl.speciesName || 'Cogumelo') + ')'
+          : '🧫 Abrir placa com Carimbo de Esporos no Fluxo Laminar'
+      };
+      return true;
+    }
     if (!sc.hasMycelium && petriCtrl && petriCtrl.mode === 'clean' && petriCtrl.colonization >= 60) {
       matched = {
         mode: petriCtrl.lidOpen ? 'cut' : 'open',
@@ -771,6 +786,89 @@ function handleFridgeStorageHover(ctx, setHoverPrompt) {
   return true;
 }
 
+function handleSporePrintHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (ctx.placementMode || !ctx.heldItem || !ctx.heldItem.wildMushroomCtrl) return false;
+  const res = findPickableHit(
+    ctx,
+    3.5,
+    (cand) => !!(cand.mesh && cand.mesh.userData && cand.mesh.userData.petriCtrl &&
+      (cand.mesh.userData.petriCtrl.mode === 'bare' || cand.mesh.userData.petriCtrl.mode === 'spore_print')),
+    intersectPickableItem
+  );
+  if (!res) return false;
+  ctx.hoverHit = res.hit;
+  ctx.hoveredSporePrintPetri = res.item;
+  hidePlacementGhost(ctx);
+  const pc = res.item.mesh.userData.petriCtrl;
+  setHoverPrompt(ctx, pc.lidOpen
+    ? `🍄 Coletar Carimbo de Esporos de ${ctx.heldItem.wildMushroomCtrl.speciesName} na Placa de Petri`
+    : '🧫 Abrir tampa da Placa de Petri Vazia para coletar Carimbo de Esporos');
+  return true;
+}
+
+function handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (ctx.placementMode || !ctx.heldItem) return false;
+  const held = ctx.heldItem;
+
+  // 1. Segurando Monotub 24L -> posicionar na Estante LED de Monotubes
+  if (held.monotubCtrl && monotubRackHitMeshes.length > 0) {
+    const rHits = ctx.raycaster.intersectObjects(monotubRackHitMeshes, false);
+    if (rHits.length > 0 && rHits[0].distance < 4.5 && rHits[0].object.userData.monotubRackSlot) {
+      const slot = rHits[0].object.userData.monotubRackSlot;
+      ctx.hoverHit = rHits[0];
+      ctx.hoveredMonotubRackSlot = slot;
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, `💡 Posicionar ${held.label} na Estante com Luz LED Direcional (Andar ${slot.tier})`);
+      return true;
+    }
+  }
+
+  // 2. Segurando Bolo Seco Esgotado ou Monotub Esgotado -> jogar na Caixa de Substrato da Horta
+  if (isHoldingSpentCakeForCompost(held) && gardenHitMeshes.length > 0) {
+    const gHits = ctx.raycaster.intersectObjects(gardenHitMeshes, false);
+    if (gHits.length > 0 && gHits[0].distance < 4.8 && gHits[0].object.userData.gardenTarget) {
+      const gt = gHits[0].object.userData.gardenTarget;
+      if (gt.type === 'compost_box') {
+        ctx.hoverHit = gHits[0];
+        ctx.hoveredGardenTarget = gt;
+        hidePlacementGhost(ctx);
+        setHoverPrompt(ctx, '🌱 Despejar Bolo Seco Esgotado na Caixa de Substrato da Horta (Adubar Alfaces e Tomates!)');
+        return true;
+      }
+    }
+  }
+
+  // 3. Segurando Spawn Colonizado, Substrato Pasteurizado ou Colher Inox -> interagir com Monotub 24L
+  const canAddSpawn = isHoldingColonizedGrainSpawn(held);
+  const canAddBulk = isHoldingPasteurizedBulkSubstrate(held);
+  const isSpoon = !!(held.mesh && held.mesh.userData && held.mesh.userData.isLabSpoon);
+  if (canAddSpawn || canAddBulk || isSpoon) {
+    const res = findPickableHit(ctx, 3.8, (cand) => !!cand.monotubCtrl, intersectPickableItem);
+    if (res) {
+      const mc = res.item.monotubCtrl;
+      ctx.hoverHit = res.hit;
+      ctx.hoveredMonotubTarget = res.item;
+      hidePlacementGhost(ctx);
+      if (!mc.lidOpen) {
+        setHoverPrompt(ctx, '📦 Abrir tampa da Caixa Monotub 24L');
+      } else if (canAddSpawn && !mc.hasSpawn) {
+        setHoverPrompt(ctx, `🌾 Despejar Spawn Colonizado (${held.label}) no Monotub 24L`);
+      } else if (canAddBulk && !mc.hasBulk) {
+        setHoverPrompt(ctx, `🥥 Despejar Substrato Pasteurizado (${held.label}) no Monotub 24L`);
+      } else if (mc.hasSpawn && mc.hasBulk && !mc.mixed) {
+        setHoverPrompt(ctx, '🤲 Misturar Spawn + Substrato Pasteurizado dentro do Monotub 24L');
+      } else if (mc.mixed && !mc.leveled) {
+        setHoverPrompt(ctx, '📏 Nivelar e compactar o bolo dentro do Monotub 24L');
+      } else {
+        setHoverPrompt(ctx, res.item.label);
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Executa os handlers contextuais para o item atualmente segurado.
  * @returns {boolean} true se um alvo contextual assumiu o hover e já atualizou o prompt.
@@ -784,6 +882,8 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
   if (handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleParafilmHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleTrashHover(ctx, setHoverPrompt)) return true;
+  if (handleSporePrintHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
+  if (handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handlePdaReagentHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleHeatSealerHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleSinkHover(ctx, setHoverPrompt)) return true;

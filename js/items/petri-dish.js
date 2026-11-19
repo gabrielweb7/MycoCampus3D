@@ -59,6 +59,34 @@ export function getPetriMeta(mode) {
 function drawAgarTexture(pctx, ctrl) {
   const mode = ctrl.mode;
   pctx.clearRect(0, 0, 256, 256);
+  if (mode === 'spore_print') {
+    pctx.fillStyle = '#e2e8f0';
+    pctx.fillRect(0, 0, 256, 256);
+    // Desenha carimbo de esporos (Spore Print) radial roxo-escuro/marrom das lamelas
+    pctx.save();
+    pctx.strokeStyle = 'rgba(59, 7, 100, 0.78)';
+    pctx.lineWidth = 2.0;
+    for (let g = 0; g < 72; g++) {
+      const ang = (g / 72) * Math.PI * 2;
+      const rIn = 18 + (g % 2) * 5;
+      const rOut = 88 + Math.sin(g * 5) * 6;
+      pctx.beginPath();
+      pctx.moveTo(128 + Math.cos(ang) * rIn, 128 + Math.sin(ang) * rIn);
+      pctx.lineTo(128 + Math.cos(ang) * rOut, 128 + Math.sin(ang) * rOut);
+      pctx.stroke();
+    }
+    const spGrad = pctx.createRadialGradient(128, 128, 16, 128, 128, 92);
+    spGrad.addColorStop(0, 'rgba(30, 27, 75, 0.15)');
+    spGrad.addColorStop(0.35, 'rgba(59, 7, 100, 0.55)');
+    spGrad.addColorStop(0.85, 'rgba(46, 16, 101, 0.45)');
+    spGrad.addColorStop(1, 'rgba(46, 16, 101, 0.0)');
+    pctx.fillStyle = spGrad;
+    pctx.beginPath();
+    pctx.arc(128, 128, 92, 0, Math.PI * 2);
+    pctx.fill();
+    pctx.restore();
+    return;
+  }
   if (mode === 'contam') {
     pctx.fillStyle = '#c99e4c';
   } else {
@@ -88,13 +116,18 @@ function drawAgarTexture(pctx, ctrl) {
       pctx.stroke();
     }
     pctx.restore();
-    // Quadradinho branco inicial do fragmento transferido no centro do PDA âmbar
+    // Quadradinho branco inicial do fragmento transferido ou ponto escuro de esporos germinando no centro do PDA âmbar
     if (mode === 'colonizing' && ctrl.inoculationMethod === 'mycelium' && progress < 35) {
       pctx.fillStyle = '#ffffff';
       pctx.fillRect(118, 118, 20, 20);
       pctx.strokeStyle = '#cbd5e1';
       pctx.lineWidth = 1.2;
       pctx.strokeRect(118, 118, 20, 20);
+    } else if (mode === 'colonizing' && ctrl.inoculationMethod === 'spores' && progress < 40) {
+      pctx.fillStyle = '#3b0764';
+      pctx.beginPath();
+      pctx.arc(128, 128, 7, 0, Math.PI * 2);
+      pctx.fill();
     }
     const cuts = Math.min(4, ctrl.cutWedges || 0);
     if (cuts > 0) {
@@ -377,10 +410,12 @@ export function updatePetriVisual(item) {
             : (ctrl.mode === 'contam' ? (ctrl.expired ? 'Cultura vencida; micélio perdeu viabilidade' : 'Cultivo contaminado por mofo ou bactéria') : 'Cultivo de micélio em meio sólido BDA/PDA'))));
   }
   const spSuffix = ctrl.speciesName ? (' [' + ctrl.speciesName + ']') : '';
-  if (ctrl.mode === 'clean') {
+  if (ctrl.mode === 'spore_print') {
+    item.label = 'Placa de Petri' + spSuffix + ' (Carimbo de Esporos • Colete ponto com Bisturi)';
+  } else if (ctrl.mode === 'clean') {
     item.label = 'Placa de Petri' + spSuffix + ' (Micélio • 100% colonizada)';
   } else if (ctrl.mode === 'colonizing') {
-    item.label = 'Placa de Petri' + spSuffix + ' (Micélio crescendo • ' + Math.floor(ctrl.colonization) + '%)';
+    item.label = 'Placa de Petri' + spSuffix + (ctrl.inoculationMethod === 'spores' ? ' (Esporos germinando • ' : ' (Micélio crescendo • ') + Math.floor(ctrl.colonization) + '%)';
   } else if (ctrl.mode === 'contam') {
     item.label = ctrl.expired ? 'Placa de Petri (Cultura vencida)' : 'Placa Contaminada (Mofo/Bactéria)';
   } else if (ctrl.mode === 'bare') {
@@ -440,13 +475,27 @@ export function sterilizePetri(item) {
   return true;
 }
 
+export function depositSporePrintOnPetri(item, speciesName = '') {
+  const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
+  if (!ctrl || (ctrl.mode !== 'bare' && ctrl.mode !== 'spore_print') || !ctrl.lidOpen) return false;
+  ctrl.mode = 'spore_print';
+  ctrl.speciesName = speciesName || 'Psilocybe cubensis';
+  ctrl.sterilized = true;
+  ctrl.inoculated = false;
+  ctrl.colonized = false;
+  ctrl.contaminated = false;
+  ctrl.expired = false;
+  updatePetriVisual(item);
+  return true;
+}
+
 export function inoculatePetri(item, method, sterile, contamRisk = 0, speciesName = '') {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl || ctrl.mode !== 'empty' || !ctrl.lidOpen || !ctrl.sterilized) return false;
   ctrl.inoculated = true;
   ctrl.colonized = false;
   ctrl.contaminated = false;
-  ctrl.inoculationMethod = method === 'mycelium' ? 'mycelium' : 'liquid';
+  ctrl.inoculationMethod = method === 'spores' ? 'spores' : (method === 'mycelium' ? 'mycelium' : 'liquid');
   if (speciesName) ctrl.speciesName = speciesName;
   ctrl.ageGameDays = 0;
   ctrl.shelfLifeAgeDays = 0;

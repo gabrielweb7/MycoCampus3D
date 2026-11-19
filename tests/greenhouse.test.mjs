@@ -9,7 +9,9 @@ globalThis.window = globalThis.window || {
     Quaternion: class {},
     MeshStandardMaterial: class { constructor(opts = {}) { Object.assign(this, opts); this.userData = {}; } },
     MeshBasicMaterial: class { constructor(opts = {}) { Object.assign(this, opts); this.userData = {}; } },
-    BoxGeometry: class { constructor() { this.userData = {}; } }
+    BoxGeometry: class { constructor() { this.userData = {}; } },
+    SphereGeometry: class { constructor() { this.userData = {}; } },
+    CylinderGeometry: class { constructor() { this.userData = {}; } }
   }
 };
 
@@ -24,6 +26,17 @@ const {
   isHoldingColonizedSpawn
 } = await import('../js/world/greenhouse.js');
 const { computeOutsideWeatherConditions } = await import('../js/engine/environment.js');
+const {
+  interactMonotub,
+  stepMonotubs,
+  updateMonotubVisual,
+  MONOTUB_MAX_FLUSHES
+} = await import('../js/items/monotub.js');
+const {
+  gardenState,
+  gardenPlants,
+  interactGardenTarget
+} = await import('../js/world/campus-garden.js');
 
 test('estufa possui 24 lugares em 2 estantes x 3 andares com slots livres e ocupados', () => {
   assert.equal(greenhouseSlots.length, 24);
@@ -219,4 +232,144 @@ test('sensor de Porta da Estufa aberta derruba umidade, altera temperatura confo
   assert.ok(toasts.some((t) => t.includes('Porta da Estufa fechada')));
   assert.ok(greenhouseEnv.humidity > humWhenOpen + 8.0, 'automação deve recuperar a umidade após fechar a porta');
   assert.ok(greenhouseEnv.tempC > tempWhenCold + 3.0, 'climatizador deve recuperar a temperatura após fechar a porta');
+});
+
+test('Monotub 24L exige misturar antes de nivelar, frutifica até 4 flushs sob LED, vira bolo seco e aduba a Horta de Alfaces e Tomates', () => {
+  const tub = {
+    id: 'monotub_test_24l',
+    label: 'Caixa Monotub 24L',
+    sanitizedUntil: Date.now() + 60000,
+    mesh: { position: { x: 21.2, y: 0.94, z: -6.2 } },
+    monotubCtrl: {
+      lidOpen: false,
+      boxSanitized: true,
+      hasSpawn: false,
+      hasBulk: false,
+      mixed: false,
+      leveled: false,
+      colonization: 0,
+      onLedRack: false,
+      fruitingStage: 0,
+      growth: 0,
+      flush: 1,
+      contaminated: false,
+      contamReason: '',
+      spent: false,
+      speciesName: '',
+      asepticScore: 1.0,
+      updateVisual: () => updateMonotubVisual(tub)
+    }
+  };
+
+  const toasts = [];
+  const ctx = {
+    heldItem: null,
+    wearingGloves: true,
+    glovesExpired: false,
+    pickableItems: [tub],
+    callbacks: {
+      onToast: (m) => toasts.push(m),
+      onHoldChange: () => {},
+      onHarvestGreenhouse: () => {}
+    },
+    notifyWorldAction: () => {}
+  };
+
+  // 1. Abrir a tampa
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.lidOpen, true);
+
+  // 2. Adicionar Spawn Colonizado
+  ctx.heldItem = {
+    label: 'Bag 1,5kg Spawn (100% Colonizado)',
+    meta: { compatibilities: {} },
+    spawnCtrl: {
+      filled: true,
+      colonized: true,
+      contaminated: false,
+      burned: false,
+      expired: false,
+      speciesName: 'Golden Teacher',
+      updateVisual: () => {}
+    }
+  };
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.hasSpawn, true);
+  assert.equal(tub.monotubCtrl.speciesName, 'Golden Teacher');
+
+  // 3. Tentar nivelar antes de adicionar substrato e misturar -> bloqueado!
+  ctx.heldItem = null;
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.leveled, false, 'não pode nivelar antes de misturar spawn + substrato');
+
+  // 4. Adicionar Substrato Pasteurizado (Vermiculita + Pó de Coco)
+  ctx.heldItem = {
+    label: 'Bag 1,5kg Substrato (Coco + Vermiculita • Pasteurizado)',
+    meta: { compatibilities: {} },
+    spawnCtrl: {
+      filled: true,
+      substrateKind: 'coco_verm',
+      pasteurized: true,
+      sterilized: true,
+      inoculated: false,
+      contaminated: false,
+      burned: false,
+      updateVisual: () => {}
+    }
+  };
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.hasBulk, true);
+
+  // 5. Misturar Spawn + Substrato
+  ctx.heldItem = null;
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.mixed, true);
+  assert.equal(tub.monotubCtrl.leveled, false);
+
+  // 6. Nivelar o bolo (agora permitido pois já misturou!)
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.leveled, true);
+
+  // 7. Fechar a tampa e colonizar até 100%
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.lidOpen, false);
+  for (let i = 0; i < 30; i++) stepMonotubs(ctx, 1.0);
+  assert.equal(tub.monotubCtrl.colonization, 100);
+
+  // 8. Levar para a Estante Exclusiva de Monotubes com Luz LED embaixo da prateleira
+  tub.mesh.position = { x: 15.3, y: 0.48, z: -5.5 };
+  for (let f = 1; f <= MONOTUB_MAX_FLUSHES; f++) {
+    for (let s = 0; s < 75; s++) stepMonotubs(ctx, 1.0);
+    assert.equal(tub.monotubCtrl.onLedRack, true);
+    assert.equal(tub.monotubCtrl.fruitingStage, 3, `deve amadurecer no Flush ${f}/4 sob a luz LED`);
+    assert.equal(tub.monotubCtrl.flush, f);
+    interactMonotub(ctx, tub); // Colhe o flush f
+  }
+
+  // 9. Após o 4º Flush, o bolo fica Seco/Esgotado (spent = true)
+  assert.equal(tub.monotubCtrl.spent, true, 'após 4 flushs o bolo deve ficar seco/esgotado');
+  assert.ok(tub.label.includes('Bolo Seco Esgotado'));
+
+  // 10. Levar o Monotub com Bolo Seco Esgotado para a Caixa de Substrato da Horta
+  const prevCompost = gardenState.compostCakes;
+  ctx.heldItem = tub;
+  gardenPlants.push({
+    id: 'lettuce_test',
+    kind: 'lettuce',
+    name: 'Pé de Alface Crespa Orgânica',
+    stage: 1,
+    growth: 70,
+    group: {},
+    foliageGroup: { scale: { set: () => {} } }
+  });
+  interactGardenTarget(ctx, { type: 'compost_box' });
+  assert.equal(gardenState.compostCakes, prevCompost + 1, 'deve incrementar bolos compostados na Caixa de Substrato da Horta');
+  assert.equal(tub.monotubCtrl.spent, false, 'deve esvaziar o Monotub 24L ao despejar o bolo na Caixa de Substrato da Horta');
+  assert.equal(tub.monotubCtrl.hasSpawn, false);
+  assert.equal(gardenPlants[0].stage, 2, 'adubo micelial deve fazer a alface amadurecer na Horta');
+
+  // Colher a Alface madura na Horta
+  const prevHarv = gardenState.totalHarvested;
+  interactGardenTarget(ctx, { type: 'plant', plant: gardenPlants[0] });
+  assert.equal(gardenState.totalHarvested, prevHarv + 1);
 });

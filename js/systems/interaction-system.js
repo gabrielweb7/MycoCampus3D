@@ -33,8 +33,10 @@ import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateCookerWaterVisual, COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { interactDehydrator } from '../items/dehydrator.js';
 import { getItemsSupportedBy } from './surface-group-move.js';
-import { fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
+import { depositSporePrintOnPetri, fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { togglePP5Lid } from '../items/pp5-cup.js';
+import { interactMonotub, placeMonotubInLedRackSlot } from '../items/monotub.js';
+import { interactGardenTarget } from '../world/campus-garden.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
 import { addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
@@ -299,6 +301,37 @@ export function handlePrimaryAction(ctx) {
     }
     if (ctx.hoveredTrash && !ctx.placementMode) {
       handleTrashDisposal(ctx, ctx.heldItem);
+      return;
+    }
+    if (ctx.hoveredSporePrintPetri && !ctx.placementMode && ctx.heldItem.wildMushroomCtrl) {
+      const targetPetri = ctx.hoveredSporePrintPetri;
+      const pc = targetPetri.mesh && targetPetri.mesh.userData && targetPetri.mesh.userData.petriCtrl;
+      if (pc && !pc.lidOpen) {
+        togglePetriLid(ctx, targetPetri);
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🧫 Tampa da Placa de Petri aberta! Clique novamente com o cogumelo para depositar o Carimbo de Esporos.');
+        }
+        return;
+      }
+      const spName = ctx.heldItem.wildMushroomCtrl.speciesName || 'Psilocybe cubensis';
+      if (depositSporePrintOnPetri(targetPetri, spName)) {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast(`🍄 Carimbo de Esporos de ${spName} coletado na Placa de Petri! Pegue um ponto de esporos com o Bisturi no Fluxo Laminar para germinar!`);
+        }
+        ctx.notifyWorldAction();
+      }
+      return;
+    }
+    if (ctx.hoveredMonotubRackSlot && !ctx.placementMode && ctx.heldItem.monotubCtrl) {
+      placeMonotubInLedRackSlot(ctx, ctx.hoveredMonotubRackSlot);
+      return;
+    }
+    if (ctx.hoveredGardenTarget && !ctx.placementMode) {
+      if (interactGardenTarget(ctx, ctx.hoveredGardenTarget)) return;
+    }
+    if (ctx.hoveredMonotubTarget && !ctx.placementMode) {
+      interactMonotub(ctx, ctx.hoveredMonotubTarget);
       return;
     }
     if (ctx.hoveredHeatSealerTarget && (
@@ -727,6 +760,10 @@ export function handlePrimaryAction(ctx) {
         drawThermoScreen(ctx.thermoCurrentTemp, ctx.thermoLaserOn ? 'SCAN' : 'HOLD', true);
         return;
       }
+      if (ctx.heldItem && ctx.heldItem.monotubCtrl) {
+        interactMonotub(ctx, ctx.heldItem);
+        return;
+      }
       if (ctx.heldItem && ctx.heldItem.mesh.userData.isPetri) {
         togglePetriLid(ctx, ctx.heldItem);
         return;
@@ -805,6 +842,14 @@ export function handlePrimaryAction(ctx) {
     if (!ctx.adminEditMode && ctx.hoveredPickable.dehydratorCtrl) {
       interactDehydrator(ctx, ctx.hoveredPickable);
       return;
+    }
+    if (!ctx.adminEditMode && ctx.hoveredPickable.monotubCtrl) {
+      const mc = ctx.hoveredPickable.monotubCtrl;
+      if ((!mc.spent && !mc.contaminated && mc.fruitingStage === 3) ||
+          (mc.lidOpen && mc.hasSpawn && mc.hasBulk && (!mc.mixed || !mc.leveled))) {
+        interactMonotub(ctx, ctx.hoveredPickable);
+        return;
+      }
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable.fridgeCtrl) {
       const fridge = ctx.hoveredPickable;

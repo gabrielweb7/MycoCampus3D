@@ -12,6 +12,7 @@
 import { makeBox, makeTextSprite, updateTextSprite } from '../engine/textures.js';
 import { disposeObjectResources } from '../items/item-registry.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
+import { makeSpentCakeItem } from '../items/monotub.js';
 
 const SPECIES_PRESETS = [
   { name: 'Shimeji Dourado', sci: 'Pleurotus citrinopileatus', color: 0xfacc15, kind: 'shimeji' },
@@ -486,6 +487,10 @@ export function updateGreenhouseSlotMesh(slot) {
       slot.blockMesh.material = assets.emptyTrayMat;
       slot.blockMesh.scale.set(1.0, 0.22, 1.0);
       slot.blockMesh.position.y = 0.02;
+    } else if (slot.spent) {
+      slot.blockMesh.material = assets.blockMat;
+      slot.blockMesh.scale.set(0.84, 0.68, 0.84);
+      slot.blockMesh.position.y = 0.055;
     } else {
       slot.blockMesh.material = slot.stage >= 1 ? assets.colonizedBlockMat : assets.blockMat;
       slot.blockMesh.scale.set(1.0, 1.0, 1.0);
@@ -530,7 +535,7 @@ export function updateGreenhouseSlotMesh(slot) {
       mCap.position.set(m * 0.08, 0.265, (m % 2) * 0.03);
       slot.mushGroup.add(mStem, mCap);
     }
-  } else if (!slot.empty && stage >= 3) {
+  } else if (!slot.empty && !slot.spent && stage >= 3) {
     const isGolden = col === 0xd97706 || kind === 'gt';
     const matureMat = getGreenhouseCapMat(col, 0.38, isGolden ? 0xf59e0b : 0x000000, isGolden ? 0.30 : 0);
 
@@ -573,18 +578,22 @@ export function updateGreenhouseSlotMesh(slot) {
   }
 
   if (slot.badgeSprite) {
-    const showBadge = !slot.empty && (slot.stage === 3 || slot.id < 4 || (slot.stressType && slot.stressType !== 'none'));
+    const showBadge = !slot.empty && (slot.spent || slot.contaminated || slot.stage === 3 || slot.id < 4 || (slot.stressType && slot.stressType !== 'none'));
     slot.badgeSprite.visible = showBadge;
     if (showBadge) {
-      const sNames = ['Micélio', 'Primórdios', 'Crescendo', '✨ MADURO!'];
-      const sColors = ['#94a3b8', '#38bdf8', '#fbbf24', '#34d399'];
+      const sNames = ['Micélio', 'Primórdios', 'Crescendo', '✨ MADURO!', '🍂 BOLO SECO'];
+      const sColors = ['#94a3b8', '#38bdf8', '#fbbf24', '#34d399', '#d97706'];
       const slotHealth = typeof slot.health === 'number' ? Math.round(slot.health) : 100;
       const isStressed = slot.stressType && slot.stressType !== 'none';
-      const badgeColor = isStressed ? '#f87171' : sColors[slot.stage];
-      const statusTag = isStressed
-        ? `⚠️ Estressado (${slotHealth}%): ${slot.stressReason}`
-        : `${sNames[slot.stage]} • ❤️ ${slotHealth}% • ${Math.round(slot.humidity)}% UR`;
-      const badgeKey = `${slot.name}|${slot.stage}|${Math.round(slot.humidity / 5)}|${Math.round(slotHealth / 10)}|${slot.stressReason || ''}`;
+      const badgeColor = slot.contaminated ? '#22c55e' : (slot.spent ? '#d97706' : (isStressed ? '#f87171' : (sColors[slot.stage] || '#94a3b8')));
+      const statusTag = slot.contaminated
+        ? '🦠 Contaminado (Trichoderma) • Clique p/ descartar'
+        : (slot.spent
+          ? '🍂 Bolo Seco Esgotado (4/4 Flushs) • Leve à Horta!'
+          : (isStressed
+            ? `⚠️ Estressado (${slotHealth}%): ${slot.stressReason}`
+            : `${sNames[slot.stage] || 'Em cultivo'} • Flush ${slot.flush || 1}/4 • ❤️ ${slotHealth}%`));
+      const badgeKey = `${slot.name}|${slot.stage}|${slot.flush}|${slot.spent ? 1 : 0}|${slot.contaminated ? 1 : 0}|${Math.round(slot.humidity / 5)}|${Math.round(slotHealth / 10)}|${slot.stressReason || ''}`;
       if (badgeKey !== slot.lastBadgeKey) {
         slot.lastBadgeKey = badgeKey;
         const infoText = `${slot.name}\n${statusTag}`;
@@ -1152,6 +1161,47 @@ export function interactGreenhouseSlot(slot, ctx) {
     return;
   }
 
+  // Se o bolo já completou os 4 flushs (spent) ou contaminou, clicar nele com a mão livre retira o Bolo Seco Esgotado para levar à Horta!
+  if (!slot.empty && (slot.spent || slot.contaminated)) {
+    if (heldItem) {
+      if (callbacks.onToast) {
+        callbacks.onToast('⚠️ Esvazie as mãos para retirar o bolo seco esgotado e levá-lo à Caixa de Substrato da Horta!');
+      }
+      return;
+    }
+    const oldSpecies = slot.speciesName || slot.name || 'Cogumelo';
+    slot.empty = true;
+    slot.spent = false;
+    slot.contaminated = false;
+    slot.stage = -1;
+    slot.growth = 0;
+    slot.flush = 1;
+    slot.health = 100;
+    slot.stressType = 'none';
+    slot.stressReason = '';
+    slot.stressReasons = [];
+    slot.name = 'Espaço Livre #' + (slot.id + 1);
+    slot.sci = 'Aguardando Spawn';
+    slot.speciesName = '';
+    updateGreenhouseSlotMesh(slot);
+    updateGreenhousePanelDisplay();
+    if (queueWorldStateChange) {
+      queueWorldStateChange('greenhouse_slot_' + slot.id + '_empty', 1);
+      queueWorldStateChange('greenhouse_slot_' + slot.id + '_stage', 0);
+    }
+
+    const spentItem = makeSpentCakeItem(ctx, 'spent_cake_' + Date.now().toString(36), oldSpecies, slot.x, slot.y, slot.z);
+    ctx.heldItem = spentItem;
+    ctx.lastPickupAt = performance.now();
+    if (callbacks.onHoldChange) callbacks.onHoldChange(spentItem.label);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (callbacks.onToast) {
+      callbacks.onToast(`🍂 Você retirou o Bolo Seco Esgotado de ${oldSpecies} (4/4 Flushs)! Leve-o para a Caixa de Substrato na Horta ao sul da Estufa!`);
+    }
+    if (ctx.notifyWorldAction) ctx.notifyWorldAction();
+    return;
+  }
+
   if (slot.stage === 3) {
     if (window.MycoAudio) window.MycoAudio.playHarvest();
     triggerSporeBurst(slot.x, slot.y + 0.35, slot.z, slot.color);
@@ -1159,17 +1209,13 @@ export function interactGreenhouseSlot(slot, ctx) {
       callbacks.onHarvestGreenhouse(slot);
     }
     slot.flush = (slot.flush || 1) + 1;
-    if (slot.id >= 16 && slot.flush > 3) {
-      slot.empty = true;
-      slot.stage = -1;
+    if (slot.flush > 4) {
+      slot.spent = true;
+      slot.stage = 4;
       slot.growth = 0;
-      slot.flush = 1;
-      slot.name = 'Espaço Livre #' + (slot.id + 1);
-      slot.sci = 'Aguardando Spawn';
-      slot.speciesName = '';
-      if (queueWorldStateChange) {
-        queueWorldStateChange('greenhouse_slot_' + slot.id + '_empty', 1);
-        queueWorldStateChange('greenhouse_slot_' + slot.id + '_stage', 0);
+      slot.flush = 4;
+      if (callbacks.onToast) {
+        callbacks.onToast(`🍂 4º e último Flush de ${slot.name} colhido! O bolo ficou seco/esgotado — clique nele para retirar e levar à Caixa de Substrato da Horta!`);
       }
     } else {
       slot.stage = 0;
@@ -1207,7 +1253,7 @@ export function interactGreenhouseSlot(slot, ctx) {
     const diagText = (slot.stressReasons && slot.stressReasons.length > 0)
       ? `⚠️ Estressado (${slotHealth}%) • Diagnóstico: ${slot.stressReasons.join(' + ')}`
       : `❤️ Saudável (${slotHealth}%)`;
-    callbacks.onToast(`🍄 ${slot.name} (${slot.rackName} • A${slot.tier} • Flush ${slot.flush}/3) — ${stLabel} (${hum}% UR) • ${diagText}`);
+    callbacks.onToast(`🍄 ${slot.name} (${slot.rackName} • A${slot.tier} • Flush ${slot.flush}/4) — ${stLabel} (${hum}% UR) • ${diagText}`);
   }
 }
 

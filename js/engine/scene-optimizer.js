@@ -12,6 +12,8 @@
  */
 import { snowableEntries } from './textures.js';
 import { greenhouseDynamicObjects, greenhouseControlMeshes } from '../world/greenhouse.js';
+import { monotubRackHitMeshes } from '../items/monotub.js';
+import { gardenHitMeshes, gardenPlants, gardenState } from '../world/campus-garden.js';
 
 const THREE = window.THREE;
 const CHUNK_SIZE = 32;
@@ -115,6 +117,10 @@ function collectDynamicObjects(sim) {
   markTreeList(sim.greenhouseHitMeshes, (gh) => gh && gh.parent);
   markTreeList(greenhouseControlMeshes, (gm) => gm && gm.parent);
   markTreeList(greenhouseDynamicObjects);
+  markList(monotubRackHitMeshes);
+  markList(gardenHitMeshes);
+  markTreeList(gardenPlants, (pl) => pl && pl.group);
+  if (gardenState.compostFillMesh) markDynamicTree(gardenState.compostFillMesh);
 
   // Armários (portas e gavetas articuladas)
   if (sim.cabinetHitMeshes) {

@@ -56,24 +56,50 @@ export function handleMixingBowlTargetAction(ctx) {
   if (ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed && target.spawnCtrl) {
     const dstSc = target.spawnCtrl;
     const bowl = ctx.heldItem.bowlCtrl;
-    const needSolid = dstSc.isPP5 ? 45 : 250;
-    const needWater = dstSc.isPP5 ? 35 : 150;
-    const solidKey = bowl.ingredients.flocao > 0 ? 'flocao' : (bowl.ingredients.corn > 0 ? 'corn' : 'sawdust');
-    const solidAvailable = bowl.ingredients[solidKey] || 0;
+    const needSolid = dstSc.isPP5 ? 45 : 200;
+    const needWater = dstSc.isPP5 ? 35 : 100;
+    const cocoVermG = (bowl.ingredients.coco || 0) + (bowl.ingredients.vermiculite || 0);
+    const isCocoVerm = cocoVermG >= needSolid;
+    const solidKey = isCocoVerm
+      ? 'coco_verm'
+      : (bowl.ingredients.flocao > 0 ? 'flocao' : (bowl.ingredients.corn > 0 ? 'corn' : 'sawdust'));
+    const solidAvailable = isCocoVerm ? cocoVermG : (bowl.ingredients[solidKey] || 0);
     const waterAvailable = bowl.ingredients.water || 0;
     if (solidAvailable >= needSolid && waterAvailable >= needWater) {
-      bowl.ingredients[solidKey] -= needSolid;
+      if (isCocoVerm) {
+        let rem = needSolid;
+        const takeCoco = Math.min(bowl.ingredients.coco || 0, rem * 0.5);
+        bowl.ingredients.coco = Math.max(0, (bowl.ingredients.coco || 0) - takeCoco);
+        rem -= takeCoco;
+        const takeVerm = Math.min(bowl.ingredients.vermiculite || 0, rem);
+        bowl.ingredients.vermiculite = Math.max(0, (bowl.ingredients.vermiculite || 0) - takeVerm);
+        rem -= takeVerm;
+        if (rem > 0 && (bowl.ingredients.coco || 0) > 0) {
+          bowl.ingredients.coco = Math.max(0, bowl.ingredients.coco - rem);
+        }
+      } else {
+        bowl.ingredients[solidKey] -= needSolid;
+      }
       bowl.ingredients.water -= needWater;
       updateMixingBowlLabel(ctx.heldItem);
       dstSc.filled = true;
       dstSc.substrateKind = solidKey;
       dstSc.fillGrams = needSolid;
       dstSc.waterMl = needWater;
+      if (isCocoVerm && !dstSc.isPP5) {
+        dstSc.baseLabel = dstSc.isBag
+          ? 'Bag 1,5kg Substrato (Coco + Vermiculita)'
+          : 'Vidro 800ml Substrato (Coco + Vermiculita)';
+      }
       if (dstSc.fillMesh) dstSc.fillMesh.visible = true;
       dstSc.updateVisual();
       if (window.MycoAudio) window.MycoAudio.playClick();
       if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🥣 Receita porcionada em ' + dstSc.baseLabel + '!');
+      if (ctx.callbacks.onToast) {
+        ctx.callbacks.onToast(isCocoVerm
+          ? '🥥 Substrato de Vermiculita + Pó de Coco + Água porcionado em ' + dstSc.baseLabel + '! Leve à Panela no modo PASTEURIZAR (Tecla M)!'
+          : '🥣 Receita porcionada em ' + dstSc.baseLabel + '!');
+      }
       ctx.notifyWorldAction();
     } else if (ctx.callbacks.onToast) {
       ctx.callbacks.onToast('⚠️ Mistura insuficiente: precisa de ' + needSolid + 'g de sólido e ' + needWater + 'ml de água.');
@@ -106,6 +132,33 @@ export function handleScalpelTargetAction(ctx) {
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
     if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada! Jogue a embalagem vazia no lixo.');
+    ctx.notifyWorldAction();
+  } else if (target.mode === 'scrape_spores') {
+    const petri = target.item && target.item.mesh.userData.petriCtrl;
+    if (!scalpel.hasBlade) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Encaixe uma lâmina #24 no bisturi antes de raspar um ponto de esporos.');
+      return;
+    }
+    if (!isAsepticWorkArea(ctx, target.item)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Colete o ponto de esporos apenas dentro do Fluxo Laminar ligado e higienizado.');
+      return;
+    }
+    if (!petri || !petri.lidOpen || petri.mode !== 'spore_print') {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Abra a placa com Carimbo de Esporos dentro do Fluxo Laminar.');
+      return;
+    }
+    const spName = petri.speciesName || 'Psilocybe cubensis';
+    scalpel.hasMycelium = true;
+    scalpel.isSporeSample = true;
+    scalpel.biopsySpecies = spName;
+    scalpel.biopsyAseptic = !!scalpel.sterile && !!(ctx.wearingGloves && !ctx.glovesExpired);
+    scalpel.cutContaminated = !scalpel.sterile;
+    updateScalpelLabel(ctx.heldItem);
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+    if (ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(`🔪 Ponto de esporos de ${spName} coletado na ponta do bisturi! Transfira para Placa de Petri (PDA) ou Potinho PP5 de Flocão para germinar!`);
+    }
     ctx.notifyWorldAction();
   } else if (target.mode === 'cut') {
     const petri = target.item && target.item.mesh.userData.petriCtrl;
@@ -210,14 +263,18 @@ export function handleScalpelTargetAction(ctx) {
     if (!(ctx.wearingGloves && !ctx.glovesExpired)) contamRisk += 0.25;
     if (!((target.item.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
     if (!((ctx.heldItem.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
-    if (!inoculatePetri(target.item, 'mycelium', sterileTransfer, contamRisk, scalpel.biopsySpecies)) {
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir o fragmento para esta placa.');
+    const inocMethod = scalpel.isSporeSample ? 'spores' : 'mycelium';
+    if (!inoculatePetri(target.item, inocMethod, sterileTransfer, contamRisk, scalpel.biopsySpecies)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir para esta placa.');
       return;
     }
     if (ctx.callbacks.onToast) ctx.callbacks.onToast(sterileTransfer
-      ? `🍄 Fragmento${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} transferido! A lâmina segue estéril para a mesma genética.`
+      ? (scalpel.isSporeSample
+        ? `🌱 Ponto de esporos${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} inoculado no ágar PDA! Aguarde germinar em micélio!`
+        : `🍄 Fragmento${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} transferido! A lâmina segue estéril para a mesma genética.`)
       : '🦠 A transferência contaminou a placa; higienize o Fluxo Laminar, use luvas e lâmina estéril.');
     scalpel.hasMycelium = false;
+    scalpel.isSporeSample = false;
     scalpel.cutContaminated = false;
     scalpel.biopsyAseptic = true;
     if (!sterileTransfer) scalpel.sterile = false;
@@ -271,31 +328,49 @@ export function handleScalpelTargetAction(ctx) {
       ctx.callbacks.onToast('🍄 Micélio transferido com sucesso para ' + spawn.baseLabel + '!');
     }
     spawn.updateVisual();
+    const wasSpores = !!scalpel.isSporeSample;
     scalpel.hasMycelium = false;
+    scalpel.isSporeSample = false;
     scalpel.cutContaminated = false;
     if (!okTransfer) scalpel.sterile = false;
     updateScalpelLabel(ctx.heldItem);
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+    if (okTransfer && wasSpores && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(`🌱 Ponto de esporos germinando em ${spawn.baseLabel}!`);
+    }
     ctx.notifyWorldAction();
   }
 }
 
 export function handleSubstrateTargetAction(ctx) {
   const target = ctx.hoveredGrainTarget;
-  const kind = ctx.heldItem.id.indexOf('grain') !== -1 ? 'grain' : 'sawdust';
+  const heldId = (ctx.heldItem && ctx.heldItem.id) || '';
+  const isVerm = heldId.indexOf('vermiculite') !== -1;
+  const isCoco = heldId.indexOf('coco') !== -1;
+  const isGrain = heldId.indexOf('grain') !== -1 || heldId.indexOf('wheat') !== -1 || heldId.indexOf('sorghum') !== -1;
+  const kind = isVerm ? 'vermiculite' : (isCoco ? 'coco' : (isGrain ? 'grain' : 'sawdust'));
   if (target.bowlCtrl) {
     const receivesIngredients = target.meta && target.meta.compatibilities &&
       target.meta.compatibilities.receivesIngredients;
     if (!receivesIngredients) return;
-    addIngredientToBowl(target, kind === 'grain' ? 'corn' : 'sawdust', 100);
+    const ingKey = isVerm ? 'vermiculite' : (isCoco ? 'coco' : (isGrain ? 'corn' : 'sawdust'));
+    addIngredientToBowl(target, ingKey, 100);
     if (window.MycoAudio) window.MycoAudio.playClick();
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 +100g no Pote de Mistura!');
+    if (ctx.callbacks.onToast) {
+      const lbl = isVerm ? 'Vermiculita' : (isCoco ? 'Pó de Coco' : (isGrain ? 'Grãos' : 'Substrato'));
+      ctx.callbacks.onToast(`🌾 +100g de ${lbl} no Pote de Mistura!`);
+    }
     ctx.notifyWorldAction();
     return;
   }
-  if (fillSpawnWithSubstrate(target, kind)) {
+  const fillKind = (isVerm || isCoco) ? 'coco_verm' : kind;
+  if (fillSpawnWithSubstrate(target, fillKind)) {
     if (window.MycoAudio) window.MycoAudio.playClick();
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('🌾 ' + target.label + ' preenchido!');
+    if (ctx.callbacks.onToast) {
+      ctx.callbacks.onToast((isVerm || isCoco)
+        ? `🥥 ${target.label} preenchido com Vermiculita + Pó de Coco! Leve à Panela no modo PASTEURIZAR (Tecla M)!`
+        : '🌾 ' + target.label + ' preenchido!');
+    }
     ctx.notifyWorldAction();
   }
 }

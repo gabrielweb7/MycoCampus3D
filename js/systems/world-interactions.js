@@ -11,6 +11,7 @@ import { petCow } from '../entities/pasture-cows.js';
 import { grabSportBall, throwHeldSportBall } from './sports-physics.js';
 import { registerDiscoveredSpecies, triggerMagicCubensisEffect } from './mycoteca.js';
 import { registerPickable } from '../items/item-registry.js';
+import { interactGardenTarget } from '../world/campus-garden.js';
 
 function createPersistedMushroomMesh(isMagic) {
   const THREE = window.THREE;
@@ -94,6 +95,9 @@ export function handleWorldInteraction(ctx) {
   if (ctx.hoveredGreenhouseSlot) {
     ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
     return true;
+  }
+  if (ctx.hoveredGardenTarget) {
+    return interactGardenTarget(ctx, ctx.hoveredGardenTarget);
   }
   if (ctx.hoveredMushroom && ctx.hoveredMushroom.active) {
     if (ctx.heldItem) {

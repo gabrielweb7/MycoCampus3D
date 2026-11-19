@@ -119,21 +119,23 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
   const sg = new THREE.Group();
   const isWheat = kind === 'wheat';
   const isSorghum = kind === 'sorghum';
+  const isVerm = kind === 'vermiculite';
+  const isCoco = kind === 'coco';
   const isGrain = kind === 'grain' || isWheat || isSorghum;
-  const bagColor = isWheat ? 0xeab308 : (isSorghum ? 0x991b1b : (isGrain ? 0xd97706 : 0x78350f));
+  const bagColor = isWheat ? 0xeab308 : (isSorghum ? 0x991b1b : (isGrain ? 0xd97706 : (isVerm ? 0xb45309 : (isCoco ? 0x5c3a21 : 0x78350f))));
   const bag = makeBox(0.30, 0.42, 0.22, bagColor, { roughness: 0.85 });
   bag.position.y = 0.21;
-  const variantKey = isWheat ? 'wheat' : (isSorghum ? 'sorghum' : (isGrain ? 'grain' : 'bulk'));
+  const variantKey = isWheat ? 'wheat' : (isSorghum ? 'sorghum' : (isGrain ? 'grain' : (isVerm ? 'vermiculite' : (isCoco ? 'coco' : 'bulk'))));
   const lblTex = getCachedCanvasTexture(`substrate_bag_lbl_${variantKey}`, 256, 128, (sctx) => {
     sctx.fillStyle = '#f8fafc'; sctx.fillRect(0, 0, 256, 128);
-    sctx.fillStyle = isWheat ? '#ca8a04' : (isSorghum ? '#991b1b' : (isGrain ? '#b45309' : '#065f46'));
+    sctx.fillStyle = isWheat ? '#ca8a04' : (isSorghum ? '#991b1b' : (isGrain ? '#b45309' : (isVerm ? '#d97706' : (isCoco ? '#4a2c18' : '#065f46'))));
     sctx.fillRect(0, 0, 256, 36);
     sctx.fillStyle = '#ffffff'; sctx.font = 'bold 20px system-ui, sans-serif';
     sctx.textAlign = 'center';
-    const titleTxt = isWheat ? 'GRÃOS • TRIGO 5KG' : (isSorghum ? 'GRÃOS • SORGO 5KG' : (isGrain ? 'GRÃOS • MILHO 5KG' : 'SUBSTRATO BULK 5KG'));
+    const titleTxt = isWheat ? 'GRÃOS • TRIGO 5KG' : (isSorghum ? 'GRÃOS • SORGO 5KG' : (isGrain ? 'GRÃOS • MILHO 5KG' : (isVerm ? 'VERMICULITA 5KG' : (isCoco ? 'PÓ DE COCO 5KG' : 'SUBSTRATO BULK 5KG'))));
     sctx.fillText(titleTxt, 128, 25);
     sctx.fillStyle = '#1e293b'; sctx.font = 'bold 18px system-ui, sans-serif';
-    sctx.fillText(isGrain ? 'Spawn / Semente' : 'Serragem + Fibra Coco', 128, 72);
+    sctx.fillText(isGrain ? 'Spawn / Semente' : (isVerm ? 'Retenção de Umidade' : (isCoco ? 'Fibra de Coco Bulk' : 'Serragem + Fibra Coco')), 128, 72);
     sctx.fillStyle = '#64748b'; sctx.font = '15px system-ui, sans-serif';
     sctx.fillText('Uso Laboratorial • Estoque', 128, 102);
   });
@@ -143,7 +145,7 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
   );
   lbl.position.set(0, 0.24, 0.112);
   sg.add(bag, lbl);
-  const label = isWheat ? 'Saco de Trigo em Grão 5kg' : (isSorghum ? 'Saco de Sorgo 5kg' : (isGrain ? 'Saco de Grãos/Milho 5kg' : 'Saco de Substrato (Serragem/Coco) 5kg'));
+  const label = isWheat ? 'Saco de Trigo em Grão 5kg' : (isSorghum ? 'Saco de Sorgo 5kg' : (isGrain ? 'Saco de Grãos/Milho 5kg' : (isVerm ? 'Saco de Vermiculita 5kg' : (isCoco ? 'Saco de Pó de Coco 5kg' : 'Saco de Substrato (Serragem/Coco) 5kg'))));
   return registerPickable(ctx, id, label, sg, px, py, pz, 0, 0.26, 0.42, {
     category: 'substrate',
     purpose: isGrain ? 'Grãos de milho para preparo de spawn/semente' : 'Substrato bulk (serragem + fibra de coco) para frutificação',

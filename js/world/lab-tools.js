@@ -43,6 +43,8 @@ import {
   makeTapeRoll,
   makeFoilRoll
 } from '../items/storage-rack.js';
+import { makeMonotub24L, buildMonotubLedRack } from '../items/monotub.js';
+import { buildCampusVegetableGarden } from './campus-garden.js';
 
 const THREE = window.THREE;
 
@@ -273,12 +275,59 @@ export function buildCampusWingsAndEquipment(ctx) {
   createBanner(scene, 13.85, 5.1, -11.6, -Math.PI / 2, '#0284c7', '🧪');
   createBanner(scene, 13.85, 5.1, 3.6, -Math.PI / 2, '#15803d', '🍄');
 
-  // Equipamentos de Substratos (Leste-Norte): Tripe a Gas + Panela + Base Perfurada
+  // Equipamentos de Substratos (Leste-Norte): Tripe a Gas + Panela + Base Perfurada + Sacos de Vermiculita/Coco + Estante LED de Monotubes 24L
   addMovableStainlessTable(ctx, 'table_sub_east', 'Mesa Inox (Substratos)', 21.2, 0.12, -5.2, 1.5, 0.82, 3.2);
   makeCookerBase(ctx, 'cooker_base_sub', 21.2, 0.94, -5.3);
   makeGasTripodBurner(ctx, 'gas_tripod_sub', 21.2, 0.12, -3.1);
   createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.2, 0.74, -3.1);
 
+  // Sacos de Vermiculita 5kg e Pó de Coco 5kg na Sala de Substratos
+  makeSubstrateBag5kg(ctx, 'substrate_vermiculite_01', 'vermiculite', 22.8, 0.12, -8.5);
+  makeSubstrateBag5kg(ctx, 'substrate_vermiculite_02', 'vermiculite', 22.8, 0.12, -7.8);
+  makeSubstrateBag5kg(ctx, 'substrate_coco_01', 'coco', 22.8, 0.12, -7.1);
+  makeSubstrateBag5kg(ctx, 'substrate_coco_02', 'coco', 22.8, 0.12, -6.4);
+
+  // Nova Estante Exclusiva para Monotubes 24L com Luz LED embaixo de cada prateleira
+  buildMonotubLedRack(ctx, 15.3, -5.2);
+
+  // Caixas Monotub 24L Transparentes (na bancada para montar e na Estante LED demonstrando frutificação)
+  makeMonotub24L(ctx, 'monotub_24l_01', 21.2, 0.94, -6.2, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_02', 21.2, 0.94, -4.4, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_03', 15.3, 0.48, -6.08, {
+    ry: Math.PI / 2,
+    boxSanitized: true,
+    hasSpawn: true,
+    hasBulk: true,
+    mixed: true,
+    leveled: true,
+    colonization: 100,
+    onLedRack: true,
+    rackSlotId: 0,
+    fruitingStage: 3,
+    flush: 1,
+    speciesName: 'Golden Teacher (Psilocybe cubensis)'
+  });
+  makeMonotub24L(ctx, 'monotub_24l_04', 15.3, 0.48, -5.49, {
+    ry: Math.PI / 2,
+    boxSanitized: true,
+    hasSpawn: true,
+    hasBulk: true,
+    mixed: true,
+    leveled: true,
+    colonization: 100,
+    onLedRack: true,
+    rackSlotId: 1,
+    fruitingStage: 2,
+    growth: 60,
+    flush: 2,
+    speciesName: 'B+ Cubensis'
+  });
+  makeMonotub24L(ctx, 'monotub_24l_05', 15.3, 1.14, -6.08, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_06', 15.3, 1.14, -5.49, { ry: Math.PI / 2 });
+
   // Equipamentos da Estufa Climatizada Inteligente (Leste-Sul)
   buildGreenhouseBench(scene, ctx);
+
+  // Horta Orgânica Externa com Alfaces, Tomates e Caixa de Substrato / Compostagem (Sul da Estufa)
+  buildCampusVegetableGarden(ctx);
 }

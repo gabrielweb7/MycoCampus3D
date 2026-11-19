@@ -17,6 +17,7 @@ import { isCultureAccessibleFromFridge, isPartOfFridgeDoor, isCultureFridgeOccup
 import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
 import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import { formatHoverInfo, updateHover3dBadge, hideHover3dBadge } from '../entities/hover-3d-badge.js';
+import { gardenHitMeshes, gardenState } from '../world/campus-garden.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -192,6 +193,10 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredScalpelTarget = null;
   ctx.hoveredBowlTarget = null;
   ctx.hoveredFridgeTarget = null;
+  ctx.hoveredSporePrintPetri = null;
+  ctx.hoveredMonotubTarget = null;
+  ctx.hoveredMonotubRackSlot = null;
+  ctx.hoveredGardenTarget = null;
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
@@ -577,23 +582,52 @@ export function updateHoverRay(ctx, customNdc) {
             prompt = (hSlot.empty || hSlot.stage <= 0)
               ? `🍄 Colocar Spawn (${ctx.heldItem.label}) em ${loc} (+50 XP na colheita)`
               : `🌱 ${hSlot.name} (${loc}) já está em frutificação`;
+          } else if (hSlot.spent || hSlot.contaminated) {
+            prompt = hSlot.contaminated
+              ? `🦠 ${hSlot.name} (${loc}) Contaminado (Trichoderma) • Clique p/ retirar e descartar`
+              : `🍂 ${hSlot.name} (${loc} • 4/4 Flushs • Bolo Seco Esgotado) • Clique p/ retirar e levar à Horta!`;
           } else if (hSlot.empty || hSlot.stage < 0) {
             prompt = `📦 ${hSlot.name} (${loc}) • Traga Spawn colonizado ou clique para iniciar cultivo`;
           } else if (hSlot.stage === 3) {
-            prompt = `🍄 Colher ${hSlot.name} (${loc} • Flush ${hSlot.flush}/3) • ${diagLabel} • (+50 XP)`;
+            prompt = `🍄 Colher ${hSlot.name} (${loc} • Flush ${hSlot.flush}/4) • ${diagLabel} • (+50 XP)`;
           } else if (isHoldingSpray) {
             prompt = `💦 Borrifar ${hSlot.name} (${loc} • ${Math.round(hSlot.humidity)}% UR) • ${diagLabel}`;
           } else {
             const stText = hSlot.stage === 0 ? 'Micélio' : (hSlot.stage === 1 ? 'Primórdios' : 'Crescendo');
-            prompt = `🌱 ${hSlot.name} (${loc}) • ${stText} (${Math.round(hSlot.humidity)}% UR) • ${diagLabel}`;
+            prompt = `🌱 ${hSlot.name} (${loc} • Flush ${hSlot.flush}/4) • ${stText} (${Math.round(hSlot.humidity)}% UR) • ${diagLabel}`;
           }
+        }
+      }
+    }
+  }
+  if (!prompt && gardenHitMeshes.length > 0 && refX > 10 && refX < 28 && refZ > 12 && refZ < 24) {
+    const gHits = ctx.raycaster.intersectObjects(gardenHitMeshes, false);
+    if (gHits.length > 0 && gHits[0].distance < 5.0 && gHits[0].object.userData.gardenTarget) {
+      const gt = gHits[0].object.userData.gardenTarget;
+      ctx.hoverHit = gHits[0];
+      ctx.hoveredGardenTarget = gt;
+      if (gt.type === 'compost_box') {
+        prompt = `🌱 Caixa de Substrato da Horta (${gardenState.compostCakes} bolos • Fertilidade ${Math.round(gardenState.soilRichness)}%) • Traga Bolos Secos após 4 Flushs!`;
+      } else if (gt.type === 'plant' && gt.plant) {
+        const pl = gt.plant;
+        if (pl.stage === 2) {
+          prompt = pl.kind === 'tomato'
+            ? `🍅 Colher Tomates Vermelhos Orgânicos (${pl.name})`
+            : `🥬 Colher Alface Crespa Orgânica (${pl.name})`;
+        } else {
+          const stTxt = pl.stage === 0 ? 'Muda crescendo' : (pl.kind === 'tomato' ? 'Tomates verdes amadurecendo' : 'Folhas crescendo');
+          prompt = `🌿 ${pl.name} • ${stTxt} (${Math.floor(pl.growth)}%) • Adube na Caixa de Substrato ao lado!`;
         }
       }
     }
   }
   if (!prompt && ctx.heldItem) {
     const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
-    if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
+    if (ctx.heldItem.monotubCtrl) {
+      prompt = isTouch
+        ? '📦 Toque para abrir/fechar tampa ou misturar/nivelar • Posicione na bancada ou na Estante LED'
+        : '📦 Clique para abrir/fechar tampa ou misturar/nivelar • G/Q para posicionar na bancada ou Estante LED';
+    } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
       const petriCtrl = ctx.heldItem.mesh.userData.petriCtrl;
       if (petriCtrl) {
         prompt = petriCtrl.lidOpen

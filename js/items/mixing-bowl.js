@@ -87,11 +87,17 @@ export function updateMixingBowlLabel(item) {
   keys.forEach((k) => {
     const val = Math.round(bc.ingredients[k]);
     totalG += val;
-    const tag = k === 'flocao' ? 'Flocão' : (k === 'water' ? 'Água' : (k === 'corn' ? 'Milho' : k));
+    const tag = k === 'flocao'
+      ? 'Flocão'
+      : (k === 'water'
+        ? 'Água'
+        : (k === 'corn'
+          ? 'Milho'
+          : (k === 'vermiculite' ? 'Vermiculita' : (k === 'coco' ? 'Pó de Coco' : k))));
     parts.push(tag + ' ' + val + 'g');
   });
   if (bc.mixMesh) {
-    const dryG = (bc.ingredients.flocao || 0) + (bc.ingredients.corn || 0) + (bc.ingredients.sawdust || 0);
+    const dryG = (bc.ingredients.flocao || 0) + (bc.ingredients.corn || 0) + (bc.ingredients.sawdust || 0) + (bc.ingredients.vermiculite || 0) + (bc.ingredients.coco || 0);
     const waterG = bc.ingredients.water || 0;
     if (bc.mixed) {
       bc.mixMesh.visible = totalG > 0;

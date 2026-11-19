@@ -11,6 +11,7 @@ import { updatePetriVisual } from './petri-dish.js';
 import { updateMixingBowlLabel } from './mixing-bowl.js';
 import { updatePdaMediumVisual } from './pda-mix.js';
 import { updateScalpelLabel } from './scalpel.js';
+import { resetMonotubToCleanEmpty } from './monotub.js';
 
 const THREE = window.THREE;
 
@@ -142,6 +143,13 @@ export function canDisposeItemInTrash(item) {
   if (item.bladePackCtrl) {
     return !!item.bladePackCtrl.empty;
   }
+  if (item.spentCakeCtrl) {
+    return true;
+  }
+  if (item.monotubCtrl) {
+    const mc = item.monotubCtrl;
+    return !!(mc.hasSpawn || mc.hasBulk || mc.spent || mc.contaminated);
+  }
   if (item.mesh.userData.liquidCtrl && item.id.indexOf('distilled_jug') !== 0) {
     const hasPda = !!(item.pdaMediumCtrl && (item.pdaMediumCtrl.powderGrams > 0 || item.pdaMediumCtrl.mixed || item.pdaMediumCtrl.burned));
     const hasCulture = !!(item.cultureCtrl && (item.cultureCtrl.colonized || item.cultureCtrl.contaminated || item.cultureCtrl.expired));
@@ -241,6 +249,10 @@ export function resetDisposableContainer(item) {
     updateContainerVolume(item, 0);
     cleaned = true;
   }
+  if (item.monotubCtrl) {
+    resetMonotubToCleanEmpty(item);
+    cleaned = true;
+  }
   return cleaned;
 }
 
@@ -279,6 +291,9 @@ export function handleTrashDisposal(ctx, item) {
   }
   if (item.bladePackCtrl && item.bladePackCtrl.empty) {
     return disposeAndRemoveItem(ctx, item, '🗑️ Embalagem vazia da lâmina descartada no lixo!');
+  }
+  if (item.spentCakeCtrl) {
+    return disposeAndRemoveItem(ctx, item, '🗑️ Bolo esgotado descartado no lixo! (Dica: você também pode jogá-lo na Caixa de Substrato da Horta!)');
   }
 
   const cleaned = resetDisposableContainer(item);

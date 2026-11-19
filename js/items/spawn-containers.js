@@ -51,13 +51,17 @@ export function fillSpawnWithSubstrate(item, kind) {
   sc.substrateKind = kind || 'grain';
   sc.sealed = false;
   sc.sterilized = false;
+  sc.pasteurized = false;
   sc.sterilizeProgress = 0;
   sc.inoculated = false;
   sc.colonization = 0;
   Object.assign(sc, createCultureLifecycleState(false));
   sc.contaminated = false;
   sc.burned = false;
-  sc.baseLabel = sc.isBag ? 'Bag 1,5kg Spawn' : 'Vidro 800ml (Milho)';
+  const isBulkSub = sc.substrateKind === 'coco_verm' || sc.substrateKind === 'sawdust' || sc.substrateKind === 'coco' || sc.substrateKind === 'vermiculite';
+  sc.baseLabel = isBulkSub
+    ? (sc.isBag ? 'Bag 1,5kg Substrato (Coco + Vermiculita)' : 'Vidro 800ml Substrato (Coco + Vermiculita)')
+    : (sc.isBag ? 'Bag 1,5kg Spawn' : 'Vidro 800ml (Milho)');
   if (sc.fillMesh) sc.fillMesh.visible = true;
   if (sc.mycOverlay) sc.mycOverlay.visible = false;
   if (item.meta && item.meta.compatibilities) {
@@ -126,8 +130,12 @@ export function updateSpawnVisual(item) {
     item.label = sc.baseLabel + ' (100% Colonizado ✅)' + getSpawnCultureStatus(item);
   } else if (sc.inoculated) {
     item.label = sc.baseLabel + getSpawnCultureStatus(item);
+  } else if (sc.pasteurized) {
+    item.label = sc.baseLabel + ' (Pasteurizado ✅ • Pronto p/ Monotub 24L)';
   } else if (sc.sterilized) {
-    item.label = sc.baseLabel + ' (Estéril • Pronto)';
+    item.label = sc.baseLabel + ((sc.substrateKind === 'coco_verm' || sc.substrateKind === 'sawdust')
+      ? ' (Pasteurizado/Estéril ✅ • Pronto p/ Monotub)'
+      : ' (Estéril • Pronto)');
   } else if (sc.sealed) {
     item.label = sc.baseLabel + ' (Selado • Pronto para esterilizar)';
   } else if (sc.sterilizeProgress > 0) {
