@@ -129,8 +129,19 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
   spawnSprayParticles(ctx, 0xe0f2fe, 30, spOrigin, spDir, 0.95, 2.5, 0.032, 0.45);
 
   if (!sprayInfo || !sprayInfo.target) {
-    if (!ctx.hoveredGreenhouseSlot && ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🧴 Aponte para o Fluxo Laminar, bancada ou item próximo para borrifar Álcool 70%.');
+    if (!ctx.hoveredGreenhouseSlot) {
+      if (ctx.wearingGloves) {
+        ctx.glovesExpired = false;
+        ctx.glovesUntil = performance.now() + 160000;
+        if (ctx.callbacks && ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('🧤🧴 Você borrifou Álcool 70% nas suas Luvas Pretas! Esterilidade das mãos renovada por 160s!');
+        }
+        if (ctx.notifyWorldAction) ctx.notifyWorldAction();
+        return;
+      }
+      if (ctx.callbacks && ctx.callbacks.onToast) {
+        ctx.callbacks.onToast('🧴 Aponte para o Fluxo Laminar, bancada ou item próximo para borrifar Álcool 70%.');
+      }
     }
     return;
   }

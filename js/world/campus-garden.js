@@ -28,9 +28,18 @@ export const gardenState = {
   soilRichness: 45, // 0..100%
   totalHarvested: 0,
   compostFillMesh: null,
+  basketItems: [],
   currentCompostFrac: 0.37,
   targetCompostFrac: 0.37
 };
+
+function updateHarvestBasketVisual() {
+  if (!gardenState.basketItems || !gardenState.basketItems.length) return;
+  const shown = Math.min(gardenState.basketItems.length, Math.max(1, gardenState.totalHarvested));
+  for (let i = 0; i < gardenState.basketItems.length; i++) {
+    gardenState.basketItems[i].visible = i < shown;
+  }
+}
 
 export function isHoldingSpentCakeForCompost(held) {
   if (!held) return false;
@@ -321,6 +330,35 @@ export function buildCampusVegetableGarden(ctx) {
     }
   }
 
+  // 3b. CESTA DE COLHEITA ORGÂNICA DA HORTA (x: 19.9, z: 18.7)
+  const bx = 19.9;
+  const bz = 18.7;
+  const basketGroup = new THREE.Group();
+  const basketRim = makeBox(0.66, 0.24, 0.46, stakeMat);
+  basketRim.position.set(bx, 0.12, bz);
+  basketGroup.add(basketRim);
+  gardenState.basketItems = [];
+  for (let bi = 0; bi < 6; bi++) {
+    const isTom = bi % 2 === 1;
+    const itemMesh = new THREE.Mesh(
+      isTom ? fruitGeo : leafInnerGeo,
+      isTom ? new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.28 }) : lettuceMat
+    );
+    itemMesh.position.set(bx - 0.18 + (bi % 3) * 0.18, 0.26, bz - 0.08 + Math.floor(bi / 3) * 0.16);
+    itemMesh.visible = bi === 0;
+    basketGroup.add(itemMesh);
+    gardenState.basketItems.push(itemMesh);
+  }
+  const basketHit = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.45, 0.55), hitMat);
+  basketHit.position.set(bx, 0.22, bz);
+  basketHit.userData.gardenTarget = {
+    type: 'harvest_basket',
+    label: '🧺 Cesta de Colheita Orgânica da Horta'
+  };
+  basketGroup.add(basketHit);
+  gardenHitMeshes.push(basketHit);
+  scene.add(basketGroup);
+
   // 4. Borboletas 3D voando sobre a Horta + Pool de Partículas de Adubo/Colheita
   gardenButterflies.length = 0;
   gardenBurstMeshes.length = 0;
@@ -444,6 +482,14 @@ export function interactGardenTarget(ctx, target) {
     return true;
   }
 
+  if (target.type === 'harvest_basket') {
+    if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
+    if (onToast) {
+      onToast(`🧺 Cesta de Colheita Orgânica da Horta • ${gardenState.totalHarvested} colheita(s) acumuladas (Alfaces & Tomates cultivados no húmus de cogumelos)!`);
+    }
+    return true;
+  }
+
   if (target.type === 'plant' && target.plant) {
     const pl = target.plant;
     if (pl.stage === 2) {
@@ -451,6 +497,10 @@ export function interactGardenTarget(ctx, target) {
       pl.growth = 0;
       gardenState.totalHarvested++;
       updatePlantVisual(pl);
+      updateHarvestBasketVisual();
+      if (ctx.callbacks && ctx.callbacks.onHarvestMushroom) {
+        ctx.callbacks.onHarvestMushroom('garden_' + pl.id);
+      }
       if (pl.group && pl.group.position) {
         triggerGardenBurst(pl.group.position.x, 0.45, pl.group.position.z, pl.kind === 'tomato' ? 0xef4444 : 0x22c55e);
       }

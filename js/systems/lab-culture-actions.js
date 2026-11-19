@@ -150,6 +150,7 @@ export function handleScalpelTargetAction(ctx) {
     const spName = petri.speciesName || 'Psilocybe cubensis';
     scalpel.hasMycelium = true;
     scalpel.isSporeSample = true;
+    scalpel.cutGeneration = 0;
     scalpel.biopsySpecies = spName;
     scalpel.biopsyAseptic = !!scalpel.sterile && !petri.sporeContaminated && !!(ctx.wearingGloves && !ctx.glovesExpired);
     scalpel.cutContaminated = !scalpel.sterile || !!petri.sporeContaminated;
@@ -193,8 +194,11 @@ export function handleScalpelTargetAction(ctx) {
     }
     if (genKey) scalpel.lastGeneticsKey = genKey;
     scalpel.biopsySpecies = cutSpecies;
+    const srcGen = petri ? (petri.generation || 0) : ((spawn && spawn.generation) || 1);
+    scalpel.cutGeneration = Math.min(3, srcGen + 1);
     const usedContamBlade = !scalpel.sterile;
     scalpel.hasMycelium = true;
+    scalpel.isSporeSample = false;
     scalpel.cutContaminated = usedContamBlade;
     if (petri) {
       petri.cutWedges = (petri.cutWedges || 0) + 1;
@@ -237,6 +241,8 @@ export function handleScalpelTargetAction(ctx) {
     const bladeOk = !!scalpel.sterile;
     const glovesOk = !!(ctx.wearingGloves && !ctx.glovesExpired);
     scalpel.hasMycelium = true;
+    scalpel.isSporeSample = false;
+    scalpel.cutGeneration = 1;
     scalpel.biopsySpecies = wm.speciesName;
     scalpel.biopsyAseptic = hoodOk && bladeOk && glovesOk;
     scalpel.cutContaminated = !bladeOk;
@@ -269,14 +275,16 @@ export function handleScalpelTargetAction(ctx) {
     if (!((target.item.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
     if (!((ctx.heldItem.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
     const inocMethod = scalpel.isSporeSample ? 'spores' : 'mycelium';
-    if (!inoculatePetri(target.item, inocMethod, sterileTransfer, contamRisk, scalpel.biopsySpecies)) {
+    const nextGen = scalpel.isSporeSample ? 0 : Math.min(3, Math.max(1, scalpel.cutGeneration || 1));
+    if (!inoculatePetri(target.item, inocMethod, sterileTransfer, contamRisk, scalpel.biopsySpecies, nextGen)) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir para esta placa.');
       return;
     }
+    const genNames = ['T0 Esporos', 'T1 Setorizada', 'T2 Rizomórfica', 'T3 Elite ⭐'];
     if (ctx.callbacks.onToast) ctx.callbacks.onToast(sterileTransfer
       ? (scalpel.isSporeSample
-        ? `🌱 Ponto de esporos${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} inoculado no ágar PDA! Aguarde germinar em micélio!`
-        : `🍄 Fragmento${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} transferido! A lâmina segue estéril para a mesma genética.`)
+        ? `🌱 Ponto de esporos [T0]${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} inoculado no ágar PDA! Aguarde germinar para setorizar T1!`
+        : `🧬 Isolamento [${genNames[nextGen] || 'T1'}]${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} transferido! A lâmina segue estéril para a mesma genética.`)
       : '🦠 A transferência contaminou a placa; higienize o Fluxo Laminar, use luvas e lâmina estéril.');
     scalpel.hasMycelium = false;
     scalpel.isSporeSample = false;
@@ -324,6 +332,7 @@ export function handleScalpelTargetAction(ctx) {
     }
     const isAseptic = isAsepticWorkArea(ctx, target.item);
     spawn.inoculated = true;
+    spawn.generation = scalpel.isSporeSample ? 0 : Math.min(3, Math.max(1, scalpel.cutGeneration || 1));
     if (scalpel.biopsySpecies) spawn.speciesName = scalpel.biopsySpecies;
     const okTransfer = scalpel.sterile && !scalpel.cutContaminated && spawn.sterilized && (isAseptic || Math.random() >= 0.45);
     if (!okTransfer) {

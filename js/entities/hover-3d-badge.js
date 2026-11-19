@@ -67,6 +67,9 @@ function roundRect(ctx, x, y, w, h, r) {
 export function formatHoverInfo(prompt, targetObj) {
   if (!prompt) return null;
 
+  const LEADING_EMOJI_RE = /^(?:[\p{Extended_Pictographic}\u2600-\u27BF][\uFE0E\uFE0F]?(?:\u200D[\p{Extended_Pictographic}\u2600-\u27BF][\uFE0E\uFE0F]?)*)/u;
+  const stripEmojis = (s) => String(s || '').replace(/^[\s\p{Extended_Pictographic}\uFE0E\uFE0F\u200D\u2600-\u27BF•\-–—:]+/gu, '').trim();
+
   let title = '';
   let params = '';
   let action = prompt.trim();
@@ -78,40 +81,60 @@ export function formatHoverInfo(prompt, targetObj) {
     action = action.replace(/\s*\([^)]+\)/g, '').trim();
   }
 
-  // 2. Extrai traço separador " — "
+  // 2. Extrai traço separador " — " ou " • "
   if (action.includes(' — ')) {
     const parts = action.split(' — ');
     action = parts[0].trim();
-    if (!params) {
-      params = parts[1].trim();
-    } else {
-      params = params + ' • ' + parts[1].trim();
+    params = params ? (params + ' • ' + parts.slice(1).join(' • ').trim()) : parts.slice(1).join(' • ').trim();
+  } else if (action.includes(' • ')) {
+    const parts = action.split(' • ');
+    action = parts[0].trim();
+    const extraParams = parts.slice(1).join(' • ').trim();
+    if (extraParams) {
+      params = params ? (params + ' • ' + extraParams) : extraParams;
     }
   }
 
-  // 3. Define título com base no alvo ou ação
+  // 3. Define título com base no alvo ou ação (preservando emoji completo com \uFE0F!)
+  const emojiMatch = prompt.trim().match(LEADING_EMOJI_RE);
   if (targetObj && (targetObj.label || targetObj.name)) {
-    title = targetObj.label || targetObj.name;
-    // Garante que se o prompt tem emoji e o título não tem, preserva o emoji
-    const emojiMatch = prompt.match(/^(\p{Extended_Pictographic}|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F]|\uD83E[\uDD00-\uDDFF]|\u2600-\u27BF)/u);
-    if (emojiMatch && !title.startsWith(emojiMatch[0])) {
+    title = String(targetObj.label || targetObj.name).trim();
+    const titleHasEmoji = LEADING_EMOJI_RE.test(title);
+    if (emojiMatch && !titleHasEmoji) {
       title = emojiMatch[0] + ' ' + title;
     }
   } else {
-    // Tenta separar emoji e texto
     title = action;
   }
 
-  // Remove repetições: não exibir "Pegar ..." nem repetir o título na linha de ação ou parâmetros já presentes no título
+  // Remove parâmetros do título se já vão aparecer na linha de parâmetros
   if (params && title.includes(params)) {
     params = '';
   }
-  const stripEmojis = (s) => String(s || '').replace(/^[\s\p{Extended_Pictographic}\uFE0F\u200D\u2600-\u27BF]+/gu, '').trim();
-  const cleanAction = stripEmojis(action);
+
+  // Remove emojis iniciais da linha de ação (pois já recebe "👉 " e o título já tem o ícone do item)
+  let cleanAction = stripEmojis(action);
   const cleanTitle = stripEmojis(title);
   const cleanTitleNoParen = cleanTitle.replace(/\s*\([^)]+\)/g, '').trim();
-  if (/^Pegar\b/i.test(cleanAction) || action === title || cleanAction === cleanTitle || cleanAction === cleanTitleNoParen) {
+
+  // Remove duplicação do nome do objeto dentro da linha de ação (ex: "Abrir Armário de 2 Alturas" -> "Abrir")
+  if (cleanTitleNoParen && cleanAction.length > cleanTitleNoParen.length) {
+    const escapedTitle = cleanTitleNoParen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const trailingTitleRe = new RegExp(`(?:\\s+(?:em|no|na|do|da|de|para|com))?\\s*${escapedTitle}$`, 'i');
+    if (trailingTitleRe.test(cleanAction)) {
+      cleanAction = cleanAction.replace(trailingTitleRe, '').trim();
+    }
+  }
+
+  if (
+    !cleanAction ||
+    /^Pegar\b/i.test(cleanAction) ||
+    cleanAction.toLowerCase() === cleanTitle.toLowerCase() ||
+    cleanAction.toLowerCase() === cleanTitleNoParen.toLowerCase()
+  ) {
     action = '';
+  } else {
+    action = cleanAction;
   }
 
   return { title, params, action };
@@ -149,22 +172,23 @@ function renderBadgeTexture(badgeState, title, params, action) {
 
   ctx.clearRect(0, 0, w, canvas.height);
 
+  const FONT_STACK = '"Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
   // Calcula layout antes de desenhar o fundo para ajustar a altura exata sem espaço sobrando
-  ctx.font = 'bold 24px "Segoe UI", -apple-system, Roboto, sans-serif';
+  ctx.font = `bold 24px ${FONT_STACK}`;
   const titleLines = wrapLines(ctx, title, maxTextW, 2);
 
-  ctx.font = '600 19px "Segoe UI", -apple-system, Roboto, sans-serif';
+  ctx.font = `600 19px ${FONT_STACK}`;
   const paramLines = params ? wrapLines(ctx, params, maxTextW, 2) : [];
 
-  ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
+  ctx.font = `bold 20px ${FONT_STACK}`;
   const actionLines = action ? wrapLines(ctx, '👉 ' + action, maxTextW, 2) : [];
 
   let maxLineW = 0;
-  ctx.font = 'bold 24px "Segoe UI", -apple-system, Roboto, sans-serif';
+  ctx.font = `bold 24px ${FONT_STACK}`;
   for (let i = 0; i < titleLines.length; i++) maxLineW = Math.max(maxLineW, ctx.measureText(titleLines[i]).width);
-  ctx.font = '600 19px "Segoe UI", -apple-system, Roboto, sans-serif';
+  ctx.font = `600 19px ${FONT_STACK}`;
   for (let i = 0; i < paramLines.length; i++) maxLineW = Math.max(maxLineW, ctx.measureText(paramLines[i]).width);
-  ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
+  ctx.font = `bold 20px ${FONT_STACK}`;
   for (let i = 0; i < actionLines.length; i++) maxLineW = Math.max(maxLineW, ctx.measureText(actionLines[i]).width);
 
   const boxW = Math.min(w - 20, Math.max(150, Math.ceil(maxLineW) + 38));
@@ -199,7 +223,7 @@ function renderBadgeTexture(badgeState, title, params, action) {
 
   // Linha 1: Título completo (Branco puro)
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 24px "Segoe UI", -apple-system, Roboto, sans-serif';
+  ctx.font = `bold 24px ${FONT_STACK}`;
   let yCursor = 8 + padTop + 12;
   for (let i = 0; i < titleLines.length; i++) {
     ctx.fillText(titleLines[i], w / 2, yCursor, maxTextW);
@@ -210,7 +234,7 @@ function renderBadgeTexture(badgeState, title, params, action) {
   if (paramLines.length) {
     yCursor += 2;
     ctx.fillStyle = '#7dd3fc';
-    ctx.font = '600 19px "Segoe UI", -apple-system, Roboto, sans-serif';
+    ctx.font = `600 19px ${FONT_STACK}`;
     for (let i = 0; i < paramLines.length; i++) {
       ctx.fillText(paramLines[i], w / 2, yCursor, maxTextW);
       yCursor += 24;
@@ -229,7 +253,7 @@ function renderBadgeTexture(badgeState, title, params, action) {
 
     // Linha 3: Ação contextual (Amarelo-ouro brilhante de leitura fácil)
     ctx.fillStyle = '#fde047';
-    ctx.font = 'bold 20px "Segoe UI", -apple-system, Roboto, sans-serif';
+    ctx.font = `bold 20px ${FONT_STACK}`;
     let actY = divY + 20;
     for (let i = 0; i < actionLines.length; i++) {
       ctx.fillText(actionLines[i], w / 2, actY, maxTextW);

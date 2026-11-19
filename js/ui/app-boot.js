@@ -847,10 +847,12 @@ export function bootApp() {
     onHoverPrompt: (txt) => {
       currentHoverPrompt = txt || '';
       const pill = $('interact-pill');
+      const hint = $('fps-hint');
       if (pill && Date.now() >= getToastUntil()) {
         if (isTouch() && currentHoverPrompt) {
           pill.textContent = currentHoverPrompt;
           pill.classList.remove('hidden');
+          if (hint) hint.style.opacity = '0';
         } else {
           // No Desktop, o Crachá 3D Diegético exibe os parâmetros e ações no mundo 3D
           pill.classList.add('hidden');

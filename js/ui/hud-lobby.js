@@ -8,6 +8,7 @@ import { events } from '../core/events.js';
 import { apiGet, apiPost } from '../services/api-client.js';
 import { $, isTouch, requestCampusFullscreen } from './dom-helpers.js';
 import { loadLabQuestProgress } from './quest-map.js';
+import { getLocalMycoCoins } from '../items/dehydration-packaging.js';
 
 export function renderSwatches() {
   const hatWrap = $('hat-swatches');
@@ -41,9 +42,11 @@ export function updateUserHud() {
   if ($('hud-name')) $('hud-name').textContent = user.display_name;
   if ($('hud-xp')) $('hud-xp').textContent = String(user.xp || 0);
   if ($('hud-mushrooms')) $('hud-mushrooms').textContent = String(user.mushrooms_harvested || 0);
+  if ($('hud-coins')) $('hud-coins').textContent = String(getLocalMycoCoins());
   if ($('hud-modules')) $('hud-modules').textContent = String((user.completed_modules || []).length);
   if ($('shop-user-xp')) $('shop-user-xp').textContent = String(user.xp || 0);
   if ($('shop-user-mushrooms')) $('shop-user-mushrooms').textContent = String(user.mushrooms_harvested || 0);
+  if ($('shop-user-coins')) $('shop-user-coins').textContent = String(getLocalMycoCoins());
   if (window.setLocalAvatarHat) {
     window.setLocalAvatarHat(user.current_hat || 'default');
   }

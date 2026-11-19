@@ -30,6 +30,8 @@ const {
   interactMonotub,
   stepMonotubs,
   updateMonotubVisual,
+  applyMonotubCasing,
+  dunkMonotubAtSink,
   MONOTUB_MAX_FLUSHES
 } = await import('../js/items/monotub.js');
 const {
@@ -37,6 +39,22 @@ const {
   gardenPlants,
   interactGardenTarget
 } = await import('../js/world/campus-garden.js');
+const { formatHoverInfo } = await import('../js/entities/hover-3d-badge.js');
+const { breakAndShakeSpawn } = await import('../js/items/spawn-containers.js');
+const {
+  interactAlcoholLamp,
+  analyzeSpecimenForMicroscope,
+  interactSilicaStorageJar
+} = await import('../js/items/lab-advanced-tools.js');
+const {
+  packDriedMushroomsIntoBag,
+  sealMushroomBag,
+  addSealedBagToDeliveryCrate,
+  interactRoadsideStand,
+  stepRoadsideMushroomSales,
+  roadStandState,
+  getLocalMycoCoins
+} = await import('../js/items/dehydration-packaging.js');
 
 test('estufa possui 24 lugares em 2 estantes x 3 andares com slots livres e ocupados', () => {
   assert.equal(greenhouseSlots.length, 24);
@@ -372,4 +390,191 @@ test('Monotub 24L exige misturar antes de nivelar, frutifica até 4 flushs sob L
   const prevHarv = gardenState.totalHarvested;
   interactGardenTarget(ctx, { type: 'plant', plant: gardenPlants[0] });
   assert.equal(gardenState.totalHarvested, prevHarv + 1);
+});
+
+test('formatHoverInfo: deduplica nome repetido do item no action e preserva variation selector de emoji colorido', () => {
+  const info = formatHoverInfo('🗄️ Abrir Armário de 2 Alturas', { label: 'Armário de 2 Alturas' });
+  assert.ok(info);
+  assert.ok(info.title.includes('\uFE0F'), 'deve preservar \\uFE0F para emoji colorido no iOS/Android');
+  assert.equal(info.action, 'Abrir', 'não deve repetir o título Armário de 2 Alturas na linha de ação');
+});
+
+test('10 Novas Mecânicas de Imersão: Break & Shake, Flambagem na Lamparina, Microscópio 1000x, Casing, Dunk e Pote c/ Sílica Gel', () => {
+  // 1. Break & Shake em spawn 35% colonizado
+  const jar = {
+    label: 'Vidro 800ml (Milho)',
+    mesh: { rotation: { z: 0 } },
+    spawnCtrl: {
+      baseLabel: 'Vidro 800ml (Milho)',
+      inoculated: true,
+      colonized: false,
+      contaminated: false,
+      burned: false,
+      expired: false,
+      colonization: 35,
+      shaken: false,
+      generation: 3,
+      updateVisual: () => {}
+    }
+  };
+  const ctx = {
+    heldItem: jar,
+    pickableItems: [],
+    callbacks: { onToast: () => {}, onHoldChange: () => {} },
+    notifyWorldAction: () => {}
+  };
+  assert.equal(breakAndShakeSpawn(ctx, jar), true);
+  assert.equal(jar.spawnCtrl.shaken, true);
+  assert.equal(jar.spawnCtrl.colonization, 43);
+
+  // 2. Flambagem de Bisturi contaminado na Lamparina a Álcool
+  const lamp = {
+    label: 'Lamparina a Álcool',
+    alcoholLampCtrl: { lit: true, flamePhase: 0, updateVisual: () => {} }
+  };
+  const scalpel = {
+    label: 'Bisturi Cirúrgico',
+    scalpelCtrl: {
+      hasBlade: true,
+      sterile: false,
+      bladeContaminated: true,
+      cutContaminated: true,
+      hasMycelium: true
+    }
+  };
+  ctx.heldItem = scalpel;
+  assert.equal(interactAlcoholLamp(ctx, lamp), true);
+  assert.equal(scalpel.scalpelCtrl.sterile, true, 'flambar na chama deve re-esterilizar 100% a lâmina #24');
+  assert.equal(scalpel.scalpelCtrl.bladeContaminated, false);
+  assert.equal(scalpel.scalpelCtrl.hasMycelium, false);
+
+  // 3. Análise no Microscópio Óptico 1000x (T3 Elite e detecção precoce de contaminante)
+  const cleanT3 = analyzeSpecimenForMicroscope(jar);
+  assert.equal(cleanT3.status, 'rhizomorphic');
+  assert.equal(cleanT3.generation, 3);
+
+  const secretContamPetri = {
+    label: 'Placa de Petri [Golden Teacher]',
+    mesh: {
+      userData: {
+        petriCtrl: {
+          mode: 'colonizing',
+          colonization: 18,
+          delayedContamAtPct: 42,
+          generation: 1
+        }
+      }
+    }
+  };
+  const earlyAlert = analyzeSpecimenForMicroscope(secretContamPetri);
+  assert.equal(earlyAlert.status, 'contaminated', 'microscópio 1000x deve detectar endósporos ocultos antes de aparecer a olho nu');
+
+  // 4. Camada de Casing + Cold Shock / Dunk no Monotub 24L
+  const tub = {
+    id: 'tub_adv',
+    label: 'Caixa Monotub 24L',
+    mesh: { position: { x: 0, y: 0, z: 0 } },
+    monotubCtrl: {
+      colonization: 100,
+      hasCasing: false,
+      humidity: 72,
+      flush: 2,
+      spent: false,
+      contaminated: false,
+      updateVisual: () => {}
+    }
+  };
+  assert.equal(applyMonotubCasing(ctx, tub), true);
+  assert.equal(tub.monotubCtrl.hasCasing, true);
+  assert.equal(dunkMonotubAtSink(ctx, tub), true);
+  assert.equal(tub.monotubCtrl.humidity, 99);
+
+  // 5. Pote Hermético com Sílica Gel guardando lote de 25g de cogumelos crocantes
+  const silicaJar = {
+    id: 'silica_test',
+    label: 'Pote Hermético',
+    silicaJarCtrl: {
+      storedGrams: 25,
+      capacityGrams: 150,
+      speciesName: 'Golden Teacher',
+      hasSilicaPacket: true,
+      updateVisual: () => {}
+    }
+  };
+  const driedBatch = {
+    id: 'dried_25',
+    label: '25g Cogumelos Crocantes',
+    mesh: {},
+    driedMushroomCtrl: { grams: 25, speciesName: 'Golden Teacher' }
+  };
+  ctx.heldItem = driedBatch;
+  ctx.pickableItems = [silicaJar, driedBatch];
+  assert.equal(interactSilicaStorageJar(ctx, silicaJar), true);
+  assert.equal(silicaJar.silicaJarCtrl.storedGrams, 50);
+  assert.equal(ctx.heldItem, null, 'lote desidratado deve entrar no pote hermético');
+
+  // 6. Sala de Desidratação -> Saco Mylar -> Seladora Térmica -> Caixa de Entrega -> Drive-Thru de Venda na Estrada c/ Carro e NPC!
+  const packBag = {
+    id: 'mushroom_pack_bag_test',
+    label: 'Saco Mylar Vazio',
+    mesh: {},
+    mushroomBagCtrl: {
+      filled: false,
+      sealed: false,
+      grams: 0,
+      speciesName: '',
+      updateVisual: () => {}
+    }
+  };
+  const batch2 = {
+    id: 'dried_25_b',
+    label: '25g Cogumelos Crocantes',
+    mesh: {},
+    driedMushroomCtrl: { grams: 25, speciesName: 'Golden Teacher' }
+  };
+  ctx.heldItem = batch2;
+  ctx.pickableItems = [packBag, batch2];
+  assert.equal(packDriedMushroomsIntoBag(ctx, packBag, batch2), true);
+  assert.equal(packBag.mushroomBagCtrl.filled, true);
+  assert.equal(packBag.mushroomBagCtrl.sealed, false);
+
+  assert.equal(sealMushroomBag(ctx, packBag), true);
+  assert.equal(packBag.mushroomBagCtrl.sealed, true);
+
+  const crate = {
+    id: 'crate_test',
+    label: 'Caixa de Entrega',
+    deliveryCrateCtrl: {
+      packsCount: 0,
+      updateVisual: () => {}
+    }
+  };
+  assert.equal(addSealedBagToDeliveryCrate(ctx, crate, packBag), true);
+  assert.equal(crate.deliveryCrateCtrl.packsCount, 1);
+
+  ctx.heldItem = crate;
+  roadStandState.availablePacks = 0;
+  assert.equal(interactRoadsideStand(ctx), true);
+  assert.equal(roadStandState.availablePacks, 1);
+  assert.equal(crate.deliveryCrateCtrl.packsCount, 0);
+
+  // Simula carro de NPC vindo na estrada quando há cogumelo disponível, descendo, pagando MycoCoins e indo embora
+  roadStandState.actor = {
+    carGroup: { position: { x: -48, y: 0.04, z: 39.5, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }, rotation: { y: 0 }, visible: false },
+    bodyMat: { color: { setHex: () => {} } },
+    npcGroup: { position: { x: 11.5, y: 0.04, z: 38.6, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }, rotation: { y: 0 }, visible: false },
+    shirtMat: { color: { setHex: () => {} } },
+    hatMat: { color: { setHex: () => {} } },
+    heldPack: { visible: false },
+    cashGroup: { position: { y: 0 }, rotation: { y: 0 }, visible: false }
+  };
+  roadStandState.npcSpawnCooldown = 0.1;
+  roadStandState.activeNpcOrder = null;
+  const coinsBefore = getLocalMycoCoins();
+
+  for (let s = 0; s < 40; s++) {
+    stepRoadsideMushroomSales(ctx, 0.5);
+  }
+  assert.equal(roadStandState.availablePacks, 0, 'NPC deve ter comprado o pacote de cogumelos desidratados');
+  assert.ok(getLocalMycoCoins() >= coinsBefore + 120, 'NPC deve ter pago +120 MycoCoins');
 });

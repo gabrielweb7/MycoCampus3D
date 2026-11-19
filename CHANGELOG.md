@@ -2,6 +2,32 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.0] - 2026-11-19
+### Sala de Desidratação & Embalagem, Drive-Thru de Vendas com NPCs de Carro, Moeda Virtual (🪙 MycoCoins), 10 Mecânicas de Micologia Realista & HUD Mobile Compacto
+- **Sala de Desidratação, Embalagem & Expedição + Reorganização Multiplayer (`js/world/lab-tools.js`, `js/items/dehydration-packaging.js`):**
+  - A antiga Sala de Substratos (Ala Leste-Norte) foi transformada e reorganizada na **Sala de Desidratação & Embalagem (`♨️ DESIDRATAÇÃO`)** com itens multiplicados para vários jogadores simultâneos:
+    - **Bancada com 6 Desidratadoras (`dehydrator_east_01..06`):** secam cogumelos frescos a 55°C até 0% de umidade, entregando lotes de **25g de Cogumelos Desidratados Crocantes** na mão.
+    - **Bancada de Embalagem & Selagem (`table_pack_east`):** conta com **16 Sacos Mylar/Zip (`makeMushroomBag`)**, **3 Seladoras Térmicas (`heat_sealer_east_01..03`)**, **Balança de Precisão** e **6 Caixas de Entrega Comercial (`makeDeliveryCrate`, até 4 pacotes selados por caixa)**.
+    - **Fluxo de Embalagem:** colocar 25g de cogumelos crocantes dentro do Saco Mylar → selar na Seladora Térmica → guardar os pacotes selados na Caixa de Entrega (4 pacotes = 🪙 480 MycoCoins).
+- **Quiosque Drive-Thru na Estrada Sul + Carros, NPCs Compradores Animados e Moeda Virtual (`🪙 MycoCoins`) (`js/items/dehydration-packaging.js`, `js/ui/modal-shop.js`, `js/ui/hud-lobby.js`):**
+  - Construído o **Quiosque Drive-Thru MycoCampus** na beira da Avenida Sul (`x: 11.5, z: 36.2`).
+  - Quando há pacotes selados disponíveis no balcão (trazidos nas Caixas de Entrega), **carros de cores e NPCs variados** (Dr. Henrique, Chef Sofia, Prof. Otávio, Marina, Lucas) vêm pela estrada em intervalos diferentes, estacionam no Drive-Thru, o NPC **desce do carro, caminha até o balcão, faz a animação pagando em dinheiro vivo (`+🪙 120 MycoCoins` por pacote), pula feliz comemorando, pega o pacote de cogumelos na mão, entra de volta no carro e vai embora pela estrada**.
+  - **Economia Virtual (`🪙 MycoCoins`):** exibida no HUD superior e integrada à **👑 Loja de Cosméticos & Brinquedos**, permitindo comprar chapéus, o **Snowboard Pro MycoRide** e o **Paraglider MycoWing** com MycoCoins.
+- **10 Novas Mecânicas Práticas de Micologia & Imersão (`js/items/lab-advanced-tools.js`, `js/items/petri-dish.js`, `js/items/spawn-containers.js`, `js/items/monotub.js`, `js/items/alcohol-spray.js`, `js/world/campus-garden.js`):**
+  1. **🧬 Isolamento Genético T0 → T1 → T2 → T3 Elite:** transferências sucessivas entre Placas de Petri evoluem a geração da linhagem (`[T0 Esporos]` → `[T1 Setorizada]` → `[T2 Rizomórfica]` → `[T3 Elite ⭐]`), acelerando a colonização e frutificação.
+  2. **💥 Break and Shake (`breakAndShakeSpawn`):** chacoalhar Vidros 800ml ou Bags 1,5kg entre 20% e 95% de colonização executa animação 3D de agitação e dobra a velocidade de colonização (`2.2x`).
+  3. **🔬 Microscópio Óptico Binocular 1000x (`makeLabMicroscope`):** 2 microscópios na bancada do Lab com lente circular ao vivo em 1000x mostrando basidiósporos, hifas com grampos de conexão (*clamp connections*) e detecção precoce de endósporos bacterianos (*Bacillus*) ou conídios de *Trichoderma*.
+  4. **🔥 Lamparina a Álcool 3D com Chama Viva (`makeAlcoholLamp`):** 2 lamparinas no Fluxo Laminar que permitem flambar a lâmina #24 do Bisturi e a agulha da Seringa até ficarem incandescentes, re-esterilizando-as 100%.
+  5. **🥥 Camada de Casing no Monotub 24L (`applyMonotubCasing`):** aplicar Vermiculita/Fibra de Coco sobre o bolo 100% colonizado retém umidade e acelera a frutificação em `+40%`.
+  6. **💦 Cold Shock / Dunk (`dunkMonotubAtSink`):** mergulhar/encher o Monotub 24L na Pia do Lab ou com o Galão 5L entre os flushs restaura `99% UR`.
+  7. **🫙 Potes Herméticos de Vidro com Sachê de Sílica Gel (`makeSilicaStorageJar`):** conservam até 150g de cogumelos desidratados crocantes a 0% de umidade sem perder potência.
+  8. **📓 Etiquetas de Genealogia Completa:** todas as placas, spawns e Monotubs exibem a geração `[T0..T3 Elite ⭐]` e status de `Break & Shake` / `Casing`.
+  9. **🧤 Borrifar Álcool 70% nas Próprias Luvas + Condensação 3D no Monotub:** borrifar álcool sem alvo enquanto usa luvas renova os `160s` de esterilidade; paredes do Monotub exibem gotículas 3D quando `UR >= 85%`.
+  10. **🧺 Cesta de Colheita Orgânica na Horta Externa:** acumula visualmente as alfaces e tomates colhidos e concede recompensa de colheita/XP.
+- **Correção de Duplicação de Mensagens Mobile & Novo HUD Mobile Compacto (`js/entities/hover-3d-badge.js`, `index.html`, `css/game.css`):**
+  - Eliminada a repetição do nome do item na segunda linha do badge 3D (ex.: `🗄️ Armário de 2 Alturas` → `👉 Abrir`) e preservado o seletor de variação `\uFE0F` para emojis coloridos no iPhone/Android.
+  - Barra superior do HUD otimizada para telas mobile sem vazar pelas bordas, mantendo **🗺️ Mapa**, **🧪 Missão**, **👑 Loja**, **⚡ Qualidade**, **🪙 MycoCoins** e **⛶ Tela Cheia** sempre visíveis.
+
 ## [v1.3.2] - 2026-11-19
 ### Realismo Micológico Avançado: Esterilização (121°C) vs Pasteurização (75–85°C), Reidratação entre Flushs & Ciclo Fechado Colheita → Desidratadora / Esporos
 - **Diferenciação Real entre Esterilização (`121°C / 15 PSI`) e Pasteurização (`75–85°C`) (`js/items/pressure-cooker.js`, `js/items/spawn-containers.js`):**

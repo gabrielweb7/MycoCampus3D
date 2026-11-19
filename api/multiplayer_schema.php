@@ -28,9 +28,15 @@ function mp_build_allowed_items(): array {
         'pressure_cooker_lab', 'pressure_lid_lab', 'cooker_base_lab',
         'pressure_cooker_sub', 'pressure_lid_sub', 'cooker_base_sub',
         'culture_fridge_lab', 'laminar_hood_lab',
-        'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east',
+        'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'table_pack_east',
         'mixing_bowl_01', 'lab_spoon_01', 'scalpel_01', 'dehydrator_lab',
-        'flocao_500g_01', 'flocao_500g_02',
+        'flocao_500g_01', 'flocao_500g_02', 'flocao_500g_03', 'flocao_500g_04',
+        'alcohol_lamp_hood', 'alcohol_lamp_hood_02',
+        'microscope_lab', 'microscope_lab_02',
+        'silica_jar_01', 'silica_jar_02', 'silica_jar_03',
+        'dried_batch_demo', 'dried_batch_east_01', 'dried_batch_east_02',
+        'heat_sealer_east_01', 'heat_sealer_east_02', 'heat_sealer_east_03',
+        'precision_scale_east',
 
         // === Lousas & Acessórios ===
         'chalk_white', 'chalk_green', 'chalk_yellow', 'board_eraser',
@@ -67,6 +73,13 @@ function mp_build_allowed_items(): array {
         $items[] = "scalpel_$p";
         $items[] = "lab_spoon_$p";
         $items[] = "mixing_bowl_$p";
+        $items[] = "monotub_24l_$p";
+        $items[] = "dehydrator_east_$p";
+        $items[] = "delivery_crate_$p";
+    }
+    foreach (range(1, 16) as $n) {
+        $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+        $items[] = "mushroom_pack_bag_$p";
     }
     foreach (range(1, 4) as $n) {
         $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
@@ -74,6 +87,8 @@ function mp_build_allowed_items(): array {
         $items[] = "substrate_wheat_$p";
         $items[] = "substrate_sorghum_$p";
         $items[] = "substrate_sawdust_$p";
+        $items[] = "substrate_vermiculite_$p";
+        $items[] = "substrate_coco_$p";
         $items[] = "micropore_$p";
         $items[] = "micropore_lab_$p";
         $items[] = "parafilm_lab_$p";
@@ -104,6 +119,7 @@ define('MP_ITEMS', mp_build_allowed_items());
 function mp_is_allowed_item_id(string $itemId): bool {
     if (in_array($itemId, MP_ITEMS, true)) return true;
     if (preg_match('/^wild_picked_[a-z0-9_]{2,40}$/', $itemId)) return true;
+    if (preg_match('/^(?:harvest_tub_|dried_batch_|spent_cake_)[a-z0-9_]{2,40}$/', $itemId)) return true;
     return (bool)preg_match('/^dyn_[a-z0-9_]{2,56}$/', $itemId);
 }
 

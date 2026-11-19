@@ -35,8 +35,20 @@ import { interactDehydrator } from '../items/dehydrator.js';
 import { getItemsSupportedBy } from './surface-group-move.js';
 import { depositSporePrintOnPetri, fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { togglePP5Lid } from '../items/pp5-cup.js';
-import { interactMonotub, placeMonotubInLedRackSlot, rehydrateMonotubCake } from '../items/monotub.js';
+import { interactMonotub, placeMonotubInLedRackSlot, rehydrateMonotubCake, dunkMonotubAtSink } from '../items/monotub.js';
 import { interactGardenTarget } from '../world/campus-garden.js';
+import { breakAndShakeSpawn } from '../items/spawn-containers.js';
+import {
+  interactAlcoholLamp,
+  interactLabMicroscope,
+  interactSilicaStorageJar
+} from '../items/lab-advanced-tools.js';
+import {
+  packDriedMushroomsIntoBag,
+  sealMushroomBag,
+  addSealedBagToDeliveryCrate,
+  interactRoadsideStand
+} from '../items/dehydration-packaging.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
 import { addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
@@ -353,6 +365,42 @@ export function handlePrimaryAction(ctx) {
     }
     if (ctx.hoveredMonotubRackSlot && !ctx.placementMode && ctx.heldItem.monotubCtrl) {
       placeMonotubInLedRackSlot(ctx, ctx.hoveredMonotubRackSlot);
+      return;
+    }
+    if (ctx.hoveredMonotubDunkSink && !ctx.placementMode && ctx.heldItem.monotubCtrl) {
+      dunkMonotubAtSink(ctx, ctx.heldItem);
+      return;
+    }
+    if (ctx.hoveredAlcoholLampTarget && !ctx.placementMode) {
+      interactAlcoholLamp(ctx, ctx.hoveredAlcoholLampTarget);
+      return;
+    }
+    if (ctx.hoveredMicroscopeTarget && !ctx.placementMode) {
+      interactLabMicroscope(ctx);
+      return;
+    }
+    if (ctx.hoveredSilicaJarTarget && !ctx.placementMode) {
+      interactSilicaStorageJar(ctx, ctx.hoveredSilicaJarTarget);
+      return;
+    }
+    if (ctx.hoveredMushroomBagPackTarget && !ctx.placementMode && ctx.heldItem.driedMushroomCtrl) {
+      packDriedMushroomsIntoBag(ctx, ctx.hoveredMushroomBagPackTarget, ctx.heldItem);
+      return;
+    }
+    if (ctx.hoveredDriedBatchForBag && !ctx.placementMode && ctx.heldItem.mushroomBagCtrl) {
+      packDriedMushroomsIntoBag(ctx, ctx.heldItem, ctx.hoveredDriedBatchForBag);
+      return;
+    }
+    if (ctx.hoveredMushroomBagSealTarget && !ctx.placementMode) {
+      sealMushroomBag(ctx, ctx.hoveredMushroomBagSealTarget);
+      return;
+    }
+    if (ctx.hoveredDeliveryCrateTarget && !ctx.placementMode && ctx.heldItem.mushroomBagCtrl) {
+      addSealedBagToDeliveryCrate(ctx, ctx.hoveredDeliveryCrateTarget, ctx.heldItem);
+      return;
+    }
+    if (ctx.hoveredRoadSaleStand && !ctx.placementMode) {
+      interactRoadsideStand(ctx);
       return;
     }
     if (ctx.hoveredGardenTarget && !ctx.placementMode) {
@@ -792,6 +840,9 @@ export function handlePrimaryAction(ctx) {
         interactMonotub(ctx, ctx.heldItem);
         return;
       }
+      if (ctx.heldItem && ctx.heldItem.spawnCtrl && breakAndShakeSpawn(ctx, ctx.heldItem)) {
+        return;
+      }
       if (ctx.heldItem && ctx.heldItem.mesh.userData.isPetri) {
         togglePetriLid(ctx, ctx.heldItem);
         return;
@@ -865,10 +916,29 @@ export function handlePrimaryAction(ctx) {
     }
     return;
   }
+  if (!ctx.adminEditMode && ctx.hoveredRoadSaleStand) {
+    interactRoadsideStand(ctx);
+    return;
+  }
   if (!ctx.adminEditMode && handleWorldInteraction(ctx)) return;
   if (ctx.hoveredPickable) {
     if (!ctx.adminEditMode && ctx.hoveredPickable.dehydratorCtrl) {
       interactDehydrator(ctx, ctx.hoveredPickable);
+      return;
+    }
+    if (!ctx.adminEditMode && ctx.hoveredPickable.microscopeCtrl) {
+      interactLabMicroscope(ctx);
+      return;
+    }
+    if (!ctx.adminEditMode && ctx.hoveredPickable.alcoholLampCtrl) {
+      interactAlcoholLamp(ctx, ctx.hoveredPickable);
+      return;
+    }
+    if (!ctx.adminEditMode && ctx.hoveredPickable.silicaJarCtrl) {
+      interactSilicaStorageJar(ctx, ctx.hoveredPickable);
+      return;
+    }
+    if (!ctx.adminEditMode && ctx.hoveredPickable.spawnCtrl && breakAndShakeSpawn(ctx, ctx.hoveredPickable)) {
       return;
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable.monotubCtrl) {

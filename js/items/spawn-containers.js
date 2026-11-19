@@ -82,12 +82,16 @@ function getSpawnCultureStatus(item) {
       : (item.meta && item.meta.baseTempC) || 23.3);
   const temperatureC = Number.isFinite(measuredTemperatureC) ? measuredTemperatureC : 23.3;
   const temperatureLabel = temperatureC.toFixed(1).replace('.', ',') + '°C';
+  const genTag = typeof sc.generation === 'number'
+    ? (' • [' + (['T0', 'T1', 'T2 Rizomórfica', 'T3 Elite ⭐'][Math.min(3, Math.max(0, sc.generation))] || 'T1') + ']')
+    : '';
+  const shakeTag = sc.shaken ? ' • Break & Shake 2x ⚡' : '';
   if (sc.expired) return ' • Cultura vencida ⚠️';
   if (sc.colonized) {
-    return ' • ' + temperatureLabel + ' • validade ' + getCultureRemainingDays(sc) + ' dias';
+    return genTag + shakeTag + ' • ' + temperatureLabel + ' • validade ' + getCultureRemainingDays(sc) + ' dias';
   }
   if (sc.inoculated) {
-    return ' (Colonizando ' + Math.floor(sc.colonization) + '% • ' + temperatureLabel +
+    return genTag + ' (Colonizando ' + Math.floor(sc.colonization) + '%' + shakeTag + ' • ' + temperatureLabel +
       (sc.refrigerated ? ' • pausada)' : ')');
   }
   return '';
@@ -301,11 +305,42 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   return item;
 }
 
+export function breakAndShakeSpawn(ctx, item) {
+  if (!item || !item.spawnCtrl) return false;
+  const sc = item.spawnCtrl;
+  if (!sc.inoculated || sc.colonized || sc.contaminated || sc.burned || sc.expired) return false;
+  if (sc.colonization < 20 || sc.colonization >= 95 || sc.shaken) return false;
+  sc.shaken = true;
+  sc.shakeAnimTimer = 0.75;
+  sc.colonization = Math.min(95, sc.colonization + 8);
+  sc.updateVisual();
+  if (typeof window !== 'undefined' && window.MycoAudio && typeof window.MycoAudio.playClick === 'function') {
+    window.MycoAudio.playClick();
+  }
+  if (typeof window !== 'undefined' && window.triggerCampusHaptic) {
+    window.triggerCampusHaptic('medium');
+  }
+  if (ctx && ctx.callbacks && ctx.callbacks.onHoldChange && ctx.heldItem === item) {
+    ctx.callbacks.onHoldChange(item.label);
+  }
+  if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast(`💥 Break & Shake realizado em ${sc.baseLabel}! Os grãos colonizados foram espalhados — velocidade de colonização dobrada (2.2x)!`);
+  }
+  if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
+  return true;
+}
+
 export function stepSpawnColonization(ctx, dt) {
   if (!ctx.spawnGrowItems.length) return;
   for (let sgi = 0; sgi < ctx.spawnGrowItems.length; sgi++) {
     const sgIt = ctx.spawnGrowItems[sgi];
     const sc = sgIt.spawnCtrl;
+    if (sc && (sc.shakeAnimTimer || 0) > 0) {
+      sc.shakeAnimTimer = Math.max(0, sc.shakeAnimTimer - dt);
+      if (sgIt.mesh && sgIt.mesh.rotation) {
+        sgIt.mesh.rotation.z = sc.shakeAnimTimer > 0.01 ? Math.sin(sc.shakeAnimTimer * 38) * 0.14 : 0;
+      }
+    }
     if (sc && sc.isPP5 && sc.lidPivot) {
       const targetP = sc.lidOpen ? 1 : 0;
       if (Math.abs((sc.lidProgress || 0) - targetP) > 0.005) {
@@ -323,9 +358,12 @@ export function stepSpawnColonization(ctx, dt) {
     }
     if (sc && sc.inoculated && !sc.contaminated && !sc.burned) {
       let changed = false;
+      const shakeMult = sc.shaken ? 2.2 : 1.0;
+      const genMult = 1 + Math.min(3, Math.max(0, sc.generation || 0)) * 0.15;
+      const baseRate = 4.2 * shakeMult * genMult;
       const spawnRate = sc.refrigerated
         ? (4.2 * 0.2)
-        : (isCultureIncubationTemperatureSuitable(sgIt, ctx) ? 4.2 : 0);
+        : (isCultureIncubationTemperatureSuitable(sgIt, ctx) ? baseRate : 0);
       if (sc.colonization < 100 && spawnRate > 0) {
         sc.colonization = Math.min(100, sc.colonization + dt * spawnRate);
         changed = true;

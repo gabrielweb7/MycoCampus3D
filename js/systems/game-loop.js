@@ -43,6 +43,8 @@ import { stepPastureCows } from '../entities/pasture-cows.js';
 import { stepDehydrators } from '../items/dehydrator.js';
 import { stepMonotubs } from '../items/monotub.js';
 import { stepCampusGarden } from '../world/campus-garden.js';
+import { stepAlcoholLamps } from '../items/lab-advanced-tools.js';
+import { stepRoadsideMushroomSales } from '../items/dehydration-packaging.js';
 
 let lastMobileHoverAt = 0;
 let lastDesktopHoverAt = 0;
@@ -377,6 +379,8 @@ export function startAnimationLoop(ctx) {
 
       stepHoverAndChalkboard(ctx, now);
       stepLaminarHood(ctx, dt);
+      stepAlcoholLamps(ctx, dt);
+      stepRoadsideMushroomSales(ctx, dt);
       stepCultureFridges(ctx, dt);
       stepLabCabinets(ctx, dt);
       stepMagneticStirrers(ctx, dt);

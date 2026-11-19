@@ -45,6 +45,17 @@ import {
 } from '../items/storage-rack.js';
 import { makeMonotub24L, buildMonotubLedRack } from '../items/monotub.js';
 import { buildCampusVegetableGarden } from './campus-garden.js';
+import {
+  makeAlcoholLamp,
+  makeLabMicroscope,
+  makeSilicaStorageJar,
+  makeDriedMushroomBatch
+} from '../items/lab-advanced-tools.js';
+import {
+  makeMushroomBag,
+  makeDeliveryCrate,
+  buildRoadsideMushroomStand
+} from '../items/dehydration-packaging.js';
 
 const THREE = window.THREE;
 
@@ -139,13 +150,31 @@ export function buildCampusWingsAndEquipment(ctx) {
   [falcon15a, falcon15b, falcon15c, falcon15d].forEach((item) => attachPdaMediumCtrl(item, 'falcon', true));
   [falcon50a, falcon50b].forEach((item) => attachPdaMediumCtrl(item, 'falcon', false));
 
-  // Bisturi Inox, Saches de Lamina #24, Flocao de Milho 500g e Potinhos PP5 145ml
+  // Bisturi Inox, Saches de Lamina #24, Lamparina a Alcool, Microscópio, Flocao de Milho 500g e Potinhos PP5 145ml (Estoque ampliado p/ multiplayer!)
   makeScalpel(ctx, 'scalpel_01', -18.25, 1.065, -8.90);
+  makeScalpel(ctx, 'scalpel_05', -18.35, 1.065, -8.90);
   for (let bpi = 0; bpi < 4; bpi++) {
     makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi + 1), -18.12 + bpi * 0.04, 1.065, -8.92);
   }
+  makeAlcoholLamp(ctx, 'alcohol_lamp_hood', -18.55, 1.065, -8.88);
+  makeAlcoholLamp(ctx, 'alcohol_lamp_hood_02', -18.55, 1.065, -7.85);
+  makeLabMicroscope(ctx, 'microscope_lab', -19.25, 0.91, -10.55);
+  makeLabMicroscope(ctx, 'microscope_lab_02', -19.25, 0.91, -10.18);
+  makeSilicaStorageJar(ctx, 'silica_jar_01', -22.85, 1.02, -9.15, {
+    storedGrams: 25,
+    speciesName: 'Golden Teacher (Psilocybe cubensis)'
+  });
+  makeSilicaStorageJar(ctx, 'silica_jar_02', -22.85, 1.02, -8.92, {
+    storedGrams: 0
+  });
+  makeSilicaStorageJar(ctx, 'silica_jar_03', -22.85, 1.02, -8.70, {
+    storedGrams: 0
+  });
+  makeDriedMushroomBatch(ctx, 'dried_batch_demo', 'Golden Teacher (Psilocybe cubensis)', -22.62, 1.02, -9.15);
   makeFlocao500g(ctx, 'flocao_500g_01', -23.10, 1.02, -5.30);
   makeFlocao500g(ctx, 'flocao_500g_02', -23.10, 1.02, -5.05);
+  makeFlocao500g(ctx, 'flocao_500g_03', -23.10, 1.02, -4.80);
+  makeFlocao500g(ctx, 'flocao_500g_04', -22.85, 1.02, -5.18);
   for (let ppIdx = 0; ppIdx < 8; ppIdx++) {
     const ppRow = Math.floor(ppIdx / 4);
     const ppCol = ppIdx % 4;
@@ -269,31 +298,90 @@ export function buildCampusWingsAndEquipment(ctx) {
   }
 
   // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
-  buildCampusBuildingWing(ctx, { cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta de Substratos', doorSign: '🧪 SUBSTRATOS', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 2 });
+  // Leste-Norte: SALA DE DESIDRATAÇÃO, EMBALAGEM & EXPEDIÇÃO (+ Pasteurização e Estante LED de Monotubes)
+  buildCampusBuildingWing(ctx, { cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta da Sala de Desidratação', doorSign: '♨️ DESIDRATAÇÃO', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 2 });
   buildCampusBuildingWing(ctx, { cx: 19, cz: 8, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta da Estufa', doorSign: '🍄 ESTUFA', style: 'wood', connectNorth2F: true, boardIndex: 3 });
 
-  createBanner(scene, 13.85, 5.1, -11.6, -Math.PI / 2, '#0284c7', '🧪');
+  createBanner(scene, 13.85, 5.1, -11.6, -Math.PI / 2, '#d97706', '♨️');
   createBanner(scene, 13.85, 5.1, 3.6, -Math.PI / 2, '#15803d', '🍄');
 
-  // Equipamentos de Substratos (Leste-Norte): Tripe a Gas + Panela + Base Perfurada + Sacos de Vermiculita/Coco + Estante LED de Monotubes 24L
-  addMovableStainlessTable(ctx, 'table_sub_east', 'Mesa Inox (Substratos)', 21.2, 0.12, -5.2, 1.5, 0.82, 3.2);
-  makeCookerBase(ctx, 'cooker_base_sub', 21.2, 0.94, -5.3);
-  makeGasTripodBurner(ctx, 'gas_tripod_sub', 21.2, 0.12, -3.1);
-  createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.2, 0.74, -3.1);
+  // 1. Bancada Leste (x: 21.8): 6 Desidratadoras para vários jogadores desidratarem cogumelos simultaneamente!
+  addMovableStainlessTable(ctx, 'table_sub_east', 'Bancada Inox (6 Desidratadoras 55°C)', 21.8, 0.12, -7.2, 1.3, 0.82, 3.8);
+  const dehydCoords = [
+    [21.55, -8.55], [22.05, -8.55],
+    [21.55, -7.20], [22.05, -7.20],
+    [21.55, -5.85], [22.05, -5.85]
+  ];
+  for (let di = 0; di < dehydCoords.length; di++) {
+    const dc = dehydCoords[di];
+    const dItem = makeDehydrator(ctx, 'dehydrator_east_' + pad2(di + 1), dc[0], 0.94, dc[1]);
+    // A 1ª Desidratadora já começa com um lote crocante pronto para o jogador testar a embalagem imediata!
+    if (di === 0 && dItem && dItem.dehydratorCtrl) {
+      dItem.dehydratorCtrl.hasMushroom = true;
+      dItem.dehydratorCtrl.on = true;
+      dItem.dehydratorCtrl.progress = 100;
+      dItem.dehydratorCtrl.crisp = true;
+      dItem.label = 'Desidratadora de Cogumelos • ✅ Crocante (0% umidade)';
+    }
+  }
 
-  // Sacos de Vermiculita 5kg e Pó de Coco 5kg na Sala de Substratos
-  makeSubstrateBag5kg(ctx, 'substrate_vermiculite_01', 'vermiculite', 22.8, 0.12, -8.5);
-  makeSubstrateBag5kg(ctx, 'substrate_vermiculite_02', 'vermiculite', 22.8, 0.12, -7.8);
-  makeSubstrateBag5kg(ctx, 'substrate_coco_01', 'coco', 22.8, 0.12, -7.1);
-  makeSubstrateBag5kg(ctx, 'substrate_coco_02', 'coco', 22.8, 0.12, -6.4);
+  // 2. Bancada Central da Sala de Desidratação (x: 18.6): Embalagem em Sacos Mylar + 3 Seladoras Térmicas + Balança + Caixas de Entrega!
+  addMovableStainlessTable(ctx, 'table_pack_east', 'Bancada Inox (Embalagem, Seladoras & Caixas)', 18.6, 0.12, -7.2, 1.4, 0.82, 3.8);
+  createHeatSealer(ctx, 'heat_sealer_east_01', 18.25, 0.94, -8.65);
+  createHeatSealer(ctx, 'heat_sealer_east_02', 18.25, 0.94, -7.35);
+  createHeatSealer(ctx, 'heat_sealer_east_03', 18.25, 0.94, -6.05);
+  createPrecisionScale(ctx, 'precision_scale_east', 18.95, 0.94, -8.65);
 
-  // Nova Estante Exclusiva para Monotubes 24L com Luz LED embaixo de cada prateleira
-  buildMonotubLedRack(ctx, 15.3, -5.2);
+  // 2 lotes de 25g de cogumelos crocantes prontos sobre a bancada de embalagem
+  makeDriedMushroomBatch(ctx, 'dried_batch_east_01', 'Golden Teacher (Psilocybe cubensis)', 18.95, 0.94, -8.10);
+  makeDriedMushroomBatch(ctx, 'dried_batch_east_02', 'B+ Cubensis', 18.95, 0.94, -7.80);
 
-  // Caixas Monotub 24L Transparentes (na bancada para montar e na Estante LED demonstrando frutificação)
-  makeMonotub24L(ctx, 'monotub_24l_01', 21.2, 0.94, -6.2, { ry: Math.PI / 2 });
-  makeMonotub24L(ctx, 'monotub_24l_02', 21.2, 0.94, -4.4, { ry: Math.PI / 2 });
-  makeMonotub24L(ctx, 'monotub_24l_03', 15.3, 0.48, -6.08, {
+  // 16 Sacos Mylar/Zip para embalar cogumelos desidratados (sendo 2 já cheios e 2 já selados prontos p/ colocar na caixa!)
+  for (let mbi = 0; mbi < 16; mbi++) {
+    const mbRow = Math.floor(mbi / 4);
+    const mbCol = mbi % 4;
+    const isPreSealed = mbi < 2;
+    const isPreFilled = mbi >= 2 && mbi < 4;
+    makeMushroomBag(
+      ctx,
+      'mushroom_pack_bag_' + pad2(mbi + 1),
+      18.65 + mbCol * 0.15,
+      0.945,
+      -7.40 + mbRow * 0.22,
+      {
+        filled: isPreSealed || isPreFilled,
+        sealed: isPreSealed,
+        grams: 25,
+        speciesName: mbi % 2 === 0 ? 'Golden Teacher' : 'B+ Cubensis'
+      }
+    );
+  }
+
+  // 6 Caixas de Entrega Comercial (4 pacotes selados por caixa = 🪙 480 MycoCoins na Estrada!)
+  makeDeliveryCrate(ctx, 'delivery_crate_01', 18.55, 0.94, -5.60, { packsCount: 3 });
+  makeDeliveryCrate(ctx, 'delivery_crate_02', 19.00, 0.94, -5.60, { packsCount: 0 });
+  makeDeliveryCrate(ctx, 'delivery_crate_03', 18.55, 0.12, -9.50, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_04', 19.05, 0.12, -9.50, { packsCount: 0 });
+  makeDeliveryCrate(ctx, 'delivery_crate_05', 19.55, 0.12, -9.50, { packsCount: 0 });
+  makeDeliveryCrate(ctx, 'delivery_crate_06', 20.05, 0.12, -9.50, { packsCount: 0 });
+
+  // 3. Zona Sul da Sala (z: -3.8..-2.2): Tripé a Gás + Panela de Pasteurização + Sacos Extras de Vermiculita 5kg e Pó de Coco 5kg
+  makeCookerBase(ctx, 'cooker_base_sub', 21.8, 0.94, -5.35);
+  makeGasTripodBurner(ctx, 'gas_tripod_sub', 21.8, 0.12, -3.1);
+  createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.8, 0.74, -3.1);
+
+  for (let vi = 0; vi < 4; vi++) {
+    makeSubstrateBag5kg(ctx, 'substrate_vermiculite_' + pad2(vi + 1), 'vermiculite', 23.05, 0.12, -9.2 + vi * 0.65);
+    makeSubstrateBag5kg(ctx, 'substrate_coco_' + pad2(vi + 1), 'coco', 23.05, 0.12, -6.4 + vi * 0.65);
+  }
+
+  // 4. Estante Exclusiva para Monotubes 24L com Luz LED embaixo de cada prateleira (Parede Oeste da Sala, x: 15.3)
+  buildMonotubLedRack(ctx, 15.3, -5.8);
+
+  // 8 Caixas Monotub 24L Transparentes para vários jogadores cultivarem juntos!
+  makeMonotub24L(ctx, 'monotub_24l_01', 15.3, 1.80, -6.68, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_02', 15.3, 1.80, -6.09, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_03', 15.3, 0.48, -6.68, {
     ry: Math.PI / 2,
     boxSanitized: true,
     hasSpawn: true,
@@ -307,7 +395,7 @@ export function buildCampusWingsAndEquipment(ctx) {
     flush: 1,
     speciesName: 'Golden Teacher (Psilocybe cubensis)'
   });
-  makeMonotub24L(ctx, 'monotub_24l_04', 15.3, 0.48, -5.49, {
+  makeMonotub24L(ctx, 'monotub_24l_04', 15.3, 0.48, -6.09, {
     ry: Math.PI / 2,
     boxSanitized: true,
     hasSpawn: true,
@@ -322,12 +410,17 @@ export function buildCampusWingsAndEquipment(ctx) {
     flush: 2,
     speciesName: 'B+ Cubensis'
   });
-  makeMonotub24L(ctx, 'monotub_24l_05', 15.3, 1.14, -6.08, { ry: Math.PI / 2 });
-  makeMonotub24L(ctx, 'monotub_24l_06', 15.3, 1.14, -5.49, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_05', 15.3, 1.14, -6.68, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_06', 15.3, 1.14, -6.09, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_07', 15.3, 1.14, -5.51, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_08', 15.3, 1.14, -4.92, { ry: Math.PI / 2 });
 
   // Equipamentos da Estufa Climatizada Inteligente (Leste-Sul)
   buildGreenhouseBench(scene, ctx);
 
   // Horta Orgânica Externa com Alfaces, Tomates e Caixa de Substrato / Compostagem (Sul da Estufa)
   buildCampusVegetableGarden(ctx);
+
+  // Quiosque Drive-Thru de Venda de Cogumelos na Estrada Sul + Carros e NPCs Compradores!
+  buildRoadsideMushroomStand(ctx);
 }

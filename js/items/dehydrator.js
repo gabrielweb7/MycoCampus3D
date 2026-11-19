@@ -5,6 +5,7 @@
  */
 
 import { registerPickable } from './item-registry.js';
+import { makeDriedMushroomBatch } from './lab-advanced-tools.js';
 
 const THREE = window.THREE;
 
@@ -73,6 +74,7 @@ export function interactDehydrator(ctx, item) {
     return true;
   }
   if (dc.crisp) {
+    const spName = dc.speciesName || 'Golden Teacher (Psilocybe cubensis)';
     dc.hasMushroom = false;
     dc.progress = 0;
     dc.crisp = false;
@@ -80,8 +82,17 @@ export function interactDehydrator(ctx, item) {
     updateDehydratorVisual(item);
     if (ctx.markItemMoved) ctx.markItemMoved(item);
     if (ctx.callbacks && ctx.callbacks.onDehydrateReward) ctx.callbacks.onDehydrateReward();
+    if (ctx && ctx.scene && !ctx.heldItem) {
+      const px = item.mesh ? item.mesh.position.x : -18.5;
+      const py = item.mesh ? (item.mesh.position.y + 0.30) : 1.1;
+      const pz = item.mesh ? item.mesh.position.z : -10.5;
+      const driedBatch = makeDriedMushroomBatch(ctx, 'dried_batch_' + Date.now().toString(36), spName, px, py, pz);
+      ctx.heldItem = driedBatch;
+      ctx.lastPickupAt = performance.now();
+      if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(driedBatch.label);
+    }
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('✨ Cogumelo Desidratado Crocante (0% umidade) retirado! +15 XP');
+      ctx.callbacks.onToast('✨ Lote de 25g de Cogumelos Desidratados Crocantes (0% umidade) na mão! Pese na Balança ou guarde no Pote Hermético com Sílica Gel! (+15 XP)');
     }
     return true;
   }

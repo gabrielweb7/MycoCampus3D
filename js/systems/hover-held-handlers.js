@@ -19,6 +19,11 @@ import {
   isHoldingPasteurizedBulkSubstrate
 } from '../items/monotub.js';
 import { gardenHitMeshes, isHoldingSpentCakeForCompost } from '../world/campus-garden.js';
+import {
+  roadSaleStandMeshes,
+  isHoldingPackOrCrateForStand,
+  MYCOCOIN_PRICE_PER_PACK
+} from '../items/dehydration-packaging.js';
 
 function getRefXZ(ctx) {
   return {
@@ -371,10 +376,18 @@ function handleSinkHover(ctx, setHoverPrompt) {
   const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !(cp.lidItem && cp.lidItem.isAttached));
   const isLiquidHeld = canFillFromSink(ctx.heldItem);
   const isBowlHeld = !!(ctx.heldItem && ctx.heldItem.bowlCtrl);
-  if (!isPotHeld && !isLiquidHeld && !isBowlHeld) return false;
+  const isDunkMonotubHeld = !!(ctx.heldItem && ctx.heldItem.monotubCtrl &&
+    ctx.heldItem.monotubCtrl.colonization >= 100 && !ctx.heldItem.monotubCtrl.spent && !ctx.heldItem.monotubCtrl.contaminated);
+  if (!isPotHeld && !isLiquidHeld && !isBowlHeld && !isDunkMonotubHeld) return false;
   const sHits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
   if (sHits.length === 0 || sHits[0].distance >= 3.5) return false;
   ctx.hoverHit = sHits[0];
+  if (isDunkMonotubHeld) {
+    ctx.hoveredMonotubDunkSink = true;
+    hidePlacementGhost(ctx);
+    setHoverPrompt(ctx, `💦 Mergulhar/Encher Monotub 24L na Pia (Cold Shock / Dunk 99% UR p/ Flush ${ctx.heldItem.monotubCtrl.flush}/4!)`);
+    return true;
+  }
   ctx.hoveredSink = sHits[0].object.userData.labSink;
   const sinkAction = sHits[0].object.userData.sinkAction || 'fill';
   ctx.hoveredSinkAction = sinkAction;
@@ -858,18 +871,24 @@ function handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt)
     }
   }
 
-  // 3. Segurando Spawn Colonizado, Substrato Pasteurizado ou Colher Inox -> interagir com Monotub 24L
+  // 3. Segurando Spawn Colonizado, Substrato Pasteurizado, Vermiculita/Pó de Coco (Casing), Galão 5L (Dunk) ou Colher Inox -> interagir com Monotub 24L
   const canAddSpawn = isHoldingColonizedGrainSpawn(held);
   const canAddBulk = isHoldingPasteurizedBulkSubstrate(held);
+  const isCasingSack = typeof held.id === 'string' && (held.id.indexOf('substrate_vermiculite') === 0 || held.id.indexOf('substrate_coco') === 0);
+  const isWaterJug = !!(held.mesh && held.mesh.userData && held.mesh.userData.isWaterGallon);
   const isSpoon = !!(held.mesh && held.mesh.userData && held.mesh.userData.isLabSpoon);
-  if (canAddSpawn || canAddBulk || isSpoon) {
+  if (canAddSpawn || canAddBulk || isCasingSack || isWaterJug || isSpoon) {
     const res = findPickableHit(ctx, 3.8, (cand) => !!cand.monotubCtrl, intersectPickableItem);
     if (res) {
       const mc = res.item.monotubCtrl;
       ctx.hoverHit = res.hit;
       ctx.hoveredMonotubTarget = res.item;
       hidePlacementGhost(ctx);
-      if (!mc.lidOpen) {
+      if (mc.colonization >= 100 && !mc.spent && !mc.contaminated && !mc.hasCasing && (canAddBulk || isCasingSack)) {
+        setHoverPrompt(ctx, '🥥 Aplicar Camada de Casing (Vermiculita + Fibra de Coco) sobre o Monotub 24L (+40% velocidade!)');
+      } else if (mc.colonization >= 100 && !mc.spent && !mc.contaminated && isWaterJug) {
+        setHoverPrompt(ctx, `💦 Cold Shock / Dunk: Reidratar Bolo do Monotub 24L com Água (99% UR p/ Flush ${mc.flush}/4)`);
+      } else if (!mc.lidOpen) {
         setHoverPrompt(ctx, '📦 Abrir tampa da Caixa Monotub 24L');
       } else if (canAddSpawn && !mc.hasSpawn) {
         setHoverPrompt(ctx, `🌾 Despejar Spawn Colonizado (${held.label}) no Monotub 24L`);
@@ -889,6 +908,123 @@ function handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt)
   return false;
 }
 
+function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (ctx.placementMode || !ctx.heldItem) return false;
+  const held = ctx.heldItem;
+
+  // 1. Segurando Bisturi ou Seringa -> Flambar na Lamparina a Álcool!
+  const isScalpelOrSyringe = !!(held.scalpelCtrl || (held.mesh && held.mesh.userData && held.mesh.userData.isSyringe));
+  if (isScalpelOrSyringe) {
+    const lampRes = findPickableHit(ctx, 3.6, (cand) => !!cand.alcoholLampCtrl, intersectPickableItem);
+    if (lampRes) {
+      ctx.hoverHit = lampRes.hit;
+      ctx.hoveredAlcoholLampTarget = lampRes.item;
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, held.scalpelCtrl
+        ? '🔥 Flambar Lâmina #24 do Bisturi na Chama da Lamparina a Álcool (Re-esterilizar 100% Incandescente!)'
+        : '🔥 Flambar Agulha da Seringa na Chama da Lamparina a Álcool (Re-esterilizar 100%!)');
+      return true;
+    }
+  }
+
+  // 2. Segurando Lote de Cogumelos Desidratados Crocantes (25g) -> Guardar no Pote Hermético com Sílica Gel ou Embalar no Saco Mylar/Zip!
+  if (held.driedMushroomCtrl) {
+    const bagRes = findPickableHit(ctx, 3.6, (cand) => !!(cand.mushroomBagCtrl && !cand.mushroomBagCtrl.filled), intersectPickableItem);
+    if (bagRes) {
+      ctx.hoverHit = bagRes.hit;
+      ctx.hoveredMushroomBagPackTarget = bagRes.item;
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, `🛍️ Colocar ${held.driedMushroomCtrl.grams || 25}g de Cogumelos Crocantes no Saco Mylar/Zip (p/ selar na Seladora)`);
+      return true;
+    }
+    const jarRes = findPickableHit(ctx, 3.6, (cand) => !!cand.silicaJarCtrl, intersectPickableItem);
+    if (jarRes) {
+      ctx.hoverHit = jarRes.hit;
+      ctx.hoveredSilicaJarTarget = jarRes.item;
+      hidePlacementGhost(ctx);
+      const jc = jarRes.item.silicaJarCtrl;
+      setHoverPrompt(ctx, `🫙 Guardar +${held.driedMushroomCtrl.grams || 25}g de Cogumelos Crocantes no Pote Hermético c/ Sílica Gel (${jc.storedGrams}/${jc.capacityGrams}g)`);
+      return true;
+    }
+  }
+
+  // 2b. Segurando Saco Mylar com Cogumelos Secos -> Selar na Seladora Térmica ou Guardar na Caixa de Entrega!
+  if (held.mushroomBagCtrl) {
+    const bc = held.mushroomBagCtrl;
+    if (!bc.filled) {
+      const batchRes = findPickableHit(ctx, 3.6, (cand) => !!cand.driedMushroomCtrl, intersectPickableItem);
+      if (batchRes) {
+        ctx.hoverHit = batchRes.hit;
+        ctx.hoveredDriedBatchForBag = batchRes.item;
+        hidePlacementGhost(ctx);
+        setHoverPrompt(ctx, `🛍️ Encher Saco Mylar com ${batchRes.item.driedMushroomCtrl.grams || 25}g de Cogumelos Crocantes`);
+        return true;
+      }
+    } else if (!bc.sealed) {
+      const sealerRes = findPickableHit(
+        ctx,
+        3.6,
+        (cand) => !!(cand.meta && cand.meta.compatibilities && cand.meta.compatibilities.sealsBags),
+        intersectPickableItem
+      );
+      if (sealerRes) {
+        ctx.hoverHit = sealerRes.hit;
+        ctx.hoveredMushroomBagSealTarget = held;
+        hidePlacementGhost(ctx);
+        setHoverPrompt(ctx, `♨️ Selar Saco Mylar (${bc.grams}g • ${bc.speciesName || 'Cogumelo'}) na Seladora Térmica!`);
+        return true;
+      }
+    } else {
+      const crateRes = findPickableHit(ctx, 3.8, (cand) => !!cand.deliveryCrateCtrl, intersectPickableItem);
+      if (crateRes) {
+        ctx.hoverHit = crateRes.hit;
+        ctx.hoveredDeliveryCrateTarget = crateRes.item;
+        hidePlacementGhost(ctx);
+        const cc = crateRes.item.deliveryCrateCtrl;
+        setHoverPrompt(ctx, `📤 Colocar Pacote Selado (${bc.grams}g) na Caixa de Entrega (${cc.packsCount}/4 • +🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins)`);
+        return true;
+      }
+    }
+  }
+
+  // 2c. Segurando Seladora Térmica e apontando para Saco Mylar cheio na bancada
+  if (held.meta && held.meta.compatibilities && held.meta.compatibilities.sealsBags) {
+    const bagSealRes = findPickableHit(ctx, 3.6, (cand) => !!(cand.mushroomBagCtrl && cand.mushroomBagCtrl.filled && !cand.mushroomBagCtrl.sealed), intersectPickableItem);
+    if (bagSealRes) {
+      ctx.hoverHit = bagSealRes.hit;
+      ctx.hoveredMushroomBagSealTarget = bagSealRes.item;
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, `♨️ Selar ${bagSealRes.item.label} com a Seladora Térmica`);
+      return true;
+    }
+  }
+
+  // 2d. Segurando Caixa de Entrega ou Pacote Selado -> Entregar no Quiosque Drive-Thru na Estrada Sul!
+  if (isHoldingPackOrCrateForStand(held) && roadSaleStandMeshes.length > 0) {
+    const stHits = ctx.raycaster.intersectObjects(roadSaleStandMeshes, false);
+    if (stHits.length > 0 && stHits[0].distance < 5.0) {
+      ctx.hoverHit = stHits[0];
+      ctx.hoveredRoadSaleStand = true;
+      hidePlacementGhost(ctx);
+      const count = held.deliveryCrateCtrl ? held.deliveryCrateCtrl.packsCount : 1;
+      setHoverPrompt(ctx, `🚗💵 Colocar ${count} pacote(s) no Quiosque Drive-Thru da Estrada (Valor: 🪙 ${count * MYCOCOIN_PRICE_PER_PACK} MycoCoins — Clientes vêm de carro!)`);
+      return true;
+    }
+  }
+
+  // 3. Segurando qualquer cultura/amostra -> Analisar no Microscópio Óptico 1000x!
+  const micRes = findPickableHit(ctx, 3.6, (cand) => !!cand.microscopeCtrl, intersectPickableItem);
+  if (micRes) {
+    ctx.hoverHit = micRes.hit;
+    ctx.hoveredMicroscopeTarget = micRes.item;
+    hidePlacementGhost(ctx);
+    setHoverPrompt(ctx, `🔬 Analisar ${held.label} no Microscópio Óptico Binocular (1000x • Hifas, Grampos & Esporos)`);
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Executa os handlers contextuais para o item atualmente segurado.
  * @returns {boolean} true se um alvo contextual assumiu o hover e já atualizou o prompt.
@@ -903,6 +1039,7 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
   if (handleParafilmHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleTrashHover(ctx, setHoverPrompt)) return true;
   if (handleSporePrintHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
+  if (handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handlePdaReagentHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleHeatSealerHover(ctx, intersectPickableItem, setHoverPrompt)) return true;

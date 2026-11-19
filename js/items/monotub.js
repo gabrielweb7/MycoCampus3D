@@ -214,6 +214,15 @@ export function updateMonotubVisual(item) {
     }
   }
 
+  if (mc.casingMesh) {
+    mc.casingMesh.visible = Boolean(mc.hasCasing && !mc.spent);
+  }
+
+  if (mc.condensationGroup) {
+    const showCond = !mc.spent && (mc.colonization >= 35 || mc.fruitingStage > 0) && (mc.humidity || 90) >= 85;
+    mc.condensationGroup.visible = showCond;
+  }
+
   if (mc.pinsGroup) {
     const showPins = !mc.spent && !mc.contaminated && mc.fruitingStage === 1;
     mc.pinsGroup.visible = showPins;
@@ -236,20 +245,25 @@ export function updateMonotubVisual(item) {
 
   // Atualiza label detalhado de cada etapa
   const spTag = mc.speciesName ? ` • ${mc.speciesName}` : '';
+  const genTag = typeof mc.generation === 'number'
+    ? ` • [${(['T0', 'T1', 'T2 Rizomórfica', 'T3 Elite ⭐'][Math.min(3, Math.max(0, mc.generation))] || 'T1')}]`
+    : '';
+  const casingTag = mc.hasCasing ? ' • 🥥 Casing +40%' : '';
+  const humTag = (mc.colonization >= 100 && !mc.spent && !mc.contaminated) ? ` • ${Math.round(mc.humidity || 90)}% UR` : '';
   if (mc.contaminated) {
     item.label = `Caixa Monotub 24L (🦠 Contaminado por ${mc.contamReason || 'Trichoderma'}! Descarte)`;
   } else if (mc.spent) {
     item.label = `Caixa Monotub 24L (🍂 Bolo Seco Esgotado • 4/4 Flushs — Leve à Horta!)`;
   } else if (mc.fruitingStage === 3) {
-    item.label = `Caixa Monotub 24L (🍄 MADURO p/ Colheita! Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}${spTag})`;
+    item.label = `Caixa Monotub 24L (🍄 MADURO p/ Colheita! Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}${spTag}${genTag}${casingTag})`;
   } else if (mc.fruitingStage === 2) {
-    item.label = `Caixa Monotub 24L (🌱 Cogumelos Crescendo ${Math.floor(mc.growth)}% • Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}${spTag})`;
+    item.label = `Caixa Monotub 24L (🌱 Cogumelos Crescendo ${Math.floor(mc.growth)}% • Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}${spTag}${genTag}${casingTag}${humTag})`;
   } else if (mc.fruitingStage === 1) {
-    item.label = `Caixa Monotub 24L (✨ Primórdios/Pins ${Math.floor(mc.growth)}% • Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}${spTag})`;
+    item.label = `Caixa Monotub 24L (✨ Primórdios/Pins ${Math.floor(mc.growth)}% • Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}${spTag}${genTag}${casingTag}${humTag})`;
   } else if (mc.colonization >= 100) {
     item.label = mc.onLedRack
-      ? `Caixa Monotub 24L (💡 Sob Luz LED • Iniciando Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}${spTag})`
-      : `Caixa Monotub 24L (✅ 100% Colonizado! Leve para a Estante LED de Monotubes${spTag})`;
+      ? `Caixa Monotub 24L (💡 Sob Luz LED • Iniciando Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}${spTag}${genTag}${casingTag}${humTag})`
+      : `Caixa Monotub 24L (✅ 100% Colonizado! Leve para a Estante LED de Monotubes${spTag}${genTag}${casingTag})`;
   } else if (mc.leveled) {
     item.label = mc.lidOpen
       ? `Caixa Monotub 24L (Bolo Nivelado • Feche a tampa para colonizar${spTag})`
@@ -397,6 +411,26 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
   myceliumMesh.visible = false;
   group.add(myceliumMesh);
 
+  // Camada de Casing (Vermiculita + Fibra de Coco úmida por cima do micélio 100% colonizado)
+  const casingMesh = makeBox(W - 0.024, 0.007, D - 0.024, A.cocoSubMat);
+  casingMesh.position.y = 0.108;
+  casingMesh.visible = false;
+  group.add(casingMesh);
+
+  // Gotículas de condensação 3D nas paredes internas quando a umidade relativa >= 85%
+  const condensationGroup = new THREE.Group();
+  const dropMat = new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.55, roughness: 0.08 });
+  for (let di = 0; di < 16; di++) {
+    const drop = new THREE.Mesh(A.pinGeo, dropMat);
+    drop.scale.set(0.65, 0.9, 0.35);
+    const frontSide = di < 8 ? 1 : -1;
+    const idx = di % 8;
+    drop.position.set(-0.16 + idx * 0.046, 0.13 + (idx % 3) * 0.028, frontSide * (D * 0.5 - 0.005));
+    condensationGroup.add(drop);
+  }
+  condensationGroup.visible = false;
+  group.add(condensationGroup);
+
   // Primórdios (pins)
   const pinsGroup = new THREE.Group();
   for (let p = 0; p < 20; p++) {
@@ -462,6 +496,8 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
     contamReason: opts.contamReason || '',
     spent: Boolean(opts.spent),
     speciesName: opts.speciesName || '',
+    generation: opts.generation !== undefined ? opts.generation : 2,
+    hasCasing: Boolean(opts.hasCasing),
     asepticScore: opts.asepticScore !== undefined ? opts.asepticScore : 1,
     lidPivot,
     latches,
@@ -470,6 +506,8 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
     grainPreviewGroup,
     roughMoundsGroup,
     myceliumMesh,
+    casingMesh,
+    condensationGroup,
     pinsGroup,
     mushCanopyGroup,
     updateVisual: () => updateMonotubVisual(item)
@@ -554,6 +592,40 @@ export function rehydrateMonotubCake(ctx, tubItem) {
   return true;
 }
 
+export function applyMonotubCasing(ctx, tubItem) {
+  if (!tubItem || !tubItem.monotubCtrl) return false;
+  const mc = tubItem.monotubCtrl;
+  if (mc.spent || mc.contaminated || mc.colonization < 100 || mc.hasCasing) return false;
+  mc.hasCasing = true;
+  mc.humidity = Math.max(96, mc.humidity || 92);
+  updateMonotubVisual(tubItem);
+  playAudio('playClick');
+  if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
+  if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast('🥥 Camada de Casing (Vermiculita + Fibra de Coco) aplicada sobre o Monotub 24L! Retém microclima úmido e acelera a frutificação em +40%!');
+  }
+  if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
+  return true;
+}
+
+export function dunkMonotubAtSink(ctx, tubItem) {
+  if (!tubItem || !tubItem.monotubCtrl) return false;
+  const mc = tubItem.monotubCtrl;
+  if (mc.spent || mc.contaminated || mc.colonization < 100) return false;
+  mc.humidity = 99;
+  updateMonotubVisual(tubItem);
+  playAudio('playSpray');
+  if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
+  if (ctx && ctx.callbacks && ctx.callbacks.onHoldChange && ctx.heldItem === tubItem) {
+    ctx.callbacks.onHoldChange(tubItem.label);
+  }
+  if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast(`💦 Cold Shock / Dunk realizado no Monotub 24L! Bolo submerso e reidratado profundamente (99% UR) para o Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}!`);
+  }
+  if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
+  return true;
+}
+
 /**
  * Interação contextual com uma Caixa Monotub 24L
  */
@@ -617,6 +689,20 @@ export function interactMonotub(ctx, tubItem) {
     return true;
   }
 
+  // 1b. Se o bolo já está 100% colonizado e o jogador está segurando Vermiculita, Pó de Coco ou Substrato Pasteurizado -> aplicar Camada de Casing!
+  const isHoldingCasingSource = held && (
+    isHoldingPasteurizedBulkSubstrate(held) ||
+    (typeof held.id === 'string' && (held.id.indexOf('substrate_vermiculite') === 0 || held.id.indexOf('substrate_coco') === 0))
+  );
+  if (!mc.spent && !mc.contaminated && mc.colonization >= 100 && !mc.hasCasing && isHoldingCasingSource) {
+    return applyMonotubCasing(ctx, tubItem);
+  }
+
+  // 1c. Se o bolo está 100% colonizado e o jogador clica segurando Galão de Água 5L -> Dunk / Reidratação profunda!
+  if (!mc.spent && !mc.contaminated && mc.colonization >= 100 && held && held.mesh && held.mesh.userData && held.mesh.userData.isWaterGallon) {
+    return dunkMonotubAtSink(ctx, tubItem);
+  }
+
   // 2. Se a tampa está fechada, o clique abre a tampa (exceto se já estiver nivelado/colonizando, onde alterna)
   if (!mc.lidOpen && !mc.hasSpawn && !mc.hasBulk) {
     mc.lidOpen = true;
@@ -644,6 +730,7 @@ export function interactMonotub(ctx, tubItem) {
     const sc = held.spawnCtrl;
     mc.hasSpawn = true;
     mc.speciesName = sc.speciesName || 'Psilocybe cubensis';
+    mc.generation = typeof sc.generation === 'number' ? sc.generation : 2;
     if (!mc.boxSanitized && !(san && san.isSanitized)) {
       mc.asepticScore = 0.35; // Risco maior de Trichoderma por não ter passado álcool + papel toalha na caixa!
     } else {
@@ -1046,7 +1133,10 @@ export function stepMonotubs(ctx, dt) {
           updateMonotubVisual(item);
         } else {
           const prevG = Math.floor(mc.growth);
-          mc.growth += dt * 4.5;
+          const casingMult = mc.hasCasing ? 1.4 : 1.0;
+          const humMult = (mc.humidity || 90) >= 85 ? 1.15 : 0.78;
+          const genMult = 1 + Math.min(3, Math.max(0, mc.generation || 0)) * 0.14;
+          mc.growth += dt * 4.5 * casingMult * humMult * genMult;
           if (mc.fruitingStage === 1 && mc.pinsGroup) {
             const pFrac = Math.max(0.25, Math.min(1.0, 0.30 + (mc.growth / 100) * 0.70));
             mc.pinsGroup.scale.set(1, pFrac, 1);

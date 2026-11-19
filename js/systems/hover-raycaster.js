@@ -18,6 +18,7 @@ import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
 import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import { formatHoverInfo, updateHover3dBadge, hideHover3dBadge } from '../entities/hover-3d-badge.js';
 import { gardenHitMeshes, gardenState } from '../world/campus-garden.js';
+import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -39,6 +40,20 @@ function resolveHoverTargetObj(ctx) {
     (ctx.hoveredWipeTarget && (ctx.hoveredWipeTarget.target === 'hood' ? { label: ctx.hoveredWipeTarget.label } : ctx.hoveredWipeTarget.target)) ||
     (ctx.hoveredSprayTarget && (ctx.hoveredSprayTarget.target === 'hood' ? { label: ctx.hoveredSprayTarget.label } : ctx.hoveredSprayTarget.target)) ||
     (ctx.hoveredFridgeTarget && ctx.hoveredFridgeTarget.fridge) ||
+    ctx.hoveredAlcoholLampTarget ||
+    ctx.hoveredMicroscopeTarget ||
+    ctx.hoveredSilicaJarTarget ||
+    ctx.hoveredMushroomBagPackTarget ||
+    ctx.hoveredDriedBatchForBag ||
+    ctx.hoveredMushroomBagSealTarget ||
+    ctx.hoveredDeliveryCrateTarget ||
+    (ctx.hoveredRoadSaleStand ? { label: '🚗 Quiosque Drive-Thru MycoCampus (Estrada Sul)' } : null) ||
+    ctx.hoveredMonotubTarget ||
+    ctx.hoveredDehydratorTarget ||
+    ctx.hoveredSporePrintPetri ||
+    (ctx.hoveredMonotubRackSlot ? { label: `Estante LED Monotub (Andar ${ctx.hoveredMonotubRackSlot.tier})` } : null) ||
+    (ctx.hoveredGardenTarget ? { label: ctx.hoveredGardenTarget.label || (ctx.hoveredGardenTarget.plant && ctx.hoveredGardenTarget.plant.name) || 'Horta Orgânica' } : null) ||
+    (ctx.hoveredMonotubDunkSink ? { label: 'Pia Inox do Laboratório' } : null) ||
     ctx.hoveredDoorObj ||
     ctx.hoveredCabinetPart ||
     ctx.hoveredGreenhouseSlot ||
@@ -197,7 +212,16 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredDehydratorTarget = null;
   ctx.hoveredMonotubTarget = null;
   ctx.hoveredMonotubRackSlot = null;
+  ctx.hoveredMonotubDunkSink = false;
   ctx.hoveredGardenTarget = null;
+  ctx.hoveredAlcoholLampTarget = null;
+  ctx.hoveredMicroscopeTarget = null;
+  ctx.hoveredSilicaJarTarget = null;
+  ctx.hoveredMushroomBagPackTarget = null;
+  ctx.hoveredDriedBatchForBag = null;
+  ctx.hoveredMushroomBagSealTarget = null;
+  ctx.hoveredDeliveryCrateTarget = null;
+  ctx.hoveredRoadSaleStand = false;
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
@@ -393,6 +417,16 @@ export function updateHoverRay(ctx, customNdc) {
           : `🍄 Colher ${spLabel} (+25 XP • +1 Cogu)`;
         break;
       }
+    }
+  }
+  if (!prompt && roadSaleStandMeshes.length > 0 && refX > 2 && refX < 24 && refZ > 28 && refZ < 44) {
+    const stHits = ctx.raycaster.intersectObjects(roadSaleStandMeshes, false);
+    if (stHits.length > 0 && stHits[0].distance < 5.5) {
+      ctx.hoverHit = stHits[0];
+      ctx.hoveredRoadSaleStand = true;
+      prompt = roadStandState.availablePacks > 0
+        ? `🚗 Quiosque Drive-Thru (${roadStandState.availablePacks} pacotes no balcão • 🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins cada • Clientes a caminho!)`
+        : '🚗 Quiosque Drive-Thru da Estrada • Traga Caixas de Entrega ou Pacotes Selados da Sala de Desidratação!';
     }
   }
   if (!prompt && ctx.heldItem) {
@@ -609,6 +643,8 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoveredGardenTarget = gt;
       if (gt.type === 'compost_box') {
         prompt = `🌱 Caixa de Substrato da Horta (${gardenState.compostCakes} bolos • Fertilidade ${Math.round(gardenState.soilRichness)}%) • Traga Bolos Secos após 4 Flushs!`;
+      } else if (gt.type === 'harvest_basket') {
+        prompt = `🧺 Cesta de Colheita Orgânica da Horta (${gardenState.totalHarvested} colheitas • Alfaces & Tomates do Húmus de Cogumelos)`;
       } else if (gt.type === 'plant' && gt.plant) {
         const pl = gt.plant;
         if (pl.stage === 2) {
@@ -622,12 +658,29 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
+  if (!prompt && roadSaleStandMeshes.length > 0 && refX > 2 && refX < 24 && refZ > 28 && refZ < 44) {
+    const stHits = ctx.raycaster.intersectObjects(roadSaleStandMeshes, false);
+    if (stHits.length > 0 && stHits[0].distance < 5.5) {
+      ctx.hoverHit = stHits[0];
+      ctx.hoveredRoadSaleStand = true;
+      prompt = roadStandState.availablePacks > 0
+        ? `🚗 Quiosque Drive-Thru (${roadStandState.availablePacks} pacotes no balcão • 🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins cada • Clientes a caminho!)`
+        : '🚗 Quiosque Drive-Thru da Estrada • Traga Caixas de Entrega ou Pacotes Selados da Sala de Desidratação!';
+    }
+  }
   if (!prompt && ctx.heldItem) {
     const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
     if (ctx.heldItem.monotubCtrl) {
       prompt = isTouch
         ? '📦 Toque para abrir/fechar tampa ou misturar/nivelar • Posicione na bancada ou na Estante LED'
         : '📦 Clique para abrir/fechar tampa ou misturar/nivelar • G/Q para posicionar na bancada ou Estante LED';
+    } else if (ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.inoculated &&
+        !ctx.heldItem.spawnCtrl.colonized && !ctx.heldItem.spawnCtrl.contaminated &&
+        !ctx.heldItem.spawnCtrl.burned && !ctx.heldItem.spawnCtrl.shaken &&
+        ctx.heldItem.spawnCtrl.colonization >= 20 && ctx.heldItem.spawnCtrl.colonization < 95) {
+      prompt = isTouch
+        ? '💥 Toque para fazer Break & Shake (Chacoalhar grãos e dobrar a velocidade de colonização 2.2x!)'
+        : '💥 Clique para fazer Break & Shake (Chacoalhar grãos e dobrar a velocidade de colonização 2.2x!) • G/Q para posicionar';
     } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
       const petriCtrl = ctx.heldItem.mesh.userData.petriCtrl;
       if (petriCtrl) {
