@@ -16,7 +16,7 @@ test('apk-version.json, capacitor.config.json e build.gradle estão válidos e s
   const meta = JSON.parse(fs.readFileSync('assets/apk-version.json', 'utf8'));
   assert.ok(Number.isInteger(meta.versionCode) && meta.versionCode >= 1);
   assert.match(meta.versionName, /^\d+\.\d+\.\d+$/);
-  assert.match(meta.apkUrl, /^https:\/\/.+\.apk$/);
+  assert.equal(meta.apkUrl, 'https://alquimistasmagicos.com.br/MycoCampus3D.apk');
 
   const cap = JSON.parse(fs.readFileSync('capacitor.config.json', 'utf8'));
   assert.equal(cap.appId, 'br.com.alquimistasmagicos.mycocampus3d');
@@ -80,7 +80,7 @@ test('checkForApkUpdate detecta versão mais nova no servidor e respeita adiamen
         ok: true,
         versionCode: 2,
         versionName: '1.0.2',
-        apkUrl: 'https://github.com/gabrielweb7/MycoCampus3D/releases/latest/download/MycoCampus3D.apk',
+        apkUrl: 'https://alquimistasmagicos.com.br/MycoCampus3D.apk',
         notes: 'Melhoria de FPS no WebView',
         mandatory: false
       })

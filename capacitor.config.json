@@ -8,8 +8,7 @@
     "url": "https://mycocampus3d.alquimistasmagicos.com.br/",
     "cleartext": false,
     "allowNavigation": [
-      "mycocampus3d.alquimistasmagicos.com.br",
-      "*.alquimistasmagicos.com.br"
+      "mycocampus3d.alquimistasmagicos.com.br"
     ]
   },
   "android": {
