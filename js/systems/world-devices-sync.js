@@ -2,7 +2,7 @@
  * Sincronizacao de Dispositivos Fixos, Lousas, Portas, Luzes, Estufa e Cinema (MycoCampus3D)
  */
 
-import { greenhouseSlots, updateGreenhouseSlotMesh } from '../world/greenhouse.js';
+import { greenhouseSlots, greenhouseEnv, updateGreenhouseSlotMesh, updateGreenhousePanelDisplay } from '../world/greenhouse.js';
 import { applyStrokeToBoard } from './chalkboard.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { setBurnerLevel } from '../items/pressure-cooker.js';
@@ -200,24 +200,69 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
     }
   }
 
+  let envChanged = false;
+  const syncEnvNum = (key, applyFn) => {
+    if (stateMap[key] !== undefined && sim.pendingStateChanges[key] === undefined && !(sim.recentlyChangedState[key] > now)) {
+      const val = parseFloat(stateMap[key]);
+      if (Number.isFinite(val)) {
+        applyFn(val);
+        envChanged = true;
+      }
+    }
+  };
+  syncEnvNum('greenhouse_auto', (v) => { greenhouseEnv.autoMode = Number(v) === 1; });
+  syncEnvNum('greenhouse_target_hum', (v) => { greenhouseEnv.targetHumidity = v; });
+  syncEnvNum('greenhouse_target_co2', (v) => { greenhouseEnv.targetCo2 = v; });
+  syncEnvNum('greenhouse_target_temp', (v) => { greenhouseEnv.targetTempC = v / 10; });
+  syncEnvNum('greenhouse_humidifier', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.humidifierPower = v; });
+  syncEnvNum('greenhouse_exhaust', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.exhaustPower = v; });
+  syncEnvNum('greenhouse_cooler', (v) => { if (!greenhouseEnv.autoMode) greenhouseEnv.coolerActive = Number(v) === 1; });
+  syncEnvNum('greenhouse_light', (v) => { greenhouseEnv.lightOn = Number(v) === 1; });
+  if (envChanged) updateGreenhousePanelDisplay();
+
   for (let gi = 0; gi < greenhouseSlots.length; gi++) {
     const slot = greenhouseSlots[gi];
     const kStage = 'greenhouse_slot_' + slot.id + '_stage';
     const kHum = 'greenhouse_slot_' + slot.id + '_humidity';
+    const kEmpty = 'greenhouse_slot_' + slot.id + '_empty';
+    const kSpecies = 'greenhouse_slot_' + slot.id + '_species';
+    let slotDirty = false;
+    if (stateMap[kEmpty] !== undefined && sim.pendingStateChanges[kEmpty] === undefined && !(sim.recentlyChangedState[kEmpty] > now)) {
+      const nextEmpty = Number(stateMap[kEmpty]) === 1;
+      if (slot.empty !== nextEmpty) {
+        slot.empty = nextEmpty;
+        if (nextEmpty) {
+          slot.stage = -1;
+          slot.name = 'Espaço Livre #' + (slot.id + 1);
+          slot.sci = 'Aguardando Spawn';
+          slot.speciesName = '';
+        }
+        slotDirty = true;
+      }
+    }
+    if (stateMap[kSpecies] !== undefined && sim.pendingStateChanges[kSpecies] === undefined && !(sim.recentlyChangedState[kSpecies] > now)) {
+      const spName = String(stateMap[kSpecies] || '');
+      if (spName && slot.speciesName !== spName) {
+        slot.speciesName = spName;
+        slot.name = spName;
+        slotDirty = true;
+      }
+    }
     if (stateMap[kStage] !== undefined && sim.pendingStateChanges[kStage] === undefined && !(sim.recentlyChangedState[kStage] > now)) {
       const newStage = parseInt(stateMap[kStage], 10);
-      if (slot.stage !== newStage) {
+      if (!slot.empty && slot.stage !== newStage) {
         slot.stage = newStage;
-        updateGreenhouseSlotMesh(slot);
+        slotDirty = true;
       }
     }
     if (stateMap[kHum] !== undefined && sim.pendingStateChanges[kHum] === undefined && !(sim.recentlyChangedState[kHum] > now)) {
       const newHum = parseFloat(stateMap[kHum]);
       if (Math.abs(slot.humidity - newHum) > 5) {
         slot.humidity = newHum;
-        updateGreenhouseSlotMesh(slot);
+        slotDirty = true;
       }
     }
+    if (slotDirty) updateGreenhouseSlotMesh(slot);
   }
   applySportBallStates(sim, stateMap);
 }

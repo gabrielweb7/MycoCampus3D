@@ -14,7 +14,14 @@ import { createPastureAndCows } from '../entities/pasture-cows.js';
 import { buildStaircaseAndBridge, buildClockTowerAndAuditorium } from '../world/staircase-clock.js';
 import { registerPickable } from '../items/item-registry.js';
 import { buildCampusWingsAndEquipment } from '../world/lab-tools.js';
-import { initGreenhouseParticlePools, interactGreenhouseSlot } from '../world/greenhouse.js';
+import {
+  initGreenhouseParticlePools,
+  interactGreenhouseSlot,
+  greenhouseEnv,
+  applyGreenhouseAutomationSettings,
+  triggerGreenhouseMistPulse,
+  triggerGreenhouseVentPulse
+} from '../world/greenhouse.js';
 import { buildOuterCampus } from '../world/outer-campus.js';
 import { initConfettiSystem } from '../entities/confetti.js';
 import { buildFirstPersonArm } from '../entities/first-person-arm.js';
@@ -100,6 +107,7 @@ const sim = {
   hoveredScreen: false,
   hoveredScreenBtn: null,
   hoveredGreenhouseSlot: null,
+  hoveredGreenhouseDevice: null,
   placementGhost: null,
   placementValid: false,
   pendingMovedItems: {},
@@ -352,11 +360,19 @@ const sim = {
   },
 
   interactGreenhouseSlot: function (slot) {
-    return interactGreenhouseSlot(slot, {
-      heldItem: sim.heldItem,
-      callbacks: sim.callbacks,
-      queueWorldStateChange: sim.queueWorldStateChange
-    });
+    return interactGreenhouseSlot(slot, sim);
+  },
+  applyGreenhouseAutomationSettings: function (partial) {
+    return applyGreenhouseAutomationSettings(partial, sim);
+  },
+  triggerGreenhouseMistPulse: function () {
+    return triggerGreenhouseMistPulse(sim);
+  },
+  triggerGreenhouseVentPulse: function () {
+    return triggerGreenhouseVentPulse(sim);
+  },
+  getGreenhouseEnv: function () {
+    return greenhouseEnv;
   },
 
   getCinemaHitTarget: function (uv) { return getCinemaHitTarget(sim, uv); },

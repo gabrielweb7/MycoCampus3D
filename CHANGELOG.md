@@ -2,6 +2,18 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.2.0] - 2026-11-18
+### Estufa Climatizada Inteligente (24 Bolos, Automação & Equipamentos 3D)
+- **Nova Estufa Industrial (`js/world/greenhouse.js`, `js/world/lab-tools.js`):**
+  - 2 estantes metálicas de 3 andares (`Estante Central` + `Estante Leste`) com **24 espaços para bolos** (16 cultivos ativos em múltiplas espécies e 8 espaços livres para receber **Spawn Bags, Vidros ou Potinhos PP5** colonizados da bancada).
+  - Sistema de múltiplos *flushes* (até 3 flushes por bolo) com LEDs de status em cada espaço.
+- **Equipamentos Climáticos 3D & Automação:**
+  - **Climatizador / Evaporador com 3 ventoinhas giratórias** no teto + dutos PVC.
+  - **Exaustor industrial lateral** com hélice giratória para troca gasosa ($\text{CO}_2$ / FAE).
+  - **Umidificador ultrassônico** com tanque azul translúcido, tubulação de névoa e partículas leves.
+  - **Painel Controlador Digital 3D** na parede com tela LCD ao vivo e **Modal de Automação** (`js/ui/modal-greenhouse.js`, `index.html`) para alternar entre **Modo Automático** (alvos de Umidade, $\text{CO}_2$, Temperatura e LED Grow) ou **Modo Manual**.
+  - Integração com **Termômetro Laser**, `SceneOptimizer`, `api/auth.php` (`slot_id 0..23`) e `api/multiplayer_schema.php`.
+
 ## [v1.1.2] - 2026-11-18
 ### Guia & Gate para iPhone/iPad (Safari / Tela de Início) + Separação de Versão Web vs APK
 - **Gate e página dedicada para iOS (`index.html`, `ios.html`, `.cpanel.yml`):**

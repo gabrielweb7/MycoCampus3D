@@ -10,7 +10,7 @@ export const CAMPUS_SECTORS = [
   { id: 'plaza', icon: '🏛️', name: 'Praça Central', desc: 'Ponto inicial, fonte e torre do relógio', x: 0, y: 0, z: 10.5, yaw: 0 },
   { id: 'lab', icon: '🧪', name: 'Laboratório Asséptico', desc: 'Fluxo laminar, autoclave, fogareiro e seringas', x: -16.2, y: 0.14, z: -7.0, yaw: Math.PI / 2 },
   { id: 'storage', icon: '📦', name: 'Depósito de Insumos', desc: 'Bags, vidros, grãos, placas e borrifadores', x: -16.2, y: 0.14, z: 7.5, yaw: Math.PI / 2 },
-  { id: 'greenhouse', icon: '🍄', name: 'Estufa de Frutificação', desc: 'Cultive e colha 4 espécies de cogumelos', x: 16.5, y: 0.14, z: 7.5, yaw: -Math.PI / 2 },
+  { id: 'greenhouse', icon: '🍄', name: 'Estufa Climatizada', desc: '24 bolos, umidificador, exaustor e painel auto', x: 16.5, y: 0.14, z: 7.5, yaw: -Math.PI / 2 },
   { id: 'cinema', icon: '🎬', name: 'Cinema & Auditório', desc: 'Telão interativo com aulas e poltronas', x: 48, y: 0.14, z: -6.5, yaw: 0 },
   { id: 'sports', icon: '⚽', name: 'Complexo Esportivo', desc: 'Futebol, basquete com bolas reais e tênis', x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
   { id: 'forest', icon: '🌲', name: 'Bosque & Lago', desc: 'Colha cogumelos silvestres pela floresta', x: 0, y: 0, z: -24, yaw: 0 },

@@ -84,6 +84,13 @@ export function handleWorldInteraction(ctx) {
   if (ctx.hoveredSportBall) {
     return grabSportBall(ctx, ctx.hoveredSportBall);
   }
+  if (ctx.hoveredGreenhouseDevice) {
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (ctx.callbacks && ctx.callbacks.onOpenGreenhouseModal) {
+      ctx.callbacks.onOpenGreenhouseModal(ctx.hoveredGreenhouseDevice);
+    }
+    return true;
+  }
   if (ctx.hoveredGreenhouseSlot) {
     ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
     return true;

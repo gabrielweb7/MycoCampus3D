@@ -301,7 +301,7 @@ if ($action === 'harvest_greenhouse') {
     mc_require_post();
     $user = mc_require_user($pdo);
     $slotId = isset($body['slot_id']) ? (int)$body['slot_id'] : -1;
-    if ($slotId < 0 || $slotId > 3) {
+    if ($slotId < 0 || $slotId > 23) {
         mc_json(['ok' => false, 'error' => 'Slot da estufa inválido.'], 400);
     }
 

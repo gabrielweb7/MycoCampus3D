@@ -785,6 +785,19 @@ export function handlePrimaryAction(ctx) {
         return;
       }
     }
+    if (!ctx.adminEditMode && !ctx.placementMode) {
+      if (ctx.hoveredGreenhouseDevice) {
+        if (window.MycoAudio) window.MycoAudio.playClick();
+        if (ctx.callbacks && ctx.callbacks.onOpenGreenhouseModal) {
+          ctx.callbacks.onOpenGreenhouseModal(ctx.hoveredGreenhouseDevice);
+        }
+        return;
+      }
+      if (ctx.hoveredGreenhouseSlot) {
+        ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
+        return;
+      }
+    }
     return;
   }
   if (!ctx.adminEditMode && handleWorldInteraction(ctx)) return;

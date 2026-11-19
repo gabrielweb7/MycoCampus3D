@@ -334,4 +334,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.MycoCampus.dropHeldItem = sim.dropHeldItem;
   window.MycoCampus.toggleHeldItemPlacement = sim.toggleHeldItemPlacement;
   window.MycoCampus.inspectHeldItem = window.inspectCampusHeldItem;
+  window.MycoCampus.setGreenhouseSettings = sim.applyGreenhouseAutomationSettings;
+  window.MycoCampus.pulseGreenhouseMist = sim.triggerGreenhouseMistPulse;
+  window.MycoCampus.pulseGreenhouseVent = sim.triggerGreenhouseVentPulse;
 }

@@ -11,6 +11,7 @@
  * 4. Gerar BVH (`computeBoundsTree`) para malhas estáticas densas (terreno e chunks mesclados).
  */
 import { snowableEntries } from './textures.js';
+import { greenhouseDynamicObjects, greenhouseControlMeshes } from '../world/greenhouse.js';
 
 const THREE = window.THREE;
 const CHUNK_SIZE = 32;
@@ -112,6 +113,8 @@ function collectDynamicObjects(sim) {
   markTreeList(sim.labSinks, (s) => s && s.waterStream);
   markList(sim.labSinks, (s) => s && s.handle);
   markTreeList(sim.greenhouseHitMeshes, (gh) => gh && gh.parent);
+  markTreeList(greenhouseControlMeshes, (gm) => gm && gm.parent);
+  markTreeList(greenhouseDynamicObjects);
 
   // Armários (portas e gavetas articuladas)
   if (sim.cabinetHitMeshes) {

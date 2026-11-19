@@ -6,7 +6,12 @@
 import { cancelHeldItemPlacement, updateHeldItemPlacementPreview } from './held-item-placement.js';
 import { resolveHeldItemHover } from './hover-held-handlers.js';
 import { isSeatOccupied } from './world-interactions.js';
-import { greenhouseHitMeshes } from '../world/greenhouse.js';
+import {
+  greenhouseHitMeshes,
+  greenhouseControlMeshes,
+  greenhouseEnv,
+  isHoldingColonizedSpawn
+} from '../world/greenhouse.js';
 import { BURNER_LEVEL_NAMES, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
 import { isCultureAccessibleFromFridge, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
@@ -536,25 +541,48 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   ctx.hoveredGreenhouseSlot = null;
-  if (!prompt && greenhouseHitMeshes.length > 0 && refX > 11 && refX < 28 && refZ > -2 && refZ < 17) {
-    const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
-    if (ghHits.length > 0 && ghHits[0].distance < 4.8) {
-      const hSlot = ghHits[0].object.userData.greenhouseSlot;
-      if (hSlot) {
-        ctx.hoverHit = ghHits[0];
-        ctx.hoveredGreenhouseSlot = hSlot;
-        const isHoldingSpray = ctx.heldItem && (ctx.heldItem.id.indexOf('alcohol_spray') !== -1 || ctx.heldItem.id.indexOf('spray') !== -1);
-        const isHoldingColonizedBag = !!(ctx.heldItem && ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.isBag && ctx.heldItem.spawnCtrl.colonized && !ctx.heldItem.spawnCtrl.contaminated);
-        if (isHoldingColonizedBag) {
-          prompt = hSlot.stage === 0
-            ? '🍄 Transferir Spawn Colonizado (' + ctx.heldItem.label + ') para ' + hSlot.name + ' (+50 XP)'
-            : '🌱 ' + hSlot.name + ' já está em frutificação (' + (hSlot.stage === 1 ? 'Primórdios' : (hSlot.stage === 2 ? 'Crescendo' : 'Pronto para colher')) + ')';
-        } else if (hSlot.stage === 3) {
-          prompt = '🍄 Colher ' + hSlot.name + ' (+50 XP e +2 Cogumelos)';
-        } else if (isHoldingSpray) {
-          prompt = '💦 Borrifar e Hidratar ' + hSlot.name + ' (' + Math.round(hSlot.humidity) + '% UR)';
-        } else {
-          prompt = '🌱 ' + hSlot.name + ' (' + Math.round(hSlot.humidity) + '% UR • ' + (hSlot.stage === 0 ? 'Micélio' : (hSlot.stage === 1 ? 'Primórdios' : 'Crescendo')) + ')';
+  ctx.hoveredGreenhouseDevice = null;
+  if (!prompt && refX > 11 && refX < 28 && refZ > -2 && refZ < 17) {
+    if (greenhouseControlMeshes.length > 0) {
+      const ctrlHits = ctx.raycaster.intersectObjects(greenhouseControlMeshes, true);
+      if (ctrlHits.length > 0 && ctrlHits[0].distance < 4.8 && ctrlHits[0].object.userData.greenhouseDevice) {
+        const dev = ctrlHits[0].object.userData.greenhouseDevice;
+        ctx.hoverHit = ctrlHits[0];
+        ctx.hoveredGreenhouseDevice = dev;
+        const devNames = {
+          panel: '🎛️ Painel de Automação da Estufa',
+          humidifier: '💧 Umidificador Ultrassônico',
+          exhaust: '🌬️ Exaustor de CO₂ (Troca de Ar)',
+          cooler: '❄️ Climatizador 3 Ventoinhas'
+        };
+        const modeTxt = greenhouseEnv.autoMode ? 'AUTO' : 'MANUAL';
+        prompt = `${devNames[dev] || '🎛️ Estufa'} (${modeTxt} • ${Math.round(greenhouseEnv.humidity)}% UR • ${Math.round(greenhouseEnv.co2Ppm)} ppm • ${greenhouseEnv.tempC.toFixed(1)}°C) • Clique para abrir controles`;
+      }
+    }
+    if (!prompt && greenhouseHitMeshes.length > 0) {
+      const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
+      if (ghHits.length > 0 && ghHits[0].distance < 4.8) {
+        const hSlot = ghHits[0].object.userData.greenhouseSlot;
+        if (hSlot) {
+          ctx.hoverHit = ghHits[0];
+          ctx.hoveredGreenhouseSlot = hSlot;
+          const isHoldingSpray = ctx.heldItem && (ctx.heldItem.id.indexOf('alcohol_spray') !== -1 || ctx.heldItem.id.indexOf('spray') !== -1);
+          const hasColonizedSpawn = isHoldingColonizedSpawn(ctx.heldItem);
+          const loc = `${hSlot.rackName} • Andar ${hSlot.tier}`;
+          if (hasColonizedSpawn) {
+            prompt = (hSlot.empty || hSlot.stage <= 0)
+              ? `🍄 Colocar Spawn (${ctx.heldItem.label}) em ${loc} (+50 XP na colheita)`
+              : `🌱 ${hSlot.name} (${loc}) já está em frutificação`;
+          } else if (hSlot.empty || hSlot.stage < 0) {
+            prompt = `📦 ${hSlot.name} (${loc}) • Traga Spawn colonizado ou clique para iniciar cultivo`;
+          } else if (hSlot.stage === 3) {
+            prompt = `🍄 Colher ${hSlot.name} (${loc} • Flush ${hSlot.flush}/3) (+50 XP e +2 Cogumelos)`;
+          } else if (isHoldingSpray) {
+            prompt = `💦 Borrifar ${hSlot.name} (${loc} • ${Math.round(hSlot.humidity)}% UR)`;
+          } else {
+            const stText = hSlot.stage === 0 ? 'Micélio' : (hSlot.stage === 1 ? 'Primórdios' : 'Crescendo');
+            prompt = `🌱 ${hSlot.name} (${loc}) • ${Math.round(hSlot.humidity)}% UR • ${stText}`;
+          }
         }
       }
     }

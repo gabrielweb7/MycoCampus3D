@@ -279,21 +279,6 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeGasTripodBurner(ctx, 'gas_tripod_sub', 21.2, 0.12, -3.1);
   createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.2, 0.74, -3.1);
 
-  // Equipamentos da Estufa (Leste-Sul)
-  const rack = makeBox(1.6, 0.72, 4.0, 0x1e293b);
-  rack.position.set(21.0, 0.14 + 0.36, 8.0);
-  scene.add(rack);
-  const ledBar = makeBox(0.28, 0.08, 3.6, 0xfef08a, { emissive: 0xfacc15, emissiveIntensity: 1.1 });
-  ledBar.position.set(21.0, 2.55, 8.0);
-  scene.add(ledBar);
-  const estufaLight = new THREE.PointLight(0xfef08a, 1.25, 14, 1.35);
-  estufaLight.position.set(21.0, 2.45, 8.0);
-  scene.add(estufaLight);
-  solidColliders.push({ minX: 20.15, maxX: 21.85, minZ: 5.95, maxZ: 10.05, minY: 0.14, maxY: 0.86, surfaceTopY: 0.86 });
-  const estufaSurf = { minX: 20.25, maxX: 21.75, minZ: 6.05, maxZ: 9.95, topY: 0.86 };
-  supportSurfaces.push(estufaSurf);
-  rack.userData.supportSurface = estufaSurf;
-  supportMeshes.push(rack);
-
-  buildGreenhouseBench(scene);
+  // Equipamentos da Estufa Climatizada Inteligente (Leste-Sul)
+  buildGreenhouseBench(scene, ctx);
 }

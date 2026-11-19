@@ -33,6 +33,7 @@ import {
 import { completeLabStep, renderMapModal, renderQuestModal } from './quest-map.js';
 import { renderShopModal } from './modal-shop.js';
 import { broadcastSlide, renderLessonsModal } from './modal-lessons.js';
+import { openGreenhouseControlModal } from './modal-greenhouse.js';
 import { renderLabGuideModal } from './modal-lab-guide.js';
 import {
   closeAdminModal,
@@ -711,6 +712,7 @@ export function bootApp() {
   window.initCampus3D('campus-canvas-wrap', {
     onHarvestMushroom: (mushId) => harvestMushroom(mushId),
     onHarvestGreenhouse: (slot) => harvestGreenhouseSlot(slot),
+    onOpenGreenhouseModal: () => openGreenhouseControlModal(),
     onDehydrateReward: () => harvestMushroom('dehydrator_crisp'),
     onOpenLessons: () => {
       renderLessonsModal();

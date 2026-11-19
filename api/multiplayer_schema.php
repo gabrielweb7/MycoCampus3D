@@ -386,7 +386,10 @@ function mp_is_valid_state_key(string $k): bool {
         'gas_tripod_sub', 'gas_tripod_sub_level', 'gas_tripod_level_sub',
         'culture_fridge_lab', 'cinema_power', 'cinema_playing', 'cinema_lesson',
         'auditorium_slide', 'cooker_mode_lab', 'cooker_mode_sub',
-        'ball_soccer', 'ball_basket'
+        'ball_soccer', 'ball_basket',
+        'greenhouse_auto', 'greenhouse_hum', 'greenhouse_co2', 'greenhouse_temp',
+        'greenhouse_target_hum', 'greenhouse_target_co2', 'greenhouse_target_temp',
+        'greenhouse_humidifier', 'greenhouse_exhaust', 'greenhouse_cooler', 'greenhouse_light'
     ], true)) {
         return true;
     }
@@ -394,6 +397,6 @@ function mp_is_valid_state_key(string $k): bool {
     if (preg_match('/^blind_([0-9]|1[0-5])$/', $k)) return true;
     if (preg_match('/^cab_[a-z0-9_]+$/', $k)) return true;
     if (preg_match('/^wild_([0-9]|[12][0-9]|3[01])$/', $k)) return true;
-    if (preg_match('/^greenhouse_slot_[0-3]_(humidity|stage)$/', $k)) return true;
+    if (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_(humidity|stage|empty|species)$/', $k)) return true;
     return false;
 }

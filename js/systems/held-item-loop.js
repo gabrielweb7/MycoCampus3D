@@ -10,7 +10,7 @@ import { addSyringeMix, updateSyringeVolume } from '../items/syringe.js';
 import { getItemBaseTempC } from '../items/item-registry.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { inoculatePetri } from '../items/petri-dish.js';
-import { greenhouseSlots, greenhouseHitMeshes } from '../world/greenhouse.js';
+import { greenhouseSlots, greenhouseHitMeshes, greenhouseEnv } from '../world/greenhouse.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { updateCookerWaterVisual, COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
@@ -288,9 +288,9 @@ function updateThermometerLaser(ctx, dt, now) {
           const pItem = ctx.findPickable ? ctx.findPickable(pid) : null;
           sLbl = (pItem && pItem.label) || pNode.userData.pickableLabel || pid;
           sTemp = pItem ? getItemBaseTempC(pItem, ctx) : 23.3;
-        } else if (lHit.point.x > 18 && lHit.point.z > 5 && lHit.point.z < 11) {
-          sTemp = 20.5 + Math.cos(ctx.clock.elapsedTime * 1.5) * 0.3;
-          sLbl = 'Estufa de Frutificação';
+        } else if (lHit.point.x > 14 && lHit.point.x < 24 && lHit.point.z > 2 && lHit.point.z < 14) {
+          sTemp = greenhouseEnv.tempC || 23.0;
+          sLbl = 'Estufa Climatizada (' + Math.round(greenhouseEnv.humidity) + '% UR • ' + Math.round(greenhouseEnv.co2Ppm) + ' ppm)';
         } else {
           sTemp = 23.2 + Math.sin(lHit.point.x * 0.5 + lHit.point.z * 0.3) * 0.4;
           sLbl = lHit.point.y > 0.6 ? 'Bancada / Estrutura' : 'Piso do Laboratório';
