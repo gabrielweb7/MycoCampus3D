@@ -2,6 +2,7 @@ package br.com.alquimistasmagicos.mycocampus3d;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
@@ -20,6 +21,12 @@ public class MainActivity extends BridgeActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         enableImmersiveFullscreen();
         configureGameWebView();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        enableImmersiveFullscreen();
     }
 
     @Override
@@ -46,6 +53,9 @@ public class MainActivity extends BridgeActivity {
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
+        }
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);

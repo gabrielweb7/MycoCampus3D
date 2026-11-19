@@ -20,8 +20,6 @@ on:
       - 'assets/apk-version.json'
       - 'scripts/prepare-apk.mjs'
       - '.github/workflows/build-apk.yml'
-    tags:
-      - 'v*'
 
 concurrency:
   group: build-apk-main
