@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.2.5] - 2026-11-19
+### Otimização Completa para iPhone (iOS Safari), Assistente de Tela Cheia & Correção de Toque/Áudio
+- **Tela Cheia no iPhone / iOS Safari (`js/ui/dom-helpers.js`, `js/ui/app-boot.js`, `js/engine/haptics-wakelock.js`, `index.html`, `ios.html`):**
+  - Como a Apple bloqueia a API `documentElement.requestFullscreen()` no iPhone Safari, o botão **Tela Cheia (`#btn-fullscreen`)** agora ativa o **Modo Imersivo Compacto (`body.ios-immersive-fullscreen`)** e abre o **Assistente de Tela Cheia para iPhone (`#ios-fullscreen-modal`)** com guia visual para ocultar a barra de ferramentas do Safari (`aA → Ocultar Barra de Ferramentas`) ou abrir em Tela Cheia 100% Nativa (`Compartilhar → Adicionar à Tela de Início`).
+  - Exibido o botão **`📲 App / Tela Cheia`** no menu do iPhone e persistida a preferência de acesso no `localStorage` além do `sessionStorage` para evitar redirecionamentos repetidos para `ios.html`.
+- **Correções Críticas de Toque, Auto-Zoom, Áudio e Memória WebGL no iPhone (`js/systems/input-controller.js`, `js/services/audio-engine.js`, `js/core/quality.js`, `css/game.css`):**
+  - **Bloqueio de toque vazando por trás de modais:** `isUiTouch()` agora inclui `el.closest('[id$="-modal"]')`, impedindo que toques na Estufa, Desidratadora, Geladeira, Fogareiro ou Inspeção girem a câmera 3D ou disparem cliques no cenário.
+  - **Fim do Auto-Zoom do Safari ao focar inputs:** aplicado `font-size: 16px !important` em `input, textarea, select` no touch/iOS (`@supports (-webkit-touch-callout: none)`).
+  - **Recuperação de Áudio iOS (`interrupted`):** `audio-engine.js` agora trata o estado `interrupted` do WebKit (ao bloquear a tela ou trocar de aba no iPhone) e desbloqueia o hardware com buffer silencioso em `touchstart`/`touchend`.
+  - **Sincronização de Viewport & Memória WebGL:** integrado `window.visualViewport` (`resize`), `pageshow` e limite seguro de DPR (`1.35`) em telas Super Retina do iPhone para evitar reloads por limite de VRAM.
+
 ## [v1.2.4] - 2026-11-19
 ### Sensor de Porta Aberta & Clima Externo na Estufa + Colisão OBB Precisa para Mesas Movidas no Editor
 - **Correção de Colisores Invisíveis ao Mover/Rotacionar Mesas (`js/items/item-registry.js`, `js/engine/physics.js`, `js/systems/surface-group-move.js`, `js/entities/placement-ghost.js`, `js/items/laminar-hood.js`):**

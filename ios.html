@@ -112,6 +112,11 @@
           class="btn-copy-url w-full py-3.5 px-5 rounded-2xl text-slate-950 font-extrabold text-sm sm:text-base text-center">
           📋 Copiar Link para Abrir no Safari
         </button>
+
+        <button id="btn-play-anyway-ios" type="button"
+          class="w-full py-2.5 px-4 rounded-2xl bg-slate-800/90 border border-slate-600/70 text-slate-200 font-bold text-xs sm:text-sm text-center">
+          🎮 Jogar Mesmo Assim neste Navegador
+        </button>
       </div>
 
       <!-- Ações quando JÁ está no Safari -->
@@ -213,14 +218,19 @@
         });
       }
 
+      function startIosWebPlay() {
+        try { sessionStorage.setItem('myco_ios_safari_ok', '1'); } catch (e) {}
+        try { localStorage.setItem('myco_ios_safari_ok', '1'); } catch (e) {}
+        window.location.href = './?play=1';
+      }
+
       var playSafariBtn = document.getElementById('btn-play-safari');
       if (playSafariBtn) {
-        playSafariBtn.addEventListener('click', function () {
-          try {
-            sessionStorage.setItem('myco_ios_safari_ok', '1');
-          } catch (e) {}
-          window.location.href = './?play=1';
-        });
+        playSafariBtn.addEventListener('click', startIosWebPlay);
+      }
+      var playAnywayBtn = document.getElementById('btn-play-anyway-ios');
+      if (playAnywayBtn) {
+        playAnywayBtn.addEventListener('click', startIosWebPlay);
       }
     })();
   </script>

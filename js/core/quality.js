@@ -165,9 +165,12 @@ export function applyQualityTier(tier, deps) {
 
   const ThreeRef = getThree();
   const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+  const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+  const isIos = /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && typeof navigator !== 'undefined' && (navigator.maxTouchPoints || 0) > 1);
   const profile = isTouchDevice ? TIER_CONFIGS.mobile : TIER_CONFIGS.desktop;
   const cfg = profile[tier] || profile.medium;
-  const ratio = cfg.fixedRatio !== undefined ? cfg.fixedRatio : Math.min(dpr, cfg.ratioCap);
+  const effectiveCap = (isIos && isTouchDevice && cfg.ratioCap) ? Math.min(cfg.ratioCap, 1.35) : cfg.ratioCap;
+  const ratio = cfg.fixedRatio !== undefined ? cfg.fixedRatio : Math.min(dpr, effectiveCap);
   qualityState.baseRatio = ratio;
   qualityState.dynScale = 1;
 

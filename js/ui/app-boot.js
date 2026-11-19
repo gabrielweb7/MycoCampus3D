@@ -18,6 +18,7 @@ import {
   isTouch,
   releaseInputForModal,
   requestCampusFullscreen,
+  setIosImmersiveFullscreen,
   showFloatingToast,
   toggleCampusFullscreen
 } from './dom-helpers.js';
@@ -106,7 +107,33 @@ function bindModalsAndToolbar() {
   if (fsBtn) {
     fsBtn.onclick = (e) => {
       e.stopPropagation();
-      toggleCampusFullscreen();
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      toggleCampusFullscreen({ explicitUserClick: true });
+    };
+  }
+
+  const iosFsModal = $('ios-fullscreen-modal');
+  const closeIosFs = () => {
+    if (window.MycoAudio) window.MycoAudio.playClick();
+    if (iosFsModal) iosFsModal.classList.add('hidden');
+  };
+  const btnCloseIosFs = $('btn-close-ios-fs');
+  if (btnCloseIosFs) btnCloseIosFs.onclick = closeIosFs;
+  const btnIosFsOk = $('btn-ios-fs-ok');
+  if (btnIosFsOk) btnIosFsOk.onclick = closeIosFs;
+  if (iosFsModal) {
+    iosFsModal.addEventListener('click', (e) => {
+      if (e.target === iosFsModal) closeIosFs();
+    });
+  }
+  const btnIosToggleImmersive = $('btn-ios-toggle-immersive');
+  if (btnIosToggleImmersive) {
+    btnIosToggleImmersive.onclick = () => {
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      const currently = document.body.classList.contains('ios-immersive-fullscreen');
+      const next = setIosImmersiveFullscreen(!currently);
+      showFloatingToast(next ? '🍎 HUD Imersivo Compacto ativado!' : '🍎 HUD padrão restaurado.', 2800);
+      if (iosFsModal) iosFsModal.classList.add('hidden');
     };
   }
 

@@ -25,16 +25,19 @@
       if (isIos) {
         var isRealSafari = /Safari/i.test(ua) && /Version\//i.test(ua) &&
           !/CriOS|FxiOS|EdgiOS|OPiOS|GSA|FBAN|FBAV|Instagram|WhatsApp|Line/i.test(ua);
+        var playParam = /[?&]play=1\b/.test(window.location.search || '');
         var safariAllowed = false;
-        if (isRealSafari) {
-          if (/[?&]play=1\b/.test(window.location.search || '')) {
-            try { sessionStorage.setItem('myco_ios_safari_ok', '1'); } catch (e) {}
-            safariAllowed = true;
-          } else {
-            try { safariAllowed = sessionStorage.getItem('myco_ios_safari_ok') === '1'; } catch (e) {}
-          }
+        if (playParam) {
+          try { sessionStorage.setItem('myco_ios_safari_ok', '1'); } catch (e) {}
+          try { localStorage.setItem('myco_ios_safari_ok', '1'); } catch (e) {}
+          safariAllowed = true;
+        } else {
+          try {
+            safariAllowed = sessionStorage.getItem('myco_ios_safari_ok') === '1' ||
+              localStorage.getItem('myco_ios_safari_ok') === '1';
+          } catch (e) {}
         }
-        if (!isRealSafari || !safariAllowed) {
+        if (!safariAllowed) {
           window.location.replace('ios.html' + (window.location.search || ''));
         }
       }
@@ -105,7 +108,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=1.2.4">
+  <link rel="stylesheet" href="css/game.css?v=1.2.5">
 </head>
 
 <body>
@@ -170,7 +173,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.2.4</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.2.5</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -721,6 +724,48 @@
     </div>
   </div>
 
+  <!-- Assistente de Tela Cheia & App para iPhone (iOS Safari) -->
+  <div id="ios-fullscreen-modal"
+    class="hidden fixed inset-0 z-50 bg-slate-950/85 flex items-center justify-center p-2 sm:p-4">
+    <div class="glass-panel modal-card-md rounded-2xl w-full flex flex-col border border-sky-400/45 overflow-hidden shadow-2xl">
+      <div class="p-3 sm:p-4 border-b border-slate-700/60 flex items-center justify-between gap-2 bg-slate-900/60">
+        <div class="min-w-0">
+          <h2 class="text-sm sm:text-base font-extrabold text-sky-300 truncate">🍎 Tela Cheia no iPhone (iOS)</h2>
+          <p class="text-[11px] text-slate-400">A Apple bloqueia o botão de fullscreen direto no Safari — veja como ativar 100%:</p>
+        </div>
+        <button id="btn-close-ios-fs" type="button"
+          class="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-bold shrink-0">✕ Fechar</button>
+      </div>
+      <div class="p-3 sm:p-4 overflow-y-auto space-y-3 text-xs text-slate-200">
+        <div class="rounded-xl bg-emerald-950/60 border border-emerald-500/45 p-3 space-y-2">
+          <div class="font-extrabold text-emerald-300 text-xs sm:text-sm">📲 Opção 1 — Tela Cheia 100% Definitiva (Recomendado)</div>
+          <p class="text-slate-300 leading-relaxed">
+            No Safari do iPhone, toque no botão <strong>Compartilhar (⬆️)</strong> na barra do navegador e escolha <strong>"Adicionar à Tela de Início"</strong>.
+            Abrindo pelo ícone criado na tela do iPhone, o jogo roda como <strong>App em Tela Cheia Real</strong> sem nenhuma barra!
+          </p>
+        </div>
+
+        <div class="rounded-xl bg-sky-950/55 border border-sky-500/40 p-3 space-y-1.5">
+          <div class="font-extrabold text-sky-300 text-xs sm:text-sm">🧭 Opção 2 — Ocultar Barra Direto no Safari</div>
+          <p class="text-slate-300 leading-relaxed">
+            Toque no ícone <strong>"aA"</strong> (ou menu ao lado do endereço do site no Safari) e toque em <strong>"Ocultar Barra de Ferramentas"</strong> para expandir a tela imediatamente.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button id="btn-ios-toggle-immersive" type="button"
+            class="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs text-center">
+            ⛶ Alternar HUD Imersivo Compacto
+          </button>
+          <button id="btn-ios-fs-ok" type="button"
+            class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-100 font-bold text-xs">
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <noscript>
     <div
       style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99;background:#0b1220;color:#fff;padding:24px;text-align:center">
@@ -728,9 +773,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '1.2.4';</script>
+  <script>window.MYCO_VERSION = '1.2.5';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=1.2.4"></script>
+  <script type="module" src="js/main.js?v=1.2.5"></script>
 </body>
 
 </html>

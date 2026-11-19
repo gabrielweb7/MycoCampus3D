@@ -14,10 +14,15 @@ let _sprayBuf = null;
 let _sprayBufRate = 0;
 let _steamBuf = null;
 let _steamBufRate = 0;
+let _iosSilentUnlocked = false;
 
 try {
   isMuted = localStorage.getItem('myco_audio_muted') === 'true';
 } catch (e) { /* ignore */ }
+
+function isSuspendedOrInterrupted(state) {
+  return state === 'suspended' || state === 'interrupted';
+}
 
 function getAudioContext() {
   if (!audioCtx) {
@@ -29,7 +34,7 @@ function getAudioContext() {
     masterGain.gain.setValueAtTime(isMuted ? 0 : 0.7, audioCtx.currentTime);
     masterGain.connect(audioCtx.destination);
   }
-  if (audioCtx.state === 'suspended' && userHasGestured) {
+  if (isSuspendedOrInterrupted(audioCtx.state) && userHasGestured) {
     audioCtx.resume().catch(() => {});
   }
   return audioCtx;
@@ -38,13 +43,25 @@ function getAudioContext() {
 export function unlock() {
   userHasGestured = true;
   const ctx = getAudioContext();
-  if (ctx && ctx.state === 'suspended') {
+  if (!ctx) return;
+  if (isSuspendedOrInterrupted(ctx.state)) {
     ctx.resume().catch(() => {});
+  }
+  if (!_iosSilentUnlocked) {
+    try {
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+      _iosSilentUnlocked = true;
+    } catch (e) { /* ignore */ }
   }
 }
 
-window.addEventListener('click', unlock, { once: true });
-window.addEventListener('touchstart', unlock, { once: true });
+window.addEventListener('click', unlock, { passive: true });
+window.addEventListener('touchstart', unlock, { passive: true });
+window.addEventListener('touchend', unlock, { passive: true });
 window.addEventListener('keydown', unlock, { once: true });
 
 export function playFootstep(surface) {

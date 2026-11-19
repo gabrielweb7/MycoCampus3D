@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { checkForApkUpdate, isRunningInApk } from '../js/services/apk-updater.js';
+import {
+  isIosDevice,
+  isFullscreenActive,
+  toggleCampusFullscreen
+} from '../js/ui/dom-helpers.js';
 
 function createLocalStorageMock() {
   const store = new Map();
@@ -110,6 +115,77 @@ test('checkForApkUpdate detecta versão mais nova no servidor e respeita adiamen
     else globalThis.fetch = prevFetch;
     if (prevLs === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = prevLs;
+    if (prevDoc === undefined) delete globalThis.document;
+    else globalThis.document = prevDoc;
+  }
+});
+
+test('iPhone (iOS Safari sem requestFullscreen nativo) ativa modo imersivo e abre assistente de Tela Cheia', () => {
+  const prevWin = globalThis.window;
+  const prevDoc = globalThis.document;
+  const navDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+
+  try {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        maxTouchPoints: 5,
+        standalone: false
+      },
+      configurable: true
+    });
+
+    const bodyClasses = new Set();
+    const modalClasses = new Set(['hidden']);
+    const iosModal = {
+      classList: {
+        remove: (c) => modalClasses.delete(c),
+        add: (c) => modalClasses.add(c),
+        contains: (c) => modalClasses.has(c)
+      }
+    };
+
+    globalThis.window = {
+      navigator: globalThis.navigator,
+      scrollTo: () => {},
+      dispatchEvent: () => {}
+    };
+    globalThis.document = {
+      documentElement: {}, // Sem requestFullscreen (comportamento real do iPhone Safari)
+      body: {
+        classList: {
+          toggle: (c, force) => {
+            const next = force !== undefined ? Boolean(force) : !bodyClasses.has(c);
+            if (next) bodyClasses.add(c);
+            else bodyClasses.delete(c);
+            return next;
+          },
+          contains: (c) => bodyClasses.has(c)
+        }
+      },
+      getElementById: (id) => (id === 'ios-fullscreen-modal' ? iosModal : null)
+    };
+
+    assert.equal(isIosDevice(), true);
+    assert.equal(isFullscreenActive(), false);
+
+    toggleCampusFullscreen({ explicitUserClick: true });
+    assert.equal(bodyClasses.has('ios-immersive-fullscreen'), true, 'deve ativar classe ios-immersive-fullscreen no body');
+    assert.equal(isFullscreenActive(), true);
+    assert.equal(modalClasses.has('hidden'), false, 'deve abrir o modal assistente de Tela Cheia no iPhone Safari');
+
+    const indexHtml = fs.readFileSync('index.html', 'utf8');
+    assert.ok(indexHtml.includes('id="ios-fullscreen-modal"'), 'index.html deve conter modal de Tela Cheia para iPhone');
+    const gameCss = fs.readFileSync('css/game.css', 'utf8');
+    assert.ok(gameCss.includes('font-size: 16px !important'), 'css/game.css deve bloquear auto-zoom de inputs no iOS');
+    const inputCtrl = fs.readFileSync('js/systems/input-controller.js', 'utf8');
+    assert.ok(inputCtrl.includes('el.closest(\'[id$="-modal"]\')'), 'input-controller.js deve proteger todos os modais contra toque vazando para câmera 3D');
+    const audioEng = fs.readFileSync('js/services/audio-engine.js', 'utf8');
+    assert.ok(audioEng.includes("state === 'interrupted'"), 'audio-engine.js deve recuperar estado interrupted do iOS WebKit');
+  } finally {
+    if (navDesc) Object.defineProperty(globalThis, 'navigator', navDesc);
+    if (prevWin === undefined) delete globalThis.window;
+    else globalThis.window = prevWin;
     if (prevDoc === undefined) delete globalThis.document;
     else globalThis.document = prevDoc;
   }

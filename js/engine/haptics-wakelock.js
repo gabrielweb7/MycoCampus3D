@@ -5,6 +5,8 @@
  * - Gerenciamento de Instalação do PWA (App na tela inicial)
  */
 
+import { isIosDevice, isStandaloneMode, openIosFullscreenModal } from '../ui/dom-helpers.js';
+
 let wakeLockSentinel = null;
 let deferredInstallPrompt = null;
 
@@ -120,9 +122,18 @@ export function initPwaFeatures() {
   });
 
   const installBtn = document.getElementById('btn-install-pwa');
+  if (installBtn && isIosDevice() && !isStandaloneMode()) {
+    installBtn.style.display = 'inline-flex';
+    installBtn.textContent = '📲 App / Tela Cheia';
+  }
   if (installBtn) {
     installBtn.addEventListener('click', async () => {
-      if (!deferredInstallPrompt) return;
+      if (!deferredInstallPrompt) {
+        if (isIosDevice()) {
+          openIosFullscreenModal();
+        }
+        return;
+      }
       deferredInstallPrompt.prompt();
       const choice = await deferredInstallPrompt.userChoice;
       if (choice.outcome === 'accepted') {

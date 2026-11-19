@@ -213,12 +213,14 @@ export function bindControls(ctx) {
   function isUiTouch(el) {
     if (!el || !el.closest) return false;
     return !!(
+      el.closest('[id$="-modal"]') ||
       el.closest('#mobile-joystick-zone') ||
       el.closest('#mobile-actions') ||
       el.closest('#held-item-bar') ||
       el.closest('#item-status-card') ||
       el.closest('.touch-btn') ||
       el.closest('button') ||
+      el.closest('a') ||
       el.closest('input') ||
       el.closest('select') ||
       el.closest('textarea') ||
@@ -304,11 +306,30 @@ export function bindControls(ctx) {
   }, { passive: true });
   window.addEventListener('blur', function () { touchLookId = null; });
 
-  window.addEventListener('resize', function () {
+  function syncViewportSize() {
     if (ctx.refreshTouchCache) ctx.refreshTouchCache();
-    ctx.camera.aspect = window.innerWidth / window.innerHeight;
-    ctx.camera.updateProjectionMatrix();
-    ctx.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    const vw = window.innerWidth || (window.visualViewport && window.visualViewport.width) || 1280;
+    const vh = window.innerHeight || (window.visualViewport && window.visualViewport.height) || 720;
+    if (vw > 0 && vh > 0) {
+      ctx.camera.aspect = vw / vh;
+      ctx.camera.updateProjectionMatrix();
+      ctx.renderer.setSize(vw, vh, false);
+    }
+  }
+
+  window.addEventListener('resize', syncViewportSize);
+  window.addEventListener('orientationchange', function () {
+    setTimeout(syncViewportSize, 120);
+  });
+  window.addEventListener('pageshow', function () {
+    clearAllInputKeys();
+    syncViewportSize();
+  });
+  if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+    window.visualViewport.addEventListener('resize', syncViewportSize);
+  }
+  ctx.renderer.domElement.addEventListener('gesturestart', function (e) {
+    e.preventDefault();
   });
 
   ctx.renderer.domElement.addEventListener('webglcontextlost', function (e) {
