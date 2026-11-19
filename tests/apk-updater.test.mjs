@@ -5,7 +5,9 @@ import { checkForApkUpdate, isRunningInApk } from '../js/services/apk-updater.js
 import {
   isIosDevice,
   isFullscreenActive,
-  toggleCampusFullscreen
+  toggleCampusFullscreen,
+  getFullViewportSize,
+  syncViewportCssVars
 } from '../js/ui/dom-helpers.js';
 
 function createLocalStorageMock() {
@@ -182,6 +184,42 @@ test('iPhone (iOS Safari sem requestFullscreen nativo) ativa modo imersivo e abr
     assert.ok(inputCtrl.includes('el.closest(\'[id$="-modal"]\')'), 'input-controller.js deve proteger todos os modais contra toque vazando para câmera 3D');
     const audioEng = fs.readFileSync('js/services/audio-engine.js', 'utf8');
     assert.ok(audioEng.includes("state === 'interrupted'"), 'audio-engine.js deve recuperar estado interrupted do iOS WebKit');
+
+    // Simula iPhone 15 Pro adicionado à Tela de Início (standalone: true) virado na horizontal (landscape),
+    // onde o bug do WebKit reporta innerHeight = 335 em vez de 393 (criando tarja preta de 58px embaixo)
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+        maxTouchPoints: 5,
+        standalone: true
+      },
+      configurable: true
+    });
+    const wrapStyle = {};
+    const docStyle = { props: {}, setProperty(k, v) { this.props[k] = v; } };
+    const bodyStyle = {};
+    globalThis.window = {
+      navigator: globalThis.navigator,
+      innerWidth: 852,
+      innerHeight: 335, // Altura encolhida pelo bug do iOS Standalone em landscape
+      screen: { width: 393, height: 852 },
+      scrollTo: () => {},
+      dispatchEvent: () => {}
+    };
+    globalThis.document = {
+      documentElement: { clientWidth: 852, clientHeight: 335, style: docStyle },
+      body: { style: bodyStyle, classList: { toggle: () => {}, contains: () => false } },
+      getElementById: (id) => (id === 'campus-canvas-wrap' ? { style: wrapStyle } : null)
+    };
+
+    const fullSz = getFullViewportSize();
+    assert.equal(fullSz.width, 852, 'largura em landscape deve cobrir 100% da tela física do iPhone');
+    assert.equal(fullSz.height, 393, 'altura em landscape deve corrigir o innerHeight encolhido (335 -> 393) eliminando a faixa preta inferior');
+
+    syncViewportCssVars(true);
+    assert.equal(docStyle.props['--app-vw'], '852px');
+    assert.equal(docStyle.props['--app-vh'], '393px');
+    assert.equal(wrapStyle.height, '393px');
   } finally {
     if (navDesc) Object.defineProperty(globalThis, 'navigator', navDesc);
     if (prevWin === undefined) delete globalThis.window;

@@ -2,6 +2,8 @@
  * MycoCampus3D — Motor Inteligente de Auto-FPS, DRS (Dynamic Resolution Scaling),
  * Detecção de Hardware & Qualidade Adaptativa (Mobile Antigo, Mobile Novo & PC)
  */
+import { getFullViewportSize, syncViewportCssVars } from '../ui/dom-helpers.js';
+
 const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
 
 function getThree() {
@@ -175,11 +177,14 @@ export function applyQualityTier(tier, deps) {
   qualityState.dynScale = 1;
 
   renderer.setPixelRatio(ratio);
-  renderer.setSize(
-    typeof window !== 'undefined' ? window.innerWidth : 1280,
-    typeof window !== 'undefined' ? window.innerHeight : 720,
-    false
-  );
+  const vp = typeof window !== 'undefined' ? syncViewportCssVars(false) : getFullViewportSize();
+  renderer.setSize(vp.width, vp.height, false);
+  if (camera && vp.width > 0 && vp.height > 0) {
+    camera.aspect = vp.width / vp.height;
+    if (typeof camera.updateProjectionMatrix === 'function') {
+      camera.updateProjectionMatrix();
+    }
+  }
   if (ThreeRef && ThreeRef.SRGBColorSpace && renderer.outputColorSpace !== undefined) {
     renderer.outputColorSpace = ThreeRef.SRGBColorSpace;
   }

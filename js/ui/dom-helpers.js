@@ -18,16 +18,113 @@ export function invalidateDeviceProfileCache() {
   cachedDeviceProfile = null;
 }
 
+export function getFullViewportSize() {
+  if (typeof window === 'undefined') return { width: 1280, height: 720 };
+  const docEl = typeof document !== 'undefined' ? document.documentElement : null;
+  const vv = window.visualViewport;
+  let w = Math.max(
+    window.innerWidth || 0,
+    (docEl && docEl.clientWidth) || 0,
+    (vv && vv.width) ? Math.round(vv.width) : 0
+  );
+  let h = Math.max(
+    window.innerHeight || 0,
+    (docEl && docEl.clientHeight) || 0,
+    (vv && vv.height) ? Math.round(vv.height) : 0
+  );
+
+  if (isIosDevice() && window.screen) {
+    const scrW = window.screen.width || 0;
+    const scrH = window.screen.height || 0;
+    if (scrW > 0 && scrH > 0) {
+      const isLandscape =
+        w >= h ||
+        (typeof window.orientation === 'number' && Math.abs(window.orientation) === 90) ||
+        Boolean(window.matchMedia && window.matchMedia('(orientation: landscape)').matches);
+      const physW = isLandscape ? Math.max(scrW, scrH) : Math.min(scrW, scrH);
+      const physH = isLandscape ? Math.min(scrW, scrH) : Math.max(scrW, scrH);
+      const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+      const isIphone = /iPhone|iPod/i.test(ua);
+
+      // No iPhone adicionado à Tela de Início (Standalone), o WebKit frequentemente
+      // subtrai 40px-80px de window.innerHeight ao girar para horizontal (landscape),
+      // causando uma faixa preta na parte de baixo. Forçamos a dimensão física real da tela.
+      if (isStandaloneMode() && (isIphone || (Math.abs(physW - w) <= 160 && Math.abs(physH - h) <= 160))) {
+        w = Math.max(w, physW);
+        h = Math.max(h, physH);
+      } else if (isIphone && isLandscape && physH > h && (physH - h) <= 96) {
+        w = Math.max(w, physW);
+        if (document && document.body && document.body.classList && document.body.classList.contains('ios-immersive-fullscreen')) {
+          h = Math.max(h, physH);
+        }
+      }
+    }
+  }
+
+  return {
+    width: w || 1280,
+    height: h || 720
+  };
+}
+
+export function syncViewportCssVars(forceMetaRefresh = false) {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return getFullViewportSize();
+  if (forceMetaRefresh && isIosDevice()) {
+    try {
+      const vpMeta = document.querySelector && document.querySelector('meta[name="viewport"]');
+      if (vpMeta && vpMeta.setAttribute) {
+        vpMeta.setAttribute(
+          'content',
+          'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover'
+        );
+      }
+    } catch (e) { /* ignore */ }
+  }
+  const sz = getFullViewportSize();
+  try {
+    const docEl = document.documentElement;
+    if (docEl && docEl.style && docEl.style.setProperty) {
+      docEl.style.setProperty('--app-vw', `${sz.width}px`);
+      docEl.style.setProperty('--app-vh', `${sz.height}px`);
+      docEl.style.width = `${sz.width}px`;
+      docEl.style.height = `${sz.height}px`;
+    }
+    if (document.body && document.body.style) {
+      document.body.style.width = `${sz.width}px`;
+      document.body.style.height = `${sz.height}px`;
+    }
+    const wrap = document.getElementById && document.getElementById('campus-canvas-wrap');
+    if (wrap && wrap.style) {
+      wrap.style.width = `${sz.width}px`;
+      wrap.style.height = `${sz.height}px`;
+    }
+    if (window.scrollTo) {
+      window.scrollTo(0, 0);
+    }
+  } catch (e) { /* ignore */ }
+  return sz;
+}
+
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener('resize', invalidateDeviceProfileCache);
-  window.addEventListener('orientationchange', invalidateDeviceProfileCache);
+  window.addEventListener('resize', () => {
+    invalidateDeviceProfileCache();
+    syncViewportCssVars(false);
+  });
+  window.addEventListener('orientationchange', () => {
+    invalidateDeviceProfileCache();
+    syncViewportCssVars(true);
+    setTimeout(() => syncViewportCssVars(true), 80);
+    setTimeout(() => syncViewportCssVars(false), 240);
+    setTimeout(() => syncViewportCssVars(false), 500);
+  });
 }
 
 export function getDeviceProfile() {
   if (cachedDeviceProfile) return cachedDeviceProfile;
   const coarse = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-  const w = typeof window !== 'undefined' ? (window.innerWidth || 0) : 1280;
-  const h = typeof window !== 'undefined' ? (window.innerHeight || 0) : 720;
+  const vp = getFullViewportSize();
+  const w = vp.width;
+  const h = vp.height;
   const minDim = Math.min(w, h);
   const tPts = typeof navigator !== 'undefined' ? (navigator.maxTouchPoints || 0) : 0;
   const hasTouch = tPts > 0 && (w <= 1380 || minDim <= 1080);
@@ -137,9 +234,7 @@ export function setIosImmersiveFullscreen(active) {
   const next = Boolean(active);
   document.body.classList.toggle('ios-immersive-fullscreen', next);
   try {
-    if (next && typeof window !== 'undefined' && window.scrollTo) {
-      window.scrollTo(0, 1);
-    }
+    syncViewportCssVars(true);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('resize'));
     }

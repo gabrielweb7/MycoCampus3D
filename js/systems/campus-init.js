@@ -6,6 +6,7 @@
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
 import { getInitialQualityTier, getSavedQualityMode, qualityState } from '../core/quality.js';
+import { syncViewportCssVars } from '../ui/dom-helpers.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
@@ -607,9 +608,10 @@ export function initCampus3D(containerId, cbs) {
     sim.scene.add(sim.weatherPoints);
 
     const camCfg = GAME_CONFIG.camera;
+    const initVp = syncViewportCssVars(true);
     sim.camera = new THREE.PerspectiveCamera(
       camCfg.fov,
-      window.innerWidth / window.innerHeight,
+      initVp.width / initVp.height,
       camCfg.near,
       touch ? camCfg.farTouch : camCfg.farDesktop
     );
@@ -621,7 +623,7 @@ export function initCampus3D(containerId, cbs) {
       stencil: false,
       powerPreference: 'high-performance'
     });
-    sim.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    sim.renderer.setSize(initVp.width, initVp.height, false);
     sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75));
     sim.renderer.shadowMap.enabled = true;
     sim.renderer.shadowMap.autoUpdate = !touch;

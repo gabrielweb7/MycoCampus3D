@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.2.6] - 2026-11-19
+### Correção da Faixa Preta Inferior no iPhone em Modo Tela de Início (Landscape Fullscreen)
+- **Eliminação da Tarja Preta Inferior no iOS Standalone Horizontal (`css/game.css`, `js/ui/dom-helpers.js`, `js/core/quality.js`, `js/systems/campus-init.js`, `js/systems/input-controller.js`, `manifest.webmanifest`):**
+  - **Causa raiz corrigida:** No iPhone adicionado à Tela de Início (`navigator.standalone === true`), girar o aparelho da vertical para a horizontal (landscape) faz o WebKit reportar `100dvh` e `window.innerHeight` com `40px–80px` a menos que a altura física da tela (descontando a antiga área da barra/safe-area), o que cortava `html`, `body`, `#campus-canvas-wrap` e o `renderer.setSize` deixando uma faixa preta na parte inferior.
+  - Substituído `height: 100dvh` por `100lvh` / `-webkit-fill-available` e variáveis `--app-vw` / `--app-vh` sincronizadas com `getFullViewportSize()` e `syncViewportCssVars()`, que usam as dimensões físicas reais da tela (`window.screen.width/height`) no iPhone Standalone em paisagem, forçam re-layout da meta tag `viewport-fit=cover` ao girar (`orientationchange`) e mantêm `window.scrollTo(0, 0)`.
+  - Atualizado `manifest.webmanifest` para `"display": "fullscreen"` e `"orientation": "landscape"`.
+
 ## [v1.2.5] - 2026-11-19
 ### Otimização Completa para iPhone (iOS Safari), Assistente de Tela Cheia & Correção de Toque/Áudio
 - **Tela Cheia no iPhone / iOS Safari (`js/ui/dom-helpers.js`, `js/ui/app-boot.js`, `js/engine/haptics-wakelock.js`, `index.html`, `ios.html`):**
