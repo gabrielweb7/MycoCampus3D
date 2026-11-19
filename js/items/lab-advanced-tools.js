@@ -232,6 +232,18 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
   const stage = makeBox(0.13, 0.012, 0.12, darkMetalMat);
   stage.position.set(0, 0.13, 0.025);
 
+  // Lâmina de vidro com lamínula em cima do estágio!
+  const slideMat = new THREE.MeshStandardMaterial({
+    color: 0xe0f2fe,
+    emissive: 0x0284c7,
+    emissiveIntensity: 0.2,
+    transparent: true,
+    opacity: 0.78,
+    roughness: 0.1
+  });
+  const glassSlide = makeBox(0.075, 0.004, 0.026, slideMat, { noShadow: true });
+  glassSlide.position.set(0, 0.138, 0.025);
+
   const head = makeBox(0.08, 0.065, 0.11, bodyMat);
   head.position.set(0, 0.26, -0.01);
 
@@ -243,13 +255,15 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
   });
 
   // Revólver com 3 objetivas (40x, 400x, 1000x)
+  const revolver = new THREE.Group();
+  revolver.position.set(0, 0.22, 0.025);
   [-0.02, 0, 0.02].forEach((ox, idx) => {
     const objLens = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.009, 0.038 + idx * 0.006, 10), darkMetalMat);
-    objLens.position.set(ox, 0.20, 0.025);
-    g.add(objLens);
+    objLens.position.set(ox, -0.02, 0);
+    revolver.add(objLens);
   });
 
-  g.add(base, lightWell, arm, stage, head);
+  g.add(base, lightWell, arm, stage, glassSlide, head, revolver);
   g.userData.isMicroscope = true;
 
   const item = registerPickable(
@@ -270,7 +284,25 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
       compatibilities: { canEnterCooker: false, isMicroscope: true }
     }
   );
-  item.microscopeCtrl = { magnification: 1000 };
+  let scopeTimer = null;
+  item.microscopeCtrl = {
+    magnification: 1000,
+    pulseAnalyze: (contaminated) => {
+      lensMat.emissive.setHex(contaminated ? 0xef4444 : 0x22c55e);
+      lensMat.emissiveIntensity = 1.8;
+      slideMat.emissive.setHex(contaminated ? 0xef4444 : 0x38bdf8);
+      slideMat.emissiveIntensity = 1.2;
+      revolver.rotation.y += Math.PI / 3;
+      if (scopeTimer) clearTimeout(scopeTimer);
+      scopeTimer = setTimeout(() => {
+        lensMat.emissive.setHex(0x0284c7);
+        lensMat.emissiveIntensity = 0.55;
+        slideMat.emissive.setHex(0x0284c7);
+        slideMat.emissiveIntensity = 0.2;
+        scopeTimer = null;
+      }, 950);
+    }
+  };
   return item;
 }
 
@@ -400,6 +432,14 @@ function ensureMicroscopeModalDom() {
 
 export function interactLabMicroscope(ctx) {
   const info = analyzeSpecimenForMicroscope(ctx && ctx.heldItem);
+  if (ctx && ctx.pickableItems) {
+    for (let i = 0; i < ctx.pickableItems.length; i++) {
+      const it = ctx.pickableItems[i];
+      if (it && it.microscopeCtrl && it.microscopeCtrl.pulseAnalyze) {
+        it.microscopeCtrl.pulseAnalyze(info.contaminated);
+      }
+    }
+  }
   playAudio('playClick');
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
     ctx.callbacks.onToast(info.diagnosis);

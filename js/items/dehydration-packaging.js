@@ -177,6 +177,13 @@ function createMushroomPackVisual(filled, sealed) {
   labelSticker.visible = Boolean(sealed);
   wrap.add(labelSticker);
 
+  // Boca aberta do saquinho quando ainda NÃO selado na seladora térmica
+  const openCollarMesh = makeBox(0.140, 0.022, 0.012, filmMat, { noShadow: true });
+  openCollarMesh.position.set(0, 0.044, -0.078);
+  openCollarMesh.rotation.x = -0.35;
+  openCollarMesh.visible = !sealed;
+  wrap.add(openCollarMesh);
+
   const sealStripMesh = makeBox(0.144, 0.008, 0.015, new THREE.MeshStandardMaterial({
     color: 0x16a34a,
     emissive: 0x059669,
@@ -187,7 +194,7 @@ function createMushroomPackVisual(filled, sealed) {
   sealStripMesh.visible = Boolean(sealed);
   wrap.add(sealStripMesh);
 
-  return { wrap, contentsGroup, sealStripMesh, labelSticker };
+  return { wrap, contentsGroup, sealStripMesh, labelSticker, openCollarMesh };
 }
 
 export function updateMushroomBagVisual(item) {
@@ -195,6 +202,7 @@ export function updateMushroomBagVisual(item) {
   const bc = item.mushroomBagCtrl;
   if (bc.contentsMesh) bc.contentsMesh.visible = bc.filled;
   if (bc.labelSticker) bc.labelSticker.visible = bc.sealed;
+  if (bc.openCollarMesh) bc.openCollarMesh.visible = !bc.sealed;
   if (bc.sealStripMesh) {
     bc.sealStripMesh.visible = bc.sealed;
     if (bc.sealStripMesh.material && bc.sealStripMesh.material.color) {
@@ -207,7 +215,7 @@ export function updateMushroomBagVisual(item) {
   } else if (bc.filled) {
     item.label = `🛍️ Saco com Cogumelos Secos (${bc.grams}g${spTag} • Segure e aponte na Seladora Térmica!)`;
   } else {
-    item.label = '🛍️ Saco/Bandeja Vazia p/ Cogumelos Secos (Coloque 25g de Cogumelos Crocantes)';
+    item.label = '🛍️ Saco/Bandeja Vazia p/ Cogumelos Secos (Coloque 10g de Cogumelos Crocantes)';
   }
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
 }
@@ -230,8 +238,8 @@ export function makeMushroomBag(ctx, id, px, py, pz, opts = {}) {
     0.06,
     {
       category: 'packaging',
-      purpose: 'Embalagem transparente com visor e etiqueta para embalar 25g de cogumelos desidratados e selar na Seladora Térmica',
-      getWeightGrams: (it) => 8 + ((it && it.mushroomBagCtrl && it.mushroomBagCtrl.filled) ? (it.mushroomBagCtrl.grams || 25) : 0),
+      purpose: 'Embalagem transparente com visor e etiqueta para embalar 10g de cogumelos desidratados e selar na Seladora Térmica',
+      getWeightGrams: (it) => 8 + ((it && it.mushroomBagCtrl && it.mushroomBagCtrl.filled) ? (it.mushroomBagCtrl.grams || 10) : 0),
       compatibilities: {
         canEnterCooker: false,
         isMushroomPackBag: true
@@ -242,11 +250,12 @@ export function makeMushroomBag(ctx, id, px, py, pz, opts = {}) {
   item.mushroomBagCtrl = {
     filled: Boolean(opts.filled),
     sealed: Boolean(opts.sealed),
-    grams: opts.filled ? (opts.grams || 25) : 0,
+    grams: opts.filled ? (opts.grams || 10) : 0,
     speciesName: opts.speciesName || '',
     contentsMesh: vis.contentsGroup,
     sealStripMesh: vis.sealStripMesh,
     labelSticker: vis.labelSticker,
+    openCollarMesh: vis.openCollarMesh,
     updateVisual: () => updateMushroomBagVisual(item)
   };
   updateMushroomBagVisual(item);
@@ -311,8 +320,10 @@ export function sealMushroomBag(ctx, bagItem) {
   }
   bc.sealed = true;
   updateMushroomBagVisual(bagItem);
-  // Anima a seladora térmica mais próxima pressionando a solda
-  if (ctx && ctx.pickableItems && bagItem.mesh) {
+  // Anima a seladora térmica apontada (ou a mais próxima) pressionando a solda
+  if (ctx && ctx.hoveredHeatSealerObj && ctx.hoveredHeatSealerObj.sealerCtrl) {
+    ctx.hoveredHeatSealerObj.sealerCtrl.triggerSealAnimation();
+  } else if (ctx && ctx.pickableItems && bagItem.mesh) {
     let bestSealer = null;
     let bestD = Infinity;
     const bp = bagItem.mesh.position;
@@ -460,7 +471,7 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
   const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
 
   if (!bc.filled) {
-    if (onToast) onToast('⚠️ Este saco está vazio! Coloque 25g de cogumelos desidratados e sele antes de pôr na caixa.');
+    if (onToast) onToast('⚠️ Este saco está vazio! Coloque 10g de cogumelos desidratados e sele antes de pôr na caixa.');
     return true;
   }
   if (!bc.sealed) {

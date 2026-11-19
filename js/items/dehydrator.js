@@ -42,9 +42,20 @@ export function updateDehydratorVisual(item) {
   if (!item || !item.dehydratorCtrl) return;
   const dc = item.dehydratorCtrl;
   if (dc.mushGroup) dc.mushGroup.visible = !!dc.hasMushroom;
-  if (dc.mushMat) {
-    dc.mushMat.color.setHex(dc.crisp ? 0xd97706 : 0xfbbf24);
-    dc.mushGroup.scale.setScalar(dc.crisp ? 0.78 : 1.0);
+  const p = Math.max(0, Math.min(1, (Number(dc.progress) || 0) / 100));
+  if (dc.mushMat && dc.mushGroup) {
+    if (dc.crisp) {
+      dc.mushMat.color.setHex(0x92400e);
+      dc.mushGroup.scale.setScalar(0.74);
+    } else {
+      // Transição progressiva de fresco dourado claro -> seco crocante ambar/marrom
+      dc.mushMat.color.setRGB(0.98 - p * 0.40, 0.75 - p * 0.48, 0.14 - p * 0.08);
+      dc.mushGroup.scale.setScalar(1.0 - p * 0.26);
+    }
+  }
+  if (dc.heatGlowMat) {
+    dc.heatGlowMat.emissiveIntensity = dc.on ? 1.15 : 0.0;
+    dc.heatGlowMat.opacity = dc.on ? 0.85 : 0.25;
   }
   if (dc.ledMat) {
     dc.ledMat.color.setHex(dc.on ? (dc.crisp ? 0x22c55e : 0xf59e0b) : 0xef4444);
@@ -123,17 +134,54 @@ export function makeDehydrator(ctx, id, px, py, pz) {
   const led = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), ledMat);
   led.position.set(0, 0.04, 0.186);
 
+  const heatGlowMat = new THREE.MeshStandardMaterial({
+    color: 0xf97316,
+    emissive: 0xea580c,
+    emissiveIntensity: 0.0,
+    transparent: true,
+    opacity: 0.25,
+    roughness: 0.4
+  });
+  const heatRing = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.012, 8, 20), heatGlowMat);
+  heatRing.rotation.x = Math.PI / 2;
+  heatRing.position.y = 0.075;
+
+  // 2 bandejas perfuradas internas + ventoinha giratória no topo
+  const trayMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.65, roughness: 0.35, transparent: true, opacity: 0.72 });
+  const rack1 = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.145, 0.006, 16), trayMat);
+  rack1.position.y = 0.105;
+  const rack2 = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.145, 0.006, 16), trayMat);
+  rack2.position.y = 0.175;
+  const fanGroup = new THREE.Group();
+  fanGroup.position.y = 0.242;
+  const fanMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
+  const blade1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.006, 0.025), fanMat);
+  const blade2 = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.006, 0.16), fanMat);
+  fanGroup.add(blade1, blade2);
+
+  // 3 cogumelos nas bandejas (10g crocante ao concluir!)
   const mushGroup = new THREE.Group();
-  mushGroup.position.set(0, 0.11, 0);
+  mushGroup.position.set(0, 0.108, 0);
   mushGroup.visible = false;
   const mushMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.65 });
-  const mCap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), mushMat);
-  mCap.position.y = 0.04;
-  const mStem = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.018, 0.05, 8), new THREE.MeshStandardMaterial({ color: 0xfef3c7 }));
-  mStem.position.y = 0.025;
-  mushGroup.add(mStem, mCap);
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.75 });
+  [
+    [-0.06, 0, -0.02, 0.08],
+    [0.055, 0, -0.03, -0.10],
+    [0.005, 0.070, 0.04, 0.05]
+  ].forEach((mp) => {
+    const sub = new THREE.Group();
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.013, 0.042, 8), stemMat);
+    st.position.y = 0.021;
+    const cp = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.56), mushMat);
+    cp.position.y = 0.038;
+    sub.add(st, cp);
+    sub.position.set(mp[0], mp[1], mp[2]);
+    sub.rotation.z = mp[3];
+    mushGroup.add(sub);
+  });
 
-  g.add(base, chamber, lid, led, mushGroup);
+  g.add(base, heatRing, rack1, rack2, fanGroup, chamber, lid, led, mushGroup);
 
   const item = registerPickable(ctx, id, 'Desidratadora de Cogumelos • Desligada', g, px, py, pz, 0, 0.20, 0.28, DEHYDRATOR_META);
   item.dehydratorCtrl = {
@@ -143,7 +191,9 @@ export function makeDehydrator(ctx, id, px, py, pz) {
     crisp: false,
     mushGroup,
     mushMat,
-    ledMat
+    ledMat,
+    heatGlowMat,
+    fanGroup
   };
   ctx.dehydrators = ctx.dehydrators || [];
   ctx.dehydrators.push(item);
@@ -156,16 +206,18 @@ export function stepDehydrators(ctx, dt) {
   for (let i = 0; i < list.length; i++) {
     const item = list[i];
     const dc = item && item.dehydratorCtrl;
-    if (!dc || !dc.on || !dc.hasMushroom || dc.crisp) continue;
+    if (!dc || !dc.on) continue;
+    if (dc.fanGroup) dc.fanGroup.rotation.y += dt * 11.5;
+    if (!dc.hasMushroom || dc.crisp) continue;
     dc.progress = Math.min(100, dc.progress + (dt / DEHYDRATOR_DRY_SECONDS) * 100);
     if (dc.progress >= 100) {
       dc.crisp = true;
       updateDehydratorVisual(item);
       if (ctx.markItemMoved) ctx.markItemMoved(item);
       if (ctx.callbacks && ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('✅ Desidratadora: Cogumelo Crocante (0% umidade) pronto!');
+        ctx.callbacks.onToast('✅ Desidratadora: 3 Cogumelos Crocantes (10g • 0% umidade) prontos!');
       }
-    } else if (Math.floor(dc.progress) % 10 === 0) {
+    } else if (Math.floor(dc.progress) % 8 === 0) {
       updateDehydratorVisual(item);
     }
   }

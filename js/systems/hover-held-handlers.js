@@ -957,7 +957,7 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
         ctx.hoverHit = batchRes.hit;
         ctx.hoveredDriedBatchForBag = batchRes.item;
         hidePlacementGhost(ctx);
-        setHoverPrompt(ctx, `🛍️ Encher Saco Mylar com ${batchRes.item.driedMushroomCtrl.grams || 25}g de Cogumelos Crocantes`);
+        setHoverPrompt(ctx, `🛍️ Encher Saco Mylar com ${batchRes.item.driedMushroomCtrl.grams || 10}g de Cogumelos Crocantes`);
         return true;
       }
     } else if (!bc.sealed) {
@@ -970,6 +970,7 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
       if (sealerRes) {
         ctx.hoverHit = sealerRes.hit;
         ctx.hoveredMushroomBagSealTarget = held;
+        ctx.hoveredHeatSealerObj = sealerRes.item;
         hidePlacementGhost(ctx);
         setHoverPrompt(ctx, `♨️ Selar Saco Mylar (${bc.grams}g • ${bc.speciesName || 'Cogumelo'}) na Seladora Térmica!`);
         return true;
@@ -984,18 +985,6 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
         setHoverPrompt(ctx, `📤 Colocar Pacote Selado (${bc.grams}g) na Caixa de Entrega (${cc.packsCount}/4 • +🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins)`);
         return true;
       }
-    }
-  }
-
-  // 2c. Segurando Seladora Térmica e apontando para Saco Mylar cheio na bancada
-  if (held.meta && held.meta.compatibilities && held.meta.compatibilities.sealsBags) {
-    const bagSealRes = findPickableHit(ctx, 3.6, (cand) => !!(cand.mushroomBagCtrl && cand.mushroomBagCtrl.filled && !cand.mushroomBagCtrl.sealed), intersectPickableItem);
-    if (bagSealRes) {
-      ctx.hoverHit = bagSealRes.hit;
-      ctx.hoveredMushroomBagSealTarget = bagSealRes.item;
-      hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, `♨️ Selar ${bagSealRes.item.label} com a Seladora Térmica`);
-      return true;
     }
   }
 

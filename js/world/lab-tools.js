@@ -174,7 +174,7 @@ export function buildCampusWingsAndEquipment(ctx) {
     speciesName: 'Golden Teacher (Psilocybe cubensis)'
   });
   makeSilicaStorageJar(ctx, 'silica_jar_02', -22.85, 1.02, -8.98, {
-    storedGrams: 25,
+    storedGrams: 20,
     speciesName: 'B+ Cubensis'
   });
   makeSilicaStorageJar(ctx, 'silica_jar_03', -23.22, 1.02, -9.25, {
