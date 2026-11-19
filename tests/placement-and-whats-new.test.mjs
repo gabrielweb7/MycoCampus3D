@@ -107,16 +107,59 @@ test('updatePlacementGhostVisual funciona com userData circular (ownerItem no fo
   assert.equal(clonedRoot.children[0].visible, true);
 });
 
-test('RELEASE_NOTES_CATALOG tem notas simples da v1.4.9 e markPendingAutoUpdateNotice atualiza storage', () => {
-  const store = new Map([['myco_seen_whats_new_v', '1.4.8']]);
+test('RELEASE_NOTES_CATALOG tem notas simples da v1.5.0 e markPendingAutoUpdateNotice atualiza storage', () => {
+  const store = new Map([['myco_seen_whats_new_v', '1.4.9']]);
   globalThis.localStorage = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: (k) => store.delete(k)
   };
-  markPendingAutoUpdateNotice('1.4.9');
+  markPendingAutoUpdateNotice('1.5.0');
   assert.equal(store.get('myco_seen_whats_new_v'), undefined);
-  assert.equal(store.get('myco_just_updated_v'), '1.4.9');
-  assert.ok(RELEASE_NOTES_CATALOG['1.4.9']);
-  assert.ok(RELEASE_NOTES_CATALOG['1.4.9'].items.length >= 4);
+  assert.equal(store.get('myco_just_updated_v'), '1.5.0');
+  assert.ok(RELEASE_NOTES_CATALOG['1.5.0']);
+  assert.ok(RELEASE_NOTES_CATALOG['1.5.0'].items.length >= 4);
+});
+
+test('força dos cogumelos mantém cores sem mandala e só ativa gnomos após >3 doses', async () => {
+  const createdIds = [];
+  const docBodyClasses = new Set();
+  const makeEl = (id) => ({
+    id,
+    style: { cssText: '', opacity: '0', transition: '', setProperty() {}, removeProperty() {} },
+    classList: {
+      add: (c) => docBodyClasses.add(c),
+      remove: (c) => docBodyClasses.delete(c),
+      contains: (c) => docBodyClasses.has(c)
+    }
+  });
+  const byId = new Map();
+  globalThis.document = {
+    body: {
+      classList: makeEl('body').classList,
+      appendChild(el) { byId.set(el.id, el); createdIds.push(el.id); }
+    },
+    documentElement: makeEl('html'),
+    getElementById: (id) => byId.get(id) || null,
+    createElement: () => makeEl('')
+  };
+  const {
+    triggerMagicCubensisEffect,
+    resetMagicCubensisEffect,
+    isTripRainbowActive,
+    isTripGnomesActive
+  } = await import('../js/systems/mycoteca.js');
+
+  triggerMagicCubensisEffect(); // 1ª (timer assíncrono)
+  triggerMagicCubensisEffect(); // 2ª (ativo imediato)
+  assert.equal(isTripRainbowActive(), true);
+  assert.equal(isTripGnomesActive(), false);
+  triggerMagicCubensisEffect(); // 3ª
+  assert.equal(isTripGnomesActive(), false);
+  triggerMagicCubensisEffect(); // 4ª (> 3 vezes)
+  assert.equal(isTripGnomesActive(), true);
+  assert.equal(byId.get('myco-mandala-overlay'), undefined);
+  assert.ok(byId.get('myco-magic-overlay'));
+  resetMagicCubensisEffect();
+  delete globalThis.document;
 });

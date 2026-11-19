@@ -52,16 +52,27 @@ function clearTripVisuals() {
   document.documentElement.style.removeProperty('--trip-bri');
   const overlay = document.getElementById('myco-magic-overlay');
   if (overlay) overlay.style.opacity = '0';
-  const mandala = document.getElementById('myco-mandala-overlay');
-  if (mandala) mandala.style.opacity = '0';
   const darkLayer = document.getElementById('myco-freakout-dark');
   if (darkLayer) darkLayer.style.opacity = '0';
   const blackFaint = document.getElementById('myco-black-faint');
   if (blackFaint) blackFaint.style.opacity = '0';
 }
 
+export function resetMagicCubensisEffect() {
+  clearTripTimers();
+  tripActive = false;
+  tripFreakoutActive = false;
+  tripShroomCount = 0;
+  tripEndsAt = 0;
+  clearTripVisuals();
+}
+
 export function isTripRainbowActive() {
   return tripActive && !tripFreakoutActive && tripShroomCount >= 1 && tripShroomCount < 8;
+}
+
+export function isTripGnomesActive() {
+  return tripActive && !tripFreakoutActive && tripShroomCount > 3 && tripShroomCount < 8;
 }
 
 export function isTripFreakoutActive() {
@@ -87,6 +98,7 @@ export function getTripTextureFlowStrength() {
 
 if (typeof window !== 'undefined') {
   window.isTripRainbowActive = isTripRainbowActive;
+  window.isTripGnomesActive = isTripGnomesActive;
   window.isTripFreakoutActive = isTripFreakoutActive;
   window.isTripCrawlingActive = isTripCrawlingActive;
   window.getTripSpeedMultiplier = getTripSpeedMultiplier;
@@ -103,40 +115,12 @@ function applyProgressiveColorVars(count) {
   root.setProperty('--trip-bri', bri.toFixed(2));
 }
 
-function ensureMandalaOverlay() {
-  let mandala = document.getElementById('myco-mandala-overlay');
-  if (!mandala) {
-    mandala = document.createElement('div');
-    mandala.id = 'myco-mandala-overlay';
-    mandala.style.cssText =
-      'position:fixed;inset:-18%;pointer-events:none;z-index:23;opacity:0;mix-blend-mode:soft-light;' +
-      'display:flex;align-items:center;justify-content:center;transition:opacity 3s ease;';
-    mandala.innerHTML =
-      '<svg viewBox="0 0 400 400" style="width:120vmax;height:120vmax;opacity:0.65;">' +
-      '<g fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.1">' +
-      '<circle cx="200" cy="200" r="46"/><circle cx="200" cy="200" r="92"/><circle cx="200" cy="200" r="142"/><circle cx="200" cy="200" r="188"/>' +
-      '<polygon points="200,20 356,290 44,290" stroke="rgba(244,114,182,0.45)"/>' +
-      '<polygon points="200,380 44,110 356,110" stroke="rgba(56,189,248,0.45)"/>' +
-      '<circle cx="200" cy="108" r="46" stroke="rgba(250,204,21,0.38)"/><circle cx="200" cy="292" r="46" stroke="rgba(52,211,153,0.38)"/>' +
-      '<circle cx="120" cy="154" r="46" stroke="rgba(167,139,250,0.38)"/><circle cx="280" cy="154" r="46" stroke="rgba(244,114,182,0.38)"/>' +
-      '<circle cx="120" cy="246" r="46" stroke="rgba(56,189,248,0.38)"/><circle cx="280" cy="246" r="46" stroke="rgba(251,146,60,0.38)"/>' +
-      '</g></svg>';
-    document.body.appendChild(mandala);
-  }
-  return mandala;
-}
-
 function scheduleTripEnd(overlay) {
   if (tripDecayTimer) clearTimeout(tripDecayTimer);
   const remaining = Math.max(2000, tripEndsAt - Date.now());
-  const mandala = document.getElementById('myco-mandala-overlay');
   tripDecayTimer = setTimeout(() => {
     overlay.style.transition = 'opacity 25s ease-out';
     overlay.style.opacity = '0';
-    if (mandala) {
-      mandala.style.transition = 'opacity 25s ease-out';
-      mandala.style.opacity = '0';
-    }
     tripDecayTimer = setTimeout(() => {
       tripActive = false;
       tripShroomCount = 0;
@@ -170,11 +154,6 @@ export function triggerMagicCubensisEffect(onSkyFall) {
     document.body.classList.add('myco-trip-freakout');
     overlay.style.transition = 'opacity 1.5s ease';
     overlay.style.opacity = '0';
-    const mandalaEl = document.getElementById('myco-mandala-overlay');
-    if (mandalaEl) {
-      mandalaEl.style.transition = 'opacity 2.5s ease';
-      mandalaEl.style.opacity = '0.16';
-    }
 
     let darkLayer = document.getElementById('myco-freakout-dark');
     if (!darkLayer) {
@@ -252,9 +231,7 @@ export function triggerMagicCubensisEffect(onSkyFall) {
     return;
   }
 
-  const mandala = ensureMandalaOverlay();
-
-  // 1º cogumelo: demora ~55s pra bater de leve, depois ~2 min colorido e tranquilo
+  // 1º cogumelo: demora ~55s pra bater de leve, depois ~2 min colorido e tranquilo (sem mandala girando)
   if (tripShroomCount === 1 && !tripActive) {
     applyProgressiveColorVars(1);
     tripEndsAt = Date.now() + 55000 + 120000;
@@ -265,14 +242,12 @@ export function triggerMagicCubensisEffect(onSkyFall) {
       document.body.classList.add('myco-trip-active');
       overlay.style.transition = 'opacity 22s ease-in-out';
       overlay.style.opacity = '0.18';
-      mandala.style.transition = 'opacity 22s ease-in-out';
-      mandala.style.opacity = '0.28';
       scheduleTripEnd(overlay);
     }, 55000);
     return;
   }
 
-  // Cogumelos 2..19: entra/mantém brisa feliz, +1 min na duração, mais colorido, mandalas, rápido, gnomos e aura arco-íris
+  // Cogumelos 2..7: brisa colorida progressiva; acima de 3 vezes aparecem os gnomos
   tripActive = true;
   document.body.classList.add('myco-trip-active');
   applyProgressiveColorVars(tripShroomCount);
@@ -280,7 +255,5 @@ export function triggerMagicCubensisEffect(onSkyFall) {
   tripEndsAt = Math.max(baseMinEnd, (tripEndsAt || Date.now()) + 60000);
   overlay.style.transition = 'opacity 2.5s ease';
   overlay.style.opacity = String(Math.min(0.65, 0.12 + tripShroomCount * 0.028));
-  mandala.style.transition = 'opacity 2.5s ease';
-  mandala.style.opacity = String(Math.min(0.75, 0.24 + tripShroomCount * 0.032));
   scheduleTripEnd(overlay);
 }

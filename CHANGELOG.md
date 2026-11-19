@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.5.0] - 2026-11-19
+### Experiência Visual da "Força" Mais Limpa (Sem Mandala Girando) & Gnomos Após 3 Doses
+- **Remoção da Mandala Girando (`js/systems/mycoteca.js`, `css/game.css`):**
+  - Removido o overlay SVG de mandala (`#myco-mandala-overlay`) e sua animação de rotação (`mycoMandalaFloat` / `mycoPrismSpin`), mantendo apenas o filtro progressivo de cores vivas e brilho arco-íris suave.
+- **Gnomos Somente Após Mais de 3 Doses (`js/systems/mycoteca.js`, `js/world/trip-gnomes.js`):**
+  - Adicionado `isTripGnomesActive()` exigindo `tripShroomCount > 3` (a partir da 4ª ingestão) para o surgimento dos gnomos no mapa.
+
 ## [v1.4.9] - 2026-11-19
 ### Correção Definitiva do Ghost de Fogareiro/Equipamentos & Movimento Livre de Lamparina/Microscópio
 - **Bug de Referência Circular no Ghost (`js/entities/placement-ghost.js`, `js/items/item-registry.js`):**

@@ -641,7 +641,10 @@ export function stepTripGnomes(ctx, dt) {
     return;
   }
 
-  if (!active) {
+  const gnomesActive = typeof window !== 'undefined' && window.isTripGnomesActive
+    ? window.isTripGnomesActive()
+    : false;
+  if (!gnomesActive) {
     if (gnomePool) {
       for (let i = 0; i < gnomePool.length; i++) gnomePool[i].root.visible = false;
     }
