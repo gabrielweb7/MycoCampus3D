@@ -242,10 +242,10 @@ function mc_require_user(PDO $pdo): array {
     }
     $hash = hash('sha256', $token);
     if ($userId > 0) {
-        $st = $pdo->prepare('SELECT u.* FROM mc_auth_tokens t JOIN mc_users u ON u.id = t.user_id WHERE t.token_hash = ? AND u.id = ? LIMIT 1');
+        $st = $pdo->prepare('SELECT u.*, t.last_used AS _token_last_used FROM mc_auth_tokens t JOIN mc_users u ON u.id = t.user_id WHERE t.token_hash = ? AND u.id = ? LIMIT 1');
         $st->execute([$hash, $userId]);
     } else {
-        $st = $pdo->prepare('SELECT u.* FROM mc_auth_tokens t JOIN mc_users u ON u.id = t.user_id WHERE t.token_hash = ? LIMIT 1');
+        $st = $pdo->prepare('SELECT u.*, t.last_used AS _token_last_used FROM mc_auth_tokens t JOIN mc_users u ON u.id = t.user_id WHERE t.token_hash = ? LIMIT 1');
         $st->execute([$hash]);
     }
     $user = $st->fetch();
@@ -253,8 +253,13 @@ function mc_require_user(PDO $pdo): array {
         mc_clear_auth_cookie();
         mc_json(['ok' => false, 'error' => 'Sessao expirada. Entre novamente.', 'auth' => false], 401);
     }
-    $touch = $pdo->prepare('UPDATE mc_auth_tokens SET last_used = NOW() WHERE token_hash = ? AND last_used < (NOW() - INTERVAL 60 SECOND)');
-    $touch->execute([$hash]);
+    $lastUsed = (string)($user['_token_last_used'] ?? '');
+    unset($user['_token_last_used']);
+    $lastTs = $lastUsed !== '' ? strtotime($lastUsed) : 0;
+    if ($lastTs === 0 || (time() - $lastTs) >= 60) {
+        $touch = $pdo->prepare('UPDATE mc_auth_tokens SET last_used = NOW() WHERE token_hash = ?');
+        $touch->execute([$hash]);
+    }
     return $user;
 }
 

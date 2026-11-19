@@ -317,40 +317,11 @@ export function buildCuteAvatar(scene, data) {
     g.add(chatSprite);
   }
 
-  const remoteSb = new THREE.Group();
-  const rDeckMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.25, metalness: 0.15 });
-  const rTipMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 });
-  const rBindMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.55 });
-  const rDeck = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.024, 0.92), rDeckMat);
-  rDeck.position.y = 0.025;
-  remoteSb.add(rDeck);
-  const rNose = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.022, 0.16), rTipMat);
-  rNose.position.set(0, 0.048, -0.51);
-  rNose.rotation.x = 0.36;
-  remoteSb.add(rNose);
-  const rTail = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.022, 0.16), rTipMat);
-  rTail.position.set(0, 0.048, 0.51);
-  rTail.rotation.x = -0.36;
-  remoteSb.add(rTail);
-  const rBindF = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.035, 0.12), rBindMat);
-  rBindF.position.set(0, 0.048, -0.20);
-  remoteSb.add(rBindF);
-  const rBindB = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.035, 0.12), rBindMat);
-  rBindB.position.set(0, 0.048, 0.20);
-  remoteSb.add(rBindB);
-  remoteSb.rotation.y = -0.28;
-  remoteSb.visible = false;
-  g.add(remoteSb);
-
-  const remotePg = createParagliderWingMesh(0.75);
-  remotePg.visible = false;
-  g.add(remotePg);
-
   scene.add(g);
   return {
     group: g, torso, leftLeg, rightLeg, leftArm, rightArm, headGroup,
     auraGroup, auraOrbs,
-    snowboardMesh: remoteSb, paragliderMesh: remotePg, toyMode: '',
+    snowboardMesh: null, paragliderMesh: null, roundParachuteMesh: null, toyMode: '',
     bodyMat, hatMat, hatGroup, current_hat: data.current_hat || 'default', emote: data.emote || '',
     faceCtx, faceTex, lastMood: 'happy', lastBlink: false, blinkTimer: 2 + Math.random() * 3,
     labelSprite, chatSprite, lastChat: '', role: data.role || 'student',
@@ -365,11 +336,21 @@ export function buildCuteAvatar(scene, data) {
 }
 
 export function updateCampusPlayers(ctx, players) {
-  const { scene, remoteAvatars, onDropStolenHeld } = ctx;
+  const { scene, remoteAvatars, onDropStolenHeld, remoteHeldIds, findPickable } = ctx;
+  if (remoteHeldIds && typeof remoteHeldIds.clear === 'function') remoteHeldIds.clear();
   const seen = {};
   const nowMs = performance.now();
   (players || []).forEach(function (p) {
     seen[p.id] = true;
+    if (remoteHeldIds && p.holding) {
+      remoteHeldIds.add(p.holding);
+      if (findPickable) {
+        const heldObj = findPickable(p.holding);
+        if (heldObj && heldObj.lidItem && heldObj.lidItem.isAttached) {
+          remoteHeldIds.add(heldObj.lidItem.id);
+        }
+      }
+    }
     const nyaw = normalizeAngle(p.yaw || 0);
     const npitch = p.pitch || 0;
     let av = remoteAvatars[p.id];
@@ -536,12 +517,14 @@ export function animateAvatarAura(av, tNow) {
 }
 
 export function stepMultiplayerAvatars(ctx, dt) {
-  const { remoteAvatars, clock, auraEnabled, findPickable, heldItem } = ctx;
+  const { remoteAvatars, clock, auraEnabled, findPickable, heldItem, camera } = ctx;
   const tNow = clock.elapsedTime;
   const nowMs = performance.now();
   const blend = 1 - Math.exp(-12 * dt);
+  const camPos = camera ? camera.position : null;
 
-  Object.keys(remoteAvatars).forEach(function (id) {
+  for (const id in remoteAvatars) {
+    if (!Object.prototype.hasOwnProperty.call(remoteAvatars, id)) continue;
     const av = remoteAvatars[id];
     if (auraEnabled) animateAvatarAura(av, tNow);
     animateRainbowAura(av, tNow);
@@ -623,8 +606,24 @@ export function stepMultiplayerAvatars(ctx, dt) {
       }
     }
     const twoH = !!(heldObj && heldObj.mesh.userData.twoHanded);
-    if (av.snowboardMesh) av.snowboardMesh.visible = (av.toyMode === 'snowboard');
-    if (av.paragliderMesh) av.paragliderMesh.visible = (av.toyMode === 'paraglider');
+    if (av.toyMode === 'snowboard') {
+      if (!av.snowboardMesh) {
+        av.snowboardMesh = createRemoteSnowboardMesh();
+        av.group.add(av.snowboardMesh);
+      }
+      av.snowboardMesh.visible = true;
+    } else if (av.snowboardMesh) {
+      av.snowboardMesh.visible = false;
+    }
+    if (av.toyMode === 'paraglider') {
+      if (!av.paragliderMesh) {
+        av.paragliderMesh = createParagliderWingMesh(0.75);
+        av.group.add(av.paragliderMesh);
+      }
+      av.paragliderMesh.visible = true;
+    } else if (av.paragliderMesh) {
+      av.paragliderMesh.visible = false;
+    }
     if (av.toyMode === 'parachute') {
       if (!av.roundParachuteMesh) {
         av.roundParachuteMesh = createRoundParachuteMesh(0.75);
@@ -752,6 +751,8 @@ export function stepMultiplayerAvatars(ctx, dt) {
         }
       }
     }
-    animateAvatarExpression(av, dt, av.holding, av.lastChat);
-  });
+    if (av.group.visible && (!camPos || av.group.position.distanceToSquared(camPos) < 3025)) {
+      animateAvatarExpression(av, dt, av.holding, av.lastChat);
+    }
+  }
 }

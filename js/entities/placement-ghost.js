@@ -12,28 +12,28 @@ import {
   PP5_STACK_AIM_DISTANCE_SQ
 } from '../items/pp5-cup.js';
 
-function getStackConfig(item) {
+const STACK_CFG_PETRI = Object.freeze({
+  kind: 'petri',
+  spacing: PETRI_STACK_SPACING,
+  alignRadius: PETRI_STACK_ALIGNMENT_RADIUS,
+  aimDistSq: PETRI_STACK_AIM_DISTANCE_SQ,
+  halfHeight: PETRI_DISH_HEIGHT * 0.5,
+  maxStack: 7
+});
+
+const STACK_CFG_PP5 = Object.freeze({
+  kind: 'pp5',
+  spacing: PP5_STACK_SPACING,
+  alignRadius: PP5_STACK_ALIGNMENT_RADIUS,
+  aimDistSq: PP5_STACK_AIM_DISTANCE_SQ,
+  halfHeight: PP5_STACK_SPACING * 0.5,
+  maxStack: 6
+});
+
+export function getStackConfig(item) {
   if (!item || !item.mesh) return null;
-  if (item.mesh.userData.isPetri) {
-    return {
-      kind: 'petri',
-      spacing: PETRI_STACK_SPACING,
-      alignRadius: PETRI_STACK_ALIGNMENT_RADIUS,
-      aimDistSq: PETRI_STACK_AIM_DISTANCE_SQ,
-      halfHeight: PETRI_DISH_HEIGHT * 0.5,
-      maxStack: 7
-    };
-  }
-  if (item.spawnCtrl && item.spawnCtrl.isPP5) {
-    return {
-      kind: 'pp5',
-      spacing: PP5_STACK_SPACING,
-      alignRadius: PP5_STACK_ALIGNMENT_RADIUS,
-      aimDistSq: PP5_STACK_AIM_DISTANCE_SQ,
-      halfHeight: PP5_STACK_SPACING * 0.5,
-      maxStack: 6
-    };
-  }
+  if (item.mesh.userData && item.mesh.userData.isPetri) return STACK_CFG_PETRI;
+  if (item.spawnCtrl && item.spawnCtrl.isPP5) return STACK_CFG_PP5;
   return null;
 }
 
@@ -46,15 +46,17 @@ var placementGhostItemId = null;
 var placementGhostHasLid = false;
 var placementGhostLastValid = null;
 
-var _cGhostGreenTint = new THREE.Color(0x22c55e);
-var _cGhostGreenEmi  = new THREE.Color(0x10b981);
-var _cGhostRedTint   = new THREE.Color(0xef4444);
-var _cGhostRedEmi    = new THREE.Color(0xdc2626);
+const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 
-var _tmpPlacePt = new THREE.Vector3();
-var _tmpBestPt = new THREE.Vector3();
-var _tmpPlaceCenter = new THREE.Vector3();
-var _vZero2 = new THREE.Vector2(0, 0);
+var _cGhostGreenTint = (THREE && THREE.Color) ? new THREE.Color(0x22c55e) : null;
+var _cGhostGreenEmi  = (THREE && THREE.Color) ? new THREE.Color(0x10b981) : null;
+var _cGhostRedTint   = (THREE && THREE.Color) ? new THREE.Color(0xef4444) : null;
+var _cGhostRedEmi    = (THREE && THREE.Color) ? new THREE.Color(0xdc2626) : null;
+
+var _tmpPlacePt = (THREE && THREE.Vector3) ? new THREE.Vector3() : null;
+var _tmpBestPt = (THREE && THREE.Vector3) ? new THREE.Vector3() : null;
+var _tmpPlaceCenter = (THREE && THREE.Vector3) ? new THREE.Vector3() : null;
+var _vZero2 = (THREE && THREE.Vector2) ? new THREE.Vector2(0, 0) : null;
 
 var placementBlockedReason = '';
 var lastGravityCheckAt = 0;
@@ -555,7 +557,8 @@ export function isPlacementBlocked(ctx, pt) {
 
 export function dropUnsupportedItems(ctx) {
   var now = performance.now();
-  if (!hasFallingItems && now - lastGravityCheckAt < 180) return;
+  var isDirty = hasFallingItems || !!(ctx && ctx._stackPhysicsDirty);
+  if (!isDirty && now - lastGravityCheckAt < 750) return;
   lastGravityCheckAt = now;
   var anyFalling = false;
   var pickableItems = ctx.pickableItems;
@@ -566,18 +569,21 @@ export function dropUnsupportedItems(ctx) {
   var heldItem = ctx.heldItem;
   var physCtx = ctx.physCtx;
 
-  pickableItems.forEach(function (item) {
+  for (var idx = 0; idx < pickableItems.length; idx++) {
+    var item = pickableItems[idx];
+    if (!item || !item.mesh) continue;
     if (item.potItem && item.isAttached) {
       var pot = item.potItem;
       item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
       item.mesh.rotation.copy(pot.mesh.rotation);
-      return;
+      continue;
     }
     if (heldItem === item || ctx.isHeldByRemote(item.id)) {
       item.movedAt = now;
       ctx.removeFromCookerContents(item);
-      return;
+      continue;
     }
+    var insideCooker = false;
     for (var cpi = 0; cpi < cookerPots.length; cpi++) {
       var cpRef = cookerPots[cpi];
       var slotIdx = cpRef.contents.indexOf(item);
@@ -594,9 +600,12 @@ export function dropUnsupportedItems(ctx) {
           var slot = COOKER_SLOT_OFFSETS[nonBaseIdx % COOKER_SLOT_OFFSETS.length];
           item.mesh.position.set(potP.x + slot[0], potP.y + COOKER_SLOT_Y, potP.z + slot[1]);
         }
-        return;
+        insideCooker = true;
+        break;
       }
     }
+    if (insideCooker) continue;
+
     if (item.mesh.position.y < -5) {
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
@@ -605,7 +614,7 @@ export function dropUnsupportedItems(ctx) {
       pendingMovedItems[item.id] = {
         id: item.id, x: item.homePos.x, y: item.homePos.y, z: item.homePos.z, ry: item.homeRy
       };
-      return;
+      continue;
     }
     var ignoreTargetSurf = item.fridgeCtrl ? 'fridge' : item.mesh.userData.dynamicSurface;
     var supportedY = getItemGroundHeight(physCtx, item.mesh.position.x, item.mesh.position.z, item.mesh.position.y, ignoreTargetSurf, item.mesh.position.y + 0.04);
@@ -623,15 +632,18 @@ export function dropUnsupportedItems(ctx) {
       }
       var itemStackCfg = getStackConfig(item);
       if (itemStackCfg) {
-        var myIdx = pickableItems.indexOf(item);
+        var alignR = itemStackCfg.alignRadius;
         for (var pj = 0; pj < pickableItems.length; pj++) {
+          if (pj === idx) continue;
           var pBase = pickableItems[pj];
-          if (!pBase || pBase === item || pBase === heldItem || ctx.isHeldByRemote(pBase.id)) continue;
+          if (!pBase || pBase === heldItem || ctx.isHeldByRemote(pBase.id)) continue;
           var baseStackCfg = getStackConfig(pBase);
           if (!baseStackCfg || baseStackCfg.kind !== itemStackCfg.kind) continue;
-          if (Math.hypot(pBase.mesh.position.x - item.mesh.position.x, pBase.mesh.position.z - item.mesh.position.z) < itemStackCfg.alignRadius) {
+          var dxS = pBase.mesh.position.x - item.mesh.position.x;
+          var dzS = pBase.mesh.position.z - item.mesh.position.z;
+          if (dxS * dxS + dzS * dzS < alignR * alignR) {
             var dyStack = item.mesh.position.y - pBase.mesh.position.y;
-            if (dyStack > 0.008 || (Math.abs(dyStack) <= 0.008 && myIdx > pj)) {
+            if (dyStack > 0.008 || (Math.abs(dyStack) <= 0.008 && idx > pj)) {
               supportedY = Math.max(supportedY, pBase.mesh.position.y + itemStackCfg.spacing);
             }
           }
@@ -673,6 +685,7 @@ export function dropUnsupportedItems(ctx) {
         }
       }
     }
-  });
+  }
   hasFallingItems = anyFalling;
+  if (ctx) ctx._stackPhysicsDirty = anyFalling;
 }

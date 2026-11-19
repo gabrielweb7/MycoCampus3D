@@ -6,27 +6,31 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 
 ## 🏗️ 1. Arquitetura Técnica & Stack
 
-- **Motor 3D (Front-end):** [Three.js r128](https://threejs.org/) puro, sem dependências de frameworks pesados (React/Vue/Angular), garantindo inicialização rápida e compatibilidade universal WebGL.
-- **Renderização & Shaders:** Gráficos procedurais, materiais PBR (`MeshStandardMaterial`), sombras dinâmicas, `InstancedMesh` para centenas de árvores e vegetação, ciclo de dia/noite em tempo real (40 minutos virtuais sincronizados com o Relógio da Torre) e 5 variações climáticas sincronizadas (Ensolarado, Parcialmente Nublado, Nublado, Chuva e Neve).
+- **Motor 3D (Front-end):** [Three.js r187](https://threejs.org/) com `three-mesh-bvh` e `mergeGeometries` empacotados em `js/vendor/three.bundle.min.js` (100% *self-hosted*, zero frameworks React/Vue/Angular), garantindo inicialização rápida e compatibilidade universal WebGL em PC e smartphones.
+- **Renderização, Otimização & Auto-FPS (`engine/scene-optimizer.js`, `core/quality.js`):**
+  - `freezeStaticWorld()` combina geometrias estáticas opacas em chunks espaciais (`StaticMergedWorld`) com aceleração BVH, congela matrizes estáticas e virtualiza `PointLight`s em um pool fixo de até 4 luzes.
+  - **Qualidade Adaptativa + DRS (Dynamic Resolution Scaling):** detecção automática de GPU/hardware (separando mobile antigo Adreno 3xx–509 / Mali-T / G31 / PowerVR, mobile topo Apple / Adreno 630+–8xx e PC), escala dinâmica de pixel ratio (`0.70–1.0`) antes de rebaixar tiers (`high` / `medium` / `low` / `min` + modo `auto`), troca reversível `MeshStandardMaterial` ↔ `MeshLambertMaterial` preservando animações (`.color`/`.emissive`), *instancing* (`InstancedMesh` para nuvens, confetes, árvores, troncos e venezianas), `THREE.Points` na estufa e compartilhamento/descarte seguro de geometrias, materiais e `CanvasTexture`.
+  - **Ambiente & Clima:** Ciclo dia/noite em tempo real sincronizado com o Relógio da Torre e 5 variações climáticas sincronizadas (Ensolarado, Parcialmente Nublado, Nublado, Chuva e Neve) com arco-íris procedural.
 - **Física & Interações Realistas:** Sistema de colisão com suporte a superfícies caminháveis (mesas inox, bancadas, carteiras e estufas), acoplamento magnético de tampa de panela de pressão, inoculação com agulha perfurando septos de borracha e simulação de temperatura física por material.
-- **Interface & HUD:** Glassmorphism responsivo com Tailwind CSS (v2 pré-compilado), suporte a Safe Area Inset (`env(safe-area-inset-*)`), joystick analógico virtual para mobile e modo Fullscreen automático.
-- **Back-end:** PHP 8.x nativo com PDO MySQL, arquitetura orientada a APIs RESTful leves com JSON, headers anti-cache e segurança nos cookies (`HttpOnly`, `SameSite=Lax`).
-- **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`MC_SCHEMA_VERSION = 8`) e cache de flag local em `data/` para evitar sobrecarga no servidor.
-- **Sincronização Multiplayer:** Polling HTTP POST assíncrono a cada **250ms** por cliente ativo (reduzido para **1500ms** quando a aba fica em segundo plano para economizar bateria e CPU), com *batch inserts* para objetos, estados de itens de laboratório e traços de lousa.
+- **Interface, HUD & PWA/Mobile:** Tailwind CSS (v2 pré-compilado), suporte a Safe Area Inset (`env(safe-area-inset-*)`), joystick analógico virtual com cache de geometria DOM, *Screen Wake Lock API*, feedback háptico (`engine/haptics-wakelock.js`) e PWA com Service Worker (`sw.js`).
+- **Back-end:** PHP 8.x nativo com PDO MySQL, APIs RESTful leves em JSON, redução de queries por *poll* (`api/db.php` e `api/multiplayer.php`), throttling de poses e consulta unificada de metadados de mundo.
+- **Banco de Dados:** MySQL 8 / MariaDB com migrações automáticas versionadas (`MC_SCHEMA_VERSION = 10`) e cache de flag local em `data/` para evitar sobrecarga no servidor.
+- **Sincronização Multiplayer:** Polling HTTP POST assíncrono em tempo real com *batch inserts* para objetos, estados de itens de laboratório e traços de lousa, pausa automática quando a aba fica oculta (`document.hidden`) e timeouts via `AbortController`.
 
 ---
 
 ## 📁 2. Estrutura Real do Repositório (Importante para IAs!)
 
-> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25` (atualmente em `v1.0.1`), o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=1.0.1"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `entities/`, `systems/` e `ui/`.
+> ✅ **Arquitetura Modular (ES Modules nativos):** A partir da `v0.9.25` (atualmente em `v1.1.0`), o `index.html` carrega o ponto de entrada único `<script type="module" src="js/main.js?v=1.1.0"></script>` (além de `js/vendor/`), organizado por domínio em `core/`, `services/`, `engine/`, `world/`, `items/`, `entities/`, `systems/` e `ui/`.
+> - Otimizador estático, BVH & Pool de Luzes: `engine/scene-optimizer.js` e `core/quality.js`
 > - Posicionamento e fantasma 3D: `systems/held-item-placement.js` e `entities/placement-ghost.js`
 > - Ações de cultura (flocão, mistura, bisturi, clonagem e genética): `systems/lab-culture-actions.js`
 > - Persistência e validação MP: `systems/world-objects-sync.js`, `api/multiplayer.php` e `api/multiplayer_schema.php`
 > - Zero bundler, 100% compatível com Apache/PHP/cPanel.
 
 ```text
-├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD, Discord (/discord) e Modais (?v=1.0.1)
-├── VERSION                    # Versão semântica atual do projeto (1.0.1)
+├── index.html                 # Ponto de entrada, Lobby, Canvas WebGL, HUD, Discord (/discord) e Modais (?v=1.1.0)
+├── VERSION                    # Versão semântica atual do projeto (1.1.0)
 ├── error.php                  # Painel online privado para consultar erros recentes
 ├── CHANGELOG.md               # Histórico detalhado de mudanças por versão
 ├── README.md                  # Documentação mestra de arquitetura e contexto para IAs e devs
@@ -36,33 +40,38 @@ O **MycoCampus3D** é um ambiente virtual e educacional 3D multiplayer em tempo 
 ├── api/                       # Back-end em PHP
 │   ├── config.php             # Credenciais do MySQL e PROFESSOR_KEY (ignorado pelo git)
 │   ├── config.example.php     # Template seguro para criação do config.php
-│   ├── db.php                 # Conexão PDO, migrações cacheadas (v8) e autenticação por token
+│   ├── db.php                 # Conexão PDO, migrações cacheadas (MC_SCHEMA_VERSION = 10) e autenticação por token
 │   ├── auth.php               # Login/registro, XP, módulos, missão prática, cosméticos, ranking e Admin
 │   ├── error.php              # Recebe erros do navegador e lista relatórios para o Admin
-│   ├── multiplayer.php        # Sincronização em tempo real (avatares, objetos em lote, lousas, chat)
+│   ├── multiplayer.php        # Sincronização em tempo real (avatares, objetos em lote, metadados unificados, lousas, chat)
 │   └── multiplayer_schema.php # Whitelist de itens (incl. wild_picked_*), sanitização de estados e chaves globais
 │
 ├── database/
-│   └── schema.sql             # Definição DDL completa das tabelas MySQL (schema_version 8)
+│   └── schema.sql             # Definição DDL completa das tabelas MySQL (schema_version 10)
 │
 ├── js/                        # Arquitetura ES Modules nativa + dependências self-hosted
 │   ├── main.js                # Ponto de entrada único (registra API pública e inicializa app)
-│   ├── vendor/                # Three.js r128 e OrbitControls.js (100% self-hosted, zero CDN)
-│   ├── core/                  # Config (config.js), logger/erros (logger.js), constantes, lições, eventos, estado, math-pool, qualidade
-│   ├── services/              # AudioEngine (Web Audio), api-client, multiplayer-sync
-│   ├── engine/                # Texturas procedurais, física/colisão, cinema, clima/arco-íris
-│   ├── world/                 # Natureza/praça, prédios, escadaria/relógio, estufa, layout de alas, campus externo
-│   ├── items/                 # Itens/equipamentos e ciclo compartilhado em culture-lifecycle.js
-│   ├── entities/              # Avatares MP, braço 1ª pessoa, termômetro laser, ghost, confete, veículos
-│   ├── systems/               # Campus init, API pública, world-sync, game loop, movimento, input, interações, lousa, lobby tour
-│   └── ui/                    # Boot UI, HUD/lobby, mapa/missão, controles mobile e modais
+│   ├── vendor/                # Three.js r187 + three-mesh-bvh + OrbitControls (100% self-hosted, zero CDN)
+│   ├── core/                  # Config (config.js), logger/erros (logger.js), constantes, lições, eventos, estado, math-pool, quality (Auto-FPS/DRS)
+│   ├── services/              # AudioEngine (Web Audio), api-client, multiplayer-sync, apk-updater
+│   ├── engine/                # SceneOptimizer (BVH/merge/pool), textures, physics, cinema, environment, rainbow, haptics-wakelock
+│   ├── world/                 # Natureza/praça, prédios, escadaria/relógio, estufa, espécies/mata, alas do lab, campus externo
+│   ├── items/                 # Itens/equipamentos, descarte/recursos (disposeObjectResources) e ciclo em culture-lifecycle.js
+│   ├── entities/              # Avatares MP, braço 1ª pessoa, termômetro laser, ghost/empilhamento, confete, vaquinhas/veículos
+│   ├── systems/               # Campus init, API pública, world-sync, game loop, movimento, input, interações, raycasters, admin editor
+│   └── ui/                    # Boot UI, HUD/lobby, mapa/missão, controles mobile, PWA install e modais
+│
+├── tests/                     # Verificação automatizada (node tests/check-syntax.mjs & node --test tests/*.test.mjs)
+│   ├── static-integrity.test.mjs  # Valida 100% dos imports/exports ES e ausência de órfãos a partir de main.js
+│   ├── quality-and-perf.test.mjs  # Valida GPU tiering, DRS/Auto-FPS, Lambert reversível, FogExp2 e reuso de recursos
+│   └── ...                    # Testes de ciclo de cultura, assepsia, raycasting, prefabs, versão e APK
 │
 ├── css/
-│   ├── game.css               # Estilos principais, HUD, glassmorphism e regras mobile/tablet
+│   ├── game.css               # Estilos principais, HUD e regras mobile/tablet otimizadas sem blur custoso
 │   └── tailwind.min.css       # Tailwind CSS pré-compilado
 │
-├── assets/                    # Favicons, ícones PWA e imagem OpenGraph
-└── data/                      # Flags de cache de migração (ex.: .migrated_v7) - bloqueado no .htaccess
+├── assets/                    # Favicons, ícones PWA, metadados APK e imagem OpenGraph
+└── data/                      # Flags de cache de migração - bloqueado no .htaccess
 ```
 
 ---
@@ -141,23 +150,23 @@ Ao adicionar novas funcionalidades ou dar manutenção no MycoCampus3D, respeite
 1. **Zero Garbage Collection nos Loops de Renderização:**
    - Nunca use `new THREE.Vector3()`, `new THREE.Color()` ou `new THREE.Matrix4()` dentro de `animate()` ou funções chamadas a cada quadro (como `updateDynamicEnvironment`). Use sempre variáveis pré-alocadas (`_tmpHandPos`, etc.).
 2. **Proteção do Banco de Dados:**
-   - O jogo faz polling a cada 250ms por jogador. **Nunca** coloque queries pesadas de `information_schema`, `ALTER TABLE` ou varreduras sem índice no fluxo de `sync`. Use *batch inserts* e cache de flag em `data/`.
+   - O jogo faz polling frequente por jogador. **Nunca** coloque queries pesadas de `information_schema`, `ALTER TABLE` ou varreduras sem índice no fluxo de `sync`. Use *batch inserts*, throttle de escrita em repouso (`mc_user_poses` / `mc_auth_tokens`) e consulta unificada de metadados.
 3. **Segurança & Persistência Exclusiva no MySQL:**
    - Nunca confie em XP, cargo ou respostas vindas do cliente; o estado canônico reside no MySQL e alterações no estado do jogo exigem `POST` + token válido.
    - Relatórios enviados por `api/error.php` têm limite de frequência; a listagem exige sessão de Administrador Master. Não inclua credenciais ou dados pessoais nos erros.
-4. **Respeito aos Dispositivos Móveis:**
-   - Todas as novidades devem ser testadas em telas de toque (joystick, `#interact-pill`, `#btn-mobile-action`, área útil com `safe-area-inset` e eventos passivos).
-5. **Áudio Centralizado & Versionamento:**
-   - Todo novo efeito sonoro deve ser implementado em `js/campus-audio.js` (`window.MycoAudio`) conectado ao `masterGain` (para respeitar o botão 🔇 Mudo).
-   - Ao finalizar uma entrega, atualize `VERSION`, os parâmetros `?v=` em `index.html` e o `CHANGELOG.md`. Os módulos ES importados são revalidados pelo Apache (`.htaccess`), pois seus imports internos não carregam o parâmetro de versão.
+4. **Respeito aos Dispositivos Móveis & Auto-FPS:**
+   - Todas as novidades devem ser testadas em telas de toque (joystick, `#interact-pill`, `#btn-mobile-action`, área útil com `safe-area-inset`, sem `backdrop-filter` no mobile) e com recursos compartilhados (`userData.shared = true`, `disposeObjectResources`).
+5. **Áudio Centralizado, Versionamento & Testes:**
+   - Todo novo efeito sonoro deve ser implementado em `js/services/audio-engine.js` (`window.MycoAudio`) conectado ao `masterGain` (para respeitar o botão 🔇 Mudo) com buffers reutilizáveis.
+   - Ao finalizar uma entrega, atualize `VERSION`, rode `node scripts/sync-version.mjs` (sincroniza `package.json`, `sw.js`, `index.html`, `assets/apk-version.json` e `android/app/build.gradle`), atualize o `CHANGELOG.md` e valide com `node tests/check-syntax.mjs`, `node --test tests/*.test.mjs` e `php -l`.
 
 ---
 
 ## 🔬 7. Simulações Científicas e Mecânicas Laboratoriais
 
-- **Termômetro Infravermelho Laser (`infrared_thermometer`):** Ferramenta industrial com mira laser vermelha e display LCD funcional. Calcula temperatura física em tempo real via raycast considerando fontes de calor (fogareiro até 240°C, panela esterilizando a 121°C e 15 PSI, cultura líquida a 24.4°C, estufa a 20.8°C e calor metabólico de jogadores a 36.8°C).
+- **Termômetro Infravermelho Laser (`infrared_thermometer`):** Ferramenta industrial com mira laser vermelha e display LCD funcional. Calcula temperatura física em tempo real via raycast otimizado (BVH estático + alvos próximos) considerando fontes de calor (fogareiro até 240°C, panela esterilizando a 121°C e 15 PSI, cultura líquida a 24.4°C, estufa a 20.8°C e calor metabólico de jogadores a 36.8°C).
 - **Inoculação & Bombeamento com Seringa (`syringe_10ml`):** Alinhamento procedural em primeira pessoa que projeta a agulha perfurando o septo de borracha vermelha do frasco de cultura líquida. Transição contínua de 2 segundos para aspiração (0 a 10ml) ou injeção/esvaziamento (10 a 0ml) com movimentação realista de êmbolo e nível de líquido.
-- **Ciclo de Culturas:** Petri, PP5, frascos/bags de spawn e cultura líquida colonizam em temperatura adequada; a refrigeração a 4°C pausa a colonização e só é necessária para conservação após 100%. A validade começa ao atingir 100%: até 30 dias fora da geladeira ou 60 dias refrigerada (um dia de jogo equivale a 10 segundos reais). A geladeira tem 12 posições para placas/PP5 e 3 espaços para frascos/bags de spawn ou cultura líquida.
+- **Ciclo de Culturas:** Petri, PP5, frascos/bags de spawn e cultura líquida colonizam em temperatura adequada; a refrigeração a 4°C pausa a colonização e só é necessária para conservação após 100%. A validade começa ao atingir 100%: **15 dias** fora da geladeira ou **90 dias** (6x mais) refrigerada. A geladeira tem 12 posições para placas/PP5 e 3 espaços para frascos/bags de spawn ou cultura líquida.
 - **Autoclave / Panela de Pressão (`pressure_cooker` + `pressure_lid`):** Suporte a esterilização de grãos e substratos sob 15 PSI a 121°C. Encaixe magnético com fantasma verde e remoção direta da tampa pelo topo sem deslocar a panela base.
 - **Locomoção Tridimensional sobre Superfícies:** Suporte para pular e caminhar sobre mesas de inox, bancadas e carteiras escolares com zero ejeção horizontal.
 - **Prevenção Física de Sobreposição / Anti-Clipping (`isPlacementBlocked`):** Verificação física contínua no espaço 3D (radial e caixas AABB) que impede colocar itens atravessando ou por dentro de outros itens em estantes, bancadas ou pisos. O fantasma holográfico pulsa em vermelho (`#ef4444`) com o aviso `🚫 Espaço ocupado por outro objeto`, bloqueando a soltura até que o jogador aponte para um local desobstruído.

@@ -115,7 +115,8 @@ const _mpAvatarsArg = {
   clock: null,
   auraEnabled: false,
   findPickable: null,
-  heldItem: null
+  heldItem: null,
+  camera: null
 };
 
 function syncQualityArg(ctx) {
@@ -410,6 +411,7 @@ export function startAnimationLoop(ctx) {
       _mpAvatarsArg.auraEnabled = ctx.auraEnabled;
       _mpAvatarsArg.findPickable = ctx.findPickable;
       _mpAvatarsArg.heldItem = ctx.heldItem;
+      _mpAvatarsArg.camera = ctx.camera;
       stepMultiplayerAvatars(_mpAvatarsArg, dt);
 
       ctx.renderer.render(ctx.scene, ctx.camera);

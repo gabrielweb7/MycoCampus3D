@@ -2,6 +2,7 @@ import {
   findPlacementTarget,
   getPlacementBlockedReason,
   isPlacementBlocked,
+  markItemsFalling,
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
 import { hideHover3dBadge } from '../entities/hover-3d-badge.js';
@@ -223,6 +224,8 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
 
   setHeldTwoHandedGhost(held, false);
   cancelHeldItemPlacement(ctx);
+  markItemsFalling();
+  ctx._stackPhysicsDirty = true;
   ctx.heldItem = null;
   ctx.thermoLaserOn = false;
   if (ctx.placementGhost) ctx.placementGhost.visible = false;

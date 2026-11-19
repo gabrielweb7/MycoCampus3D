@@ -279,9 +279,12 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.updateCampusPlayers = function (players) {
+    sim._remoteHeldSynced = true;
     return updateCampusPlayers({
       scene: sim.scene,
       remoteAvatars: sim.remoteAvatars,
+      remoteHeldIds: sim.remoteHeldIds,
+      findPickable: sim.findPickable,
       heldItem: sim.heldItem,
       onDropStolenHeld: function () {
         sim.cancelHeldItemPlacement();

@@ -2,6 +2,29 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.1.0] - 2026-11-18
+### Refatoração Geral: Estabilidade, Qualidade Máxima, Auto-FPS + DRS (Mobile Antigo/Novo & PC) e Performance Back-end
+- **Estabilidade & Correções Críticas em Produção:**
+  - Adicionados os imports ausentes em `js/systems/interaction-system.js` (`triggerMagicCubensisEffect`, `beginHeldItemPlacement`), `js/items/spawn-containers.js` (`isAsepticWorkArea`) e `js/ui/app-boot.js` (`events`, `initPwaFeatures`).
+  - Corrigidos `ctx.burnerDevices` em `js/items/pressure-cooker.js`, registro do interruptor `light_6` em `js/items/lab-cabinets.js`, clone do material de ondulações na fonte em `js/world/nature-plaza.js`, remoção de listener duplicado e dupla ação no botão direito em `js/systems/input-controller.js`, e restauração segura de `THREE.FogExp2.density` em `js/world/trip-gnomes.js`.
+  - Corrigidos os rastreadores de objetos dinâmicos no `SceneOptimizer` (`js/engine/scene-optimizer.js`: `hover3dBadge.sprite`, `cw.mesh`, `cp.group`, `envCloudsInst`, `confettiMesh`) e tratamento de perda/restauração de contexto WebGL (`webglcontextlost`/`webglcontextrestored`).
+  - Adicionados timeouts via `AbortController` em `js/services/api-client.js` (12s) e `js/services/multiplayer-sync.js` (6s), além de ativação completa de PWA, Screen Wake Lock, `showFloatingToast`, `window.showCampusToast`, `window.MycoCampus.inGame` e pausa de polling no lobby em `js/ui/app-boot.js`.
+- **Auto-FPS Adaptativo, DRS & Qualidade Cross-Device (`js/core/quality.js`, `css/game.css`):**
+  - Nova classificação de GPU (`classifyGpu`) e tiering adaptativo para mobile antigo (Adreno 3xx–509, Mali-4xx/T/G31, PowerVR), mobile moderno (Apple GPU, Adreno 630+/7xx/8xx, Immortalis) e PC.
+  - Modo padrão `auto` com **DRS (Dynamic Resolution Scaling `0.70–1.0`)** antes de derrubar tiers e histerese contra oscilação; suporte a troca cíclica no HUD (`Auto → Alto → Méd → Desemp → Mín`).
+  - Conversão reversível `MeshStandardMaterial ↔ MeshLambertMaterial` (`setSceneMaterialQuality`) preservando referências de `.color`/`.emissive` (efeitos de neve, LEDs e trip).
+  - Remoção de `backdrop-filter` custoso em mobile/`quality-low-fx`, pausa real de render em abas ocultas (`game-loop.js`) e cache de `getBoundingClientRect()` / `isTouchDevice()`.
+- **Redução Maciça de Draw Calls, Memória de GPU & Zero Leaks:**
+  - Nuvens (`campus-init.js`, `environment.js`) e confetes (`confetti.js`) consolidados em `InstancedMesh`; partículas da estufa (`greenhouse.js`) convertidas em `THREE.Points`; árvores e troncos (`mushroom-species.js`) em 4 `InstancedMesh` com culling por escala zero e 100 espécies + 32 cogumelos da praça compartilhando geometrias/materiais em cache.
+  - Compartilhamento de geometrias/materiais/texturas (`userData.shared = true`, `getCachedCanvasTexture`, `mergeStaticGeos`) e descarte seguro (`disposeObjectResources`) em itens de laboratório, vaquinhas/esterco, avatares e fantasma holográfico (`placement-ghost.js`).
+- **Otimização de Loops 60Hz, Raycasting & Áudio:**
+  - Lookup O(1) via `ctx.pickableMap` e `ctx.remoteHeldIds`; gravidade de empilhamento por estado *dirty* (`_stackPhysicsDirty` / `markItemsFalling`) e `getStackConfig()` congelado; geladeira dividida em animação 60Hz e lógica térmica 4Hz; varredura de panelas throttled a 5Hz sem rebuild redundante de HUD; raycast direcionado no termômetro laser usando BVH (`StaticMergedWorld`); *broad-phase* no hover raycaster; otimização na capela/agitador; e cache de buffers de ruído no `audio-engine.js`.
+- **Back-end PHP / MySQL (`api/db.php`, `api/multiplayer.php`):**
+  - `mc_require_user` agora lê `t.last_used` no `SELECT` existente evitando `UPDATE mc_auth_tokens` a cada poll.
+  - Throttling de escrita em `mc_user_poses` mesmo em repouso e consolidação das consultas de metadados (`mc_world_objects`, `mc_world_item_states`, `mc_world_state`, `mc_world_layout_edits`, `mc_board_strokes`) em 1 única query SQL.
+- **Testes Automatizados (`tests/`):**
+  - Adicionados `static-integrity.test.mjs` e `quality-and-perf.test.mjs`, além de atualização de testes existentes e validação `php -l` + Node.
+
 ## [v1.0.2] - 2026-11-18
 ### Android APK Oficial, Abertura Direta, Atualizador Automático & Otimizações Mobile
 - **App Android via Capacitor (`capacitor.config.json`, `android/`, `scripts/prepare-apk.mjs`, `scripts/build-apk-local.mjs`):**

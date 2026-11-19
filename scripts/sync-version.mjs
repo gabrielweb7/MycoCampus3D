@@ -33,4 +33,11 @@ if (fs.existsSync('assets/apk-version.json')) {
   fs.writeFileSync('assets/apk-version.json', JSON.stringify(apkMeta, null, 2) + '\n', 'utf8');
 }
 
-console.log(`Versão sincronizada automaticamente para v${version} em package.json, sw.js, index.html e assets/apk-version.json.`);
+// 5. android/app/build.gradle
+if (fs.existsSync('android/app/build.gradle')) {
+  let gradle = fs.readFileSync('android/app/build.gradle', 'utf8');
+  gradle = gradle.replace(/versionName\s+"[^"]+"/, `versionName "${version}"`);
+  fs.writeFileSync('android/app/build.gradle', gradle, 'utf8');
+}
+
+console.log(`Versão sincronizada automaticamente para v${version} em package.json, sw.js, index.html, assets/apk-version.json e android/app/build.gradle.`);

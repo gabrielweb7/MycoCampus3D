@@ -220,19 +220,24 @@ if ($action === 'sync') {
     }
 
     if (!$initSync) {
-        $shouldSavePose = true;
-        if ($hasApcu) {
-            $poseKey = 'mc_pose_ts_' . $userId;
-            $lastSaved = (int)apcu_fetch($poseKey);
-            if ($walking === 1 && (time() - $lastSaved) < 4) {
-                $shouldSavePose = false;
-            } else {
-                apcu_store($poseKey, time(), 30);
+        $hasWorldWrites = !empty($body['moved_items']) || !empty($body['state_changes']);
+        $shouldSavePose = $hasWorldWrites;
+        if (!$shouldSavePose) {
+            if ($hasApcu) {
+                $poseKey = 'mc_pose_ts_' . $userId;
+                $lastSaved = (int)apcu_fetch($poseKey);
+                $minInterval = ($walking === 1) ? 4 : 6;
+                if ((time() - $lastSaved) >= $minInterval) {
+                    $shouldSavePose = true;
+                }
+            } elseif (mt_rand(1, 16) === 1) {
+                $shouldSavePose = true;
             }
-        } elseif ($walking === 1 && mt_rand(1, 12) !== 1) {
-            $shouldSavePose = false;
         }
         if ($shouldSavePose) {
+            if ($hasApcu) {
+                apcu_store('mc_pose_ts_' . $userId, time(), 30);
+            }
             $poseJson = json_encode([
                 'x' => round($x, 2),
                 'y' => round($y, 2),
@@ -361,39 +366,6 @@ if ($action === 'sync') {
         ];
     }
 
-    $clientObjVer = (string)($body['obj_ver'] ?? '');
-    $objMeta = $pdo->query('SELECT
-        (SELECT COUNT(*) FROM mc_world_objects) AS c,
-        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_objects) AS u,
-        (SELECT COUNT(*) FROM mc_world_item_states) AS sc,
-        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_item_states) AS su')->fetch();
-    $objVer = $objMeta
-        ? ((string)$objMeta['c'] . ':' . (string)$objMeta['u'] . '|' . (string)$objMeta['sc'] . ':' . (string)$objMeta['su'])
-        : '0:|0:';
-    $objectsUnchanged = (!$initSync && $clientObjVer !== '' && $clientObjVer === $objVer);
-    $objects = null;
-    $itemStates = null;
-    if (!$objectsUnchanged) {
-        $objects = new stdClass();
-        foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
-            $itemId = (string)$obj['item_id'];
-            $objects->{$itemId} = [
-                'x' => (float)$obj['x'],
-                'y' => (float)$obj['y'],
-                'z' => (float)$obj['z'],
-                'ry' => (float)$obj['ry'],
-            ];
-        }
-        $itemStates = new stdClass();
-        foreach ($pdo->query('SELECT item_id, state_json FROM mc_world_item_states')->fetchAll() as $savedState) {
-            $decodedState = json_decode((string)$savedState['state_json'], true);
-            if (is_array($decodedState)) {
-                $itemStateId = (string)$savedState['item_id'];
-                $itemStates->{$itemStateId} = $decodedState;
-            }
-        }
-    }
-
     // Salva mudancas de estado do mundo (portas, persianas, interruptores, fluxo laminar, cinema, cogumelos)
     if (!empty($body['state_changes']) && is_array($body['state_changes'])) {
         $stUpsert = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');
@@ -424,30 +396,6 @@ if ($action === 'sync') {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             }
             $stUpsert->execute([$sKey, $cleanVal]);
-        }
-    }
-
-    $nowTs = time();
-    $clientStateVer = (string)($body['state_ver'] ?? '');
-    $stMeta = $pdo->query('SELECT COUNT(*) AS c, COALESCE(MAX(updated_at), "") AS u FROM mc_world_state')->fetch();
-    // Inclui bucket de 2s para que respawns de wild_* (20s) sejam propagados sem polling pesado
-    $stateVer = ($stMeta ? ((string)$stMeta['c'] . ':' . (string)$stMeta['u']) : '0:') . ':' . (string)floor($nowTs / 2);
-    $stateUnchanged = (!$initSync && empty($body['state_changes']) && $clientStateVer !== '' && $clientStateVer === $stateVer);
-    $state = null;
-    if (!$stateUnchanged) {
-        $state = ['auditorium_slide' => 0, 'auditorium_presenter' => ''];
-        foreach ($pdo->query('SELECT state_key, state_val FROM mc_world_state')->fetchAll() as $st) {
-            $k = (string)$st['state_key'];
-            $v = (string)$st['state_val'];
-            if ($k === 'auditorium_slide') {
-                $state['auditorium_slide'] = (int)$v;
-            } elseif ($k === 'auditorium_presenter') {
-                $state['auditorium_presenter'] = $v;
-            } elseif (strpos($k, 'wild_') === 0) {
-                $state[$k] = ((int)$v > $nowTs) ? '0' : '1';
-            } elseif (mp_is_valid_state_key($k)) {
-                $state[$k] = $v;
-            }
         }
     }
 
@@ -483,17 +431,82 @@ if ($action === 'sync') {
         }
     }
 
+    $meta = $pdo->query('SELECT
+        (SELECT COUNT(*) FROM mc_world_objects) AS obj_c,
+        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_objects) AS obj_u,
+        (SELECT COUNT(*) FROM mc_world_item_states) AS st_obj_c,
+        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_item_states) AS st_obj_u,
+        (SELECT COUNT(*) FROM mc_world_state) AS ws_c,
+        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_state) AS ws_u,
+        (SELECT COUNT(*) FROM mc_world_layout_edits) AS le_c,
+        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_layout_edits) AS le_u,
+        (SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes) AS brd_max')->fetch();
+
+    $clientObjVer = (string)($body['obj_ver'] ?? '');
+    $objVer = $meta
+        ? ((string)$meta['obj_c'] . ':' . (string)$meta['obj_u'] . '|' . (string)$meta['st_obj_c'] . ':' . (string)$meta['st_obj_u'])
+        : '0:|0:';
+    $objectsUnchanged = (!$initSync && $clientObjVer !== '' && $clientObjVer === $objVer);
+    $objects = null;
+    $itemStates = null;
+    if (!$objectsUnchanged) {
+        $objects = new stdClass();
+        foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
+            $itemId = (string)$obj['item_id'];
+            $objects->{$itemId} = [
+                'x' => (float)$obj['x'],
+                'y' => (float)$obj['y'],
+                'z' => (float)$obj['z'],
+                'ry' => (float)$obj['ry'],
+            ];
+        }
+        $itemStates = new stdClass();
+        foreach ($pdo->query('SELECT item_id, state_json FROM mc_world_item_states')->fetchAll() as $savedState) {
+            $decodedState = json_decode((string)$savedState['state_json'], true);
+            if (is_array($decodedState)) {
+                $itemStateId = (string)$savedState['item_id'];
+                $itemStates->{$itemStateId} = $decodedState;
+            }
+        }
+    }
+
+    $nowTs = time();
+    $clientStateVer = (string)($body['state_ver'] ?? '');
+    // Inclui bucket de 2s para que respawns de wild_* (20s) sejam propagados sem polling pesado
+    $stateVer = ($meta ? ((string)$meta['ws_c'] . ':' . (string)$meta['ws_u']) : '0:') . ':' . (string)floor($nowTs / 2);
+    $stateUnchanged = (!$initSync && empty($body['state_changes']) && $clientStateVer !== '' && $clientStateVer === $stateVer);
+    $state = null;
+    if (!$stateUnchanged) {
+        $state = ['auditorium_slide' => 0, 'auditorium_presenter' => ''];
+        foreach ($pdo->query('SELECT state_key, state_val FROM mc_world_state')->fetchAll() as $st) {
+            $k = (string)$st['state_key'];
+            $v = (string)$st['state_val'];
+            if ($k === 'auditorium_slide') {
+                $state['auditorium_slide'] = (int)$v;
+            } elseif ($k === 'auditorium_presenter') {
+                $state['auditorium_presenter'] = $v;
+            } elseif (strpos($k, 'wild_') === 0) {
+                $state[$k] = ((int)$v > $nowTs) ? '0' : '1';
+            } elseif (mp_is_valid_state_key($k)) {
+                $state[$k] = $v;
+            }
+        }
+    }
+
     $boardSince = max(0, (int)($body['board_since'] ?? 0));
-    $bStmt = $pdo->prepare('SELECT id, stroke_json FROM mc_board_strokes WHERE id > ? ORDER BY id ASC LIMIT 2500');
-    $bStmt->execute([$boardSince]);
+    $boardMaxId = $meta ? (int)$meta['brd_max'] : 0;
     $boardStrokes = [];
     $lastBoardId = $boardSince;
-    foreach ($bStmt->fetchAll() as $row) {
-        $dec = json_decode((string)$row['stroke_json'], true);
-        if (is_array($dec)) {
-            $boardStrokes[] = $dec;
+    if ($boardMaxId > $boardSince) {
+        $bStmt = $pdo->prepare('SELECT id, stroke_json FROM mc_board_strokes WHERE id > ? ORDER BY id ASC LIMIT 2500');
+        $bStmt->execute([$boardSince]);
+        foreach ($bStmt->fetchAll() as $row) {
+            $dec = json_decode((string)$row['stroke_json'], true);
+            if (is_array($dec)) {
+                $boardStrokes[] = $dec;
+            }
+            $lastBoardId = (int)$row['id'];
         }
-        $lastBoardId = (int)$row['id'];
     }
 
     $appVersion = function_exists('apcu_fetch') ? apcu_fetch('mc_app_version') : false;
@@ -505,8 +518,7 @@ if ($action === 'sync') {
     }
 
     $clientLayoutVer = (string)($body['layout_ver'] ?? '');
-    $layoutMeta = $pdo->query('SELECT COUNT(*) AS c, COALESCE(MAX(updated_at), "") AS u FROM mc_world_layout_edits')->fetch();
-    $layoutVer = $layoutMeta ? ((string)$layoutMeta['c'] . ':' . (string)$layoutMeta['u']) : '0:';
+    $layoutVer = $meta ? ((string)$meta['le_c'] . ':' . (string)$meta['le_u']) : '0:';
     $layoutUnchanged = (!$initSync && $clientLayoutVer !== '' && $clientLayoutVer === $layoutVer);
     $layoutEdits = null;
     if (!$layoutUnchanged) {

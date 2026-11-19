@@ -604,7 +604,7 @@ let lastForestCullAt = 0;
 let lastForestCullX = 9999;
 let lastForestCullZ = 9999;
 let lastForestScale = -1;
-const _zeroScaleMat4 = THREE ? new THREE.Matrix4().makeScale(0, 0, 0) : null;
+const _zeroScaleMat4 = (THREE && THREE.Matrix4) ? new THREE.Matrix4().makeScale(0, 0, 0) : null;
 const _dirtyInstMeshes = new Set();
 
 export function stepForestDistanceCulling(ctx) {

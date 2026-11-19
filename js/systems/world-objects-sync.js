@@ -4,6 +4,7 @@
 
 import { getItemGroundHeight } from '../engine/physics.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
+import { markItemsFalling } from '../entities/placement-ghost.js';
 import { spawnPersistedWildMushroom } from './world-interactions.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateSyringeVolume } from '../items/syringe.js';
@@ -28,6 +29,24 @@ export function markCampusInitialItemStatesApplied(sim) {
   sim.initialItemStatesApplied = true;
 }
 
+function hasPotentiallyReplicableState(item, sim, now) {
+  if (!item || !item.mesh) return false;
+  if ((item.sanitizedUntil || 0) > now) return true;
+  if (sim.itemStateSignatures && sim.itemStateSignatures[item.id]) return true;
+  if (item._hasStaticStateCtrl !== undefined) return item._hasStaticStateCtrl;
+  const ud = item.mesh.userData || {};
+  const meta = item.meta || ud.itemMeta;
+  const has = !!(
+    item.spawnCtrl || ud.spawnCtrl || ud.petriCtrl || item.fridgeCtrl ||
+    ud.liquidCtrl || item.cultureCtrl || ud.cultureCtrl || item.pdaReagentCtrl ||
+    item.pdaMediumCtrl || ud.syrCtrl || item.liquidMix || item.bowlCtrl ||
+    item.scalpelCtrl || item.bladePackCtrl || item.wildMushroomCtrl || item.cookerRef ||
+    (meta && typeof meta.serializeState === 'function')
+  );
+  item._hasStaticStateCtrl = has;
+  return has;
+}
+
 export function consumeCampusMovedItems(sim) {
   const pending = sim.pendingMovedItems;
   const byId = pending;
@@ -35,12 +54,15 @@ export function consumeCampusMovedItems(sim) {
   if (sim.initialItemStatesApplied && (!sim.nextItemStateSyncAt || now >= sim.nextItemStateSyncAt)) {
     sim.nextItemStateSyncAt = now + 1000;
     sim.itemStateSignatures = sim.itemStateSignatures || {};
-    sim.pickableItems.forEach(function (item) {
-      if (sim.isHeldByRemote(item.id)) return;
+    const items = sim.pickableItems;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!hasPotentiallyReplicableState(item, sim, now)) continue;
+      if (sim.isHeldByRemote(item.id)) continue;
       const state = getReplicatedItemState(sim, item);
-      if (!state) return;
+      if (!state) continue;
       const signature = JSON.stringify(state);
-      if (sim.itemStateSignatures[item.id] === signature) return;
+      if (sim.itemStateSignatures[item.id] === signature) continue;
       sim.itemStateSignatures[item.id] = signature;
       const queued = byId[item.id] || (byId[item.id] = { id: item.id });
       queued.state = state;
@@ -50,7 +72,7 @@ export function consumeCampusMovedItems(sim) {
         queued.z = item.mesh.position.z;
         queued.ry = item.mesh.rotation.y;
       }
-    });
+    }
   }
   const list = Object.values(pending);
   sim.pendingMovedItems = {};
@@ -585,6 +607,8 @@ export function applyCampusWorldObjects(sim, objectsMap) {
       item.isMoved = false;
     }
   });
+  sim._stackPhysicsDirty = true;
+  markItemsFalling(sim);
 }
 
 export function resetCampusWorldObjects(sim) {
@@ -641,6 +665,8 @@ export function resetCampusWorldObjects(sim) {
       updateScalpelLabel(item);
     }
   });
+  sim._stackPhysicsDirty = true;
+  markItemsFalling(sim);
   if (sim.callbacks.onHoldChange) sim.callbacks.onHoldChange(null);
 }
 

@@ -5,7 +5,8 @@
  */
 
 import { registerItemPrefab, listItemPrefabs, spawnItemFromPrefab } from '../items/item-prefabs.js';
-import { registerPickable, updateItemBounds } from '../items/item-registry.js';
+import { disposeObjectResources, registerPickable, updateItemBounds } from '../items/item-registry.js';
+import { markItemsFalling } from '../entities/placement-ghost.js';
 import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { makeLabTray } from '../items/lab-tray.js';
 import { makeAlcoholSprayBottle } from '../items/alcohol-spray.js';
@@ -126,6 +127,7 @@ function removeItemLocally(sim, item) {
   if (item.mesh) {
     item.mesh.visible = false;
     if (sim.scene && item.mesh.parent) item.mesh.parent.remove(item.mesh);
+    disposeObjectResources(item.mesh);
     if (item.mesh.userData) {
       removeFromArray(sim.supportSurfaces, item.mesh.userData.dynamicSurface);
       if (Array.isArray(item.mesh.userData.dynamicSurfaces)) {
@@ -135,6 +137,9 @@ function removeItemLocally(sim, item) {
     }
   }
   removeFromArray(sim.pickableItems, item);
+  if (sim.pickableMap && typeof sim.pickableMap.delete === 'function') {
+    sim.pickableMap.delete(item.id);
+  }
   sim.removedItemIds = sim.removedItemIds || new Set();
   sim.removedItemIds.add(item.id);
 }
@@ -182,6 +187,8 @@ export function applyCampusLayoutEdits(sim, layoutEdits) {
       }
     }
   });
+  sim._stackPhysicsDirty = true;
+  markItemsFalling(sim);
 }
 
 export async function adminAddPrefabAtPlayer(sim, prefabId) {
@@ -195,6 +202,8 @@ export async function adminAddPrefabAtPlayer(sim, prefabId) {
   if (!item) return null;
 
   sim.markItemMoved(item);
+  sim._stackPhysicsDirty = true;
+  markItemsFalling(sim);
   await apiPost('api/multiplayer.php?action=admin_layout_edit', {
     item_id: itemId,
     prefab_id: prefabId,
@@ -213,6 +222,8 @@ export async function adminRemoveTargetItem(sim, item) {
     getItemGroundHeight(sim.physCtx || sim, x, z, refY, ignoreSurf)
   );
   removeItemLocally(sim, item);
+  sim._stackPhysicsDirty = true;
+  markItemsFalling(sim);
   await apiPost('api/multiplayer.php?action=admin_layout_edit', {
     item_id: item.id,
     removed: 1
@@ -257,6 +268,8 @@ export function adminMoveTargetWithSupported(sim, item, dx, dy, dz, dRy) {
   if (!item || !item.mesh) return null;
   const p = item.mesh.position;
   const res = moveItemWithSupported(sim, item, { x: p.x + dx, y: p.y + dy, z: p.z + dz }, (item.mesh.rotation.y || 0) + (dRy || 0));
+  sim._stackPhysicsDirty = true;
+  markItemsFalling(sim);
   events.emit('sync:now');
   return res;
 }

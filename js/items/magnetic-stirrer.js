@@ -84,6 +84,14 @@ export function makeMagneticStirrer(ctx, id, px, py, pz) {
 
 export function stepMagneticStirrers(ctx, dt) {
   if (!ctx.stirrerDevices.length) return;
+  let anyStirrerOn = false;
+  for (let i = 0; i < ctx.stirrerDevices.length; i++) {
+    if (ctx.stirrerDevices[i] && ctx.stirrerDevices[i].on) {
+      anyStirrerOn = true;
+      break;
+    }
+  }
+  if (!anyStirrerOn) return;
   for (let si = 0; si < ctx.pickableItems.length; si++) {
     const liqIt = ctx.pickableItems[si];
     const lcCtrl = liqIt.mesh && liqIt.mesh.userData.liquidCtrl;

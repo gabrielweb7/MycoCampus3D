@@ -249,9 +249,32 @@ function getAnyRefrigeratableCtrl(item) {
 }
 
 const _tmpFridgeLocal = new THREE.Vector3();
+let fridgeSimAccumDt = 0;
 
 export function stepCultureFridges(ctx, dt) {
   const items = ctx.pickableItems;
+  if (!items || !items.length) return;
+
+  // 1. Passo Rápido (60Hz): apenas animação suave de porta quando está abrindo/fechando
+  for (let fi = 0; fi < items.length; fi++) {
+    const fridge = items[fi];
+    if (!fridge || !fridge.fridgeCtrl) continue;
+    const ctrl = fridge.fridgeCtrl;
+    if (ctrl.doorAnimationElapsed < ctrl.doorAnimationDuration) {
+      ctrl.doorAnimationElapsed = Math.min(ctrl.doorAnimationDuration, ctrl.doorAnimationElapsed + dt);
+      const t = ctrl.doorAnimationElapsed / ctrl.doorAnimationDuration;
+      const eased = t * t * (3 - 2 * t);
+      ctrl.doorProgress = ctrl.doorAnimationFrom + (ctrl.doorAnimationTo - ctrl.doorAnimationFrom) * eased;
+      ctrl.doorPivot.rotation.y = DOOR_OPEN_ANGLE * ctrl.doorProgress;
+    }
+  }
+
+  // 2. Passo Lento (~4Hz / 250ms): detecção de slots, temperatura, colonização e validade
+  fridgeSimAccumDt += dt;
+  if (fridgeSimAccumDt < 0.25) return;
+  const slowDt = fridgeSimAccumDt;
+  fridgeSimAccumDt = 0;
+
   const doorOpenByFridgeId = {};
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -272,14 +295,15 @@ export function stepCultureFridges(ctx, dt) {
     const fridge = items[fi];
     if (!fridge || !fridge.fridgeCtrl) continue;
     const ctrl = fridge.fridgeCtrl;
-    fridge.mesh.updateWorldMatrix(true, false);
-    updateShelfSurfaces(fridge);
-    if (ctrl.doorAnimationElapsed < ctrl.doorAnimationDuration) {
-      ctrl.doorAnimationElapsed = Math.min(ctrl.doorAnimationDuration, ctrl.doorAnimationElapsed + dt);
-      const t = ctrl.doorAnimationElapsed / ctrl.doorAnimationDuration;
-      const eased = t * t * (3 - 2 * t);
-      ctrl.doorProgress = ctrl.doorAnimationFrom + (ctrl.doorAnimationTo - ctrl.doorAnimationFrom) * eased;
-      ctrl.doorPivot.rotation.y = DOOR_OPEN_ANGLE * ctrl.doorProgress;
+    const fPos = fridge.mesh.position;
+    const fRy = fridge.mesh.rotation.y;
+    if (ctrl._lastX !== fPos.x || ctrl._lastY !== fPos.y || ctrl._lastZ !== fPos.z || ctrl._lastRy !== fRy) {
+      ctrl._lastX = fPos.x;
+      ctrl._lastY = fPos.y;
+      ctrl._lastZ = fPos.z;
+      ctrl._lastRy = fRy;
+      fridge.mesh.updateWorldMatrix(true, false);
+      updateShelfSurfaces(fridge);
     }
 
     for (let si = 0; si < ctrl.slots.length; si++) {
@@ -290,20 +314,26 @@ export function stepCultureFridges(ctx, dt) {
         const info = getCultureStorageInfo(item);
         if (!info || info.kind !== slot.kind || info.height > slot.maxCultureHeight) continue;
         const itemPos = item.mesh.position;
-        if (Math.hypot(itemPos.x - position.x, itemPos.z - position.z) >= info.radius + (slot.kind === 'vessel' ? 0.11 : PETRI_DISH_RADIUS) ||
-            Math.abs(itemPos.y - position.y) >= 0.06) continue;
+        const maxR = info.radius + (slot.kind === 'vessel' ? 0.11 : PETRI_DISH_RADIUS);
+        const dxs = itemPos.x - position.x;
+        const dzs = itemPos.z - position.z;
+        if ((dxs * dxs + dzs * dzs) >= (maxR * maxR) || Math.abs(itemPos.y - position.y) >= 0.06) continue;
         info.ctrl.inFridge = true;
         info.ctrl.fridgeId = fridge.id;
       }
     }
 
-    // Qualquer item com micélio/cultura colocado dentro do volume da geladeira (slants, seringas, potinhos, placas) também gela!
+    // Pré-filtro espacial rápido (1.5m^2 = 2.25) antes de multiplicar matriz 4x4 inversa (worldToLocal)
     for (let pi = 0; pi < items.length; pi++) {
       const item = items[pi];
       if (!item || item === ctx.heldItem || item === fridge || item.fridgeCtrl) continue;
+      const ip = item.mesh.position;
+      const dxF = ip.x - fPos.x;
+      const dzF = ip.z - fPos.z;
+      if (dxF * dxF + dzF * dzF > 2.25) continue;
       const anyCtrl = getAnyRefrigeratableCtrl(item);
       if (!anyCtrl) continue;
-      _tmpFridgeLocal.copy(item.mesh.position);
+      _tmpFridgeLocal.copy(ip);
       fridge.mesh.worldToLocal(_tmpFridgeLocal);
       if (Math.abs(_tmpFridgeLocal.x) <= 0.36 && _tmpFridgeLocal.y >= 0.14 && _tmpFridgeLocal.y <= 1.65 && Math.abs(_tmpFridgeLocal.z) <= 0.36) {
         anyCtrl.inFridge = true;
@@ -316,22 +346,22 @@ export function stepCultureFridges(ctx, dt) {
     const item = items[i];
     const anyCtrl = getAnyRefrigeratableCtrl(item);
     if (anyCtrl) {
-      stepCultureTemperature(anyCtrl, dt, !!anyCtrl.inFridge, !!doorOpenByFridgeId[anyCtrl.fridgeId]);
+      stepCultureTemperature(anyCtrl, slowDt, !!anyCtrl.inFridge, !!doorOpenByFridgeId[anyCtrl.fridgeId]);
     }
     const info = getCultureStorageInfo(item);
     if (!info || info.kind !== 'vessel' || !(item.cultureCtrl || (item.mesh.userData && item.mesh.userData.cultureCtrl))) continue;
     const culture = info.ctrl;
-    const tempChanged = anyCtrl === culture ? false : stepCultureTemperature(culture, dt, !!culture.inFridge, !!doorOpenByFridgeId[culture.fridgeId]);
+    const tempChanged = anyCtrl === culture ? false : stepCultureTemperature(culture, slowDt, !!culture.inFridge, !!doorOpenByFridgeId[culture.fridgeId]);
     const changed = culture.refrigerated !== culture.lastRenderedRefrigerated;
     if (!item.mesh.userData.liquidCtrl || item.mesh.userData.liquidCtrl.volMl <= 0) continue;
-    const lifeStep = stepCultureShelfLife(culture, dt);
+    const lifeStep = stepCultureShelfLife(culture, slowDt);
     let lcProgressed = false;
     const lcRate = culture.refrigerated
       ? (0.8 * 0.2)
       : (typeof culture.tempC === 'number' && culture.tempC >= 20 && culture.tempC <= 30 ? 0.8 : 0);
     if (culture.inoculated && !culture.colonized && !culture.contaminated && !culture.expired && lcRate > 0) {
       const prevPct = Math.floor(culture.colonization || 0);
-      culture.colonization = Math.min(100, (culture.colonization || 0) + dt * lcRate);
+      culture.colonization = Math.min(100, (culture.colonization || 0) + slowDt * lcRate);
       if (culture.colonization >= 100) {
         culture.colonization = 100;
         culture.colonized = true;

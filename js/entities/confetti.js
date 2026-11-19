@@ -3,7 +3,7 @@
 const MAX_CONFETTI = 48;
 const confettiParticles = [];
 let confettiMesh = null;
-const _confettiDummy = typeof window !== 'undefined' && window.THREE ? new window.THREE.Object3D() : null;
+const _confettiDummy = (typeof window !== 'undefined' && window.THREE && window.THREE.Object3D) ? new window.THREE.Object3D() : null;
 
 export function initConfettiSystem(scene) {
   const THREE = window.THREE;

@@ -13,15 +13,15 @@ const { getSanitizationStatus, formatSprayHoverPrompt } = await import('../js/it
 const { canDisposeItemInTrash } = await import('../js/items/lab-trash.js');
 const { isItemInClosedCabinet } = await import('../js/items/lab-cabinets.js');
 
-test('getSanitizationStatus e formatSprayHoverPrompt refletem hits, álcool úmido e desinfecção', () => {
+test('getSanitizationStatus e formatSprayHoverPrompt refletem estado não higienizado, álcool úmido e desinfecção', () => {
   const target = { _sanitizeHits: 1, alcoholWet: false, sanitizedUntil: 0 };
   const st1 = getSanitizationStatus(target, {});
   assert.equal(st1.hits, 1);
   assert.equal(st1.isSanitized, false);
-  assert.match(formatSprayHoverPrompt(target, 'Bancada', {}), /1\/3/);
+  assert.match(formatSprayHoverPrompt(target, 'Bancada', {}), /Não higienizado/);
 
   target.alcoholWet = true;
-  assert.match(formatSprayHoverPrompt(target, 'Bancada', {}), /ÁLCOOL APLICADO/);
+  assert.match(formatSprayHoverPrompt(target, 'Bancada', {}), /MOLHADO C\/ ÁLCOOL 70%/);
 
   target.alcoholWet = false;
   target.sanitizedUntil = performance.now() + 45000;
@@ -44,7 +44,7 @@ test('canDisposeItemInTrash aceita recipientes com conteúdo e bloqueia lixeira/
   assert.equal(canDisposeItemInTrash({ id: 'beaker_1', mesh: { userData: { liquidCtrl: { volMl: 100 } } } }), false);
   assert.equal(canDisposeItemInTrash({ id: 'beaker_1', pdaMediumCtrl: { powderGrams: 10 }, mesh: { userData: { liquidCtrl: { volMl: 100 } } } }), true);
   assert.equal(canDisposeItemInTrash({ id: 'bag_1', spawnCtrl: { filled: true }, mesh: { userData: {} } }), true);
-  assert.equal(canDisposeItemInTrash({ id: 'petri_1', mesh: { userData: { isPetri: true, petriCtrl: { mode: 'bare' } } } }), false);
+  assert.equal(canDisposeItemInTrash({ id: 'petri_1', mesh: { userData: { isPetri: true, petriCtrl: { mode: 'bare' } } } }), true);
   assert.equal(canDisposeItemInTrash({ id: 'petri_2', mesh: { userData: { isPetri: true, petriCtrl: { mode: 'clean' } } } }), true);
 });
 

@@ -216,6 +216,14 @@ export function buildLaminarHoodAndBenches(ctx) {
 
 export function stepLaminarHood(ctx, dt) {
   if (!ctx.hoodAirData || !ctx.hoodAirData.on || !ctx.hoodAirData.attr) return;
+  const wa = ctx.hoodAirData.workArea;
+  if (wa && ctx.playerPos) {
+    const cx = (wa.minX + wa.maxX) * 0.5;
+    const cz = (wa.minZ + wa.maxZ) * 0.5;
+    const dx = ctx.playerPos.x - cx;
+    const dz = ctx.playerPos.z - cz;
+    if (dx * dx + dz * dz > 484) return;
+  }
   const aArr = ctx.hoodAirData.attr.array;
   for (let ai = 0; ai < aArr.length; ai += 3) {
     aArr[ai] += dt * 1.45;

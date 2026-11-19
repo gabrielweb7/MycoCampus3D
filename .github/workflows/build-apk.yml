@@ -11,15 +11,6 @@ on:
         options:
           - 'true'
           - 'false'
-  push:
-    branches:
-      - main
-    paths:
-      - 'android/**'
-      - 'capacitor.config.json'
-      - 'assets/apk-version.json'
-      - 'scripts/prepare-apk.mjs'
-      - '.github/workflows/build-apk.yml'
 
 concurrency:
   group: build-apk-main

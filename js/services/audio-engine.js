@@ -10,6 +10,10 @@ let userHasGestured = false;
 let lastFootstepAt = 0;
 let steamNode = null;
 let steamGain = null;
+let _sprayBuf = null;
+let _sprayBufRate = 0;
+let _steamBuf = null;
+let _steamBufRate = 0;
 
 try {
   isMuted = localStorage.getItem('myco_audio_muted') === 'true';
@@ -127,14 +131,18 @@ export function playSpray() {
   if (isMuted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
-  const bufferSize = Math.floor(ctx.sampleRate * 0.22);
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+  if (!_sprayBuf || _sprayBufRate !== ctx.sampleRate) {
+    const bufferSize = Math.floor(ctx.sampleRate * 0.22);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+    }
+    _sprayBuf = buffer;
+    _sprayBufRate = ctx.sampleRate;
   }
   const noise = ctx.createBufferSource();
-  noise.buffer = buffer;
+  noise.buffer = _sprayBuf;
   const filter = ctx.createBiquadFilter();
   filter.type = 'bandpass';
   filter.frequency.setValueAtTime(3200, ctx.currentTime);
@@ -233,17 +241,21 @@ export function setSteam(active, volume) {
   if (!ctx || ctx.state !== 'running') return;
   const targetGain = 0.125 * vol;
   if (!steamNode) {
-    const bufferSize = ctx.sampleRate * 2;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let lastOut = 0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      lastOut = (lastOut + 0.08 * white) / 1.08;
-      data[i] = lastOut * 2.2;
+    if (!_steamBuf || _steamBufRate !== ctx.sampleRate) {
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let lastOut = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        lastOut = (lastOut + 0.08 * white) / 1.08;
+        data[i] = lastOut * 2.2;
+      }
+      _steamBuf = buffer;
+      _steamBufRate = ctx.sampleRate;
     }
     steamNode = ctx.createBufferSource();
-    steamNode.buffer = buffer;
+    steamNode.buffer = _steamBuf;
     steamNode.loop = true;
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';

@@ -51,6 +51,9 @@ const sim = {
   supportSurfaces: [],
   supportMeshes: [],
   pickableItems: [],
+  pickableMap: new Map(),
+  remoteHeldIds: new Set(),
+  _stackPhysicsDirty: true,
   wildMushrooms: [],
 
   // Portas, persianas, telao e relogio
@@ -295,6 +298,12 @@ const sim = {
   },
 
   findPickable: function (itemId) {
+    if (!itemId) return null;
+    if (sim.pickableMap) {
+      const hit = sim.pickableMap.get(itemId);
+      if (hit) return hit;
+      if (sim.pickableMap.size === sim.pickableItems.length) return null;
+    }
     for (let i = 0; i < sim.pickableItems.length; i++) {
       if (sim.pickableItems[i].id === itemId) return sim.pickableItems[i];
     }
@@ -302,9 +311,12 @@ const sim = {
   },
 
   isHeldByRemote: function (itemId) {
-    const ids = Object.keys(sim.remoteAvatars);
-    for (let i = 0; i < ids.length; i++) {
-      const hId = sim.remoteAvatars[ids[i]].holding;
+    if (!itemId) return false;
+    if (sim.remoteHeldIds && sim.remoteHeldIds.has(itemId)) return true;
+    if (sim._remoteHeldSynced) return false;
+    for (const k in sim.remoteAvatars) {
+      if (!Object.prototype.hasOwnProperty.call(sim.remoteAvatars, k)) continue;
+      const hId = sim.remoteAvatars[k].holding;
       if (hId === itemId) return true;
       if (hId) {
         const item = sim.findPickable(itemId);
@@ -386,6 +398,8 @@ sim.entityCtx = {
   get recentlyDropped() { return sim.recentlyDropped; },
   get pendingMovedItems() { return sim.pendingMovedItems; },
   get physCtx() { return sim.physCtx; },
+  get _stackPhysicsDirty() { return sim._stackPhysicsDirty; },
+  set _stackPhysicsDirty(v) { sim._stackPhysicsDirty = !!v; },
   isHeldByRemote: sim.isHeldByRemote,
   removeFromCookerContents: sim.removeFromCookerContents,
   setSnapClosePot: function (v) { sim.snapClosePot = v; },
@@ -419,6 +433,8 @@ function getWorldBuilderCtx() {
     supportSurfaces: sim.supportSurfaces,
     supportMeshes: sim.supportMeshes,
     pickableItems: sim.pickableItems,
+    pickableMap: sim.pickableMap,
+    remoteHeldIds: sim.remoteHeldIds,
     wildMushrooms: sim.wildMushrooms,
     campusDoors: sim.campusDoors,
     doorHitMeshes: sim.doorHitMeshes,

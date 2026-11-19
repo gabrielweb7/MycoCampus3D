@@ -274,7 +274,7 @@ export function buildBenchCabinets(ctx, cfg) {
         drawerSurf = registerShelf(dPart, trayBottom, lc - trayW / 2, lc + trayW / 2, yC - slotH / 2 + shelfTopOffset, -trayLen, -0.02);
         const hit = new THREE.Mesh(
           new THREE.BoxGeometry(faceW, slotH, 0.12),
-          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+          mats.hitMat
         );
         hit.visible = false;
         hit.position.set(0, 0, 0.03);
@@ -328,7 +328,7 @@ export function buildBenchCabinets(ctx, cfg) {
       addBox(panel, 0.014, 0.20, 0.022, mats.handle, -side * (wd / 2 - 0.04), 0, 0.024);
       const hit = new THREE.Mesh(
         new THREE.BoxGeometry(wd, DOOR_TOP - DOOR_BOTTOM, 0.12),
-        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+        mats.hitMat
       );
       hit.visible = false;
       hit.position.set(0, 0, 0.03);

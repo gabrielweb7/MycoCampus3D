@@ -450,6 +450,11 @@ export function setBurnerLevel(burner, level) {
   }
 }
 
+let _cachedLobbyEl = null;
+let _cachedTelEl = null;
+let _lastTelTxt = '';
+let _lastTelVisible = null;
+
 export function stepPressureCookers(ctx, dt) {
   if (!ctx.cookerPots.length) return;
 
@@ -556,20 +561,23 @@ export function stepPressureCookers(ctx, dt) {
     const cp = ctx.cookerPots[cpi];
     const potP = cp.potItem.mesh.position;
 
-    // Verifica se possui base perfurada e recipientes dentro (inclusive apos reload ou posicionamento livre)
-    if (ctx.pickableItems) {
+    // Verifica se possui base perfurada e recipientes dentro (~5Hz, suficiente sem varrer todos itens a 60Hz)
+    cp._scanAccum = (cp._scanAccum === undefined) ? 1.0 : (cp._scanAccum + dt);
+    if (ctx.pickableItems && cp._scanAccum >= 0.20) {
+      cp._scanAccum = 0;
       for (let bi = 0; bi < ctx.pickableItems.length; bi++) {
         const bIt = ctx.pickableItems[bi];
         if (!bIt || bIt === ctx.heldItem || bIt === cp.potItem || bIt === cp.lidItem || !bIt.mesh) continue;
+        const bdx = bIt.mesh.position.x - potP.x;
+        const bdz = bIt.mesh.position.z - potP.z;
+        if (bdx * bdx + bdz * bdz >= 0.0361) continue;
         if (ctx.isHeldByRemote && ctx.isHeldByRemote(bIt.id)) continue;
         const isBase = !!(bIt.mesh.userData && bIt.mesh.userData.isCookerBase);
         const canEnter = !!(bIt.meta && bIt.meta.compatibilities && bIt.meta.compatibilities.canEnterCooker);
         if (!isBase && !canEnter) continue;
-        const bdx = bIt.mesh.position.x - potP.x;
-        const bdz = bIt.mesh.position.z - potP.z;
         const bdy = bIt.mesh.position.y - potP.y;
         const maxDy = isBase ? 0.16 : 0.34;
-        if (bdx * bdx + bdz * bdz < 0.19 * 0.19 && bdy >= -0.02 && bdy <= maxDy) {
+        if (bdy >= -0.02 && bdy <= maxDy) {
           if (cp.contents.indexOf(bIt) === -1 && (isBase || cp.contents.length < 7)) {
             cp.contents.push(bIt);
           }
@@ -753,13 +761,17 @@ export function stepPressureCookers(ctx, dt) {
           if (cIt && cIt.spawnCtrl) {
             const itemMin = cIt.spawnCtrl.minSterilizeMin || 80;
             const itemRate = hasElectricTimer ? potRate * (maxMin / itemMin) : (680 / itemMin);
+            const prevPct = Math.floor(cIt.spawnCtrl.sterilizeProgress || 0);
+            const prevSter = !!cIt.spawnCtrl.sterilized;
             cIt.spawnCtrl.sterilizeProgress = Math.min(100, (cIt.spawnCtrl.sterilizeProgress || 0) + dt * itemRate);
             const timerOk = !hasElectricTimer || (activeBurner.timerPresetMin || 0) >= itemMin;
             if (cIt.spawnCtrl.sterilizeProgress >= 100 || (cp.progress >= 100 && cp.mode === 'sterilize' && timerOk)) {
               cIt.spawnCtrl.sterilizeProgress = 100;
               cIt.spawnCtrl.sterilized = true;
             }
-            cIt.spawnCtrl.updateVisual();
+            if (Math.floor(cIt.spawnCtrl.sterilizeProgress) !== prevPct || !!cIt.spawnCtrl.sterilized !== prevSter) {
+              cIt.spawnCtrl.updateVisual();
+            }
           }
           if (cIt && cIt.pdaMediumCtrl) {
             const medium = cIt.pdaMediumCtrl;
@@ -968,8 +980,10 @@ export function stepPressureCookers(ctx, dt) {
   }
 
   if (window.MycoAudio) {
-    const lobbyEl = document.getElementById('campus-lobby');
-    const inLobby = lobbyEl && !lobbyEl.classList.contains('hidden');
+    if (!_cachedLobbyEl || !_cachedLobbyEl.isConnected) {
+      _cachedLobbyEl = document.getElementById('campus-lobby');
+    }
+    const inLobby = _cachedLobbyEl && !_cachedLobbyEl.classList.contains('hidden');
     const steamVol = (!inLobby && anyPotSteaming && nearestSteamDist < 12)
       ? Math.max(0, Math.min(1, 1 - (nearestSteamDist - 2) / 10)) * (0.45 + 0.55 * bestSteamFactor)
       : 0;
@@ -979,9 +993,15 @@ export function stepPressureCookers(ctx, dt) {
   // Painel 2D nítido no Mobile/Tablet para ler Panela e Timer do Fogareiro mesmo em resolução reduzida
   if (typeof document !== 'undefined') {
     const isMobileUi = !!(ctx.isTouchDevice && ctx.isTouchDevice());
-    let telEl = document.getElementById('mobile-lab-telemetry');
+    if (!_cachedTelEl || !_cachedTelEl.isConnected) {
+      _cachedTelEl = document.getElementById('mobile-lab-telemetry');
+    }
+    let telEl = _cachedTelEl;
     if (!isMobileUi || !ctx.inFps) {
-      if (telEl) telEl.style.display = 'none';
+      if (telEl && _lastTelVisible !== false) {
+        telEl.style.display = 'none';
+        _lastTelVisible = false;
+      }
     } else {
       const lines = [];
       const pots = ctx.cookerPots || [];
@@ -995,7 +1015,7 @@ export function stepPressureCookers(ctx, dt) {
           break;
         }
       }
-      const burners = ctx.burnerDevices || ctx.burnerStations || [];
+      const burners = ctx.burnerDevices || [];
       for (let i = 0; i < burners.length; i++) {
         const b = burners[i];
         if (!b) continue;
@@ -1022,17 +1042,22 @@ export function stepPressureCookers(ctx, dt) {
             'position:fixed;top:56px;right:10px;z-index:26;pointer-events:none;' +
             'background:rgba(15,23,42,0.92);border:1px solid rgba(52,211,153,0.45);' +
             'border-radius:12px;padding:6px 10px;color:#f8fafc;font-size:12px;font-weight:700;' +
-            'line-height:1.45;box-shadow:0 8px 20px rgba(0,0,0,0.45);max-width:62vw;';
+            'line-height:1.45;box-shadow:0 8px 20px rgba(0,0,0,0.45);max-width:62vw;white-space:pre-line;';
           document.body.appendChild(telEl);
+          _cachedTelEl = telEl;
         }
         const nextTxt = lines.join('\n');
-        if (telEl.textContent !== nextTxt) {
-          telEl.style.whiteSpace = 'pre-line';
+        if (_lastTelTxt !== nextTxt) {
+          _lastTelTxt = nextTxt;
           telEl.textContent = nextTxt;
         }
-        telEl.style.display = 'block';
-      } else if (telEl) {
+        if (_lastTelVisible !== true) {
+          telEl.style.display = 'block';
+          _lastTelVisible = true;
+        }
+      } else if (telEl && _lastTelVisible !== false) {
         telEl.style.display = 'none';
+        _lastTelVisible = false;
       }
     }
   }

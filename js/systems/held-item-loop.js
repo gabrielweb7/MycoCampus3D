@@ -10,7 +10,7 @@ import { addSyringeMix, updateSyringeVolume } from '../items/syringe.js';
 import { getItemBaseTempC } from '../items/item-registry.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { inoculatePetri } from '../items/petri-dish.js';
-import { greenhouseSlots } from '../world/greenhouse.js';
+import { greenhouseSlots, greenhouseHitMeshes } from '../world/greenhouse.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { updateCookerWaterVisual, COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
@@ -35,6 +35,87 @@ const _tmpSkyEnd = new THREE.Vector3();
 const _tmpPourFrom = new THREE.Vector3();
 const _tmpPourDir = new THREE.Vector3();
 
+const _thermoStaticTargets = [];
+const _thermoDynTargets = [];
+let _thermoStaticBuilt = false;
+let _stirRingEl = null;
+let _stirArcEl = null;
+
+function buildThermoStaticTargets(ctx) {
+  _thermoStaticTargets.length = 0;
+  const excludeRoots = new Set();
+  if (ctx.playerGroup) excludeRoots.add(ctx.playerGroup);
+  if (ctx.fpsArmGroup) excludeRoots.add(ctx.fpsArmGroup);
+  if (ctx.fpsLeftArmGroup) excludeRoots.add(ctx.fpsLeftArmGroup);
+  if (ctx.placementGhost) excludeRoots.add(ctx.placementGhost);
+  if (ctx.thermoLaserLine) excludeRoots.add(ctx.thermoLaserLine);
+  if (ctx.thermoLaserDot) excludeRoots.add(ctx.thermoLaserDot);
+  if (ctx.envCloudsInst) excludeRoots.add(ctx.envCloudsInst);
+  if (ctx.confettiMesh) excludeRoots.add(ctx.confettiMesh);
+  if (ctx.sunDisc) excludeRoots.add(ctx.sunDisc);
+  if (ctx.sunHalo) excludeRoots.add(ctx.sunHalo);
+  if (ctx.rainbowMesh) excludeRoots.add(ctx.rainbowMesh);
+  if (ctx.pickableItems) {
+    for (let i = 0; i < ctx.pickableItems.length; i++) {
+      if (ctx.pickableItems[i] && ctx.pickableItems[i].mesh) excludeRoots.add(ctx.pickableItems[i].mesh);
+    }
+  }
+  if (ctx.pastureCows) {
+    for (let i = 0; i < ctx.pastureCows.length; i++) {
+      const m = ctx.pastureCows[i] && (ctx.pastureCows[i].mesh || ctx.pastureCows[i].group);
+      if (m) excludeRoots.add(m);
+    }
+  }
+  if (ctx.cowPoops) {
+    for (let i = 0; i < ctx.cowPoops.length; i++) {
+      const m = ctx.cowPoops[i] && (ctx.cowPoops[i].group || ctx.cowPoops[i].mesh);
+      if (m) excludeRoots.add(m);
+    }
+  }
+  if (ctx.wildMushrooms) {
+    for (let i = 0; i < ctx.wildMushrooms.length; i++) {
+      if (ctx.wildMushrooms[i] && ctx.wildMushrooms[i].group) excludeRoots.add(ctx.wildMushrooms[i].group);
+    }
+  }
+  const walk = (node) => {
+    if (!node || excludeRoots.has(node)) return;
+    if (node.userData && (node.userData.ignoreRay || node.userData.isDynamic || node.userData.remotePlayer)) return;
+    if (node.isSprite || node.isPoints || node.isLine) return;
+    if (node.isMesh && node.visible) {
+      _thermoStaticTargets.push(node);
+      return;
+    }
+    const ch = node.children;
+    if (ch) {
+      for (let i = 0; i < ch.length; i++) walk(ch[i]);
+    }
+  };
+  walk(ctx.scene);
+  _thermoStaticBuilt = true;
+}
+
+function getStirRingEls() {
+  if (!_stirRingEl || !_stirRingEl.isConnected) {
+    _stirRingEl = document.getElementById('stir-progress-ring');
+  }
+  if (!_stirArcEl || !_stirArcEl.isConnected) {
+    _stirArcEl = document.getElementById('stir-progress-arc');
+  }
+  return { ring: _stirRingEl, arc: _stirArcEl };
+}
+
+function pushListWithinDist(out, list, cx, cz, maxSq) {
+  if (!list) return;
+  for (let i = 0; i < list.length; i++) {
+    const m = list[i];
+    if (!m || !m.visible) continue;
+    m.getWorldPosition(_tmpNormal);
+    const dx = _tmpNormal.x - cx;
+    const dz = _tmpNormal.z - cz;
+    if (dx * dx + dz * dz <= maxSq) out.push(m);
+  }
+}
+
 function updateThermometerLaser(ctx, dt, now) {
   if (!ctx.thermoLaserOn) {
     ctx.thermoLaserLine.visible = false;
@@ -47,30 +128,95 @@ function updateThermometerLaser(ctx, dt, now) {
   ctx._lastThermoRayAt = now;
 
   _tmpMuzzlePos.set(0, 0.155, -0.09).applyEuler(ctx.heldItem.mesh.rotation).add(ctx.heldItem.mesh.position);
-  ctx.raycaster.far = 36;
+  ctx.raycaster.far = 16;
   ctx.raycaster.setFromCamera(ctx.inFps ? _vZero2 : ctx.pointerNdc, ctx.camera);
 
-  // Full raycast against scene children to hit walls, benches, cabinets, drawers, equipment
-  const rawHits = ctx.raycaster.intersectObjects(ctx.scene.children, true);
-  let lHit = null;
   const heldMesh = ctx.heldItem ? ctx.heldItem.mesh : null;
-  for (let rhi = 0; rhi < rawHits.length; rhi++) {
-    const candH = rawHits[rhi];
-    const obj = candH.object;
-    if (!obj || !obj.visible) continue;
-    if (obj.userData && obj.userData.ignoreRay) continue;
-    if (obj === ctx.thermoLaserLine || obj === ctx.thermoLaserDot) continue;
-    if (obj === ctx.placementGhost) continue;
-    if (heldMesh && (obj === heldMesh || heldMesh.children.includes(obj))) continue;
-    if (ctx.fpsArmGroup && (obj === ctx.fpsArmGroup || ctx.fpsArmGroup.children.includes(obj))) continue;
-    if (ctx.fpsLeftArmGroup && (obj === ctx.fpsLeftArmGroup || ctx.fpsLeftArmGroup.children.includes(obj))) continue;
-    if (ctx.playerGroup && (obj === ctx.playerGroup || ctx.playerGroup.children.includes(obj))) continue;
-    if (obj.isSprite || obj.isPoints || obj.isLine) continue;
-    lHit = candH;
-    break;
+  let lHit = null;
+  if (ctx._mergedStaticCount !== undefined && ctx.scene) {
+    if (!_thermoStaticBuilt) buildThermoStaticTargets(ctx);
+    _thermoDynTargets.length = 0;
+    const refPos = ctx.camera ? ctx.camera.position : ctx.playerPos;
+    const rx = refPos.x, rz = refPos.z;
+    const maxSq = 256; // 16m
+    if (ctx.pickableItems) {
+      for (let i = 0; i < ctx.pickableItems.length; i++) {
+        const it = ctx.pickableItems[i];
+        if (!it || it === ctx.heldItem || !it.mesh || !it.mesh.visible) continue;
+        const dx = it.mesh.position.x - rx;
+        const dz = it.mesh.position.z - rz;
+        if (dx * dx + dz * dz <= maxSq) _thermoDynTargets.push(it.mesh);
+      }
+    }
+    if (ctx.remoteAvatars) {
+      for (const id in ctx.remoteAvatars) {
+        const av = ctx.remoteAvatars[id];
+        if (!av || !av.group || !av.group.visible) continue;
+        const dx = av.group.position.x - rx;
+        const dz = av.group.position.z - rz;
+        if (dx * dx + dz * dz <= maxSq) _thermoDynTargets.push(av.group);
+      }
+    }
+    if (ctx.pastureCows) {
+      for (let i = 0; i < ctx.pastureCows.length; i++) {
+        const cw = ctx.pastureCows[i];
+        const m = cw && (cw.mesh || cw.group);
+        if (!m || !m.visible) continue;
+        const dx = m.position.x - rx;
+        const dz = m.position.z - rz;
+        if (dx * dx + dz * dz <= maxSq) _thermoDynTargets.push(m);
+      }
+    }
+    pushListWithinDist(_thermoDynTargets, ctx.supportMeshes, rx, rz, maxSq);
+    pushListWithinDist(_thermoDynTargets, ctx.doorHitMeshes, rx, rz, maxSq);
+    pushListWithinDist(_thermoDynTargets, ctx.cabinetHitMeshes, rx, rz, maxSq);
+    pushListWithinDist(_thermoDynTargets, ctx.burnerSwitchMeshes, rx, rz, maxSq);
+    pushListWithinDist(_thermoDynTargets, ctx.stirSwitchMeshes, rx, rz, maxSq);
+    pushListWithinDist(_thermoDynTargets, ctx.scaleTareMeshes, rx, rz, maxSq);
+    if (greenhouseHitMeshes.length) pushListWithinDist(_thermoDynTargets, greenhouseHitMeshes, rx, rz, maxSq);
+
+    const staticHits = ctx.raycaster.intersectObjects(_thermoStaticTargets, false);
+    const dynHits = _thermoDynTargets.length ? ctx.raycaster.intersectObjects(_thermoDynTargets, true) : [];
+    const pickBest = (hits, curBest) => {
+      for (let rhi = 0; rhi < hits.length; rhi++) {
+        const candH = hits[rhi];
+        if (curBest && candH.distance >= curBest.distance) break;
+        const obj = candH.object;
+        if (!obj || !obj.visible) continue;
+        if (obj.userData && obj.userData.ignoreRay) continue;
+        if (obj === ctx.thermoLaserLine || obj === ctx.thermoLaserDot) continue;
+        if (obj === ctx.placementGhost) continue;
+        if (heldMesh && (obj === heldMesh || heldMesh.children.includes(obj))) continue;
+        if (ctx.fpsArmGroup && (obj === ctx.fpsArmGroup || ctx.fpsArmGroup.children.includes(obj))) continue;
+        if (ctx.fpsLeftArmGroup && (obj === ctx.fpsLeftArmGroup || ctx.fpsLeftArmGroup.children.includes(obj))) continue;
+        if (ctx.playerGroup && (obj === ctx.playerGroup || ctx.playerGroup.children.includes(obj))) continue;
+        if (obj.isSprite || obj.isPoints || obj.isLine) continue;
+        return candH;
+      }
+      return curBest;
+    };
+    lHit = pickBest(staticHits, null);
+    lHit = pickBest(dynHits, lHit);
+  } else {
+    const rawHits = ctx.raycaster.intersectObjects(ctx.scene.children, true);
+    for (let rhi = 0; rhi < rawHits.length; rhi++) {
+      const candH = rawHits[rhi];
+      const obj = candH.object;
+      if (!obj || !obj.visible) continue;
+      if (obj.userData && obj.userData.ignoreRay) continue;
+      if (obj === ctx.thermoLaserLine || obj === ctx.thermoLaserDot) continue;
+      if (obj === ctx.placementGhost) continue;
+      if (heldMesh && (obj === heldMesh || heldMesh.children.includes(obj))) continue;
+      if (ctx.fpsArmGroup && (obj === ctx.fpsArmGroup || ctx.fpsArmGroup.children.includes(obj))) continue;
+      if (ctx.fpsLeftArmGroup && (obj === ctx.fpsLeftArmGroup || ctx.fpsLeftArmGroup.children.includes(obj))) continue;
+      if (ctx.playerGroup && (obj === ctx.playerGroup || ctx.playerGroup.children.includes(obj))) continue;
+      if (obj.isSprite || obj.isPoints || obj.isLine) continue;
+      lHit = candH;
+      break;
+    }
   }
 
-  if (lHit && lHit.distance < 35.0) {
+  if (lHit && lHit.distance < 15.8) {
     const lArr = ctx.thermoLaserLine.geometry.attributes.position.array;
     lArr[0] = _tmpMuzzlePos.x; lArr[1] = _tmpMuzzlePos.y; lArr[2] = _tmpMuzzlePos.z;
     lArr[3] = lHit.point.x; lArr[4] = lHit.point.y; lArr[5] = lHit.point.z;
@@ -516,8 +662,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
 
   if (ctx.bladeAttachHold) {
     const bh = ctx.bladeAttachHold;
-    const ring = document.getElementById('stir-progress-ring');
-    const arc = document.getElementById('stir-progress-arc');
+    const { ring, arc } = getStirRingEls();
     if (!ctx.isPrimaryDown || !ctx.heldItem || ctx.heldItem !== bh.pack || !ctx.hoveredScalpelTarget || ctx.hoveredScalpelTarget.item !== bh.scalpel) {
       ctx.bladeAttachHold = null;
       if (ring && !ctx.stirHold) ring.classList.add('hidden');
@@ -553,8 +698,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
 
   if (ctx.stirHold) {
     const sh = ctx.stirHold;
-    const ring = document.getElementById('stir-progress-ring');
-    const arc = document.getElementById('stir-progress-arc');
+    const { ring, arc } = getStirRingEls();
     if (!ctx.isPrimaryDown || !ctx.heldItem || ctx.heldItem !== sh.spoon || !ctx.hoveredBowlTarget || ctx.hoveredBowlTarget !== sh.bowl) {
       ctx.stirHold = null;
       if (ring) ring.classList.add('hidden');
@@ -577,8 +721,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ctx.notifyWorldAction();
       }
     }
-  } else {
-    const ring = document.getElementById('stir-progress-ring');
+  } else if (!ctx.bladeAttachHold) {
+    const { ring } = getStirRingEls();
     if (ring && !ring.classList.contains('hidden')) ring.classList.add('hidden');
   }
 

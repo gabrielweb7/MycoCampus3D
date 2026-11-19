@@ -4,25 +4,27 @@
 import { snowableEntries, getTextures } from './textures.js';
 import { stepRainbow } from './rainbow.js';
 
-const THREE = window.THREE;
+const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
+const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
+const _Obj3DCtor = THREE && THREE.Object3D ? THREE.Object3D : null;
 
-const _cSkyDay = new THREE.Color(0x60a5fa);
-const _cSkySunset = new THREE.Color(0xf97316);
-const _cSkyNight = new THREE.Color(0x0b132b);
-const _cSkyWork = new THREE.Color();
-const _cPartly = new THREE.Color(0x93c5fd);
-const _cOvercast = new THREE.Color(0x94a3b8);
-const _cRain = new THREE.Color(0x475569);
-const _cSnow = new THREE.Color(0xcbd5e1);
-const _cSunDay = new THREE.Color(0xfffbeb);
-const _cSunSet = new THREE.Color(0xfb923c);
-const _cSunNight = new THREE.Color(0x93c5fd);
-const _cCloudRain = new THREE.Color(0x64748b);
-const _cCloudOvercast = new THREE.Color(0xcbd5e1);
-const _cCloudWhite = new THREE.Color(0xffffff);
-const _cSunSunsetGlow = new THREE.Color(0xfdba74);
-const _cSnowWhite = new THREE.Color(0xf1f5f9);
-const _cloudDummy = new THREE.Object3D();
+const _cSkyDay = _ColorCtor ? new _ColorCtor(0x60a5fa) : null;
+const _cSkySunset = _ColorCtor ? new _ColorCtor(0xf97316) : null;
+const _cSkyNight = _ColorCtor ? new _ColorCtor(0x0b132b) : null;
+const _cSkyWork = _ColorCtor ? new _ColorCtor() : null;
+const _cPartly = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
+const _cOvercast = _ColorCtor ? new _ColorCtor(0x94a3b8) : null;
+const _cRain = _ColorCtor ? new _ColorCtor(0x475569) : null;
+const _cSnow = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
+const _cSunDay = _ColorCtor ? new _ColorCtor(0xfffbeb) : null;
+const _cSunSet = _ColorCtor ? new _ColorCtor(0xfb923c) : null;
+const _cSunNight = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
+const _cCloudRain = _ColorCtor ? new _ColorCtor(0x64748b) : null;
+const _cCloudOvercast = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
+const _cCloudWhite = _ColorCtor ? new _ColorCtor(0xffffff) : null;
+const _cSunSunsetGlow = _ColorCtor ? new _ColorCtor(0xfdba74) : null;
+const _cSnowWhite = _ColorCtor ? new _ColorCtor(0xf1f5f9) : null;
+const _cloudDummy = _Obj3DCtor ? new _Obj3DCtor() : null;
 
 let lastSnowMix = -1;
 

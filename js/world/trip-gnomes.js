@@ -22,7 +22,7 @@ let floraGeos = null;
 let cachedFlowTextures = null;
 let flowTime = 0;
 let flowWasActive = false;
-const _tmpFireflyColor = THREE ? new THREE.Color() : null;
+const _tmpFireflyColor = (THREE && THREE.Color) ? new THREE.Color() : null;
 
 function collectFlowTextures(scene) {
   const seen = new Set();

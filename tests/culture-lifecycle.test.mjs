@@ -20,29 +20,29 @@ test('createCultureLifecycleState inicializa corretamente', () => {
   assert.equal(getCultureRemainingDays(st), CULTURE_ROOM_SHELF_LIFE_DAYS);
 });
 
-test('stepCultureShelfLife avança dias em temperatura ambiente e expira aos 30 dias', () => {
+test('stepCultureShelfLife avança dias em temperatura ambiente e expira aos 15 dias', () => {
   const st = createCultureLifecycleState(true);
   const changed = stepCultureShelfLife(st, CULTURE_GAME_DAY_SECONDS);
   assert.equal(changed, 1);
   assert.equal(Math.floor(st.ageGameDays), 1);
   assert.equal(getCultureRemainingDays(st), CULTURE_ROOM_SHELF_LIFE_DAYS - 1);
 
-  const expiredRes = stepCultureShelfLife(st, CULTURE_GAME_DAY_SECONDS * 30);
+  const expiredRes = stepCultureShelfLife(st, CULTURE_GAME_DAY_SECONDS * CULTURE_ROOM_SHELF_LIFE_DAYS);
   assert.equal(expiredRes, 2);
   assert.equal(st.expired, true);
   assert.equal(getCultureRemainingDays(st), 0);
 });
 
-test('cultura refrigerada dura o dobro (60 dias)', () => {
+test('cultura refrigerada dura 6x mais (90 dias)', () => {
   const st = createCultureLifecycleState(true);
   st.refrigerated = true;
   assert.equal(getCultureRemainingDays(st), CULTURE_REFRIGERATED_SHELF_LIFE_DAYS);
 
   stepCultureShelfLife(st, CULTURE_GAME_DAY_SECONDS * 30);
   assert.equal(st.expired, false);
-  assert.equal(getCultureRemainingDays(st), 30);
+  assert.equal(getCultureRemainingDays(st), CULTURE_REFRIGERATED_SHELF_LIFE_DAYS - 30);
 
-  stepCultureShelfLife(st, CULTURE_GAME_DAY_SECONDS * 30);
+  stepCultureShelfLife(st, CULTURE_GAME_DAY_SECONDS * 60);
   assert.equal(st.expired, true);
 });
 

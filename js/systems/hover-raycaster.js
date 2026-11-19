@@ -190,6 +190,9 @@ export function updateHoverRay(ctx, customNdc) {
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
+  const refX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
+  const refZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
+  const maxPickSq = ctx.inFps ? 26 : 225;
   ctx.raycaster.far = 24;
   ctx.raycaster.setFromCamera(rayNdc, ctx.camera);
 
@@ -202,7 +205,7 @@ export function updateHoverRay(ctx, customNdc) {
   }
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
 
-  if (ctx.rankingBtnMeshes.length) {
+  if (ctx.rankingBtnMeshes.length && (!ctx.inFps || (Math.abs(refX) < 30 && refZ < 16))) {
     const rHits = ctx.raycaster.intersectObjects(ctx.rankingBtnMeshes, false);
     if (rHits.length > 0 && rHits[0].distance < 18) {
       ctx.hoverHit = rHits[0];
@@ -213,7 +216,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (ctx.cinemaScreenMesh) {
+  if (ctx.cinemaScreenMesh && (!ctx.inFps || (refX > 16 && refZ > -32 && refZ < 12))) {
     const cHits = ctx.raycaster.intersectObject(ctx.cinemaScreenMesh, false);
     if (cHits.length > 0 && cHits[0].distance < 22) {
       ctx.hoverHit = cHits[0];
@@ -237,7 +240,14 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (ctx.scaleTareMeshes.length) {
-    const tHits = ctx.raycaster.intersectObjects(ctx.scaleTareMeshes, false);
+    let anyScaleNear = false;
+    for (let si = 0; si < ctx.scaleTareMeshes.length; si++) {
+      if (ctx.raycaster.ray.distanceSqToPoint(ctx.scaleTareMeshes[si].getWorldPosition(_tmpBadgeWorldPos)) < 1.5) {
+        anyScaleNear = true;
+        break;
+      }
+    }
+    const tHits = anyScaleNear ? ctx.raycaster.intersectObjects(ctx.scaleTareMeshes, false) : [];
     if (tHits.length > 0 && tHits[0].distance < 3.5) {
       ctx.hoverHit = tHits[0];
       const sc = tHits[0].object.userData.scaleObj;
@@ -255,7 +265,14 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (ctx.burnerSwitchMeshes.length && (!ctx.heldItem || !ctx.heldItem.mesh.userData.isBurner)) {
-    const bHits = ctx.raycaster.intersectObjects(ctx.burnerSwitchMeshes, false);
+    let anyBurnerNear = false;
+    for (let bi = 0; bi < ctx.burnerSwitchMeshes.length; bi++) {
+      if (ctx.raycaster.ray.distanceSqToPoint(ctx.burnerSwitchMeshes[bi].getWorldPosition(_tmpBadgeWorldPos)) < 2.25) {
+        anyBurnerNear = true;
+        break;
+      }
+    }
+    const bHits = anyBurnerNear ? ctx.raycaster.intersectObjects(ctx.burnerSwitchMeshes, false) : [];
     if (bHits.length > 0 && bHits[0].distance < 4.0) {
       ctx.hoverHit = bHits[0];
       if (bHits[0].object.userData.burnerTimerIdx !== undefined) {
@@ -275,7 +292,14 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (ctx.stirSwitchMeshes.length && (!ctx.heldItem || !ctx.heldItem.mesh.userData.isStirrer)) {
-    const stSwHits = ctx.raycaster.intersectObjects(ctx.stirSwitchMeshes, false);
+    let anyStirNear = false;
+    for (let si = 0; si < ctx.stirSwitchMeshes.length; si++) {
+      if (ctx.raycaster.ray.distanceSqToPoint(ctx.stirSwitchMeshes[si].getWorldPosition(_tmpBadgeWorldPos)) < 1.5) {
+        anyStirNear = true;
+        break;
+      }
+    }
+    const stSwHits = anyStirNear ? ctx.raycaster.intersectObjects(ctx.stirSwitchMeshes, false) : [];
     if (stSwHits.length > 0 && stSwHits[0].distance < 4.0) {
       ctx.hoverHit = stSwHits[0];
       ctx.hoveredStirSwitch = stSwHits[0].object.userData.stirSwitch;
@@ -286,7 +310,14 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (ctx.hoodSwitchMeshes.length) {
-    const hsHits = ctx.raycaster.intersectObjects(ctx.hoodSwitchMeshes, false);
+    let anyHoodNear = false;
+    for (let hi = 0; hi < ctx.hoodSwitchMeshes.length; hi++) {
+      if (ctx.raycaster.ray.distanceSqToPoint(ctx.hoodSwitchMeshes[hi].getWorldPosition(_tmpBadgeWorldPos)) < 2.25) {
+        anyHoodNear = true;
+        break;
+      }
+    }
+    const hsHits = anyHoodNear ? ctx.raycaster.intersectObjects(ctx.hoodSwitchMeshes, false) : [];
     if (hsHits.length > 0 && hsHits[0].distance < 4.0) {
       ctx.hoverHit = hsHits[0];
       ctx.hoveredHoodSwitch = hsHits[0].object.userData.hoodSwitch;
@@ -331,10 +362,7 @@ export function updateHoverRay(ctx, customNdc) {
       prompt = '🚪 ' + (ctx.hoveredDoorObj.open ? 'Fechar ' : 'Abrir ') + ctx.hoveredDoorObj.label;
     }
   }
-  const refX = ctx.inFps ? ctx.playerPos.x : ctx.camera.position.x;
-  const refZ = ctx.inFps ? ctx.playerPos.z : ctx.camera.position.z;
   const maxMushSq = ctx.inFps ? 24 : 225;
-  const maxPickSq = ctx.inFps ? 26 : 225;
   if (!prompt && !ctx.heldItem) {
     for (let m = 0; m < ctx.wildMushrooms.length; m++) {
       const wm = ctx.wildMushrooms[m];
