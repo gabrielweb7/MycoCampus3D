@@ -934,13 +934,6 @@ export function handlePrimaryAction(ctx) {
       interactAlcoholLamp(ctx, ctx.hoveredPickable);
       return;
     }
-    if (!ctx.adminEditMode && ctx.hoveredPickable.silicaJarCtrl) {
-      interactSilicaStorageJar(ctx, ctx.hoveredPickable);
-      return;
-    }
-    if (!ctx.adminEditMode && ctx.hoveredPickable.spawnCtrl && breakAndShakeSpawn(ctx, ctx.hoveredPickable)) {
-      return;
-    }
     if (!ctx.adminEditMode && ctx.hoveredPickable.monotubCtrl) {
       const mc = ctx.hoveredPickable.monotubCtrl;
       if ((!mc.spent && !mc.contaminated && mc.fruitingStage === 3) ||

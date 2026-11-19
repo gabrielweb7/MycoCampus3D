@@ -9,7 +9,7 @@ import { buildCampusBuildingWing } from './buildings.js';
 import { buildGreenhouseBench } from './greenhouse.js';
 import { registerPickable } from '../items/item-registry.js';
 import { addMovableStainlessTable } from '../items/stainless-table.js';
-import { buildLaminarHoodAndBenches } from '../items/laminar-hood.js';
+import { buildLaminarHoodAndBenches, addWallLabBench } from '../items/laminar-hood.js';
 import { createPressureCookerPair, makeElectricBurner } from '../items/pressure-cooker.js';
 import { makePetriDish, getPetriMeta, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, PETRI_STACK_SPACING } from '../items/petri-dish.js';
 import { makeCultureFridge } from '../items/culture-fridge.js';
@@ -89,14 +89,16 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeDistilledJug5L(ctx, 'distilled_jug_5l', -21.95, 1.02, -11.9, 5000);
   makeCultureFridge(ctx, 'culture_fridge_lab', -15.55, 0.12, -10.7);
 
-  // Mesa de Cultura Liquida & Placas de Petri
+  // Mesa de Cultura Liquida & Placas de Petri (Estoque ampliado p/ vários players no Fluxo Laminar e Bancada!)
   addMovableStainlessTable(ctx, 'table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);
   registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.32, 1.065, -8.55, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
+  registerPickable(ctx, 'petri_clean_02', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.32, 1.065, -8.38, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
+  registerPickable(ctx, 'petri_clean_03', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.32, 1.065, -8.21, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
   registerPickable(ctx, 'petri_clean_fridge', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -15.35, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
   registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 0.78, -1.85, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('contam'));
   registerPickable(ctx, 'petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
-  for (let pse = 0; pse < 4; pse++) {
-    registerPickable(ctx, 'petri_sterile_hood_' + pad2(pse + 1), 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -18.18, 1.065, -7.75 - pse * 0.16, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
+  for (let pse = 0; pse < 6; pse++) {
+    registerPickable(ctx, 'petri_sterile_hood_' + pad2(pse + 1), 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -18.18, 1.065, -7.75 - pse * 0.14, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
   }
   registerPickable(ctx, 'petri_sterile_fridge_01', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -15.65, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
   registerPickable(ctx, 'petri_sterile_fridge_02', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -15.50, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
@@ -106,20 +108,28 @@ export function buildCampusWingsAndEquipment(ctx) {
   const pdaBottle = registerPickable(ctx, 'pda_bottle', 'Pó desidratado BDA/PDA 500g', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.34, PDA_BOTTLE_META);
   attachPdaReagentCtrl(pdaBottle);
 
-  // Spawn, Balanca, Borrifador & Seladora
+  // Spawn Colonizado, Substrato Pasteurizado Pronto, Balança, Borrifadores, Papel Toalha & Seladoras (Múltiplos conjuntos na bancada para vários players!)
   makeSpawnJar800(ctx, 'spawn_jar', true, -23.1, 1.02, -4.5);
+  makeSpawnJar800(ctx, 'spawn_jar_colonized_02', true, -23.1, 1.02, -4.1);
   makeSpawnJar800(ctx, 'spawn_jar_empty', false, -23.1, 1.02, -3.7);
   makeSpawnBag1500(ctx, 'spawn_bag_colonized', true, -23.1, 1.02, -8.5);
+  makeSpawnBag1500(ctx, 'spawn_bag_colonized_02', true, -22.8, 1.02, -8.5);
   makeSpawnBag1500(ctx, 'spawn_bag_empty', false, -23.1, 1.02, -7.8);
   createPrecisionScale(ctx, 'precision_scale', -23.1, 1.02, -9.6);
   makeMixingBowl(ctx, 'mixing_bowl_01', -23.1, 1.02, -10.1);
   makeLabSpoon(ctx, 'lab_spoon_01', -23.1, 1.02, -10.35);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray', -22.85, 1.02, -7.1);
+  makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_03', -18.55, 1.065, -8.35);
+  makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_04', -20.20, 0.91, -10.18);
   makePaperTowelRoll(ctx, 'paper_towel_01', -22.85, 1.02, -7.45);
+  makePaperTowelRoll(ctx, 'paper_towel_lab_03', -18.55, 1.065, -8.10);
+  makePaperTowelRoll(ctx, 'paper_towel_lab_04', -19.85, 0.91, -10.18);
+  makeGlovesBox(ctx, 'gloves_box_lab_01', -18.55, 1.065, -7.55);
+  makeGlovesBox(ctx, 'gloves_box_lab_02', -22.85, 1.02, -6.75);
   createHeatSealer(ctx, 'heat_sealer', -23.1, 1.02, -6.2);
   buildLabTrashBin(ctx, -17.3, 0, -9.2);
 
-  // Agitador, Culturas Liquidas Saudaveis, Bequeres, Bandejas, Seringas & Termometro
+  // Agitador, Culturas Liquidas Saudaveis, Bequeres, Bandejas, Seringas & Termometros (Extras na bancada!)
   makeMagneticStirrer(ctx, 'magnetic_stirrer', -20.95, 0.91, -10.55);
   const lc1 = makeLiquidJar800(ctx, 'liquid_culture', -20.95, 1.015, -10.59, 350);
   if (lc1 && lc1.cultureCtrl) lc1.cultureCtrl.colonized = true;
@@ -137,7 +147,10 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeLabTray(ctx, 'lab_tray_03', 'Bandeja Inox (Preparo)', -20.42, 0.91, -10.18);
   makeSyringe10ml(ctx, 'syringe_10ml_a', -19.70, 0.918, -10.50);
   makeSyringe10ml(ctx, 'syringe_10ml_b', -19.70, 0.918, -10.64);
+  makeSyringe10ml(ctx, 'syringe_10ml_c', -19.58, 0.918, -10.50);
+  makeSyringe10ml(ctx, 'syringe_10ml_d', -19.58, 0.918, -10.64);
   makeInfraredThermometer(ctx, 'infrared_thermometer', -20.0, 0.91, -10.2);
+  makeInfraredThermometer(ctx, 'infrared_thermometer_02', -22.85, 1.02, -9.55);
 
   // Estante azul + Tubos Falcon 15ml (azul) e 50ml (laranja) sobre a bancada norte fixa (y = 1.02)
   makeFalconRack(ctx, -20.50, 1.02, -12.00);
@@ -153,24 +166,30 @@ export function buildCampusWingsAndEquipment(ctx) {
   // Bisturi Inox, Saches de Lamina #24, Lamparina a Alcool, Microscópio, Flocao de Milho 500g e Potinhos PP5 145ml (Estoque ampliado p/ multiplayer!)
   makeScalpel(ctx, 'scalpel_01', -18.25, 1.065, -8.90);
   makeScalpel(ctx, 'scalpel_05', -18.35, 1.065, -8.90);
-  for (let bpi = 0; bpi < 4; bpi++) {
-    makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi + 1), -18.12 + bpi * 0.04, 1.065, -8.92);
+  makeScalpel(ctx, 'scalpel_06', -18.45, 1.065, -8.90);
+  for (let bpi = 0; bpi < 6; bpi++) {
+    makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi + 1), -18.12 + bpi * 0.036, 1.065, -8.92);
   }
   makeAlcoholLamp(ctx, 'alcohol_lamp_hood', -18.55, 1.065, -8.88);
   makeAlcoholLamp(ctx, 'alcohol_lamp_hood_02', -18.55, 1.065, -7.85);
   makeLabMicroscope(ctx, 'microscope_lab', -19.25, 0.91, -10.55);
   makeLabMicroscope(ctx, 'microscope_lab_02', -19.25, 0.91, -10.18);
   makeSilicaStorageJar(ctx, 'silica_jar_01', -22.85, 1.02, -9.15, {
-    storedGrams: 25,
+    storedGrams: 50,
     speciesName: 'Golden Teacher (Psilocybe cubensis)'
   });
   makeSilicaStorageJar(ctx, 'silica_jar_02', -22.85, 1.02, -8.92, {
-    storedGrams: 0
+    storedGrams: 25,
+    speciesName: 'B+ Cubensis'
   });
   makeSilicaStorageJar(ctx, 'silica_jar_03', -22.85, 1.02, -8.70, {
     storedGrams: 0
   });
+  makeSilicaStorageJar(ctx, 'silica_jar_04', -22.62, 1.02, -8.92, {
+    storedGrams: 0
+  });
   makeDriedMushroomBatch(ctx, 'dried_batch_demo', 'Golden Teacher (Psilocybe cubensis)', -22.62, 1.02, -9.15);
+  makeDriedMushroomBatch(ctx, 'dried_batch_demo_02', 'B+ Cubensis', -22.62, 1.02, -8.70);
   makeFlocao500g(ctx, 'flocao_500g_01', -23.10, 1.02, -5.30);
   makeFlocao500g(ctx, 'flocao_500g_02', -23.10, 1.02, -5.05);
   makeFlocao500g(ctx, 'flocao_500g_03', -23.10, 1.02, -4.80);
@@ -296,6 +315,11 @@ export function buildCampusWingsAndEquipment(ctx) {
     const eCol = lce % 5;
     makeLiquidJar800(ctx, 'liquid_culture_empty_stock_' + pad2(lce + 1), -21.65 + eCol * 0.42, 1.798, 12.78 + eRow * 0.34, 0);
   }
+  // Bancada & Pia Inox com água corrente no Depósito de Insumos (Sala Oeste-Sul)
+  addWallLabBench(ctx, -18.8, 7.6, 2.4, 1.1, {
+    hole: { cx: -19.4, cz: 7.6, w: 0.60, d: 0.50 },
+    sinkPos: { x: -19.4, z: 7.6 }
+  });
 
   // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
   // Leste-Norte: SALA DE DESIDRATAÇÃO, EMBALAGEM & EXPEDIÇÃO (+ Pasteurização e Estante LED de Monotubes)
@@ -307,6 +331,11 @@ export function buildCampusWingsAndEquipment(ctx) {
 
   // 1. Bancada Leste (x: 21.8): 6 Desidratadoras para vários jogadores desidratarem cogumelos simultaneamente!
   addMovableStainlessTable(ctx, 'table_sub_east', 'Bancada Inox (6 Desidratadoras 55°C)', 21.8, 0.12, -7.2, 1.3, 0.82, 3.8);
+  // Bancada & Pia Inox com água corrente na Sala de Desidratação (parede Norte)
+  addWallLabBench(ctx, 19.5, -12.0, 3.4, 1.1, {
+    hole: { cx: 18.5, cz: -12.0, w: 0.60, d: 0.50 },
+    sinkPos: { x: 18.5, z: -12.0 }
+  });
   const dehydCoords = [
     [21.55, -8.55], [22.05, -8.55],
     [21.55, -7.20], [22.05, -7.20],
@@ -315,8 +344,8 @@ export function buildCampusWingsAndEquipment(ctx) {
   for (let di = 0; di < dehydCoords.length; di++) {
     const dc = dehydCoords[di];
     const dItem = makeDehydrator(ctx, 'dehydrator_east_' + pad2(di + 1), dc[0], 0.94, dc[1]);
-    // A 1ª Desidratadora já começa com um lote crocante pronto para o jogador testar a embalagem imediata!
-    if (di === 0 && dItem && dItem.dehydratorCtrl) {
+    // As 3 primeiras Desidratadoras já começam com lotes crocantes prontos para vários players retirarem e embalarem!
+    if (di < 3 && dItem && dItem.dehydratorCtrl) {
       dItem.dehydratorCtrl.hasMushroom = true;
       dItem.dehydratorCtrl.on = true;
       dItem.dehydratorCtrl.progress = 100;
@@ -332,22 +361,27 @@ export function buildCampusWingsAndEquipment(ctx) {
   createHeatSealer(ctx, 'heat_sealer_east_03', 18.25, 0.94, -6.05);
   createPrecisionScale(ctx, 'precision_scale_east', 18.95, 0.94, -8.65);
 
-  // 2 lotes de 25g de cogumelos crocantes prontos sobre a bancada de embalagem
-  makeDriedMushroomBatch(ctx, 'dried_batch_east_01', 'Golden Teacher (Psilocybe cubensis)', 18.95, 0.94, -8.10);
-  makeDriedMushroomBatch(ctx, 'dried_batch_east_02', 'B+ Cubensis', 18.95, 0.94, -7.80);
+  // 4 lotes de 25g de cogumelos crocantes prontos sobre a bancada de embalagem para vários jogadores testarem
+  makeDriedMushroomBatch(ctx, 'dried_batch_east_01', 'Golden Teacher (Psilocybe cubensis)', 18.95, 0.94, -8.25);
+  makeDriedMushroomBatch(ctx, 'dried_batch_east_02', 'B+ Cubensis', 18.95, 0.94, -8.00);
+  makeDriedMushroomBatch(ctx, 'dried_batch_east_03', 'Penis Envy (Psilocybe cubensis)', 18.95, 0.94, -7.75);
+  makeDriedMushroomBatch(ctx, 'dried_batch_east_04', 'Cambodian Cubensis', 18.95, 0.94, -7.50);
 
-  // 16 Sacos Mylar/Zip para embalar cogumelos desidratados (sendo 2 já cheios e 2 já selados prontos p/ colocar na caixa!)
+  // 16 Sacos Mylar/Zip para embalar cogumelos desidratados:
+  // - 6 já SELADOS e prontos para pôr na caixa ou vender direto!
+  // - 4 já CHEIOS com cogumelos nos saquinhos aguardando só passar na Seladora Térmica!
+  // - 6 VAZIOS para encher com os lotes crocantes!
   for (let mbi = 0; mbi < 16; mbi++) {
     const mbRow = Math.floor(mbi / 4);
     const mbCol = mbi % 4;
-    const isPreSealed = mbi < 2;
-    const isPreFilled = mbi >= 2 && mbi < 4;
+    const isPreSealed = mbi < 6;
+    const isPreFilled = mbi >= 6 && mbi < 10;
     makeMushroomBag(
       ctx,
       'mushroom_pack_bag_' + pad2(mbi + 1),
-      18.65 + mbCol * 0.15,
+      18.55 + mbCol * 0.14,
       0.945,
-      -7.40 + mbRow * 0.22,
+      -7.25 + mbRow * 0.22,
       {
         filled: isPreSealed || isPreFilled,
         sealed: isPreSealed,
@@ -357,18 +391,45 @@ export function buildCampusWingsAndEquipment(ctx) {
     );
   }
 
-  // 6 Caixas de Entrega Comercial (4 pacotes selados por caixa = 🪙 480 MycoCoins na Estrada!)
-  makeDeliveryCrate(ctx, 'delivery_crate_01', 18.55, 0.94, -5.60, { packsCount: 3 });
-  makeDeliveryCrate(ctx, 'delivery_crate_02', 19.00, 0.94, -5.60, { packsCount: 0 });
-  makeDeliveryCrate(ctx, 'delivery_crate_03', 18.55, 0.12, -9.50, { packsCount: 4 });
-  makeDeliveryCrate(ctx, 'delivery_crate_04', 19.05, 0.12, -9.50, { packsCount: 0 });
-  makeDeliveryCrate(ctx, 'delivery_crate_05', 19.55, 0.12, -9.50, { packsCount: 0 });
-  makeDeliveryCrate(ctx, 'delivery_crate_06', 20.05, 0.12, -9.50, { packsCount: 0 });
+  // 8 Caixas de Entrega Comercial:
+  // - 3 CAIXAS JÁ 100% CHEIAS (4/4 pacotes selados = 🪙 480 MycoCoins cada!) na bancada e no chão prontas para pegar e vender na Estrada!
+  // - 1 CAIXA quase cheia (3/4 pacotes) na bancada para testar colocar o 4º saquinho!
+  // - 2 CAIXAS VAZIAS na Sala de Desidratação + 2 CAIXAS CHEIAS extras ao lado do Quiosque Drive-Thru na Estrada Sul para teste imediato!
+  makeDeliveryCrate(ctx, 'delivery_crate_01', 18.55, 0.94, -5.65, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_02', 19.00, 0.94, -5.65, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_03', 18.55, 0.94, -6.10, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_04', 19.00, 0.94, -6.10, { packsCount: 3 });
+  makeDeliveryCrate(ctx, 'delivery_crate_05', 18.55, 0.12, -9.50, { packsCount: 0 });
+  makeDeliveryCrate(ctx, 'delivery_crate_06', 19.05, 0.12, -9.50, { packsCount: 0 });
+  // 2 Caixas Cheias (4/4 pacotes) já posicionadas na bancada dentro do Empório da Estrada (x: 13.5, z: 32.3) para empilhar/levar às estantes da frente!
+  makeDeliveryCrate(ctx, 'delivery_crate_07', 13.5, 0.94, 32.0, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_08', 13.5, 0.94, 32.6, { packsCount: 4 });
 
-  // 3. Zona Sul da Sala (z: -3.8..-2.2): Tripé a Gás + Panela de Pasteurização + Sacos Extras de Vermiculita 5kg e Pó de Coco 5kg
+  // 3. Zona Sul da Sala (z: -3.8..-2.2): Tripé a Gás + Panela de Pasteurização + Spawn & Substrato Pasteurizado prontos para múltiplos players!
   makeCookerBase(ctx, 'cooker_base_sub', 21.8, 0.94, -5.35);
   makeGasTripodBurner(ctx, 'gas_tripod_sub', 21.8, 0.12, -3.1);
   createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.8, 0.74, -3.1);
+
+  // Kits prontos de Spawn 100% Colonizado + Substrato Pasteurizado + Álcool 70% + Papel Toalha na Sala de Desidratação/Monotubs para vários players montarem Monotubs 24L!
+  makeSpawnBag1500(ctx, 'spawn_bag_colonized_03', true, 16.5, 0.12, -9.3);
+  makeSpawnBag1500(ctx, 'spawn_bag_colonized_04', true, 16.9, 0.12, -9.3);
+  const subBag1 = makeSpawnBag1500(ctx, 'spawn_bag_pasteurized_01', true, 17.3, 0.12, -9.3);
+  const subBag2 = makeSpawnBag1500(ctx, 'spawn_bag_pasteurized_02', true, 17.7, 0.12, -9.3);
+  [subBag1, subBag2].forEach((sb) => {
+    if (sb && sb.spawnCtrl) {
+      sb.spawnCtrl.substrateKind = 'coco_verm';
+      sb.spawnCtrl.baseLabel = 'Bag 1,5kg Substrato (Coco + Vermiculita)';
+      sb.spawnCtrl.pasteurized = true;
+      sb.spawnCtrl.sterilized = true;
+      sb.spawnCtrl.inoculated = false;
+      sb.spawnCtrl.colonized = false;
+      sb.spawnCtrl.colonization = 0;
+      if (sb.spawnCtrl.mycOverlay) sb.spawnCtrl.mycOverlay.visible = false;
+      sb.spawnCtrl.updateVisual();
+    }
+  });
+  makeAlcoholSprayBottle(ctx, 'alcohol_spray_east_01', 18.25, 0.94, -5.35);
+  makePaperTowelRoll(ctx, 'paper_towel_east_01', 18.55, 0.94, -5.35);
 
   for (let vi = 0; vi < 4; vi++) {
     makeSubstrateBag5kg(ctx, 'substrate_vermiculite_' + pad2(vi + 1), 'vermiculite', 23.05, 0.12, -9.2 + vi * 0.65);
@@ -415,8 +476,12 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeMonotub24L(ctx, 'monotub_24l_07', 15.3, 1.14, -5.51, { ry: Math.PI / 2 });
   makeMonotub24L(ctx, 'monotub_24l_08', 15.3, 1.14, -4.92, { ry: Math.PI / 2 });
 
-  // Equipamentos da Estufa Climatizada Inteligente (Leste-Sul)
+  // Equipamentos da Estufa Climatizada Inteligente (Leste-Sul) + Bancada e Pia Inox com água!
   buildGreenhouseBench(scene, ctx);
+  addWallLabBench(ctx, 19.0, 2.9, 3.0, 1.0, {
+    hole: { cx: 18.0, cz: 2.9, w: 0.60, d: 0.50 },
+    sinkPos: { x: 18.0, z: 2.9 }
+  });
 
   // Horta Orgânica Externa com Alfaces, Tomates e Caixa de Substrato / Compostagem (Sul da Estufa)
   buildCampusVegetableGarden(ctx);
