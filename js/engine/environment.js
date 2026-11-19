@@ -5,6 +5,8 @@ import { snowableEntries, getTextures } from './textures.js';
 import { stepRainbow } from './rainbow.js';
 import { updateCelestialSkyDome } from './sky-constellations.js';
 import { stepRainPuddles } from './rain-puddles.js';
+import { stepSkyGradientDome } from './sky-gradient.js';
+import { stepCozyDetails } from '../world/cozy-details.js';
 
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
@@ -26,6 +28,12 @@ const _cCloudOvercast = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
 const _cCloudWhite = _ColorCtor ? new _ColorCtor(0xffffff) : null;
 const _cSunSunsetGlow = _ColorCtor ? new _ColorCtor(0xfdba74) : null;
 const _cSnowWhite = _ColorCtor ? new _ColorCtor(0xf1f5f9) : null;
+const _cHemiSkyDay = _ColorCtor ? new _ColorCtor(0xe0f2fe) : null;
+const _cHemiSkySet = _ColorCtor ? new _ColorCtor(0xfed7aa) : null;
+const _cHemiSkyNight = _ColorCtor ? new _ColorCtor(0x60a5fa) : null;
+const _cHemiGndDay = _ColorCtor ? new _ColorCtor(0x3f624d) : null;
+const _cHemiGndSet = _ColorCtor ? new _ColorCtor(0x5b4668) : null;
+const _cHemiGndNight = _ColorCtor ? new _ColorCtor(0x1e293b) : null;
 const _cloudDummy = _Obj3DCtor ? new _Obj3DCtor() : null;
 
 let lastSnowMix = -1;
@@ -97,6 +105,10 @@ export function updateDynamicEnvironment(dt, env) {
   if (weatherMode === 'snow') skyCol.lerp(_cSnow, 0.5);
   env.scene.background.copy(skyCol);
   if (env.scene.fog) env.scene.fog.color.copy(skyCol);
+  if (env.skyGradient) {
+    const skyOrigin = env.inFps ? env.playerPos : (env.camera ? env.camera.position : env.playerPos);
+    stepSkyGradientDome(env.skyGradient, skyOrigin, sunX, sunY, weatherMode);
+  }
 
   if (env.sunDisc && env.sunHalo) {
     env.sunDisc.position.set(sunX * 165, sunY * 145, -45);
@@ -140,6 +152,22 @@ export function updateDynamicEnvironment(dt, env) {
   }
   if (env.envHemi) {
     env.envHemi.intensity = env.isTouch ? Math.max(0.45, sunY * 0.28 + 0.45) : Math.max(0.36, sunY * 0.25 + 0.38);
+    if (_cHemiSkyDay && _cHemiGndDay) {
+      env.envHemi.color.copy(_cHemiSkyDay);
+      env.envHemi.groundColor.copy(_cHemiGndDay);
+      if (sunY < 0.22 && sunY > -0.18) {
+        const sT = Math.max(0, Math.min(1, 1 - Math.abs(sunY - 0.03) / 0.21));
+        env.envHemi.color.lerp(_cHemiSkySet, sT);
+        env.envHemi.groundColor.lerp(_cHemiGndSet, sT);
+      } else if (sunY <= -0.18) {
+        const nT = Math.min(1, (-sunY - 0.18) / 0.25);
+        env.envHemi.color.lerp(_cHemiSkyNight, nT);
+        env.envHemi.groundColor.lerp(_cHemiGndNight, nT);
+      }
+    }
+  }
+  if (env.cozyDetails) {
+    stepCozyDetails(env.cozyDetails, dt, env.envTime, sunY, weatherMode, env.qualityTier);
   }
 
   const targetClouds = weatherMode === 'clear' ? 8 : (weatherMode === 'partly' ? 15 : (weatherMode === 'snow' ? 20 : 24));

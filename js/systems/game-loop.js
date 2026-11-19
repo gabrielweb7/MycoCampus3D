@@ -11,6 +11,7 @@ import {
   drawCinemaVideoFrame as cinemaDrawFrame
 } from '../engine/cinema.js';
 import { updateDynamicEnvironment as envUpdate } from '../engine/environment.js';
+import { stepBlobShadows } from '../engine/blob-shadows.js';
 import {
   getVirtualDayFrac,
   updateClockTexture
@@ -98,7 +99,9 @@ const _envArg = {
   moonDisc: null,
   starPoints: null,
   celestialDome: null,
+  skyGradient: null,
   rainPuddles: null,
+  cozyDetails: null,
   nightLampGlows: null,
   envSun: null,
   envHemi: null,
@@ -200,7 +203,9 @@ export function updateDynamicEnvironment(ctx, dt) {
   _envArg.moonDisc = ctx.moonDisc;
   _envArg.starPoints = ctx.starPoints;
   _envArg.celestialDome = ctx.celestialDome;
+  _envArg.skyGradient = ctx.skyGradient;
   _envArg.rainPuddles = ctx.rainPuddles;
+  _envArg.cozyDetails = ctx.cozyDetails;
   _envArg.nightLampGlows = ctx.nightLampGlows;
   _envArg.envSun = ctx.envSun;
   _envArg.envHemi = ctx.envHemi;
@@ -222,6 +227,7 @@ export function updateDynamicEnvironment(ctx, dt) {
 
   envUpdate(dt, _envArg);
   qualityMod.stepSunShadow(ctx.renderer, ctx.envSun, ctx.playerPos);
+  if (ctx.blobShadows) stepBlobShadows(ctx.blobShadows, ctx, qualityMod.qualityState.shadowsActive);
   ctx.envTime = _envArg.envTime;
   ctx.lastWeatherMode = _envArg.lastWeatherMode;
   ctx.weatherMode = _envArg.weatherMode;

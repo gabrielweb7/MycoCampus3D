@@ -329,5 +329,33 @@ test('sports-scoreboard, rain-puddles (create + step) e Cesta Orgânica da Horta
   const rep = getReplicatedItemState({}, mutantPetri);
   assert.equal(rep.petri.hybridMutant, 'gold');
 
+  const { stepSkyGradientDome } = await import('../js/engine/sky-gradient.js');
+  const { stepBlobShadows } = await import('../js/engine/blob-shadows.js');
+  const { triggerCozyHeartBurst, stepCozyDetails } = await import('../js/world/cozy-details.js');
+  const { isPhotoModeActive, setPhotoMode } = await import('../js/ui/photo-mode.js');
+
+  const skyCtrl = {
+    mesh: { position: { set(x, y, z) { this.x = x; this.y = y; this.z = z; } } },
+    mat: {
+      uniforms: {
+        uTopColor: { value: new MockColor() },
+        uHorizonColor: { value: new MockColor() },
+        uSunDir: { value: { set() { return this; }, normalize() { return this; } } },
+        uSunWarmth: { value: 0 }
+      }
+    }
+  };
+  stepSkyGradientDome(skyCtrl, { x: 1, y: 2, z: 3 }, 0.5, 0.03, 'clear');
+  assert.ok(skyCtrl.mat.uniforms.uSunWarmth.value > 0.2);
+
+  const blobCtrl = { inst: { visible: true, count: 0, instanceMatrix: { needsUpdate: false }, setMatrixAt() {} } };
+  stepBlobShadows(blobCtrl, {}, true);
+  assert.equal(blobCtrl.inst.visible, false);
+
+  triggerCozyHeartBurst(2, 1, 2, 0xf472b6);
+  assert.equal(typeof stepCozyDetails, 'function');
+  assert.equal(isPhotoModeActive(), false);
+  setPhotoMode(false);
+
   assert.equal(isHoldingPackOrCrateForStand({ organicBasketCtrl: { packsValue: 2 } }), true);
 });

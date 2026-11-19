@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.0] - 2026-11-19
+### Céu em Gradiente, Sombras de Contato no Mobile, Visual Fofinho (Borboletas, Luzinhas, Corações) & Modo Foto + Otimização de FPS
+- **Performance & Iluminação (`js/engine/sky-gradient.js`, `js/engine/blob-shadows.js`, `js/engine/environment.js`, `js/systems/campus-init.js`):**
+  - `renderer.shadowMap.autoUpdate = false` unificado no Desktop + Mobile para respeitar `shadowEvery` de `stepSunShadow` (reduzindo pela metade as passagens de sombra no PC).
+  - Céu em gradiente atmosférico via `ShaderMaterial` em 1 draw call (`createSkyGradientDome`) + `HemisphereLight` dinâmica variando entre dia musgo, pôr do sol dourado/violeta e noite azulada.
+  - `createBlobShadows` / `stepBlobShadows`: sombras de contato em 1 `InstancedMesh` para avatares, vaquinhas e cogumelos quando o mapa de sombras estiver desligado no Mobile (`custo zero` no Desktop/High).
+- **Vida Fofa & Modo Foto (`js/world/cozy-details.js`, `js/ui/photo-mode.js`, `js/entities/pasture-cows.js`, `js/world/campus-garden.js`, `js/systems/sports-physics.js`):**
+  - Varais de luzinhas (`fairyBulbs` ligadas a `nightLampGlows`), 8 borboletas diurnas instanciadas na Praça/Horta, esporos luminosos e explosões de corações/estrelinhas ao acariciar vaquinhas, colher plantas e pontuar nas quadras.
+  - Botão **`📷 Foto`** (`[F9]` / botão flutuante de saída) para fotografar o campus sem HUD no PC e Celular.
+
 ## [v1.8.2] - 2026-11-19
 ### Varredura de Bugs: Visual Dourado/Albino F1, Sincronização Petri, Saída da Luneta & Assepsia
 - **Cruzamento Genético & Petri (`js/items/petri-dish.js`, `js/systems/lab-culture-actions.js`, `js/systems/world-objects-sync.js`):**

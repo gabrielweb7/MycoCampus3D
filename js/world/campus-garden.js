@@ -12,6 +12,7 @@ import { makeBox } from '../engine/textures.js';
 import { getCachedCanvasTexture, disposeObjectResources, registerPickable } from '../items/item-registry.js';
 import { resetMonotubToCleanEmpty } from '../items/monotub.js';
 import { createBanner } from './nature-plaza.js';
+import { triggerCozyHeartBurst } from './cozy-details.js';
 
 const THREE = window.THREE;
 
@@ -565,6 +566,7 @@ export function interactGardenTarget(ctx, target) {
       }
       if (pl.group && pl.group.position) {
         triggerGardenBurst(pl.group.position.x, 0.45, pl.group.position.z, pl.kind === 'tomato' ? 0xef4444 : 0x22c55e);
+        triggerCozyHeartBurst(pl.group.position.x, 0.72, pl.group.position.z, 0xfbbf24);
       }
       if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
       if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();

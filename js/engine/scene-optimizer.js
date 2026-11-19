@@ -79,7 +79,15 @@ function collectDynamicObjects(sim) {
   markDynamicTree(sim.moonDisc);
   markDynamicTree(sim.starPoints);
   markDynamicTree(sim.celestialDome && sim.celestialDome.group);
+  markDynamicTree(sim.skyGradient && sim.skyGradient.mesh);
   markDynamicTree(sim.rainPuddles && sim.rainPuddles.inst);
+  markDynamicTree(sim.blobShadows && sim.blobShadows.inst);
+  if (sim.cozyDetails) {
+    markDynamicTree(sim.cozyDetails.fairyBulbs);
+    markDynamicTree(sim.cozyDetails.butterflies);
+    markDynamicTree(sim.cozyDetails.spores);
+    markDynamicTree(sim.cozyDetails.hearts);
+  }
   markDynamicTree(sim.weatherPoints);
   markDynamicTree(sim.envSun);
   markDynamicTree(sim.envSun && sim.envSun.target);

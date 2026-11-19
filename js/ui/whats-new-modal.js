@@ -9,6 +9,17 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.0': {
+    title: '✨ Novidades da Atualização v1.9.0',
+    subtitle: 'Visual fofinho, iluminação atmosférica e mais FPS no PC e Celular!',
+    items: [
+      { icon: '🌅', text: 'Céu em Gradiente Atmosférico + Luz Rica: amanhecer dourado/rosado, horizonte em degrade, luar azulado e sombras de contato suaves no Celular!' },
+      { icon: '🦋', text: 'Campus Mais Fofinho: borboletas coloridas na Horta e Praça de dia, varais de luzinhas (Fairy Lights) acendendo à noite e esporos luminosos!' },
+      { icon: '💖', text: 'Reações Fofas: corações e estrelinhas subindo ao fazer carinho nas vaquinhas, colher na horta ou marcar gols e cestas!' },
+      { icon: '📷', text: 'Modo Foto / Cartão Postal ([F9] ou botão Foto no topo): esconda o HUD num clique para tirar prints perfeitas das constelações e do seu lab!' },
+      { icon: '⚡', text: 'Otimização de FPS no PC e Mobile: Shadow Map sob demanda no Desktop (cortando pela metade o custo de sombra) e InstancedMesh leve em todos os novos efeitos!' }
+    ]
+  },
   '1.8.2': {
     title: '✨ Novidades da Atualização v1.8.2',
     subtitle: 'Polimento geral, luneta no celular e placas F1 com cor visual real:',

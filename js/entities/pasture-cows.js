@@ -11,6 +11,7 @@
 import { terrainHeight } from '../engine/physics.js';
 import { disposeObjectResources } from '../items/item-registry.js';
 import { isNaturalSoilSpot } from '../world/nature-plaza.js';
+import { triggerCozyHeartBurst } from '../world/cozy-details.js';
 
 const THREE = window.THREE;
 
@@ -371,6 +372,9 @@ export function petCow(cowObj) {
   cowObj.mood = 'Feliz 💚 (Muuu!)';
   cowObj.state = 'curious';
   cowObj.happyTimer = 3.0;
+  if (cowObj.mesh && cowObj.mesh.position) {
+    triggerCozyHeartBurst(cowObj.mesh.position.x, cowObj.mesh.position.y + 1.35, cowObj.mesh.position.z, 0xf472b6);
+  }
   return `🐄 ${cowObj.name}: Muuu! 💚 (Saúde ${cowObj.health}%)`;
 }
 

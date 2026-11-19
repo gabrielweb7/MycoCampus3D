@@ -10,8 +10,11 @@ import { syncViewportCssVars } from '../ui/dom-helpers.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { createCelestialSkyDome } from '../engine/sky-constellations.js';
+import { createSkyGradientDome } from '../engine/sky-gradient.js';
 import { createRainPuddles } from '../engine/rain-puddles.js';
+import { createBlobShadows } from '../engine/blob-shadows.js';
 import { buildNatureWorld, buildPlaza, nightLampGlows } from '../world/nature-plaza.js';
+import { createCozyDetails } from '../world/cozy-details.js';
 import { buildPlazaTelescope } from '../world/plaza-telescope.js';
 import { buildSportsScoreboard } from '../world/sports-scoreboard.js';
 import { buildExpandedForestAndMushrooms } from '../world/mushroom-species.js';
@@ -258,7 +261,10 @@ const sim = {
   moonDisc: null,
   starPoints: null,
   celestialDome: null,
+  skyGradient: null,
   rainPuddles: null,
+  blobShadows: null,
+  cozyDetails: null,
   hoveredTelescope: false,
   telescopeZoomActive: false,
   nightLampGlows,
@@ -562,6 +568,7 @@ export function initCampus3D(containerId, cbs) {
     sim.scene.add(sim.sunDisc, sim.sunHalo, sim.moonDisc);
 
     sim.celestialDome = createCelestialSkyDome(sim.scene);
+    sim.skyGradient = createSkyGradientDome(sim.scene);
     sim.starPoints = sim.celestialDome ? sim.celestialDome.bgStars : null;
 
     sim.envCloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe0f2fe, emissiveIntensity: 0.22 });
@@ -628,7 +635,7 @@ export function initCampus3D(containerId, cbs) {
     sim.renderer.setSize(initVp.width, initVp.height, false);
     sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75));
     sim.renderer.shadowMap.enabled = true;
-    sim.renderer.shadowMap.autoUpdate = !touch;
+    sim.renderer.shadowMap.autoUpdate = false;
     sim.renderer.shadowMap.type = touch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     sim.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (THREE.ACESFilmicToneMapping) {
@@ -645,7 +652,7 @@ export function initCampus3D(containerId, cbs) {
     sim.controls.maxDistance = 65;
     sim.controls.target.set(0, 4.5, -14);
 
-    const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x475569, touch ? 0.65 : 0.56);
+    const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x3f624d, touch ? 0.68 : 0.60);
     sim.scene.add(hemi);
     sim.envHemi = hemi;
     const sun = new THREE.DirectionalLight(0xfffbeb, touch ? 1.02 : 0.95);
@@ -677,6 +684,8 @@ export function initCampus3D(containerId, cbs) {
     buildPlazaTelescope(wbCtx);
     buildSportsScoreboard(sim.scene);
     sim.rainPuddles = createRainPuddles(sim.scene);
+    sim.blobShadows = createBlobShadows(sim.scene);
+    sim.cozyDetails = createCozyDetails(sim.scene, nightLampGlows);
     ensureCoreAdminPrefabs();
     restoreLocalWorldObjects(sim);
     createPastureAndCows(wbCtx);

@@ -49,6 +49,7 @@ import {
 } from './modal-admin.js';
 import { setupMobileJoystick } from './mobile-controls.js';
 import { checkAndShowWhatsNewModal, showWhatsNewModal } from './whats-new-modal.js';
+import { togglePhotoMode } from './photo-mode.js';
 
 function getMobileActionIcon(prompt) {
   const text = String(prompt || '').toLocaleLowerCase('pt-BR');
@@ -369,6 +370,13 @@ function bindModalsAndToolbar() {
     btnEmotes.onclick = () => {
       if (window.MycoAudio) window.MycoAudio.playClick();
       $('emote-bar')?.classList.toggle('hidden');
+    };
+  }
+  const btnPhotoMode = $('btn-photo-mode');
+  if (btnPhotoMode) {
+    btnPhotoMode.onclick = () => {
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      togglePhotoMode();
     };
   }
   const btnCloseEmotes = $('btn-close-emotes');

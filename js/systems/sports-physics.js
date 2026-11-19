@@ -5,6 +5,7 @@
 import { triggerConfettiBurst } from '../entities/confetti.js';
 import { recordSportScore } from '../world/sports-scoreboard.js';
 import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { triggerCozyHeartBurst } from '../world/cozy-details.js';
 
 function getBallStateKey(sb) {
   return sb.kind === 'soccer' ? 'ball_soccer' : 'ball_basket';
@@ -140,6 +141,7 @@ export function stepSportBalls(ctx, dt) {
     if (sb.kind === 'soccer' && sb.goalCooldown <= 0 && (bPos.x < -61.2 || bPos.x > -38.8) && Math.abs(bPos.z - (-15)) < 2.1 && bPos.y < 2.1) {
       sb.goalCooldown = 1.6;
       triggerConfettiBurst(bPos.x, bPos.y + 0.6, bPos.z);
+      triggerCozyHeartBurst(bPos.x, bPos.y + 0.9, bPos.z, 0x4ade80);
       const res = recordSportScore('soccer');
       addLocalMycoCoins(res.coins);
       if (window.MycoAudio) window.MycoAudio.playHarvest();
@@ -155,6 +157,7 @@ export function stepSportBalls(ctx, dt) {
         if (hDist < 0.34 && Math.abs(bPos.y - hoop.y) < 0.25) {
           sb.goalCooldown = 1.6;
           triggerConfettiBurst(hoop.x, hoop.y + 0.3, hoop.z);
+          triggerCozyHeartBurst(hoop.x, hoop.y + 0.6, hoop.z, 0xfbbf24);
           const res = recordSportScore('basketball');
           addLocalMycoCoins(res.coins);
           if (window.MycoAudio) window.MycoAudio.playHarvest();
