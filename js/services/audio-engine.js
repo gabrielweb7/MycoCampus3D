@@ -533,7 +533,7 @@ export function playQuestComplete() {
   } catch (e) {}
 }
 
-export function stepAmbience(sunY, isOutdoors, isNight, dt) {
+export function stepAmbience(sunY, isOutdoors, isNight, dt, weatherMode) {
   ambienceTimer -= dt || 0.016;
   if (ambienceTimer > 0) return;
   const c = audioCtx;
@@ -543,6 +543,44 @@ export function stepAmbience(sunY, isOutdoors, isNight, dt) {
   }
   try {
     const t = c.currentTime;
+    if (weatherMode === 'rain') {
+      // Chuva suave no telhado / ambiente e trovoes ocasionais
+      ambienceTimer = 1.6 + Math.random() * 1.4;
+      const noiseLen = Math.floor(c.sampleRate * 0.55);
+      const buf = c.createBuffer(1, noiseLen, c.sampleRate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < noiseLen; i++) ch[i] = (Math.random() * 2 - 1);
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(isOutdoors ? 1100 : 480, t);
+      bp.Q.setValueAtTime(0.7, t);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(isOutdoors ? 0.032 : 0.020, t + 0.12);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.52);
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(masterGain);
+      src.start(t);
+      src.stop(t + 0.55);
+      if (Math.random() < 0.14) {
+        const thOsc = c.createOscillator();
+        const thGain = c.createGain();
+        thOsc.type = 'triangle';
+        thOsc.frequency.setValueAtTime(62, t);
+        thOsc.frequency.exponentialRampToValueAtTime(34, t + 1.1);
+        thGain.gain.setValueAtTime(0.0001, t);
+        thGain.gain.linearRampToValueAtTime(0.045, t + 0.14);
+        thGain.gain.exponentialRampToValueAtTime(0.0001, t + 1.15);
+        thOsc.connect(thGain);
+        thGain.connect(masterGain);
+        thOsc.start(t);
+        thOsc.stop(t + 1.2);
+      }
+      return;
+    }
     if (isNight && isOutdoors) {
       ambienceTimer = 3.2 + Math.random() * 2.8;
       for (let i = 0; i < 3; i++) {

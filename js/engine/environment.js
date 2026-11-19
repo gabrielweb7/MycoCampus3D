@@ -120,9 +120,11 @@ export function updateDynamicEnvironment(dt, env) {
   }
   if (env.nightLampGlows && env.nightLampGlows.length) {
     const nightFactor = Math.max(0, Math.min(1, (-sunY + 0.12) / 0.34));
-    const lampInt = 0.22 + nightFactor * 1.45;
     for (let li = 0; li < env.nightLampGlows.length; li++) {
-      env.nightLampGlows[li].emissiveIntensity = lampInt;
+      const m = env.nightLampGlows[li];
+      const maxE = (m.userData && typeof m.userData.nightMaxEmissive === 'number') ? m.userData.nightMaxEmissive : 1.45;
+      const baseE = maxE < 0.8 ? 0.0 : 0.22;
+      m.emissiveIntensity = baseE + nightFactor * maxE;
     }
   }
 

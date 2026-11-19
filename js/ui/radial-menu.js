@@ -524,6 +524,14 @@ function buildContextActions(ctx) {
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira 4°C • ' + count + ' vagas configuradas nas prateleiras.');
         }
       });
+      actions.push({
+        id: 'move_' + target.id,
+        icon: '📦',
+        label: 'Mover',
+        run: () => {
+          if (ctx.pickHoveredItemForMove) ctx.pickHoveredItemForMove(target);
+        }
+      });
       return actions;
     }
     if (target.id && target.id.indexOf('gloves_box_') === 0) {
@@ -566,6 +574,14 @@ function buildContextActions(ctx) {
         run: () => togglePP5Lid(ctx, target)
       });
     }
+    actions.push({
+      id: 'move_' + target.id,
+      icon: '📦',
+      label: 'Mover',
+      run: () => {
+        if (ctx.pickHoveredItemForMove) ctx.pickHoveredItemForMove(target);
+      }
+    });
     actions.push({
       id: 'inspect_' + target.id,
       icon: '🔍',

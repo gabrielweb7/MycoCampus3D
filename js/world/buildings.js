@@ -3,6 +3,7 @@
  */
 import { makeBox, brickMat, woodMat, registerSnowable } from '../engine/textures.js';
 import { addWalkableSlab, addSolidWall } from '../engine/physics.js';
+import { nightLampGlows } from './nature-plaza.js';
 
 const THREE = window.THREE;
 
@@ -25,8 +26,21 @@ function getBlindMats() {
 let sharedBuildingMats = null;
 function getBuildingMats() {
   if (!sharedBuildingMats) {
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0xbae6fd,
+      emissive: 0xfde68a,
+      emissiveIntensity: 0.0,
+      transparent: true,
+      opacity: 0.32,
+      roughness: 0.1,
+      metalness: 0.25
+    });
+    glassMat.userData.keepPbr = true;
+    glassMat.userData.shared = true;
+    glassMat.userData.nightMaxEmissive = 0.55;
+    nightLampGlows.push(glassMat);
     sharedBuildingMats = {
-      glassMat: new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.32, roughness: 0.1, metalness: 0.25 }),
+      glassMat,
       fixMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 }),
       fndeBlue: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42 }),
       fndeWhite: new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.35, roughness: 0.3 }),

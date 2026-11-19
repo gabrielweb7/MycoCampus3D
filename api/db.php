@@ -131,6 +131,9 @@ function mc_migrate(PDO $pdo): void {
         try {
             $pdo->exec("ALTER TABLE mc_auth_tokens ADD INDEX idx_tokens_last_used (last_used)");
         } catch (Throwable $e) {}
+        try {
+            $pdo->exec("ALTER TABLE mc_users ADD COLUMN myco_coins INT NOT NULL DEFAULT 250");
+        } catch (Throwable $e) {}
 
         // v8 -> v9: Tabelas de layout persistente do Modo Admin Editor (edições em tempo real + padrão salvo)
         try {

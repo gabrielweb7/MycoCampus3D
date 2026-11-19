@@ -11,7 +11,8 @@ import { apiPost } from '../services/api-client.js';
 import { checkForApkUpdate } from '../services/apk-updater.js';
 import { syncMultiplayer, sendLeaveBeacon } from '../services/multiplayer-sync.js';
 import { MUSHROOM_SPECIES_CATALOG } from '../world/mushroom-species.js';
-import { getDiscoveredSpecies } from '../systems/mycoteca.js';
+import { getDiscoveredSpecies, MICOTECA_MILESTONES } from '../systems/mycoteca.js';
+import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
 import {
   $,
   applyDeviceUi,
@@ -271,7 +272,13 @@ function bindModalsAndToolbar() {
       const grid = $('mycoteca-grid');
       const summary = $('mycoteca-summary');
       const found = getDiscoveredSpecies();
-      if (summary) summary.textContent = `Descobertas: ${found.length} / ${MUSHROOM_SPECIES_CATALOG.length} espécies catalogadas`;
+      const nextMs = MICOTECA_MILESTONES.find((m) => found.length < m.count);
+      const earnedBadges = MICOTECA_MILESTONES.filter((m) => found.length >= m.count).map((m) => m.badge);
+      if (summary) {
+        summary.textContent = `Descobertas: ${found.length} / ${MUSHROOM_SPECIES_CATALOG.length} espécies` +
+          (earnedBadges.length ? ` • ${earnedBadges[earnedBadges.length - 1]}` : '') +
+          (nextMs ? ` • Próximo marco: ${nextMs.count} (+🪙 ${nextMs.coins})` : ' • 🏆 Álbum 100%!');
+      }
       if (grid) {
         grid.innerHTML = MUSHROOM_SPECIES_CATALOG.map((sp) => {
           const fullName = `${sp.common} (${sp.scientific})`;
@@ -697,6 +704,31 @@ export function bootApp() {
   window.addEventListener('resize', applyDeviceUi);
   window.addEventListener('orientationchange', applyDeviceUi);
   window.showCampusToast = (msg, ms) => showFloatingToast(msg, ms || 3500);
+  window.onMicotecaMilestone = (milestone, totalFound) => {
+    if (!milestone) return;
+    addLocalMycoCoins(milestone.coins);
+    updateUserHud();
+    showFloatingToast(`🏆 Marco da Micoteca (${totalFound}/100): ${milestone.badge}! +🪙 ${milestone.coins} MycoCoins!`, 5000);
+  };
+  let pendingCoinDelta = 0;
+  let coinSyncTimeout = null;
+  window.syncCampusMycoCoins = (delta) => {
+    if (!appState.currentUser || !appState.authToken) return;
+    pendingCoinDelta += (Number(delta) || 0);
+    if (coinSyncTimeout) return;
+    coinSyncTimeout = setTimeout(async () => {
+      const sendDelta = pendingCoinDelta;
+      pendingCoinDelta = 0;
+      coinSyncTimeout = null;
+      if (!sendDelta) return;
+      try {
+        const res = await apiPost('api/auth.php?action=sync_coins', { delta: sendDelta }, true);
+        if (res && res.ok && res.user && appState.currentUser) {
+          appState.currentUser.myco_coins = res.user.myco_coins;
+        }
+      } catch (e) {}
+    }, 350);
+  };
   initPwaFeatures();
   renderSwatches();
   setupMobileJoystick();

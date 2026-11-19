@@ -418,7 +418,7 @@ export function startAnimationLoop(ctx) {
       if (typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.stepAmbience && ctx.playerPos) {
         const sunYNow = Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2);
         const insideWing = Math.abs(ctx.playerPos.x) > 13 && Math.abs(ctx.playerPos.x) < 25 && Math.abs(ctx.playerPos.z) < 16;
-        window.MycoAudio.stepAmbience(sunYNow, !insideWing, sunYNow < -0.05, dt);
+        window.MycoAudio.stepAmbience(sunYNow, !insideWing, sunYNow < -0.05, dt, ctx.weatherMode);
       }
 
       if (ctx.localEmoteTimer > 0) {

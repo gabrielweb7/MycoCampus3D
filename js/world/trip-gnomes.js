@@ -4,6 +4,7 @@
 import { getGroundHeight } from '../engine/physics.js';
 import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
 import { isNaturalSoilSpot } from './nature-plaza.js';
+import { getVirtualDayFrac } from './staircase-clock.js';
 
 const THREE = window.THREE;
 
@@ -524,9 +525,10 @@ export function stepTripGnomes(ctx, dt) {
   stepTripTextureFlow(ctx.scene, dt);
   const freakout = typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive();
   const active = typeof window !== 'undefined' && window.isTripRainbowActive && window.isTripRainbowActive();
+  const nightFireflies = Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2) < -0.08;
   applyUmbralAtmosphere(ctx, freakout);
   stepEnchantedFlora(ctx, dt, active && !freakout);
-  stepFireflies(ctx, dt, active && !freakout, freakout);
+  stepFireflies(ctx, dt, (active && !freakout) || nightFireflies, freakout);
   stepGiantTrampolines(ctx, dt, active && !freakout);
 
   if (!freakout && shadowGnomePool) {

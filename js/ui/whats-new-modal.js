@@ -7,15 +7,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
-  '1.6.0': {
-    title: '✨ Novidades da Atualização v1.6.0',
-    subtitle: 'Grande atualização do MycoCampus3D! Veja tudo o que chegou:',
+  '1.7.0': {
+    title: '✨ Novidades da Atualização v1.7.0',
+    subtitle: 'Seu campus ficou ainda mais mágico e completo! Veja o que mudou:',
     items: [
-      { icon: '🌌', text: 'Ciclo Dia/Noite com Constelações Famosas reais (Órion, Cruzeiro do Sul, Ursa Maior, Cassiopeia, Escorpião, Cisne e Plêiades) passando no céu + relógio no topo para trocar o horário quando quiser!' },
-      { icon: '🛒', text: 'Nova aba Equipamentos & Insumos na Loja: gaste suas 🪙 MycoCoins para comprar copos PP5, seringas, bags, sílica gel, Monotubs e desidratadoras extras!' },
-      { icon: '⭐', text: 'Pedidos VIP no Empório Drive-Thru pagando +50% bônus (🪙 180 MycoCoins) e Jornada Prática expandida para 8 missões recompensadoras.' },
-      { icon: '💾', text: 'Salvamento completo local de itens e estados (conteúdo, secagem, colonização) + sons de alarme ao concluir fogareiro/desidratadora e sons de natureza dia/noite.' },
-      { icon: '📦', text: 'Botão 📦 Mover dedicado também no celular ao mirar em microscópios, desidratadoras, geladeiras e bancadas.' }
+      { icon: '🌠', text: 'Estrelas cadentes, nomes das constelações no céu noturno, vagalumes permanentes na mata e janelas das casas iluminadas à noite!' },
+      { icon: '🪙', text: 'MycoCoins salvas na sua conta do servidor (MySQL) e visíveis no Ranking do Campus!' },
+      { icon: '🍄', text: 'Recompensas da Micoteca: ganhe bônus de 🪙 MycoCoins e medalhas ao descobrir 10, 25, 50, 75 e 100 espécies!' },
+      { icon: '🌧️', text: 'Som de chuva no telhado e trovões distantes em dias chuvosos, além de botão rápido [📦 Mover] na barra flutuante [1..4].' },
+      { icon: '🛒', text: 'Loja com aba de Equipamentos/Insumos, Pedidos VIP no Empório (+🪙 180) e Missão completa em 8 etapas.' }
     ]
   }
 };

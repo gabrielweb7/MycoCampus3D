@@ -8,7 +8,7 @@ import { events } from '../core/events.js';
 import { apiGet, apiPost } from '../services/api-client.js';
 import { $, isTouch, requestCampusFullscreen } from './dom-helpers.js';
 import { loadLabQuestProgress } from './quest-map.js';
-import { getLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { getLocalMycoCoins, setLocalMycoCoins } from '../items/dehydration-packaging.js';
 
 export function renderSwatches() {
   const hatWrap = $('hat-swatches');
@@ -82,6 +82,9 @@ export function updateUserHud() {
 export function enterCampus(user, token) {
   appState.currentUser = user;
   if (token) appState.authToken = token;
+  if (user && typeof user.myco_coins === 'number' && Number.isFinite(user.myco_coins)) {
+    setLocalMycoCoins(user.myco_coins);
+  }
   appState.isInitialSync = true;
   requestCampusFullscreen();
   if (window.setCampusPlayerColors) window.setCampusPlayerColors(user.hat_color, user.body_color);

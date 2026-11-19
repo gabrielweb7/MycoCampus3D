@@ -107,18 +107,18 @@ test('updatePlacementGhostVisual funciona com userData circular (ownerItem no fo
   assert.equal(clonedRoot.children[0].visible, true);
 });
 
-test('RELEASE_NOTES_CATALOG tem notas simples da v1.6.0 e markPendingAutoUpdateNotice atualiza storage', () => {
-  const store = new Map([['myco_seen_whats_new_v', '1.5.0']]);
+test('RELEASE_NOTES_CATALOG tem notas simples da v1.7.0 e markPendingAutoUpdateNotice atualiza storage', () => {
+  const store = new Map([['myco_seen_whats_new_v', '1.6.0']]);
   globalThis.localStorage = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: (k) => store.delete(k)
   };
-  markPendingAutoUpdateNotice('1.6.0');
+  markPendingAutoUpdateNotice('1.7.0');
   assert.equal(store.get('myco_seen_whats_new_v'), undefined);
-  assert.equal(store.get('myco_just_updated_v'), '1.6.0');
-  assert.ok(RELEASE_NOTES_CATALOG['1.6.0']);
-  assert.ok(RELEASE_NOTES_CATALOG['1.6.0'].items.length >= 4);
+  assert.equal(store.get('myco_just_updated_v'), '1.7.0');
+  assert.ok(RELEASE_NOTES_CATALOG['1.7.0']);
+  assert.ok(RELEASE_NOTES_CATALOG['1.7.0'].items.length >= 4);
 });
 
 test('força dos cogumelos mantém cores sem mandala e só ativa gnomos após >3 doses', async () => {
@@ -195,11 +195,28 @@ test('FAMOUS_CONSTELLATIONS inclui Órion, Cruzeiro do Sul, Ursa Maior, Escorpi�
   assert.notEqual(dome.group.rotation.y, 0);
 });
 
-test('SHOP_SUPPLIES e LAB_QUEST_STEPS estão completos para a v1.6.0', async () => {
+test('SHOP_SUPPLIES e LAB_QUEST_STEPS estão completos e marcos da Micoteca dão recompensa', async () => {
   const { SHOP_SUPPLIES } = await import('../js/ui/modal-shop.js');
   const { LAB_QUEST_STEPS } = await import('../js/ui/quest-map.js');
+  const { MICOTECA_MILESTONES, registerDiscoveredSpecies } = await import('../js/systems/mycoteca.js');
   assert.ok(SHOP_SUPPLIES.length >= 10);
   assert.ok(SHOP_SUPPLIES.some((s) => s.prefabId === 'monotub_24l'));
   assert.ok(SHOP_SUPPLIES.some((s) => s.prefabId === 'dehydrator'));
   assert.equal(LAB_QUEST_STEPS.length, 8);
+  assert.equal(MICOTECA_MILESTONES.length, 5);
+
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => store.get(k) ?? null,
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+  let lastRes = null;
+  for (let i = 1; i <= 10; i++) {
+    lastRes = registerDiscoveredSpecies('Espécie Teste ' + i);
+  }
+  assert.equal(lastRes.list.length, 10);
+  assert.ok(lastRes.rewardMilestone);
+  assert.equal(lastRes.rewardMilestone.count, 10);
+  assert.equal(lastRes.rewardMilestone.coins, 50);
 });

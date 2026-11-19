@@ -74,9 +74,8 @@ export function getLocalMycoCoins() {
   return memoryMycoCoinsFallback;
 }
 
-export function addLocalMycoCoins(amount) {
-  const cur = getLocalMycoCoins();
-  const next = Math.max(0, cur + (Number(amount) || 0));
+export function setLocalMycoCoins(value) {
+  const next = Math.max(0, Math.min(999999, Math.round(Number(value) || 0)));
   memoryMycoCoinsFallback = next;
   try {
     if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
@@ -88,6 +87,16 @@ export function addLocalMycoCoins(amount) {
     if (elHud) elHud.textContent = String(next);
     const elShop = document.getElementById('shop-user-coins');
     if (elShop) elShop.textContent = String(next);
+  }
+  return next;
+}
+
+export function addLocalMycoCoins(amount) {
+  const delta = Number(amount) || 0;
+  const cur = getLocalMycoCoins();
+  const next = setLocalMycoCoins(cur + delta);
+  if (delta !== 0 && typeof window !== 'undefined' && typeof window.syncCampusMycoCoins === 'function') {
+    window.syncCampusMycoCoins(delta);
   }
   return next;
 }

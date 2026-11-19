@@ -135,6 +135,7 @@ function mc_format_user(array $row): array {
         'body_color' => mc_clean_hex($row['body_color'] ?? '', '#4f46e5'),
         'xp' => (int)$row['xp'],
         'mushrooms_harvested' => (int)$row['mushrooms_harvested'],
+        'myco_coins' => isset($row['myco_coins']) ? (int)$row['myco_coins'] : 250,
         'completed_modules' => $modules,
         'unlocked_hats' => $unlockedHats,
         'current_hat' => $currentHat,
@@ -449,8 +450,19 @@ if ($action === 'complete_lab_quest') {
     mc_json(['ok' => true, 'new_quest' => $isNew, 'awarded_xp' => $isNew ? MC_XP_LAB_QUEST : 0, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
+if ($action === 'sync_coins') {
+    mc_require_post();
+    $user = mc_require_user($pdo);
+    $delta = max(-5000, min(5000, (int)($body['delta'] ?? 0)));
+    if ($delta !== 0) {
+        $upd = $pdo->prepare('UPDATE mc_users SET myco_coins = LEAST(999999, GREATEST(0, COALESCE(myco_coins, 250) + ?)), last_seen = NOW() WHERE id = ?');
+        $upd->execute([$delta, (int)$user['id']]);
+    }
+    mc_json(['ok' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+}
+
 if ($action === 'leaderboard') {
-    $topStmt = $pdo->query('SELECT id, username, display_name, role, hat_color, body_color, unlocked_hats, current_hat, xp, mushrooms_harvested, completed_modules FROM mc_users ORDER BY xp DESC, mushrooms_harvested DESC, id ASC LIMIT 15');
+    $topStmt = $pdo->query('SELECT id, username, display_name, role, hat_color, body_color, unlocked_hats, current_hat, xp, mushrooms_harvested, myco_coins, completed_modules FROM mc_users ORDER BY xp DESC, mushrooms_harvested DESC, id ASC LIMIT 15');
     $leaders = [];
     foreach ($topStmt->fetchAll() as $row) {
         $u = mc_format_user($row);

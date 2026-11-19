@@ -41,6 +41,7 @@ export async function openRankingModal() {
         `<div class="flex items-center gap-3 text-slate-300">` +
         `<span>📚 ${(u.completed_modules || []).length}/${totalModules}</span>` +
         `<span>🍄 ${parseInt(u.mushrooms_harvested, 10) || 0}</span>` +
+        `<span class="text-yellow-300 font-bold">🪙 ${parseInt(u.myco_coins ?? 250, 10) || 0}</span>` +
         `<span class="font-extrabold text-emerald-300">⭐ ${parseInt(u.xp, 10) || 0} XP</span></div>`;
       body.appendChild(row);
     });

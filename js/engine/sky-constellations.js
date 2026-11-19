@@ -131,6 +131,28 @@ function createStarSpriteTexture() {
   return tex;
 }
 
+function createConstellationLabelTexture(name) {
+  if (typeof document === 'undefined' || !THREE) return null;
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 64;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, 256, 64);
+  g.font = '600 22px system-ui, -apple-system, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(12, 18, 38, 0.55)';
+  g.fillRect(28, 14, 200, 36);
+  g.strokeStyle = 'rgba(125, 211, 252, 0.45)';
+  g.lineWidth = 1.5;
+  g.strokeRect(28, 14, 200, 36);
+  g.fillStyle = '#bae6fd';
+  g.fillText('✦ ' + name, 128, 32);
+  const tex = new THREE.CanvasTexture(c);
+  tex.userData.shared = true;
+  return tex;
+}
+
 export function createCelestialSkyDome(scene) {
   if (!THREE || !scene) return null;
 
@@ -143,19 +165,39 @@ export function createCelestialSkyDome(scene) {
   const cStarsCol = [];
   const cLinePos = [];
   const cLineCol = [];
+  const labelMats = [];
   const tmpColor = new THREE.Color();
 
   for (let ci = 0; ci < FAMOUS_CONSTELLATIONS.length; ci++) {
     const con = FAMOUS_CONSTELLATIONS[ci];
     const pts = [];
+    let cx = 0, cy = 0, cz = 0;
     for (let si = 0; si < con.stars.length; si++) {
       const s = con.stars[si];
       const p = equatorialToDomeXYZ(s.ra, s.dec, 204);
       pts.push(p);
+      cx += p[0]; cy += p[1]; cz += p[2];
       cStarsPos.push(p[0], p[1], p[2]);
       tmpColor.setHex(s.col);
       const bright = 0.65 + s.mag * 0.45;
       cStarsCol.push(tmpColor.r * bright, tmpColor.g * bright, tmpColor.b * bright);
+    }
+    if (pts.length > 0 && THREE.Sprite && THREE.SpriteMaterial) {
+      const labelTex = createConstellationLabelTexture(con.name);
+      if (labelTex) {
+        const lm = new THREE.SpriteMaterial({
+          map: labelTex,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          fog: false
+        });
+        const sp = new THREE.Sprite(lm);
+        sp.position.set(cx / pts.length, (cy / pts.length) - 9, cz / pts.length);
+        sp.scale.set(24, 6, 1);
+        domeGroup.add(sp);
+        labelMats.push(lm);
+      }
     }
     for (let ei = 0; ei < con.edges.length; ei++) {
       const e = con.edges[ei];
@@ -226,6 +268,32 @@ export function createCelestialSkyDome(scene) {
   });
   const bgStars = new THREE.Points(bgGeo, bgMat);
 
+  // Pool de estrelas cadentes no ceu noturno
+  const meteors = [];
+  if (THREE.Line && THREE.LineBasicMaterial) {
+    for (let mi = 0; mi < 2; mi++) {
+      const mGeo = new THREE.BufferGeometry();
+      const mArr = new Float32Array(6);
+      mGeo.setAttribute('position', new THREE.BufferAttribute(mArr, 3));
+      const mMat = new THREE.LineBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0, depthWrite: false, fog: false });
+      const mLine = new THREE.Line(mGeo, mMat);
+      mLine.visible = false;
+      mLine.frustumCulled = false;
+      scene.add(mLine);
+      meteors.push({
+        line: mLine,
+        posAttr: mGeo.getAttribute('position'),
+        mat: mMat,
+        active: false,
+        cooldown: 2.5 + mi * 4.5,
+        age: 0,
+        duration: 1.0,
+        sx: 0, sy: 120, sz: 0,
+        vx: 0, vy: 0, vz: 0
+      });
+    }
+  }
+
   domeGroup.add(bgStars, conLines, conStars);
   scene.add(domeGroup);
 
@@ -236,24 +304,89 @@ export function createCelestialSkyDome(scene) {
     conStars,
     conStarMat,
     conLines,
-    conLineMat
+    conLineMat,
+    labelMats,
+    meteors,
+    lastElapsed: null
   };
 }
 
 export function updateCelestialSkyDome(dome, dayFrac, sunY, weatherMode, elapsedTime) {
   if (!dome || !dome.group) return;
+  const nowT = elapsedTime || 0;
+  const dt = (typeof dome.lastElapsed === 'number') ? Math.max(0, Math.min(0.1, nowT - dome.lastElapsed)) : 0.016;
+  dome.lastElapsed = nowT;
+
   const skyMul = weatherMode === 'rain' ? 0.12 : (weatherMode === 'overcast' ? 0.25 : (weatherMode === 'snow' ? 0.55 : 1.0));
   const nightVis = Math.max(0, Math.min(1, (-sunY + 0.04) * 2.8)) * skyMul;
   const visible = nightVis > 0.02;
   dome.group.visible = visible;
+
+  // Atualiza estrelas cadentes (desativadas durante o dia)
+  if (dome.meteors) {
+    for (let i = 0; i < dome.meteors.length; i++) {
+      const m = dome.meteors[i];
+      if (!visible || nightVis < 0.25) {
+        m.active = false;
+        m.line.visible = false;
+        continue;
+      }
+      if (!m.active) {
+        m.cooldown -= dt;
+        if (m.cooldown <= 0) {
+          m.active = true;
+          m.age = 0;
+          m.duration = 0.85 + Math.random() * 0.55;
+          m.cooldown = 4.5 + Math.random() * 6.5;
+          const a = Math.random() * Math.PI * 2;
+          m.sx = Math.cos(a) * 165;
+          m.sy = 95 + Math.random() * 55;
+          m.sz = Math.sin(a) * 165;
+          const tangent = a + (Math.random() > 0.5 ? 1.25 : -1.25);
+          m.vx = Math.cos(tangent) * 125;
+          m.vy = -(35 + Math.random() * 30);
+          m.vz = Math.sin(tangent) * 125;
+          m.line.visible = true;
+        }
+      } else {
+        m.age += dt;
+        if (m.age >= m.duration) {
+          m.active = false;
+          m.line.visible = false;
+        } else {
+          const p = m.age / m.duration;
+          const hx = m.sx + m.vx * m.age;
+          const hy = m.sy + m.vy * m.age;
+          const hz = m.sz + m.vz * m.age;
+          const tailAge = Math.max(0, m.age - 0.16);
+          const arr = m.posAttr.array;
+          arr[0] = m.sx + m.vx * tailAge;
+          arr[1] = m.sy + m.vy * tailAge;
+          arr[2] = m.sz + m.vz * tailAge;
+          arr[3] = hx;
+          arr[4] = hy;
+          arr[5] = hz;
+          m.posAttr.needsUpdate = true;
+          m.mat.opacity = Math.sin(p * Math.PI) * nightVis;
+        }
+      }
+    }
+  }
+
   if (!visible) return;
 
   // Movimento sideral continuo passando pelo ceu ao longo da noite + leve inclinacao axial
-  dome.group.rotation.y = (dayFrac * Math.PI * 2) + (elapsedTime || 0) * 0.004;
+  dome.group.rotation.y = (dayFrac * Math.PI * 2) + nowT * 0.004;
   dome.group.rotation.z = 0.12;
 
-  const twinkle = 0.90 + Math.sin((elapsedTime || 0) * 2.2) * 0.10;
+  const twinkle = 0.90 + Math.sin(nowT * 2.2) * 0.10;
   dome.bgMat.opacity = Math.min(0.92, nightVis * 0.88);
   dome.conStarMat.opacity = Math.min(1.0, nightVis * twinkle);
   dome.conLineMat.opacity = Math.min(0.32, nightVis * 0.30);
+  if (dome.labelMats) {
+    const lblOp = Math.min(0.68, nightVis * 0.65);
+    for (let li = 0; li < dome.labelMats.length; li++) {
+      dome.labelMats[li].opacity = lblOp;
+    }
+  }
 }

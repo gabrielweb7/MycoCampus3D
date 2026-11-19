@@ -3,6 +3,26 @@
  */
 
 const STORAGE_KEY = 'myco_discovered_species_v1';
+const MILESTONE_KEY = 'myco_micoteca_milestones_v1';
+
+export const MICOTECA_MILESTONES = [
+  { count: 10, coins: 50, badge: '🌱 Coletor Iniciante' },
+  { count: 25, coins: 120, badge: '🍄 Explorador Fúngico' },
+  { count: 50, coins: 250, badge: '🔬 Botânico de Campo' },
+  { count: 75, coins: 400, badge: '🎓 Pesquisador Mestre' },
+  { count: 100, coins: 1000, badge: '👑 Enciclopédia Viva' }
+];
+
+export function getClaimedMicotecaMilestones() {
+  try {
+    if (typeof localStorage === 'undefined') return [];
+    const raw = localStorage.getItem(MILESTONE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
 
 export function getDiscoveredSpecies() {
   try {
@@ -15,15 +35,34 @@ export function getDiscoveredSpecies() {
 }
 
 export function registerDiscoveredSpecies(speciesName) {
-  if (!speciesName) return { list: getDiscoveredSpecies(), isNew: false };
+  if (!speciesName) return { list: getDiscoveredSpecies(), isNew: false, rewardMilestone: null };
   const clean = String(speciesName).trim();
   const list = getDiscoveredSpecies();
-  if (list.indexOf(clean) !== -1) return { list, isNew: false };
+  if (list.indexOf(clean) !== -1) return { list, isNew: false, rewardMilestone: null };
   list.push(clean);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   } catch (e) { }
-  return { list, isNew: true };
+
+  let rewardMilestone = null;
+  const claimed = getClaimedMicotecaMilestones();
+  for (let i = 0; i < MICOTECA_MILESTONES.length; i++) {
+    const m = MICOTECA_MILESTONES[i];
+    if (list.length >= m.count && claimed.indexOf(m.count) === -1) {
+      claimed.push(m.count);
+      rewardMilestone = m;
+    }
+  }
+  if (rewardMilestone) {
+    try { localStorage.setItem(MILESTONE_KEY, JSON.stringify(claimed)); } catch (e) {}
+    if (typeof window !== 'undefined') {
+      if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
+      if (typeof window.onMicotecaMilestone === 'function') {
+        window.onMicotecaMilestone(rewardMilestone, list.length);
+      }
+    }
+  }
+  return { list, isNew: true, rewardMilestone };
 }
 
 let tripShroomCount = 0;

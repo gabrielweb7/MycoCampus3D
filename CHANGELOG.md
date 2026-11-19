@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.7.0] - 2026-11-19
+### Estrelas Cadentes, Nomes das Constelações, Luz nas Janelas, MycoCoins no MySQL & Recompensas da Micoteca
+- **Céu & Noite Mais Vivos (`js/engine/sky-constellations.js`, `js/world/buildings.js`, `js/engine/environment.js`, `js/world/trip-gnomes.js`):**
+  - Rótulos sutis (`✦ Órion`, `✦ Cruzeiro do Sul`, `✦ Ursa Maior`, etc.) integrados à abóbada celeste + estrelas cadentes cruzando o céu noturno (`meteors`).
+  - Vidros das janelas dos prédios acendem com brilho quente ao anoitecer (`nightLampGlows`) e vagalumes iluminam a mata todas as noites.
+- **MycoCoins no Servidor + Marcos da Micoteca (`api/db.php`, `api/auth.php`, `js/items/dehydration-packaging.js`, `js/ui/hud-lobby.js`, `js/ui/modal-admin.js`, `js/systems/mycoteca.js`, `js/ui/app-boot.js`):**
+  - Coluna `myco_coins` no MySQL, endpoint `sync_coins`, restauração ao logar e exibição de moedas no Ranking.
+  - Marcos da Micoteca (`MICOTECA_MILESTONES`: 10, 25, 50, 75 e 100 espécies) recompensam com medalhas e até `+🪙 1000 MycoCoins`.
+- **Som de Chuva/Trovões & Atalho `[📦 Mover]` (`js/services/audio-engine.js`, `js/ui/radial-menu.js`):**
+  - Som procedural de chuva batendo no teto e trovões distantes em dias chuvosos; chip `📦 Mover` adicionado à barra flutuante `[1..4]`.
+
 ## [v1.6.0] - 2026-11-19
 ### Dia/Noite & Constelações Reais, Loja de Insumos/Equipamentos, Pedidos VIP, Áudio Ambiente & Botão Mover Mobile
 - **Céu Dinâmico & Constelações Famosas (`js/engine/sky-constellations.js`, `js/engine/environment.js`, `js/world/staircase-clock.js`, `js/world/nature-plaza.js`, `index.html`):**
