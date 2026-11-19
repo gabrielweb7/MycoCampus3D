@@ -286,7 +286,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_02', -22.78, 0.438, 9.8);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_03', -22.78, 0.438, 10.4);
   makePaperTowelRoll(ctx, 'paper_towel_02', -22.78, 0.438, 10.1);
-  makeDehydrator(ctx, 'dehydrator_lab', -22.9, 1.02, 2.2);
+  makeDehydrator(ctx, 'dehydrator_lab', -18.1, 1.02, 7.6);
   for (let mi = 0; mi < 4; mi++) {
     makeTapeRoll(ctx, 'micropore_' + pad2(mi + 1), 'micropore', -23.05, 1.798, 4.8 + mi * 0.45);
   }
@@ -349,12 +349,12 @@ export function buildCampusWingsAndEquipment(ctx) {
 
   // 2. Bancada Central da Sala de Desidratação (x: 18.6): Embalagem em Sacos Mylar + 3 Seladoras Térmicas + Balança + Caixas de Entrega!
   addMovableStainlessTable(ctx, 'table_pack_east', 'Bancada Inox (Embalagem, Seladoras & Caixas)', 18.6, 0.12, -7.2, 1.4, 0.82, 3.8);
-  createHeatSealer(ctx, 'heat_sealer_east_01', 18.25, 0.94, -8.65);
-  createHeatSealer(ctx, 'heat_sealer_east_02', 18.25, 0.94, -7.35);
-  createHeatSealer(ctx, 'heat_sealer_east_03', 18.25, 0.94, -6.05);
+  createHeatSealer(ctx, 'heat_sealer_east_01', 18.18, 0.94, -8.65);
+  createHeatSealer(ctx, 'heat_sealer_east_02', 18.18, 0.94, -7.35);
+  createHeatSealer(ctx, 'heat_sealer_east_03', 18.18, 0.94, -6.05);
   createPrecisionScale(ctx, 'precision_scale_east', 18.95, 0.94, -8.65);
 
-  // 4 lotes de 25g de cogumelos crocantes prontos sobre a bancada de embalagem para vários jogadores testarem
+  // 4 lotes de 10g de cogumelos crocantes prontos sobre a bancada de embalagem para vários jogadores testarem
   makeDriedMushroomBatch(ctx, 'dried_batch_east_01', 'Golden Teacher (Psilocybe cubensis)', 18.95, 0.94, -8.25);
   makeDriedMushroomBatch(ctx, 'dried_batch_east_02', 'B+ Cubensis', 18.95, 0.94, -8.00);
   makeDriedMushroomBatch(ctx, 'dried_batch_east_03', 'Penis Envy (Psilocybe cubensis)', 18.95, 0.94, -7.75);
@@ -387,11 +387,11 @@ export function buildCampusWingsAndEquipment(ctx) {
   // 8 Caixas de Entrega Comercial:
   // - 3 CAIXAS JÁ 100% CHEIAS (4/4 pacotes selados = 🪙 480 MycoCoins cada!) na bancada e no chão prontas para pegar e vender na Estrada!
   // - 1 CAIXA quase cheia (3/4 pacotes) na bancada para testar colocar o 4º saquinho!
-  // - 2 CAIXAS VAZIAS na Sala de Desidratação + 2 CAIXAS CHEIAS extras ao lado do Quiosque Drive-Thru na Estrada Sul para teste imediato!
-  makeDeliveryCrate(ctx, 'delivery_crate_01', 18.55, 0.94, -5.65, { packsCount: 4 });
-  makeDeliveryCrate(ctx, 'delivery_crate_02', 19.00, 0.94, -5.65, { packsCount: 4 });
-  makeDeliveryCrate(ctx, 'delivery_crate_03', 18.55, 0.94, -6.10, { packsCount: 4 });
-  makeDeliveryCrate(ctx, 'delivery_crate_04', 19.00, 0.94, -6.10, { packsCount: 3 });
+  // - 2 CAIXAS VAZIAS na Sala de Desidratação + 2 CAIXAS CHEIAS extras dentro do Empório da Estrada!
+  makeDeliveryCrate(ctx, 'delivery_crate_01', 18.62, 0.94, -5.62, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_02', 19.06, 0.94, -5.62, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_03', 18.62, 0.94, -6.08, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_04', 19.06, 0.94, -6.08, { packsCount: 3 });
   makeDeliveryCrate(ctx, 'delivery_crate_05', 18.55, 0.12, -9.50, { packsCount: 0 });
   makeDeliveryCrate(ctx, 'delivery_crate_06', 19.05, 0.12, -9.50, { packsCount: 0 });
   // 2 Caixas Cheias (4/4 pacotes) já posicionadas na bancada dentro do Empório da Estrada (x: 19.5, z: 32.3) para empilhar/levar às estantes da frente!
@@ -399,7 +399,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeDeliveryCrate(ctx, 'delivery_crate_08', 19.5, 0.94, 32.6, { packsCount: 4 });
 
   // 3. Zona Sul da Sala (z: -3.8..-2.2): Tripé a Gás + Panela de Pasteurização + Spawn & Substrato Pasteurizado prontos para múltiplos players!
-  makeCookerBase(ctx, 'cooker_base_sub', 21.8, 0.94, -5.35);
+  makeCookerBase(ctx, 'cooker_base_sub', 21.8, 0.94, -5.50);
   makeGasTripodBurner(ctx, 'gas_tripod_sub', 21.8, 0.12, -3.1);
   createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.8, 0.74, -3.1);
 
@@ -421,8 +421,8 @@ export function buildCampusWingsAndEquipment(ctx) {
       sb.spawnCtrl.updateVisual();
     }
   });
-  makeAlcoholSprayBottle(ctx, 'alcohol_spray_east_01', 18.25, 0.94, -5.35);
-  makePaperTowelRoll(ctx, 'paper_towel_east_01', 18.55, 0.94, -5.35);
+  makeAlcoholSprayBottle(ctx, 'alcohol_spray_east_01', 19.85, 1.02, -12.0);
+  makePaperTowelRoll(ctx, 'paper_towel_east_01', 20.25, 1.02, -12.0);
 
   for (let vi = 0; vi < 4; vi++) {
     makeSubstrateBag5kg(ctx, 'substrate_vermiculite_' + pad2(vi + 1), 'vermiculite', 23.05, 0.12, -9.2 + vi * 0.65);

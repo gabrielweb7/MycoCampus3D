@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.3] - 2026-11-19
+### Checkup Geral: Depósito, Sala de Desidratação, Whitelist Multiplayer MySQL & OVNI
+- **Posicionamento & Sem Sobreposição (`js/world/lab-tools.js`):**
+  - `dehydrator_lab` movido de dentro da parede/chão em `(-22.9, 1.02, 2.2)` para cima da Bancada do Depósito (`-18.1, 1.02, 7.6`).
+  - `alcohol_spray_east_01` e `paper_towel_east_01` movidos para a Bancada Norte da Sala de Desidratação (`19.85` / `20.25, 1.02, -12.0`), eliminando colisão com caixas de entrega; seladoras e caixas na `table_pack_east` realinhadas com folga lateral; `cooker_base_sub` centralizado dentro da `table_sub_east`.
+- **Sincronização Multiplayer (`api/multiplayer_schema.php`):**
+  - Adicionados à whitelist `mp_build_allowed_items()` todos os IDs faltantes dos novos equipamentos/insumos (`table_emporio_east`, `silica_jar_04`, `infrared_thermometer_02`, `alcohol_spray_east_01`, `paper_towel_east_01`, `gloves_box_lab_01..02`, `petri_clean_02`, `petri_clean_fridge`, `petri_sterile_fridge_01..02`, `petri_sterile_hood_01..12`, `spawn_jar_colonized_02`, `spawn_bag_colonized_02..04`, `spawn_bag_pasteurized_01..02`, `syringe_10ml_c..d`, `dried_batch_demo_02`, `dried_batch_east_03..04`).
+- **OVNI & Pasto (`js/world/ufo-abduction.js`):**
+  - `releaseCow` devolve a vaquinha abduzida no pasto arborizado (`x = 64 ± 6, z = 8 ± 8`), longe da cidade.
+
 ## [v1.4.2] - 2026-11-19
 ### Correção de Prioridade de Raycast & Colisor das Estantes do Empório
 - **Retirada livre de caixas e itens sobre as estantes do Empório (`js/items/dehydration-packaging.js`, `js/systems/hover-raycaster.js`):**

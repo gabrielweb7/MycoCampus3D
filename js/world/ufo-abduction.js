@@ -102,8 +102,8 @@ function releaseCow(cow, ctx) {
   cow.abducted = false;
   cow.mesh.scale.setScalar(1);
   cow.mesh.rotation.set(0, cow.yaw || 0, 0);
-  const rx = 50 + (Math.random() - 0.5) * 14;
-  const rz = 4 + (Math.random() - 0.5) * 14;
+  const rx = 64 + (Math.random() - 0.5) * 12;
+  const rz = 8 + (Math.random() - 0.5) * 16;
   const ry = ctx && ctx.physCtx ? getGroundHeight(ctx.physCtx, rx, rz, 2) : 0;
   cow.mesh.position.set(rx, ry, rz);
   cow.mesh.visible = true;

@@ -12,29 +12,36 @@ declare(strict_types=1);
 function mp_build_allowed_items(): array {
     $items = [
         // === Culturas, Placas & Frascos Base ===
-        'petri_clean', 'petri_contam', 'petri_empty',
+        'petri_clean', 'petri_clean_02', 'petri_clean_fridge',
+        'petri_sterile_fridge_01', 'petri_sterile_fridge_02',
+        'petri_contam', 'petri_empty',
         'pda_bottle', 'pda_bottle_02', 'pda_bottle_03', 'pda_media_bottle_1l',
-        'spawn_jar', 'spawn_jar_empty', 'spawn_bag_empty', 'spawn_bag_colonized',
+        'spawn_jar', 'spawn_jar_colonized_02', 'spawn_jar_empty',
+        'spawn_bag_empty', 'spawn_bag_colonized',
+        'spawn_bag_colonized_02', 'spawn_bag_colonized_03', 'spawn_bag_colonized_04',
+        'spawn_bag_pasteurized_01', 'spawn_bag_pasteurized_02',
         'liquid_culture', 'distilled_jug_5l',
 
         // === Equipamentos & Ferramentas de Lab ===
         'heat_sealer', 'magnetic_stirrer', 'precision_scale',
-        'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03',
-        'paper_towel_01', 'paper_towel_02', 'lab_trash_01',
-        'burner_lab', 'gas_tripod_sub', 'infrared_thermometer',
+        'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03', 'alcohol_spray_east_01',
+        'paper_towel_01', 'paper_towel_02', 'paper_towel_east_01', 'lab_trash_01',
+        'gloves_box_lab_01', 'gloves_box_lab_02',
+        'burner_lab', 'gas_tripod_sub', 'infrared_thermometer', 'infrared_thermometer_02',
         'lab_tray_01', 'lab_tray_02', 'lab_tray_03',
-        'syringe_10ml_a', 'syringe_10ml_b',
+        'syringe_10ml_a', 'syringe_10ml_b', 'syringe_10ml_c', 'syringe_10ml_d',
         'beaker_1l_a', 'beaker_1l_b', 'beaker_1l_03', 'beaker_1l_04',
         'pressure_cooker_lab', 'pressure_lid_lab', 'cooker_base_lab',
         'pressure_cooker_sub', 'pressure_lid_sub', 'cooker_base_sub',
         'culture_fridge_lab', 'laminar_hood_lab',
-        'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'table_pack_east',
+        'table_hood_lab', 'table_cooker_lab', 'table_lc_lab', 'table_sub_east', 'table_pack_east', 'table_emporio_east',
         'mixing_bowl_01', 'lab_spoon_01', 'scalpel_01', 'dehydrator_lab',
         'flocao_500g_01', 'flocao_500g_02', 'flocao_500g_03', 'flocao_500g_04',
         'alcohol_lamp_hood', 'alcohol_lamp_hood_02',
         'microscope_lab', 'microscope_lab_02',
-        'silica_jar_01', 'silica_jar_02', 'silica_jar_03',
-        'dried_batch_demo', 'dried_batch_east_01', 'dried_batch_east_02',
+        'silica_jar_01', 'silica_jar_02', 'silica_jar_03', 'silica_jar_04',
+        'dried_batch_demo', 'dried_batch_demo_02',
+        'dried_batch_east_01', 'dried_batch_east_02', 'dried_batch_east_03', 'dried_batch_east_04',
         'heat_sealer_east_01', 'heat_sealer_east_02', 'heat_sealer_east_03',
         'precision_scale_east',
 
@@ -67,6 +74,7 @@ function mp_build_allowed_items(): array {
         $items[] = "liquid_culture_empty_cab_$p";
         $items[] = "liquid_culture_$p";
         $items[] = "petri_empty_$p";
+        $items[] = "petri_sterile_hood_$p";
     }
     foreach (range(1, 8) as $n) {
         $p = str_pad((string)$n, 2, '0', STR_PAD_LEFT);
