@@ -8,11 +8,35 @@
   <script>
     (function () {
       var ua = navigator.userAgent || '';
-      var isAndroid = /Android/i.test(ua);
-      var isApk = /MycoCampusAPK\/\d+/i.test(ua) || Boolean(window.Capacitor);
       var isBot = /Googlebot|bingbot/i.test(ua);
-      if (isAndroid && !isApk && !isBot) {
+      if (isBot) return;
+
+      var isStandalone = window.navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      var isApk = /MycoCampusAPK\/\d+/i.test(ua) || Boolean(window.Capacitor);
+      if (isApk || isStandalone) return;
+
+      if (/Android/i.test(ua)) {
         window.location.replace('android.html' + (window.location.search || ''));
+        return;
+      }
+
+      var isIos = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+      if (isIos) {
+        var isRealSafari = /Safari/i.test(ua) && /Version\//i.test(ua) &&
+          !/CriOS|FxiOS|EdgiOS|OPiOS|GSA|FBAN|FBAV|Instagram|WhatsApp|Line/i.test(ua);
+        var safariAllowed = false;
+        if (isRealSafari) {
+          if (/[?&]play=1\b/.test(window.location.search || '')) {
+            try { sessionStorage.setItem('myco_ios_safari_ok', '1'); } catch (e) {}
+            safariAllowed = true;
+          } else {
+            try { safariAllowed = sessionStorage.getItem('myco_ios_safari_ok') === '1'; } catch (e) {}
+          }
+        }
+        if (!isRealSafari || !safariAllowed) {
+          window.location.replace('ios.html' + (window.location.search || ''));
+        }
       }
     })();
   </script>
@@ -81,7 +105,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=1.1.1">
+  <link rel="stylesheet" href="css/game.css?v=1.1.2">
 </head>
 
 <body>
@@ -146,7 +170,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.1.1</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.1.2</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -566,9 +590,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '1.1.1';</script>
+  <script>window.MYCO_VERSION = '1.1.2';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=1.1.1"></script>
+  <script type="module" src="js/main.js?v=1.1.2"></script>
 </body>
 
 </html>

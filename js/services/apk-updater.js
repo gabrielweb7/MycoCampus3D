@@ -170,7 +170,7 @@ export async function checkForApkUpdate({ forcePrompt = false } = {}) {
 
   const remoteCode = parseInt(String(remote.versionCode || '0'), 10) || 0;
   const isNewerByCode = remoteCode > 0 && remoteCode > installed.versionCode;
-  const isNewerByName = remoteCode === installed.versionCode && compareSemver(remote.versionName, installed.versionName) > 0;
+  const isNewerByName = remoteCode <= 0 && compareSemver(remote.versionName, installed.versionName) > 0;
   const updateAvailable = isNewerByCode || isNewerByName;
 
   if (!updateAvailable) {

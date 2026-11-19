@@ -35,8 +35,11 @@ test('apk-version.json, capacitor.config.json e build.gradle estão válidos e s
   assert.ok(indexHtml.includes('MycoCampusAPK'), 'index.html deve liberar o User-Agent do APK');
 
   assert.ok(fs.existsSync('android.html'), 'android.html deve existir');
+  assert.ok(fs.existsSync('ios.html'), 'ios.html deve existir');
   const cpanel = fs.readFileSync('.cpanel.yml', 'utf8');
   assert.ok(cpanel.includes('android.html'), '.cpanel.yml deve incluir android.html no deploy');
+  assert.ok(cpanel.includes('ios.html'), '.cpanel.yml deve incluir ios.html no deploy');
+  assert.ok(indexHtml.includes("window.location.replace('ios.html'"), 'index.html deve direcionar navegadores iOS não-Safari/não-PWA para ios.html');
 });
 
 test('isRunningInApk retorna false fora do APK e true com Capacitor nativo', () => {

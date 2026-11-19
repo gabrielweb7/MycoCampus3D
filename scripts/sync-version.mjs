@@ -26,18 +26,4 @@ html = html
   .replace(/src="js\/main\.js\?v=[^"]+"/, `src="js/main.js?v=${version}"`);
 fs.writeFileSync('index.html', html, 'utf8');
 
-// 4. assets/apk-version.json
-if (fs.existsSync('assets/apk-version.json')) {
-  const apkMeta = JSON.parse(fs.readFileSync('assets/apk-version.json', 'utf8'));
-  apkMeta.versionName = version;
-  fs.writeFileSync('assets/apk-version.json', JSON.stringify(apkMeta, null, 2) + '\n', 'utf8');
-}
-
-// 5. android/app/build.gradle
-if (fs.existsSync('android/app/build.gradle')) {
-  let gradle = fs.readFileSync('android/app/build.gradle', 'utf8');
-  gradle = gradle.replace(/versionName\s+"[^"]+"/, `versionName "${version}"`);
-  fs.writeFileSync('android/app/build.gradle', gradle, 'utf8');
-}
-
-console.log(`Versão sincronizada automaticamente para v${version} em package.json, sw.js, index.html, assets/apk-version.json e android/app/build.gradle.`);
+console.log(`Versão web sincronizada automaticamente para v${version} em package.json, sw.js e index.html.`);

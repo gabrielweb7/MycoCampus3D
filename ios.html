@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MycoCampus3D — Abrir no Safari / Instalar no iPhone</title>
+  <meta name="description"
+    content="Abra o MycoCampus3D pelo navegador nativo Safari no iPhone e adicione à Tela de Início para jogar em tela cheia com máxima fluidez.">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MycoCampus3D">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.20), transparent 44%),
+        radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.16), transparent 45%),
+        linear-gradient(180deg, #0b1220 0%, #070c16 100%);
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    }
+
+    .card-surface {
+      background: rgba(15, 23, 42, 0.90);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    }
+
+    .step-badge {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(56, 189, 248, 0.42);
+      color: #7dd3fc;
+      font-weight: 800;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-safari-play {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 10px 28px rgba(16, 185, 129, 0.32);
+    }
+
+    .btn-copy-url {
+      background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+      box-shadow: 0 10px 28px rgba(56, 189, 248, 0.28);
+    }
+  </style>
+  <script>
+    (function () {
+      var isStandalone = window.navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      if (isStandalone) {
+        window.location.replace('./');
+      }
+    })();
+  </script>
+</head>
+
+<body class="antialiased">
+  <main class="max-w-2xl mx-auto px-4 py-6 sm:py-10 space-y-5">
+    <!-- Banner automático para PC -->
+    <div id="pc-banner"
+      class="hidden rounded-2xl bg-sky-950/75 border border-sky-400/40 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="text-xs sm:text-sm text-sky-100">
+        <strong>💻 Você está no computador!</strong> No PC pode abrir e jogar direto no navegador.
+      </div>
+      <a href="./"
+        class="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-sky-400 hover:bg-sky-300 text-slate-950 text-xs font-extrabold whitespace-nowrap">
+        Entrar no Campus 3D →
+      </a>
+    </div>
+
+    <!-- Card principal -->
+    <section class="card-surface rounded-3xl p-5 sm:p-8 space-y-5">
+      <div class="flex flex-col items-center text-center space-y-3">
+        <img src="assets/apple-touch-icon.png" alt="Ícone MycoCampus3D"
+          class="w-20 h-20 rounded-2xl border border-sky-400/40 shadow-lg bg-slate-900">
+
+        <div id="ios-badge"
+          class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/15 border border-sky-400/35 text-sky-300 text-xs font-bold">
+          🍎 iPhone / iPad — Navegador Nativo Safari
+        </div>
+
+        <h1 id="ios-title" class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          Use o Safari no iPhone
+        </h1>
+
+        <p id="ios-subtitle" class="text-sm text-slate-300 max-w-lg leading-relaxed">
+          No iPhone, o MycoCampus3D foi otimizado para o navegador nativo <strong>Safari</strong> e para rodar como aplicativo em tela cheia pela <strong>Tela de Início</strong>. Navegadores como Chrome, WhatsApp ou Instagram limitam o jogo 3D.
+        </p>
+      </div>
+
+      <!-- Aviso quando está em Chrome / App interno no iPhone -->
+      <div id="non-safari-box" class="hidden space-y-3">
+        <div class="rounded-2xl bg-amber-950/55 border border-amber-400/40 p-4 text-xs sm:text-sm text-amber-100 leading-relaxed">
+          ⚠️ <strong>Você abriu fora do Safari</strong> (ex.: Chrome, WhatsApp ou Instagram). Por segurança da Apple, o navegador não deixa trocar sozinho — basta copiar o link abaixo e colar no <strong>Safari</strong> (ícone da bússola azul).
+        </div>
+
+        <button id="btn-copy-ios-link" type="button"
+          class="btn-copy-url w-full py-3.5 px-5 rounded-2xl text-slate-950 font-extrabold text-sm sm:text-base text-center">
+          📋 Copiar Link para Abrir no Safari
+        </button>
+      </div>
+
+      <!-- Ações quando JÁ está no Safari -->
+      <div id="safari-actions-box" class="hidden space-y-3">
+        <div class="rounded-2xl bg-emerald-950/50 border border-emerald-400/40 p-4 text-xs sm:text-sm text-emerald-100 leading-relaxed">
+          ✅ <strong>Ótimo, você já está no Safari!</strong> Para transformar o jogo em um app de tela cheia (sem barras e com ícone próprio), siga os passos abaixo.
+        </div>
+
+        <button id="btn-play-safari" type="button"
+          class="btn-safari-play w-full py-3.5 px-5 rounded-2xl text-slate-950 font-extrabold text-sm sm:text-base text-center">
+          🎮 Jogar Agora no Safari
+        </button>
+      </div>
+    </section>
+
+    <!-- Tutorial passo a passo para iPhone -->
+    <section class="card-surface rounded-3xl p-5 sm:p-7 space-y-4">
+      <div class="space-y-1">
+        <h2 class="text-lg sm:text-xl font-extrabold text-white">📲 Como instalar como App no iPhone (3 passos)</h2>
+        <p class="text-xs sm:text-sm text-slate-400">
+          Não precisa de App Store! O ícone fica na tela do iPhone e atualiza sozinho:
+        </p>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-800">
+          <div class="step-badge">1</div>
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-bold text-white">Abra no Safari (bússola azul)</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Se abriu pelo Chrome, WhatsApp ou Instagram, toque em <strong>Copiar Link</strong> acima (ou no ícone da bússola/compartilhar → <em>Abrir no Safari</em>) e acesse <strong>mycocampus3d.alquimistasmagicos.com.br</strong> no Safari.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-800">
+          <div class="step-badge">2</div>
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-bold text-white">Toque em Compartilhar → Adicionar à Tela de Início</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Na barra de baixo do Safari, toque no botão <strong>Compartilhar</strong> (quadrado com seta para cima <strong>⬆️</strong>), role um pouco e escolha <strong>"Adicionar à Tela de Início"</strong> → <strong>Adicionar</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-800">
+          <div class="step-badge">3</div>
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-bold text-white">Abra pelo novo ícone do MycoCampus3D</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Pronto! Ao tocar no ícone na tela inicial do iPhone, o jogo abre direto em <strong>tela cheia</strong> e recebe todas as atualizações automaticamente.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-slate-500 pb-4">
+      🍄 MycoCampus3D — Universidade 3D do Cultivo de Cogumelos • Alquimistas Mágicos
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      var GAME_URL = 'https://mycocampus3d.alquimistasmagicos.com.br/';
+      var ua = navigator.userAgent || '';
+      var isIos = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+      var isRealSafari = /Safari/i.test(ua) && /Version\//i.test(ua) &&
+        !/CriOS|FxiOS|EdgiOS|OPiOS|GSA|FBAN|FBAV|Instagram|WhatsApp|Line/i.test(ua);
+
+      if (!isIos) {
+        var pcBanner = document.getElementById('pc-banner');
+        if (pcBanner) pcBanner.classList.remove('hidden');
+      }
+
+      var nonSafariBox = document.getElementById('non-safari-box');
+      var safariBox = document.getElementById('safari-actions-box');
+      var titleEl = document.getElementById('ios-title');
+
+      if (isIos && isRealSafari) {
+        if (safariBox) safariBox.classList.remove('hidden');
+        if (titleEl) titleEl.textContent = 'Instale o MycoCampus3D no iPhone';
+      } else {
+        if (nonSafariBox) nonSafariBox.classList.remove('hidden');
+      }
+
+      var copyBtn = document.getElementById('btn-copy-ios-link');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(GAME_URL).then(function () {
+              copyBtn.textContent = '✅ Link copiado! Cole no Safari';
+            }).catch(function () {
+              window.prompt('Copie o link e abra no Safari:', GAME_URL);
+            });
+          } else {
+            window.prompt('Copie o link e abra no Safari:', GAME_URL);
+          }
+        });
+      }
+
+      var playSafariBtn = document.getElementById('btn-play-safari');
+      if (playSafariBtn) {
+        playSafariBtn.addEventListener('click', function () {
+          try {
+            sessionStorage.setItem('myco_ios_safari_ok', '1');
+          } catch (e) {}
+          window.location.href = './?play=1';
+        });
+      }
+    })();
+  </script>
+</body>
+
+</html>

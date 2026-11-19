@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.1.2] - 2026-11-18
+### Guia & Gate para iPhone/iPad (Safari / Tela de Início) + Separação de Versão Web vs APK
+- **Gate e página dedicada para iOS (`index.html`, `ios.html`, `.cpanel.yml`):**
+  - Bloqueia navegadores de terceiros/internos no iPhone/iPad (Chrome `CriOS`, Firefox, Edge, WhatsApp, Instagram) antes de carregar o Three.js, orientando a abrir no **Safari** e instalar na **Tela de Início** em tela cheia.
+  - Usuários já no app da Tela de Início (`standalone`) entram direto; usuários no Safari podem instalar ou clicar para jogar direto pelo Safari.
+- **Atualização Web independente do APK (`js/services/apk-updater.js`, `scripts/sync-version.mjs`):**
+  - Updates web (`v1.1.2`, etc.) atualizam automaticamente dentro do APK sem disparar alerta de download de `.apk`, que agora dispara apenas quando `versionCode` nativo sobe.
+
 ## [v1.1.1] - 2026-11-18
 ### Teste de Atualização Automática (Web + APK Native Update)
 - Atualizada a versão do campus para `v1.1.1` e `versionCode` do APK para `2` em `assets/apk-version.json`, validando o fluxo completo de atualização automática web e alerta de atualização nativa do `MycoCampus3D.apk`.
