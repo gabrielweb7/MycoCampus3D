@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.2] - 2026-11-19
+### Correção de Prioridade de Raycast & Colisor das Estantes do Empório
+- **Retirada livre de caixas e itens sobre as estantes do Empório (`js/items/dehydration-packaging.js`, `js/systems/hover-raycaster.js`):**
+  - Ajustada a caixa invisível de colisão/interação `standHit` das estantes frontais do Empório para ficar restrita à altura do balcão (`0..0.88m`), sem cobrir caixas pousadas em cima (`y >= 0.88m`).
+  - Movida a detecção genérica de `roadSaleStandMeshes` para depois da detecção de itens pegáveis (`bestSmall / bestLarge`) no `hover-raycaster.js`, permitindo pegar caixas vazias ou pacotes diretamente de cima das estantes com a mão livre.
+
 ## [v1.4.1] - 2026-11-19
 ### Polimento Geral: Casa Empório, Pote Hermético com Cogumelos Reais, Seladora Animada, Organização do Lab & Abelhas no Pasto
 - **Casa Empório MycoCampus (`js/items/dehydration-packaging.js`, `js/world/outer-campus.js`, `js/services/audio-engine.js`):**

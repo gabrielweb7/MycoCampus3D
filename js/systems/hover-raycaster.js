@@ -419,16 +419,6 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
-  if (!prompt && roadSaleStandMeshes.length > 0 && refX > 2 && refX < 24 && refZ > 28 && refZ < 44) {
-    const stHits = ctx.raycaster.intersectObjects(roadSaleStandMeshes, false);
-    if (stHits.length > 0 && stHits[0].distance < 5.5) {
-      ctx.hoverHit = stHits[0];
-      ctx.hoveredRoadSaleStand = true;
-      prompt = roadStandState.availablePacks > 0
-        ? `🚗 Quiosque Drive-Thru (${roadStandState.availablePacks} pacotes no balcão • 🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins cada • Clientes a caminho!)`
-        : '🚗 Quiosque Drive-Thru da Estrada • Traga Caixas de Entrega ou Pacotes Selados da Sala de Desidratação!';
-    }
-  }
   if (!prompt && ctx.heldItem) {
     for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
       const fItem = ctx.pickableItems[fi];

@@ -799,8 +799,8 @@ export function buildRoadsideMushroomStand(ctx) {
       maxY: 0.95
     });
 
-    const standHit = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.35, 1.05), hitMat);
-    standHit.position.set(sx, 0.72, shelfZ);
+    const standHit = new THREE.Mesh(new THREE.BoxGeometry(1.80, 0.88, 0.90), hitMat);
+    standHit.position.set(sx, 0.44, shelfZ);
     standHit.userData.isRoadSaleStand = true;
     standGroup.add(standHit);
     roadSaleStandMeshes.push(standHit);
