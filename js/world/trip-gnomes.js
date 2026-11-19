@@ -1,7 +1,7 @@
 /**
  * MycoCampus3D — Gnomos da Brisa (aparecem andando, correndo, observando e fugindo se chegar perto)
  */
-import { getGroundHeight } from '../engine/physics.js';
+import { getGroundHeight, terrainHeight } from '../engine/physics.js';
 import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
 import { isNaturalSoilSpot } from './nature-plaza.js';
 import { getVirtualDayFrac } from './staircase-clock.js';
@@ -221,7 +221,23 @@ function stepEnchantedFlora(ctx, dt, show) {
   }
 }
 
-function stepFireflies(ctx, dt, show, isDark) {
+function pickForestFireflySpot() {
+  for (let tries = 0; tries < 24; tries++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 52 + Math.random() * 44;
+    const fx = Math.cos(ang) * rad;
+    const fz = Math.sin(ang) * rad;
+    if (isNaturalSoilSpot(fx, fz, 5.5)) {
+      const fy = terrainHeight(fx, fz) + 0.8 + Math.random() * 2.4;
+      return { x: fx, y: fy, z: fz };
+    }
+  }
+  const fx = -74 + (Math.random() - 0.5) * 18;
+  const fz = -58 + (Math.random() - 0.5) * 18;
+  return { x: fx, y: terrainHeight(fx, fz) + 1.2 + Math.random() * 1.8, z: fz };
+}
+
+function stepFireflies(ctx, dt, show, isDark, inTrip) {
   if (!show && !isDark) {
     if (fireflyPoints) fireflyPoints.visible = false;
     return;
@@ -230,55 +246,78 @@ function stepFireflies(ctx, dt, show, isDark) {
   const py = ctx.playerPos.y;
   const pz = ctx.playerPos.z;
   const count = 32;
+  const nightForestOnly = !inTrip && !isDark;
+  const activeCount = nightForestOnly ? 14 : count;
   if (!fireflyPoints) {
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
     fireflyData = [];
     for (let i = 0; i < count; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 2 + Math.random() * 14;
-      pos[i * 3] = px + Math.cos(a) * r;
-      pos[i * 3 + 1] = py + 0.5 + Math.random() * 2.5;
-      pos[i * 3 + 2] = pz + Math.sin(a) * r;
-      fireflyData.push({ phase: Math.random() * 6.28, speed: 0.6 + Math.random() * 0.9, hue: i / count });
+      const spot = pickForestFireflySpot();
+      pos[i * 3] = spot.x;
+      pos[i * 3 + 1] = spot.y;
+      pos[i * 3 + 2] = spot.z;
+      fireflyData.push({
+        baseX: spot.x,
+        baseY: spot.y,
+        baseZ: spot.z,
+        phase: Math.random() * 6.28,
+        speed: 0.6 + Math.random() * 0.9,
+        hue: i / count
+      });
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const mat = new THREE.PointsMaterial({
-      size: 0.22,
+      size: 0.18,
       vertexColors: true,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.82,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     fireflyPoints = new THREE.Points(geo, mat);
+    fireflyPoints.frustumCulled = false;
     ctx.scene.add(fireflyPoints);
   }
   fireflyPoints.visible = true;
+  fireflyPoints.geometry.setDrawRange(0, activeCount);
   const posAttr = fireflyPoints.geometry.getAttribute('position');
   const colAttr = fireflyPoints.geometry.getAttribute('color');
   const tmpC = _tmpFireflyColor || new THREE.Color();
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < activeCount; i++) {
     const d = fireflyData[i];
     d.phase += dt * d.speed;
-    let x = posAttr.getX(i) + Math.cos(d.phase) * dt * 0.65;
-    let y = posAttr.getY(i) + Math.sin(d.phase * 1.4) * dt * 0.45;
-    let z = posAttr.getZ(i) + Math.sin(d.phase * 0.8) * dt * 0.65;
-    if (Math.hypot(x - px, z - pz) > 18 || y < py - 1 || y > py + 5.5) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 2 + Math.random() * 13;
-      x = px + Math.cos(a) * r;
-      y = py + 0.5 + Math.random() * 2.4;
-      z = pz + Math.sin(a) * r;
+    let x = posAttr.getX(i) + Math.cos(d.phase) * dt * 0.48;
+    let y = posAttr.getY(i) + Math.sin(d.phase * 1.4) * dt * 0.32;
+    let z = posAttr.getZ(i) + Math.sin(d.phase * 0.8) * dt * 0.48;
+    if (nightForestOnly) {
+      if (Math.hypot(x - d.baseX, z - d.baseZ) > 9 || !isNaturalSoilSpot(x, z, 3.5)) {
+        const spot = pickForestFireflySpot();
+        d.baseX = spot.x;
+        d.baseY = spot.y;
+        d.baseZ = spot.z;
+        x = spot.x;
+        y = spot.y;
+        z = spot.z;
+      }
+      tmpC.setHSL(0.24 + Math.sin(d.phase * 0.5) * 0.04, 0.88, 0.62);
+    } else {
+      if (Math.hypot(x - px, z - pz) > 18 || y < py - 1 || y > py + 5.5) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 2 + Math.random() * 13;
+        x = px + Math.cos(a) * r;
+        y = py + 0.5 + Math.random() * 2.4;
+        z = pz + Math.sin(a) * r;
+      }
+      if (isDark) {
+        tmpC.setHSL(i % 2 === 0 ? 0.98 : 0.78, 0.9, 0.52);
+      } else {
+        tmpC.setHSL((d.hue + d.phase * 0.04) % 1, 0.95, 0.65);
+      }
     }
     posAttr.setXYZ(i, x, y, z);
-    if (isDark) {
-      tmpC.setHSL(i % 2 === 0 ? 0.98 : 0.78, 0.9, 0.52);
-    } else {
-      tmpC.setHSL((d.hue + d.phase * 0.04) % 1, 0.95, 0.65);
-    }
     colAttr.setXYZ(i, tmpC.r, tmpC.g, tmpC.b);
   }
   posAttr.needsUpdate = true;
@@ -528,7 +567,7 @@ export function stepTripGnomes(ctx, dt) {
   const nightFireflies = Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2) < -0.08;
   applyUmbralAtmosphere(ctx, freakout);
   stepEnchantedFlora(ctx, dt, active && !freakout);
-  stepFireflies(ctx, dt, (active && !freakout) || nightFireflies, freakout);
+  stepFireflies(ctx, dt, (active && !freakout) || nightFireflies, freakout, active);
   stepGiantTrampolines(ctx, dt, active && !freakout);
 
   if (!freakout && shadowGnomePool) {

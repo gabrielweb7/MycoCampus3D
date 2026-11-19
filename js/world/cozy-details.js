@@ -6,13 +6,16 @@
  * - Explosões de corações/estrelinhas em interações fofas (carinho, colheita, gol/cesta)
  */
 
+import { isNaturalSoilSpot } from './nature-plaza.js';
+import { terrainHeight } from '../engine/physics.js';
+
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 const _Obj3D = THREE && THREE.Object3D ? THREE.Object3D : null;
 
 const BUTTERFLY_BASES = [
   { x: 16.0, y: 1.35, z: 16.5, r: 2.8, sp: 0.95, ph: 0.0 },
   { x: 14.5, y: 1.55, z: 18.2, r: 2.2, sp: 1.15, ph: 1.4 },
-  { x: 17.6, y: 1.25, z: 15.0, r: 2.5, sp: 0.85, ph: 2.7 },
+  { x: 17.6, y: 1.25, z: 17.8, r: 2.5, sp: 0.85, ph: 2.7 },
   { x: 1.8, y: 1.60, z: 2.5, r: 3.4, sp: 0.90, ph: 3.9 },
   { x: -2.2, y: 1.45, z: 1.8, r: 3.0, sp: 1.05, ph: 5.1 },
   { x: 3.8, y: 1.40, z: 14.0, r: 2.4, sp: 1.10, ph: 0.8 },
@@ -21,7 +24,7 @@ const BUTTERFLY_BASES = [
 ];
 
 const MAX_HEARTS = 16;
-const SPORE_COUNT = 40;
+const SPORE_COUNT = 18;
 let _dummy = null;
 const activeBursts = [];
 
@@ -130,12 +133,28 @@ export function createCozyDetails(scene, nightLampGlows) {
   }
   scene.add(butterflies);
 
-  // 3. Esporos dourados/esmeralda flutuando suavemente (1 Points)
+  // 3. Esporos suaves apenas no meio da floresta externa (nunca na cidade ou dentro das salas)
   const spArr = new Float32Array(SPORE_COUNT * 3);
+  const spBaseY = new Float32Array(SPORE_COUNT);
   for (let i = 0; i < SPORE_COUNT; i++) {
-    spArr[i * 3] = (Math.random() - 0.5) * 44;
-    spArr[i * 3 + 1] = 0.6 + Math.random() * 3.8;
-    spArr[i * 3 + 2] = (Math.random() - 0.5) * 44;
+    let sx = -72 + (Math.random() - 0.5) * 26;
+    let sz = -56 + (Math.random() - 0.5) * 26;
+    for (let t = 0; t < 24; t++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rad = 52 + Math.random() * 40;
+      const cx = Math.cos(ang) * rad;
+      const cz = Math.sin(ang) * rad;
+      if (isNaturalSoilSpot(cx, cz, 5.0)) {
+        sx = cx;
+        sz = cz;
+        break;
+      }
+    }
+    const baseGround = terrainHeight(sx, sz);
+    spBaseY[i] = baseGround;
+    spArr[i * 3] = sx;
+    spArr[i * 3 + 1] = baseGround + 0.7 + Math.random() * 2.6;
+    spArr[i * 3 + 2] = sz;
   }
   const spGeo = new THREE.BufferGeometry();
   const spAttr = new THREE.BufferAttribute(spArr, 3);
@@ -165,7 +184,7 @@ export function createCozyDetails(scene, nightLampGlows) {
   hearts.userData.keepDynamic = true;
   scene.add(hearts);
 
-  return { fairyBulbs, butterflies, spores, spAttr, spMat, hearts };
+  return { fairyBulbs, butterflies, spores, spAttr, spMat, spBaseY, hearts };
 }
 
 export function stepCozyDetails(ctrl, dt, envTime, sunY, weatherMode, qualityTier) {
@@ -203,9 +222,10 @@ export function stepCozyDetails(ctrl, dt, envTime, sunY, weatherMode, qualityTie
       const arr = ctrl.spAttr.array;
       for (let i = 0; i < SPORE_COUNT; i++) {
         const idx = i * 3;
+        const floorY = ctrl.spBaseY ? ctrl.spBaseY[i] : 0;
         arr[idx + 1] += dt * 0.22;
         arr[idx] += Math.sin(envTime * 0.7 + i) * dt * 0.14;
-        if (arr[idx + 1] > 4.6) arr[idx + 1] = 0.45;
+        if (arr[idx + 1] > floorY + 4.2) arr[idx + 1] = floorY + 0.55;
       }
       ctrl.spAttr.needsUpdate = true;
       ctrl.spMat.opacity = sunY < 0 ? 0.68 : 0.38;

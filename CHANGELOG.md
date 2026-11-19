@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.1] - 2026-11-19
+### Vagalumes e Esporos Apenas no Meio da Floresta (Limpeza Urbana e Interna)
+- **Florestas & Atmosfera (`js/world/trip-gnomes.js`, `js/world/cozy-details.js`):**
+  - Vagalumes noturnos reduzidos de 32 para 14 em tom natural amarelo-esverdeado e ancorados exclusivamente no meio da floresta profunda (`isNaturalSoilSpot` a 52–96m do centro), não seguindo mais o jogador para a cidade ou dentro dos laboratórios fora do modo trip.
+  - Esporos de `cozy-details.js` reduzidos para 18 e movidos para a mata externa (`>= 52m`) sobre `terrainHeight` real, mantendo o interior das salas e o calçadão da cidade totalmente limpos.
+
 ## [v1.9.0] - 2026-11-19
 ### Céu em Gradiente, Sombras de Contato no Mobile, Visual Fofinho (Borboletas, Luzinhas, Corações) & Modo Foto + Otimização de FPS
 - **Performance & Iluminação (`js/engine/sky-gradient.js`, `js/engine/blob-shadows.js`, `js/engine/environment.js`, `js/systems/campus-init.js`):**

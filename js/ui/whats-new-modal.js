@@ -9,6 +9,17 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.1': {
+    title: '✨ Novidades da Atualização v1.9.1',
+    subtitle: 'Vagalumes e esporos apenas na floresta + melhorias visuais da v1.9:',
+    items: [
+      { icon: '🌲', text: 'Vagalumes & Esporos Exclusivos da Floresta: agora ficam em quantidade suave apenas nas matas externas à noite — sem vagalumes ou brilhos dentro das salas ou no meio da cidade!' },
+      { icon: '🌅', text: 'Céu em Gradiente Atmosférico + Luz Rica: amanhecer dourado/rosado, horizonte em degrade, luar azulado e sombras de contato suaves no Celular!' },
+      { icon: '🦋', text: 'Campus Mais Fofinho: borboletas coloridas na Horta e Praça de dia, varais de luzinhas (Fairy Lights) acendendo à noite e corações ao acariciar vaquinhas!' },
+      { icon: '📷', text: 'Modo Foto / Cartão Postal ([F9] ou botão Foto no topo): esconda o HUD num clique para tirar prints perfeitas das constelações e do seu lab!' },
+      { icon: '⚡', text: 'Mais FPS no PC e Mobile: Shadow Map sob demanda no Desktop e InstancedMesh leve em todos os efeitos.' }
+    ]
+  },
   '1.9.0': {
     title: '✨ Novidades da Atualização v1.9.0',
     subtitle: 'Visual fofinho, iluminação atmosférica e mais FPS no PC e Celular!',
