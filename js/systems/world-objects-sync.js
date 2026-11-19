@@ -17,6 +17,51 @@ import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 
+const LOCAL_MOVED_STORAGE_KEY = 'myco_local_world_objects_v1';
+
+function readLocalMovedMap() {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(LOCAL_MOVED_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeLocalMovedMap(map) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(LOCAL_MOVED_STORAGE_KEY, JSON.stringify(map || {}));
+  } catch (e) {}
+}
+
+export function saveLocalMovedObject(item) {
+  if (!item || !item.id || !item.mesh) return;
+  const map = readLocalMovedMap();
+  map[item.id] = {
+    x: Number(item.mesh.position.x.toFixed(4)),
+    y: Number(item.mesh.position.y.toFixed(4)),
+    z: Number(item.mesh.position.z.toFixed(4)),
+    ry: Number((item.mesh.rotation.y || 0).toFixed(4))
+  };
+  writeLocalMovedMap(map);
+}
+
+export function clearLocalMovedObjects() {
+  if (typeof localStorage === 'undefined') return;
+  try { localStorage.removeItem(LOCAL_MOVED_STORAGE_KEY); } catch (e) {}
+}
+
+export function restoreLocalWorldObjects(sim) {
+  if (!sim || !Array.isArray(sim.pickableItems)) return;
+  const localMap = readLocalMovedMap();
+  if (!localMap || !Object.keys(localMap).length) return;
+  applyCampusWorldObjects(sim, localMap);
+}
+
 export function markCampusInitialItemStatesApplied(sim) {
   if (!sim) return;
   sim.itemStateSignatures = {};
@@ -532,9 +577,9 @@ export function applyCampusWorldObjects(sim, objectsMap) {
     if (sim.pendingMovedItems[item.id]) return;
     if (sim.recentlyDropped[item.id] > now) {
       const svCheck = objectsMap[item.id];
-      if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.06 && Math.abs(svCheck.y - item.mesh.position.y) < 0.06) {
+      if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.08 && Math.abs(svCheck.y - item.mesh.position.y) < 0.08) {
         delete sim.recentlyDropped[item.id];
-      } else if (sim.recentlyDropped[item.id] - now < 13500) {
+      } else if (sim.recentlyDropped[item.id] - now < 23500) {
         sim.pendingMovedItems[item.id] = {
           id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
         };
@@ -547,7 +592,8 @@ export function applyCampusWorldObjects(sim, objectsMap) {
       item.mesh.rotation.y = saved.ry || 0;
       item.isMoved = true;
       item.mesh.userData.updateBounds(item);
-    } else if (item.isMoved) {
+      saveLocalMovedObject(item);
+    } else if (item.isMoved && !(item.movedAt && (now - item.movedAt < 25000))) {
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
       item.mesh.userData.updateBounds(item);
@@ -563,9 +609,9 @@ export function applyCampusWorldObjects(sim, objectsMap) {
     if (sim.pendingMovedItems[item.id]) return;
     if (sim.recentlyDropped[item.id] > now) {
       const svCheck = objectsMap[item.id];
-      if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.06 && Math.abs(svCheck.y - item.mesh.position.y) < 0.06) {
+      if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.08 && Math.abs(svCheck.y - item.mesh.position.y) < 0.08) {
         delete sim.recentlyDropped[item.id];
-      } else if (sim.recentlyDropped[item.id] - now < 13500) {
+      } else if (sim.recentlyDropped[item.id] - now < 23500) {
         sim.pendingMovedItems[item.id] = {
           id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
         };
@@ -593,13 +639,15 @@ export function applyCampusWorldObjects(sim, objectsMap) {
           item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
           item.mesh.rotation.copy(pot.mesh.rotation);
           item.isMoved = true;
+          saveLocalMovedObject(item);
           return;
         }
       }
       item.mesh.position.set(saved.x, saved.y, saved.z);
       item.mesh.rotation.y = saved.ry || 0;
       item.isMoved = true;
-    } else if (item.isMoved) {
+      saveLocalMovedObject(item);
+    } else if (item.isMoved && !(item.movedAt && (now - item.movedAt < 25000))) {
       sim.removeFromCookerContents(item);
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
@@ -612,6 +660,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
 }
 
 export function resetCampusWorldObjects(sim) {
+  clearLocalMovedObjects();
   if (sim.cancelHeldItemPlacement) sim.cancelHeldItemPlacement();
   setHeldTwoHandedGhost(sim.heldItem, false);
   sim.heldItem = null;

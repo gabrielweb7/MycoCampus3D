@@ -48,6 +48,7 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
     const ss = supportSurfaces[u];
     if (ignoreSurf && ss === ignoreSurf) continue;
     if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
+    if (ss.ownerItem && ((heldItem && ss.ownerItem === heldItem) || (ctx.isHeldByRemote && ctx.isHeldByRemote(ss.ownerItem.id)))) continue;
     if (typeof maxSurfTopY === 'number' && ss.topY > maxSurfTopY) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
     const sW = typeof ss.halfW === 'number' ? ss.halfW * 2 : (ss.maxX - ss.minX);
@@ -69,6 +70,7 @@ export function getSupportSurfaceAt(ctx, x, z, margin, ignoreSurf, maxTopY) {
     const ss = supportSurfaces[u];
     if (ignoreSurf && ss === ignoreSurf) continue;
     if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
+    if (ss.ownerItem && ((heldItem && ss.ownerItem === heldItem) || (ctx.isHeldByRemote && ctx.isHeldByRemote(ss.ownerItem.id)))) continue;
     if (typeof maxTopY === 'number' && ss.topY > maxTopY) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
     if (isPointInBoundsXZ(x, z, ss, m)) {

@@ -328,8 +328,8 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
 
   // 9. Superfície Superior e Hitbox de Apoio para Panela
   const topHit = new THREE.Mesh(
-    new THREE.CylinderGeometry(drumR, drumR, 0.018, 20),
-    new THREE.MeshBasicMaterial({ visible: false })
+    new THREE.CylinderGeometry(drumR, drumR, 0.022, 20),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
   );
   topHit.position.y = totalH;
   tg.add(topHit);

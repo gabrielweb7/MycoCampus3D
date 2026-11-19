@@ -2,6 +2,17 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.6] - 2026-11-19
+### Correção Completa de Movimentação, Raycast, Piscamento & Persistência de Itens (Panela, Fogareiros e Bancadas)
+- **Raycast nos Fogareiros & Tripé GLP (`js/items/pressure-cooker.js`, `js/items/gas-tripod.js`):**
+  - Substituído `visible: false` por material invisível raycastável (`transparent: true, opacity: 0, depthWrite: false, colorWrite: false`) em `coilHit` e `topHit`, impedindo que panelas atravessem o fogareiro/tripé ao posicionar.
+- **Fim do Piscamento, Superfície Fantasma & Bloqueio em Bancadas (`js/items/item-registry.js`, `js/engine/physics.js`, `js/entities/placement-ghost.js`, `js/core/quality.js`):**
+  - Vinculado `ownerItem` às `dynamicSurface` e ignoradas superfícies cujo dono esteja na mão (`isSurfaceOwnerHeld`), eliminando superfícies fantasma no local antigo ao mover fogareiros, balanças, bandejas ou mesas.
+  - Removida restrição `!heldIsBox` em `onSupportedBench` para permitir apoiar fogareiros, balanças, agitadores e bandejas sobre bancadas encostadas na parede.
+  - Corrigido `stepMobileItemCulling` para respeitar `hideInPlaceMode` e evitar piscamento de itens grandes segurados.
+- **Persistência Local + Proteção contra Reversão Multiplayer (`js/systems/world-objects-sync.js`, `js/systems/held-item-placement.js`, `js/systems/campus-init.js`):**
+  - Gravado automaticamente cada item movido (incluindo tampa e conteúdo da panela) em `localStorage['myco_local_world_objects_v1']` com restauração no boot (`restoreLocalWorldObjects`) e proteção estendida de `25s` contra reversão para `homePos` durante sync.
+
 ## [v1.4.5] - 2026-11-19
 ### Correção Definitiva de Posicionamento de Giz & Itens sobre Bancadas, Lousa e Mesas Rotacionadas
 - **Aparador da Lousa, Dormitórios & Recepção (`js/world/buildings.js`, `js/world/outer-campus.js`, `js/world/staircase-clock.js`):**

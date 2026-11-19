@@ -9,6 +9,7 @@ import { hideHover3dBadge } from '../entities/hover-3d-badge.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
+import { saveLocalMovedObject } from './world-objects-sync.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
 
@@ -151,22 +152,26 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
     ctx.snapClosePot = null;
   }
   if (held.mesh.userData.updateBounds) held.mesh.userData.updateBounds(held);
+  held.movedAt = performance.now();
 
-  const dropTs = performance.now() + 15000;
+  const dropTs = performance.now() + 25000;
   ctx.pendingMovedItems[held.id] = {
     id: held.id, x: held.mesh.position.x, y: held.mesh.position.y, z: held.mesh.position.z, ry: held.mesh.rotation.y
   };
   ctx.recentlyDropped[held.id] = dropTs;
+  saveLocalMovedObject(held);
 
   if (held.lidItem && held.lidItem.isAttached) {
     const lid = held.lidItem;
     lid.mesh.position.set(held.mesh.position.x, held.mesh.position.y + 0.36, held.mesh.position.z);
     lid.mesh.rotation.copy(held.mesh.rotation);
     lid.isMoved = true;
+    lid.movedAt = performance.now();
     ctx.pendingMovedItems[lid.id] = {
       id: lid.id, x: lid.mesh.position.x, y: lid.mesh.position.y, z: lid.mesh.position.z, ry: lid.mesh.rotation.y
     };
     ctx.recentlyDropped[lid.id] = dropTs;
+    saveLocalMovedObject(lid);
   }
 
   for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
@@ -184,10 +189,12 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
         nonBaseIdx++;
       }
       item.isMoved = true;
+      item.movedAt = performance.now();
       ctx.pendingMovedItems[item.id] = {
         id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
       };
       ctx.recentlyDropped[item.id] = dropTs;
+      saveLocalMovedObject(item);
     });
     break;
   }
@@ -213,11 +220,13 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
       const rotY = content.localRotY !== undefined ? (ctx.heldRotY + content.localRotY) : (ctx.heldRotY + (content.lry || 0));
       item.mesh.rotation.set(0, rotY, 0);
       item.isMoved = true;
+      item.movedAt = performance.now();
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       ctx.pendingMovedItems[item.id] = {
         id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
       };
       ctx.recentlyDropped[item.id] = dropTs;
+      saveLocalMovedObject(item);
     });
     held.trayContents = null;
   }

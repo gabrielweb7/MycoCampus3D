@@ -453,7 +453,9 @@ export function stepMobileItemCulling(ctx, now) {
     const it = items[i];
     if (!it || !it.mesh) continue;
     if (it === ctx.heldItem) {
-      it.mesh.visible = true;
+      const hUd = it.mesh.userData;
+      const hideHeld = !!(ctx.placementMode && hUd && (hUd.twoHanded || hUd.isCultureFridge || hUd.isHood || hUd.isTable));
+      it.mesh.visible = !hideHeld;
       continue;
     }
     const ud = it.mesh.userData;

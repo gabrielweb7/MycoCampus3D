@@ -345,7 +345,7 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
 
   const coilHit = new THREE.Mesh(
     new THREE.CylinderGeometry(0.205, 0.205, 0.012, 22),
-    new THREE.MeshBasicMaterial({ visible: false })
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
   );
   coilHit.position.set(0, 0.082, -0.02);
   bg.add(coilHit);

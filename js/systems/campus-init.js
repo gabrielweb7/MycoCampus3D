@@ -40,6 +40,7 @@ import { bindControls } from './input-controller.js';
 import { freezeStaticWorld } from '../engine/scene-optimizer.js';
 import { applyQualityTier, getCinemaHitTarget, startAnimationLoop } from './game-loop.js';
 import { registerCampusPublicApi as bindPublicApi } from './campus-api.js';
+import { restoreLocalWorldObjects } from './world-objects-sync.js';
 
 const THREE = window.THREE;
 
@@ -398,7 +399,8 @@ sim.physCtx = {
   get heldItem() { return sim.heldItem; },
   get wallSegments() { return sim.wallSegments; },
   get campusDoors() { return sim.campusDoors; },
-  get solidColliders() { return sim.solidColliders; }
+  get solidColliders() { return sim.solidColliders; },
+  isHeldByRemote: function (id) { return sim.isHeldByRemote(id); }
 };
 
 sim.entityCtx = {
@@ -672,6 +674,7 @@ export function initCampus3D(containerId, cbs) {
     buildClockTowerAndAuditorium(wbCtx);
     buildCampusWingsAndEquipment(wbCtx);
     buildOuterCampus(wbCtx);
+    restoreLocalWorldObjects(sim);
     createPastureAndCows(wbCtx);
     buildFirstPersonArm(sim.entityCtx);
 

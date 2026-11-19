@@ -210,6 +210,13 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
   placementRing.scale.set(ringPulse, ringPulse, 1);
 }
 
+function isSurfaceOwnerHeld(ctx, surf) {
+  if (!surf || !surf.ownerItem) return false;
+  if (ctx.heldItem && surf.ownerItem === ctx.heldItem) return true;
+  if (ctx.isHeldByRemote && ctx.isHeldByRemote(surf.ownerItem.id)) return true;
+  return false;
+}
+
 function clampPointToSurfaceXZ(x, z, surf, topY, outPt) {
   if (typeof surf.halfW === 'number' && typeof surf.halfD === 'number' &&
       typeof surf.centerX === 'number' && typeof surf.centerZ === 'number' && surf.ry) {
@@ -324,7 +331,7 @@ export function findPlacementTarget(ctx, customNdc) {
       if (sh.distance < 0.02 || sh.distance > 5.8) continue;
       if (sh.object.userData.ignoreRay) continue;
       var sSurf = sh.object.userData.supportSurface;
-      if (!sSurf) continue;
+      if (!sSurf || isSurfaceOwnerHeld(ctx, sSurf)) continue;
       if (sSurf.isCabinetShelf && sSurf.requiresOpenPart && !sSurf.requiresOpenPart.open) continue;
       if (heldItem && heldItem.mesh) {
         if (heldItem.mesh.userData.dynamicSurface === sSurf) continue;
@@ -337,6 +344,7 @@ export function findPlacementTarget(ctx, customNdc) {
   // 1b. Interseção matemática com plano e volume de suportes
   for (var i = 0; i < supportSurfaces.length; i++) {
     var s = supportSurfaces[i];
+    if (isSurfaceOwnerHeld(ctx, s)) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === s) continue;
     if (s.isCabinetShelf && s.requiresOpenPart && !s.requiresOpenPart.open) continue;
 
@@ -553,12 +561,14 @@ export function isPlacementBlocked(ctx, pt) {
   }
 
   if (pt.y > 3.2) return false;
-  // Itens pequenos apoiados em bancadas/estantes/aparadores já encostados na parede não são bloqueados pela parede atrás
+  // Itens/equipamentos apoiados em bancadas/estantes/aparadores já encostados na parede (exceto mesas/capelas grandes) não são bloqueados pela parede atrás
   var onSupportedBench = false;
-  if (ctx.supportSurfaces && !heldIsBox) {
+  var isLargeFurniture = !!(heldItem.mesh.userData.isTable || heldItem.mesh.userData.isHood || heldItem.mesh.userData.isCultureFridge);
+  if (ctx.supportSurfaces && !isLargeFurniture) {
     for (var sbi = 0; sbi < ctx.supportSurfaces.length; sbi++) {
       var ssB = ctx.supportSurfaces[sbi];
-      if (ssB.topY > 0.20 && isPointInBoundsXZ(pt.x, pt.z, ssB, 0.04) && Math.abs(pt.y - ssB.topY) < 0.06) {
+      if (isSurfaceOwnerHeld(ctx, ssB)) continue;
+      if (ssB.topY > 0.20 && isPointInBoundsXZ(pt.x, pt.z, ssB, 0.06) && Math.abs(pt.y - ssB.topY) < 0.08) {
         onSupportedBench = true;
         break;
       }
@@ -653,10 +663,11 @@ export function dropUnsupportedItems(ctx) {
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
         if (s === item.mesh.userData.dynamicSurface) continue;
+        if (isSurfaceOwnerHeld(ctx, s)) continue;
         if (item.fridgeCtrl && s.isCultureFridgeShelf) continue;
         if (item.mesh.userData.isHood && s.isHood) continue;
         if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.10) &&
-          item.mesh.position.y >= s.topY - 0.05) {
+          item.mesh.position.y >= s.topY - 0.06) {
           supportedY = Math.max(supportedY, s.topY);
         }
       }
