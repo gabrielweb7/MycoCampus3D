@@ -7,6 +7,38 @@ import { terrainHeight } from '../engine/physics.js';
 const THREE = window.THREE;
 const LITE_FLORA = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
+/**
+ * Retorna true apenas quando (x, z) é solo natural (grama ou terra),
+ * bloqueando estradas asfaltadas, calçadas de concreto, praças pavimentadas,
+ * prédios, lago duplo, ponte, quadras, estacionamento, horta e Empório.
+ */
+export function isNaturalSoilSpot(x, z, margin = 0.8) {
+  const m = margin;
+  // 1. Praça Central concretada + alas Oeste/Leste (plane 56x42 em (0, 1) -> x:-28..28, z:-20..22)
+  if (x >= -28.0 - m && x <= 28.0 + m && z >= -20.5 - m && z <= 22.0 + m) return false;
+  // 2. Reitoria / Prédio Norte & Auditórios Norte (x: -25.5..25.5, z: -43.0..-20.0)
+  if (x >= -25.5 - m && x <= 25.5 + m && z >= -43.5 - m && z <= -19.5 + m) return false;
+  // 3. Avenida Sul asfaltada até os túneis nas colinas (z = 39.5, largura 7.2, x: -122..122)
+  if (z >= 35.6 - m && z <= 43.4 + m && Math.abs(x) <= 122 + m) return false;
+  // 4. Túneis nas Colinas Oeste/Leste
+  if ((x <= -102 + m || x >= 102 - m) && z >= 29 - m && z <= 50 + m) return false;
+  // 5. Avenida Leste asfaltada (x = 30.5, largura 7.0, z: -22.5..42)
+  if (x >= 26.8 - m && x <= 34.2 + m && z >= -23.0 - m && z <= 42.5 + m) return false;
+  // 6. Calçada Sul, Lago Duplo em 8, Ponte, Casa Empório (hx:17.5, hz:32.5) e Horta (x: -16..22.5, z: 14.5..38)
+  if (x >= -15.8 - m && x <= 22.8 + m && z >= 14.5 - m && z <= 38.0 + m) return false;
+  // 7. Calçada Leste + Praça Redonda Leste (centro 42,12 raio 8.5)
+  if (x >= 20.0 - m && x <= 34.5 + m && z >= 7.5 - m && z <= 16.5 + m) return false;
+  if (Math.hypot(x - 42, z - 12) <= 9.0 + m) return false;
+  // 8. Complexo Esportivo Oeste & Estacionamento Sudoeste
+  if (x >= -65.5 - m && x <= -34.5 + m && z >= -44.5 - m && z <= 33.5 + m) return false;
+  // 9. Grande Auditório / Cinema Leste (x: 36.5..59.5, z: -20.5..-3.5)
+  if (x >= 36.5 - m && x <= 59.5 + m && z >= -20.5 - m && z <= -3.5 + m) return false;
+  // 10. Dormitórios Sudeste ([58,12] 14x10 e [50,28] 14x10)
+  if (x >= 50.5 - m && x <= 65.5 + m && z >= 6.5 - m && z <= 17.5 + m) return false;
+  if (x >= 42.5 - m && x <= 57.5 + m && z >= 22.5 - m && z <= 33.5 + m) return false;
+  return true;
+}
+
 export function buildNatureWorld(ctx) {
   const { scene, solidColliders, wildMushrooms } = ctx;
   const size = 480;
@@ -45,17 +77,16 @@ export function buildNatureWorld(ctx) {
     const rad = 64 + Math.sqrt(idx / 420) * 95;
     const tx = Math.cos(ang) * rad;
     const tz = Math.sin(ang) * rad * 0.85;
-    if (tx > -70 && tx < 74 && tz > -48 && tz < 46) continue;
-    if (tz > 34 && tz < 46 && tx > -80 && tx < 20) continue;
+    if (!isNaturalSoilSpot(tx, tz, 2.2)) continue;
     treePositions.push({ x: tx, y: terrainHeight(tx, tz), z: tz, s: 0.85 + (idx % 5) * 0.18 });
   }
   const extraTrees = [
-    [-29, 18], [-29, -2], [-29, -20], [29, 18], [29, -18],
-    [-14, 24], [14, 24], [-18, 34], [18, 34], [28, 32],
-    [-32, 34], [64, -12], [68, 22], [32, -28], [-32, -32]
+    [-31, 12], [-31, -6], [-31, -24], [38, 24], [37, -25],
+    [-28, 30], [26, 28], [-70, -8], [72, 18], [68, -22], [-68, 22], [70, 30]
   ];
   extraTrees.forEach((et, k) => {
-    treePositions.push({ x: et[0], y: 0, z: et[1], s: 0.95 + (k % 3) * 0.15 });
+    if (!isNaturalSoilSpot(et[0], et[1], 1.8)) return;
+    treePositions.push({ x: et[0], y: terrainHeight(et[0], et[1]), z: et[1], s: 0.95 + (k % 3) * 0.15 });
   });
 
   const count = treePositions.length;
@@ -95,13 +126,13 @@ export function buildNatureWorld(ctx) {
   scene.add(trunkInst, cone1Inst, cone2Inst);
 
   const mushCoords = [
-    [-11.5, 15.5], [11.5, 15.5], [-26, 8], [-27, -6], [26, 8], [27, -6],
-    [-26, 18], [26, 18], [-16, 22], [16, 22], [-10, 32], [10, 32],
-    [-24, 34], [24, 34], [-34, 4], [-34, -24], [32, -24], [34, 24],
-    [48, -24], [58, -16], [62, 2], [58, 34], [36, 36], [-48, 28],
-    [-64, 16], [-68, -12], [-58, -42], [-24, -42], [24, -42], [44, -40],
+    [-31, 15.5], [25, 22], [-31, 8], [-31, -6], [37, 2], [37, -25],
+    [-31, 20], [25, 26], [-24, 26], [24, 24], [-22, 32], [64, -14],
+    [-26, 33], [38, 32], [-34, 4], [-34, -24], [32, -28], [38, 24],
+    [48, -24], [64, -20], [68, 2], [68, 30], [72, 22], [-70, 28],
+    [-70, 16], [-72, -12], [-58, -48], [-24, -48], [24, -48], [44, -40],
     [-74, 2], [74, 10]
-  ];
+  ].filter((mc) => isNaturalSoilSpot(mc[0], mc[1], 1.0));
   const capColors = [0xef4444, 0xf59e0b, 0xa855f7, 0xec4899, 0x10b981];
   const plazaStemGeo = new THREE.CylinderGeometry(0.09, 0.14, 0.38, 8);
   plazaStemGeo.userData.shared = true;

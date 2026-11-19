@@ -10,6 +10,7 @@
 
 import { terrainHeight } from '../engine/physics.js';
 import { disposeObjectResources } from '../items/item-registry.js';
+import { isNaturalSoilSpot } from '../world/nature-plaza.js';
 
 const THREE = window.THREE;
 
@@ -30,9 +31,9 @@ const HERD_MIGRATION_SPOTS = [
 const COW_NAMES = ['Mimosa', 'Estrela', 'Pipoca', 'Bela', 'Malhada', 'Flor'];
 
 function isInsideTownOrRoad(x, z) {
-  // Mantém as vaquinhas longe do núcleo urbano do campus e da Avenida Sul
+  // Mantém vaquinhas, cocôs e Cubensis longe da cidade, prédios, quadras, estradas e concreto
   if (Math.abs(x) < 38 && Math.abs(z) < 32) return true;
-  if (z > 33 && z < 46) return true;
+  if (!isNaturalSoilSpot(x, z, 1.2)) return true;
   return false;
 }
 
@@ -721,11 +722,11 @@ function createPastureBees(ctx) {
   if (!THREE || !ctx || !ctx.scene) return;
   ctx.pastureBees = [];
 
-  // 3 Colmeias estilo madeira/mel perto de árvores e da horta/bosques
+  // 3 Colmeias estilo madeira/mel em áreas de grama arborizada (longe de concreto/prédios)
   const hiveSpots = [
-    { x: 25.5, z: 18.5, bees: 3 },
-    { x: 46.0, z: -12.0, bees: 3 },
-    { x: -34.0, z: 24.0, bees: 3 }
+    { x: 25.0, z: 25.0, bees: 3 },
+    { x: 68.5, z: -16.0, bees: 3 },
+    { x: -69.5, z: 12.0, bees: 3 }
   ];
 
   const hiveWoodMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.72 });

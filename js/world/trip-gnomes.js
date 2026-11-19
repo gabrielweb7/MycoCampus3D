@@ -3,6 +3,7 @@
  */
 import { getGroundHeight } from '../engine/physics.js';
 import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
+import { isNaturalSoilSpot } from './nature-plaza.js';
 
 const THREE = window.THREE;
 
@@ -203,8 +204,8 @@ function stepEnchantedFlora(ctx, dt, show) {
       const r = 3.5 + Math.random() * 14.5;
       const fx = Math.max(-72, Math.min(72, px + Math.cos(ang) * r));
       const fz = Math.max(-72, Math.min(72, pz + Math.sin(ang) * r));
-      // Evita brotar dentro das salas do laboratório
-      if (Math.abs(fx) < 12 && Math.abs(fz) < 12) continue;
+      // Nasce apenas em grama ou terra natural (nunca em concreto, asfalto ou dentro dos prédios!)
+      if (!isNaturalSoilSpot(fx, fz, 0.8)) continue;
       fl.mesh.position.set(fx, getGroundHeight(ctx.physCtx, fx, fz, 2), fz);
       fl.mesh.rotation.y = Math.random() * Math.PI * 2;
       fl.curScale = 0.02;

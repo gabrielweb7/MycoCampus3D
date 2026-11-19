@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.4] - 2026-11-19
+### Flora, Árvores, Cogumelos e Vaquinhas 100% em Solo Natural (Zero em Ruas/Concreto/Casas)
+- **Filtro Global `isNaturalSoilSpot(x, z, margin)` (`js/world/nature-plaza.js`):**
+  - Bloqueia spawn de árvores, troncos, cogumelos silvestres, flores encantadas, colmeias e vaquinhas sobre a Praça Central concretada, calçadas, Avenidas Sul/Leste asfaltadas, túneis, lago duplo, ponte, Casa Empório, Horta, Reitoria, Complexo Esportivo, Auditório e Dormitórios.
+- **Remoção de Árvore na Porta da Casa Empório & Estrada Leste (`js/world/nature-plaza.js`, `js/world/mushroom-species.js`, `js/world/trip-gnomes.js`, `js/entities/pasture-cows.js`):**
+  - Removida a árvore `[18, 34]` que nascia dentro da entrada do Empório e árvores na Avenida Leste/lago.
+  - Todas as 100 espécies de cogumelos, árvores variadas, flora encantada e colmeias (`hiveSpots` fora do Auditório) agora nascem exclusivamente sobre grama/terra natural.
+
 ## [v1.4.3] - 2026-11-19
 ### Checkup Geral: Depósito, Sala de Desidratação, Whitelist Multiplayer MySQL & OVNI
 - **Posicionamento & Sem Sobreposição (`js/world/lab-tools.js`):**

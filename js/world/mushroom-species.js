@@ -6,6 +6,7 @@
 import { qualityState } from '../core/quality.js';
 
 import { terrainHeight } from '../engine/physics.js';
+import { isNaturalSoilSpot } from './nature-plaza.js';
 
 const THREE = window.THREE;
 
@@ -399,11 +400,18 @@ export function buildExpandedForestAndMushrooms(ctx) {
   const woodLogs = [];
 
   for (let i = 0; i < 48; i++) {
-    const angle = (i / 48) * Math.PI * 2 + seededRand(i + 10) * 0.12;
-    const rad = 52 + seededRand(i + 50) * 52;
-    const tx = Math.cos(angle) * rad;
-    const tz = Math.sin(angle) * rad;
-    if (tx > 32 && tx < 74 && tz > 10 && tz < 50) continue;
+    let tx = 0, tz = 0, foundTree = false;
+    for (let att = 0; att < 8; att++) {
+      const angle = ((i + att * 3.7) / 48) * Math.PI * 2 + seededRand(i + 10 + att * 19) * 0.14;
+      const rad = 52 + seededRand(i + 50 + att * 23) * 52;
+      tx = Math.cos(angle) * rad;
+      tz = Math.sin(angle) * rad;
+      if (isNaturalSoilSpot(tx, tz, 2.2) && !(tx > 32 && tx < 74 && tz > 10 && tz < 50)) {
+        foundTree = true;
+        break;
+      }
+    }
+    if (!foundTree) continue;
     const ty = terrainHeight(tx, tz);
     const kind = treeKinds[i % treeKinds.length];
     const sc = 0.85 + seededRand(i + 99) * 0.65;
@@ -412,8 +420,10 @@ export function buildExpandedForestAndMushrooms(ctx) {
     if (i % 3 === 0) {
       const lx = tx + (seededRand(i + 200) - 0.5) * 4.2;
       const lz = tz + (seededRand(i + 300) - 0.5) * 4.2;
-      const ly = terrainHeight(lx, lz);
-      woodLogs.push({ x: lx, y: ly + 0.36, baseY: ly + 0.18, z: lz, rotY: seededRand(i + 400) * Math.PI });
+      if (isNaturalSoilSpot(lx, lz, 1.8)) {
+        const ly = terrainHeight(lx, lz);
+        woodLogs.push({ x: lx, y: ly + 0.36, baseY: ly + 0.18, z: lz, rotY: seededRand(i + 400) * Math.PI });
+      }
     }
   }
 
@@ -565,14 +575,22 @@ export function buildExpandedForestAndMushrooms(ctx) {
       mz = log.z + (seededRand(si * 7 + 2) - 0.5) * 1.4;
       my = log.y;
     } else if (spec.habitat === 'pasture') {
-      mx = 38 + seededRand(si * 11 + 3) * 28;
-      mz = 16 + seededRand(si * 11 + 4) * 28;
+      for (let att = 0; att < 14; att++) {
+        const candX = 54 + seededRand(si * 11 + 3 + att * 17) * 26;
+        const candZ = -26 + seededRand(si * 11 + 4 + att * 29) * 58;
+        if (isNaturalSoilSpot(candX, candZ, 1.0)) { mx = candX; mz = candZ; break; }
+      }
+      if (mx === 0 && mz === 0) { mx = 68; mz = 8; }
       my = terrainHeight(mx, mz);
     } else {
-      const ang = seededRand(si * 13 + 5) * Math.PI * 2;
-      const r = 48 + seededRand(si * 13 + 6) * 54;
-      mx = Math.cos(ang) * r;
-      mz = Math.sin(ang) * r;
+      for (let att = 0; att < 14; att++) {
+        const ang = seededRand(si * 13 + 5 + att * 23) * Math.PI * 2;
+        const r = 48 + seededRand(si * 13 + 6 + att * 31) * 54;
+        const candX = Math.cos(ang) * r;
+        const candZ = Math.sin(ang) * r;
+        if (isNaturalSoilSpot(candX, candZ, 1.0)) { mx = candX; mz = candZ; break; }
+      }
+      if (mx === 0 && mz === 0) { mx = -72; mz = -20; }
       my = terrainHeight(mx, mz);
     }
 
