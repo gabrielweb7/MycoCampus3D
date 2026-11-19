@@ -47,6 +47,7 @@ function updateThermometerLaser(ctx, dt, now) {
   ctx._lastThermoRayAt = now;
 
   _tmpMuzzlePos.set(0, 0.155, -0.09).applyEuler(ctx.heldItem.mesh.rotation).add(ctx.heldItem.mesh.position);
+  ctx.raycaster.far = 36;
   ctx.raycaster.setFromCamera(ctx.inFps ? _vZero2 : ctx.pointerNdc, ctx.camera);
 
   // Full raycast against scene children to hit walls, benches, cabinets, drawers, equipment

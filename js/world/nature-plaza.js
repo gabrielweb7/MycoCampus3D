@@ -357,6 +357,7 @@ export function createBench(scene, seatMeshes, x, z, rotY) {
       new THREE.BoxGeometry(0.86, 0.55, 0.56),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
     );
+    seatHit.visible = false;
     seatHit.position.set(offsetX, 0.56, -0.02);
     seatHit.userData.seatInfo = { x: worldX, y: 0.02, z: worldZ, yaw: sitYaw };
     g.add(seatHit);

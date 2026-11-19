@@ -91,30 +91,52 @@ export function updateSyringeVolume(item, newVol) {
   }
 }
 
+let sharedSyrAssets = null;
+function getSyringeAssets() {
+  if (!sharedSyrAssets) {
+    sharedSyrAssets = {
+      barrelGeo: new THREE.CylinderGeometry(0.015, 0.015, 0.12, 14, 1, true),
+      flangeGeo: new THREE.CylinderGeometry(0.023, 0.023, 0.005, 14),
+      liqGeo: new THREE.CylinderGeometry(0.012, 0.012, 0.09, 12),
+      stopperGeo: new THREE.CylinderGeometry(0.0125, 0.0125, 0.014, 12),
+      rodGeo: new THREE.CylinderGeometry(0.005, 0.005, 0.11, 8),
+      thumbGeo: new THREE.CylinderGeometry(0.017, 0.017, 0.005, 12),
+      hubGeo: new THREE.CylinderGeometry(0.006, 0.009, 0.018, 10),
+      needleGeo: new THREE.CylinderGeometry(0.0016, 0.001, 0.058, 8),
+      barrelMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.12, depthWrite: false }),
+      stopperMat: new THREE.MeshStandardMaterial({ color: 0x1e293b }),
+      rodMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }),
+      hubMat: new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.35 }),
+      needleMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 })
+    };
+  }
+  return sharedSyrAssets;
+}
+
 export function makeSyringe10ml(ctx, id, px, py, pz) {
+  const A = getSyringeAssets();
   const sg = new THREE.Group();
-  const barrelMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.12, depthWrite: false });
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12, 14, 1, true), barrelMat);
+  const barrel = new THREE.Mesh(A.barrelGeo, A.barrelMat);
   barrel.position.y = 0.135;
-  const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.005, 14), barrelMat);
+  const flange = new THREE.Mesh(A.flangeGeo, A.barrelMat);
   flange.position.y = 0.195;
   const liqMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.012, 0.09, 12),
+    A.liqGeo,
     new THREE.MeshStandardMaterial({ color: 0xfef08a, transparent: true, opacity: 0.78 })
   );
   liqMesh.visible = false;
   const plunger = new THREE.Group();
-  const stopper = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.014, 12), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+  const stopper = new THREE.Mesh(A.stopperGeo, A.stopperMat);
   stopper.position.y = 0;
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.11, 8), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+  const rod = new THREE.Mesh(A.rodGeo, A.rodMat);
   rod.position.y = 0.06;
-  const thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.005, 12), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+  const thumb = new THREE.Mesh(A.thumbGeo, A.rodMat);
   thumb.position.y = 0.115;
   plunger.add(stopper, rod, thumb);
   plunger.position.y = 0.095;
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.009, 0.018, 10), new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.35 }));
+  const hub = new THREE.Mesh(A.hubGeo, A.hubMat);
   hub.position.y = 0.068;
-  const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.0016, 0.001, 0.058, 8), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 }));
+  const needle = new THREE.Mesh(A.needleGeo, A.needleMat);
   needle.position.y = 0.030;
   const layWrap = new THREE.Group();
   layWrap.add(liqMesh, plunger, barrel, flange, hub, needle);

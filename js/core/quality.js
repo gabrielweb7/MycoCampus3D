@@ -7,10 +7,10 @@ export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
 
 const TIER_CONFIGS = {
   desktop: {
-    high:   { ratioCap: 2.00, shadows: true,  soft: true,  far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 99 },
-    medium: { ratioCap: 1.00, shadows: false, soft: false, far: 250, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 4  },
-    low:    { fixedRatio: 0.78, shadows: false, soft: false, far: 175, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false, maxLights: 1  },
-    min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0  }
+    high:   { ratioCap: 2.00, shadows: true,  soft: true,  far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 4, itemCullDist: 44, shadowEvery: 3 },
+    medium: { ratioCap: 1.00, shadows: false, soft: false, far: 250, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 3, itemCullDist: 34 },
+    low:    { fixedRatio: 0.78, shadows: false, soft: false, far: 175, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false, maxLights: 2, itemCullDist: 26 },
+    min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0, itemCullDist: 20 }
   },
   mobile: {
     high:   { ratioCap: 1.50, shadows: true,  soft: false, far: 210, aura: true,  weatherParticles: 160, forestScale: 0.86, toneMap: true,  blur: false, maxLights: 3, itemCullDist: 64, shadowExtent: 22, shadowMap: 768, shadowEvery: 2 },
@@ -145,8 +145,9 @@ export function applyQualityTier(tier, deps) {
   }
   if (renderer.shadowMap) {
     renderer.shadowMap.enabled = cfg.shadows;
-    // No celular o mapa só redesenha quando stepMobileSunShadow pede.
-    renderer.shadowMap.autoUpdate = cfg.shadows && !isTouchDevice;
+    // Atualiza sob demanda a cada shadowEvery frames (reduz custo de sombra em 2x-3x no PC e mobile).
+    const shEvery = cfg.shadowEvery || (isTouchDevice ? 2 : 1);
+    renderer.shadowMap.autoUpdate = cfg.shadows && !isTouchDevice && shEvery <= 1;
     renderer.shadowMap.type = cfg.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     renderer.shadowMap.needsUpdate = cfg.shadows;
   }
@@ -210,12 +211,68 @@ export function applyQualityTier(tier, deps) {
 
 let cachedPointLights = null;
 let lastLightBudgetAt = 0;
+const _tmpVLightPos = THREE ? new THREE.Vector3() : null;
 
 export function stepPointLightBudget(scene, playerPos, force = false) {
   if (!scene) return;
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  if (!force && now - lastLightBudgetAt < 450) return;
+  if (!force && now - lastLightBudgetAt < 250) return;
   lastLightBudgetAt = now;
+
+  const px = playerPos ? playerPos.x : 0;
+  const pz = playerPos ? playerPos.z : 0;
+  const maxLights = qualityState.maxPointLights;
+
+  const vLights = scene.userData && scene.userData._virtualPointLights;
+  const pool = scene.userData && scene.userData._pointLightPool;
+  if (vLights && pool) {
+    const vn = vLights.length;
+    if (_lightOrder.length !== vn) {
+      _lightOrder = new Array(vn);
+      _lightD2 = new Float32Array(vn);
+    }
+    for (let i = 0; i < vn; i++) {
+      const entry = vLights[i];
+      const l = entry.light;
+      if (!l.visible || l.intensity <= 0.001) {
+        _lightD2[i] = 1e12;
+      } else {
+        let wx = entry.worldPos.x;
+        let wz = entry.worldPos.z;
+        if (entry.isDynamic && entry.parent && _tmpVLightPos) {
+          entry.parent.updateWorldMatrix(true, false);
+          _tmpVLightPos.copy(l.position).applyMatrix4(entry.parent.matrixWorld);
+          entry.worldPos.copy(_tmpVLightPos);
+          wx = _tmpVLightPos.x;
+          wz = _tmpVLightPos.z;
+        }
+        const dx = wx - px;
+        const dz = wz - pz;
+        _lightD2[i] = dx * dx + dz * dz;
+      }
+      _lightOrder[i] = i;
+    }
+    _lightOrder.sort(_lightCmp);
+
+    const activeBudget = Math.min(pool.length, maxLights);
+    for (let k = 0; k < pool.length; k++) {
+      const slot = pool[k];
+      if (k < activeBudget && k < vn) {
+        const entry = vLights[_lightOrder[k]];
+        const src = entry.light;
+        if (src.visible && src.intensity > 0.001 && _lightD2[_lightOrder[k]] < 1e11) {
+          slot.position.copy(entry.worldPos);
+          slot.color.copy(src.color);
+          slot.intensity = src.intensity;
+          slot.distance = src.distance;
+          slot.decay = src.decay;
+          continue;
+        }
+      }
+      slot.intensity = 0;
+    }
+    return;
+  }
 
   if (!cachedPointLights) {
     cachedPointLights = [];
@@ -227,11 +284,7 @@ export function stepPointLightBudget(scene, playerPos, force = false) {
     });
   }
 
-  // Usa intensidade (não "visible") para nunca mudar a contagem de luzes:
-  // evita recompilar todos os shaders (travadas) e respeita os interruptores das salas.
-  const maxLights = qualityState.maxPointLights;
-  const px = playerPos ? playerPos.x : 0;
-  const pz = playerPos ? playerPos.z : 0;
+  // Fallback quando há <= 4 luzes (sem pool virtualizado)
   const n = cachedPointLights.length;
   if (_lightOrder.length !== n) {
     _lightOrder = new Array(n);
@@ -248,7 +301,7 @@ export function stepPointLightBudget(scene, playerPos, force = false) {
 
   for (let i = 0; i < n; i++) {
     const entry = cachedPointLights[_lightOrder[i]];
-    if (!entry.light.visible) continue; // interruptor desligado
+    if (!entry.light.visible) continue;
     entry.light.intensity = i < maxLights ? entry.baseIntensity : 0;
   }
 }
@@ -295,8 +348,9 @@ export function stepMobileItemCulling(ctx, now) {
   if (!ctx || !ctx.playerPos) return;
   if (now - lastItemCullAt < 240) return;
   lastItemCullAt = now;
-  const px = ctx.playerPos.x;
-  const pz = ctx.playerPos.z;
+  const refPos = ctx.inFps ? ctx.playerPos : ((ctx.camera && ctx.camera.position) || ctx.playerPos);
+  const px = refPos.x;
+  const pz = refPos.z;
 
   // Oclusão por Setor: quando o jogador está dentro de um prédio (Lab / Substrato / Estufa), reduz o raio da floresta externa
   const isInsideWing = Math.abs(px) > 13.5 && Math.abs(px) < 34 && Math.abs(pz) < 16.5;
@@ -322,30 +376,37 @@ export function stepMobileItemCulling(ctx, now) {
 }
 
 /**
- * Sombra local no celular: o sol acompanha o jogador num quadrado curto,
- * então o mapa 768 fica nítido e a floresta instanciada não entra no passe.
- * O mapa só é redesenhado a cada shadowEvery frames.
+ * Atualização inteligente de sombras:
+ * - No celular, o sol acompanha o jogador num quadrado curto e atualiza a cada shadowEvery frames.
+ * - No desktop, atualiza a cada shadowEvery frames (ex.: 3) quando autoUpdate está desligado.
  */
-export function stepMobileSunShadow(renderer, sun, playerPos) {
-  if (!qualityState.shadowsActive || !renderer || !sun || !playerPos) return;
-  const ext = qualityState.shadowExtent || 22;
-  const map = sun.shadow.mapSize.x || 768;
-  const texel = (ext * 2) / map;
-  const sx = Math.round(playerPos.x / texel) * texel;
-  const sz = Math.round(playerPos.z / texel) * texel;
-  // environment.js grava a direção do sol a partir da origem, todo frame.
-  const dx = sun.position.x;
-  const dy = sun.position.y;
-  const dz = sun.position.z;
-  sun.target.position.set(sx, 0, sz);
-  sun.target.updateMatrixWorld();
-  sun.position.set(sx + dx, dy, sz + dz);
-  qualityState._shx = sx;
-  qualityState._shz = sz;
-  qualityState._shFrame++;
-  const every = qualityState.shadowEvery || 2;
-  if (qualityState._shFrame % every === 0) renderer.shadowMap.needsUpdate = true;
+export function stepSunShadow(renderer, sun, playerPos) {
+  if (!renderer || !renderer.shadowMap || !renderer.shadowMap.enabled) return;
+  if (qualityState.shadowsActive && sun && playerPos) {
+    const ext = qualityState.shadowExtent || 22;
+    const map = sun.shadow.mapSize.x || 768;
+    const texel = (ext * 2) / map;
+    const sx = Math.round(playerPos.x / texel) * texel;
+    const sz = Math.round(playerPos.z / texel) * texel;
+    const dx = sun.position.x;
+    const dy = sun.position.y;
+    const dz = sun.position.z;
+    sun.target.position.set(sx, 0, sz);
+    sun.target.updateMatrixWorld();
+    sun.position.set(sx + dx, dy, sz + dz);
+    qualityState._shx = sx;
+    qualityState._shz = sz;
+    qualityState._shFrame++;
+    const every = qualityState.shadowEvery || 2;
+    if (qualityState._shFrame % every === 0) renderer.shadowMap.needsUpdate = true;
+  } else if (!renderer.shadowMap.autoUpdate) {
+    qualityState._shFrame++;
+    const every = qualityState.shadowEvery || 3;
+    if (qualityState._shFrame % every === 0) renderer.shadowMap.needsUpdate = true;
+  }
 }
+
+export const stepMobileSunShadow = stepSunShadow;
 
 export function stepAutoQuality(now, deps) {
   if (typeof document !== 'undefined' && document.hidden) {

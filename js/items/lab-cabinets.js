@@ -217,6 +217,7 @@ export function buildBenchCabinets(ctx, cfg) {
           new THREE.BoxGeometry(faceW, slotH, 0.12),
           new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
         );
+        hit.visible = false;
         hit.position.set(0, 0, 0.03);
         hit.userData.cabinetPart = dPart;
         dg.add(hit);
@@ -270,6 +271,7 @@ export function buildBenchCabinets(ctx, cfg) {
         new THREE.BoxGeometry(wd, DOOR_TOP - DOOR_BOTTOM, 0.12),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
       );
+      hit.visible = false;
       hit.position.set(0, 0, 0.03);
       hit.userData.cabinetPart = part;
       panel.add(hit);

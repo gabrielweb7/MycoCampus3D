@@ -42,6 +42,7 @@ export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
     new THREE.CylinderGeometry(0.11, 0.11, 0.28, 8),
     new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
   );
+  hitProxy.visible = false;
   hitProxy.position.y = 0.14;
   ag.add(bottle, neck, nozzle, trig, hitProxy);
   ag.userData.isAlcoholSpray = true;

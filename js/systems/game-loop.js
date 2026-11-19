@@ -134,11 +134,15 @@ export function applyQualityTier(ctx, tier) {
   ctx.auraEnabled = qualityMod.qualityState.auraEnabled;
 }
 
+const THREE = window.THREE;
+const _blindDummy = new THREE.Object3D();
+
 export function stepAutoQuality(ctx, now) {
   qualityMod.qualityState.mode = ctx.qualityMode;
   syncQualityArg(ctx);
   qualityMod.stepAutoQuality(now, _qualityArg);
-  qualityMod.stepPointLightBudget(ctx.scene, ctx.playerPos);
+  const lightRefPos = ctx.inFps ? ctx.playerPos : ((ctx.camera && ctx.camera.position) || ctx.playerPos);
+  qualityMod.stepPointLightBudget(ctx.scene, lightRefPos);
   ctx.qualityTier = qualityMod.qualityState.tier;
   ctx.auraEnabled = qualityMod.qualityState.auraEnabled;
 }
@@ -199,7 +203,7 @@ export function updateDynamicEnvironment(ctx, dt) {
   _envArg.fountainDropsAttr = ctx.fountainDropsAttr;
 
   envUpdate(dt, _envArg);
-  qualityMod.stepMobileSunShadow(ctx.renderer, ctx.envSun, ctx.playerPos);
+  qualityMod.stepSunShadow(ctx.renderer, ctx.envSun, ctx.playerPos);
   ctx.envTime = _envArg.envTime;
   ctx.lastWeatherMode = _envArg.lastWeatherMode;
   ctx.weatherMode = _envArg.weatherMode;
@@ -214,7 +218,7 @@ function stepArchitectureProps(ctx, dt, now) {
     const wm = ctx.wildMushrooms[wmIdx];
     if (!wm.active && now >= wm.respawnAt) {
       wm.active = true; wm.group.visible = true;
-    } else if (wm.active) {
+    } else if (wm.active && wm.group.visible) {
       wm.capMesh.rotation.y += dt * 0.5;
     }
   }
@@ -222,8 +226,10 @@ function stepArchitectureProps(ctx, dt, now) {
   for (let di = 0; di < ctx.campusDoors.length; di++) {
     const d = ctx.campusDoors[di];
     const targetAngle = d.open ? -d.dir * Math.PI * 0.48 : 0;
-    d.angle += (targetAngle - d.angle) * Math.min(1, dt * 8);
-    d.pivot.rotation.y = d.angle;
+    if (Math.abs(targetAngle - d.angle) > 0.0005) {
+      d.angle += (targetAngle - d.angle) * Math.min(1, dt * 8);
+      d.pivot.rotation.y = d.angle;
+    }
   }
 
   for (let bi = 0; bi < ctx.windowBlinds.length; bi++) {
@@ -232,21 +238,40 @@ function stepArchitectureProps(ctx, dt, now) {
     if (Math.abs(b.progress - targetProg) > 0.001) {
       b.progress += (targetProg - b.progress) * Math.min(1, dt * 7.5);
       const p = b.progress;
-      const count = b.slats.length;
+      const count = b.slatInst ? b.slatCount : b.slats.length;
       const activeSpan = (b.dropH - 0.14) * p;
-      for (let si = 0; si < count; si++) {
-        const frac = (si + 0.5) / count;
-        const stackedY = -0.05 - si * 0.007;
-        const fullY = -0.07 - frac * (b.dropH - 0.12);
-        b.slats[si].position.y = stackedY + (fullY - stackedY) * p;
-        b.slats[si].rotation.z = b.dir * (0.28 * p + (1 - p) * 1.15);
+      const rotZ = b.dir * (0.28 * p + (1 - p) * 1.15);
+      if (b.slatInst) {
+        _blindDummy.rotation.set(0, 0, rotZ);
+        _blindDummy.scale.set(1, 1, 1);
+        for (let si = 0; si < count; si++) {
+          const frac = (si + 0.5) / count;
+          const stackedY = -0.05 - si * 0.007;
+          const fullY = -0.07 - frac * (b.dropH - 0.12);
+          _blindDummy.position.set(0, stackedY + (fullY - stackedY) * p, 0);
+          _blindDummy.updateMatrix();
+          b.slatInst.setMatrixAt(si, _blindDummy.matrix);
+        }
+        b.slatInst.instanceMatrix.needsUpdate = true;
+      } else {
+        for (let si = 0; si < count; si++) {
+          const frac = (si + 0.5) / count;
+          const stackedY = -0.05 - si * 0.007;
+          const fullY = -0.07 - frac * (b.dropH - 0.12);
+          b.slats[si].position.y = stackedY + (fullY - stackedY) * p;
+          b.slats[si].rotation.z = rotZ;
+        }
       }
       const bottomY = -0.09 - count * 0.007 - activeSpan;
       b.bottomRail.position.y = bottomY;
       const tapeLen = Math.max(0.08, -bottomY);
-      for (let ti = 0; ti < b.tapes.length; ti++) {
-        b.tapes[ti].scale.y = tapeLen / b.dropH;
-        b.tapes[ti].position.y = -tapeLen / 2;
+      if (b.tapesMesh) {
+        b.tapesMesh.scale.y = tapeLen / b.dropH;
+      } else if (b.tapes) {
+        for (let ti = 0; ti < b.tapes.length; ti++) {
+          b.tapes[ti].scale.y = tapeLen / b.dropH;
+          b.tapes[ti].position.y = -tapeLen / 2;
+        }
       }
       if (b.cordKnob) {
         b.cordKnob.position.y = -b.dropH * 0.42 - (1 - p) * (b.dropH * 0.35);

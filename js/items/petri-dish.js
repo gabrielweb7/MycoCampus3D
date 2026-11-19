@@ -118,33 +118,73 @@ function drawAgarTexture(pctx, ctrl) {
   }
 }
 
+let sharedPetriAssets = null;
+function getPetriAssets() {
+  if (!sharedPetriAssets) {
+    const rimGeo = new THREE.CylinderGeometry(PETRI_SIDE_RADIUS, PETRI_SIDE_RADIUS, 0.018, 22, 1, true);
+    rimGeo.translate(0, 0.009, 0);
+    const botGeo = new THREE.CylinderGeometry(PETRI_SIDE_RADIUS, PETRI_SIDE_RADIUS, 0.003, 22);
+    botGeo.translate(0, 0.0015, 0);
+    let bodyGeo = null;
+    if (THREE.mergeGeometries) {
+      const rNon = rimGeo.index ? rimGeo.toNonIndexed() : rimGeo;
+      const bNon = botGeo.index ? botGeo.toNonIndexed() : botGeo;
+      bodyGeo = THREE.mergeGeometries([rNon, bNon], false);
+      if (rNon !== rimGeo) rNon.dispose();
+      if (bNon !== botGeo) bNon.dispose();
+      rimGeo.dispose();
+      botGeo.dispose();
+    }
+    sharedPetriAssets = {
+      bodyGeo,
+      rimGeo: bodyGeo ? null : rimGeo,
+      botGeo: bodyGeo ? null : botGeo,
+      hitboxGeo: new THREE.CylinderGeometry(PETRI_DISH_RADIUS, PETRI_DISH_RADIUS, 0.022, 14),
+      lidGeo: new THREE.CylinderGeometry(PETRI_DISH_RADIUS, PETRI_DISH_RADIUS, PETRI_LID_THICKNESS, 22),
+      agarGeo: new THREE.CylinderGeometry(PETRI_AGAR_RADIUS, PETRI_AGAR_RADIUS, 0.009, 22),
+      parafilmGeo: new THREE.CylinderGeometry(PETRI_DISH_RADIUS + 0.0018, PETRI_DISH_RADIUS + 0.0018, 0.011, 22, 1, true),
+      glassMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.08, metalness: 0.15 }),
+      hitboxMat: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+      parafilmMat: new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.58, roughness: 0.25, side: THREE.DoubleSide })
+    };
+  }
+  return sharedPetriAssets;
+}
+
+function ensurePetriCanvas(ctrl) {
+  if (ctrl.canvas) return;
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  ctrl.canvas = c;
+  ctrl.context = c.getContext('2d');
+}
+
 export function makePetriDish(mode) {
+  const A = getPetriAssets();
   const pg = new THREE.Group();
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.08, metalness: 0.15 });
-  const rim = new THREE.Mesh(new THREE.CylinderGeometry(PETRI_SIDE_RADIUS, PETRI_SIDE_RADIUS, 0.018, 22, 1, true), glassMat);
-  rim.position.y = 0.009;
-  const dishBottom = new THREE.Mesh(new THREE.CylinderGeometry(PETRI_SIDE_RADIUS, PETRI_SIDE_RADIUS, 0.003, 22), glassMat);
-  dishBottom.position.y = 0.0015;
-  const pickHitbox = new THREE.Mesh(
-    new THREE.CylinderGeometry(PETRI_DISH_RADIUS, PETRI_DISH_RADIUS, 0.022, 14),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
-  );
+  let bodyMesh = null;
+  if (A.bodyGeo) {
+    bodyMesh = new THREE.Mesh(A.bodyGeo, A.glassMat);
+  } else {
+    const rim = new THREE.Mesh(A.rimGeo, A.glassMat);
+    const dishBottom = new THREE.Mesh(A.botGeo, A.glassMat);
+    pg.add(rim, dishBottom);
+  }
+  const pickHitbox = new THREE.Mesh(A.hitboxGeo, A.hitboxMat);
+  pickHitbox.visible = false;
   pickHitbox.position.y = 0.011;
   const lidPivot = new THREE.Group();
   lidPivot.position.set(-PETRI_DISH_RADIUS, 0.021, 0);
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(PETRI_DISH_RADIUS, PETRI_DISH_RADIUS, PETRI_LID_THICKNESS, 22), glassMat);
+  const lid = new THREE.Mesh(A.lidGeo, A.glassMat);
   lid.position.x = PETRI_DISH_RADIUS;
   lidPivot.add(lid);
 
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 256;
-  const pctx = c.getContext('2d');
   const isColonized = mode === 'clean';
   const ctrl = {
     mode,
-    canvas: c,
-    context: pctx,
-    texture: mode === 'bare' ? null : new THREE.CanvasTexture(c),
+    canvas: null,
+    context: null,
+    texture: null,
     agarMesh: null,
     lidPivot,
     lidOpen: false,
@@ -163,23 +203,23 @@ export function makePetriDish(mode) {
     contaminated: mode === 'contam',
     lastRenderedColonization: -1
   };
-  drawAgarTexture(pctx, ctrl);
   if (mode !== 'bare') {
+    ensurePetriCanvas(ctrl);
+    ctrl.texture = new THREE.CanvasTexture(ctrl.canvas);
+    drawAgarTexture(ctrl.context, ctrl);
     ctrl.agarMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(PETRI_AGAR_RADIUS, PETRI_AGAR_RADIUS, 0.009, 22),
+      A.agarGeo,
       new THREE.MeshStandardMaterial({ map: ctrl.texture, roughness: 0.35 })
     );
     ctrl.agarMesh.position.y = 0.008;
     pg.add(ctrl.agarMesh);
   }
-  const parafilmRing = new THREE.Mesh(
-    new THREE.CylinderGeometry(PETRI_DISH_RADIUS + 0.0018, PETRI_DISH_RADIUS + 0.0018, 0.011, 22, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.58, roughness: 0.25, side: THREE.DoubleSide })
-  );
+  const parafilmRing = new THREE.Mesh(A.parafilmGeo, A.parafilmMat);
   parafilmRing.position.y = 0.017;
   parafilmRing.visible = false;
   ctrl.parafilmMesh = parafilmRing;
-  pg.add(rim, dishBottom, pickHitbox, lidPivot, parafilmRing);
+  if (bodyMesh) pg.add(bodyMesh);
+  pg.add(pickHitbox, lidPivot, parafilmRing);
   pg.userData.isPetri = true;
   pg.userData.petriCtrl = ctrl;
   return pg;
@@ -302,10 +342,11 @@ export function updatePetriVisual(item) {
       ctrl.agarMesh = null;
     }
   } else {
+    ensurePetriCanvas(ctrl);
     if (!ctrl.texture) ctrl.texture = new THREE.CanvasTexture(ctrl.canvas);
     if (!ctrl.agarMesh) {
       ctrl.agarMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(PETRI_AGAR_RADIUS, PETRI_AGAR_RADIUS, 0.009, 22),
+        getPetriAssets().agarGeo,
         new THREE.MeshStandardMaterial({ map: ctrl.texture, roughness: 0.35 })
       );
       ctrl.agarMesh.position.y = 0.008;
@@ -314,9 +355,9 @@ export function updatePetriVisual(item) {
       ctrl.agarMesh.material.map = ctrl.texture;
       ctrl.agarMesh.material.needsUpdate = true;
     }
+    drawAgarTexture(ctrl.context, ctrl);
+    if (ctrl.texture) ctrl.texture.needsUpdate = true;
   }
-  drawAgarTexture(ctrl.context, ctrl);
-  if (ctrl.texture) ctrl.texture.needsUpdate = true;
   if (item.meta && item.meta.compatibilities) {
     item.meta.compatibilities.canEnterCooker = ctrl.mode === 'filled';
     item.meta.compatibilities.receivesSyringe = ctrl.mode === 'empty' && ctrl.lidOpen && ctrl.sterilized;

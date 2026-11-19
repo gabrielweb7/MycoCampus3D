@@ -190,6 +190,7 @@ export function updateHoverRay(ctx, customNdc) {
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
+  ctx.raycaster.far = 24;
   ctx.raycaster.setFromCamera(rayNdc, ctx.camera);
 
   if (resolveHeldItemHover(ctx, rayNdc, {
@@ -498,7 +499,7 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
-  if (!prompt && ctx.cowHitMeshes && ctx.cowHitMeshes.length) {
+  if (!prompt && ctx.cowHitMeshes && ctx.cowHitMeshes.length && refX > 26 && refX < 78 && refZ > 4 && refZ < 56) {
     const cowHits = ctx.raycaster.intersectObjects(ctx.cowHitMeshes, false);
     if (cowHits.length > 0 && cowHits[0].distance < 5.5 && cowHits[0].object.userData.cowObj) {
       ctx.hoverHit = cowHits[0];
@@ -507,7 +508,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   ctx.hoveredGreenhouseSlot = null;
-  if (!prompt && greenhouseHitMeshes.length > 0) {
+  if (!prompt && greenhouseHitMeshes.length > 0 && refX > 11 && refX < 28 && refZ > -2 && refZ < 17) {
     const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
     if (ghHits.length > 0 && ghHits[0].distance < 4.8) {
       const hSlot = ghHits[0].object.userData.greenhouseSlot;

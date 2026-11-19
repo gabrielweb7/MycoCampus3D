@@ -621,7 +621,7 @@ export function initCampus3D(containerId, cbs) {
     initConfettiSystem(sim.scene);
     initGreenhouseParticlePools(sim.scene);
     const frozenCount = freezeStaticWorld(sim);
-    logger.info('campus-init', `Cenário estático congelado: ${frozenCount} objetos`);
+    logger.info('campus-init', `Cenário estático otimizado: ${frozenCount} congelados, ${sim._mergedStaticCount || 0} mesclados, ${sim._virtualLightCount || 0} luzes no pool`);
     bindControls(sim);
     const initialTier = getSavedQualityMode() || getInitialQualityTier(touch, sim.renderer);
     sim.qualityMode = initialTier;

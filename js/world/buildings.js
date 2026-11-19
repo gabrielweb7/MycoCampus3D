@@ -6,42 +6,92 @@ import { addWalkableSlab, addSolidWall } from '../engine/physics.js';
 
 const THREE = window.THREE;
 
+let sharedBlindMats = null;
+function getBlindMats() {
+  if (!sharedBlindMats) {
+    sharedBlindMats = {
+      headMat: new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.72, roughness: 0.26 }),
+      slatMat: new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.54, roughness: 0.30, side: THREE.DoubleSide }),
+      tapeMat: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.65 }),
+      wandMat: new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.72, roughness: 0.15 }),
+      cordMat: new THREE.MeshBasicMaterial({ color: 0xf1f5f9 }),
+      knobMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }),
+      hitMat: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    };
+  }
+  return sharedBlindMats;
+}
+
+let sharedBuildingMats = null;
+function getBuildingMats() {
+  if (!sharedBuildingMats) {
+    sharedBuildingMats = {
+      glassMat: new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.32, roughness: 0.1, metalness: 0.25 }),
+      fixMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 }),
+      fndeBlue: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42 }),
+      fndeWhite: new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.35, roughness: 0.3 }),
+      fndeDark: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65 }),
+      chairLegMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.45, roughness: 0.28 }),
+      frameMat: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.35 })
+    };
+  }
+  return sharedBuildingMats;
+}
+
+const _blindDummy = new THREE.Object3D();
+
 export function createVenetianBlind(ctx, xPos, topY, zCenter, blindW, dropH, dir, roomCenterZ) {
   const { scene, windowBlinds, blindHitMeshes } = ctx;
   const root = new THREE.Group();
   root.position.set(xPos, topY, zCenter);
 
-  const headMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.72, roughness: 0.26 });
-  const slatMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.54, roughness: 0.30, side: THREE.DoubleSide });
-  const tapeMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.65 });
+  const BM = getBlindMats();
 
-  const headrail = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.10, blindW), headMat);
+  const headrail = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.10, blindW), BM.headMat);
   headrail.position.set(0, -0.05, 0);
   root.add(headrail);
 
   const numSlats = 22;
   const slatGeo = new THREE.BoxGeometry(0.165, 0.012, blindW - 0.04);
-  const slats = [];
+  const slatInst = new THREE.InstancedMesh(slatGeo, BM.slatMat, numSlats);
   for (let s = 0; s < numSlats; s++) {
-    const slat = new THREE.Mesh(slatGeo, slatMat);
-    slat.position.set(0, -0.11 - ((s + 0.5) / numSlats) * (dropH - 0.14), 0);
-    slat.rotation.z = dir * 1.15;
-    root.add(slat);
-    slats.push(slat);
+    _blindDummy.position.set(0, -0.11 - ((s + 0.5) / numSlats) * (dropH - 0.14), 0);
+    _blindDummy.rotation.set(0, 0, dir * 1.15);
+    _blindDummy.scale.set(1, 1, 1);
+    _blindDummy.updateMatrix();
+    slatInst.setMatrixAt(s, _blindDummy.matrix);
   }
+  slatInst.instanceMatrix.needsUpdate = true;
+  root.add(slatInst);
 
-  const tapes = [];
   const tapeGeo = new THREE.BoxGeometry(0.012, dropH, 0.022);
+  const tapeParts = [];
   [-blindW * 0.34, 0, blindW * 0.34].forEach((tz) => {
     [-0.048, 0.048].forEach((tx) => {
-      const tp = new THREE.Mesh(tapeGeo, tapeMat);
-      tp.position.set(tx, -0.08 - dropH * 0.48, tz);
-      root.add(tp);
-      tapes.push(tp);
+      const tg = tapeGeo.clone();
+      tg.translate(tx, -dropH * 0.5, tz);
+      tapeParts.push(tg);
     });
   });
+  const mergedTapeGeo = THREE.mergeGeometries ? THREE.mergeGeometries(tapeParts, false) : null;
+  tapeParts.forEach((tg) => tg.dispose());
+  tapeGeo.dispose();
+  let tapesMesh;
+  if (mergedTapeGeo) {
+    tapesMesh = new THREE.Mesh(mergedTapeGeo, BM.tapeMat);
+  } else {
+    tapesMesh = new THREE.Group();
+    [-blindW * 0.34, 0, blindW * 0.34].forEach((tz) => {
+      [-0.048, 0.048].forEach((tx) => {
+        const tp = new THREE.Mesh(new THREE.BoxGeometry(0.012, dropH, 0.022), BM.tapeMat);
+        tp.position.set(tx, -dropH * 0.5, tz);
+        tapesMesh.add(tp);
+      });
+    });
+  }
+  root.add(tapesMesh);
 
-  const bottomRail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.055, blindW - 0.02), headMat);
+  const bottomRail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.055, blindW - 0.02), BM.headMat);
   bottomRail.position.set(0, -dropH, 0);
   root.add(bottomRail);
 
@@ -49,26 +99,27 @@ export function createVenetianBlind(ctx, xPos, topY, zCenter, blindW, dropH, dir
   const ctrlZ = sideSign * (blindW * 0.41);
   const wand = new THREE.Mesh(
     new THREE.CylinderGeometry(0.013, 0.013, dropH * 0.66, 8),
-    new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.72, roughness: 0.15 })
+    BM.wandMat
   );
   wand.position.set(-dir * 0.068, -dropH * 0.36, ctrlZ - sideSign * 0.14);
   const cordLine = new THREE.Mesh(
     new THREE.CylinderGeometry(0.006, 0.006, dropH * 0.52, 6),
-    new THREE.MeshBasicMaterial({ color: 0xf1f5f9 })
+    BM.cordMat
   );
   cordLine.position.set(-dir * 0.068, -dropH * 0.28, ctrlZ);
   const cordKnob = new THREE.Mesh(
     new THREE.CylinderGeometry(0.018, 0.024, 0.075, 10),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+    BM.knobMat
   );
   cordKnob.position.set(-dir * 0.068, -dropH * 0.54, ctrlZ);
   root.add(wand, cordLine, cordKnob);
 
   const blindObj = {
     id: `blind_${windowBlinds.length}`,
-    slats,
+    slatInst,
+    slatCount: numSlats,
     bottomRail,
-    tapes,
+    tapesMesh,
     cordKnob,
     open: false,
     progress: 1.0,
@@ -78,8 +129,9 @@ export function createVenetianBlind(ctx, xPos, topY, zCenter, blindW, dropH, dir
 
   const hitMesh = new THREE.Mesh(
     new THREE.BoxGeometry(0.32, dropH, blindW),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    BM.hitMat
   );
+  hitMesh.visible = false;
   hitMesh.position.set(0, -dropH / 2, 0);
   hitMesh.userData.blindObj = blindObj;
   root.add(hitMesh);
@@ -112,7 +164,7 @@ export function buildCampusBuildingWing(ctx, opts) {
   addWalkableSlab(scene, walkableFloors, cx, yFloor1, cz, w + 0.4, 0.14, d + 0.4, 0x475569, { roughness: 0.7 });
   addWalkableSlab(scene, walkableFloors, cx, yFloor2, cz, w + 0.35, 0.24, d + 0.35, 0x334155, { roughness: 0.55 });
 
-  const roofSlab = makeBox(w + 0.6, 0.32, d + 0.6, 0x94a3b8, { roughness: 0.5 });
+  const roofSlab = makeBox(w + 0.6, 0.32, d + 0.6, 0x94a3b8, { roughness: 0.5, uniqueMat: true });
   roofSlab.position.set(cx, yFloor2 + h2 + 0.16, cz);
   registerSnowable(roofSlab.material);
   roofZones.push({ minX: cx - w / 2 - 0.5, maxX: cx + w / 2 + 0.5, minZ: cz - d / 2 - 0.5, maxZ: cz + d / 2 + 0.5, roofY: yFloor2 + h2 + 0.32 });
@@ -128,7 +180,8 @@ export function buildCampusBuildingWing(ctx, opts) {
   });
 
   const wallMat = opts.style === 'wood' ? woodMat(3, 2) : brickMat(3, 2);
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.32, roughness: 0.1, metalness: 0.25 });
+  const BLD = getBuildingMats();
+  const glassMat = BLD.glassMat;
 
   addSolidWall(scene, wallSegments, backX, zN, backX, zS, yFloor1, totalH, 0.28, wallMat);
 
@@ -170,7 +223,7 @@ export function buildCampusBuildingWing(ctx, opts) {
   ceilPlaster1.position.set(cx, 3.55, cz);
   scene.add(ceilPlaster1);
 
-  const fixMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 });
+  const fixMat = BLD.fixMat;
   function createFloorLighting(floorY, floorH, swX, swY, swZ, swRotY) {
     const fTubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 0.85, roughness: 0.35 });
     const ceilY = floorY < 1.0 ? 3.51 : (floorY + floorH - 0.04);
@@ -221,16 +274,18 @@ export function buildCampusBuildingWing(ctx, opts) {
   createFloorLighting(yFloor1, h1, frontX - dir * 1.15, yFloor1 + 1.32, zS - 0.155, Math.PI);
   createFloorLighting(yFloor2, h2, cx - dir * 2.15, yFloor2 + 1.32, zN + 0.155, 0);
 
+  const fndeBlue = BLD.fndeBlue;
+  const fndeWhite = BLD.fndeWhite;
+  const fndeDark = BLD.fndeDark;
+  const legMat = BLD.chairLegMat;
+  const padMat = BLD.fndeBlue;
   for (let dtRow = -1; dtRow <= 1; dtRow++) {
     const deskZ = cz + dtRow * 3.0;
     const deskX = cx + dir * 1.1;
     const deskGrp = new THREE.Group();
     deskGrp.position.set(deskX, yFloor2, deskZ);
-    const fndeBlue = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42 });
-    const fndeWhite = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.35, roughness: 0.3 });
-    const fndeDark = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65 });
     const deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.045, 1.96), fndeBlue);
-    deskTop.position.set(0, 0.72, 0); deskTop.castShadow = true;
+    deskTop.position.set(0, 0.72, 0);
     const underTray = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.04, 1.66), fndeDark);
     underTray.position.set(0, 0.61, 0);
     [-0.82, 0.82].forEach((lz) => {
@@ -267,8 +322,6 @@ export function buildCampusBuildingWing(ctx, opts) {
       const chairZ = deskZ + chDz;
       const cg = new THREE.Group();
       cg.position.set(chairX, yFloor2, chairZ);
-      const legMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.45, roughness: 0.28 });
-      const padMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42 });
       [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]].forEach((lp) => {
         const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.44, 8), legMat);
         leg.position.set(lp[0], 0.22, lp[1]);
@@ -281,10 +334,8 @@ export function buildCampusBuildingWing(ctx, opts) {
       });
       const seatPad = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.045, 0.45), padMat);
       seatPad.position.set(0, 0.445, 0);
-      seatPad.castShadow = true;
       const backPad = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.28, 0.44), padMat);
       backPad.position.set(dir * 0.21, 0.72, 0);
-      backPad.castShadow = true;
       cg.add(seatPad, backPad);
       const sitYaw = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
       seatPad.userData.seatInfo = { x: chairX, y: yFloor2, z: chairZ, yaw: sitYaw };
@@ -367,7 +418,7 @@ export function buildCampusBuildingWing(ctx, opts) {
   transomGlass.position.set(frontX, yFloor1 + doorH + transomH / 2, cz);
   scene.add(transomGlass);
 
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.35 });
+  const frameMat = BLD.frameMat;
   [-doorHalfW, doorHalfW].forEach((dz) => {
     const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.20, h1, 0.14), frameMat);
     jamb.position.set(frontX, yFloor1 + h1 / 2, cz + dz);

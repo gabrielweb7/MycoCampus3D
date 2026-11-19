@@ -113,31 +113,79 @@ export function getTextures() {
   return { texBrick, texPaving, texWood, texWater };
 }
 
+const _brickMatCache = new Map();
+const _woodMatCache = new Map();
+const _boxMatCache = new Map();
+
 export function brickMat(repX, repY) {
-  const t = texBrick.clone();
-  t.needsUpdate = true;
-  t.repeat.set(repX || 2, repY || 2);
-  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.86, metalness: 0.04 });
+  const rx = repX || 2;
+  const ry = repY || 2;
+  const key = rx + '|' + ry;
+  let mat = _brickMatCache.get(key);
+  if (!mat) {
+    const t = texBrick.clone();
+    t.needsUpdate = true;
+    t.repeat.set(rx, ry);
+    mat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.86, metalness: 0.04 });
+    _brickMatCache.set(key, mat);
+  }
+  return mat;
 }
 
 export function woodMat(repX, repY) {
-  const t = texWood.clone();
-  t.needsUpdate = true;
-  t.repeat.set(repX || 2, repY || 1);
-  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.78, metalness: 0.05 });
+  const rx = repX || 2;
+  const ry = repY || 1;
+  const key = rx + '|' + ry;
+  let mat = _woodMatCache.get(key);
+  if (!mat) {
+    const t = texWood.clone();
+    t.needsUpdate = true;
+    t.repeat.set(rx, ry);
+    mat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.78, metalness: 0.05 });
+    _woodMatCache.set(key, mat);
+  }
+  return mat;
 }
 
 export function makeBox(w, h, d, colorOrMat, opts = {}) {
   const geo = new THREE.BoxGeometry(w, h, d);
-  const mat = (colorOrMat && colorOrMat.isMaterial) ? colorOrMat : new THREE.MeshStandardMaterial({
-    color: colorOrMat,
-    roughness: opts.roughness !== undefined ? opts.roughness : 0.7,
-    metalness: opts.metalness !== undefined ? opts.metalness : 0.1,
-    transparent: !!opts.transparent,
-    opacity: opts.opacity !== undefined ? opts.opacity : 1.0,
-    emissive: opts.emissive || 0x000000,
-    emissiveIntensity: opts.emissiveIntensity || 0
-  });
+  let mat;
+  if (colorOrMat && colorOrMat.isMaterial) {
+    mat = colorOrMat;
+  } else {
+    const r = opts.roughness !== undefined ? opts.roughness : 0.7;
+    const met = opts.metalness !== undefined ? opts.metalness : 0.1;
+    const tr = !!opts.transparent;
+    const op = opts.opacity !== undefined ? opts.opacity : 1.0;
+    const em = opts.emissive || 0x000000;
+    const ei = opts.emissiveIntensity || 0;
+    if (opts.uniqueMat) {
+      mat = new THREE.MeshStandardMaterial({
+        color: colorOrMat,
+        roughness: r,
+        metalness: met,
+        transparent: tr,
+        opacity: op,
+        emissive: em,
+        emissiveIntensity: ei
+      });
+    } else {
+      const mKey = `${colorOrMat}|${r}|${met}|${tr ? 1 : 0}|${op}|${em}|${ei}`;
+      mat = _boxMatCache.get(mKey);
+      if (!mat) {
+        mat = new THREE.MeshStandardMaterial({
+          color: colorOrMat,
+          roughness: r,
+          metalness: met,
+          transparent: tr,
+          opacity: op,
+          emissive: em,
+          emissiveIntensity: ei
+        });
+        _boxMatCache.set(mKey, mat);
+      }
+    }
+  }
   const m = new THREE.Mesh(geo, mat);
   m.castShadow = !opts.noShadow;
   m.receiveShadow = true;

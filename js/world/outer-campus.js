@@ -318,7 +318,7 @@ export function buildOuterCampus(ctx) {
 
   // 4. Setor Leste: Student Center -> GRANDE AUDITORIO / CINEMA CAMINHÁVEL (x: 48, z: -12)
   addWalkableSlab(ctx.scene, ctx.walkableFloors, 48, 0.14, -12, 22, 0.14, 16, 0x334155);
-  var scRoof = makeBox(22.6, 0.4, 16.6, 0x64748b);
+  var scRoof = makeBox(22.6, 0.4, 16.6, 0x64748b, { uniqueMat: true });
   scRoof.position.set(48, 6.7, -12);
   registerSnowable(scRoof.material);
   ctx.roofZones.push({ minX: 36.5, maxX: 59.5, minZ: -20.5, maxZ: -3.5, roofY: 6.9 });
@@ -401,6 +401,7 @@ export function buildOuterCampus(ctx) {
         new THREE.BoxGeometry(2.0, 0.65, 0.85),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
       );
+      audSeatHit.visible = false;
       audSeatHit.position.set(48 + sx, 0.52 + rIdx * 0.18, rz);
       audSeatHit.userData.seatInfo = { x: 48 + sx, y: 0.14 + rIdx * 0.18, z: rz - 0.04, yaw: 0 };
       scene.add(audSeatHit);
@@ -429,7 +430,7 @@ export function buildOuterCampus(ctx) {
   [[58, 12, 0xfacc15], [50, 28, 0x38bdf8]].forEach(function (dm) {
     var dx = dm[0], dz = dm[1];
     addWalkableSlab(ctx.scene, ctx.walkableFloors, dx, 0.14, dz, 14, 0.14, 10, 0x475569);
-    var dRoof = makeBox(14.6, 0.4, 10.6, 0x64748b);
+    var dRoof = makeBox(14.6, 0.4, 10.6, 0x64748b, { uniqueMat: true });
     dRoof.position.set(dx, 5.4, dz);
     registerSnowable(dRoof.material);
     ctx.roofZones.push({ minX: dx - 7.5, maxX: dx + 7.5, minZ: dz - 5.5, maxZ: dz + 5.5, roofY: 5.6 });
