@@ -17,6 +17,8 @@
 import { makeBox } from '../engine/textures.js';
 import { getCachedCanvasTexture, registerPickable, updateItemBounds } from './item-registry.js';
 import { getSanitizationStatus } from './alcohol-spray.js';
+import { isAsepticWorkArea } from './laminar-hood.js';
+import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 
 const THREE = window.THREE;
 
@@ -454,6 +456,8 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
     fruitingStage: opts.fruitingStage || 0, // 0=colonizado, 1=pins, 2=crescendo, 3=maduro
     growth: opts.growth || 0,
     flush: opts.flush || 1,
+    humidity: opts.humidity !== undefined ? opts.humidity : 92,
+    openAirExposureSec: 0,
     contaminated: Boolean(opts.contaminated),
     contamReason: opts.contamReason || '',
     spent: Boolean(opts.spent),
@@ -537,6 +541,19 @@ export function isHoldingColonizedGrainSpawn(held) {
   return !!(sc.filled && sc.colonized && !sc.contaminated && !sc.burned && !sc.expired);
 }
 
+export function rehydrateMonotubCake(ctx, tubItem) {
+  if (!tubItem || !tubItem.monotubCtrl) return false;
+  const mc = tubItem.monotubCtrl;
+  if (mc.spent || mc.contaminated || mc.colonization < 100) return false;
+  mc.humidity = Math.min(98, (mc.humidity || 70) + 28);
+  updateMonotubVisual(tubItem);
+  if (window.MycoAudio && window.MycoAudio.playSpray) window.MycoAudio.playSpray();
+  if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast(`💦 Bolo do Monotub 24L reidratado (${Math.round(mc.humidity)}% UR)! O Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES} vai frutificar com força máxima!`);
+  }
+  return true;
+}
+
 /**
  * Interação contextual com uma Caixa Monotub 24L
  */
@@ -564,6 +581,19 @@ export function interactMonotub(ctx, tubItem) {
         flush: mc.flush
       });
     }
+    // Entrega o cogumelo fresco colhido na mão do jogador (se estiver com a mão livre no mundo 3D)
+    // para que possa levar à Desidratadora (55°C), tirar Carimbo de Esporos na Placa de Petri ou clonar com Bisturi!
+    if (ctx && ctx.scene && !ctx.heldItem) {
+      const spName = mc.speciesName || 'Golden Teacher (Psilocybe cubensis)';
+      const isMagic = spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1 || spName.indexOf('Golden') !== -1;
+      const freshMush = spawnPersistedWildMushroom(ctx, 'harvest_tub_' + Date.now().toString(36), {
+        speciesName: spName,
+        isMagic
+      });
+      ctx.heldItem = freshMush;
+      ctx.lastPickupAt = performance.now();
+      if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(freshMush.label);
+    }
     if (mc.flush >= MONOTUB_MAX_FLUSHES) {
       mc.spent = true;
       mc.fruitingStage = 0;
@@ -577,9 +607,10 @@ export function interactMonotub(ctx, tubItem) {
       mc.flush++;
       mc.fruitingStage = 1;
       mc.growth = 0;
+      mc.humidity = Math.max(62, (mc.humidity || 90) - 22);
       updateMonotubVisual(tubItem);
       if (onToast) {
-        onToast(`🍄 Flush ${doneFlush}/${MONOTUB_MAX_FLUSHES} colhido do Monotub 24L! Iniciando Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES} sob a luz LED!`);
+        onToast(`🍄 Flush ${doneFlush}/${MONOTUB_MAX_FLUSHES} colhido! Cogumelo fresco na mão (leve à Desidratadora ou tire Esporos). Borrife água no bolo (${Math.round(mc.humidity)}% UR) p/ o Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}!`);
       }
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
@@ -969,25 +1000,39 @@ export function stepMonotubs(ctx, dt) {
     }
 
     // 1. Fase de Colonização (requer mixed && leveled && tampa fechada)
-    if (mc.mixed && mc.leveled && !mc.lidOpen && mc.colonization < 100) {
-      const prevCol = Math.floor(mc.colonization);
-      mc.colonization = Math.min(100, mc.colonization + dt * 3.8);
-
-      // Verificação de contaminação por Trichoderma se montou sem higienizar a caixa com Álcool 70%
-      if (mc.asepticScore < 0.5 && mc.colonization >= 45 && mc.colonization - dt * 3.8 < 45) {
-        mc.contaminated = true;
-        mc.contamReason = 'Trichoderma (caixa montada sem Álcool 70%)';
-        updateMonotubVisual(item);
-        if (ctx.callbacks && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🦠 O Monotub 24L contaminou com Trichoderma (mofo verde)! Sempre passe Álcool 70% e Papel Toalha na caixa antes de montar.');
+    if (mc.mixed && mc.leveled && mc.colonization < 100) {
+      if (mc.lidOpen && !isAsepticWorkArea(ctx, item)) {
+        mc.openAirExposureSec = (mc.openAirExposureSec || 0) + dt;
+        if (mc.openAirExposureSec >= 25) {
+          mc.contaminated = true;
+          mc.contamReason = 'Trichoderma (tampa deixada aberta antes de 100% colonizado)';
+          updateMonotubVisual(item);
+          if (ctx.callbacks && ctx.callbacks.onToast) {
+            ctx.callbacks.onToast('🦠 O Monotub 24L contaminou com Trichoderma! Nunca deixe a tampa aberta fora do Fluxo Laminar antes do bolo estar 100% colonizado.');
+          }
+          continue;
         }
-        continue;
       }
+      if (!mc.lidOpen) {
+        const prevCol = Math.floor(mc.colonization);
+        mc.colonization = Math.min(100, mc.colonization + dt * 3.8);
 
-      if (Math.floor(mc.colonization) !== prevCol) {
-        updateMonotubVisual(item);
-        if (mc.colonization >= 100 && ctx.callbacks && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast(`✅ ${item.label}`);
+        // Verificação de contaminação por Trichoderma se montou sem higienizar a caixa com Álcool 70%
+        if (mc.asepticScore < 0.5 && mc.colonization >= 45 && mc.colonization - dt * 3.8 < 45) {
+          mc.contaminated = true;
+          mc.contamReason = 'Trichoderma (caixa montada sem Álcool 70%)';
+          updateMonotubVisual(item);
+          if (ctx.callbacks && ctx.callbacks.onToast) {
+            ctx.callbacks.onToast('🦠 O Monotub 24L contaminou com Trichoderma (mofo verde)! Sempre passe Álcool 70% e Papel Toalha na caixa antes de montar.');
+          }
+          continue;
+        }
+
+        if (Math.floor(mc.colonization) !== prevCol) {
+          updateMonotubVisual(item);
+          if (mc.colonization >= 100 && ctx.callbacks && ctx.callbacks.onToast) {
+            ctx.callbacks.onToast(`✅ ${item.label}`);
+          }
         }
       }
     }

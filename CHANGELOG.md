@@ -2,6 +2,18 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.3.2] - 2026-11-19
+### Realismo Micológico Avançado: Esterilização (121°C) vs Pasteurização (75–85°C), Reidratação entre Flushs & Ciclo Fechado Colheita → Desidratadora / Esporos
+- **Diferenciação Real entre Esterilização (`121°C / 15 PSI`) e Pasteurização (`75–85°C`) (`js/items/pressure-cooker.js`, `js/items/spawn-containers.js`):**
+  - Na vida real, **Grãos (Milho, Trigo, Sorgo, Flocão PP5) e Meio PDA/BDA** possuem endósporos bacterianos (*Bacillus*) que não morrem a 75–85°C e exigem **Esterilização a 121°C / 15 PSI**. Agora, processar grãos apenas no modo `PASTEURIZAR` marca `(Apenas Pasteurizado 75°C ⚠️ Grãos exigem Esterilizar a 121°C / 15 PSI!)`, enquanto **Substratos Bulk (Vermiculita + Pó de Coco)** concluem perfeitamente no modo **PASTEURIZAR (75–85°C)**.
+- **Assepsia Real no Carimbo de Esporos, Potinho PP5 e Monotub 24L (`js/items/petri-dish.js`, `js/items/monotub.js`, `js/systems/hover-held-handlers.js`, `js/systems/lab-culture-actions.js`):**
+  - Deixar uma Placa de Petri com **Carimbo de Esporos** aberta fora do Fluxo Laminar contamina a amostra com esporos de mofo do ar.
+  - Cortar fragmentos de um **Potinho PP5 (Flocão)** colonizado com o Bisturi exige abrir a tampa do PP5 dentro do Fluxo Laminar.
+  - Deixar a tampa do **Monotub 24L** aberta fora do Fluxo Laminar durante a colonização (`< 100%`) por mais de `25s` contamina o bolo com **Trichoderma**.
+- **Reidratação (*Dunk & Mist*) entre os 4 Flushs & Cogumelo Fresco na Mão ao Colher (`js/items/monotub.js`, `js/world/greenhouse.js`, `js/systems/interaction-system.js`):**
+  - Ao colher qualquer flush do **Monotub 24L** ou da **Estufa** com as mãos livres, o jogador recebe o **Cogumelo Fresco Colhido** na mão para levar direto à **Desidratadora (55°C → 0% umidade crocante)**, tirar um novo **Carimbo de Esporos na Placa de Petri** ou **Clonar com o Bisturi**.
+  - A umidade do bolo do Monotub cai após cada colheita e pode ser **reidratada borrifando água (`rehydrateMonotubCake`)** para impulsionar o próximo flush.
+
 ## [v1.3.1] - 2026-11-19
 ### Animações 3D Táteis no Cultivo: Carimbo de Esporos, Mistura & Espátula no Monotub 24L, Brotamento Fototrópico & Borboletas na Horta
 - **Animações 3D no Monotub 24L (`js/items/monotub.js`):**

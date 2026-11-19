@@ -151,8 +151,8 @@ export function handleScalpelTargetAction(ctx) {
     scalpel.hasMycelium = true;
     scalpel.isSporeSample = true;
     scalpel.biopsySpecies = spName;
-    scalpel.biopsyAseptic = !!scalpel.sterile && !!(ctx.wearingGloves && !ctx.glovesExpired);
-    scalpel.cutContaminated = !scalpel.sterile;
+    scalpel.biopsyAseptic = !!scalpel.sterile && !petri.sporeContaminated && !!(ctx.wearingGloves && !ctx.glovesExpired);
+    scalpel.cutContaminated = !scalpel.sterile || !!petri.sporeContaminated;
     updateScalpelLabel(ctx.heldItem);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
@@ -177,6 +177,11 @@ export function handleScalpelTargetAction(ctx) {
     }
     if (spawn && (spawn.burned || spawn.contaminated || spawn.expired || spawn.colonization < 60)) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ O micélio deste recipiente não está viável para transferência.');
+      return;
+    }
+    if (spawn && spawn.isPP5 && !spawn.lidOpen) {
+      togglePP5Lid(ctx, target.item);
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🥣 Tampa do Potinho PP5 aberta! Clique novamente com o bisturi para cortar um fragmento.');
       return;
     }
     const cutSpecies = (petri && petri.speciesName) || (spawn && spawn.speciesName) || '';

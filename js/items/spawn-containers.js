@@ -131,7 +131,9 @@ export function updateSpawnVisual(item) {
   } else if (sc.inoculated) {
     item.label = sc.baseLabel + getSpawnCultureStatus(item);
   } else if (sc.pasteurized) {
-    item.label = sc.baseLabel + ' (Pasteurizado ✅ • Pronto p/ Monotub 24L)';
+    item.label = sc.baseLabel + ' (Pasteurizado 75–85°C ✅ • Pronto p/ Monotub 24L)';
+  } else if (sc.pasteurizedOnly) {
+    item.label = sc.baseLabel + ' (Apenas Pasteurizado 75°C ⚠️ Grãos exigem Esterilizar a 121°C / 15 PSI!)';
   } else if (sc.sterilized) {
     item.label = sc.baseLabel + ((sc.substrateKind === 'coco_verm' || sc.substrateKind === 'sawdust')
       ? ' (Pasteurizado/Estéril ✅ • Pronto p/ Monotub)'

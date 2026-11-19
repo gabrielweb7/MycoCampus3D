@@ -13,6 +13,7 @@ import { makeBox, makeTextSprite, updateTextSprite } from '../engine/textures.js
 import { disposeObjectResources } from '../items/item-registry.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
 import { makeSpentCakeItem } from '../items/monotub.js';
+import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 
 const SPECIES_PRESETS = [
   { name: 'Shimeji Dourado', sci: 'Pleurotus citrinopileatus', color: 0xfacc15, kind: 'shimeji' },
@@ -1207,6 +1208,17 @@ export function interactGreenhouseSlot(slot, ctx) {
     triggerSporeBurst(slot.x, slot.y + 0.35, slot.z, slot.color);
     if (callbacks.onHarvestGreenhouse) {
       callbacks.onHarvestGreenhouse(slot);
+    }
+    if (ctx && ctx.scene && !ctx.heldItem) {
+      const spName = slot.speciesName || slot.name || 'Golden Teacher';
+      const isMagic = spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1 || spName.indexOf('Golden') !== -1 || slot.kind === 'gt';
+      const freshMush = spawnPersistedWildMushroom(ctx, 'harvest_gh_' + Date.now().toString(36), {
+        speciesName: spName,
+        isMagic
+      });
+      ctx.heldItem = freshMush;
+      ctx.lastPickupAt = performance.now();
+      if (callbacks.onHoldChange) callbacks.onHoldChange(freshMush.label);
     }
     slot.flush = (slot.flush || 1) + 1;
     if (slot.flush > 4) {

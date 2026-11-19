@@ -194,6 +194,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredBowlTarget = null;
   ctx.hoveredFridgeTarget = null;
   ctx.hoveredSporePrintPetri = null;
+  ctx.hoveredDehydratorTarget = null;
   ctx.hoveredMonotubTarget = null;
   ctx.hoveredMonotubRackSlot = null;
   ctx.hoveredGardenTarget = null;

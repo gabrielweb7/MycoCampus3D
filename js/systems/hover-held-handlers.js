@@ -569,7 +569,11 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
       return true;
     }
     if (!sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60) {
-      matched = { mode: 'cut', prompt: '🔪 Cortar fragmento de micélio (' + sCand.label + ')' };
+      if (sCand.spawnCtrl.isPP5 && !sCand.spawnCtrl.lidOpen) {
+        matched = { mode: 'open', prompt: '🥣 Abrir tampa do Potinho PP5 colonizado no Fluxo Laminar para cortar fragmento' };
+      } else {
+        matched = { mode: 'cut', prompt: '🔪 Cortar fragmento de micélio (' + sCand.label + ')' };
+      }
       return true;
     }
     if (!sc.hasMycelium && sCand.wildMushroomCtrl) {
@@ -788,6 +792,22 @@ function handleFridgeStorageHover(ctx, setHoverPrompt) {
 
 function handleSporePrintHover(ctx, intersectPickableItem, setHoverPrompt) {
   if (ctx.placementMode || !ctx.heldItem || !ctx.heldItem.wildMushroomCtrl) return false;
+  const dehydRes = findPickableHit(
+    ctx,
+    3.8,
+    (cand) => !!cand.dehydratorCtrl,
+    intersectPickableItem
+  );
+  if (dehydRes) {
+    ctx.hoverHit = dehydRes.hit;
+    ctx.hoveredDehydratorTarget = dehydRes.item;
+    hidePlacementGhost(ctx);
+    const dc = dehydRes.item.dehydratorCtrl;
+    setHoverPrompt(ctx, !dc.hasMushroom
+      ? `♨️ Colocar ${ctx.heldItem.wildMushroomCtrl.speciesName} na Desidratadora (55°C • Secar até 0% umidade)`
+      : (dc.crisp ? '✨ Retirar cogumelo crocante da Desidratadora' : '♨️ Desidratadora em uso'));
+    return true;
+  }
   const res = findPickableHit(
     ctx,
     3.5,

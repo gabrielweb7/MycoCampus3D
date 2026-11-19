@@ -319,8 +319,17 @@ export function stepPetriCultures(ctx, dt) {
         }
       }
     }
-    if (ctrl.lidOpen && (ctrl.mode === 'empty' || ctrl.mode === 'clean' || ctrl.mode === 'colonizing') &&
+    if (ctrl.lidOpen && (ctrl.mode === 'empty' || ctrl.mode === 'clean' || ctrl.mode === 'colonizing' || ctrl.mode === 'spore_print') &&
         !isAsepticWorkArea(ctx, item)) {
+      if (ctrl.mode === 'spore_print') {
+        if (!ctrl.sporeContaminated) {
+          ctrl.sporeContaminated = true;
+          if (ctx.callbacks && ctx.callbacks.onToast) {
+            ctx.callbacks.onToast('⚠️ Carimbo de Esporos aberto fora do Fluxo Laminar! Esporos de mofo do ar caíram sobre a amostra.');
+          }
+        }
+        continue;
+      }
       ctrl.mode = 'contam';
       ctrl.sterilized = false;
       ctrl.inoculated = true;

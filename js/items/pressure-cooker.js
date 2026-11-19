@@ -765,11 +765,23 @@ export function stepPressureCookers(ctx, dt) {
             const prevSter = !!cIt.spawnCtrl.sterilized;
             cIt.spawnCtrl.sterilizeProgress = Math.min(100, (cIt.spawnCtrl.sterilizeProgress || 0) + dt * itemRate);
             const timerOk = !hasElectricTimer || (activeBurner.timerPresetMin || 0) >= itemMin;
+            const scKind = cIt.spawnCtrl.substrateKind || 'grain';
+            const isBulkSubstrate = scKind === 'coco_verm' || scKind === 'sawdust' || scKind === 'coco' || scKind === 'vermiculite';
             if (cIt.spawnCtrl.sterilizeProgress >= 100 || (cp.progress >= 100 && timerOk)) {
               cIt.spawnCtrl.sterilizeProgress = 100;
-              cIt.spawnCtrl.sterilized = true;
               if (cp.mode === 'pasteurize') {
-                cIt.spawnCtrl.pasteurized = true;
+                if (isBulkSubstrate) {
+                  cIt.spawnCtrl.pasteurized = true;
+                  cIt.spawnCtrl.sterilized = true;
+                } else {
+                  // Na vida real, grãos (milho/trigo/sorgo/flocão) e PDA NÃO esterilizam a 75-85°C (endósporos sobrevivem!)
+                  cIt.spawnCtrl.pasteurizedOnly = true;
+                  cIt.spawnCtrl.sterilized = false;
+                }
+              } else {
+                cIt.spawnCtrl.sterilized = true;
+                cIt.spawnCtrl.pasteurizedOnly = false;
+                if (isBulkSubstrate) cIt.spawnCtrl.pasteurized = true;
               }
             }
             if (Math.floor(cIt.spawnCtrl.sterilizeProgress) !== prevPct || !!cIt.spawnCtrl.sterilized !== prevSter) {

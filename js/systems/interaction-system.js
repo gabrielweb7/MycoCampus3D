@@ -35,7 +35,7 @@ import { interactDehydrator } from '../items/dehydrator.js';
 import { getItemsSupportedBy } from './surface-group-move.js';
 import { depositSporePrintOnPetri, fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { togglePP5Lid } from '../items/pp5-cup.js';
-import { interactMonotub, placeMonotubInLedRackSlot } from '../items/monotub.js';
+import { interactMonotub, placeMonotubInLedRackSlot, rehydrateMonotubCake } from '../items/monotub.js';
 import { interactGardenTarget } from '../world/campus-garden.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
@@ -273,6 +273,11 @@ export function handlePrimaryAction(ctx) {
       return;
     }
     if (ctx.heldItem.mesh.userData.isAlcoholSpray && !ctx.placementMode) {
+      if (ctx.hoveredSprayTarget && ctx.hoveredSprayTarget.target && ctx.hoveredSprayTarget.target.monotubCtrl &&
+          ctx.hoveredSprayTarget.target.monotubCtrl.colonization >= 100) {
+        rehydrateMonotubCake(ctx, ctx.hoveredSprayTarget.target);
+        return;
+      }
       fireAlcoholSpray(ctx, ctx.hoveredSprayTarget);
       if (ctx.hoveredGreenhouseSlot) {
         ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
@@ -301,6 +306,29 @@ export function handlePrimaryAction(ctx) {
     }
     if (ctx.hoveredTrash && !ctx.placementMode) {
       handleTrashDisposal(ctx, ctx.heldItem);
+      return;
+    }
+    if (ctx.hoveredDehydratorTarget && !ctx.placementMode && ctx.heldItem.wildMushroomCtrl) {
+      const targetDehyd = ctx.hoveredDehydratorTarget;
+      const dc = targetDehyd.dehydratorCtrl;
+      if (dc && !dc.hasMushroom) {
+        const eatenItem = ctx.heldItem;
+        const wm = eatenItem.wildMushroomCtrl;
+        wm.removed = true;
+        ctx.heldItem = null;
+        if (eatenItem.mesh && eatenItem.mesh.parent) eatenItem.mesh.parent.remove(eatenItem.mesh);
+        disposeObjectResources(eatenItem.mesh);
+        const idx = ctx.pickableItems.indexOf(eatenItem);
+        if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+        if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
+          ctx.pickableMap.delete(eatenItem.id);
+        }
+        if (ctx.placementGhost) ctx.placementGhost.visible = false;
+        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+      }
+      interactDehydrator(ctx, targetDehyd);
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      ctx.notifyWorldAction();
       return;
     }
     if (ctx.hoveredSporePrintPetri && !ctx.placementMode && ctx.heldItem.wildMushroomCtrl) {
