@@ -7,17 +7,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
-  '1.4.7': {
-    title: '✨ Novidades da Atualização v1.4.7',
+  '1.4.8': {
+    title: '✨ Novidades da Atualização v1.4.8',
     subtitle: 'Seu jogo recebeu melhorias! Veja o que mudou:',
     items: [
-      { icon: '📢', text: 'Aviso automático de novidades: sempre que o jogo atualizar, esta janelinha mostra o que mudou e fecha em 5s.' },
+      { icon: '🗄️', text: 'Clique protegido na estante: persianas, portas e itens atrás de estantes, bancadas e paredes não abrem mais por acidente.' },
       { icon: '👻', text: 'Posicionamento [G] com sombra verde/vermelha funcionando no fogareiro e em todos os itens sem bloquear sua visão.' },
+      { icon: '📢', text: 'Aviso automático de novidades: sempre que o jogo atualizar, esta janelinha mostra o que mudou e fecha em 5s.' },
       { icon: '📦', text: 'Itens firmes e salvos: panelas, fogareiros, giz e frascos ficam onde você colocou, sem cair ou piscar.' },
       { icon: '🏡', text: 'Empório MycoCampus na Estrada Sul com janelas transparentes, persianas, carros, túneis e clientes comprando pacotes de 10g.' },
-      { icon: '🫙', text: 'Potes com Sílica Gel mostram os cogumelos enchendo lá dentro (clique com a mão vazia para retirar 10g).' },
-      { icon: '♨️', text: 'Seladora com animação ao segurar o saco e apontar nela, e Desidratadora com 3 cogumelos secando.' },
-      { icon: '🐝', text: 'Abelhas fofinhas com colmeias nas árvores e vaquinhas pastando na grama longe da cidade (sem árvores em ruas ou casas!).' }
+      { icon: '🐝', text: 'Abelhas fofinhas com colmeias nas árvores e vaquinhas pastando na grama longe da cidade.' }
     ]
   }
 };

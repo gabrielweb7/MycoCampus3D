@@ -104,16 +104,16 @@ test('updatePlacementGhostVisual reativa matrixAutoUpdate após freeze e oculta 
   assert.equal(clonedRoot.children[1].visible, false);
 });
 
-test('RELEASE_NOTES_CATALOG tem notas simples da v1.4.7 e markPendingAutoUpdateNotice atualiza storage', () => {
-  const store = new Map([['myco_seen_whats_new_v', '1.4.6']]);
+test('RELEASE_NOTES_CATALOG tem notas simples da v1.4.8 e markPendingAutoUpdateNotice atualiza storage', () => {
+  const store = new Map([['myco_seen_whats_new_v', '1.4.7']]);
   globalThis.localStorage = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: (k) => store.delete(k)
   };
-  markPendingAutoUpdateNotice('1.4.7');
+  markPendingAutoUpdateNotice('1.4.8');
   assert.equal(store.get('myco_seen_whats_new_v'), undefined);
-  assert.equal(store.get('myco_just_updated_v'), '1.4.7');
-  assert.ok(RELEASE_NOTES_CATALOG['1.4.7']);
-  assert.ok(RELEASE_NOTES_CATALOG['1.4.7'].items.length >= 4);
+  assert.equal(store.get('myco_just_updated_v'), '1.4.8');
+  assert.ok(RELEASE_NOTES_CATALOG['1.4.8']);
+  assert.ok(RELEASE_NOTES_CATALOG['1.4.8'].items.length >= 4);
 });

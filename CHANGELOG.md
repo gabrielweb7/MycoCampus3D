@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.8] - 2026-11-19
+### Proteção de Oclusão em Estantes, Bancadas e Paredes (Fim de Cliques Acidentais em Persianas)
+- **Oclusão por Raio 3D (`js/systems/hover-held-handlers.js`, `js/systems/hover-raycaster.js`):**
+  - Implementados `isRayOccludedByStructure` e `firstUnoccludedRayHit` validando interseção 3D de saída (`tExit`) nos `solidColliders` (estantes, porta-pallets, bancadas, armários e geladeiras) e `wallSegments`.
+  - Itens posicionados dentro/sobre a estante continuam 100% clicáveis (`dist <= tExit`), enquanto persianas, portas, interruptores e objetos atrás da estante ou parede são bloqueados automaticamente.
+  - Prioridade de detecção da estufa ajustada para checar slots e dispositivos antes das persianas de fundo.
+
 ## [v1.4.7] - 2026-11-19
 ### Ghost de Posicionamento Corrigido no Fogareiro/Todos os Itens & Modal Automático de Novidades (5s)
 - **Ghost de Posicionamento `[G]` (`js/engine/scene-optimizer.js`, `js/entities/placement-ghost.js`, `js/systems/held-item-placement.js`, `js/systems/held-item-loop.js`, `js/core/quality.js`, `js/items/pressure-cooker.js`, `js/systems/hover-held-handlers.js`, `js/systems/campus-api.js`, `js/ui/app-boot.js`):**

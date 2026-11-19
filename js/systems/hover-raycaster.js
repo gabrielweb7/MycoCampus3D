@@ -4,7 +4,7 @@
  */
 
 import { cancelHeldItemPlacement, updateHeldItemPlacementPreview } from './held-item-placement.js';
-import { resolveHeldItemHover } from './hover-held-handlers.js';
+import { resolveHeldItemHover, isRayOccludedByStructure, firstUnoccludedRayHit } from './hover-held-handlers.js';
 import { isSeatOccupied } from './world-interactions.js';
 import {
   greenhouseHitMeshes,
@@ -363,10 +363,10 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (ctx.lightSwitchMeshes.length) {
-    const swHits = ctx.raycaster.intersectObjects(ctx.lightSwitchMeshes, false);
-    if (swHits.length > 0 && swHits[0].distance < 4.0) {
-      ctx.hoverHit = swHits[0];
-      ctx.hoveredSwitch = swHits[0].object.userData.lightSwitch;
+    const swHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.lightSwitchMeshes, false), 4.0);
+    if (swHit) {
+      ctx.hoverHit = swHit;
+      ctx.hoveredSwitch = swHit.object.userData.lightSwitch;
       prompt = ctx.hoveredSwitch.on ? '💡 Clique para desligar a luz' : '💡 Clique para ligar a luz';
       setHoverPrompt(ctx, prompt);
       return;
@@ -374,10 +374,10 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (ctx.seatMeshes.length) {
-    const stHits = ctx.raycaster.intersectObjects(ctx.seatMeshes, false);
-    if (stHits.length > 0 && stHits[0].distance < 4.2) {
-      ctx.hoverHit = stHits[0];
-      const candSeat = stHits[0].object.userData.seatInfo;
+    const stHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.seatMeshes, false), 4.2);
+    if (stHit) {
+      ctx.hoverHit = stHit;
+      const candSeat = stHit.object.userData.seatInfo;
       if (isSeatOccupied(ctx.remoteAvatars, candSeat)) {
         prompt = '🚫 Assento ocupado (sente ao lado!)';
       } else {
@@ -390,10 +390,10 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (!prompt && ctx.doorHitMeshes.length) {
-    const doorHits = ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false);
-    if (doorHits.length > 0 && doorHits[0].distance < 5.0) {
-      ctx.hoverHit = doorHits[0];
-      ctx.hoveredDoorObj = doorHits[0].object.userData.doorObj;
+    const doorHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false), 5.0);
+    if (doorHit) {
+      ctx.hoverHit = doorHit;
+      ctx.hoveredDoorObj = doorHit.object.userData.doorObj;
       prompt = '🚪 ' + (ctx.hoveredDoorObj.open ? 'Fechar ' : 'Abrir ') + ctx.hoveredDoorObj.label;
     }
   }
@@ -406,9 +406,9 @@ export function updateHoverRay(ctx, customNdc) {
       const wmZ = wm.worldZ !== undefined ? wm.worldZ : wm.group.position.z;
       const mdx = wmX - refX, mdz = wmZ - refZ;
       if (mdx * mdx + mdz * mdz > maxMushSq) continue;
-      const mHits = ctx.raycaster.intersectObject(wm.group, true);
-      if (mHits.length > 0 && mHits[0].distance < 4.5) {
-        ctx.hoverHit = mHits[0];
+      const mHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObject(wm.group, true), 4.5, { checkWalls: true });
+      if (mHit) {
+        ctx.hoverHit = mHit;
         ctx.hoveredMushroom = wm;
         const isPoop = wm.id && wm.id.indexOf('wild_poop_') === 0;
         const spLabel = (wm.capMesh && wm.capMesh.userData && wm.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
@@ -426,7 +426,10 @@ export function updateHoverRay(ctx, customNdc) {
       const fdx = fItem.mesh.position.x - refX, fdz = fItem.mesh.position.z - refZ;
       if (fdx * fdx + fdz * fdz > maxPickSq) continue;
       const fHit = intersectPickableItem(ctx.raycaster, fItem);
-      if (fHit && fHit.distance < 4.5) {
+      if (fHit && fHit.distance < 4.5 && !isRayOccludedByStructure(ctx, fHit.distance, {
+        checkWalls: true,
+        ignoreCollider: fItem.mesh.userData && fItem.mesh.userData.dynamicCollider
+      })) {
         ctx.hoveredPickable = fItem;
         ctx.hoverHit = fHit;
         prompt = fItem.fridgeCtrl.doorOpen
@@ -450,6 +453,10 @@ export function updateHoverRay(ctx, customNdc) {
       if (idx * idx + idz * idz > maxPickSq) continue;
       const hit0 = intersectPickableItem(ctx.raycaster, item);
       if (hit0 && hit0.distance < 4.5) {
+        if (isRayOccludedByStructure(ctx, hit0.distance, {
+          checkWalls: true,
+          ignoreCollider: item.mesh.userData && item.mesh.userData.dynamicCollider
+        })) continue;
         const dHit = hit0.distance;
         if (item.lidItem && item.lidItem.isAttached && hit0.point.y >= item.mesh.position.y + 0.26) {
           item = item.lidItem;
@@ -522,27 +529,19 @@ export function updateHoverRay(ctx, customNdc) {
   }
   ctx.hoveredCabinetPart = null;
   if (ctx.cabinetHitMeshes && ctx.cabinetHitMeshes.length) {
-    const cabHits = ctx.raycaster.intersectObjects(ctx.cabinetHitMeshes, false);
-    if (cabHits.length > 0 && cabHits[0].distance < 3.8) {
+    const cabHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.cabinetHitMeshes, false), 3.8, { checkWalls: true });
+    if (cabHit) {
       const smallOnCounter = bestSmall && bestSmall.mesh && bestSmall.mesh.position.y >= 0.94;
-      const smallInDrawerOrCab = bestSmall && bestSmallDist <= cabHits[0].distance + 0.03;
-      if (!smallOnCounter && !smallInDrawerOrCab && (!bestSmall || cabHits[0].distance < bestSmallDist)) {
-        const cPart = cabHits[0].object.userData.cabinetPart;
+      const smallInDrawerOrCab = bestSmall && bestSmallDist <= cabHit.distance + 0.03;
+      if (!smallOnCounter && !smallInDrawerOrCab && (!bestSmall || cabHit.distance < bestSmallDist)) {
+        const cPart = cabHit.object.userData.cabinetPart;
         if (cPart) {
-          ctx.hoverHit = cabHits[0];
+          ctx.hoverHit = cabHit;
           ctx.hoveredCabinetPart = cPart;
           ctx.hoveredPickable = null;
           prompt = (cPart.open ? '🗄️ Fechar ' : '🗄️ Abrir ') + (cPart.label || 'Armário');
         }
       }
-    }
-  }
-  if (!prompt && ctx.blindHitMeshes.length) {
-    const blHits = ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false);
-    if (blHits.length > 0 && blHits[0].distance < 5.5) {
-      ctx.hoverHit = blHits[0];
-      ctx.hoveredBlindObj = blHits[0].object.userData.blindObj;
-      prompt = ctx.hoveredBlindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana';
     }
   }
   if (ctx.heldSportBall) {
@@ -553,9 +552,9 @@ export function updateHoverRay(ctx, customNdc) {
     for (let si = 0; si < ctx.sportBalls.length; si++) {
       const sb = ctx.sportBalls[si];
       if (sb.kind !== 'basketball' || !sb.mesh) continue;
-      const bHits = ctx.raycaster.intersectObject(sb.mesh, false);
-      if (bHits.length > 0 && bHits[0].distance < 4.2) {
-        ctx.hoverHit = bHits[0];
+      const bHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObject(sb.mesh, false), 4.2, { checkWalls: true });
+      if (bHit) {
+        ctx.hoverHit = bHit;
         ctx.hoveredSportBall = sb;
         prompt = '🏀 Pegar Bola de Basquete (p/ arremessar na cesta)';
         break;
@@ -563,10 +562,10 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   if (!prompt && ctx.cowHitMeshes && ctx.cowHitMeshes.length && refX > 26 && refX < 78 && refZ > 4 && refZ < 56) {
-    const cowHits = ctx.raycaster.intersectObjects(ctx.cowHitMeshes, false);
-    if (cowHits.length > 0 && cowHits[0].distance < 5.5 && cowHits[0].object.userData.cowObj) {
-      ctx.hoverHit = cowHits[0];
-      ctx.hoveredCow = cowHits[0].object.userData.cowObj;
+    const cowHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.cowHitMeshes, false), 5.5, { checkWalls: true });
+    if (cowHit && cowHit.object.userData.cowObj) {
+      ctx.hoverHit = cowHit;
+      ctx.hoveredCow = cowHit.object.userData.cowObj;
       prompt = `🐄 ${ctx.hoveredCow.name} (Saúde ${ctx.hoveredCow.health}% • ${ctx.hoveredCow.mood}) • Clique para fazer carinho`;
     }
   }
@@ -574,10 +573,10 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredGreenhouseDevice = null;
   if (!prompt && refX > 11 && refX < 28 && refZ > -2 && refZ < 17) {
     if (greenhouseControlMeshes.length > 0) {
-      const ctrlHits = ctx.raycaster.intersectObjects(greenhouseControlMeshes, true);
-      if (ctrlHits.length > 0 && ctrlHits[0].distance < 4.8 && ctrlHits[0].object.userData.greenhouseDevice) {
-        const dev = ctrlHits[0].object.userData.greenhouseDevice;
-        ctx.hoverHit = ctrlHits[0];
+      const ctrlHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(greenhouseControlMeshes, true), 4.8, { checkWalls: true });
+      if (ctrlHit && ctrlHit.object.userData.greenhouseDevice) {
+        const dev = ctrlHit.object.userData.greenhouseDevice;
+        ctx.hoverHit = ctrlHit;
         ctx.hoveredGreenhouseDevice = dev;
         const devNames = {
           panel: '🎛️ Painel de Automação da Estufa',
@@ -590,11 +589,11 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
     if (!prompt && greenhouseHitMeshes.length > 0) {
-      const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
-      if (ghHits.length > 0 && ghHits[0].distance < 4.8) {
-        const hSlot = ghHits[0].object.userData.greenhouseSlot;
+      const ghHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(greenhouseHitMeshes, true), 4.8, { checkWalls: true });
+      if (ghHit) {
+        const hSlot = ghHit.object.userData.greenhouseSlot;
         if (hSlot) {
-          ctx.hoverHit = ghHits[0];
+          ctx.hoverHit = ghHit;
           ctx.hoveredGreenhouseSlot = hSlot;
           const isHoldingSpray = ctx.heldItem && (ctx.heldItem.id.indexOf('alcohol_spray') !== -1 || ctx.heldItem.id.indexOf('spray') !== -1);
           const hasColonizedSpawn = isHoldingColonizedSpawn(ctx.heldItem);
@@ -626,10 +625,10 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   if (!prompt && gardenHitMeshes.length > 0 && refX > 10 && refX < 28 && refZ > 12 && refZ < 24) {
-    const gHits = ctx.raycaster.intersectObjects(gardenHitMeshes, false);
-    if (gHits.length > 0 && gHits[0].distance < 5.0 && gHits[0].object.userData.gardenTarget) {
-      const gt = gHits[0].object.userData.gardenTarget;
-      ctx.hoverHit = gHits[0];
+    const gHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(gardenHitMeshes, false), 5.0, { checkWalls: true });
+    if (gHit && gHit.object.userData.gardenTarget) {
+      const gt = gHit.object.userData.gardenTarget;
+      ctx.hoverHit = gHit;
       ctx.hoveredGardenTarget = gt;
       if (gt.type === 'compost_box') {
         prompt = `🌱 Caixa de Substrato da Horta (${gardenState.compostCakes} bolos • Fertilidade ${Math.round(gardenState.soilRichness)}%) • Traga Bolos Secos após 4 Flushs!`;
@@ -646,6 +645,14 @@ export function updateHoverRay(ctx, customNdc) {
           prompt = `🌿 ${pl.name} • ${stTxt} (${Math.floor(pl.growth)}%) • Adube na Caixa de Substrato ao lado!`;
         }
       }
+    }
+  }
+  if (!prompt && ctx.blindHitMeshes.length) {
+    const blHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false), 5.5);
+    if (blHit && blHit.object.userData.blindObj) {
+      ctx.hoverHit = blHit;
+      ctx.hoveredBlindObj = blHit.object.userData.blindObj;
+      prompt = ctx.hoveredBlindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana';
     }
   }
   if (!prompt && roadSaleStandMeshes.length > 0 && refX > 2 && refX < 24 && refZ > 28 && refZ < 44) {

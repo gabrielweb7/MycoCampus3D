@@ -12,7 +12,11 @@ globalThis.window = globalThis.window || {
 };
 globalThis.THREE = globalThis.window.THREE;
 
-const { resolveHeldItemHover } = await import('../js/systems/hover-held-handlers.js');
+const {
+  resolveHeldItemHover,
+  isRayOccludedByStructure,
+  firstUnoccludedRayHit
+} = await import('../js/systems/hover-held-handlers.js');
 
 function makeCtx(overrides = {}) {
   return Object.assign({
@@ -81,4 +85,24 @@ test('resolveHeldItemHover aciona preview de posicionamento quando placementMode
 
   assert.equal(handled, true);
   assert.equal(previewCalled, true);
+});
+
+test('isRayOccludedByStructure bloqueia persiana atrás da estante, mas libera item na própria estante', () => {
+  const rackCollider = { minX: 14.94, maxX: 15.66, minY: 0.14, maxY: 2.39, minZ: -6.45, maxZ: -3.95 };
+  const occCtx = makeCtx({
+    solidColliders: [rackCollider],
+    wallSegments: [],
+    raycaster: {
+      ray: {
+        origin: { x: 17.0, y: 1.3, z: -5.2 },
+        direction: { x: -1, y: 0, z: 0 }
+      }
+    }
+  });
+  // Monotub dentro da estante (~1.45m) fica antes da saída do colisor (~2.06m): clicável!
+  assert.equal(isRayOccludedByStructure(occCtx, 1.45), false);
+  // Persiana atrás da estante (~2.7m) fica além da saída do colisor (~2.06m): bloqueada!
+  assert.equal(isRayOccludedByStructure(occCtx, 2.7), true);
+  const picked = firstUnoccludedRayHit(occCtx, [{ distance: 2.7, object: { userData: {} } }], 5.5);
+  assert.equal(picked, null);
 });

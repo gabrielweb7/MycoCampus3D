@@ -36,6 +36,91 @@ function hidePlacementGhost(ctx) {
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
 }
 
+function rayIntersectsAabbExit(origin, dir, c) {
+  const cMinY = typeof c.minY === 'number' ? c.minY : 0;
+  const cMaxY = typeof c.maxY === 'number' ? c.maxY : 2.5;
+  if (cMaxY - cMinY < 0.38) return -1;
+
+  const invDx = 1 / (Math.abs(dir.x) > 1e-6 ? dir.x : 1e-6);
+  const invDy = 1 / (Math.abs(dir.y) > 1e-6 ? dir.y : 1e-6);
+  const invDz = 1 / (Math.abs(dir.z) > 1e-6 ? dir.z : 1e-6);
+
+  const tx1 = (c.minX - origin.x) * invDx;
+  const tx2 = (c.maxX - origin.x) * invDx;
+  const ty1 = (cMinY - origin.y) * invDy;
+  const ty2 = (cMaxY - origin.y) * invDy;
+  const tz1 = (c.minZ - origin.z) * invDz;
+  const tz2 = (c.maxZ - origin.z) * invDz;
+
+  const tmin = Math.max(Math.min(tx1, tx2), Math.min(ty1, ty2), Math.min(tz1, tz2));
+  const tmax = Math.min(Math.max(tx1, tx2), Math.max(ty1, ty2), Math.max(tz1, tz2));
+  if (tmax < tmin || tmax <= 0.05) return -1;
+  return tmax;
+}
+
+function rayHitsWallBefore(origin, dir, walls, maxDist) {
+  if (!walls || !walls.length) return false;
+  for (let i = 0; i < walls.length; i++) {
+    const w = walls[i];
+    if (!w) continue;
+    const sx = w.x2 - w.x1;
+    const sz = w.z2 - w.z1;
+    const denom = dir.x * sz - dir.z * sx;
+    if (Math.abs(denom) < 1e-6) continue;
+    const qx = w.x1 - origin.x;
+    const qz = w.z1 - origin.z;
+    const t = (qx * sz - qz * sx) / denom;
+    if (t <= 0.05 || t >= maxDist - 0.05) continue;
+    const u = (qx * dir.z - qz * dir.x) / denom;
+    if (u < -0.005 || u > 1.005) continue;
+    const hitY = origin.y + dir.y * t;
+    const minY = typeof w.minY === 'number' ? w.minY : 0;
+    const maxY = typeof w.maxY === 'number' ? w.maxY : 3.6;
+    if (hitY >= minY && hitY <= maxY) return true;
+  }
+  return false;
+}
+
+/**
+ * Verifica se o raio atravessou completamente uma estante/bancada/móvel ou parede
+ * antes de atingir um alvo mais distante (ex.: persianas, portas ou itens atrás da estante).
+ */
+export function isRayOccludedByStructure(ctx, targetDist, opts) {
+  if (!ctx || !ctx.raycaster || !ctx.raycaster.ray || !isFinite(targetDist)) return false;
+  const ray = ctx.raycaster.ray;
+  const origin = ray.origin;
+  const dir = ray.direction;
+  const ignoreCollider = opts && opts.ignoreCollider;
+
+  const colliders = ctx.solidColliders;
+  if (colliders && colliders.length) {
+    for (let i = 0; i < colliders.length; i++) {
+      const c = colliders[i];
+      if (!c || c === ignoreCollider) continue;
+      const tExit = rayIntersectsAabbExit(origin, dir, c);
+      if (tExit > 0.05 && tExit < targetDist - 0.04) {
+        return true;
+      }
+    }
+  }
+
+  if (opts && opts.checkWalls && rayHitsWallBefore(origin, dir, ctx.wallSegments, targetDist)) {
+    return true;
+  }
+  return false;
+}
+
+export function firstUnoccludedRayHit(ctx, hits, maxDist, opts) {
+  if (!hits || !hits.length) return null;
+  for (let i = 0; i < hits.length; i++) {
+    const h = hits[i];
+    if (!h || h.distance >= maxDist) continue;
+    if (h.object && h.object.userData && h.object.userData.ignoreRay) continue;
+    if (!isRayOccludedByStructure(ctx, h.distance, opts)) return h;
+  }
+  return null;
+}
+
 /**
  * Busca o primeiro ou mais próximo item interagível sob o raycaster.
  * @param {object} ctx
@@ -63,6 +148,10 @@ function findPickableHit(ctx, maxDist, filterFn, intersectPickableItem, opts) {
     if (dx * dx + dz * dz > 100) continue;
     const hit = intersectPickableItem(ctx.raycaster, cand);
     if (!hit || hit.distance >= maxDist) continue;
+    if (isRayOccludedByStructure(ctx, hit.distance, {
+      checkWalls: true,
+      ignoreCollider: cand.mesh && cand.mesh.userData && cand.mesh.userData.dynamicCollider
+    })) continue;
     if (!nearest) return { item: cand, hit };
     const isBig = !!(cand.mesh && cand.mesh.userData && cand.mesh.userData.twoHanded);
     if (isBig) {
@@ -126,35 +215,35 @@ function handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
     bestHitObj = pickHit.hit;
   }
   if (greenhouseHitMeshes.length > 0) {
-    const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
-    if (ghHits.length > 0 && ghHits[0].distance < bestDist && ghHits[0].object.userData.greenhouseSlot) {
-      const hSlot = ghHits[0].object.userData.greenhouseSlot;
-      bestDist = ghHits[0].distance;
+    const ghHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(greenhouseHitMeshes, true), bestDist, { checkWalls: true });
+    if (ghHit && ghHit.object.userData.greenhouseSlot) {
+      const hSlot = ghHit.object.userData.greenhouseSlot;
+      bestDist = ghHit.distance;
       bestTarget = hSlot;
       bestLabel = hSlot.name;
-      bestPoint = ghHits[0].point;
-      bestHitObj = ghHits[0];
+      bestPoint = ghHit.point;
+      bestHitObj = ghHit;
       ctx.hoveredGreenhouseSlot = hSlot;
     }
   }
   if (!bestTarget && ctx.doorHitMeshes.length) {
-    const dHits = ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false);
-    if (dHits.length > 0 && dHits[0].distance < bestDist && dHits[0].object.userData.doorObj) {
-      bestDist = dHits[0].distance;
-      bestTarget = dHits[0].object.userData.doorObj;
+    const dHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false), bestDist);
+    if (dHit && dHit.object.userData.doorObj) {
+      bestDist = dHit.distance;
+      bestTarget = dHit.object.userData.doorObj;
       bestLabel = bestTarget.label || 'Porta';
-      bestPoint = dHits[0].point;
-      bestHitObj = dHits[0];
+      bestPoint = dHit.point;
+      bestHitObj = dHit;
     }
   }
   if (!bestTarget && ctx.blindHitMeshes.length) {
-    const bHits = ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false);
-    if (bHits.length > 0 && bHits[0].distance < bestDist && bHits[0].object.userData.blindObj) {
-      bestDist = bHits[0].distance;
-      bestTarget = bHits[0].object.userData.blindObj;
+    const bHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false), bestDist);
+    if (bHit && bHit.object.userData.blindObj) {
+      bestDist = bHit.distance;
+      bestTarget = bHit.object.userData.blindObj;
       bestLabel = 'Persiana';
-      bestPoint = bHits[0].point;
-      bestHitObj = bHits[0];
+      bestPoint = bHit.point;
+      bestHitObj = bHit;
     }
   }
   hidePlacementGhost(ctx);
@@ -181,31 +270,31 @@ function handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt) {
     bestHitObj = pickHit.hit;
   }
   if (greenhouseHitMeshes.length > 0) {
-    const ghHits = ctx.raycaster.intersectObjects(greenhouseHitMeshes, true);
-    if (ghHits.length > 0 && ghHits[0].distance < bestDist && ghHits[0].object.userData.greenhouseSlot) {
-      const hSlot = ghHits[0].object.userData.greenhouseSlot;
-      bestDist = ghHits[0].distance;
+    const ghHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(greenhouseHitMeshes, true), bestDist, { checkWalls: true });
+    if (ghHit && ghHit.object.userData.greenhouseSlot) {
+      const hSlot = ghHit.object.userData.greenhouseSlot;
+      bestDist = ghHit.distance;
       bestTarget = hSlot;
       bestLabel = hSlot.name;
-      bestHitObj = ghHits[0];
+      bestHitObj = ghHit;
     }
   }
   if (!bestTarget && ctx.doorHitMeshes && ctx.doorHitMeshes.length) {
-    const dHits = ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false);
-    if (dHits.length > 0 && dHits[0].distance < bestDist && dHits[0].object.userData.doorObj) {
-      bestDist = dHits[0].distance;
-      bestTarget = dHits[0].object.userData.doorObj;
+    const dHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false), bestDist);
+    if (dHit && dHit.object.userData.doorObj) {
+      bestDist = dHit.distance;
+      bestTarget = dHit.object.userData.doorObj;
       bestLabel = bestTarget.label || 'Porta';
-      bestHitObj = dHits[0];
+      bestHitObj = dHit;
     }
   }
   if (!bestTarget && ctx.blindHitMeshes && ctx.blindHitMeshes.length) {
-    const bHits = ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false);
-    if (bHits.length > 0 && bHits[0].distance < bestDist && bHits[0].object.userData.blindObj) {
-      bestDist = bHits[0].distance;
-      bestTarget = bHits[0].object.userData.blindObj;
+    const bHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false), bestDist);
+    if (bHit && bHit.object.userData.blindObj) {
+      bestDist = bHit.distance;
+      bestTarget = bHit.object.userData.blindObj;
       bestLabel = 'Persiana';
-      bestHitObj = bHits[0];
+      bestHitObj = bHit;
     }
   }
 
