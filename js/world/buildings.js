@@ -377,11 +377,14 @@ export function buildCampusBuildingWing(ctx, opts) {
   const tray = makeBox(0.38, 0.08, 6.8, 0x78350f, { roughness: 0.7 });
   tray.position.set(trayX, trayY, cz);
   scene.add(tray);
-  supportSurfaces.push({
-    minX: trayX - 0.28, maxX: trayX + 0.28,
+  const traySurf = {
+    minX: trayX - 0.24, maxX: trayX + 0.24,
     minZ: cz - 3.42, maxZ: cz + 3.42,
     topY: trayY + 0.04
-  });
+  };
+  supportSurfaces.push(traySurf);
+  tray.userData.supportSurface = traySurf;
+  supportMeshes.push(tray);
 
   const chalkDefs = [
     { id: 'chalk_white' + bSuffix, label: 'Giz Branco', color: 0xf8fafc, dz: -0.9 },

@@ -478,7 +478,13 @@ export function buildOuterCampus(ctx) {
     scene.add(dHeader, awning, bed, dDesk);
     ctx.solidColliders.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, minY: 0, maxY: 0.69, surfaceTopY: 0.69 });
     ctx.solidColliders.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, minY: 0, maxY: 0.89, surfaceTopY: 0.89 });
-    ctx.supportSurfaces.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, topY: 0.69 });
-    ctx.supportSurfaces.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, topY: 0.89 });
+    var bedSurf = { minX: dx + 2.4, maxX: dx + 4.6, minZ: dz - 3.15, maxZ: dz - 1.85, topY: 0.695 };
+    var deskSurf = { minX: dx + 2.6, maxX: dx + 4.4, minZ: dz + 2.05, maxZ: dz + 2.95, topY: 0.895 };
+    ctx.supportSurfaces.push(bedSurf, deskSurf);
+    if (ctx.supportMeshes) {
+      bed.userData.supportSurface = bedSurf;
+      dDesk.userData.supportSurface = deskSurf;
+      ctx.supportMeshes.push(bed, dDesk);
+    }
   });
 }

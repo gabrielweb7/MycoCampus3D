@@ -282,7 +282,12 @@ export function buildClockTowerAndAuditorium(ctx) {
     rDesk.position.set(ax, baseY + 0.39, -38.2);
     scene.add(doorHeader, rDesk);
     ctx.solidColliders.push({ minX: ax - 1.35, maxX: ax + 1.35, minZ: -38.8, maxZ: -37.6, minY: baseY, maxY: baseY + 1.0 });
-    ctx.supportSurfaces.push({ minX: ax - 1.25, maxX: ax + 1.25, minZ: -38.7, maxZ: -37.7, topY: baseY + 0.78 });
+    var rDeskSurf = { minX: ax - 1.25, maxX: ax + 1.25, minZ: -38.7, maxZ: -37.7, topY: baseY + 0.78 };
+    ctx.supportSurfaces.push(rDeskSurf);
+    if (ctx.supportMeshes) {
+      rDesk.userData.supportSurface = rDeskSurf;
+      ctx.supportMeshes.push(rDesk);
+    }
   });
 
   // Torre Central do Relogio

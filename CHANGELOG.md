@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.5] - 2026-11-19
+### Correção Definitiva de Posicionamento de Giz & Itens sobre Bancadas, Lousa e Mesas Rotacionadas
+- **Aparador da Lousa, Dormitórios & Recepção (`js/world/buildings.js`, `js/world/outer-campus.js`, `js/world/staircase-clock.js`):**
+  - Adicionados ao array `supportMeshes` (com `userData.supportSurface`) o aparador de giz/apagador da lousa (`tray`), as camas/escrivaninhas dos dormitórios e os balcões da recepção da Reitoria para que o raycast do ghost detecte diretamente onde apoiar os itens.
+- **Modo Posicionar (`G`/`Q`), OBB, Paredes & Largar (`X`) (`js/entities/placement-ghost.js`, `js/systems/hover-held-handlers.js`, `js/systems/interaction-system.js`):**
+  - `resolveHeldItemHover` prioriza o preview de posicionamento quando `placementMode` está ativo, evitando que a lousa ou alvos contextuais congelem o ghost.
+  - Adicionado clamp preciso em OBB (`clampPointToSurfaceXZ`) em `findPlacementTarget` e check OBB consistente em `isPlacementBlocked` e `dropUnsupportedItems` para impedir quedas falsas em mesas rotacionadas ou estreitas.
+  - `isPlacementBlocked` não bloqueia itens já apoiados sobre bancadas/aparadores encostados na parede (`onSupportedBench`) e `dropHeldItem` (`X`) passa a apoiar na superfície miradas quando o jogador está diante de uma bancada/aparador válido.
+
 ## [v1.4.4] - 2026-11-19
 ### Flora, Árvores, Cogumelos e Vaquinhas 100% em Solo Natural (Zero em Ruas/Concreto/Casas)
 - **Filtro Global `isNaturalSoilSpot(x, z, margin)` (`js/world/nature-plaza.js`):**

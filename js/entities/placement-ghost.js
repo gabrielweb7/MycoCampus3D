@@ -210,6 +210,28 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
   placementRing.scale.set(ringPulse, ringPulse, 1);
 }
 
+function clampPointToSurfaceXZ(x, z, surf, topY, outPt) {
+  if (typeof surf.halfW === 'number' && typeof surf.halfD === 'number' &&
+      typeof surf.centerX === 'number' && typeof surf.centerZ === 'number' && surf.ry) {
+    var dx = x - surf.centerX;
+    var dz = z - surf.centerZ;
+    var cosR = Math.cos(surf.ry);
+    var sinR = Math.sin(surf.ry);
+    var lx = dx * cosR - dz * sinR;
+    var lz = dx * sinR + dz * cosR;
+    var maxW = Math.max(0.01, surf.halfW - 0.02);
+    var maxD = Math.max(0.01, surf.halfD - 0.02);
+    lx = Math.max(-maxW, Math.min(maxW, lx));
+    lz = Math.max(-maxD, Math.min(maxD, lz));
+    var wx = surf.centerX + lx * cosR + lz * sinR;
+    var wz = surf.centerZ - lx * sinR + lz * cosR;
+    return outPt.set(wx, topY, wz);
+  }
+  var cx = Math.max(surf.minX + 0.02, Math.min(surf.maxX - 0.02, x));
+  var cz = Math.max(surf.minZ + 0.02, Math.min(surf.maxZ - 0.02, z));
+  return outPt.set(cx, topY, cz);
+}
+
 export function findPlacementTarget(ctx, customNdc) {
   var heldItem = ctx.heldItem;
   var cookerPots = ctx.cookerPots;
@@ -308,9 +330,7 @@ export function findPlacementTarget(ctx, customNdc) {
         if (heldItem.mesh.userData.dynamicSurface === sSurf) continue;
         if (heldItem.mesh === sh.object || heldItem.mesh.getObjectById(sh.object.id)) continue;
       }
-      var cx = Math.max(sSurf.minX + 0.02, Math.min(sSurf.maxX - 0.02, sh.point.x));
-      var cz = Math.max(sSurf.minZ + 0.02, Math.min(sSurf.maxZ - 0.02, sh.point.z));
-      return _tmpPlacePt.set(cx, sSurf.topY, cz);
+      return clampPointToSurfaceXZ(sh.point.x, sh.point.z, sSurf, sSurf.topY, _tmpPlacePt);
     }
   }
 
@@ -326,11 +346,9 @@ export function findPlacementTarget(ctx, customNdc) {
       if (tPlane >= 0.05 && tPlane <= 5.8 && tPlane < bestT) {
         var hx = origin.x + dir.x * tPlane;
         var hz = origin.z + dir.z * tPlane;
-        if (hx >= s.minX - 0.12 && hx <= s.maxX + 0.12 && hz >= s.minZ - 0.12 && hz <= s.maxZ + 0.12) {
-          var scx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, hx));
-          var scz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, hz));
+        if (isPointInBoundsXZ(hx, hz, s, 0.12)) {
           bestT = tPlane;
-          bestPt = _tmpBestPt.set(scx, s.topY, scz);
+          bestPt = clampPointToSurfaceXZ(hx, hz, s, s.topY, _tmpBestPt);
         }
       }
     }
@@ -349,10 +367,10 @@ export function findPlacementTarget(ctx, customNdc) {
     if (tmax >= tmin && tmax >= 0.05 && tmin <= 5.5 && tmin < bestT) {
       var boxHitX = origin.x + dir.x * Math.max(0.05, tmin);
       var boxHitZ = origin.z + dir.z * Math.max(0.05, tmin);
-      var bcx = Math.max(s.minX + 0.02, Math.min(s.maxX - 0.02, boxHitX));
-      var bcz = Math.max(s.minZ + 0.02, Math.min(s.maxZ - 0.02, boxHitZ));
-      bestT = tmin;
-      bestPt = _tmpBestPt.set(bcx, s.topY, bcz);
+      if (isPointInBoundsXZ(boxHitX, boxHitZ, s, 0.12)) {
+        bestT = tmin;
+        bestPt = clampPointToSurfaceXZ(boxHitX, boxHitZ, s, s.topY, _tmpBestPt);
+      }
     }
   }
   if (bestPt) return _tmpPlacePt.copy(bestPt);
@@ -447,10 +465,7 @@ export function isPlacementBlocked(ctx, pt) {
 
     if (other.mesh.userData.dynamicSurface) {
       var dynSurf = other.mesh.userData.dynamicSurface;
-      var onDynSurfXZ = (
-        pt.x >= dynSurf.minX - 0.02 && pt.x <= dynSurf.maxX + 0.02 &&
-        pt.z >= dynSurf.minZ - 0.02 && pt.z <= dynSurf.maxZ + 0.02
-      );
+      var onDynSurfXZ = isPointInBoundsXZ(pt.x, pt.z, dynSurf, 0.04);
       if (onDynSurfXZ && pt.y >= dynSurf.topY - 0.04 && pt.y <= dynSurf.topY + 0.12) {
         if (other.mesh.userData.isTable && heldItem.mesh.userData.isTable) {
           placementBlockedReason = '🚫 Não é permitido sobrepor mesas';
@@ -538,11 +553,26 @@ export function isPlacementBlocked(ctx, pt) {
   }
 
   if (pt.y > 3.2) return false;
+  // Itens pequenos apoiados em bancadas/estantes/aparadores já encostados na parede não são bloqueados pela parede atrás
+  var onSupportedBench = false;
+  if (ctx.supportSurfaces && !heldIsBox) {
+    for (var sbi = 0; sbi < ctx.supportSurfaces.length; sbi++) {
+      var ssB = ctx.supportSurfaces[sbi];
+      if (ssB.topY > 0.20 && isPointInBoundsXZ(pt.x, pt.z, ssB, 0.04) && Math.abs(pt.y - ssB.topY) < 0.06) {
+        onSupportedBench = true;
+        break;
+      }
+    }
+  }
+  if (onSupportedBench) return false;
+
   var wallSegments = ctx.wallSegments;
   for (var wIdx = 0; wIdx < wallSegments.length; wIdx++) {
     var w = wallSegments[wIdx];
+    if (typeof w.minY === 'number' && typeof w.maxY === 'number' && (heldMaxY <= w.minY || heldMinY >= w.maxY)) continue;
     var vx = w.x2 - w.x1, vz = w.z2 - w.z1;
     var len2 = vx * vx + vz * vz;
+    if (len2 < 1e-6) continue;
     var t = Math.max(0, Math.min(1, ((pt.x - w.x1) * vx + (pt.z - w.z1) * vz) / len2));
     var dist = Math.hypot(pt.x - (w.x1 + t * vx), pt.z - (w.z1 + t * vz));
     var effectiveHalf = heldIsBox ? Math.min(heldHw, heldHd) : heldRad;
@@ -625,8 +655,8 @@ export function dropUnsupportedItems(ctx) {
         if (s === item.mesh.userData.dynamicSurface) continue;
         if (item.fridgeCtrl && s.isCultureFridgeShelf) continue;
         if (item.mesh.userData.isHood && s.isHood) continue;
-        if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.09) &&
-          item.mesh.position.y >= s.topY - 0.04) {
+        if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.10) &&
+          item.mesh.position.y >= s.topY - 0.05) {
           supportedY = Math.max(supportedY, s.topY);
         }
       }

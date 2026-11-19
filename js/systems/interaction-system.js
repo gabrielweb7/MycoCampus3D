@@ -22,7 +22,7 @@ import {
 import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents } from '../items/item-registry.js';
+import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray } from '../items/alcohol-spray.js';
@@ -105,9 +105,27 @@ export function dropHeldItem(ctx) {
 
   const candPt = _tmpDropPt;
   const baseYaw = ctx.playerYaw || 0;
+  let chosenPt = null;
+
+  // Se o jogador apertar X olhando diretamente para uma bancada, estante ou aparador livre, solta lá!
+  const aimNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
+  if (aimNdc && ctx.supportSurfaces) {
+    const aimPt = findPlacementTarget(ctx.entityCtx, aimNdc);
+    const dAim = Math.hypot(aimPt.x - ctx.playerPos.x, aimPt.z - ctx.playerPos.z);
+    if (dAim <= 3.6 && Math.abs(aimPt.y - ctx.playerPos.y) <= 2.4 && !isPlacementBlocked(ctx.entityCtx, aimPt)) {
+      for (let si = 0; si < ctx.supportSurfaces.length; si++) {
+        const ss = ctx.supportSurfaces[si];
+        if (Math.abs(aimPt.y - ss.topY) < 0.04 && isPointInBoundsXZ(aimPt.x, aimPt.z, ss, 0.10)) {
+          candPt.copy(aimPt);
+          chosenPt = candPt;
+          break;
+        }
+      }
+    }
+  }
+
   const radii = [0.75, 1.15, 1.55, 0.45];
   const angleOffsets = [0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.4, -2.4, Math.PI];
-  let chosenPt = null;
 
   for (let ri = 0; ri < radii.length && !chosenPt; ri++) {
     const r = radii[ri];

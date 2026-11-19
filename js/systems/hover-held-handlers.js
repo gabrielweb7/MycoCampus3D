@@ -1022,6 +1022,14 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
   const { intersectPickableItem, setHoverPrompt, updateHeldItemPlacementPreview } = helpers;
   if (!ctx.heldItem) return false;
 
+  // No modo Posicionar (G/Q), prioriza o preview de posicionamento para que lousa/pia/outros alvos não congelem o ghost!
+  if (ctx.placementMode) {
+    if (handleCookerLidSnapHover(ctx, setHoverPrompt)) return true;
+    if (handleFridgeStorageHover(ctx, setHoverPrompt)) return true;
+    updateHeldItemPlacementPreview(ctx, rayNdc);
+    return true;
+  }
+
   if (handleChalkboardHover(ctx, setHoverPrompt)) return true;
   if (handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
