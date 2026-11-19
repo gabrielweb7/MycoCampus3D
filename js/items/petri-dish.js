@@ -307,6 +307,18 @@ export function stepPetriCultures(ctx, dt) {
       ctrl.lidProgress = ctrl.lidAnimationFrom + (ctrl.lidAnimationTo - ctrl.lidAnimationFrom) * eased;
       updateLidPose(ctrl);
     }
+    if ((ctrl.sporeDropAnimTimer || 0) > 0) {
+      ctrl.sporeDropAnimTimer = Math.max(0, ctrl.sporeDropAnimTimer - dt);
+      const prog = 1 - (ctrl.sporeDropAnimTimer / 1.15);
+      if (ctrl.sporeCapGroup) {
+        ctrl.sporeCapGroup.visible = ctrl.sporeDropAnimTimer > 0.02;
+        ctrl.sporeCapGroup.position.y = 0.042 - Math.sin(prog * Math.PI) * 0.014;
+        ctrl.sporeCapGroup.rotation.y = prog * Math.PI * 1.5;
+        if (ctrl.sporeCloudMesh) {
+          ctrl.sporeCloudMesh.scale.set(0.6 + prog * 0.65, 1 - prog * 0.7, 0.6 + prog * 0.65);
+        }
+      }
+    }
     if (ctrl.lidOpen && (ctrl.mode === 'empty' || ctrl.mode === 'clean' || ctrl.mode === 'colonizing') &&
         !isAsepticWorkArea(ctx, item)) {
       ctrl.mode = 'contam';
@@ -485,6 +497,26 @@ export function depositSporePrintOnPetri(item, speciesName = '') {
   ctrl.colonized = false;
   ctrl.contaminated = false;
   ctrl.expired = false;
+  ctrl.sporeDropAnimTimer = 1.15;
+  if (!ctrl.sporeCapGroup && item.mesh && item.mesh.add && THREE && THREE.Group && THREE.ConeGeometry && THREE.CylinderGeometry) {
+    const capG = new THREE.Group();
+    const capM = new THREE.Mesh(
+      new THREE.ConeGeometry(0.036, 0.022, 14),
+      new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.45 })
+    );
+    capM.position.y = 0.012;
+    const cloudM = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.022, 0.038, 0.024, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x581c87, transparent: true, opacity: 0.42, side: THREE.DoubleSide })
+    );
+    capG.add(capM, cloudM);
+    capG.position.y = 0.042;
+    item.mesh.add(capG);
+    ctrl.sporeCapGroup = capG;
+    ctrl.sporeCloudMesh = cloudM;
+  } else if (ctrl.sporeCapGroup) {
+    ctrl.sporeCapGroup.visible = true;
+  }
   updatePetriVisual(item);
   return true;
 }

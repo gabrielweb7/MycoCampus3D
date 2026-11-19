@@ -158,7 +158,14 @@ export function updateMonotubVisual(item) {
   const A = getSharedMonotubAssets();
 
   if (mc.lidPivot) {
-    mc.lidPivot.rotation.x = mc.lidOpen ? -1.32 : 0;
+    const prog = typeof mc.lidAnimProgress === 'number' ? mc.lidAnimProgress : (mc.lidOpen ? 1 : 0);
+    mc.lidPivot.rotation.x = -1.32 * prog;
+    if (mc.latches) {
+      for (let li = 0; li < mc.latches.length; li++) {
+        const side = li === 0 ? -1 : 1;
+        mc.latches[li].rotation.z = side * 0.42 * prog;
+      }
+    }
   }
 
   const hasAnyContent = mc.hasSpawn || mc.hasBulk;
@@ -178,11 +185,20 @@ export function updateMonotubVisual(item) {
   }
 
   if (mc.grainPreviewGroup) {
-    mc.grainPreviewGroup.visible = mc.hasSpawn && !mc.mixed && !mc.spent;
+    const mixingActive = (mc.mixAnimTimer || 0) > 0;
+    mc.grainPreviewGroup.visible = mc.hasSpawn && (!mc.mixed || mixingActive) && !mc.spent;
   }
 
   if (mc.roughMoundsGroup) {
-    mc.roughMoundsGroup.visible = hasAnyContent && !mc.leveled && !mc.spent;
+    const levelingActive = (mc.levelAnimTimer || 0) > 0;
+    mc.roughMoundsGroup.visible = hasAnyContent && (!mc.leveled || levelingActive) && !mc.spent;
+    if (!levelingActive) {
+      mc.roughMoundsGroup.scale.set(1, 1, 1);
+    }
+  }
+
+  if (mc.trowelMesh) {
+    mc.trowelMesh.visible = (mc.levelAnimTimer || 0) > 0;
   }
 
   if (mc.myceliumMesh) {
@@ -197,14 +213,21 @@ export function updateMonotubVisual(item) {
   }
 
   if (mc.pinsGroup) {
-    mc.pinsGroup.visible = !mc.spent && !mc.contaminated && mc.fruitingStage === 1;
+    const showPins = !mc.spent && !mc.contaminated && mc.fruitingStage === 1;
+    mc.pinsGroup.visible = showPins;
+    if (showPins) {
+      const pFrac = Math.max(0.25, Math.min(1.0, 0.30 + (mc.growth / 100) * 0.70));
+      mc.pinsGroup.scale.set(1, pFrac, 1);
+    }
   }
 
   if (mc.mushCanopyGroup) {
     const showCanopy = !mc.spent && !mc.contaminated && (mc.fruitingStage === 2 || mc.fruitingStage === 3);
     mc.mushCanopyGroup.visible = showCanopy;
     if (showCanopy) {
-      const s = mc.fruitingStage === 2 ? 0.55 : 1.0;
+      const s = mc.fruitingStage === 2
+        ? (0.35 + (Math.max(0, Math.min(100, mc.growth)) / 100) * 0.58)
+        : 1.0;
       mc.mushCanopyGroup.scale.set(1, s, 1);
     }
   }
@@ -291,10 +314,12 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
   bodyWallR.position.set(W * 0.5, H * 0.5, 0);
   group.add(bodyWallF, bodyWallB, bodyWallL, bodyWallR);
 
-  // 3. Presilhas pretas nas alças laterais (esquerda e direita)
+  // 3. Presilhas pretas nas alças laterais (esquerda e direita) com animação ao destravar
+  const latches = [];
   [-1, 1].forEach((side) => {
     const latch = makeBox(0.024, 0.055, 0.11, A.latchMat, { noShadow: true });
     latch.position.set(side * (W * 0.5 + 0.012), H - 0.025, 0);
+    latches.push(latch);
     group.add(latch);
   });
 
@@ -350,6 +375,13 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
   }
   roughMoundsGroup.visible = false;
   group.add(roughMoundsGroup);
+
+  // Espátula/Prensa Inox de Nivelamento (visível durante a animação de nivelar o bolo!)
+  const trowelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.18 });
+  const trowelMesh = makeBox(W - 0.04, 0.012, 0.07, trowelMat, { noShadow: true });
+  trowelMesh.position.set(0, 0.115, 0);
+  trowelMesh.visible = false;
+  group.add(trowelMesh);
 
   // Camada de micélio branco cobrindo o bolo nivelado
   const mycMat = new THREE.MeshStandardMaterial({
@@ -407,6 +439,10 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
 
   item.monotubCtrl = {
     lidOpen: Boolean(opts.lidOpen),
+    lidAnimProgress: opts.lidOpen ? 1 : 0,
+    mixAnimTimer: 0,
+    levelAnimTimer: 0,
+    animPhase: 0,
     boxSanitized: Boolean(opts.boxSanitized),
     hasSpawn: Boolean(opts.hasSpawn),
     hasBulk: Boolean(opts.hasBulk),
@@ -424,6 +460,8 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
     speciesName: opts.speciesName || '',
     asepticScore: opts.asepticScore !== undefined ? opts.asepticScore : 1,
     lidPivot,
+    latches,
+    trowelMesh,
     cakeMesh,
     grainPreviewGroup,
     roughMoundsGroup,
@@ -661,8 +699,10 @@ export function interactMonotub(ctx, tubItem) {
   // 5. Misturar Spawn + Substrato dentro da caixa (só quando tem os dois!)
   if (mc.lidOpen && mc.hasSpawn && mc.hasBulk && !mc.mixed) {
     mc.mixed = true;
+    mc.mixAnimTimer = 0.95; // Animação 3D de mistura dos grãos no substrato!
     updateMonotubVisual(tubItem);
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
+    if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
     if (onToast) {
       onToast('🤲 Spawn e Substrato Pasteurizado misturados homogeneamente! Agora clique novamente para NIVELAR o bolo dentro da caixa.');
     }
@@ -680,8 +720,10 @@ export function interactMonotub(ctx, tubItem) {
 
   if (mc.lidOpen && mc.mixed && !mc.leveled) {
     mc.leveled = true;
+    mc.levelAnimTimer = 0.85; // Animação 3D da espátula prensando e alisando o bolo!
     updateMonotubVisual(tubItem);
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
+    if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (onToast) {
       onToast('📏 Bolo perfeitamente NIVELADO e compactado dentro do Monotub 24L! Clique mais uma vez para fechar a tampa e iniciar a colonização.');
     }
@@ -858,7 +900,65 @@ export function stepMonotubs(ctx, dt) {
   for (let i = 0; i < ctx.pickableItems.length; i++) {
     const item = ctx.pickableItems[i];
     const mc = item && item.monotubCtrl;
-    if (!mc || mc.spent || mc.contaminated) continue;
+    if (!mc) continue;
+
+    mc.animPhase = (mc.animPhase || 0) + dt * 3.2;
+
+    // 0a. Animação suave de abertura/fechamento da tampa e presilhas laterais
+    const targetLid = mc.lidOpen ? 1 : 0;
+    const curLid = typeof mc.lidAnimProgress === 'number' ? mc.lidAnimProgress : targetLid;
+    if (Math.abs(targetLid - curLid) > 0.005) {
+      mc.lidAnimProgress = curLid + (targetLid - curLid) * Math.min(1, dt * 8.5);
+      if (Math.abs(targetLid - mc.lidAnimProgress) <= 0.008) mc.lidAnimProgress = targetLid;
+      if (mc.lidPivot) mc.lidPivot.rotation.x = -1.32 * mc.lidAnimProgress;
+      if (mc.latches) {
+        for (let li = 0; li < mc.latches.length; li++) {
+          const side = li === 0 ? -1 : 1;
+          mc.latches[li].rotation.z = side * 0.42 * mc.lidAnimProgress;
+        }
+      }
+    }
+
+    // 0b. Animação 3D de Mistura (grãos girando e afundando no substrato de coco + vermiculita)
+    if (mc.mixAnimTimer > 0) {
+      mc.mixAnimTimer = Math.max(0, mc.mixAnimTimer - dt);
+      const prog = 1 - (mc.mixAnimTimer / 0.95);
+      if (mc.grainPreviewGroup) {
+        mc.grainPreviewGroup.visible = mc.mixAnimTimer > 0.02;
+        mc.grainPreviewGroup.rotation.y = Math.sin(prog * Math.PI * 4) * 0.28;
+        mc.grainPreviewGroup.position.y = -prog * 0.032;
+        if (mc.mixAnimTimer <= 0.02) {
+          mc.grainPreviewGroup.rotation.y = 0;
+          mc.grainPreviewGroup.position.y = 0;
+          mc.grainPreviewGroup.visible = false;
+        }
+      }
+      if (mc.roughMoundsGroup) {
+        mc.roughMoundsGroup.rotation.y = Math.sin(prog * Math.PI * 5) * 0.14;
+        if (mc.mixAnimTimer <= 0.02) mc.roughMoundsGroup.rotation.y = 0;
+      }
+    }
+
+    // 0c. Animação 3D de Nivelamento (espátula varrendo e prensando os montinhos até o bolo ficar liso)
+    if (mc.levelAnimTimer > 0) {
+      mc.levelAnimTimer = Math.max(0, mc.levelAnimTimer - dt);
+      const prog = 1 - (mc.levelAnimTimer / 0.85);
+      if (mc.trowelMesh) {
+        mc.trowelMesh.visible = mc.levelAnimTimer > 0.02;
+        mc.trowelMesh.position.z = -0.11 + prog * 0.22;
+        mc.trowelMesh.position.y = 0.112 - Math.sin(prog * Math.PI) * 0.012;
+      }
+      if (mc.roughMoundsGroup) {
+        mc.roughMoundsGroup.visible = mc.levelAnimTimer > 0.02;
+        mc.roughMoundsGroup.scale.set(1, Math.max(0.05, 1 - prog * 0.95), 1);
+        if (mc.levelAnimTimer <= 0.02) {
+          mc.roughMoundsGroup.scale.set(1, 1, 1);
+          mc.roughMoundsGroup.visible = false;
+        }
+      }
+    }
+
+    if (mc.spent || mc.contaminated) continue;
 
     // Detecta se está posicionado dentro dos limites da Estante LED de Monotubes (mesmo via placementMode 'G')
     const p = item.mesh.position;
@@ -892,25 +992,38 @@ export function stepMonotubs(ctx, dt) {
       }
     }
 
-    // 2. Fase de Frutificação (requer 100% colonizado + na Estante com Luz LED embaixo da prateleira)
-    if (mc.colonization >= 100 && mc.onLedRack && mc.fruitingStage < 3) {
-      if (mc.fruitingStage === 0) {
-        mc.fruitingStage = 1;
-        mc.growth = 0;
-        updateMonotubVisual(item);
-      } else {
-        const prevG = Math.floor(mc.growth);
-        mc.growth += dt * 4.5;
-        if (mc.growth >= 100) {
+    // 2. Fase de Frutificação com Animação Contínua de Brotamento e Fototropismo sob a Luz LED
+    if (mc.colonization >= 100 && mc.onLedRack) {
+      if (mc.fruitingStage < 3) {
+        if (mc.fruitingStage === 0) {
+          mc.fruitingStage = 1;
           mc.growth = 0;
-          mc.fruitingStage++;
           updateMonotubVisual(item);
-          if (mc.fruitingStage === 3 && ctx.callbacks && ctx.callbacks.onToast) {
-            ctx.callbacks.onToast(`🍄 Monotub 24L (${mc.speciesName || 'Cubensis'}) atingiu maturação no Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}! Clique para colher!`);
+        } else {
+          const prevG = Math.floor(mc.growth);
+          mc.growth += dt * 4.5;
+          if (mc.fruitingStage === 1 && mc.pinsGroup) {
+            const pFrac = Math.max(0.25, Math.min(1.0, 0.30 + (mc.growth / 100) * 0.70));
+            mc.pinsGroup.scale.set(1, pFrac, 1);
+          } else if (mc.fruitingStage === 2 && mc.mushCanopyGroup) {
+            const cFrac = 0.35 + (Math.max(0, Math.min(100, mc.growth)) / 100) * 0.65;
+            mc.mushCanopyGroup.scale.set(1, cFrac, 1);
           }
-        } else if (Math.floor(mc.growth / 10) !== Math.floor(prevG / 10)) {
-          updateMonotubVisual(item);
+          if (mc.growth >= 100) {
+            mc.growth = 0;
+            mc.fruitingStage++;
+            updateMonotubVisual(item);
+            if (mc.fruitingStage === 3 && ctx.callbacks && ctx.callbacks.onToast) {
+              ctx.callbacks.onToast(`🍄 Monotub 24L (${mc.speciesName || 'Cubensis'}) atingiu maturação no Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}! Clique para colher!`);
+            }
+          } else if (Math.floor(mc.growth / 10) !== Math.floor(prevG / 10)) {
+            updateMonotubVisual(item);
+          }
         }
+      } else if (mc.mushCanopyGroup) {
+        // Respiração suave do dossel maduro orientado pela luz LED
+        const pulse = 1.0 + Math.sin(mc.animPhase) * 0.025;
+        mc.mushCanopyGroup.scale.set(1, pulse, 1);
       }
     }
   }

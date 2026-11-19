@@ -2,6 +2,18 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.3.1] - 2026-11-19
+### Animações 3D Táteis no Cultivo: Carimbo de Esporos, Mistura & Espátula no Monotub 24L, Brotamento Fototrópico & Borboletas na Horta
+- **Animações 3D no Monotub 24L (`js/items/monotub.js`):**
+  - **Tampa e Presilhas Articuladas (`lidAnimProgress`):** abertura e fechamento suaves da tampa transparente com rotação sincronizada das 2 travas pretas laterais.
+  - **Animação de Mistura (`mixAnimTimer`):** ao misturar o Spawn Colonizado com o Substrato Pasteurizado, os grãos e montinhos de fibra de coco/vermiculita giram e se incorporam visualmente ao substrato com feedback háptico.
+  - **Animação de Nivelamento com Espátula Inox (`levelAnimTimer` + `trowelMesh`):** ao nivelar o bolo, uma prensa/espátula inox percorre o interior da caixa compactando e alisando os montinhos até a superfície ficar perfeitamente plana.
+  - **Brotamento Contínuo sob a Luz LED:** os primórdios e o dossel de 35 cogumelos crescem suavemente em escala 3D frame a frame e pulsam sob a luz LED direcional.
+- **Animação 3D de Deposição do Carimbo de Esporos (`js/items/petri-dish.js`):**
+  - Ao coletar esporos na Placa de Petri aberta, um chapéu de cogumelo 3D com nuvem roxa de esporos paira e gira sobre a placa depositando o carimbo radial.
+- **Horta Orgânica Viva com Borboletas 3D, Balanço ao Vento e Explosão de Partículas (`js/world/campus-garden.js`, `js/engine/scene-optimizer.js`):**
+  - Adicionadas **3 borboletas 3D animadas** batendo asas em voo em "8" sobre os canteiros de alfaces e tomateiros, balanço suave das folhas ao vento, subida progressiva do húmus na Caixa de Substrato e partículas 3D ao despejar bolos secos esgotados ou colher hortaliças.
+
 ## [v1.3.0] - 2026-11-19
 ### Ciclo Completo de Micologia: Carimbo de Esporos, Pasteurização (Coco + Vermiculita), Monotub 24L com Estante LED, 4 Flushs & Horta Orgânica
 - **Coleta de Esporos na Placa de Petri & Germinação com Bisturi (`js/items/petri-dish.js`, `js/items/scalpel.js`, `js/systems/hover-held-handlers.js`, `js/systems/lab-culture-actions.js`):**

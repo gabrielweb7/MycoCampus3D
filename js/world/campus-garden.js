@@ -17,12 +17,19 @@ const THREE = window.THREE;
 
 export const gardenHitMeshes = [];
 export const gardenPlants = [];
+export const gardenDynamicObjects = [];
+
+const gardenButterflies = [];
+const gardenBurstMeshes = [];
+let gardenAnimTime = 0;
 
 export const gardenState = {
   compostCakes: 1,
   soilRichness: 45, // 0..100%
   totalHarvested: 0,
-  compostFillMesh: null
+  compostFillMesh: null,
+  currentCompostFrac: 0.37,
+  targetCompostFrac: 0.37
 };
 
 export function isHoldingSpentCakeForCompost(held) {
@@ -35,8 +42,13 @@ export function isHoldingSpentCakeForCompost(held) {
 
 function updatePlantVisual(plant) {
   if (!plant || !plant.group) return;
-  const s = plant.stage === 0 ? 0.42 : (plant.stage === 1 ? 0.72 : 1.05);
-  plant.foliageGroup.scale.set(s, s, s);
+  const gFrac = Math.max(0, Math.min(1, (plant.growth || 0) / 100));
+  const s = plant.stage === 0
+    ? (0.38 + gFrac * 0.30)
+    : (plant.stage === 1 ? (0.68 + gFrac * 0.34) : 1.06);
+  if (plant.foliageGroup && plant.foliageGroup.scale && plant.foliageGroup.scale.set) {
+    plant.foliageGroup.scale.set(s, s, s);
+  }
   if (plant.kind === 'tomato' && plant.fruits) {
     for (let i = 0; i < plant.fruits.length; i++) {
       const fr = plant.fruits[i];
@@ -48,11 +60,32 @@ function updatePlantVisual(plant) {
   }
 }
 
-function updateCompostVisual() {
-  if (!gardenState.compostFillMesh) return;
+function updateCompostVisual(immediate = false) {
   const frac = Math.max(0.25, Math.min(1.0, 0.25 + gardenState.compostCakes * 0.12));
-  gardenState.compostFillMesh.scale.y = frac;
-  gardenState.compostFillMesh.position.y = 0.08 + 0.22 * frac;
+  gardenState.targetCompostFrac = frac;
+  if (immediate) gardenState.currentCompostFrac = frac;
+  if (!gardenState.compostFillMesh) return;
+  const f = gardenState.currentCompostFrac;
+  gardenState.compostFillMesh.scale.y = f;
+  gardenState.compostFillMesh.position.y = 0.08 + 0.22 * f;
+}
+
+function triggerGardenBurst(x, y, z, colorHex = 0x34d399) {
+  if (!gardenBurstMeshes.length) return;
+  for (let i = 0; i < gardenBurstMeshes.length; i++) {
+    const p = gardenBurstMeshes[i];
+    const ang = (i / gardenBurstMeshes.length) * Math.PI * 2 + (i % 3) * 0.2;
+    const spd = 0.7 + (i % 4) * 0.25;
+    p.mesh.position.set(x, y, z);
+    p.mesh.visible = true;
+    if (p.mesh.material && p.mesh.material.color) {
+      p.mesh.material.color.setHex(i % 3 === 0 ? 0xf8fafc : colorHex);
+    }
+    p.vx = Math.cos(ang) * spd;
+    p.vy = 1.1 + (i % 3) * 0.35;
+    p.vz = Math.sin(ang) * spd;
+    p.life = 0.85;
+  }
 }
 
 export function buildCampusVegetableGarden(ctx) {
@@ -287,6 +320,50 @@ export function buildCampusVegetableGarden(ctx) {
       scene.add(pGroup);
     }
   }
+
+  // 4. Borboletas 3D voando sobre a Horta + Pool de Partículas de Adubo/Colheita
+  gardenButterflies.length = 0;
+  gardenBurstMeshes.length = 0;
+  gardenDynamicObjects.length = 0;
+
+  const wingGeo = new THREE.PlaneGeometry(0.055, 0.045);
+  const bfColors = [0xfbbf24, 0x38bdf8, 0xf472b6];
+  const bfCenters = [
+    { cx: 18.4, cz: 17.6, y: 0.78 },
+    { cx: 21.4, cz: 17.6, y: 0.96 },
+    { cx: 16.5, cz: 17.6, y: 0.85 }
+  ];
+  for (let bi = 0; bi < 3; bi++) {
+    const bfGroup = new THREE.Group();
+    const wMat = new THREE.MeshBasicMaterial({ color: bfColors[bi], side: THREE.DoubleSide });
+    const wingL = new THREE.Mesh(wingGeo, wMat);
+    wingL.position.x = -0.025;
+    const wingR = new THREE.Mesh(wingGeo, wMat);
+    wingR.position.x = 0.025;
+    bfGroup.add(wingL, wingR);
+    bfGroup.position.set(bfCenters[bi].cx, bfCenters[bi].y, bfCenters[bi].cz);
+    scene.add(bfGroup);
+    gardenDynamicObjects.push(bfGroup);
+    gardenButterflies.push({
+      group: bfGroup,
+      wingL,
+      wingR,
+      cx: bfCenters[bi].cx,
+      cz: bfCenters[bi].cz,
+      baseY: bfCenters[bi].y,
+      phase: bi * 2.1
+    });
+  }
+
+  const pGeo = new THREE.BoxGeometry(0.032, 0.032, 0.032);
+  for (let pi = 0; pi < 16; pi++) {
+    const pMat = new THREE.MeshBasicMaterial({ color: 0x34d399 });
+    const pMesh = new THREE.Mesh(pGeo, pMat);
+    pMesh.visible = false;
+    scene.add(pMesh);
+    gardenDynamicObjects.push(pMesh);
+    gardenBurstMeshes.push({ mesh: pMesh, vx: 0, vy: 0, vz: 0, life: 0 });
+  }
 }
 
 export function interactGardenTarget(ctx, target) {
@@ -335,7 +412,9 @@ export function interactGardenTarget(ctx, target) {
 
       gardenState.compostCakes++;
       gardenState.soilRichness = Math.min(100, gardenState.soilRichness + 25);
-      updateCompostVisual();
+      updateCompostVisual(false);
+      triggerGardenBurst(15.6, 0.55, 17.6, 0xa3e635);
+      if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
 
       // Impulsiona o crescimento imediato das alfaces e tomates!
       for (let i = 0; i < gardenPlants.length; i++) {
@@ -372,6 +451,10 @@ export function interactGardenTarget(ctx, target) {
       pl.growth = 0;
       gardenState.totalHarvested++;
       updatePlantVisual(pl);
+      if (pl.group && pl.group.position) {
+        triggerGardenBurst(pl.group.position.x, 0.45, pl.group.position.z, pl.kind === 'tomato' ? 0xef4444 : 0x22c55e);
+      }
+      if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
       if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
       if (onToast) {
         const icon = pl.kind === 'tomato' ? '🍅' : '🥬';
@@ -394,15 +477,66 @@ export function interactGardenTarget(ctx, target) {
 }
 
 export function stepCampusGarden(dt) {
+  gardenAnimTime += dt;
   const boost = 0.75 + (gardenState.soilRichness / 100) * 1.75;
+
+  // 1. Animação suave de subida do nível da Caixa de Substrato
+  if (Math.abs(gardenState.targetCompostFrac - gardenState.currentCompostFrac) > 0.002) {
+    gardenState.currentCompostFrac += (gardenState.targetCompostFrac - gardenState.currentCompostFrac) * Math.min(1, dt * 4.5);
+    if (gardenState.compostFillMesh) {
+      const f = gardenState.currentCompostFrac;
+      gardenState.compostFillMesh.scale.y = f;
+      gardenState.compostFillMesh.position.y = 0.08 + 0.22 * f;
+    }
+  }
+
+  // 2. Crescimento contínuo e balanço suave ao vento das Alfaces e Tomateiros
   for (let i = 0; i < gardenPlants.length; i++) {
     const pl = gardenPlants[i];
+    if (pl.foliageGroup && pl.foliageGroup.rotation) {
+      pl.foliageGroup.rotation.z = Math.sin(gardenAnimTime * 2.1 + i * 0.9) * 0.035;
+    }
     if (pl.stage >= 2) continue;
     pl.growth += dt * 1.8 * boost;
     if (pl.growth >= 100) {
       pl.growth = 0;
       pl.stage = Math.min(2, pl.stage + 1);
-      updatePlantVisual(pl);
     }
+    updatePlantVisual(pl);
+  }
+
+  // 3. Voo em "8" e bater de asas das Borboletas 3D sobre a Horta
+  for (let bi = 0; bi < gardenButterflies.length; bi++) {
+    const bf = gardenButterflies[bi];
+    const t = gardenAnimTime * 1.35 + bf.phase;
+    const nx = bf.cx + Math.sin(t) * 0.85;
+    const nz = bf.cz + Math.sin(t * 2) * 0.38;
+    const ny = bf.baseY + Math.sin(t * 3.2) * 0.12;
+    const dx = nx - bf.group.position.x;
+    const dz = nz - bf.group.position.z;
+    bf.group.position.set(nx, ny, nz);
+    if (Math.abs(dx) + Math.abs(dz) > 0.0001) {
+      bf.group.rotation.y = Math.atan2(dx, dz);
+    }
+    const flap = Math.sin(gardenAnimTime * 18 + bf.phase) * 0.85;
+    bf.wingL.rotation.z = flap;
+    bf.wingR.rotation.z = -flap;
+  }
+
+  // 4. Animação de Partículas de Adubo / Colheita
+  for (let pi = 0; pi < gardenBurstMeshes.length; pi++) {
+    const p = gardenBurstMeshes[pi];
+    if (p.life <= 0) continue;
+    p.life -= dt;
+    if (p.life <= 0) {
+      p.mesh.visible = false;
+      continue;
+    }
+    p.mesh.position.x += p.vx * dt;
+    p.mesh.position.y += p.vy * dt;
+    p.mesh.position.z += p.vz * dt;
+    p.vy -= 2.8 * dt;
+    p.mesh.rotation.x += dt * 5;
+    p.mesh.rotation.y += dt * 6;
   }
 }
