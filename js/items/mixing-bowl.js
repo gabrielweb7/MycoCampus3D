@@ -4,10 +4,46 @@
  * e misturar com a colher ate ficar homogeneo para formar receitas de cultivo.
  */
 
-import { makeBox } from '../engine/textures.js';
-import { registerPickable } from './item-registry.js';
+import { mergeStaticGeos, registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
+
+let sharedBowlAssets = null;
+function getBowlSharedAssets() {
+  if (sharedBowlAssets) return sharedBowlAssets;
+  const wallGeo = new THREE.CylinderGeometry(0.115, 0.090, 0.13, 20, 1, true);
+  const botGeo = new THREE.CylinderGeometry(0.090, 0.090, 0.008, 20);
+  const bowlShellGeo = mergeStaticGeos([
+    { geo: wallGeo, y: 0.065 },
+    { geo: botGeo, y: 0.004 }
+  ]);
+  wallGeo.dispose();
+  botGeo.dispose();
+
+  sharedBowlAssets = {
+    bowlShellGeo,
+    bowlMat: new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0, transparent: true, opacity: 0.42, roughness: 0.15, depthWrite: false, side: THREE.DoubleSide
+    }),
+    mixGeo: new THREE.CylinderGeometry(0.096, 0.080, 0.095, 18),
+    waterGeo: new THREE.CylinderGeometry(0.098, 0.086, 0.095, 18),
+    waterMat: new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.62, roughness: 0.12, depthWrite: false }),
+    steelMat: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.95, roughness: 0.12 }),
+    spoonBowlMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.10, side: THREE.DoubleSide }),
+    gripMat: new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.55 }),
+    spoonHandleGeo: new THREE.CylinderGeometry(0.0045, 0.0065, 0.15, 12),
+    spoonGripGeo: new THREE.CylinderGeometry(0.0085, 0.0085, 0.055, 12),
+    spoonCapGeo: new THREE.SphereGeometry(0.0085, 12, 8),
+    spoonNeckGeo: new THREE.CylinderGeometry(0.0055, 0.0045, 0.028, 10),
+    spoonScoopGeo: new THREE.SphereGeometry(0.026, 20, 12, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5),
+    spoonRimGeo: new THREE.TorusGeometry(0.026, 0.0015, 6, 24)
+  };
+  Object.keys(sharedBowlAssets).forEach((k) => {
+    const v = sharedBowlAssets[k];
+    if (v && v.userData) v.userData.shared = true;
+  });
+  return sharedBowlAssets;
+}
 
 export const MIXING_BOWL_META = {
   category: 'mixing',
@@ -131,25 +167,24 @@ export function stirMixingBowl(item) {
 }
 
 export function makeMixingBowl(ctx, id, px, py, pz) {
+  const A = getBowlSharedAssets();
   const bg = new THREE.Group();
-  const bowlMat = new THREE.MeshStandardMaterial({
-    color: 0xe2e8f0, transparent: true, opacity: 0.42, roughness: 0.15, depthWrite: false, side: THREE.DoubleSide
-  });
-  const wall = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.090, 0.13, 20, 1, true), bowlMat);
-  wall.position.y = 0.065;
-  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.090, 0.090, 0.008, 20), bowlMat);
-  bottom.position.y = 0.004;
   const mixMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.096, 0.080, 0.095, 18),
+    A.mixGeo,
     new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.78 })
   );
   mixMesh.visible = false;
-  const waterLayerMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.098, 0.086, 0.095, 18),
-    new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.62, roughness: 0.12, depthWrite: false })
-  );
+  const waterLayerMesh = new THREE.Mesh(A.waterGeo, A.waterMat);
   waterLayerMesh.visible = false;
-  bg.add(mixMesh, waterLayerMesh, wall, bottom);
+  if (A.bowlShellGeo) {
+    bg.add(mixMesh, waterLayerMesh, new THREE.Mesh(A.bowlShellGeo, A.bowlMat));
+  } else {
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.090, 0.13, 20, 1, true), A.bowlMat);
+    wall.position.y = 0.065;
+    const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.090, 0.090, 0.008, 20), A.bowlMat);
+    bottom.position.y = 0.004;
+    bg.add(mixMesh, waterLayerMesh, wall, bottom);
+  }
 
   const item = registerPickable(ctx, id, 'Pote de Mistura (Vazio)', bg, px, py, pz, 0, 0.14, 0.14, MIXING_BOWL_META);
   item.bowlCtrl = {
@@ -165,36 +200,27 @@ export function makeMixingBowl(ctx, id, px, py, pz) {
 }
 
 export function makeLabSpoon(ctx, id, px, py, pz) {
+  const A = getBowlSharedAssets();
   const sg = new THREE.Group();
-  const steelMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.95, roughness: 0.12 });
-  const bowlMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.10, side: THREE.DoubleSide });
-  const gripMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.55 });
 
-  // Cabo afilado (inox) ao longo do eixo Z; concha na ponta -Z
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0065, 0.15, 12), steelMat);
+  const handle = new THREE.Mesh(A.spoonHandleGeo, A.steelMat);
   handle.rotation.x = Math.PI / 2;
   handle.position.set(0, 0.012, 0.045);
 
-  // Empunhadura colorida
-  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.055, 12), gripMat);
+  const grip = new THREE.Mesh(A.spoonGripGeo, A.gripMat);
   grip.rotation.x = Math.PI / 2;
   grip.position.set(0, 0.012, 0.095);
-  const gripCap = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 12, 8), gripMat);
+  const gripCap = new THREE.Mesh(A.spoonCapGeo, A.gripMat);
   gripCap.position.set(0, 0.012, 0.1225);
 
-  // Pescoço curvo entre cabo e concha
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0045, 0.028, 10), steelMat);
+  const neck = new THREE.Mesh(A.spoonNeckGeo, A.steelMat);
   neck.rotation.x = Math.PI / 2 - 0.35;
   neck.position.set(0, 0.0105, -0.034);
 
-  // Concha oval funda com borda reforçada
-  const scoop = new THREE.Mesh(
-    new THREE.SphereGeometry(0.026, 20, 12, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5),
-    bowlMat
-  );
+  const scoop = new THREE.Mesh(A.spoonScoopGeo, A.spoonBowlMat);
   scoop.scale.set(0.82, 0.62, 1.28);
   scoop.position.set(0, 0.018, -0.078);
-  const scoopRim = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.0015, 6, 24), steelMat);
+  const scoopRim = new THREE.Mesh(A.spoonRimGeo, A.steelMat);
   scoopRim.rotation.x = Math.PI / 2;
   scoopRim.scale.set(0.82, 1.28, 1);
   scoopRim.position.set(0, 0.018, -0.078);

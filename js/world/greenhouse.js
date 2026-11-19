@@ -1,4 +1,5 @@
 import { makeBox, makeTextSprite, updateTextSprite } from '../engine/textures.js';
+import { disposeObjectResources } from '../items/item-registry.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
 
 export var greenhouseSlots = [
@@ -57,167 +58,291 @@ export var greenhouseSlots = [
 ];
 
 export var greenhouseHitMeshes = [];
+var MAX_GH_PARTICLES = 30;
 var sporeParticles = [];
 var waterSprayParticles = [];
+var sporePoints = null;
+var waterPoints = null;
+var sporePosAttr = null;
+var waterPosAttr = null;
+var ghShared = null;
+
+function getSharedGreenhouseAssets() {
+  if (ghShared) return ghShared;
+  const THREE = window.THREE;
+  ghShared = {
+    fuzzGeo: new THREE.SphereGeometry(0.04, 6, 6),
+    pinStemGeo: new THREE.CylinderGeometry(0.012, 0.016, 0.05, 6),
+    pinCapGeo: new THREE.SphereGeometry(0.022, 6, 6),
+    medStemGeo: new THREE.CylinderGeometry(0.024, 0.032, 0.12, 8),
+    medCapGeo: new THREE.SphereGeometry(0.055, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6),
+    shimejiStemGeo: new THREE.CylinderGeometry(0.016, 0.026, 0.20, 8),
+    shimejiCapGeo: new THREE.SphereGeometry(0.065, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
+    shiitakeStemGeo: new THREE.CylinderGeometry(0.03, 0.04, 0.18, 8),
+    shiitakeCapGeo: new THREE.CylinderGeometry(0.09, 0.08, 0.04, 12),
+    lionStemGeo: new THREE.CylinderGeometry(0.04, 0.05, 0.12, 8),
+    lionBallGeo: new THREE.SphereGeometry(0.12, 12, 10),
+    gtStemGeo: new THREE.CylinderGeometry(0.022, 0.032, 0.26, 8),
+    gtVeilGeo: new THREE.RingGeometry(0.022, 0.045, 10),
+    gtCapGeo: new THREE.ConeGeometry(0.08, 0.09, 12),
+    fuzzMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.95 }),
+    pinStemMat: new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.8 }),
+    medStemMat: new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.7 }),
+    matureStemMat: new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.65 }),
+    lionMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }),
+    gtVeilMat: new THREE.MeshBasicMaterial({ color: 0x1e1b4b, side: THREE.DoubleSide }),
+    capMatsByKey: new Map()
+  };
+  Object.keys(ghShared).forEach((k) => {
+    const val = ghShared[k];
+    if (val && val.userData) val.userData.shared = true;
+  });
+  return ghShared;
+}
+
+function getGreenhouseCapMat(col, roughness, emissiveHex, emissiveInt) {
+  const assets = getSharedGreenhouseAssets();
+  const key = `${col}|${roughness}|${emissiveHex || 0}|${emissiveInt || 0}`;
+  let m = assets.capMatsByKey.get(key);
+  if (!m) {
+    m = new window.THREE.MeshStandardMaterial({
+      color: col,
+      roughness: roughness,
+      emissive: emissiveHex || 0x000000,
+      emissiveIntensity: emissiveInt || 0
+    });
+    m.userData.shared = true;
+    assets.capMatsByKey.set(key, m);
+  }
+  return m;
+}
 
 export function initGreenhouseParticlePools(scene) {
+  const THREE = window.THREE;
   sporeParticles.length = 0;
   waterSprayParticles.length = 0;
-  var sGeo = new THREE.SphereGeometry(0.025, 6, 6);
-  for (var i = 0; i < 30; i++) {
-    var sMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.85 });
-    var sMesh = new THREE.Mesh(sGeo, sMat);
-    sMesh.visible = false;
-    scene.add(sMesh);
-    sporeParticles.push({
-      mesh: sMesh,
-      vel: new THREE.Vector3(),
-      life: 0,
-      maxLife: 2.0
-    });
-  }
-  var wGeo = new THREE.SphereGeometry(0.018, 6, 6);
-  for (var j = 0; j < 30; j++) {
-    var wMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
-    var wMesh = new THREE.Mesh(wGeo, wMat);
-    wMesh.visible = false;
-    scene.add(wMesh);
-    waterSprayParticles.push({
-      mesh: wMesh,
-      vel: new THREE.Vector3(),
-      life: 0,
-      maxLife: 1.2
-    });
+
+  const sArr = new Float32Array(MAX_GH_PARTICLES * 3);
+  const sGeo = new THREE.BufferGeometry();
+  sporePosAttr = new THREE.BufferAttribute(sArr, 3);
+  sGeo.setAttribute('position', sporePosAttr);
+  sporePoints = new THREE.Points(sGeo, new THREE.PointsMaterial({
+    color: 0xfef08a,
+    size: 0.06,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false
+  }));
+  sporePoints.visible = false;
+  sporePoints.frustumCulled = false;
+  sporePoints.userData.isDynamic = true;
+  scene.add(sporePoints);
+
+  const wArr = new Float32Array(MAX_GH_PARTICLES * 3);
+  const wGeo = new THREE.BufferGeometry();
+  waterPosAttr = new THREE.BufferAttribute(wArr, 3);
+  wGeo.setAttribute('position', waterPosAttr);
+  waterPoints = new THREE.Points(wGeo, new THREE.PointsMaterial({
+    color: 0x38bdf8,
+    size: 0.05,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false
+  }));
+  waterPoints.visible = false;
+  waterPoints.frustumCulled = false;
+  waterPoints.userData.isDynamic = true;
+  scene.add(waterPoints);
+
+  for (let i = 0; i < MAX_GH_PARTICLES; i++) {
+    sArr[i * 3 + 1] = -999;
+    wArr[i * 3 + 1] = -999;
+    sporeParticles.push({ active: false, x: 0, y: -999, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 2.0 });
+    waterSprayParticles.push({ active: false, x: 0, y: -999, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1.2 });
   }
 }
 
 export function triggerSporeBurst(ox, oy, oz, col) {
-  sporeParticles.forEach(function (sp) {
-    sp.mesh.position.set(ox + (Math.random() - 0.5) * 0.25, oy, oz + (Math.random() - 0.5) * 0.25);
-    if (col) sp.mesh.material.color.setHex(col);
-    sp.mesh.visible = true;
-    sp.vel.set((Math.random() - 0.5) * 1.5, Math.random() * 1.8 + 0.5, (Math.random() - 0.5) * 1.5);
+  if (!sporePoints || !sporePosAttr) return;
+  if (col && sporePoints.material && sporePoints.material.color) {
+    sporePoints.material.color.setHex(col);
+  }
+  const arr = sporePosAttr.array;
+  for (let i = 0; i < sporeParticles.length; i++) {
+    const sp = sporeParticles[i];
+    sp.x = ox + (Math.random() - 0.5) * 0.25;
+    sp.y = oy;
+    sp.z = oz + (Math.random() - 0.5) * 0.25;
+    sp.vx = (Math.random() - 0.5) * 1.5;
+    sp.vy = Math.random() * 1.8 + 0.5;
+    sp.vz = (Math.random() - 0.5) * 1.5;
     sp.life = 0;
     sp.maxLife = 1.5 + Math.random() * 0.8;
-  });
+    sp.active = true;
+    arr[i * 3] = sp.x;
+    arr[i * 3 + 1] = sp.y;
+    arr[i * 3 + 2] = sp.z;
+  }
+  sporePosAttr.needsUpdate = true;
+  sporePoints.visible = true;
 }
 
 export function triggerWaterSprayFx(ox, oy, oz) {
-  waterSprayParticles.forEach(function (wp) {
-    wp.mesh.position.set(ox + (Math.random() - 0.5) * 0.35, oy + 0.65, oz + (Math.random() - 0.5) * 0.35);
-    wp.mesh.visible = true;
-    wp.vel.set((Math.random() - 0.5) * 0.4, -(Math.random() * 1.5 + 1.2), (Math.random() - 0.5) * 0.4);
+  if (!waterPoints || !waterPosAttr) return;
+  const arr = waterPosAttr.array;
+  for (let i = 0; i < waterSprayParticles.length; i++) {
+    const wp = waterSprayParticles[i];
+    wp.x = ox + (Math.random() - 0.5) * 0.35;
+    wp.y = oy + 0.65;
+    wp.z = oz + (Math.random() - 0.5) * 0.35;
+    wp.vx = (Math.random() - 0.5) * 0.4;
+    wp.vy = -(Math.random() * 1.5 + 1.2);
+    wp.vz = (Math.random() - 0.5) * 0.4;
     wp.life = 0;
     wp.maxLife = 0.8 + Math.random() * 0.4;
-  });
+    wp.active = true;
+    arr[i * 3] = wp.x;
+    arr[i * 3 + 1] = wp.y;
+    arr[i * 3 + 2] = wp.z;
+  }
+  waterPosAttr.needsUpdate = true;
+  waterPoints.visible = true;
 }
 
 export function stepGreenhouseParticles(dt) {
-  for (var i = 0; i < sporeParticles.length; i++) {
-    var sp = sporeParticles[i];
-    if (!sp.mesh.visible) continue;
-    sp.life += dt;
-    if (sp.life >= sp.maxLife) {
-      sp.mesh.visible = false;
-      continue;
+  if (sporePoints && sporePoints.visible && sporePosAttr) {
+    const sArr = sporePosAttr.array;
+    let anySpore = false;
+    let avgOp = 0;
+    let activeCount = 0;
+    for (let i = 0; i < sporeParticles.length; i++) {
+      const sp = sporeParticles[i];
+      if (!sp.active) {
+        sArr[i * 3 + 1] = -999;
+        continue;
+      }
+      sp.life += dt;
+      if (sp.life >= sp.maxLife) {
+        sp.active = false;
+        sArr[i * 3 + 1] = -999;
+        continue;
+      }
+      anySpore = true;
+      activeCount++;
+      avgOp += Math.max(0, 1 - sp.life / sp.maxLife);
+      sp.vy -= 0.6 * dt;
+      sp.x += sp.vx * dt;
+      sp.y += sp.vy * dt;
+      sp.z += sp.vz * dt;
+      sArr[i * 3] = sp.x;
+      sArr[i * 3 + 1] = sp.y;
+      sArr[i * 3 + 2] = sp.z;
     }
-    sp.vel.y -= 0.6 * dt;
-    sp.mesh.position.x += sp.vel.x * dt;
-    sp.mesh.position.y += sp.vel.y * dt;
-    sp.mesh.position.z += sp.vel.z * dt;
-    sp.mesh.material.opacity = Math.max(0, 1 - sp.life / sp.maxLife);
+    sporePosAttr.needsUpdate = true;
+    sporePoints.material.opacity = activeCount > 0 ? (avgOp / activeCount) * 0.85 : 0;
+    if (!anySpore) sporePoints.visible = false;
   }
-  for (var j = 0; j < waterSprayParticles.length; j++) {
-    var wp = waterSprayParticles[j];
-    if (!wp.mesh.visible) continue;
-    wp.life += dt;
-    if (wp.life >= wp.maxLife) {
-      wp.mesh.visible = false;
-      continue;
+
+  if (waterPoints && waterPoints.visible && waterPosAttr) {
+    const wArr = waterPosAttr.array;
+    let anyWater = false;
+    for (let j = 0; j < waterSprayParticles.length; j++) {
+      const wp = waterSprayParticles[j];
+      if (!wp.active) {
+        wArr[j * 3 + 1] = -999;
+        continue;
+      }
+      wp.life += dt;
+      if (wp.life >= wp.maxLife) {
+        wp.active = false;
+        wArr[j * 3 + 1] = -999;
+        continue;
+      }
+      anyWater = true;
+      wp.x += wp.vx * dt;
+      wp.y += wp.vy * dt;
+      wp.z += wp.vz * dt;
+      wArr[j * 3] = wp.x;
+      wArr[j * 3 + 1] = wp.y;
+      wArr[j * 3 + 2] = wp.z;
     }
-    wp.mesh.position.x += wp.vel.x * dt;
-    wp.mesh.position.y += wp.vel.y * dt;
-    wp.mesh.position.z += wp.vel.z * dt;
+    waterPosAttr.needsUpdate = true;
+    if (!anyWater) waterPoints.visible = false;
   }
 }
 
 export function updateGreenhouseSlotMesh(slot) {
   if (!slot.mushGroup) return;
+  disposeObjectResources(slot.mushGroup);
   while (slot.mushGroup.children.length > 0) {
     slot.mushGroup.remove(slot.mushGroup.children[0]);
   }
 
-  var stage = slot.stage;
-  var col = slot.color;
+  const THREE = window.THREE;
+  const assets = getSharedGreenhouseAssets();
+  const stage = slot.stage;
+  const col = slot.color;
 
   if (stage === 0) {
-    var fuzzMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.95 });
-    for (var fz = -2; fz <= 2; fz++) {
-      var dot = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), fuzzMat);
+    for (let fz = -2; fz <= 2; fz++) {
+      const dot = new THREE.Mesh(assets.fuzzGeo, assets.fuzzMat);
       dot.scale.set(1.4, 0.35, 1.2);
       dot.position.set(fz * 0.05, 0.14, (fz % 2) * 0.04);
       slot.mushGroup.add(dot);
     }
   } else if (stage === 1) {
-    var pinMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 });
-    var stemMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.8 });
-    for (var p = -2; p <= 2; p++) {
-      var pStem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.05, 6), stemMat);
+    const pinMat = getGreenhouseCapMat(col, 0.5, 0, 0);
+    for (let p = -2; p <= 2; p++) {
+      const pStem = new THREE.Mesh(assets.pinStemGeo, assets.pinStemMat);
       pStem.position.set(p * 0.05, 0.15, ((p * 3) % 4) * 0.025);
-      var pCap = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 6), pinMat);
+      const pCap = new THREE.Mesh(assets.pinCapGeo, pinMat);
       pCap.position.set(p * 0.05, 0.18, ((p * 3) % 4) * 0.025);
       slot.mushGroup.add(pStem, pCap);
     }
   } else if (stage === 2) {
-    var medMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.45 });
-    var medStemMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.7 });
-    for (var m = -1; m <= 1; m++) {
-      var mStem = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.12, 8), medStemMat);
+    const medMat = getGreenhouseCapMat(col, 0.45, 0, 0);
+    for (let m = -1; m <= 1; m++) {
+      const mStem = new THREE.Mesh(assets.medStemGeo, assets.medStemMat);
       mStem.position.set(m * 0.08, 0.18, (m % 2) * 0.03);
-      var mCap = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), medMat);
+      const mCap = new THREE.Mesh(assets.medCapGeo, medMat);
       mCap.position.set(m * 0.08, 0.24, (m % 2) * 0.03);
       slot.mushGroup.add(mStem, mCap);
     }
   } else {
-    var matureMat = new THREE.MeshStandardMaterial({
-      color: col, roughness: 0.38,
-      emissive: slot.id === 3 ? 0xf59e0b : 0x000000,
-      emissiveIntensity: slot.id === 3 ? 0.35 : 0
-    });
-    var matureStemMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.65 });
+    const matureMat = getGreenhouseCapMat(col, 0.38, slot.id === 3 ? 0xf59e0b : 0x000000, slot.id === 3 ? 0.35 : 0);
 
     if (slot.id === 0) {
-      for (var sb = -2; sb <= 2; sb++) {
-        var sStem = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.026, 0.20, 8), matureStemMat);
+      for (let sb = -2; sb <= 2; sb++) {
+        const sStem = new THREE.Mesh(assets.shimejiStemGeo, assets.matureStemMat);
         sStem.position.set(sb * 0.055, 0.22, ((sb * 2) % 3) * 0.035);
         sStem.rotation.z = sb * 0.12;
-        var sCap = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), matureMat);
+        const sCap = new THREE.Mesh(assets.shimejiCapGeo, matureMat);
         sCap.position.set(sb * 0.07, 0.32, ((sb * 2) % 3) * 0.035);
         slot.mushGroup.add(sStem, sCap);
       }
     } else if (slot.id === 1) {
-      for (var sh = -1; sh <= 1; sh++) {
-        var shStem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.18, 8), matureStemMat);
+      for (let sh = -1; sh <= 1; sh++) {
+        const shStem = new THREE.Mesh(assets.shiitakeStemGeo, assets.matureStemMat);
         shStem.position.set(sh * 0.10, 0.21, 0);
-        var shCap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.04, 12), matureMat);
+        const shCap = new THREE.Mesh(assets.shiitakeCapGeo, matureMat);
         shCap.position.set(sh * 0.10, 0.30, 0);
         slot.mushGroup.add(shStem, shCap);
       }
     } else if (slot.id === 2) {
-      var jStem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.12, 8), matureStemMat);
+      const jStem = new THREE.Mesh(assets.lionStemGeo, assets.matureStemMat);
       jStem.position.set(0, 0.18, 0);
-      var lionBall = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
+      const lionBall = new THREE.Mesh(assets.lionBallGeo, assets.lionMat);
       lionBall.position.set(0, 0.28, 0);
       lionBall.scale.set(1.2, 0.9, 1.1);
       slot.mushGroup.add(jStem, lionBall);
     } else {
-      for (var gt = -1; gt <= 1; gt++) {
-        var gtStem = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.032, 0.26, 8), matureStemMat);
+      for (let gt = -1; gt <= 1; gt++) {
+        const gtStem = new THREE.Mesh(assets.gtStemGeo, assets.matureStemMat);
         gtStem.position.set(gt * 0.085, 0.25, gt * 0.03);
-        var gtVeil = new THREE.Mesh(new THREE.RingGeometry(0.022, 0.045, 10), new THREE.MeshBasicMaterial({ color: 0x1e1b4b, side: THREE.DoubleSide }));
+        const gtVeil = new THREE.Mesh(assets.gtVeilGeo, assets.gtVeilMat);
         gtVeil.rotation.x = Math.PI / 2;
         gtVeil.position.set(gt * 0.085, 0.30, gt * 0.03);
-        var gtCap = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.09, 12), matureMat);
+        const gtCap = new THREE.Mesh(assets.gtCapGeo, matureMat);
         gtCap.position.set(gt * 0.085, 0.38, gt * 0.03);
         slot.mushGroup.add(gtStem, gtVeil, gtCap);
       }
@@ -225,9 +350,9 @@ export function updateGreenhouseSlotMesh(slot) {
   }
 
   if (slot.badgeSprite) {
-    var sNames = ['Micélio', 'Primórdios', 'Crescendo', '✨ MADURO!'];
-    var sColors = ['#94a3b8', '#38bdf8', '#fbbf24', '#34d399'];
-    var infoText = slot.name + ' • ' + Math.round(slot.humidity) + '% UR\n' + sNames[slot.stage];
+    const sNames = ['Micélio', 'Primórdios', 'Crescendo', '✨ MADURO!'];
+    const sColors = ['#94a3b8', '#38bdf8', '#fbbf24', '#34d399'];
+    const infoText = slot.name + ' • ' + Math.round(slot.humidity) + '% UR\n' + sNames[slot.stage];
     updateTextSprite(slot.badgeSprite, infoText, sColors[slot.stage]);
   }
 }

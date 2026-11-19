@@ -1,0 +1,113 @@
+name: Gerar APK Android (MycoCampus3D)
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publicar no GitHub Releases (atualiza o link fixo latest/download/MycoCampus3D.apk)?'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Compilar MycoCampus3D.apk
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Configurar Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Instalar dependências Node
+        run: npm ci
+
+      - name: Preparar Capacitor e sincronizar versão/ícones Android
+        run: npm run apk:sync
+
+      - name: Garantir permissão de execução no Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: Configurar assinatura permanente (se secrets existirem)
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "${{ github.workspace }}/android/app/release.keystore"
+            echo "has_keystore=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compilar APK Release Assinado
+        if: steps.signing.outputs.has_keystore == 'true'
+        working-directory: android
+        env:
+          MYCO_KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.keystore
+          MYCO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MYCO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MYCO_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Compilar APK Debug (sem keystore de release configurada)
+        if: steps.signing.outputs.has_keystore != 'true'
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Empacotar saída em dist/MycoCampus3D.apk
+        run: |
+          mkdir -p dist
+          VERSION_NAME=$(node -e "console.log(JSON.parse(require('fs').readFileSync('assets/apk-version.json','utf8')).versionName)")
+          VERSION_CODE=$(node -e "console.log(JSON.parse(require('fs').readFileSync('assets/apk-version.json','utf8')).versionCode)")
+          if [ "${{ steps.signing.outputs.has_keystore }}" = "true" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk dist/MycoCampus3D.apk
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk dist/MycoCampus3D.apk
+          fi
+          cp dist/MycoCampus3D.apk "dist/MycoCampus3D-v${VERSION_NAME}-vc${VERSION_CODE}.apk"
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
+        id: pkg
+
+      - name: Disponibilizar APK nos Artifacts do Workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: MycoCampus3D-APK-v${{ steps.pkg.outputs.version_name }}
+          path: |
+            dist/MycoCampus3D.apk
+            dist/MycoCampus3D-v*.apk
+          retention-days: 30
+
+      - name: Publicar APK no GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('apk-v{0}-vc{1}', steps.pkg.outputs.version_name, steps.pkg.outputs.version_code) }}
+          name: "MycoCampus3D APK v${{ steps.pkg.outputs.version_name }} (build ${{ steps.pkg.outputs.version_code }})"
+          body: |
+            📱 **MycoCampus3D Android APK**
+            - Versão: `v${{ steps.pkg.outputs.version_name }}` (`versionCode ${{ steps.pkg.outputs.version_code }}`)
+            - Link direto de atualização automática: `MycoCampus3D.apk`
+          files: dist/MycoCampus3D.apk
+          make_latest: true

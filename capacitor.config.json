@@ -1,0 +1,21 @@
+{
+  "appId": "br.com.alquimistasmagicos.mycocampus3d",
+  "appName": "MycoCampus3D",
+  "webDir": "www-apk",
+  "appendUserAgent": "MycoCampusAPK/1",
+  "backgroundColor": "#0b1220",
+  "server": {
+    "url": "https://mycocampus3d.alquimistasmagicos.com.br/",
+    "cleartext": false,
+    "allowNavigation": [
+      "mycocampus3d.alquimistasmagicos.com.br",
+      "*.alquimistasmagicos.com.br"
+    ]
+  },
+  "android": {
+    "backgroundColor": "#0b1220",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}

@@ -124,7 +124,6 @@ export function bindControls(ctx) {
   window.addEventListener('keyup', function (e) { ctx.keys[e.code] = false; });
   ctx.renderer.domElement.addEventListener('contextmenu', function (e) {
     e.preventDefault();
-    if (ctx.heldItem) ctx.toggleHeldItemPlacement();
   });
 
   function clearAllInputKeys() {
@@ -169,10 +168,6 @@ export function bindControls(ctx) {
   let lastTouchEndAt = 0;
   let lastTouchActionAt = 0;
 
-  ctx.renderer.domElement.addEventListener('contextmenu', function (e) {
-    e.preventDefault();
-  });
-
   ctx.renderer.domElement.addEventListener('mousedown', function (e) {
     if (ctx.lobbyTourActive) return;
     if ((e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) || (performance.now() - lastTouchEndAt < 700)) {
@@ -180,11 +175,7 @@ export function bindControls(ctx) {
     }
     if (e.button === 2 && ctx.heldItem) {
       e.preventDefault();
-      if (ctx.placementMode) {
-        ctx.cancelHeldItemPlacement();
-      } else {
-        ctx.dropHeldItem();
-      }
+      ctx.toggleHeldItemPlacement();
       return;
     }
     if (e.button !== 0) return;
@@ -244,6 +235,7 @@ export function bindControls(ctx) {
       el.closest('#ranking-modal') ||
       el.closest('#admin-modal') ||
       el.closest('#guide-modal') ||
+      el.closest('#mycoteca-modal') ||
       el.closest('#campus-lobby')
     );
   }
@@ -313,8 +305,28 @@ export function bindControls(ctx) {
   window.addEventListener('blur', function () { touchLookId = null; });
 
   window.addEventListener('resize', function () {
+    if (ctx.refreshTouchCache) ctx.refreshTouchCache();
     ctx.camera.aspect = window.innerWidth / window.innerHeight;
     ctx.camera.updateProjectionMatrix();
-    ctx.renderer.setSize(window.innerWidth, window.innerHeight);
+    ctx.renderer.setSize(window.innerWidth, window.innerHeight, false);
+  });
+
+  ctx.renderer.domElement.addEventListener('webglcontextlost', function (e) {
+    e.preventDefault();
+    ctx._contextLost = true;
+    clearAllInputKeys();
+    if (ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast('⚠️ Contexto gráfico WebGL pausado pelo dispositivo. Recuperando...');
+    }
+  });
+
+  ctx.renderer.domElement.addEventListener('webglcontextrestored', function () {
+    ctx._contextLost = false;
+    if (ctx.callbacks && ctx.callbacks.onQualityRestore) {
+      ctx.callbacks.onQualityRestore();
+    } else if (window.setCampusQualityMode && window.getCampusQualityState) {
+      const st = window.getCampusQualityState();
+      window.setCampusQualityMode(st.mode || st.tier || 'auto');
+    }
   });
 }

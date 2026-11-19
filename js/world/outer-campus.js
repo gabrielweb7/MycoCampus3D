@@ -190,7 +190,7 @@ export function buildOuterCampus(ctx) {
   midLine.position.set(-50, 0.03, -15);
   scene.add(midLine);
   [-61.5, -38.5].forEach(function (gx) {
-    var goal = makeBox(0.3, 2.0, 4.2, 0xf8fafc, { transparent: true, opacity: 0.75 });
+    var goal = makeBox(0.3, 2.0, 4.2, 0xf8fafc, { transparent: true, opacity: 0.75, noShadow: true });
     goal.position.set(gx, 1.0, -15);
     scene.add(goal);
   });
@@ -207,6 +207,10 @@ export function buildOuterCampus(ctx) {
   bballIn.position.set(-48, 0.025, 6);
   scene.add(bball, bballIn);
   ctx.basketballHoops = [];
+  var hoopRimGeo = new THREE.TorusGeometry(0.28, 0.026, 8, 20);
+  var hoopRimMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.35, metalness: 0.5 });
+  var hoopNetGeo = new THREE.CylinderGeometry(0.26, 0.16, 0.38, 12, 2, true);
+  var hoopNetMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, wireframe: true });
   [-55.5, -40.5].forEach(function (hx) {
     var dirIn = hx < -48 ? 1 : -1;
     var post = makeBox(0.16, 3.1, 0.16, 0x1e293b);
@@ -220,17 +224,12 @@ export function buildOuterCampus(ctx) {
 
     var rimX = hx + dirIn * 0.68;
     var rimY = 2.66;
-    var rim = new THREE.Mesh(
-      new THREE.TorusGeometry(0.28, 0.026, 8, 20),
-      new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.35, metalness: 0.5 })
-    );
+    var rim = new THREE.Mesh(hoopRimGeo, hoopRimMat);
     rim.rotation.x = Math.PI / 2;
     rim.position.set(rimX, rimY, 6);
 
-    var net = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.26, 0.16, 0.38, 12, 2, true),
-      new THREE.MeshBasicMaterial({ color: 0xf8fafc, wireframe: true })
-    );
+    var net = new THREE.Mesh(hoopNetGeo, hoopNetMat);
+    net.castShadow = false;
     net.position.set(rimX, rimY - 0.19, 6);
 
     scene.add(post, arm, boardB, targetSq, rim, net);
@@ -296,7 +295,7 @@ export function buildOuterCampus(ctx) {
   [-54, -42].forEach(function (tx) {
     var tCourt = makeBox(10, 0.04, 15, 0x1d4ed8, { roughness: 0.8, noShadow: true });
     tCourt.position.set(tx, 0.02, -36);
-    var tNet = makeBox(9.2, 0.9, 0.1, 0xf8fafc, { transparent: true, opacity: 0.85 });
+    var tNet = makeBox(9.2, 0.9, 0.1, 0xf8fafc, { transparent: true, opacity: 0.85, noShadow: true });
     tNet.position.set(tx, 0.45, -36);
     scene.add(tCourt, tNet);
   });

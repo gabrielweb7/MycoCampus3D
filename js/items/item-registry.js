@@ -3,7 +3,110 @@
  * Cada item define seu objetivo, configs, peso, temperatura base, compatibilidades e conexoes.
  */
 
-const THREE = window.THREE;
+const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
+
+const _canvasTextureCache = new Map();
+
+/**
+ * Gera ou reutiliza uma CanvasTexture compartilhada (marcada com userData.shared = true)
+ * para evitar dezenas de texturas Canvas duplicadas em GPU mobile.
+ */
+export function getCachedCanvasTexture(cacheKey, width, height, drawFn) {
+  const existing = _canvasTextureCache.get(cacheKey);
+  if (existing) return existing;
+  if (typeof document === 'undefined' || !THREE || !THREE.CanvasTexture) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx2d = canvas.getContext('2d');
+  if (ctx2d && typeof drawFn === 'function') drawFn(ctx2d, canvas);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.userData = tex.userData || {};
+  tex.userData.shared = true;
+  if (THREE.SRGBColorSpace && tex.colorSpace !== undefined) {
+    tex.colorSpace = THREE.SRGBColorSpace;
+  }
+  _canvasTextureCache.set(cacheKey, tex);
+  return tex;
+}
+
+/**
+ * Mescla várias geometrias em coordenadas locais mantendo atributos compatíveis.
+ * Retorna BufferGeometry marcada com userData.shared = true, ou null em fallback.
+ */
+export function mergeStaticGeos(specs, opts = {}) {
+  const ThreeRef = typeof window !== 'undefined' ? window.THREE : undefined;
+  if (!ThreeRef || !ThreeRef.mergeGeometries || !Array.isArray(specs) || specs.length === 0) return null;
+  const keepUv = !!opts.keepUv;
+  const dummy = new ThreeRef.Object3D();
+  const list = [];
+  let result = null;
+  try {
+    for (let i = 0; i < specs.length; i++) {
+      const sp = specs[i];
+      if (!sp || !sp.geo) continue;
+      const g = sp.geo.index ? sp.geo.toNonIndexed() : sp.geo.clone();
+      dummy.position.set(sp.x || 0, sp.y || 0, sp.z || 0);
+      dummy.rotation.set(sp.rx || 0, sp.ry || 0, sp.rz || 0);
+      dummy.scale.set(sp.sx !== undefined ? sp.sx : 1, sp.sy !== undefined ? sp.sy : 1, sp.sz !== undefined ? sp.sz : 1);
+      dummy.updateMatrix();
+      g.applyMatrix4(dummy.matrix);
+      if (!g.attributes.normal && g.computeVertexNormals) g.computeVertexNormals();
+      if (keepUv && !g.attributes.uv && g.attributes.position) {
+        g.setAttribute('uv', new ThreeRef.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      }
+      const attrNames = Object.keys(g.attributes);
+      for (let ai = 0; ai < attrNames.length; ai++) {
+        const nm = attrNames[ai];
+        if (nm === 'position' || nm === 'normal' || (keepUv && nm === 'uv')) continue;
+        g.deleteAttribute(nm);
+      }
+      g.morphAttributes = {};
+      list.push(g);
+    }
+    if (list.length > 0) {
+      result = ThreeRef.mergeGeometries(list, false);
+      if (result) {
+        result.userData = result.userData || {};
+        if (opts.shared !== false) result.userData.shared = true;
+      }
+    }
+  } catch (e) {
+    result = null;
+  } finally {
+    for (let i = 0; i < list.length; i++) list[i].dispose();
+  }
+  return result;
+}
+
+function disposeMaterialIfOwned(mat) {
+  if (!mat || (mat.userData && mat.userData.shared)) return;
+  if (mat.map && !(mat.map.userData && mat.map.userData.shared) && typeof mat.map.dispose === 'function') {
+    mat.map.dispose();
+  }
+  if (typeof mat.dispose === 'function') mat.dispose();
+}
+
+/**
+ * Libera geometrias, materiais e texturas exclusivas de um objeto 3D,
+ * preservando qualquer recurso compartilhado (`userData.shared === true`).
+ */
+export function disposeObjectResources(root) {
+  if (!root || typeof root.traverse !== 'function') return;
+  root.traverse((obj) => {
+    if (!obj) return;
+    if (obj.geometry && !(obj.geometry.userData && obj.geometry.userData.shared)) {
+      if (typeof obj.geometry.dispose === 'function') obj.geometry.dispose();
+    }
+    if (obj.material) {
+      if (Array.isArray(obj.material)) {
+        for (let i = 0; i < obj.material.length; i++) disposeMaterialIfOwned(obj.material[i]);
+      } else {
+        disposeMaterialIfOwned(obj.material);
+      }
+    }
+  });
+}
 
 export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, height, meta) {
   mesh.position.set(x, y, z);
@@ -37,6 +140,9 @@ export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, heig
   mesh.userData.pickableLabel = label;
   mesh.userData.itemMeta = resolvedMeta;
   ctx.pickableItems.push(entry);
+  if (ctx.pickableMap && typeof ctx.pickableMap.set === 'function') {
+    ctx.pickableMap.set(id, entry);
+  }
   return entry;
 }
 
@@ -264,25 +370,24 @@ export function isSurfaceOccupied(ctx, surf, ignoreItem) {
 }
 
 export function makeScaleTex(maxVal, stepVal, brandTitle) {
-  const sc = document.createElement('canvas');
-  sc.width = 256; sc.height = 256;
-  const sx = sc.getContext('2d');
-  sx.clearRect(0, 0, 256, 256);
-  sx.strokeStyle = 'rgba(248, 250, 252, 0.88)';
-  sx.fillStyle = 'rgba(248, 250, 252, 0.92)';
-  sx.lineWidth = 2;
-  sx.font = 'bold 20px sans-serif';
-  sx.fillText(brandTitle, 18, 46);
-  sx.font = 'bold 16px monospace';
-  sx.fillText('Boro 3.3', 24, 72);
-  sx.beginPath(); sx.moveTo(138, 36); sx.lineTo(138, 232); sx.stroke();
-  for (let v = stepVal; v <= maxVal; v += stepVal) {
-    const frac = v / maxVal;
-    const yy = 232 - frac * 186;
-    sx.beginPath(); sx.moveTo(138, yy); sx.lineTo(174, yy); sx.stroke();
-    sx.fillText(String(v), 180, yy + 5);
-  }
-  return new THREE.CanvasTexture(sc);
+  const key = `scale_${brandTitle}_${maxVal}_${stepVal}`;
+  return getCachedCanvasTexture(key, 256, 256, (sx) => {
+    sx.clearRect(0, 0, 256, 256);
+    sx.strokeStyle = 'rgba(248, 250, 252, 0.88)';
+    sx.fillStyle = 'rgba(248, 250, 252, 0.92)';
+    sx.lineWidth = 2;
+    sx.font = 'bold 20px sans-serif';
+    sx.fillText(brandTitle, 18, 46);
+    sx.font = 'bold 16px monospace';
+    sx.fillText('Boro 3.3', 24, 72);
+    sx.beginPath(); sx.moveTo(138, 36); sx.lineTo(138, 232); sx.stroke();
+    for (let v = stepVal; v <= maxVal; v += stepVal) {
+      const frac = v / maxVal;
+      const yy = 232 - frac * 186;
+      sx.beginPath(); sx.moveTo(138, yy); sx.lineTo(174, yy); sx.stroke();
+      sx.fillText(String(v), 180, yy + 5);
+    }
+  });
 }
 
 export function makeRoundedRectShape(w, d, r) {

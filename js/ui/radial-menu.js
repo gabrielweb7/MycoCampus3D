@@ -65,6 +65,13 @@ function ensureFloatingStyles() {
       touch-action: manipulation;
       transition: transform 0.1s, border-color 0.1s, background 0.1s;
     }
+    body.device-touch .myco-float-chip,
+    body.device-phone .myco-float-chip,
+    body.quality-low-fx .myco-float-chip {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: rgba(15, 23, 42, 0.94);
+    }
     .myco-float-chip:hover, .myco-float-chip:active {
       background: rgba(16, 185, 129, 0.35);
       border-color: #39ff14;

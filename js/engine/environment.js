@@ -22,6 +22,7 @@ const _cCloudOvercast = new THREE.Color(0xcbd5e1);
 const _cCloudWhite = new THREE.Color(0xffffff);
 const _cSunSunsetGlow = new THREE.Color(0xfdba74);
 const _cSnowWhite = new THREE.Color(0xf1f5f9);
+const _cloudDummy = new THREE.Object3D();
 
 let lastSnowMix = -1;
 
@@ -110,10 +111,28 @@ export function updateDynamicEnvironment(dt, env) {
       env.envCloudMat.color.copy(cCol);
     }
   }
-  for (let ci = 0; ci < env.envClouds.length; ci++) {
-    env.envClouds[ci].visible = ci < targetClouds;
-    env.envClouds[ci].position.x += dt * cloudSpeed * (0.8 + (ci % 3) * 0.25);
-    if (env.envClouds[ci].position.x > 155) env.envClouds[ci].position.x = -155;
+  if (env.envCloudsInst && env.envClouds && env.envClouds.length) {
+    const visibleClouds = Math.min(targetClouds, env.envClouds.length);
+    for (let ci = 0; ci < visibleClouds; ci++) {
+      const cl = env.envClouds[ci];
+      cl.x += dt * cloudSpeed * (0.8 + (ci % 3) * 0.25);
+      if (cl.x > 155) cl.x = -155;
+      for (let cp = 0; cp < 3; cp++) {
+        const r = 5 + (cp % 2) * 2.5;
+        _cloudDummy.position.set(cl.x + (cp - 1) * 5.2, cl.y + (cp % 2) * 1.4, cl.z);
+        _cloudDummy.scale.set(r * 1.3, r * 0.65, r);
+        _cloudDummy.updateMatrix();
+        env.envCloudsInst.setMatrixAt(ci * 3 + cp, _cloudDummy.matrix);
+      }
+    }
+    env.envCloudsInst.count = visibleClouds * 3;
+    env.envCloudsInst.instanceMatrix.needsUpdate = true;
+  } else if (env.envClouds) {
+    for (let ci = 0; ci < env.envClouds.length; ci++) {
+      env.envClouds[ci].visible = ci < targetClouds;
+      env.envClouds[ci].position.x += dt * cloudSpeed * (0.8 + (ci % 3) * 0.25);
+      if (env.envClouds[ci].position.x > 155) env.envClouds[ci].position.x = -155;
+    }
   }
 
   if (env.terrainSnowMat) {

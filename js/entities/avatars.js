@@ -12,6 +12,53 @@ const _tmpInterpPos = new THREE.Vector3();
 const _tmpAvatarHandOffset = new THREE.Vector3();
 const _tmpAvatarYAxis = new THREE.Vector3(0, 1, 0);
 
+let sharedAvatarAssets = null;
+function getSharedAvatarAssets() {
+  if (sharedAvatarAssets) return sharedAvatarAssets;
+  const legGeo = new THREE.BoxGeometry(0.14, 0.38, 0.14);
+  legGeo.translate(0, -0.19, 0);
+  const armGeo = new THREE.BoxGeometry(0.13, 0.44, 0.13);
+  armGeo.translate(0, -0.16, 0);
+  sharedAvatarAssets = {
+    legGeo,
+    armGeo,
+    torsoGeo: new THREE.BoxGeometry(0.42, 0.52, 0.26),
+    headGeo: new THREE.BoxGeometry(0.36, 0.34, 0.34),
+    faceGeo: new THREE.PlaneGeometry(0.32, 0.30),
+    skinMat: new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.65 }),
+    sbDeckGeo: new THREE.BoxGeometry(0.24, 0.024, 0.92),
+    sbTipGeo: new THREE.BoxGeometry(0.22, 0.022, 0.16),
+    sbBindGeo: new THREE.BoxGeometry(0.17, 0.035, 0.12),
+    sbDeckMat: new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.25, metalness: 0.15 }),
+    sbTipMat: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 }),
+    sbBindMat: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.55 })
+  };
+  Object.keys(sharedAvatarAssets).forEach((k) => {
+    sharedAvatarAssets[k].userData.shared = true;
+  });
+  return sharedAvatarAssets;
+}
+
+function createRemoteSnowboardMesh() {
+  const A = getSharedAvatarAssets();
+  const remoteSb = new THREE.Group();
+  const rDeck = new THREE.Mesh(A.sbDeckGeo, A.sbDeckMat);
+  rDeck.position.y = 0.025;
+  const rNose = new THREE.Mesh(A.sbTipGeo, A.sbTipMat);
+  rNose.position.set(0, 0.048, -0.51);
+  rNose.rotation.x = 0.36;
+  const rTail = new THREE.Mesh(A.sbTipGeo, A.sbTipMat);
+  rTail.position.set(0, 0.048, 0.51);
+  rTail.rotation.x = -0.36;
+  const rBindF = new THREE.Mesh(A.sbBindGeo, A.sbBindMat);
+  rBindF.position.set(0, 0.048, -0.20);
+  const rBindB = new THREE.Mesh(A.sbBindGeo, A.sbBindMat);
+  rBindB.position.set(0, 0.048, 0.20);
+  remoteSb.add(rDeck, rNose, rTail, rBindF, rBindB);
+  remoteSb.rotation.y = -0.28;
+  return remoteSb;
+}
+
 export function normalizeAngle(a) {
   a = a % (Math.PI * 2);
   if (a > Math.PI) a -= Math.PI * 2;
@@ -22,12 +69,14 @@ export function normalizeAngle(a) {
 export function disposeObject3D(root, skipMat) {
   if (!root) return;
   root.traverse(function (obj) {
-    if (obj.geometry && obj.geometry.dispose) obj.geometry.dispose();
+    if (obj.geometry && obj.geometry.dispose && !(obj.geometry.userData && obj.geometry.userData.shared)) {
+      obj.geometry.dispose();
+    }
     const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
     for (let i = 0; i < mats.length; i++) {
       const m = mats[i];
-      if (!m || m === skipMat) continue;
-      if (m.map && m.map.dispose) m.map.dispose();
+      if (!m || m === skipMat || (m.userData && m.userData.shared)) continue;
+      if (m.map && m.map.dispose && !(m.map.userData && m.map.userData.shared)) m.map.dispose();
       if (m.dispose) m.dispose();
     }
   });
@@ -164,32 +213,28 @@ export function buildAvatarHat(hatId, hatMat, hatGroup) {
 }
 
 export function buildCuteAvatar(scene, data) {
+  const A = getSharedAvatarAssets();
   const g = new THREE.Group();
   const bodyMat = data.isLocal
     ? new THREE.MeshStandardMaterial({ color: new THREE.Color(data.body_color || '#4f46e5'), roughness: 0.6, transparent: true, opacity: 0.35, depthWrite: false })
     : new THREE.MeshStandardMaterial({ color: new THREE.Color(data.body_color || '#4f46e5'), roughness: 0.6 });
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.65 });
   const hatMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(data.hat_color || '#d9534f'), roughness: 0.45 });
 
-  const legGeo = new THREE.BoxGeometry(0.14, 0.38, 0.14);
-  legGeo.translate(0, -0.19, 0);
-  const leftLeg = new THREE.Mesh(legGeo, bodyMat);
+  const leftLeg = new THREE.Mesh(A.legGeo, bodyMat);
   leftLeg.position.set(-0.10, 0.38, 0); leftLeg.castShadow = true;
-  const rightLeg = new THREE.Mesh(legGeo, bodyMat);
+  const rightLeg = new THREE.Mesh(A.legGeo, bodyMat);
   rightLeg.position.set(0.10, 0.38, 0); rightLeg.castShadow = true;
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.52, 0.26), bodyMat);
+  const torso = new THREE.Mesh(A.torsoGeo, bodyMat);
   torso.position.set(0, 0.64, 0); torso.castShadow = true;
-  const armGeo = new THREE.BoxGeometry(0.13, 0.44, 0.13);
-  armGeo.translate(0, -0.16, 0);
-  const leftArm = new THREE.Mesh(armGeo, bodyMat);
+  const leftArm = new THREE.Mesh(A.armGeo, bodyMat);
   leftArm.position.set(-0.28, 0.82, 0); leftArm.castShadow = true;
-  const rightArm = new THREE.Mesh(armGeo, bodyMat);
+  const rightArm = new THREE.Mesh(A.armGeo, bodyMat);
   rightArm.position.set(0.28, 0.82, 0); rightArm.castShadow = true;
   g.add(leftLeg, rightLeg, torso, leftArm, rightArm);
 
   const headGroup = new THREE.Group();
   headGroup.position.set(0, 1.05, 0);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.34, 0.34), skinMat);
+  const head = new THREE.Mesh(A.headGeo, A.skinMat);
   head.position.set(0, 0.1, 0); head.castShadow = true;
 
   const faceCanvas = document.createElement('canvas');
@@ -198,7 +243,7 @@ export function buildCuteAvatar(scene, data) {
   drawAvatarFace(faceCtx, 'happy', false);
   const faceTex = new THREE.CanvasTexture(faceCanvas);
   const facePlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.32, 0.30),
+    A.faceGeo,
     new THREE.MeshBasicMaterial({ map: faceTex, transparent: true })
   );
   facePlane.position.set(0, 0.1, -0.173);

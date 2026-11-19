@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MycoCampus3D</string>
+    <string name="title_activity_main">MycoCampus3D</string>
+    <string name="package_name">br.com.alquimistasmagicos.mycocampus3d</string>
+    <string name="custom_url_scheme">br.com.alquimistasmagicos.mycocampus3d</string>
+</resources>

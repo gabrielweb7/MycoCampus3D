@@ -2,6 +2,19 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.0.2] - 2026-11-18
+### Android APK Oficial, Abertura Direta, Atualizador Automático & Otimizações Mobile
+- **App Android via Capacitor (`capacitor.config.json`, `android/`, `scripts/prepare-apk.mjs`, `scripts/build-apk-local.mjs`):**
+  - Empacotamento com Node.js + WebView em tela cheia imersiva, aceleração de hardware (`hardwareAccelerated="true"` e `View.LAYER_TYPE_HARDWARE`), `FLAG_KEEP_SCREEN_ON`, ícones oficiais e deep link `mycocampus3d://open`.
+- **Gate Android e Tutorial de Instalação (`index.html`, `android.html`, `.cpanel.yml`):**
+  - Navegadores Android são redirecionados antes de carregar Three.js para `android.html`, com tentativa de abertura direta do app instalado (`intent://`) e página responsiva com download e tutorial em 4 passos. PC e APK abrem o campus 3D normalmente.
+- **Verificador Automático de Atualização do APK (`api/apk-version.php`, `assets/apk-version.json`, `js/services/apk-updater.js`):**
+  - Conteúdo web/3D atualiza automaticamente dentro do app e novas versões nativas do APK exibem modal com link direto de download.
+- **GitHub Actions (`.github/workflows/build-apk.yml`):**
+  - Pipeline automatizado para compilar `MycoCampus3D.apk` e publicar no GitHub Releases.
+- **Otimizações de FPS Mobile & Engine (`css/game.css`, `js/`):**
+  - Removido `backdrop-filter: blur(6px)` de `#mobile-joystick-zone`, além de ajustes de qualidade adaptativa, instancing/culling e responsividade.
+
 ## [v0.9.109] - 2026-11-18
 ### Performance (congelamento de matrizes estaticas do campus)
 - Congelamento de transformacao estatica (freezeStaticWorld): para o recalculo de matriz de milhares de objetos fixos por frame (paredes, vidros, pisos, bancadas, colunas).

@@ -152,10 +152,10 @@ export function buildLaminarHoodAndBenches(ctx) {
   hepa.position.set(-0.41, 0.54, 0);
   const hoodTop = makeBox(1.10, 0.06, 2.34, 0x0f172a, { roughness: 0.4 });
   hoodTop.position.set(0.10, 1.08, 0);
-  const hoodGlassL = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
+  const hoodGlassL = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26, noShadow: true });
   hoodGlassL.position.set(0.115, 0.545, -1.15);
   hoodGlassL.userData.ignoreRay = true;
-  const hoodGlassR = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26 });
+  const hoodGlassR = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26, noShadow: true });
   hoodGlassR.position.set(0.115, 0.545, 1.15);
   hoodGlassR.userData.ignoreRay = true;
   const hoodBase = makeBox(1.39, 0.04, 2.34, 0xcbd5e1, { metalness: 0.72, roughness: 0.28 });

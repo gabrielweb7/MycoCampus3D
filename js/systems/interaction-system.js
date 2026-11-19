@@ -14,13 +14,15 @@ import {
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
 import {
+  beginHeldItemPlacement,
   cancelHeldItemPlacement,
   commitHeldItemPlacement,
   setHeldTwoHandedGhost
 } from './held-item-placement.js';
+import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
+import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray } from '../items/alcohol-spray.js';
@@ -754,8 +756,12 @@ export function handlePrimaryAction(ctx) {
         };
         ctx.heldItem = null;
         if (eatenItem.mesh && eatenItem.mesh.parent) eatenItem.mesh.parent.remove(eatenItem.mesh);
+        disposeObjectResources(eatenItem.mesh);
         const idx = ctx.pickableItems.indexOf(eatenItem);
         if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+        if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
+          ctx.pickableMap.delete(eatenItem.id);
+        }
         if (ctx.placementGhost) ctx.placementGhost.visible = false;
         if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
         ctx.notifyWorldAction();

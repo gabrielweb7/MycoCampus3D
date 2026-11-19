@@ -15,4 +15,9 @@ Thumbs.db
 .DS_Store
 node_modules/
 .vscode/
+www-apk/
+dist/
+*.keystore
+*.jks
+
 

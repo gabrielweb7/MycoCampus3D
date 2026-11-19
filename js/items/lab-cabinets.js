@@ -7,6 +7,8 @@
  * e ficam inacessíveis enquanto a porta estiver fechada.
  */
 
+import { mergeStaticGeos } from './item-registry.js';
+
 const THREE = window.THREE;
 
 const BODY_BOTTOM = 0.14;
@@ -18,19 +20,12 @@ const DOOR_TOP = 0.95;
 const DOOR_ANGLE = 1.55;
 const DRAWER_TRAVEL = 0.42;
 
-function addBox(parent, w, h, d, mat, x, y, z) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  parent.add(m);
-  return m;
-}
+const _cabinetGeoCache = new Map();
+let _sharedCabMats = null;
 
-function smooth(t) {
-  return t * t * (3 - 2 * t);
-}
-
-function makeMaterials() {
-  return {
+function getSharedCabMats() {
+  if (_sharedCabMats) return _sharedCabMats;
+  _sharedCabMats = {
     carcass: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5, metalness: 0.1 }),
     inside: new THREE.MeshStandardMaterial({ color: 0xdbe4ee, roughness: 0.65 }),
     steel: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.26 }),
@@ -42,21 +37,80 @@ function makeMaterials() {
     }),
     darkGlass: new THREE.MeshStandardMaterial({
       color: 0x0f172a, transparent: true, opacity: 0.42, roughness: 0.08, metalness: 0.15, depthWrite: false, side: THREE.DoubleSide
-    })
+    }),
+    hitMat: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
   };
+  Object.keys(_sharedCabMats).forEach((k) => { _sharedCabMats[k].userData.shared = true; });
+  return _sharedCabMats;
+}
+
+function getCachedDoorFrameGeo(wd, hh, fw) {
+  const key = `df|${wd.toFixed(4)}|${hh.toFixed(4)}`;
+  let g = _cabinetGeoCache.get(key);
+  if (g) return g;
+  const bTop = new THREE.BoxGeometry(wd, fw, 0.02);
+  const bSide = new THREE.BoxGeometry(fw, hh, 0.02);
+  g = mergeStaticGeos([
+    { geo: bTop, y: hh / 2 - fw / 2 },
+    { geo: bTop, y: -hh / 2 + fw / 2 },
+    { geo: bSide, x: -wd / 2 + fw / 2 },
+    { geo: bSide, x: wd / 2 - fw / 2 }
+  ]);
+  bTop.dispose();
+  bSide.dispose();
+  if (g) _cabinetGeoCache.set(key, g);
+  return g;
+}
+
+function getCachedDrawerWallsGeo(trayW, slotH, trayLen) {
+  const key = `dw|${trayW.toFixed(4)}|${slotH.toFixed(4)}|${trayLen.toFixed(4)}`;
+  let g = _cabinetGeoCache.get(key);
+  if (g) return g;
+  const wallSide = new THREE.BoxGeometry(0.008, slotH - 0.07, trayLen);
+  const wallBack = new THREE.BoxGeometry(trayW, slotH - 0.07, 0.008);
+  g = mergeStaticGeos([
+    { geo: wallSide, x: -trayW / 2, y: -0.005, z: -trayLen / 2 },
+    { geo: wallSide, x: trayW / 2, y: -0.005, z: -trayLen / 2 },
+    { geo: wallBack, x: 0, y: -0.005, z: -trayLen }
+  ]);
+  wallSide.dispose();
+  wallBack.dispose();
+  if (g) _cabinetGeoCache.set(key, g);
+  return g;
+}
+
+function addBox(parent, w, h, d, mat, x, y, z, noShadow = false) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  if (noShadow) m.castShadow = false;
+  parent.add(m);
+  return m;
+}
+
+function smooth(t) {
+  return t * t * (3 - 2 * t);
+}
+
+function makeMaterials() {
+  return getSharedCabMats();
 }
 
 function makeDoorPanel(mats, wd, glass) {
   const g = new THREE.Group();
   const hh = DOOR_TOP - DOOR_BOTTOM;
   const fw = 0.035;
-  addBox(g, wd, fw, 0.02, mats.steel, 0, hh / 2 - fw / 2, 0);
-  addBox(g, wd, fw, 0.02, mats.steel, 0, -hh / 2 + fw / 2, 0);
-  addBox(g, fw, hh, 0.02, mats.steel, -wd / 2 + fw / 2, 0, 0);
-  addBox(g, fw, hh, 0.02, mats.steel, wd / 2 - fw / 2, 0, 0);
-  // Porta escura agora usa vidro fumê transparente para ver os itens dentro do armário
+  const mergedFrameGeo = getCachedDoorFrameGeo(wd, hh, fw);
+  if (mergedFrameGeo) {
+    const frameMesh = new THREE.Mesh(mergedFrameGeo, mats.steel);
+    g.add(frameMesh);
+  } else {
+    addBox(g, wd, fw, 0.02, mats.steel, 0, hh / 2 - fw / 2, 0);
+    addBox(g, wd, fw, 0.02, mats.steel, 0, -hh / 2 + fw / 2, 0);
+    addBox(g, fw, hh, 0.02, mats.steel, -wd / 2 + fw / 2, 0, 0);
+    addBox(g, fw, hh, 0.02, mats.steel, wd / 2 - fw / 2, 0, 0);
+  }
   const paneMat = glass ? mats.glass : mats.darkGlass;
-  const pane = addBox(g, wd - fw * 2, hh - fw * 2, 0.006, paneMat, 0, 0, 0);
+  const pane = addBox(g, wd - fw * 2, hh - fw * 2, 0.006, paneMat, 0, 0, 0, true);
   pane.userData.ignoreRay = true;
   return g;
 }
@@ -172,9 +226,14 @@ export function buildBenchCabinets(ctx, cfg) {
         const trayW = w - 0.07;
         const trayLen = Math.min(0.55, D - 0.12);
         const trayBottom = addBox(dg, trayW, 0.008, trayLen, mats.inside, 0, -slotH / 2 + 0.03, -trayLen / 2);
-        addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, -trayW / 2, -0.005, -trayLen / 2);
-        addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, trayW / 2, -0.005, -trayLen / 2);
-        addBox(dg, trayW, slotH - 0.07, 0.008, mats.inside, 0, -0.005, -trayLen);
+        const wallsGeo = getCachedDrawerWallsGeo(trayW, slotH, trayLen);
+        if (wallsGeo) {
+          dg.add(new THREE.Mesh(wallsGeo, mats.inside));
+        } else {
+          addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, -trayW / 2, -0.005, -trayLen / 2);
+          addBox(dg, 0.008, slotH - 0.07, trayLen, mats.inside, trayW / 2, -0.005, -trayLen / 2);
+          addBox(dg, trayW, slotH - 0.07, 0.008, mats.inside, 0, -0.005, -trayLen);
+        }
         if (di === 0 || di === 2) {
           // Tapete azul organizador para bisturis e lâminas reais
           addBox(dg, trayW - 0.04, 0.012, 0.32, mats.blue, 0, -slotH / 2 + 0.04, -0.2);
@@ -368,6 +427,7 @@ export function buildBenchLedSwitch(ctx, sx, sy, sz, benchX, benchZ) {
   plate.userData.lightSwitch = swObj;
   rocker.userData.lightSwitch = swObj;
   if (ctx.lightSwitchMeshes) ctx.lightSwitchMeshes.push(plate, rocker);
+  if (ctx.campusLightSwitches) ctx.campusLightSwitches.push(swObj);
   return swObj;
 }
 

@@ -2,7 +2,7 @@
  * Seringa 10ml com Agulha e Embolo Animado (MycoCampus3D)
  */
 
-import { registerPickable } from './item-registry.js';
+import { mergeStaticGeos, registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
 
@@ -94,13 +94,28 @@ export function updateSyringeVolume(item, newVol) {
 let sharedSyrAssets = null;
 function getSyringeAssets() {
   if (!sharedSyrAssets) {
+    const barrelGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.12, 14, 1, true);
+    const flangeGeo = new THREE.CylinderGeometry(0.023, 0.023, 0.005, 14);
+    const barrelBodyGeo = mergeStaticGeos([
+      { geo: barrelGeo, y: 0.135 },
+      { geo: flangeGeo, y: 0.195 }
+    ]);
+    const rodGeo = new THREE.CylinderGeometry(0.005, 0.005, 0.11, 8);
+    const thumbGeo = new THREE.CylinderGeometry(0.017, 0.017, 0.005, 12);
+    const plungerRodGeo = mergeStaticGeos([
+      { geo: rodGeo, y: 0.06 },
+      { geo: thumbGeo, y: 0.115 }
+    ]);
+
     sharedSyrAssets = {
-      barrelGeo: new THREE.CylinderGeometry(0.015, 0.015, 0.12, 14, 1, true),
-      flangeGeo: new THREE.CylinderGeometry(0.023, 0.023, 0.005, 14),
+      barrelBodyGeo,
+      plungerRodGeo,
+      barrelGeo,
+      flangeGeo,
       liqGeo: new THREE.CylinderGeometry(0.012, 0.012, 0.09, 12),
       stopperGeo: new THREE.CylinderGeometry(0.0125, 0.0125, 0.014, 12),
-      rodGeo: new THREE.CylinderGeometry(0.005, 0.005, 0.11, 8),
-      thumbGeo: new THREE.CylinderGeometry(0.017, 0.017, 0.005, 12),
+      rodGeo,
+      thumbGeo,
       hubGeo: new THREE.CylinderGeometry(0.006, 0.009, 0.018, 10),
       needleGeo: new THREE.CylinderGeometry(0.0016, 0.001, 0.058, 8),
       barrelMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.12, depthWrite: false }),
@@ -109,6 +124,10 @@ function getSyringeAssets() {
       hubMat: new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.35 }),
       needleMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 })
     };
+    Object.keys(sharedSyrAssets).forEach((k) => {
+      const v = sharedSyrAssets[k];
+      if (v && v.userData) v.userData.shared = true;
+    });
   }
   return sharedSyrAssets;
 }
@@ -116,10 +135,6 @@ function getSyringeAssets() {
 export function makeSyringe10ml(ctx, id, px, py, pz) {
   const A = getSyringeAssets();
   const sg = new THREE.Group();
-  const barrel = new THREE.Mesh(A.barrelGeo, A.barrelMat);
-  barrel.position.y = 0.135;
-  const flange = new THREE.Mesh(A.flangeGeo, A.barrelMat);
-  flange.position.y = 0.195;
   const liqMesh = new THREE.Mesh(
     A.liqGeo,
     new THREE.MeshStandardMaterial({ color: 0xfef08a, transparent: true, opacity: 0.78 })
@@ -128,18 +143,30 @@ export function makeSyringe10ml(ctx, id, px, py, pz) {
   const plunger = new THREE.Group();
   const stopper = new THREE.Mesh(A.stopperGeo, A.stopperMat);
   stopper.position.y = 0;
-  const rod = new THREE.Mesh(A.rodGeo, A.rodMat);
-  rod.position.y = 0.06;
-  const thumb = new THREE.Mesh(A.thumbGeo, A.rodMat);
-  thumb.position.y = 0.115;
-  plunger.add(stopper, rod, thumb);
+  if (A.plungerRodGeo) {
+    plunger.add(stopper, new THREE.Mesh(A.plungerRodGeo, A.rodMat));
+  } else {
+    const rod = new THREE.Mesh(A.rodGeo, A.rodMat);
+    rod.position.y = 0.06;
+    const thumb = new THREE.Mesh(A.thumbGeo, A.rodMat);
+    thumb.position.y = 0.115;
+    plunger.add(stopper, rod, thumb);
+  }
   plunger.position.y = 0.095;
   const hub = new THREE.Mesh(A.hubGeo, A.hubMat);
   hub.position.y = 0.068;
   const needle = new THREE.Mesh(A.needleGeo, A.needleMat);
   needle.position.y = 0.030;
   const layWrap = new THREE.Group();
-  layWrap.add(liqMesh, plunger, barrel, flange, hub, needle);
+  if (A.barrelBodyGeo) {
+    layWrap.add(liqMesh, plunger, new THREE.Mesh(A.barrelBodyGeo, A.barrelMat), hub, needle);
+  } else {
+    const barrel = new THREE.Mesh(A.barrelGeo, A.barrelMat);
+    barrel.position.y = 0.135;
+    const flange = new THREE.Mesh(A.flangeGeo, A.barrelMat);
+    flange.position.y = 0.195;
+    layWrap.add(liqMesh, plunger, barrel, flange, hub, needle);
+  }
   layWrap.rotation.z = Math.PI / 2;
   layWrap.position.set(0.12, 0.022, 0);
   sg.add(layWrap);

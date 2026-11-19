@@ -286,10 +286,39 @@ body.device-phone #crosshair {
 }
 
 body.device-phone .glass-panel,
-body.quality-low-fx .glass-panel {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+body.device-touch .glass-panel,
+body.quality-low-fx .glass-panel,
+body.device-phone #mobile-joystick-zone,
+body.device-touch #mobile-joystick-zone,
+body.quality-low-fx #mobile-joystick-zone,
+body.device-phone .myco-float-chip,
+body.device-touch .myco-float-chip,
+body.quality-low-fx .myco-float-chip,
+body.device-phone [class*="backdrop-blur"],
+body.device-touch [class*="backdrop-blur"],
+body.quality-low-fx [class*="backdrop-blur"],
+body.device-phone #held-item-bar,
+body.device-phone #item-status-card,
+body.device-phone #admin-edit-banner,
+body.quality-low-fx #held-item-bar,
+body.quality-low-fx #item-status-card,
+body.quality-low-fx #admin-edit-banner {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.device-phone .glass-panel,
+body.quality-low-fx .glass-panel,
+body.device-touch #held-item-bar,
+body.device-touch #item-status-card,
+body.quality-low-fx #held-item-bar,
+body.quality-low-fx #item-status-card {
   background: rgba(15, 23, 42, 0.93);
+}
+
+#mobile-joystick-knob,
+.touch-btn {
+  will-change: transform;
 }
 
 body.device-phone #chat-input {
@@ -333,9 +362,8 @@ body.device-desktop #btn-mobile-chat-toggle {
   width: 124px;
   height: 124px;
   border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.52);
   border: 2px solid rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(6px);
   z-index: 25;
   touch-action: none;
   display: none;

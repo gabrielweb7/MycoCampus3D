@@ -5,6 +5,17 @@
   <meta charset="UTF-8">
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <script>
+    (function () {
+      var ua = navigator.userAgent || '';
+      var isAndroid = /Android/i.test(ua);
+      var isApk = /MycoCampusAPK\/\d+/i.test(ua) || Boolean(window.Capacitor);
+      var isBot = /Googlebot|bingbot/i.test(ua);
+      if (isAndroid && !isApk && !isBot) {
+        window.location.replace('android.html' + (window.location.search || ''));
+      }
+    })();
+  </script>
   <title>MycoCampus3D — Universidade 3D do Cultivo de Cogumelos</title>
   <meta name="description"
     content="Entre no campus 3D multiplayer e aprenda cultivo de cogumelos na prática: fluxo laminar, esterilização, spawn, contaminações e frutificação. Grátis, direto no navegador, no PC e no celular.">
@@ -70,7 +81,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=1.0.1">
+  <link rel="stylesheet" href="css/game.css?v=1.0.2">
 </head>
 
 <body>
@@ -135,7 +146,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.0.1</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.0.2</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -555,9 +566,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '1.0.1';</script>
+  <script>window.MYCO_VERSION = '1.0.2';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=1.0.1"></script>
+  <script type="module" src="js/main.js?v=1.0.2"></script>
 </body>
 
 </html>

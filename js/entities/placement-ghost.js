@@ -144,6 +144,11 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
     while (placementHoloWrap.children.length > 0) {
       placementHoloWrap.remove(placementHoloWrap.children[0]);
     }
+    for (var mi = 0; mi < placementHoloMats.length; mi++) {
+      if (placementHoloMats[mi] && placementHoloMats[mi].dispose) {
+        placementHoloMats[mi].dispose();
+      }
+    }
     placementHoloMats = [];
     var clone = item.mesh.clone(true);
     clone.position.set(0, 0, 0);

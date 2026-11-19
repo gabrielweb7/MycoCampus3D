@@ -2,9 +2,12 @@
  * MycoCampus3D — Bootstrap da Aplicação, Bindings de HUD, Chat & Eventos
  */
 import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
+import { events } from '../core/events.js';
 import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
+import { initPwaFeatures, requestScreenWakeLock, releaseScreenWakeLock } from '../engine/haptics-wakelock.js';
 import { apiPost } from '../services/api-client.js';
+import { checkForApkUpdate } from '../services/apk-updater.js';
 import { syncMultiplayer, sendLeaveBeacon } from '../services/multiplayer-sync.js';
 import { MUSHROOM_SPECIES_CATALOG } from '../world/mushroom-species.js';
 import { getDiscoveredSpecies } from '../systems/mycoteca.js';
@@ -82,10 +85,12 @@ async function harvestGreenhouseSlot(slot) {
   } catch (e) {}
 }
 
+let mobilePlacementModeActive = false;
+
 function bindModalsAndToolbar() {
   const btnQuality = $('btn-quality');
   if (btnQuality && window.setCampusQualityMode && window.getCampusQualityState) {
-    const qModes = ['high', 'medium', 'low', 'min'];
+    const qModes = ['auto', 'high', 'medium', 'low', 'min'];
     btnQuality.onclick = (e) => {
       e.stopPropagation();
       if (window.MycoAudio) window.MycoAudio.playClick();
@@ -524,7 +529,7 @@ function bindChatAndShortcuts() {
     if (txt.toLowerCase() === '/discord') {
       inp.value = '';
       window.open('https://discord.gg/EmpEx6PxG', '_blank', 'noopener,noreferrer');
-      showToast('💬 Abrindo o Discord oficial do MycoCampus3D!');
+      showFloatingToast('💬 Abrindo o Discord oficial do MycoCampus3D!', 3500);
     } else if (txt) {
       appState.pendingChatMsg = txt.slice(0, 140);
       inp.value = '';
@@ -596,10 +601,16 @@ export function bootApp() {
   applyDeviceUi();
   window.addEventListener('resize', applyDeviceUi);
   window.addEventListener('orientationchange', applyDeviceUi);
+  window.showCampusToast = (msg, ms) => showFloatingToast(msg, ms || 3500);
+  initPwaFeatures();
   renderSwatches();
   setupMobileJoystick();
   loadLobbyStats();
-  setInterval(loadLobbyStats, 20000);
+  setInterval(() => {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (appState.currentUser && appState.inFps) return;
+    loadLobbyStats();
+  }, 20000);
 
   const verEl = $('app-version');
   if (verEl) verEl.textContent = 'v' + getAppVersion();
@@ -613,7 +624,7 @@ export function bootApp() {
       }
     })
     .catch(() => {});
-  let mobilePlacementModeActive = false;
+  mobilePlacementModeActive = false;
   let currentHoldLabel = '';
   let currentHoverPrompt = '';
 
@@ -772,15 +783,23 @@ export function bootApp() {
     onFpsChange: (fps) => {
       updateFpsUi(fps);
       refreshMobileAction();
+      window.MycoCampus = window.MycoCampus || {};
+      window.MycoCampus.inGame = !!(appState.currentUser && fps);
+      if (appState.currentUser && fps) {
+        requestScreenWakeLock();
+      } else {
+        releaseScreenWakeLock();
+      }
     },
     onQualityChange: (info) => {
       const qBtn = $('btn-quality');
       if (!qBtn || !info) return;
       const labels = { high: 'Alto', medium: 'Méd', low: 'Desemp', min: 'Mín' };
       const tierTxt = labels[info.tier] || info.tier;
+      const modePrefix = info.mode === 'auto' ? `Auto (${tierTxt})` : tierTxt;
       const fpsTxt = info.fps > 0 ? ` • ${info.fps}fps` : '';
-      qBtn.textContent = `⚡ ${tierTxt}${fpsTxt}`;
-      qBtn.className = 'px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 font-bold border whitespace-nowrap ' +
+      qBtn.textContent = `⚡ ${modePrefix}${fpsTxt}`;
+      qBtn.className = 'hud-pill-btn px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 font-bold border whitespace-nowrap ' +
         (info.tier === 'min' || info.tier === 'low' ? 'text-amber-300 border-amber-500/40' : 'text-cyan-300 border-cyan-500/40');
     },
     onHoverPrompt: (txt) => {
@@ -893,4 +912,7 @@ export function bootApp() {
 
   tryResumeSession();
   if (window.setCampusCinemaLessons) window.setCampusCinemaLessons(LESSONS);
+  setTimeout(() => {
+    checkForApkUpdate().catch(() => {});
+  }, 1500);
 }

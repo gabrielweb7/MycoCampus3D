@@ -4,7 +4,7 @@
  * ou descarta bags descartáveis repondo um novo bag limpo no estoque.
  */
 
-import { registerPickable, updateItemBounds } from './item-registry.js';
+import { disposeObjectResources, registerPickable, updateItemBounds } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
 import { updateSpawnVisual } from './spawn-containers.js';
 import { updatePetriVisual } from './petri-dish.js';
@@ -246,14 +246,21 @@ export function resetDisposableContainer(item) {
 
 function disposeAndRemoveItem(ctx, item, toastMsg) {
   if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
-  const pIdx = ctx.pickableItems.indexOf(item);
+  disposeObjectResources(item.mesh);
+  const pIdx = ctx.pickableItems ? ctx.pickableItems.indexOf(item) : -1;
   if (pIdx !== -1) ctx.pickableItems.splice(pIdx, 1);
+  if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
+    ctx.pickableMap.delete(item.id);
+  }
+  const sgIdx = ctx.spawnGrowItems ? ctx.spawnGrowItems.indexOf(item) : -1;
+  if (sgIdx !== -1) ctx.spawnGrowItems.splice(sgIdx, 1);
+  if (ctx.removeFromCookerContents) ctx.removeFromCookerContents(item);
   if (ctx.heldItem === item) ctx.heldItem = null;
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
-  if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+  if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
   if (window.MycoAudio) window.MycoAudio.playClick();
-  if (ctx.callbacks.onToast) ctx.callbacks.onToast(toastMsg);
-  ctx.notifyWorldAction();
+  if (ctx.callbacks && ctx.callbacks.onToast) ctx.callbacks.onToast(toastMsg);
+  if (ctx.notifyWorldAction) ctx.notifyWorldAction();
   return true;
 }
 

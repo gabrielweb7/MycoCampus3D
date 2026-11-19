@@ -12,6 +12,7 @@ import { events } from './core/events.js';
 import * as mathPool from './core/math-pool.js';
 import { AudioEngine } from './services/audio-engine.js';
 import * as apiClient from './services/api-client.js';
+import { checkForApkUpdate, isRunningInApk } from './services/apk-updater.js';
 import { registerCampusPublicApi } from './systems/campus-init.js';
 import { bootApp } from './ui/app-boot.js';
 
@@ -31,7 +32,9 @@ window.__MYCO_DEBUG__ = {
   events,
   mathPool,
   audio: AudioEngine,
-  api: apiClient
+  api: apiClient,
+  isRunningInApk,
+  checkApkUpdate: (opts) => checkForApkUpdate({ forcePrompt: true, ...(opts || {}) })
 };
 
 if (document.readyState === 'loading') {

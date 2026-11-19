@@ -5,7 +5,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
-import { getInitialQualityTier, getSavedQualityMode } from '../core/quality.js';
+import { getInitialQualityTier, getSavedQualityMode, qualityState } from '../core/quality.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
 import { buildNatureWorld, buildPlaza } from '../world/nature-plaza.js';
@@ -266,11 +266,22 @@ const sim = {
     onWorldAction: null
   },
 
+  _cachedIsTouch: null,
+
+  refreshTouchCache: function () {
+    const coarse = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const w = typeof window !== 'undefined' ? (window.innerWidth || 0) : 1280;
+    const h = typeof window !== 'undefined' ? (window.innerHeight || 0) : 720;
+    const minDim = Math.min(w, h);
+    const tPts = typeof navigator !== 'undefined' ? (navigator.maxTouchPoints || 0) : 0;
+    const hasTouch = tPts > 0 && (w <= 1380 || minDim <= 1080);
+    sim._cachedIsTouch = !!(coarse || hasTouch);
+    return sim._cachedIsTouch;
+  },
+
   isTouchDevice: function () {
-    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    const minDim = Math.min(window.innerWidth || 0, window.innerHeight || 0);
-    const hasTouch = (navigator.maxTouchPoints || 0) > 0 && (window.innerWidth <= 1380 || minDim <= 1080);
-    return coarse || hasTouch;
+    if (sim._cachedIsTouch === null) return sim.refreshTouchCache();
+    return sim._cachedIsTouch;
   },
 
   notifyWorldAction: function () {
@@ -514,22 +525,33 @@ export function initCampus3D(containerId, cbs) {
 
     sim.envCloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe0f2fe, emissiveIntensity: 0.22 });
     sim.envCloudMat.userData.keepPbr = true;
+    sim.envCloudMat.userData.shared = true;
     const cloudCount = touch ? 14 : 24;
     const puffSegW = touch ? 8 : 10;
     const puffSegH = touch ? 6 : 8;
+    const puffGeo = new THREE.SphereGeometry(1, puffSegW, puffSegH);
+    puffGeo.userData.shared = true;
+    const cloudInst = new THREE.InstancedMesh(puffGeo, sim.envCloudMat, cloudCount * 3);
+    cloudInst.frustumCulled = false;
+    cloudInst.userData.isDynamic = true;
+    const cloudDummy = new THREE.Object3D();
     for (let cl = 0; cl < cloudCount; cl++) {
-      const cg = new THREE.Group();
       const ca = (cl / cloudCount) * Math.PI * 2;
-      cg.position.set(Math.cos(ca) * (55 + (cl % 4) * 24), 30 + (cl % 5) * 4.5, Math.sin(ca) * (55 + (cl % 4) * 24));
+      const cx = Math.cos(ca) * (55 + (cl % 4) * 24);
+      const cy = 30 + (cl % 5) * 4.5;
+      const cz = Math.sin(ca) * (55 + (cl % 4) * 24);
+      sim.envClouds.push({ x: cx, y: cy, z: cz });
       for (let cp = 0; cp < 3; cp++) {
-        const puff = new THREE.Mesh(new THREE.SphereGeometry(5 + (cp % 2) * 2.5, puffSegW, puffSegH), sim.envCloudMat);
-        puff.position.set((cp - 1) * 5.2, (cp % 2) * 1.4, 0);
-        puff.scale.set(1.3, 0.65, 1.0);
-        cg.add(puff);
+        const r = 5 + (cp % 2) * 2.5;
+        cloudDummy.position.set(cx + (cp - 1) * 5.2, cy + (cp % 2) * 1.4, cz);
+        cloudDummy.scale.set(r * 1.3, r * 0.65, r);
+        cloudDummy.updateMatrix();
+        cloudInst.setMatrixAt(cl * 3 + cp, cloudDummy.matrix);
       }
-      sim.scene.add(cg);
-      sim.envClouds.push(cg);
     }
+    cloudInst.instanceMatrix.needsUpdate = true;
+    sim.envCloudsInst = cloudInst;
+    sim.scene.add(cloudInst);
 
     const wCount = 800;
     const wPositions = new Float32Array(wCount * 3);
@@ -561,7 +583,7 @@ export function initCampus3D(containerId, cbs) {
       stencil: false,
       powerPreference: 'high-performance'
     });
-    sim.renderer.setSize(window.innerWidth, window.innerHeight);
+    sim.renderer.setSize(window.innerWidth, window.innerHeight, false);
     sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75));
     sim.renderer.shadowMap.enabled = true;
     sim.renderer.shadowMap.autoUpdate = !touch;
@@ -618,13 +640,18 @@ export function initCampus3D(containerId, cbs) {
     sim.placementGhost = createPlacementGhost(sim.scene);
     sim.hover3dBadge = createHover3dBadge(sim.scene);
     createThermoLaserFx(sim.entityCtx);
-    initConfettiSystem(sim.scene);
+    sim.confettiMesh = initConfettiSystem(sim.scene);
     initGreenhouseParticlePools(sim.scene);
     const frozenCount = freezeStaticWorld(sim);
     logger.info('campus-init', `Cenário estático otimizado: ${frozenCount} congelados, ${sim._mergedStaticCount || 0} mesclados, ${sim._virtualLightCount || 0} luzes no pool`);
     bindControls(sim);
-    const initialTier = getSavedQualityMode() || getInitialQualityTier(touch, sim.renderer);
-    sim.qualityMode = initialTier;
+    const savedMode = getSavedQualityMode();
+    const initialMode = savedMode || 'auto';
+    const initialTier = initialMode === 'auto'
+      ? getInitialQualityTier(touch, sim.renderer)
+      : initialMode;
+    sim.qualityMode = initialMode;
+    qualityState.mode = initialMode === 'auto' ? 'auto' : 'manual';
     applyQualityTier(sim, initialTier);
     startAnimationLoop(sim);
     const lobbyEl = document.getElementById('campus-lobby');

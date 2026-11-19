@@ -57,7 +57,7 @@ export async function syncMultiplayer() {
       layout_ver: appState.lastLayoutVer || '',
       board_since: appState.boardLastId,
       board_strokes: strokes
-    }, true);
+    }, true, { timeoutMs: 6000 });
 
     if (data && data.kicked) {
       if (appState.syncTimer) clearInterval(appState.syncTimer);

@@ -26,4 +26,11 @@ html = html
   .replace(/src="js\/main\.js\?v=[^"]+"/, `src="js/main.js?v=${version}"`);
 fs.writeFileSync('index.html', html, 'utf8');
 
-console.log(`Versão sincronizada automaticamente para v${version} em package.json, sw.js e index.html.`);
+// 4. assets/apk-version.json
+if (fs.existsSync('assets/apk-version.json')) {
+  const apkMeta = JSON.parse(fs.readFileSync('assets/apk-version.json', 'utf8'));
+  apkMeta.versionName = version;
+  fs.writeFileSync('assets/apk-version.json', JSON.stringify(apkMeta, null, 2) + '\n', 'utf8');
+}
+
+console.log(`Versão sincronizada automaticamente para v${version} em package.json, sw.js, index.html e assets/apk-version.json.`);

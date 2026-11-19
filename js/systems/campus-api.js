@@ -98,6 +98,13 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.setCampusQualityMode = function (mode) {
+    if (mode === 'auto') {
+      sim.qualityMode = 'auto';
+      qualityState.mode = 'auto';
+      saveQualityMode('auto');
+      applyQualityTier(sim, getInitialQualityTier(sim.isTouchDevice(), sim.renderer));
+      return;
+    }
     if (qualityTiersOrder.indexOf(mode) !== -1) {
       sim.qualityMode = mode;
       qualityState.mode = 'manual';
@@ -107,7 +114,12 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.getCampusQualityState = function () {
-    return { mode: sim.qualityMode, tier: sim.qualityTier, fps: qualityState.currentFps };
+    return {
+      mode: sim.qualityMode,
+      tier: sim.qualityTier,
+      fps: qualityState.currentFps,
+      dynScale: qualityState.dynScale
+    };
   };
 
   window.playCampusEmote = function (name) {

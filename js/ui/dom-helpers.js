@@ -12,12 +12,31 @@ export function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+let cachedDeviceProfile = null;
+
+export function invalidateDeviceProfileCache() {
+  cachedDeviceProfile = null;
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('resize', invalidateDeviceProfileCache);
+  window.addEventListener('orientationchange', invalidateDeviceProfileCache);
+}
+
 export function getDeviceProfile() {
-  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-  const minDim = Math.min(window.innerWidth || 0, window.innerHeight || 0);
-  const hasTouch = (navigator.maxTouchPoints || 0) > 0 && (window.innerWidth <= 1380 || minDim <= 1080);
-  if (!coarse && !hasTouch) return 'desktop';
-  return minDim >= 720 ? 'tablet' : 'phone';
+  if (cachedDeviceProfile) return cachedDeviceProfile;
+  const coarse = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  const w = typeof window !== 'undefined' ? (window.innerWidth || 0) : 1280;
+  const h = typeof window !== 'undefined' ? (window.innerHeight || 0) : 720;
+  const minDim = Math.min(w, h);
+  const tPts = typeof navigator !== 'undefined' ? (navigator.maxTouchPoints || 0) : 0;
+  const hasTouch = tPts > 0 && (w <= 1380 || minDim <= 1080);
+  if (!coarse && !hasTouch) {
+    cachedDeviceProfile = 'desktop';
+  } else {
+    cachedDeviceProfile = minDim >= 720 ? 'tablet' : 'phone';
+  }
+  return cachedDeviceProfile;
 }
 
 export function isTouch() {
@@ -25,6 +44,7 @@ export function isTouch() {
 }
 
 export function applyDeviceUi() {
+  invalidateDeviceProfileCache();
   const profile = getDeviceProfile();
   document.body.classList.remove('device-desktop', 'device-tablet', 'device-phone', 'device-touch');
   document.body.classList.add(`device-${profile}`);

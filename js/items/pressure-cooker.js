@@ -995,7 +995,7 @@ export function stepPressureCookers(ctx, dt) {
           break;
         }
       }
-      const burners = ctx.burnerStations || [];
+      const burners = ctx.burnerDevices || ctx.burnerStations || [];
       for (let i = 0; i < burners.length; i++) {
         const b = burners[i];
         if (!b) continue;

@@ -191,8 +191,8 @@ export function buildStaircaseAndBridge(ctx) {
   // Pontes laterais ligando o Patamar (-18.5) direto as portas do 2o andar (-12.975) dos dois lados (x = +-19)
   [-19, 19].forEach(function (ax) {
     addWalkableSlab(ctx.scene, ctx.walkableFloors, ax, yTop, -15.7375, 4.4, 0.34, 5.525, 0x475569, { roughness: 0.6 });
-    addSolidWall(ctx.scene, ctx.wallSegments, ax - 2.12, -18.5, ax - 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
-    addSolidWall(ctx.scene, ctx.wallSegments, ax + 2.12, -18.5, ax + 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addSolidWall(ctx.scene, ctx.wallSegments, ax - 2.12, -18.5, ax - 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38, noShadow: true });
+    addSolidWall(ctx.scene, ctx.wallSegments, ax + 2.12, -18.5, ax + 2.12, -12.975, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38, noShadow: true });
   });
 
   // Pilares estruturais sustentando o patamar superior e as pontes laterais
@@ -211,24 +211,24 @@ export function buildStaircaseAndBridge(ctx) {
 
   // Guarda-corpo de vidro + corrimao metalico no patamar superior (sem bloquear a saida da escada nem a Ponte Norte)
   [-1, 1].forEach(function (side) {
-    addSolidWall(ctx.scene, ctx.wallSegments, side * 4.25, -18.55, side * 16.85, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addSolidWall(ctx.scene, ctx.wallSegments, side * 4.25, -18.55, side * 16.85, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38, noShadow: true });
     var railS = new THREE.Mesh(new THREE.BoxGeometry(12.6, 0.06, 0.1), railMetalMat);
     railS.position.set(side * 10.55, yTop + 1.03, -18.55);
     scene.add(railS);
 
-    addSolidWall(ctx.scene, ctx.wallSegments, side * 2.8, -22.45, side * 21.15, -22.45, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addSolidWall(ctx.scene, ctx.wallSegments, side * 2.8, -22.45, side * 21.15, -22.45, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38, noShadow: true });
     var railN = new THREE.Mesh(new THREE.BoxGeometry(18.35, 0.06, 0.1), railMetalMat);
     railN.position.set(side * 11.975, yTop + 1.03, -22.45);
     scene.add(railN);
 
-    addSolidWall(ctx.scene, ctx.wallSegments, side * 21.15, -22.45, side * 21.15, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38 });
+    addSolidWall(ctx.scene, ctx.wallSegments, side * 21.15, -22.45, side * 21.15, -18.55, yTop, 1.02, 0.08, 0xbae6fd, { transparent: true, opacity: 0.38, noShadow: true });
   });
 
   // Pontes ligando Bloco Norte <-> Bloco Sul no 2o andar (x = +-19, z = -1.025 .. 2.025, y = 3.80, encontro exato sem z-fighting)
   [-19, 19].forEach(function (ax) {
     addWalkableSlab(ctx.scene, ctx.walkableFloors, ax, yTop, 0.5, 4.4, 0.28, 3.05, 0x475569, { roughness: 0.6 });
-    addSolidWall(ctx.scene, ctx.wallSegments, ax - 2.1, -1.025, ax - 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
-    addSolidWall(ctx.scene, ctx.wallSegments, ax + 2.1, -1.025, ax + 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45 });
+    addSolidWall(ctx.scene, ctx.wallSegments, ax - 2.1, -1.025, ax - 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45, noShadow: true });
+    addSolidWall(ctx.scene, ctx.wallSegments, ax + 2.1, -1.025, ax + 2.1, 2.025, yTop, 1.05, 0.1, 0xbae6fd, { transparent: true, opacity: 0.45, noShadow: true });
   });
 
   // Terraco Norte (y = 3.80, x: -24..24, z: -29.5 .. -42.0) — separado da passarela por um Lago Norte organico
@@ -237,7 +237,7 @@ export function buildStaircaseAndBridge(ctx) {
   // Ponte Norte sobre o lago ligando o Patamar (-22.5) ate o Terraco da Torre do Relogio (-29.5)
   addWalkableSlab(ctx.scene, ctx.walkableFloors, 0, yTop, -26.0, 5.6, 0.34, 7.0, 0x64748b, { roughness: 0.65 });
   [-2.75, 2.75].forEach(function (bx) {
-    addSolidWall(ctx.scene, ctx.wallSegments, bx, -29.5, bx, -22.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45 });
+    addSolidWall(ctx.scene, ctx.wallSegments, bx, -29.5, bx, -22.5, yTop, 1.05, 0.12, 0xbae6fd, { transparent: true, opacity: 0.45, noShadow: true });
   });
 
   // Lago Norte organico com borda de pedras dos dois lados da Ponte Norte

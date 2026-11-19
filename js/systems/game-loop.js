@@ -50,6 +50,7 @@ let frameErrorLogged = false;
 const _qualityArg = {
   renderer: null,
   camera: null,
+  scene: null,
   envSun: null,
   weatherPoints: null,
   isTouchDevice: false,
@@ -95,6 +96,7 @@ const _envArg = {
   isTouch: false,
   envCloudMat: null,
   envClouds: null,
+  envCloudsInst: null,
   terrainSnowMat: null,
   weatherPoints: null,
   weatherPosAttr: null,
@@ -127,7 +129,7 @@ function syncQualityArg(ctx) {
 }
 
 export function applyQualityTier(ctx, tier) {
-  qualityMod.qualityState.mode = ctx.qualityMode;
+  qualityMod.qualityState.mode = ctx.qualityMode === 'auto' ? 'auto' : 'manual';
   syncQualityArg(ctx);
   qualityMod.applyQualityTier(tier, _qualityArg);
   ctx.qualityTier = qualityMod.qualityState.tier;
@@ -138,7 +140,7 @@ const THREE = window.THREE;
 const _blindDummy = new THREE.Object3D();
 
 export function stepAutoQuality(ctx, now) {
-  qualityMod.qualityState.mode = ctx.qualityMode;
+  qualityMod.qualityState.mode = ctx.qualityMode === 'auto' ? 'auto' : 'manual';
   syncQualityArg(ctx);
   qualityMod.stepAutoQuality(now, _qualityArg);
   const lightRefPos = ctx.inFps ? ctx.playerPos : ((ctx.camera && ctx.camera.position) || ctx.playerPos);
@@ -190,6 +192,7 @@ export function updateDynamicEnvironment(ctx, dt) {
   _envArg.isTouch = ctx.isTouchDevice();
   _envArg.envCloudMat = ctx.envCloudMat;
   _envArg.envClouds = ctx.envClouds;
+  _envArg.envCloudsInst = ctx.envCloudsInst;
   _envArg.terrainSnowMat = ctx.terrainSnowMat;
   _envArg.weatherPoints = ctx.weatherPoints;
   _envArg.weatherPosAttr = ctx.weatherPosAttr;
@@ -214,12 +217,18 @@ export function updateDynamicEnvironment(ctx, dt) {
 }
 
 function stepArchitectureProps(ctx, dt, now) {
+  const px = ctx.playerPos ? ctx.playerPos.x : 0;
+  const pz = ctx.playerPos ? ctx.playerPos.z : 0;
   for (let wmIdx = 0; wmIdx < ctx.wildMushrooms.length; wmIdx++) {
     const wm = ctx.wildMushrooms[wmIdx];
     if (!wm.active && now >= wm.respawnAt) {
       wm.active = true; wm.group.visible = true;
-    } else if (wm.active && wm.group.visible) {
-      wm.capMesh.rotation.y += dt * 0.5;
+    } else if (wm.active && wm.group.visible && wm.capMesh && wm.capMesh.matrixAutoUpdate !== false) {
+      const gx = wm.group.position.x - px;
+      const gz = wm.group.position.z - pz;
+      if (gx * gx + gz * gz < 484) {
+        wm.capMesh.rotation.y += dt * 0.5;
+      }
     }
   }
 
@@ -331,6 +340,10 @@ export function startAnimationLoop(ctx) {
 
   function tick() {
     requestAnimationFrame(tick);
+    if ((typeof document !== 'undefined' && document.hidden) || ctx._contextLost) {
+      if (ctx.clock) ctx.clock.getDelta();
+      return;
+    }
     try {
       perfBegin();
       const dt = Math.min(0.05, ctx.clock.getDelta());

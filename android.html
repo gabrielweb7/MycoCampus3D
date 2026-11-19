@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MycoCampus3D — Baixar Aplicativo Android (.apk)</title>
+  <meta name="description"
+    content="Instale o aplicativo oficial do MycoCampus3D no Android para jogar em tela cheia com alta performance e atualizações automáticas.">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+  <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(16, 185, 129, 0.20), transparent 42%),
+        radial-gradient(circle at 85% 20%, rgba(56, 189, 248, 0.16), transparent 45%),
+        linear-gradient(180deg, #0b1220 0%, #070c16 100%);
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .card-surface {
+      background: rgba(15, 23, 42, 0.90);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    }
+
+    .step-badge {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      border-radius: 10px;
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(52, 211, 153, 0.42);
+      color: #6ee7b7;
+      font-weight: 800;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-primary-apk {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 10px 28px rgba(16, 185, 129, 0.35);
+      transition: transform 0.14s ease, filter 0.14s ease;
+    }
+
+    .btn-primary-apk:active {
+      transform: scale(0.98);
+    }
+  </style>
+  <script>
+    (function () {
+      var ua = navigator.userAgent || '';
+      var isApk = /MycoCampusAPK\/\d+/i.test(ua) || Boolean(window.Capacitor);
+      if (isApk) {
+        window.location.replace('./');
+      }
+    })();
+  </script>
+</head>
+
+<body class="antialiased">
+  <main class="max-w-2xl mx-auto px-4 py-6 sm:py-10 space-y-5">
+    <!-- Banner automático para PC -->
+    <div id="pc-banner"
+      class="hidden rounded-2xl bg-sky-950/75 border border-sky-400/40 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="text-xs sm:text-sm text-sky-100">
+        <strong>💻 Você está acessando pelo computador!</strong> No PC não precisa instalar APK — pode jogar direto no navegador.
+      </div>
+      <a href="./"
+        class="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-sky-400 hover:bg-sky-300 text-slate-950 text-xs font-extrabold whitespace-nowrap">
+        Entrar no Campus 3D →
+      </a>
+    </div>
+
+    <!-- Aviso de tentativa de abertura automática -->
+    <div id="opening-app-banner"
+      class="hidden rounded-2xl bg-emerald-950/80 border border-emerald-400/45 px-4 py-3 text-center text-xs sm:text-sm text-emerald-200 font-semibold">
+      🚀 Tentando abrir o aplicativo <strong>MycoCampus3D</strong> instalado no seu Android...
+    </div>
+
+    <!-- Card principal de download -->
+    <section class="card-surface rounded-3xl p-5 sm:p-8 space-y-5">
+      <div class="flex flex-col items-center text-center space-y-3">
+        <img src="assets/icon-192.png" alt="Ícone MycoCampus3D"
+          class="w-20 h-20 rounded-2xl border border-emerald-400/40 shadow-lg bg-slate-900">
+
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-emerald-300 text-xs font-bold">
+          📱 Aplicativo Oficial Android
+        </div>
+
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          MycoCampus3D no Android
+        </h1>
+
+        <p class="text-sm text-slate-300 max-w-lg leading-relaxed">
+          Para rodar o Campus 3D liso em tela cheia (sem travamentos do navegador), no Android o jogo funciona pelo nosso aplicativo oficial. Você instala <strong>só uma vez</strong> e ele atualiza sozinho!
+        </p>
+
+        <div id="apk-version-pill"
+          class="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-700/80 text-xs text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="apk-version-text">Versão v1.0.1 • Atualização automática</span>
+        </div>
+      </div>
+
+      <div id="apk-notes-box"
+        class="hidden rounded-2xl bg-slate-900/90 border border-slate-700/80 px-4 py-3 text-xs text-slate-300 leading-relaxed">
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        <a id="btn-download-apk"
+          href="https://github.com/gabrielweb7/MycoCampus3D/releases/latest/download/MycoCampus3D.apk"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-primary-apk flex items-center justify-center gap-2 py-3.5 px-5 rounded-2xl text-slate-950 font-extrabold text-sm sm:text-base text-center">
+          ⬇️ Baixar MycoCampus3D.apk
+        </a>
+
+        <button id="btn-open-installed-apk" type="button"
+          class="flex items-center justify-center gap-2 py-3.5 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-white font-bold text-sm text-center">
+          🚀 Já instalei — Abrir App
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-400">
+        <button id="btn-copy-apk-link" type="button" class="text-sky-300 hover:text-sky-200 underline underline-offset-2">
+          📋 Copiar link do APK
+        </button>
+        <span>•</span>
+        <span>Tamanho leve (~10 MB)</span>
+        <span>•</span>
+        <span>100% Gratuito</span>
+      </div>
+    </section>
+
+    <!-- Tutorial passo a passo -->
+    <section class="card-surface rounded-3xl p-5 sm:p-7 space-y-4">
+      <div class="space-y-1">
+        <h2 class="text-lg sm:text-xl font-extrabold text-white">📖 Como instalar no Android (em 1 minuto)</h2>
+        <p class="text-xs sm:text-sm text-slate-400">
+          Siga estes 4 passos simples — você só precisa fazer isso uma única vez:
+        </p>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-800">
+          <div class="step-badge">1</div>
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-bold text-white">Baixe o arquivo APK</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Toque no botão verde <strong>"⬇️ Baixar MycoCampus3D.apk"</strong> acima. Se o navegador perguntar <em>"Fazer o download mesmo assim?"</em>, toque em <strong>Fazer download</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-800">
+          <div class="step-badge">2</div>
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-bold text-white">Abra o arquivo baixado</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Quando terminar, toque em <strong>Abrir</strong> na barra do navegador ou procure por <strong>MycoCampus3D.apk</strong> na pasta <em>Downloads / Meus Arquivos</em> do celular.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-800">
+          <div class="step-badge">3</div>
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-bold text-white">Permita a instalação</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Se o Android pedir permissão para <em>"Instalar apps desconhecidos"</em>, toque em <strong>Configurações</strong>, ative <strong>Permitir desta fonte</strong>, volte e toque em <strong>Instalar</strong>.
+              <span class="block mt-1 text-slate-400">Se aparecer aviso do Play Protect por ser fora da Play Store, toque em <strong>Mais detalhes → Instalar assim mesmo</strong>.</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/75 border border-slate-800">
+          <div class="step-badge">4</div>
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-bold text-white">Pronto! Só abrir e jogar</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              O ícone do <strong>MycoCampus3D</strong> vai aparecer na tela do celular. Todas as novidades do campus entram automaticamente e, se sair uma versão nova do app, o próprio jogo te avisa!
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-slate-500 pb-4">
+      🍄 MycoCampus3D — Universidade 3D do Cultivo de Cogumelos • Alquimistas Mágicos
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      var APP_PACKAGE = 'br.com.alquimistasmagicos.mycocampus3d';
+      var DEFAULT_APK_URL = 'https://github.com/gabrielweb7/MycoCampus3D/releases/latest/download/MycoCampus3D.apk';
+      var ua = navigator.userAgent || '';
+      var isAndroid = /Android/i.test(ua);
+      var params = new URLSearchParams(window.location.search || '');
+      var noAutoLaunch = params.get('noapp') === '1';
+
+      if (!isAndroid) {
+        var pcBanner = document.getElementById('pc-banner');
+        if (pcBanner) pcBanner.classList.remove('hidden');
+      }
+
+      function buildFallbackUrl() {
+        var base = window.location.origin + window.location.pathname;
+        return base + '?noapp=1';
+      }
+
+      function buildIntentUrl() {
+        var fallback = encodeURIComponent(buildFallbackUrl());
+        return 'intent://open#Intent;scheme=mycocampus3d;package=' + APP_PACKAGE + ';S.browser_fallback_url=' + fallback + ';end';
+      }
+
+      function openInstalledApk(isAuto) {
+        var supportsIntentFallback = /Chrome|SamsungBrowser|EdgA|OPR|Brave/i.test(ua) && !/Firefox/i.test(ua);
+        if (supportsIntentFallback) {
+          window.location.href = buildIntentUrl();
+          return;
+        }
+        if (!isAuto) {
+          window.location.href = 'mycocampus3d://open';
+        }
+      }
+
+      // Se entrou no site pelo navegador do Android, tenta abrir o APK instalado direto (uma única vez por sessão)
+      if (isAndroid && !noAutoLaunch) {
+        var alreadyTried = false;
+        try {
+          alreadyTried = sessionStorage.getItem('myco_apk_autolaunch_tried') === '1';
+        } catch (e) {}
+
+        var canAutoIntent = /Chrome|SamsungBrowser|EdgA|OPR|Brave/i.test(ua) && !/Firefox|FBAN|FBAV|Instagram|WhatsApp/i.test(ua);
+        if (!alreadyTried && canAutoIntent) {
+          try {
+            sessionStorage.setItem('myco_apk_autolaunch_tried', '1');
+          } catch (e) {}
+          var openBanner = document.getElementById('opening-app-banner');
+          if (openBanner) openBanner.classList.remove('hidden');
+          setTimeout(function () {
+            openInstalledApk(true);
+          }, 180);
+        }
+      }
+
+      var openBtn = document.getElementById('btn-open-installed-apk');
+      if (openBtn) {
+        openBtn.addEventListener('click', function () {
+          openInstalledApk(false);
+        });
+      }
+
+      var downloadBtn = document.getElementById('btn-download-apk');
+      var copyBtn = document.getElementById('btn-copy-apk-link');
+      var currentApkUrl = DEFAULT_APK_URL;
+
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(currentApkUrl).then(function () {
+              copyBtn.textContent = '✅ Link copiado!';
+            }).catch(function () {
+              copyBtn.textContent = currentApkUrl;
+            });
+          } else {
+            copyBtn.textContent = currentApkUrl;
+          }
+        });
+      }
+
+      // Carrega versão e link mais recentes direto do servidor (sem cache)
+      fetch('api/apk-version.php?_t=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !data.apkUrl) return;
+          currentApkUrl = data.apkUrl;
+          if (downloadBtn) downloadBtn.setAttribute('href', data.apkUrl);
+          var verText = document.getElementById('apk-version-text');
+          if (verText && data.versionName) {
+            verText.textContent = 'Versão v' + data.versionName + ' (build ' + (data.versionCode || 1) + ') • Atualização automática';
+          }
+          var notesBox = document.getElementById('apk-notes-box');
+          if (notesBox && data.notes) {
+            notesBox.textContent = '📝 Novidades desta versão: ' + data.notes;
+            notesBox.classList.remove('hidden');
+          }
+        })
+        .catch(function () {});
+    })();
+  </script>
+</body>
+
+</html>

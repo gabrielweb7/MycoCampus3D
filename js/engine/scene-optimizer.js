@@ -60,7 +60,7 @@ function collectDynamicObjects(sim) {
   markDynamicTree(sim.fpsArmGroup);
   markDynamicTree(sim.fpsLeftArmGroup);
   markDynamicTree(sim.placementGhost && sim.placementGhost.root);
-  markDynamicTree(sim.hover3dBadge && sim.hover3dBadge.mesh);
+  markDynamicTree(sim.hover3dBadge && (sim.hover3dBadge.sprite || sim.hover3dBadge.mesh));
   markDynamicTree(sim.thermoLaserLine);
   markDynamicTree(sim.thermoLaserDot);
   markDynamicTree(sim.snowboardGroup);
@@ -77,7 +77,9 @@ function collectDynamicObjects(sim) {
   markDynamicTree(sim.envSun && sim.envSun.target);
   markDynamicTree(sim.envHemi);
   markDynamicTree(sim.rainbowMesh);
+  markDynamicTree(sim.envCloudsInst);
   markTreeList(sim.envClouds);
+  markDynamicTree(sim.confettiMesh);
 
   // 3. Portas que abrem e fecham
   markTreeList(sim.campusDoors, (d) => d && d.pivot);
@@ -98,8 +100,8 @@ function collectDynamicObjects(sim) {
 
   // 5. Entidades, partículas, veículos e grupos com distance culling
   markTreeList(sim.sportBalls, (sp) => sp && sp.mesh);
-  markTreeList(sim.pastureCows, (cw) => cw && cw.group);
-  markTreeList(sim.cowPoops, (cp) => cp && cp.mesh);
+  markTreeList(sim.pastureCows, (cw) => cw && (cw.mesh || cw.group));
+  markTreeList(sim.cowPoops, (cp) => cp && (cp.group || cp.mesh));
   markTreeList(sim.wildMushrooms, (wm) => wm && wm.group);
   markTreeList(sim.forestCullGroups, (fg) => fg && fg.obj);
   markTreeList(sim.mushroomCullGroups, (mg) => mg && mg.obj);
@@ -379,7 +381,7 @@ function mergeStaticWorld(sim, dynamicObjects, protectedMaterials) {
       if (origGeo) {
         const left = (geoRefCounts.get(origGeo) || 1) - 1;
         geoRefCounts.set(origGeo, left);
-        if (left <= 0 && !origGeo.boundsTree) origGeo.dispose();
+        if (left <= 0 && !origGeo.boundsTree && !(origGeo.userData && origGeo.userData.shared)) origGeo.dispose();
       }
       mergedSourceCount++;
     }
@@ -388,6 +390,7 @@ function mergeStaticWorld(sim, dynamicObjects, protectedMaterials) {
   if (mergedChunkCount > 0) {
     scene.add(mergedGroup);
     mergedGroup.updateMatrixWorld(true);
+    sim.staticMergedGroup = mergedGroup;
   }
   return mergedSourceCount;
 }

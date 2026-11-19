@@ -3,12 +3,50 @@
  * Esterilizacao minima: 1h20m (80 min).
  */
 
-import { registerPickable } from './item-registry.js';
+import { getCachedCanvasTexture, mergeStaticGeos, registerPickable } from './item-registry.js';
 import { updateSpawnVisual } from './spawn-containers.js';
 import { createCultureLifecycleState } from './culture-lifecycle.js';
 import { attachPdaMediumCtrl } from './pda-mix.js';
 
 const THREE = window.THREE;
+
+let sharedPP5Assets = null;
+function getPP5SharedAssets() {
+  if (sharedPP5Assets) return sharedPP5Assets;
+  const bodyGeo = new THREE.CylinderGeometry(0.044, 0.036, 0.056, 18, 1, true);
+  const botGeo = new THREE.CylinderGeometry(0.036, 0.036, 0.004, 18);
+  const cupShellGeo = mergeStaticGeos([
+    { geo: bodyGeo, y: 0.028 },
+    { geo: botGeo, y: 0.002 }
+  ]);
+  bodyGeo.dispose();
+  botGeo.dispose();
+
+  const flocaoTex = getCachedCanvasTexture('pp5_flocao_128', 128, 128, (fctx) => {
+    fctx.fillStyle = '#f59e0b'; fctx.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 220; i++) {
+      fctx.fillStyle = i % 3 === 0 ? '#d97706' : '#fde047';
+      fctx.fillRect(Math.random() * 124, Math.random() * 124, 3, 3);
+    }
+  });
+
+  sharedPP5Assets = {
+    cupShellGeo,
+    lidGeo: new THREE.CylinderGeometry(0.047, 0.046, 0.008, 18),
+    flocaoGeo: new THREE.CylinderGeometry(0.040, 0.033, 0.032, 16),
+    mycGeo: new THREE.CylinderGeometry(0.041, 0.034, 0.034, 16),
+    liquidGeo: new THREE.CylinderGeometry(0.032, 0.030, 0.034, 16),
+    ppMat: new THREE.MeshStandardMaterial({
+      color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.22, depthWrite: false
+    }),
+    flocaoMat: new THREE.MeshStandardMaterial({ map: flocaoTex, roughness: 0.85 })
+  };
+  Object.keys(sharedPP5Assets).forEach((k) => {
+    const v = sharedPP5Assets[k];
+    if (v && v.userData) v.userData.shared = true;
+  });
+  return sharedPP5Assets;
+}
 
 export const PP5_STACK_SPACING = 0.062;
 export const PP5_STACK_ALIGNMENT_RADIUS = 0.045;
@@ -45,48 +83,39 @@ export function getPP5Meta(filled) {
 }
 
 export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
+  const A = getPP5SharedAssets();
   const cg = new THREE.Group();
-  const ppMat = new THREE.MeshStandardMaterial({
-    color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.22, depthWrite: false
-  });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.036, 0.056, 18, 1, true), ppMat);
-  body.position.y = 0.028;
-  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.004, 18), ppMat);
-  bottom.position.y = 0.002;
   const lidPivot = new THREE.Group();
   lidPivot.position.set(-0.044, 0.058, 0);
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.046, 0.008, 18), ppMat);
+  const lid = new THREE.Mesh(A.lidGeo, A.ppMat);
   lid.position.set(0.044, 0, 0);
   lidPivot.add(lid);
 
-  // Textura flocao de milho
-  const fc = document.createElement('canvas'); fc.width = 128; fc.height = 128;
-  const fctx = fc.getContext('2d');
-  fctx.fillStyle = '#f59e0b'; fctx.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 220; i++) {
-    fctx.fillStyle = i % 3 === 0 ? '#d97706' : '#fde047';
-    fctx.fillRect(Math.random() * 124, Math.random() * 124, 3, 3);
-  }
-  const flocaoMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.040, 0.033, 0.032, 16),
-    new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(fc), roughness: 0.85 })
-  );
+  const flocaoMesh = new THREE.Mesh(A.flocaoGeo, A.flocaoMat);
   flocaoMesh.position.y = 0.018;
   flocaoMesh.visible = !!filled;
 
   const mycOverlay = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.041, 0.034, 0.034, 16),
+    A.mycGeo,
     new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 })
   );
   mycOverlay.position.y = 0.019;
   mycOverlay.visible = false;
 
   const liquidMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.032, 0.030, 0.034, 16),
+    A.liquidGeo,
     new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.62, roughness: 0.14 })
   );
   liquidMesh.visible = false;
-  cg.add(flocaoMesh, liquidMesh, mycOverlay, body, bottom, lidPivot);
+  if (A.cupShellGeo) {
+    cg.add(flocaoMesh, liquidMesh, mycOverlay, new THREE.Mesh(A.cupShellGeo, A.ppMat), lidPivot);
+  } else {
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.036, 0.056, 18, 1, true), A.ppMat);
+    body.position.y = 0.028;
+    const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.004, 18), A.ppMat);
+    bottom.position.y = 0.002;
+    cg.add(flocaoMesh, liquidMesh, mycOverlay, body, bottom, lidPivot);
+  }
   cg.userData.liquidCtrl = {
     volMl: 0,
     maxMl: 100,

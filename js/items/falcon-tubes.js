@@ -3,10 +3,48 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { registerPickable, makeScaleTex, updateItemBounds } from './item-registry.js';
+import { registerPickable, makeScaleTex, mergeStaticGeos, updateItemBounds } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
 
 const THREE = window.THREE;
+
+const falconAssetCache = {};
+function getFalconAssets(is50) {
+  const key = is50 ? '50' : '15';
+  if (falconAssetCache[key]) return falconAssetCache[key];
+  const r = is50 ? 0.024 : 0.015;
+  const bodyH = is50 ? 0.125 : 0.115;
+  const coneH = is50 ? 0.032 : 0.028;
+  const bodyGeo = new THREE.CylinderGeometry(r, r, bodyH, 16, 1, true);
+  const coneGeo = new THREE.ConeGeometry(r, coneH, 16, 1, true);
+  const shellGeo = mergeStaticGeos([
+    { geo: bodyGeo, y: coneH + bodyH / 2 },
+    { geo: coneGeo, y: coneH / 2, rx: Math.PI }
+  ]);
+  bodyGeo.dispose();
+  coneGeo.dispose();
+
+  const maxMl = is50 ? 50 : 15;
+  const assets = {
+    shellGeo,
+    gradGeo: new THREE.CylinderGeometry(r + 0.0005, r + 0.0005, bodyH * 0.85, 14, 1, true),
+    liqGeo: new THREE.CylinderGeometry(r * 0.86, r * 0.86, bodyH * 0.9, 14),
+    capGeo: new THREE.CylinderGeometry(r * 1.18, r * 1.18, 0.024, 16),
+    ppMat: new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9, transparent: true, opacity: 0.36, roughness: 0.15, depthWrite: false
+    }),
+    gradMat: new THREE.MeshBasicMaterial({
+      map: makeScaleTex(maxMl, is50 ? 10 : 5, maxMl + 'ml'),
+      transparent: true, opacity: 0.88, depthWrite: false, side: THREE.DoubleSide
+    }),
+    capMat: new THREE.MeshStandardMaterial({ color: is50 ? 0xea580c : 0x2563eb, roughness: 0.38 })
+  };
+  Object.keys(assets).forEach((k) => {
+    if (assets[k] && assets[k].userData) assets[k].userData.shared = true;
+  });
+  falconAssetCache[key] = assets;
+  return assets;
+}
 
 export function getFalconMeta(maxMl) {
   const is50 = maxMl >= 50;
@@ -34,39 +72,33 @@ export function getFalconMeta(maxMl) {
 
 export function makeFalconTube(ctx, id, maxMl, px, py, pz, initMl) {
   const is50 = maxMl >= 50;
+  const A = getFalconAssets(is50);
   const r = is50 ? 0.024 : 0.015;
   const bodyH = is50 ? 0.125 : 0.115;
   const coneH = is50 ? 0.032 : 0.028;
-  const capColor = is50 ? 0xea580c : 0x2563eb; // Tampa laranja (50ml) ou azul (15ml)
 
   const fg = new THREE.Group();
-  const ppMat = new THREE.MeshStandardMaterial({
-    color: 0xf1f5f9, transparent: true, opacity: 0.36, roughness: 0.15, depthWrite: false
-  });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, bodyH, 16, 1, true), ppMat);
-  body.position.y = coneH + bodyH / 2;
-  const cone = new THREE.Mesh(new THREE.ConeGeometry(r, coneH, 16, 1, true), ppMat);
-  cone.rotation.x = Math.PI;
-  cone.position.y = coneH / 2;
-
-  const gradCyl = new THREE.Mesh(
-    new THREE.CylinderGeometry(r + 0.0005, r + 0.0005, bodyH * 0.85, 14, 1, true),
-    new THREE.MeshBasicMaterial({ map: makeScaleTex(maxMl, is50 ? 10 : 5, maxMl + 'ml'), transparent: true, opacity: 0.88, depthWrite: false, side: THREE.DoubleSide })
-  );
+  const gradCyl = new THREE.Mesh(A.gradGeo, A.gradMat);
   gradCyl.position.y = coneH + bodyH * 0.45;
 
   const liqMesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(r * 0.86, r * 0.86, bodyH * 0.9, 14),
+    A.liqGeo,
     new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.65, roughness: 0.12 })
   );
 
-  const cap = new THREE.Mesh(
-    new THREE.CylinderGeometry(r * 1.18, r * 1.18, 0.024, 16),
-    new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.38 })
-  );
+  const cap = new THREE.Mesh(A.capGeo, A.capMat);
   cap.position.y = coneH + bodyH + 0.012;
 
-  fg.add(liqMesh, body, cone, gradCyl, cap);
+  if (A.shellGeo) {
+    fg.add(liqMesh, new THREE.Mesh(A.shellGeo, A.ppMat), gradCyl, cap);
+  } else {
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, bodyH, 16, 1, true), A.ppMat);
+    body.position.y = coneH + bodyH / 2;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, coneH, 16, 1, true), A.ppMat);
+    cone.rotation.x = Math.PI;
+    cone.position.y = coneH / 2;
+    fg.add(liqMesh, body, cone, gradCyl, cap);
+  }
   fg.userData.liquidCtrl = {
     volMl: initMl || 0,
     maxMl,

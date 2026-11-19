@@ -3,9 +3,27 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { registerPickable } from './item-registry.js';
+import { getCachedCanvasTexture, registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
+
+let sharedRackAssets = null;
+function getRackSharedAssets() {
+  if (sharedRackAssets) return sharedRackAssets;
+  sharedRackAssets = {
+    lblGeo: new THREE.PlaneGeometry(0.24, 0.12),
+    microOuterGeo: new THREE.CylinderGeometry(0.055, 0.055, 0.032, 18),
+    microCoreGeo: new THREE.CylinderGeometry(0.036, 0.036, 0.034, 14),
+    paraOuterGeo: new THREE.CylinderGeometry(0.055, 0.055, 0.055, 18),
+    paraCoreGeo: new THREE.CylinderGeometry(0.036, 0.036, 0.057, 14),
+    microOuterMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6 }),
+    microCoreMat: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.5 }),
+    paraOuterMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6 }),
+    paraCoreMat: new THREE.MeshStandardMaterial({ color: 0x7c3aed, roughness: 0.5 })
+  };
+  Object.keys(sharedRackAssets).forEach((k) => { sharedRackAssets[k].userData.shared = true; });
+  return sharedRackAssets;
+}
 
 export function addStoragePortaPalletRack(ctx, rx, rz, totalLen, depth, rotY) {
   const floorY = 0.12;
@@ -97,6 +115,7 @@ export function addStoragePortaPalletRack(ctx, rx, rz, totalLen, depth, rotY) {
 }
 
 export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
+  const A = getRackSharedAssets();
   const sg = new THREE.Group();
   const isWheat = kind === 'wheat';
   const isSorghum = kind === 'sorghum';
@@ -104,22 +123,23 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
   const bagColor = isWheat ? 0xeab308 : (isSorghum ? 0x991b1b : (isGrain ? 0xd97706 : 0x78350f));
   const bag = makeBox(0.30, 0.42, 0.22, bagColor, { roughness: 0.85 });
   bag.position.y = 0.21;
-  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
-  const sctx = c.getContext('2d');
-  sctx.fillStyle = '#f8fafc'; sctx.fillRect(0, 0, 256, 128);
-  sctx.fillStyle = isWheat ? '#ca8a04' : (isSorghum ? '#991b1b' : (isGrain ? '#b45309' : '#065f46'));
-  sctx.fillRect(0, 0, 256, 36);
-  sctx.fillStyle = '#ffffff'; sctx.font = 'bold 20px system-ui, sans-serif';
-  sctx.textAlign = 'center';
-  const titleTxt = isWheat ? 'GRÃOS • TRIGO 5KG' : (isSorghum ? 'GRÃOS • SORGO 5KG' : (isGrain ? 'GRÃOS • MILHO 5KG' : 'SUBSTRATO BULK 5KG'));
-  sctx.fillText(titleTxt, 128, 25);
-  sctx.fillStyle = '#1e293b'; sctx.font = 'bold 18px system-ui, sans-serif';
-  sctx.fillText(isGrain ? 'Spawn / Semente' : 'Serragem + Fibra Coco', 128, 72);
-  sctx.fillStyle = '#64748b'; sctx.font = '15px system-ui, sans-serif';
-  sctx.fillText('Uso Laboratorial • Estoque', 128, 102);
+  const variantKey = isWheat ? 'wheat' : (isSorghum ? 'sorghum' : (isGrain ? 'grain' : 'bulk'));
+  const lblTex = getCachedCanvasTexture(`substrate_bag_lbl_${variantKey}`, 256, 128, (sctx) => {
+    sctx.fillStyle = '#f8fafc'; sctx.fillRect(0, 0, 256, 128);
+    sctx.fillStyle = isWheat ? '#ca8a04' : (isSorghum ? '#991b1b' : (isGrain ? '#b45309' : '#065f46'));
+    sctx.fillRect(0, 0, 256, 36);
+    sctx.fillStyle = '#ffffff'; sctx.font = 'bold 20px system-ui, sans-serif';
+    sctx.textAlign = 'center';
+    const titleTxt = isWheat ? 'GRÃOS • TRIGO 5KG' : (isSorghum ? 'GRÃOS • SORGO 5KG' : (isGrain ? 'GRÃOS • MILHO 5KG' : 'SUBSTRATO BULK 5KG'));
+    sctx.fillText(titleTxt, 128, 25);
+    sctx.fillStyle = '#1e293b'; sctx.font = 'bold 18px system-ui, sans-serif';
+    sctx.fillText(isGrain ? 'Spawn / Semente' : 'Serragem + Fibra Coco', 128, 72);
+    sctx.fillStyle = '#64748b'; sctx.font = '15px system-ui, sans-serif';
+    sctx.fillText('Uso Laboratorial • Estoque', 128, 102);
+  });
   const lbl = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.24, 0.12),
-    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) })
+    A.lblGeo,
+    new THREE.MeshBasicMaterial({ map: lblTex })
   );
   lbl.position.set(0, 0.24, 0.112);
   sg.add(bag, lbl);
@@ -154,16 +174,17 @@ export function makeGlovesBox(ctx, id, px, py, pz) {
 }
 
 export function makeTapeRoll(ctx, id, kind, px, py, pz) {
+  const A = getRackSharedAssets();
   const tg = new THREE.Group();
   const isMicro = kind === 'micropore';
   const outer = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.055, 0.055, isMicro ? 0.032 : 0.055, 18),
-    new THREE.MeshStandardMaterial({ color: isMicro ? 0xf8fafc : 0xe2e8f0, roughness: 0.6 })
+    isMicro ? A.microOuterGeo : A.paraOuterGeo,
+    isMicro ? A.microOuterMat : A.paraOuterMat
   );
   outer.position.y = isMicro ? 0.016 : 0.0275;
   const core = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.036, 0.036, isMicro ? 0.034 : 0.057, 14),
-    new THREE.MeshStandardMaterial({ color: isMicro ? 0x0284c7 : 0x7c3aed, roughness: 0.5 })
+    isMicro ? A.microCoreGeo : A.paraCoreGeo,
+    isMicro ? A.microCoreMat : A.paraCoreMat
   );
   core.position.y = outer.position.y;
   tg.add(outer, core);

@@ -1,11 +1,22 @@
 {
   "name": "mycocampus3d",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "check": "node tests/check-syntax.mjs",
-    "sync-version": "node scripts/sync-version.mjs"
+    "sync-version": "node scripts/sync-version.mjs",
+    "apk:prepare": "node scripts/prepare-apk.mjs",
+    "apk:sync": "node scripts/prepare-apk.mjs && npx cap sync android",
+    "apk:build": "node scripts/build-apk-local.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2"
   }
 }

@@ -3,9 +3,46 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { registerPickable } from './item-registry.js';
+import { getCachedCanvasTexture, registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
+
+let sharedScalpelAssets = null;
+function getScalpelSharedAssets() {
+  if (sharedScalpelAssets) return sharedScalpelAssets;
+  const bladeTex = getCachedCanvasTexture('scalpel_blade_pack_24', 128, 64, (pctx) => {
+    pctx.fillStyle = '#db2777'; pctx.fillRect(0, 0, 128, 64);
+    pctx.fillStyle = '#1e3a8a'; pctx.fillRect(88, 0, 40, 64);
+    pctx.fillStyle = '#ffffff'; pctx.font = 'bold 14px sans-serif';
+    pctx.fillText('LÂMINA #24', 8, 28);
+    pctx.font = 'bold 11px sans-serif';
+    pctx.fillText('ESTÉRIL', 14, 48);
+  });
+  sharedScalpelAssets = {
+    steelMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.90, roughness: 0.18 }),
+    bladeMat: new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0x475569,
+      emissiveIntensity: 0.35,
+      metalness: 0.72,
+      roughness: 0.12
+    }),
+    hitMat: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+    bladeTex,
+    handleGeo: new THREE.BoxGeometry(0.012, 0.004, 0.125),
+    neckGeo: new THREE.BoxGeometry(0.007, 0.003, 0.026),
+    bladeGeo: new THREE.BoxGeometry(0.011, 0.003, 0.044),
+    chunkGeo: new THREE.BoxGeometry(0.0085, 0.0045, 0.011),
+    pickHitGeo: new THREE.BoxGeometry(0.055, 0.036, 0.21),
+    packGeo: new THREE.BoxGeometry(0.028, 0.004, 0.085),
+    packHitGeo: new THREE.BoxGeometry(0.052, 0.028, 0.11)
+  };
+  Object.keys(sharedScalpelAssets).forEach((k) => {
+    const v = sharedScalpelAssets[k];
+    if (v && v.userData) v.userData.shared = true;
+  });
+  return sharedScalpelAssets;
+}
 
 export const SCALPEL_META = {
   category: 'inoculation',
@@ -79,36 +116,23 @@ export function stepScalpels(ctx, now) {
 }
 
 export function makeScalpel(ctx, id, px, py, pz) {
+  const A = getScalpelSharedAssets();
   const sg = new THREE.Group();
-  const steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.90, roughness: 0.18 });
-  const bladeMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    emissive: 0x475569,
-    emissiveIntensity: 0.35,
-    metalness: 0.72,
-    roughness: 0.12
-  });
 
-  const handle = makeBox(0.012, 0.004, 0.125, steelMat);
+  const handle = new THREE.Mesh(A.handleGeo, A.steelMat);
   handle.position.set(0, 0.006, 0.02);
-  const neck = makeBox(0.007, 0.003, 0.026, steelMat);
+  const neck = new THREE.Mesh(A.neckGeo, A.steelMat);
   neck.position.set(0, 0.006, -0.052);
-  const blade = makeBox(0.011, 0.003, 0.044, bladeMat);
+  const blade = new THREE.Mesh(A.bladeGeo, A.bladeMat);
   blade.position.set(0, 0.006, -0.084);
-  const myceliumChunk = makeBox(
-    0.0085,
-    0.0045,
-    0.011,
+  const myceliumChunk = new THREE.Mesh(
+    A.chunkGeo,
     new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xe2e8f0, emissiveIntensity: 0.25, roughness: 0.85 })
   );
   myceliumChunk.position.set(0, 0.0085, -0.103);
   myceliumChunk.visible = false;
-  const pickHitbox = makeBox(
-    0.055,
-    0.036,
-    0.21,
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
-  );
+  const pickHitbox = new THREE.Mesh(A.pickHitGeo, A.hitMat);
+  pickHitbox.visible = false;
   pickHitbox.position.set(0, 0.016, -0.02);
 
   sg.add(handle, neck, blade, myceliumChunk, pickHitbox);
@@ -141,24 +165,12 @@ export function markBladePackEmpty(item) {
 }
 
 export function makeScalpelBladePack(ctx, id, px, py, pz) {
+  const A = getScalpelSharedAssets();
   const pg = new THREE.Group();
-  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
-  const pctx = c.getContext('2d');
-  pctx.fillStyle = '#db2777'; pctx.fillRect(0, 0, 128, 64);
-  pctx.fillStyle = '#1e3a8a'; pctx.fillRect(88, 0, 40, 64);
-  pctx.fillStyle = '#ffffff'; pctx.font = 'bold 14px sans-serif';
-  pctx.fillText('LÂMINA #24', 8, 28);
-  pctx.font = 'bold 11px sans-serif';
-  pctx.fillText('ESTÉRIL', 14, 48);
-
-  const pack = makeBox(0.028, 0.004, 0.085, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.35 }));
+  const pack = new THREE.Mesh(A.packGeo, new THREE.MeshStandardMaterial({ map: A.bladeTex, roughness: 0.35 }));
   pack.position.y = 0.004;
-  const packHitbox = makeBox(
-    0.052,
-    0.028,
-    0.11,
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
-  );
+  const packHitbox = new THREE.Mesh(A.packHitGeo, A.hitMat);
+  packHitbox.visible = false;
   packHitbox.position.y = 0.014;
   pg.add(pack, packHitbox);
   pg.userData.isScalpelBladePack = true;

@@ -3,7 +3,8 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { registerPickable } from './item-registry.js';
+import { getCachedCanvasTexture, registerPickable } from './item-registry.js';
+import { isAsepticWorkArea } from './laminar-hood.js';
 import {
   createCultureLifecycleState,
   getCultureRemainingDays,
@@ -136,42 +137,81 @@ export function updateSpawnVisual(item) {
   }
 }
 
+let sharedSpawnAssets = null;
+function getSpawnSharedAssets() {
+  if (sharedSpawnAssets) return sharedSpawnAssets;
+  const cornTexFilled = getCachedCanvasTexture('spawn_jar_corn_filled', 128, 128, (jctx) => {
+    jctx.fillStyle = '#eab308'; jctx.fillRect(0, 0, 128, 128);
+    for (let k = 0; k < 140; k++) {
+      jctx.fillStyle = k % 3 === 0 ? '#ca8a04' : '#fde047';
+      jctx.beginPath(); jctx.arc(Math.random() * 128, Math.random() * 128, 4 + Math.random() * 3, 0, Math.PI * 2); jctx.fill();
+    }
+  });
+  const cornTexEmpty = getCachedCanvasTexture('spawn_jar_corn_empty', 128, 128, (jctx) => {
+    jctx.fillStyle = '#d97706'; jctx.fillRect(0, 0, 128, 128);
+    for (let k = 0; k < 140; k++) {
+      jctx.fillStyle = k % 3 === 0 ? '#ca8a04' : '#fde047';
+      jctx.beginPath(); jctx.arc(Math.random() * 128, Math.random() * 128, 4 + Math.random() * 3, 0, Math.PI * 2); jctx.fill();
+    }
+  });
+  const bagGrainTex = getCachedCanvasTexture('spawn_bag_grains', 128, 128, (bctx) => {
+    bctx.fillStyle = '#eab308'; bctx.fillRect(0, 0, 128, 128);
+    for (let g = 0; g < 180; g++) {
+      bctx.fillStyle = g % 4 === 0 ? '#78350f' : '#fde047';
+      bctx.fillRect(Math.random() * 124, Math.random() * 124, 3, 4);
+    }
+  });
+
+  sharedSpawnAssets = {
+    jarGlassGeo: new THREE.CylinderGeometry(0.11, 0.11, 0.24, 16),
+    jarTntGeo: new THREE.CylinderGeometry(0.098, 0.116, 0.036, 16, 1, true),
+    jarLidGeo: new THREE.CylinderGeometry(0.096, 0.096, 0.026, 16),
+    jarHoleGeo: new THREE.CylinderGeometry(0.022, 0.022, 0.028, 12),
+    jarCornGeo: new THREE.CylinderGeometry(0.096, 0.096, 0.195, 16),
+    jarMycGeo: new THREE.CylinderGeometry(0.099, 0.099, 0.198, 16),
+    bagOuterGeo: new THREE.BoxGeometry(0.24, 0.36, 0.18),
+    bagFilterGeo: new THREE.BoxGeometry(0.09, 0.09, 0.012),
+    bagPortGeo: new THREE.BoxGeometry(0.036, 0.036, 0.016),
+    bagSealGeo: new THREE.BoxGeometry(0.23, 0.016, 0.19),
+    bagBlockGeo: new THREE.BoxGeometry(0.215, 0.215, 0.155),
+    bagMycGeo: new THREE.BoxGeometry(0.222, 0.22, 0.162),
+    jarGlassMat: new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.34, roughness: 0.1, metalness: 0.1, depthWrite: false }),
+    tntMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.92, side: THREE.DoubleSide }),
+    lidFilledMat: new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.4, metalness: 0.25 }),
+    lidEmptyMat: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.25 }),
+    holeMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 }),
+    cornMatFilled: new THREE.MeshStandardMaterial({ map: cornTexFilled, roughness: 0.75 }),
+    cornMatEmpty: new THREE.MeshStandardMaterial({ map: cornTexEmpty, roughness: 0.75 }),
+    bagFilmFilledMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.2, depthWrite: false }),
+    bagFilmEmptyMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.28, roughness: 0.2, depthWrite: false }),
+    bagFilterMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }),
+    bagPortMat: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 }),
+    bagSealMat: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.48 }),
+    bagGrainMat: new THREE.MeshStandardMaterial({ map: bagGrainTex, roughness: 0.85 })
+  };
+  Object.keys(sharedSpawnAssets).forEach((k) => {
+    const v = sharedSpawnAssets[k];
+    if (v && v.userData) v.userData.shared = true;
+  });
+  return sharedSpawnAssets;
+}
+
 export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
+  const A = getSpawnSharedAssets();
   const jg = new THREE.Group();
-  const glass = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.11, 0.11, 0.24, 16),
-    new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.34, roughness: 0.1, metalness: 0.1, depthWrite: false })
-  );
+  const glass = new THREE.Mesh(A.jarGlassGeo, A.jarGlassMat);
   glass.position.y = 0.12;
-  // Folha de TNT branca entre o gargalo e a tampa
-  const tntCloth = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.098, 0.116, 0.036, 16, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.92, side: THREE.DoubleSide })
-  );
+  const tntCloth = new THREE.Mesh(A.jarTntGeo, A.tntMat);
   tntCloth.position.y = 0.242;
-  // Tampa preta com furo central para troca gasosa (TNT visivel no furo)
-  const lid = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.096, 0.096, 0.026, 16),
-    new THREE.MeshStandardMaterial({ color: filled ? 0x111827 : 0x334155, roughness: 0.4, metalness: 0.25 })
-  );
+  const lid = new THREE.Mesh(A.jarLidGeo, filled ? A.lidFilledMat : A.lidEmptyMat);
   lid.position.y = 0.258;
-  const lidHole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.022, 0.022, 0.028, 12),
-    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 })
-  );
+  const lidHole = new THREE.Mesh(A.jarHoleGeo, A.holeMat);
   lidHole.position.y = 0.258;
   jg.add(glass, tntCloth, lid, lidHole);
-  const jc = document.createElement('canvas'); jc.width = 128; jc.height = 128;
-  const jctx = jc.getContext('2d');
-  jctx.fillStyle = filled ? '#eab308' : '#d97706'; jctx.fillRect(0, 0, 128, 128);
-  for (let k = 0; k < 140; k++) {
-    jctx.fillStyle = k % 3 === 0 ? '#ca8a04' : '#fde047';
-    jctx.beginPath(); jctx.arc(Math.random() * 128, Math.random() * 128, 4 + Math.random() * 3, 0, Math.PI * 2); jctx.fill();
-  }
-  const corn = new THREE.Mesh(new THREE.CylinderGeometry(0.096, 0.096, 0.195, 16), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(jc), roughness: 0.75 }));
+  const corn = new THREE.Mesh(A.jarCornGeo, filled ? A.cornMatFilled : A.cornMatEmpty);
   corn.position.y = 0.108;
   const mycOverlay = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.099, 0.099, 0.198, 16),
+    A.jarMycGeo,
     new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 })
   );
   mycOverlay.position.y = 0.108;
@@ -184,7 +224,7 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
     filled: !!filled,
     fillGrams: filled ? 460 : 0,
     fillMesh: corn,
-    minSterilizeMin: 120, // 2h minimo para milho de pipoca
+    minSterilizeMin: 120,
     sterilizeProgress: filled ? 100 : 0,
     baseLabel: filled ? 'Vidro 800ml (Milho)' : 'Vidro 800ml Vazio',
     sterilized: filled, inoculated: filled,
@@ -200,28 +240,30 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
 }
 
 export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
+  const A = getSpawnSharedAssets();
   const bg = new THREE.Group();
-  const filmMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: filled ? 0.34 : 0.28, roughness: 0.2, depthWrite: false });
-  const outer = makeBox(0.24, 0.36, 0.18, filmMat, { noShadow: true });
+  const outer = new THREE.Mesh(A.bagOuterGeo, filled ? A.bagFilmFilledMat : A.bagFilmEmptyMat);
+  outer.receiveShadow = true;
   outer.position.y = 0.18;
-  const filterPatch = makeBox(0.09, 0.09, 0.012, 0xffffff, { noShadow: true });
+  const filterPatch = new THREE.Mesh(A.bagFilterGeo, A.bagFilterMat);
+  filterPatch.receiveShadow = true;
   filterPatch.position.set(0, 0.30, 0.092);
-  const injPort = makeBox(0.036, 0.036, 0.016, 0x64748b, { noShadow: true });
+  const injPort = new THREE.Mesh(A.bagPortGeo, A.bagPortMat);
+  injPort.receiveShadow = true;
   injPort.position.set(0, 0.11, 0.094);
-  const sealBand = makeBox(0.23, 0.016, 0.19, 0xf59e0b, { noShadow: true, roughness: 0.48 });
+  const sealBand = new THREE.Mesh(A.bagSealGeo, A.bagSealMat);
+  sealBand.receiveShadow = true;
   sealBand.position.y = 0.355;
   sealBand.visible = !!filled;
   bg.add(outer, filterPatch, injPort, sealBand);
-  const bc = document.createElement('canvas'); bc.width = 128; bc.height = 128;
-  const bctx = bc.getContext('2d');
-  bctx.fillStyle = '#eab308'; bctx.fillRect(0, 0, 128, 128);
-  for (let g = 0; g < 180; g++) {
-    bctx.fillStyle = g % 4 === 0 ? '#78350f' : '#fde047';
-    bctx.fillRect(Math.random() * 124, Math.random() * 124, 3, 4);
-  }
-  const block = makeBox(0.215, 0.215, 0.155, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(bc), roughness: 0.85 }));
+  const block = new THREE.Mesh(A.bagBlockGeo, A.bagGrainMat);
+  block.castShadow = true;
+  block.receiveShadow = true;
   block.position.y = 0.115;
-  const mycOverlay = makeBox(0.222, 0.22, 0.162, new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 }));
+  const mycOverlay = new THREE.Mesh(
+    A.bagMycGeo,
+    new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 })
+  );
   mycOverlay.position.y = 0.115;
   if (filled) bg.add(block, mycOverlay);
   else { block.visible = false; mycOverlay.visible = false; bg.add(block, mycOverlay); }

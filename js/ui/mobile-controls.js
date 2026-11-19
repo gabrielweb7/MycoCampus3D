@@ -9,10 +9,17 @@ export function setupMobileJoystick() {
   if (!zone || !knob) return;
 
   let activeId = null;
+  let cachedRect = null;
   const maxR = 42;
 
+  function invalidateRect() {
+    cachedRect = null;
+  }
+  window.addEventListener('resize', invalidateRect);
+  window.addEventListener('orientationchange', invalidateRect);
+
   function updateStick(clientX, clientY) {
-    const rect = zone.getBoundingClientRect();
+    const rect = cachedRect || (cachedRect = zone.getBoundingClientRect());
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
     let dx = clientX - cx;
@@ -31,6 +38,7 @@ export function setupMobileJoystick() {
 
   function resetStick() {
     activeId = null;
+    cachedRect = null;
     knob.style.transform = 'translate(0px, 0px)';
     if (window.setCampusJoystick) window.setCampusJoystick(0, 0);
   }
@@ -40,6 +48,7 @@ export function setupMobileJoystick() {
     e.stopPropagation();
     const t = e.changedTouches[0];
     if (!t) return;
+    cachedRect = zone.getBoundingClientRect();
     activeId = t.identifier;
     updateStick(t.clientX, t.clientY);
   }, { passive: false });

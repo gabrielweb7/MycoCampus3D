@@ -129,42 +129,49 @@ function seededRand(seed) {
   return x - Math.floor(x);
 }
 
-function makeCreativeTree(kind, x, y, z, scale) {
-  const g = new THREE.Group();
-  g.position.set(x, y, z);
-  g.scale.setScalar(scale);
+let sharedSpeciesGeos = null;
+const speciesMatCache = new Map();
 
-  const trunkColor = kind === 'birch' ? 0xf1f5f9 : (kind === 'pine' ? 0x5c3a21 : 0x6b4423);
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.18, 0.28, 3.2, 8),
-    new THREE.MeshStandardMaterial({ color: trunkColor, roughness: 0.9 })
-  );
-  trunk.position.y = 1.6;
-  g.add(trunk);
+function getMushroomSharedGeos() {
+  if (sharedSpeciesGeos) return sharedSpeciesGeos;
+  sharedSpeciesGeos = {
+    cylStem: new THREE.CylinderGeometry(0.75, 1.0, 1.0, 8),
+    cylFan: new THREE.CylinderGeometry(1.0, 0.36, 1.0, 10),
+    cylFunnel: new THREE.CylinderGeometry(1.0, 0.38, 1.0, 10, 1, true),
+    cylClub: new THREE.CylinderGeometry(1.0, 0.67, 1.0, 7),
+    cylVeil: new THREE.CylinderGeometry(0.57, 1.0, 1.0, 8, 1, true),
+    dome: new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.56),
+    cup: new THREE.SphereGeometry(1, 10, 7, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.65),
+    dot: new THREE.SphereGeometry(1, 5, 5),
+    cone12: new THREE.ConeGeometry(1, 1, 12),
+    cone7: new THREE.ConeGeometry(1, 1, 7),
+    dodeca: new THREE.DodecahedronGeometry(1, 1),
+    torus: new THREE.TorusGeometry(1, 0.21, 6, 12)
+  };
+  Object.keys(sharedSpeciesGeos).forEach((k) => {
+    sharedSpeciesGeos[k].userData.shared = true;
+  });
+  return sharedSpeciesGeos;
+}
 
-  if (kind === 'pine') {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 });
-    [2.6, 3.6, 4.5].forEach((cy, idx) => {
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(1.5 - idx * 0.35, 1.8 - idx * 0.2, 8), mat);
-      cone.position.y = cy;
-      g.add(cone);
-    });
-  } else if (kind === 'ipe_yellow' || kind === 'ipe_purple') {
-    const col = kind === 'ipe_yellow' ? 0xfacc15 : 0xa855f7;
-    const crownMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.78 });
-    [[-0.7, 3.4, 0.2], [0.7, 3.3, -0.3], [0, 3.9, 0.1], [0.2, 3.2, 0.7]].forEach((p) => {
-      const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(0.95, 1), crownMat);
-      puff.position.set(p[0], p[1], p[2]);
-      g.add(puff);
-    });
-  } else {
-    const leafCol = kind === 'birch' ? 0x4ade80 : 0x15803d;
-    const crownMat = new THREE.MeshStandardMaterial({ color: leafCol, roughness: 0.85 });
-    const main = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5, 1), crownMat);
-    main.position.y = 3.7;
-    g.add(main);
+function getCachedSpeciesMat(colorHex, roughness, metalness, emissiveHex, emissiveInt, doubleSide, basic) {
+  const key = `${colorHex}|${roughness}|${metalness}|${emissiveHex}|${emissiveInt}|${doubleSide ? 1 : 0}|${basic ? 1 : 0}`;
+  let m = speciesMatCache.get(key);
+  if (!m) {
+    m = basic
+      ? new THREE.MeshBasicMaterial({ color: colorHex })
+      : new THREE.MeshStandardMaterial({
+          color: colorHex,
+          roughness,
+          metalness,
+          emissive: emissiveHex,
+          emissiveIntensity: emissiveInt,
+          side: doubleSide ? THREE.DoubleSide : THREE.FrontSide
+        });
+    m.userData.shared = true;
+    speciesMatCache.set(key, m);
   }
-  return g;
+  return m;
 }
 
 function getSpeciesShape(spec) {
@@ -194,23 +201,27 @@ function makeSpeciesMushroomMesh(spec) {
   const isGlow = spec.scientific.indexOf('chlorophos') !== -1 || spec.scientific.indexOf('Panellus') !== -1;
   const isGlossy = spec.scientific.indexOf('Ganoderma') !== -1;
 
-  const stemMat = new THREE.MeshStandardMaterial({ color: spec.stemColor, roughness: 0.72 });
-  const capMat = new THREE.MeshStandardMaterial({
-    color: spec.capColor,
-    roughness: isGlossy ? 0.16 : 0.48,
-    metalness: isGlossy ? 0.15 : 0.02,
-    emissive: isGlow ? spec.capColor : 0x000000,
-    emissiveIntensity: isGlow ? 0.75 : 0,
-    side: THREE.DoubleSide
-  });
+  const geos = getMushroomSharedGeos();
+  const stemMat = getCachedSpeciesMat(spec.stemColor, 0.72, 0, 0x000000, 0, false, false);
+  const capMat = getCachedSpeciesMat(
+    spec.capColor,
+    isGlossy ? 0.16 : 0.48,
+    isGlossy ? 0.15 : 0.02,
+    isGlow ? spec.capColor : 0x000000,
+    isGlow ? 0.75 : 0,
+    true,
+    false
+  );
 
   let cap = null;
   if (shape === 'lions_mane') {
-    cap = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 1.15, 1), capMat);
+    cap = new THREE.Mesh(geos.dodeca, capMat);
+    cap.scale.setScalar(s * 1.15);
     cap.position.y = s * 1.05;
     for (let i = 0; i < 4; i++) {
-      const tuft = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 0.65, 1), capMat);
+      const tuft = new THREE.Mesh(geos.dodeca, capMat);
       const a = (i / 4) * Math.PI * 2;
+      tuft.scale.setScalar(s * 0.65);
       tuft.position.set(Math.cos(a) * s * 0.55, s * 0.85, Math.sin(a) * s * 0.55);
       g.add(tuft);
     }
@@ -218,7 +229,8 @@ function makeSpeciesMushroomMesh(spec) {
   } else if (shape === 'shelf') {
     for (let i = 0; i < 6; i++) {
       const fanW = 1.05 - (i % 3) * 0.18;
-      const fan = new THREE.Mesh(new THREE.CylinderGeometry(s * fanW, s * 0.38, s * 0.18, 10), capMat);
+      const fan = new THREE.Mesh(geos.cylFan, capMat);
+      fan.scale.set(s * fanW, s * 0.18, s * fanW);
       fan.position.set(((i % 3) - 1) * s * 0.48, s * (0.35 + i * 0.24), Math.floor(i / 3) * s * 0.34);
       fan.rotation.x = 0.26;
       fan.rotation.z = ((i % 2) - 0.5) * 0.22;
@@ -229,123 +241,140 @@ function makeSpeciesMushroomMesh(spec) {
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
       const r = i === 0 ? 0 : s * 0.48;
-      const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.12, s * 0.15, s * 2.4, 6), stemMat);
+      const st = new THREE.Mesh(geos.cylStem, stemMat);
+      st.scale.set(s * 0.15, s * 2.4, s * 0.15);
       st.position.set(Math.cos(a) * r, s * 1.2, Math.sin(a) * r);
-      const cp = new THREE.Mesh(new THREE.SphereGeometry(s * 0.42, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.6), capMat);
+      const cp = new THREE.Mesh(geos.dome, capMat);
+      cp.scale.setScalar(s * 0.42);
       cp.position.set(Math.cos(a) * r, s * 2.35, Math.sin(a) * r);
       g.add(st, cp);
       if (i === 0) cap = cp;
     }
   } else if (shape === 'king_oyster') {
-    // Estilo Boletus edulis / Porcini: caule robusto + chapéu espesso + 2 filhotes laterais
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.48, s * 0.72, s * 1.9, 10), stemMat);
+    const st = new THREE.Mesh(geos.cylStem, stemMat);
+    st.scale.set(s * 0.72, s * 1.9, s * 0.72);
     st.position.y = s * 0.95;
-    cap = new THREE.Mesh(new THREE.SphereGeometry(s * 0.98, 12, 7, 0, Math.PI * 2, 0, Math.PI * 0.52), capMat);
+    cap = new THREE.Mesh(geos.dome, capMat);
+    cap.scale.setScalar(s * 0.98);
     cap.position.y = s * 1.85;
     g.add(st, cap);
     [[s * 0.85, 0.52], [-s * 0.68, 0.40]].forEach(([bx, bSc]) => {
-      const bst = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.34 * bSc, s * 0.5 * bSc, s * 1.4 * bSc, 8), stemMat);
+      const bst = new THREE.Mesh(geos.cylStem, stemMat);
+      bst.scale.set(s * 0.5 * bSc, s * 1.4 * bSc, s * 0.5 * bSc);
       bst.position.set(bx, s * 0.7 * bSc, s * 0.25);
-      const bcp = new THREE.Mesh(new THREE.SphereGeometry(s * 0.75 * bSc, 9, 5, 0, Math.PI * 2, 0, Math.PI * 0.52), capMat);
+      const bcp = new THREE.Mesh(geos.dome, capMat);
+      bcp.scale.setScalar(s * 0.75 * bSc);
       bcp.position.set(bx, s * 1.35 * bSc, s * 0.25);
       g.add(bst, bcp);
     });
   } else if (shape === 'morel') {
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.30, s * 0.38, s * 1.3, 8), stemMat);
+    const st = new THREE.Mesh(geos.cylStem, stemMat);
+    st.scale.set(s * 0.38, s * 1.3, s * 0.38);
     st.position.y = s * 0.65;
-    cap = new THREE.Mesh(new THREE.ConeGeometry(s * 0.65, s * 1.5, 7), capMat);
+    cap = new THREE.Mesh(geos.cone7, capMat);
+    cap.scale.set(s * 0.65, s * 1.5, s * 0.65);
     cap.position.y = s * 1.85;
     g.add(st, cap);
   } else if (shape === 'cup') {
-    // Estilo Sarcoscypha coccinea: taças profundas em grupo
     for (let i = 0; i < 4; i++) {
       const scCup = i === 0 ? 1.0 : (0.65 + (i % 2) * 0.18);
       const ox = (i - 1.5) * s * 0.65;
       const oz = (i % 2 === 0 ? 0.2 : -0.25) * s;
-      const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.20 * scCup, s * 0.14 * scCup, s * 0.9 * scCup, 7), stemMat);
+      const st = new THREE.Mesh(geos.cylClub, stemMat);
+      st.scale.set(s * 0.20 * scCup, s * 0.9 * scCup, s * 0.20 * scCup);
       st.position.set(ox, s * 0.45 * scCup, oz);
-      const cup = new THREE.Mesh(new THREE.SphereGeometry(s * 0.55 * scCup, 10, 7, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.65), capMat);
+      const cup = new THREE.Mesh(geos.cup, capMat);
+      cup.scale.setScalar(s * 0.55 * scCup);
       cup.position.set(ox, s * 1.15 * scCup, oz);
       cup.rotation.z = (i - 1.5) * 0.18;
       g.add(st, cup);
       if (i === 0) cap = cup;
     }
   } else if (shape === 'funnel') {
-    // Estilo Cantharellus / Craterellus: buquê de trombetas/funis
     for (let i = 0; i < 4; i++) {
       const fSc = i === 0 ? 1.0 : 0.72;
       const ang = (i / 4) * Math.PI * 2;
       const fx = i === 0 ? 0 : Math.cos(ang) * s * 0.55;
       const fz = i === 0 ? 0 : Math.sin(ang) * s * 0.55;
-      const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.36 * fSc, s * 0.18 * fSc, s * 1.45 * fSc, 8), capMat);
+      const st = new THREE.Mesh(geos.cylClub, capMat);
+      st.scale.set(s * 0.36 * fSc, s * 1.45 * fSc, s * 0.36 * fSc);
       st.position.set(fx, s * 0.72 * fSc, fz);
-      const fn = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.95 * fSc, s * 0.36 * fSc, s * 0.52 * fSc, 10, 1, true), capMat);
+      const fn = new THREE.Mesh(geos.cylFunnel, capMat);
+      fn.scale.set(s * 0.95 * fSc, s * 0.52 * fSc, s * 0.95 * fSc);
       fn.position.set(fx, s * 1.60 * fSc, fz);
       fn.rotation.z = (i === 0 ? 0 : Math.cos(ang)) * 0.16;
       g.add(st, fn);
       if (i === 0) cap = fn;
     }
   } else if (shape === 'coral') {
-    // Estilo Ramaria / Clathrus: ramos ascendentes de coral
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      const br = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.14, s * 0.24, s * 1.9, 6), capMat);
+      const br = new THREE.Mesh(geos.cylClub, capMat);
+      br.scale.set(s * 0.20, s * 1.9, s * 0.20);
       br.position.set(Math.cos(a) * s * 0.32, s * 0.95, Math.sin(a) * s * 0.32);
       br.rotation.set(Math.sin(a) * 0.28, 0, -Math.cos(a) * 0.28);
       g.add(br);
       if (i === 0) cap = br;
     }
   } else if (shape === 'parasol') {
-    // Estilo Macrolepiota procera: haste alta fina + anel + chapéu guarda-sol
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.15, s * 0.24, s * 3.1, 8), stemMat);
+    const st = new THREE.Mesh(geos.cylStem, stemMat);
+    st.scale.set(s * 0.24, s * 3.1, s * 0.24);
     st.position.y = s * 1.55;
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(s * 0.24, s * 0.05, 6, 12), stemMat);
+    const ring = new THREE.Mesh(geos.torus, stemMat);
+    ring.scale.setScalar(s * 0.24);
     ring.rotation.x = Math.PI / 2;
     ring.position.y = s * 2.25;
-    cap = new THREE.Mesh(new THREE.ConeGeometry(s * 1.28, s * 0.42, 14), capMat);
+    cap = new THREE.Mesh(geos.cone12, capMat);
+    cap.scale.set(s * 1.28, s * 0.42, s * 1.28);
     cap.position.y = s * 3.15;
     g.add(st, ring, cap);
   } else if (shape === 'cordyceps') {
     for (let i = 0; i < 3; i++) {
-      const club = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.24, s * 0.16, s * (2.2 + i * 0.25), 7), capMat);
+      const club = new THREE.Mesh(geos.cylClub, capMat);
+      club.scale.set(s * 0.24, s * (2.2 + i * 0.25), s * 0.24);
       club.position.set((i - 1) * s * 0.42, s * 1.1, 0);
       club.rotation.z = (i - 1) * 0.14;
       g.add(club);
       if (i === 1) cap = club;
     }
   } else if (shape === 'puffball') {
-    // Estilo Lycoperdon perlatum: bola principal + 3 bolinhas na base
-    cap = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 0.95, 1), capMat);
+    cap = new THREE.Mesh(geos.dodeca, capMat);
+    cap.scale.setScalar(s * 0.95);
     cap.position.y = s * 0.88;
     g.add(cap);
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2;
-      const mini = new THREE.Mesh(new THREE.DodecahedronGeometry(s * 0.42, 1), capMat);
+      const mini = new THREE.Mesh(geos.dodeca, capMat);
+      mini.scale.setScalar(s * 0.42);
       mini.position.set(Math.cos(a) * s * 0.72, s * 0.38, Math.sin(a) * s * 0.72);
       g.add(mini);
     }
   } else if (shape === 'cubensis') {
-    const st = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.22, s * 0.30, s * 2.3, 8), stemMat);
+    const st = new THREE.Mesh(geos.cylStem, stemMat);
+    st.scale.set(s * 0.30, s * 2.3, s * 0.30);
     st.position.y = s * 1.15;
-    const veil = new THREE.Mesh(
-      new THREE.CylinderGeometry(s * 0.24, s * 0.42, s * 0.24, 8, 1, true),
-      new THREE.MeshStandardMaterial({ color: 0x4c1d95, side: THREE.DoubleSide })
-    );
+    const veilMat = getCachedSpeciesMat(0x4c1d95, 0.7, 0, 0x000000, 0, true, false);
+    const veil = new THREE.Mesh(geos.cylVeil, veilMat);
+    veil.scale.set(s * 0.42, s * 0.24, s * 0.42);
     veil.position.y = s * 1.45;
-    cap = new THREE.Mesh(new THREE.ConeGeometry(s * 1.05, s * 0.62, 12), capMat);
+    cap = new THREE.Mesh(geos.cone12, capMat);
+    cap.scale.set(s * 1.05, s * 0.62, s * 1.05);
     cap.position.y = s * 2.35;
     g.add(st, veil, cap);
   } else {
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.26, s * 0.36, s * 2.1, 7), stemMat);
+    const stem = new THREE.Mesh(geos.cylStem, stemMat);
+    stem.scale.set(s * 0.36, s * 2.1, s * 0.36);
     stem.position.y = s * 1.05;
-    cap = new THREE.Mesh(new THREE.SphereGeometry(s * 0.95, 9, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), capMat);
+    cap = new THREE.Mesh(geos.dome, capMat);
+    cap.scale.setScalar(s * 0.95);
     cap.position.y = s * 1.95;
     g.add(stem, cap);
     if (shape === 'amanita_dots') {
-      const dotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const dotMat = getCachedSpeciesMat(0xffffff, 0.5, 0, 0, 0, false, true);
       for (let di = 0; di < 5; di++) {
         const a = (di / 5) * Math.PI * 2;
-        const dot = new THREE.Mesh(new THREE.SphereGeometry(s * 0.14, 5, 5), dotMat);
+        const dot = new THREE.Mesh(geos.dot, dotMat);
+        dot.scale.setScalar(s * 0.14);
         dot.position.set(Math.cos(a) * s * 0.52, s * 2.42, Math.sin(a) * s * 0.52);
         g.add(dot);
       }
@@ -355,51 +384,173 @@ function makeSpeciesMushroomMesh(spec) {
 }
 
 /**
- * Constrói bosques expandidos (Leste, Oeste, Norte, Sul), troncos caídos
- * e popula as 100 espécies de cogumelos respeitando habitat e culling por distância.
+ * Constrói bosques expandidos via InstancedMesh (4 draw calls para 48 árvores + 16 troncos)
+ * e popula as 100 espécies de cogumelos compartilhando geometrias e materiais.
  */
 export function buildExpandedForestAndMushrooms(ctx) {
   if (!THREE || !ctx || !ctx.scene) return;
   const { scene, wildMushrooms } = ctx;
   ctx.forestCullGroups = ctx.forestCullGroups || [];
+  ctx.forestInstChunks = ctx.forestInstChunks || [];
   ctx.mushroomCullGroups = ctx.mushroomCullGroups || [];
 
   const treeKinds = ['oak', 'pine', 'ipe_yellow', 'ipe_purple', 'birch'];
+  const treeSpecs = [];
   const woodLogs = [];
 
-  // 48 árvores extras + 18 troncos caídos em anel de bosques (r = 52m..106m)
   for (let i = 0; i < 48; i++) {
     const angle = (i / 48) * Math.PI * 2 + seededRand(i + 10) * 0.12;
     const rad = 52 + seededRand(i + 50) * 52;
     const tx = Math.cos(angle) * rad;
     const tz = Math.sin(angle) * rad;
-    // Evita o pasto das vaquinhas (x: 34..72, z: 12..48)
     if (tx > 32 && tx < 74 && tz > 10 && tz < 50) continue;
     const ty = terrainHeight(tx, tz);
     const kind = treeKinds[i % treeKinds.length];
-    const tree = makeCreativeTree(kind, tx, ty, tz, 0.85 + seededRand(i + 99) * 0.65);
-    scene.add(tree);
-    tree.updateMatrixWorld(true);
-    tree.traverse((ch) => { ch.matrixAutoUpdate = false; });
-    ctx.forestCullGroups.push({ obj: tree, x: tx, z: tz, maxDistSq: 62 * 62 });
+    const sc = 0.85 + seededRand(i + 99) * 0.65;
+    treeSpecs.push({ x: tx, y: ty, z: tz, kind, scale: sc });
 
     if (i % 3 === 0) {
       const lx = tx + (seededRand(i + 200) - 0.5) * 4.2;
       const lz = tz + (seededRand(i + 300) - 0.5) * 4.2;
       const ly = terrainHeight(lx, lz);
-      const logMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.22, 0.26, 2.4, 8),
-        new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.95 })
-      );
-      logMesh.rotation.z = Math.PI / 2;
-      logMesh.rotation.y = seededRand(i + 400) * Math.PI;
-      logMesh.position.set(lx, ly + 0.18, lz);
-      scene.add(logMesh);
-      logMesh.updateMatrixWorld(true);
-      logMesh.matrixAutoUpdate = false;
-      ctx.forestCullGroups.push({ obj: logMesh, x: lx, z: lz, maxDistSq: 54 * 54 });
-      woodLogs.push({ x: lx, y: ly + 0.36, z: lz });
+      woodLogs.push({ x: lx, y: ly + 0.36, baseY: ly + 0.18, z: lz, rotY: seededRand(i + 400) * Math.PI });
     }
+  }
+
+  let pineConeTotal = 0;
+  let foliageTotal = 0;
+  for (let i = 0; i < treeSpecs.length; i++) {
+    const k = treeSpecs[i].kind;
+    if (k === 'pine') pineConeTotal += 3;
+    else if (k === 'ipe_yellow' || k === 'ipe_purple') foliageTotal += 4;
+    else foliageTotal += 1;
+  }
+
+  const dummy = new THREE.Object3D();
+  const tmpColor = new THREE.Color();
+
+  const trunkGeo = new THREE.CylinderGeometry(0.18, 0.28, 3.2, 8);
+  trunkGeo.userData.shared = true;
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  trunkMat.userData.shared = true;
+  const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, Math.max(1, treeSpecs.length));
+  trunkInst.frustumCulled = false;
+  trunkInst.userData.isDynamic = true;
+
+  let pineInst = null;
+  if (pineConeTotal > 0) {
+    const pGeo = new THREE.ConeGeometry(1, 1, 8);
+    pGeo.userData.shared = true;
+    const pMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 });
+    pMat.userData.shared = true;
+    pineInst = new THREE.InstancedMesh(pGeo, pMat, pineConeTotal);
+    pineInst.frustumCulled = false;
+    pineInst.userData.isDynamic = true;
+  }
+
+  let foliageInst = null;
+  if (foliageTotal > 0) {
+    const fGeo = new THREE.DodecahedronGeometry(1, 1);
+    fGeo.userData.shared = true;
+    const fMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82 });
+    fMat.userData.shared = true;
+    foliageInst = new THREE.InstancedMesh(fGeo, fMat, foliageTotal);
+    foliageInst.frustumCulled = false;
+    foliageInst.userData.isDynamic = true;
+  }
+
+  let pineCursor = 0;
+  let foliageCursor = 0;
+  const IPE_PUFFS = [[-0.7, 3.4, 0.2], [0.7, 3.3, -0.3], [0, 3.9, 0.1], [0.2, 3.2, 0.7]];
+
+  for (let i = 0; i < treeSpecs.length; i++) {
+    const ts = treeSpecs[i];
+    const items = [];
+    dummy.rotation.set(0, 0, 0);
+    dummy.position.set(ts.x, ts.y + 1.6 * ts.scale, ts.z);
+    dummy.scale.setScalar(ts.scale);
+    dummy.updateMatrix();
+    trunkInst.setMatrixAt(i, dummy.matrix);
+    tmpColor.setHex(ts.kind === 'birch' ? 0xf1f5f9 : (ts.kind === 'pine' ? 0x5c3a21 : 0x6b4423));
+    trunkInst.setColorAt(i, tmpColor);
+    items.push({ inst: trunkInst, idx: i, activeMat: dummy.matrix.clone() });
+
+    if (ts.kind === 'pine' && pineInst) {
+      for (let pi = 0; pi < 3; pi++) {
+        const cy = 2.6 + pi * 0.95;
+        const radC = (1.5 - pi * 0.35) * ts.scale;
+        const hC = (1.8 - pi * 0.2) * ts.scale;
+        dummy.position.set(ts.x, ts.y + cy * ts.scale, ts.z);
+        dummy.scale.set(radC, hC, radC);
+        dummy.updateMatrix();
+        pineInst.setMatrixAt(pineCursor, dummy.matrix);
+        items.push({ inst: pineInst, idx: pineCursor, activeMat: dummy.matrix.clone() });
+        pineCursor++;
+      }
+    } else if ((ts.kind === 'ipe_yellow' || ts.kind === 'ipe_purple') && foliageInst) {
+      tmpColor.setHex(ts.kind === 'ipe_yellow' ? 0xfacc15 : 0xa855f7);
+      for (let pk = 0; pk < IPE_PUFFS.length; pk++) {
+        const p = IPE_PUFFS[pk];
+        dummy.position.set(ts.x + p[0] * ts.scale, ts.y + p[1] * ts.scale, ts.z + p[2] * ts.scale);
+        dummy.scale.setScalar(0.95 * ts.scale);
+        dummy.updateMatrix();
+        foliageInst.setMatrixAt(foliageCursor, dummy.matrix);
+        foliageInst.setColorAt(foliageCursor, tmpColor);
+        items.push({ inst: foliageInst, idx: foliageCursor, activeMat: dummy.matrix.clone() });
+        foliageCursor++;
+      }
+    } else if (foliageInst) {
+      tmpColor.setHex(ts.kind === 'birch' ? 0x4ade80 : 0x15803d);
+      dummy.position.set(ts.x, ts.y + 3.7 * ts.scale, ts.z);
+      dummy.scale.setScalar(1.5 * ts.scale);
+      dummy.updateMatrix();
+      foliageInst.setMatrixAt(foliageCursor, dummy.matrix);
+      foliageInst.setColorAt(foliageCursor, tmpColor);
+      items.push({ inst: foliageInst, idx: foliageCursor, activeMat: dummy.matrix.clone() });
+      foliageCursor++;
+    }
+
+    ctx.forestInstChunks.push({ x: ts.x, z: ts.z, maxDistSq: 62 * 62, visible: true, items });
+  }
+
+  trunkInst.instanceMatrix.needsUpdate = true;
+  if (trunkInst.instanceColor) trunkInst.instanceColor.needsUpdate = true;
+  scene.add(trunkInst);
+  if (pineInst) {
+    pineInst.instanceMatrix.needsUpdate = true;
+    scene.add(pineInst);
+  }
+  if (foliageInst) {
+    foliageInst.instanceMatrix.needsUpdate = true;
+    if (foliageInst.instanceColor) foliageInst.instanceColor.needsUpdate = true;
+    scene.add(foliageInst);
+  }
+
+  if (woodLogs.length > 0) {
+    const logGeo = new THREE.CylinderGeometry(0.22, 0.26, 2.4, 8);
+    logGeo.userData.shared = true;
+    const logMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.95 });
+    logMat.userData.shared = true;
+    const logInst = new THREE.InstancedMesh(logGeo, logMat, woodLogs.length);
+    logInst.frustumCulled = false;
+    logInst.userData.isDynamic = true;
+    for (let li = 0; li < woodLogs.length; li++) {
+      const lg = woodLogs[li];
+      dummy.position.set(lg.x, lg.baseY, lg.z);
+      dummy.rotation.set(0, lg.rotY, Math.PI / 2);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      logInst.setMatrixAt(li, dummy.matrix);
+      ctx.forestInstChunks.push({
+        x: lg.x,
+        z: lg.z,
+        maxDistSq: 54 * 54,
+        visible: true,
+        items: [{ inst: logInst, idx: li, activeMat: dummy.matrix.clone() }]
+      });
+    }
+    logInst.instanceMatrix.needsUpdate = true;
+    scene.add(logInst);
   }
 
   // Distribui todas as 100 espécies no mapa conforme o habitat
@@ -452,22 +603,47 @@ export function buildExpandedForestAndMushrooms(ctx) {
 let lastForestCullAt = 0;
 let lastForestCullX = 9999;
 let lastForestCullZ = 9999;
+let lastForestScale = -1;
+const _zeroScaleMat4 = THREE ? new THREE.Matrix4().makeScale(0, 0, 0) : null;
+const _dirtyInstMeshes = new Set();
 
 export function stepForestDistanceCulling(ctx) {
   if (!ctx || !ctx.playerPos) return;
   const px = ctx.playerPos.x;
   const pz = ctx.playerPos.z;
   const now = performance.now();
+  const scale = (qualityState.forestScale || 1) * (qualityState.indoorForestFactor || 1);
   const movedSq = (px - lastForestCullX) * (px - lastForestCullX) + (pz - lastForestCullZ) * (pz - lastForestCullZ);
-  if (now - lastForestCullAt < 180 && movedSq < 4.0) return;
+  if (now - lastForestCullAt < 180 && movedSq < 4.0 && Math.abs(scale - lastForestScale) < 0.02) return;
   lastForestCullAt = now;
   lastForestCullX = px;
   lastForestCullZ = pz;
+  lastForestScale = scale;
 
-  const scale = (qualityState.forestScale || 1) * (qualityState.indoorForestFactor || 1);
   const scaleSq = scale * scale;
+  const fChunks = ctx.forestInstChunks;
+  if (fChunks && fChunks.length && _zeroScaleMat4) {
+    _dirtyInstMeshes.clear();
+    for (let i = 0; i < fChunks.length; i++) {
+      const ch = fChunks[i];
+      const dx = ch.x - px, dz = ch.z - pz;
+      const shouldShow = (dx * dx + dz * dz) <= (ch.maxDistSq * scaleSq);
+      if (shouldShow === ch.visible) continue;
+      ch.visible = shouldShow;
+      const mat4 = shouldShow ? null : _zeroScaleMat4;
+      for (let k = 0; k < ch.items.length; k++) {
+        const ref = ch.items[k];
+        ref.inst.setMatrixAt(ref.idx, mat4 || ref.activeMat);
+        _dirtyInstMeshes.add(ref.inst);
+      }
+    }
+    if (_dirtyInstMeshes.size > 0) {
+      _dirtyInstMeshes.forEach((inst) => { inst.instanceMatrix.needsUpdate = true; });
+      _dirtyInstMeshes.clear();
+    }
+  }
   const fList = ctx.forestCullGroups;
-  if (fList) {
+  if (fList && fList.length) {
     for (let i = 0; i < fList.length; i++) {
       const it = fList[i];
       const dx = it.x - px, dz = it.z - pz;

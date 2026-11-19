@@ -22,6 +22,7 @@ let floraGeos = null;
 let cachedFlowTextures = null;
 let flowTime = 0;
 let flowWasActive = false;
+const _tmpFireflyColor = THREE ? new THREE.Color() : null;
 
 function collectFlowTextures(scene) {
   const seen = new Set();
@@ -256,7 +257,7 @@ function stepFireflies(ctx, dt, show, isDark) {
   fireflyPoints.visible = true;
   const posAttr = fireflyPoints.geometry.getAttribute('position');
   const colAttr = fireflyPoints.geometry.getAttribute('color');
-  const tmpC = new THREE.Color();
+  const tmpC = _tmpFireflyColor || new THREE.Color();
   for (let i = 0; i < count; i++) {
     const d = fireflyData[i];
     d.phase += dt * d.speed;
@@ -482,8 +483,9 @@ function applyUmbralAtmosphere(ctx, active) {
       savedUmbralEnv = {
         bg: scene.background ? scene.background.clone() : null,
         fogColor: scene.fog && scene.fog.color ? scene.fog.color.clone() : null,
-        fogNear: scene.fog ? scene.fog.near : null,
-        fogFar: scene.fog ? scene.fog.far : null,
+        fogDensity: (scene.fog && scene.fog.isFogExp2) ? scene.fog.density : null,
+        fogNear: (scene.fog && !scene.fog.isFogExp2) ? scene.fog.near : null,
+        fogFar: (scene.fog && !scene.fog.isFogExp2) ? scene.fog.far : null,
         sunInt: ctx.envSun ? ctx.envSun.intensity : null,
         hemiInt: ctx.envHemi ? ctx.envHemi.intensity : null
       };
@@ -491,8 +493,12 @@ function applyUmbralAtmosphere(ctx, active) {
     if (scene.background && scene.background.setHex) scene.background.setHex(0x030107);
     if (scene.fog) {
       if (scene.fog.color) scene.fog.color.setHex(0x06020c);
-      scene.fog.near = 2.5;
-      scene.fog.far = 25;
+      if (scene.fog.isFogExp2) {
+        scene.fog.density = 0.085;
+      } else {
+        scene.fog.near = 2.5;
+        scene.fog.far = 25;
+      }
     }
     if (ctx.envSun) ctx.envSun.intensity = 0.24;
     if (ctx.envHemi) ctx.envHemi.intensity = 0.28;
@@ -500,8 +506,12 @@ function applyUmbralAtmosphere(ctx, active) {
     if (savedUmbralEnv.bg && scene.background) scene.background.copy(savedUmbralEnv.bg);
     if (scene.fog) {
       if (savedUmbralEnv.fogColor && scene.fog.color) scene.fog.color.copy(savedUmbralEnv.fogColor);
-      if (savedUmbralEnv.fogNear !== null) scene.fog.near = savedUmbralEnv.fogNear;
-      if (savedUmbralEnv.fogFar !== null) scene.fog.far = savedUmbralEnv.fogFar;
+      if (scene.fog.isFogExp2 && savedUmbralEnv.fogDensity !== null) {
+        scene.fog.density = savedUmbralEnv.fogDensity;
+      } else {
+        if (savedUmbralEnv.fogNear !== null) scene.fog.near = savedUmbralEnv.fogNear;
+        if (savedUmbralEnv.fogFar !== null) scene.fog.far = savedUmbralEnv.fogFar;
+      }
     }
     if (ctx.envSun && savedUmbralEnv.sunInt !== null) ctx.envSun.intensity = savedUmbralEnv.sunInt;
     if (ctx.envHemi && savedUmbralEnv.hemiInt !== null) ctx.envHemi.intensity = savedUmbralEnv.hemiInt;

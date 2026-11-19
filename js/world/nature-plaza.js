@@ -103,22 +103,26 @@ export function buildNatureWorld(ctx) {
     [-74, 2], [74, 10]
   ];
   const capColors = [0xef4444, 0xf59e0b, 0xa855f7, 0xec4899, 0x10b981];
+  const plazaStemGeo = new THREE.CylinderGeometry(0.09, 0.14, 0.38, 8);
+  plazaStemGeo.userData.shared = true;
+  const plazaCapGeo = new THREE.SphereGeometry(0.32, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55);
+  plazaCapGeo.userData.shared = true;
+  const plazaStemMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.7 });
+  plazaStemMat.userData.shared = true;
+  const plazaCapMats = capColors.map((col) => {
+    const m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.42, emissive: col, emissiveIntensity: 0.22 });
+    m.userData.shared = true;
+    return m;
+  });
   mushCoords.forEach((mc, idx) => {
     const mx = mc[0], mz = mc[1];
     const my = terrainHeight(mx, mz);
     const g = new THREE.Group();
     g.position.set(mx, my, mz);
-    const stem = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.09, 0.14, 0.38, 8),
-      new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.7 })
-    );
+    const stem = new THREE.Mesh(plazaStemGeo, plazaStemMat);
     stem.position.y = 0.19;
     g.add(stem);
-    const capColor = capColors[idx % capColors.length];
-    const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.32, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
-      new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.42, emissive: capColor, emissiveIntensity: 0.22 })
-    );
+    const cap = new THREE.Mesh(plazaCapGeo, plazaCapMats[idx % plazaCapMats.length]);
     cap.position.y = 0.36; cap.castShadow = true;
     g.add(cap);
     scene.add(g);
@@ -482,7 +486,7 @@ export function buildPlaza(ctx) {
     stream.rotation.x = Math.sin(jAng) * 0.16;
     scene.add(stream);
 
-    const rip = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.15, 18), rippleMat);
+    const rip = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.15, 18), rippleMat.clone());
     rip.rotation.x = -Math.PI / 2;
     rip.position.set(jx, 0.44, jz);
     scene.add(rip);

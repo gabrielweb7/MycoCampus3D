@@ -1,28 +1,36 @@
 /**
- * MycoCampus3D — Motor Inteligente de Auto-FPS, Detecção de Hardware & Qualidade Adaptativa
+ * MycoCampus3D — Motor Inteligente de Auto-FPS, DRS (Dynamic Resolution Scaling),
+ * Detecção de Hardware & Qualidade Adaptativa (Mobile Antigo, Mobile Novo & PC)
  */
 const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
+
+function getThree() {
+  return (typeof window !== 'undefined' && window.THREE) || THREE;
+}
 
 export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
 
 const TIER_CONFIGS = {
   desktop: {
-    high:   { ratioCap: 2.00, shadows: true,  soft: true,  far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 4, itemCullDist: 44, shadowEvery: 3 },
-    medium: { ratioCap: 1.00, shadows: false, soft: false, far: 250, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 3, itemCullDist: 34 },
-    low:    { fixedRatio: 0.78, shadows: false, soft: false, far: 175, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false, maxLights: 2, itemCullDist: 26 },
-    min:    { fixedRatio: 0.58, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0, itemCullDist: 20 }
+    high:   { ratioCap: 2.00, shadows: true,  soft: true,  shadowExtent: 52, shadowMap: 1536, shadowEvery: 2, far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 4, itemCullDist: 56, lambert: false },
+    medium: { ratioCap: 1.25, shadows: true,  soft: false, shadowExtent: 34, shadowMap: 1024, shadowEvery: 3, far: 280, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 3, itemCullDist: 42, lambert: false },
+    low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 185, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false, maxLights: 2, itemCullDist: 30, lambert: true },
+    min:    { fixedRatio: 0.65, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0, itemCullDist: 22, lambert: true }
   },
   mobile: {
-    high:   { ratioCap: 1.50, shadows: true,  soft: false, far: 210, aura: true,  weatherParticles: 160, forestScale: 0.86, toneMap: true,  blur: false, maxLights: 3, itemCullDist: 64, shadowExtent: 22, shadowMap: 768, shadowEvery: 2 },
-    medium: { ratioCap: 1.15, shadows: false, soft: false, far: 150, aura: true,  weatherParticles: 50,  forestScale: 0.62, toneMap: false, blur: false, maxLights: 2, itemCullDist: 46 },
-    low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 110, aura: false, weatherParticles: 0,   forestScale: 0.44, toneMap: false, blur: false, maxLights: 1, itemCullDist: 36 },
-    min:    { fixedRatio: 0.70, shadows: false, soft: false, far: 84,  aura: false, weatherParticles: 0,   forestScale: 0.32, toneMap: false, blur: false, maxLights: 0, itemCullDist: 28 }
+    high:   { ratioCap: 1.50, shadows: true,  soft: false, shadowExtent: 24, shadowMap: 768, shadowEvery: 2, far: 215, aura: true,  weatherParticles: 160, forestScale: 0.86, toneMap: true,  blur: false, maxLights: 3, itemCullDist: 52, lambert: false },
+    medium: { ratioCap: 1.15, shadows: false, soft: false, far: 155, aura: true,  weatherParticles: 50,  forestScale: 0.62, toneMap: false, blur: false, maxLights: 2, itemCullDist: 40, lambert: true },
+    low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 112, aura: false, weatherParticles: 0,   forestScale: 0.44, toneMap: false, blur: false, maxLights: 1, itemCullDist: 32, lambert: true },
+    min:    { fixedRatio: 0.68, shadows: false, soft: false, far: 84,  aura: false, weatherParticles: 0,   forestScale: 0.32, toneMap: false, blur: false, maxLights: 0, itemCullDist: 24, lambert: true }
   }
 };
 
 export const qualityState = {
-  mode: 'manual',
+  mode: 'auto',
   tier: 'high',
+  baseRatio: 1,
+  dynScale: 1,
+  tierCeilingIdx: 0,
   auraEnabled: true,
   forestScale: 1.0,
   maxPointLights: 99,
@@ -31,6 +39,8 @@ export const qualityState = {
   shadowExtent: 0,
   shadowEvery: 2,
   lambertBaked: false,
+  lambertActive: false,
+  baseFogDensity: 0.0022,
   _shx: 1e9,
   _shz: 1e9,
   _shFrame: 0,
@@ -44,24 +54,54 @@ export const qualityState = {
   lastDowngradeAt: 0
 };
 
-function isSoftwareGpuRenderer(renderer) {
+function readWebGlRendererString(renderer) {
   try {
-    if (!renderer || !renderer.getContext) return false;
+    if (!renderer || !renderer.getContext) return '';
     const gl = renderer.getContext();
-    if (!gl) return false;
-    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-    if (!dbg) return false;
-    const r = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
-    return r.includes('swiftshader') || r.includes('llvmpipe') || r.includes('software');
-  } catch (e) {
-    return false;
+    if (!gl) return '';
+    const dbg = gl.getExtension && gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg && gl.getParameter) {
+      return String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
+    }
+    if (gl.getParameter && gl.RENDERER) {
+      return String(gl.getParameter(gl.RENDERER) || '').toLowerCase();
+    }
+  } catch (e) {}
+  return '';
+}
+
+export function classifyGpu(renderer, isTouchDevice = false) {
+  const r = readWebGlRendererString(renderer);
+  if (r && (r.includes('swiftshader') || r.includes('llvmpipe') || r.includes('software') || r.includes('mesa offscreen') || r.includes('microsoft basic render'))) {
+    return 'software';
   }
+  if (!isTouchDevice) {
+    if (!r) return 'unknown';
+    if (/intel.*?\b(hd|uhd)\s*(graphics\s*)?(2\d\d\d|3\d\d\d|4\d\d\d|5[0-3]\d|6[0-3]\d)\b/.test(r) ||
+        /amd.*radeon.*vega\s*[1-3]\b/.test(r)) {
+      return 'weak';
+    }
+    return 'strong';
+  }
+  if (!r) return 'unknown';
+  // Adreno 3xx/4xx/504-509, Mali-4xx/T-series/G31, PowerVR antigos, Vivante, Tegra 3/4
+  if (/adreno.*?\b(3\d\d|4\d\d|504|505|506|508|509)\b/.test(r)) return 'weak';
+  if (/mali-(4|t\d+|g31)\b/.test(r) || /powervr/.test(r) || /vivante/.test(r) || /tegra\s*[34]\b/.test(r)) return 'weak';
+  // Apple GPU, Adreno 630+/7xx/8xx, Mali-G77+/G710+/Immortalis, Xclipse 9xx
+  if (/apple\s*gpu/.test(r) || /adreno.*?\b(6[3-9]\d|7\d\d|8\d\d)\b/.test(r) ||
+      /mali-(g7[7-9]|g\d{3}|immortalis)/.test(r) || /immortalis/.test(r) || /xclipse\s*9/.test(r)) {
+    return 'strong';
+  }
+  // Adreno 510-540/605-620, Mali-G5x/G6x/G71/G72/G76, Xclipse 5xx
+  if (/adreno.*?\b(5[1-4]\d|60\d|61\d|62\d)\b/.test(r)) return 'mid';
+  if (/mali-g(5\d|6\d|71|72|76)\b/.test(r) || /xclipse\s*5/.test(r)) return 'mid';
+  return 'unknown';
 }
 
 export function getSavedQualityMode() {
   try {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('myco_quality_mode') : null;
-    if (QUALITY_TIERS_ORDER.indexOf(saved) !== -1) return saved;
+    if (saved === 'auto' || QUALITY_TIERS_ORDER.indexOf(saved) !== -1) return saved;
   } catch (e) {}
   return null;
 }
@@ -73,63 +113,58 @@ export function saveQualityMode(mode) {
 }
 
 export function getInitialQualityTier(isTouchDevice, renderer) {
-  if (isSoftwareGpuRenderer(renderer)) return 'min';
+  const gpuClass = classifyGpu(renderer, isTouchDevice);
+  if (gpuClass === 'software') {
+    qualityState.tierCeilingIdx = 3;
+    return 'min';
+  }
 
   const memory = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined;
 
   if (!isTouchDevice) {
     qualityState.tierCeilingIdx = 0;
-    // PC: qualidade máxima. Só cai de cara em máquinas realmente fracas.
-    if ((typeof memory === 'number' && memory <= 2) || (typeof cores === 'number' && cores <= 2)) {
+    if (gpuClass === 'weak' || (typeof memory === 'number' && memory <= 2) || (typeof cores === 'number' && cores > 0 && cores <= 2)) {
       return 'medium';
     }
     return 'high';
   }
 
-  // iPhone não expõe deviceMemory e vários Androids bons reportam 4 núcleos.
-  // Começa alto; o auto-FPS reduz resolução e só então desce o preset.
+  if (typeof memory === 'number' && memory <= 1) {
+    qualityState.tierCeilingIdx = 2;
+    return 'min';
+  }
   if ((typeof memory === 'number' && memory <= 2) || (typeof cores === 'number' && cores > 0 && cores <= 2)) {
+    qualityState.tierCeilingIdx = 2;
     return 'low';
   }
-  if (typeof memory === 'number' && memory <= 3) return 'medium';
-
-  // GPU fraca (ex.: Redmi Note 7 = Adreno 512, 4 GB): começa em 'medium'
-  // para não pagar sombra/tone mapping de cara. O auto-FPS sobe sozinho se sobrar folga.
-  const gpuClass = classifyMobileGpu(renderer);
-  // Teto do auto-upgrade: GPU fraca/média nunca sobe para um preset que ela não sustenta
-  // (evita ciclo sobe→cai a cada ~18s).
-  qualityState.tierCeilingIdx = gpuClass === 'weak' ? 2 : (gpuClass === 'mid' ? 1 : 0);
-  if (gpuClass === 'weak') return 'low';
-  if (gpuClass === 'mid') return 'medium';
-  // Android com GPU desconhecida: perfil otimizado por padrão; iPhone/GPU forte: high.
-  if (gpuClass === 'unknown' && !/iphone|ipad|mac/i.test(navigator.userAgent || '')) return 'medium';
-  return 'high';
-}
-
-function classifyMobileGpu(renderer) {
-  try {
-    const gl = renderer && renderer.getContext && renderer.getContext();
-    const dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
-    if (!dbg) return 'unknown';
-    const r = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
-    // Adreno 3xx/4xx/5xx baixos, Mali-4xx/T-series, PowerVR antigos
-    if (/adreno.*\b(3\d\d|4\d\d)\b/.test(r)) return 'weak';
-    if (/mali-(4|t)\d+/.test(r) || /powervr/.test(r)) return 'weak';
-    // Adreno 5xx/6xx baixos (508-619), Mali-G5x/G7x de entrada
-    if (/adreno.*\b(5\d\d|60\d|61\d)\b/.test(r)) return 'mid';
-    if (/mali-g(3|5|6)\d/.test(r)) return 'mid';
-  } catch (e) {}
-  return 'unknown';
+  if (gpuClass === 'weak') {
+    qualityState.tierCeilingIdx = 2;
+    return 'low';
+  }
+  if ((typeof memory === 'number' && memory <= 3) || gpuClass === 'mid') {
+    qualityState.tierCeilingIdx = 1;
+    return 'medium';
+  }
+  if (gpuClass === 'strong') {
+    qualityState.tierCeilingIdx = 0;
+    return 'high';
+  }
+  const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+  qualityState.tierCeilingIdx = 0;
+  if (/iphone|ipad|mac/i.test(ua)) return 'high';
+  return 'medium';
 }
 
 export function applyQualityTier(tier, deps) {
   qualityState.tier = tier;
-  qualityState.warmupUntil = performance.now() + 2600;
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  qualityState.warmupUntil = now + 2600;
   const { renderer, camera, scene, envSun, weatherPoints, isTouchDevice, onQualityChange } = deps || {};
   if (!renderer || !camera) return qualityState;
 
-  const dpr = window.devicePixelRatio || 1;
+  const ThreeRef = getThree();
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
   const profile = isTouchDevice ? TIER_CONFIGS.mobile : TIER_CONFIGS.desktop;
   const cfg = profile[tier] || profile.medium;
   const ratio = cfg.fixedRatio !== undefined ? cfg.fixedRatio : Math.min(dpr, cfg.ratioCap);
@@ -137,23 +172,30 @@ export function applyQualityTier(tier, deps) {
   qualityState.dynScale = 1;
 
   renderer.setPixelRatio(ratio);
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  if (THREE.ACESFilmicToneMapping !== undefined && THREE.NoToneMapping !== undefined) {
-    renderer.toneMapping = cfg.toneMap ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+  renderer.setSize(
+    typeof window !== 'undefined' ? window.innerWidth : 1280,
+    typeof window !== 'undefined' ? window.innerHeight : 720,
+    false
+  );
+  if (ThreeRef && ThreeRef.SRGBColorSpace && renderer.outputColorSpace !== undefined) {
+    renderer.outputColorSpace = ThreeRef.SRGBColorSpace;
+  }
+  if (ThreeRef && ThreeRef.ACESFilmicToneMapping !== undefined && ThreeRef.NoToneMapping !== undefined) {
+    renderer.toneMapping = cfg.toneMap ? ThreeRef.ACESFilmicToneMapping : ThreeRef.NoToneMapping;
     renderer.toneMappingExposure = cfg.toneMap ? (isTouchDevice ? 1.06 : 1.02) : 1;
   }
   if (renderer.shadowMap) {
     renderer.shadowMap.enabled = cfg.shadows;
-    // Atualiza sob demanda a cada shadowEvery frames (reduz custo de sombra em 2x-3x no PC e mobile).
     const shEvery = cfg.shadowEvery || (isTouchDevice ? 2 : 1);
     renderer.shadowMap.autoUpdate = cfg.shadows && !isTouchDevice && shEvery <= 1;
-    renderer.shadowMap.type = cfg.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    if (ThreeRef) {
+      renderer.shadowMap.type = cfg.soft ? ThreeRef.PCFSoftShadowMap : ThreeRef.PCFShadowMap;
+    }
     renderer.shadowMap.needsUpdate = cfg.shadows;
   }
   if (envSun) {
     envSun.castShadow = cfg.shadows;
-    if (cfg.shadows && cfg.shadowExtent) {
+    if (cfg.shadows && cfg.shadowExtent && envSun.shadow && envSun.shadow.camera) {
       const ext = cfg.shadowExtent;
       const cam = envSun.shadow.camera;
       cam.left = -ext;
@@ -161,12 +203,12 @@ export function applyQualityTier(tier, deps) {
       cam.top = ext;
       cam.bottom = -ext;
       cam.near = 1;
-      cam.far = 150;
+      cam.far = 160;
       cam.updateProjectionMatrix();
-      envSun.shadow.bias = -0.0008;
+      envSun.shadow.bias = -0.0007;
       if (envSun.shadow.normalBias !== undefined) envSun.shadow.normalBias = 0.025;
-      const ms = cfg.shadowMap || 768;
-      if (envSun.shadow.mapSize.x !== ms) {
+      const ms = cfg.shadowMap || (isTouchDevice ? 768 : 1536);
+      if (envSun.shadow.mapSize && envSun.shadow.mapSize.x !== ms) {
         envSun.shadow.mapSize.set(ms, ms);
         if (envSun.shadow.map) {
           envSun.shadow.map.dispose();
@@ -175,14 +217,13 @@ export function applyQualityTier(tier, deps) {
       }
     }
   }
-  qualityState.shadowsActive = !!(cfg.shadows && isTouchDevice && cfg.shadowExtent);
+  qualityState.shadowsActive = !!(cfg.shadows && cfg.shadowExtent);
   qualityState.shadowExtent = cfg.shadowExtent || 0;
   qualityState.shadowEvery = cfg.shadowEvery || 2;
   qualityState._shx = 1e9;
   qualityState._shz = 1e9;
-  if (isTouchDevice && tier !== 'high' && scene && !qualityState.lambertBaked) {
-    optimizeSceneMaterialsForMobile(scene);
-    qualityState.lambertBaked = true;
+  if (scene) {
+    setSceneMaterialQuality(scene, !!cfg.lambert);
   }
   if (weatherPoints && weatherPoints.geometry) {
     weatherPoints.geometry.setDrawRange(0, cfg.weatherParticles);
@@ -190,10 +231,17 @@ export function applyQualityTier(tier, deps) {
   }
   if (camera.far !== cfg.far) {
     camera.far = cfg.far;
-    camera.updateProjectionMatrix();
+    if (camera.updateProjectionMatrix) camera.updateProjectionMatrix();
   }
-  if (scene && scene.fog && !window.isTripFreakoutActive?.()) {
-    scene.fog.far = Math.max(85, cfg.far * 0.72);
+  const inFreakout = typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive();
+  if (scene && scene.fog && !inFreakout) {
+    if (scene.fog.isFogExp2) {
+      const targetDensity = Math.max(0.0018, Math.min(0.011, 0.92 / Math.max(84, cfg.far)));
+      scene.fog.density = targetDensity;
+      qualityState.baseFogDensity = targetDensity;
+    } else {
+      scene.fog.far = Math.max(85, cfg.far * 0.72);
+    }
   }
   if (typeof document !== 'undefined' && document.body) {
     document.body.classList.toggle('quality-low-fx', !cfg.blur);
@@ -204,7 +252,12 @@ export function applyQualityTier(tier, deps) {
   qualityState.itemCullDist = cfg.itemCullDist !== undefined ? cfg.itemCullDist : 999;
   if (scene) stepPointLightBudget(scene, null, true);
   if (onQualityChange) {
-    onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps: qualityState.currentFps });
+    onQualityChange({
+      mode: qualityState.mode,
+      tier: qualityState.tier,
+      fps: qualityState.currentFps,
+      dynScale: qualityState.dynScale
+    });
   }
   return qualityState;
 }
@@ -312,36 +365,64 @@ function _lightCmp(a, b) { return _lightD2[a] - _lightD2[b]; }
 
 let lastItemCullAt = 0;
 
+/**
+ * Alterna materiais PBR foscos entre MeshStandardMaterial e MeshLambertMaterial de forma 100% reversível,
+ * mantendo alias direto de `.color` e `.emissive` para preservar animações (neve, LEDs, trip).
+ */
+export function setSceneMaterialQuality(scene, useLambert) {
+  const ThreeRef = getThree();
+  if (!scene || !ThreeRef || !ThreeRef.MeshLambertMaterial) return false;
+  scene.userData = scene.userData || {};
+  let swapList = scene.userData._pbrSwapList;
+  if (!swapList) {
+    if (!useLambert) return false;
+    swapList = [];
+    const converted = new Map();
+    scene.traverse((obj) => {
+      if (!obj || (!obj.isMesh && !obj.isInstancedMesh) || !obj.material) return;
+      if (Array.isArray(obj.material)) return;
+      const m = obj.material;
+      if (!m.isMeshStandardMaterial) return;
+      if (m.userData && m.userData.keepPbr) return;
+      if (m.transparent && m.opacity < 0.85) return;
+      if ((m.metalness || 0) > 0.35) return;
+      if (m.vertexColors) return;
+      let lambert = converted.get(m);
+      if (!lambert) {
+        lambert = new ThreeRef.MeshLambertMaterial({
+          color: m.color,
+          map: m.map || null,
+          emissive: m.emissive,
+          emissiveIntensity: m.emissiveIntensity !== undefined ? m.emissiveIntensity : 1,
+          side: m.side,
+          transparent: m.transparent,
+          opacity: m.opacity,
+          depthWrite: m.depthWrite,
+          vertexColors: m.vertexColors
+        });
+        // Mantém a mesma instância de Color para tintura de neve/cor refletir nos dois modos
+        if (m.color) lambert.color = m.color;
+        if (m.emissive) lambert.emissive = m.emissive;
+        lambert.userData = Object.assign({}, lambert.userData, { shared: !!(m.userData && m.userData.shared) });
+        converted.set(m, lambert);
+      }
+      swapList.push({ mesh: obj, pbr: m, lambert });
+    });
+    scene.userData._pbrSwapList = swapList;
+  }
+
+  for (let i = 0; i < swapList.length; i++) {
+    const entry = swapList[i];
+    if (!entry || !entry.mesh) continue;
+    entry.mesh.material = useLambert ? entry.lambert : entry.pbr;
+  }
+  qualityState.lambertActive = !!useLambert;
+  if (useLambert) qualityState.lambertBaked = true;
+  return true;
+}
+
 export function optimizeSceneMaterialsForMobile(scene) {
-  if (!scene || !THREE || !THREE.MeshLambertMaterial) return;
-  const converted = new Map();
-  scene.traverse((obj) => {
-    if (!obj || (!obj.isMesh && !obj.isInstancedMesh) || !obj.material) return;
-    if (Array.isArray(obj.material)) return;
-    const m = obj.material;
-    if (!m.isMeshStandardMaterial) return;
-    // Mantém vidros/metais muito reflexivos; converte materiais foscos/orgânicos para Lambert (4x mais rápido no mobile)
-    if (m.userData && m.userData.keepPbr) return;
-    if (m.transparent && m.opacity < 0.85) return;
-    if ((m.metalness || 0) > 0.35) return;
-    if (m.vertexColors) return;
-    let lambert = converted.get(m);
-    if (!lambert) {
-      lambert = new THREE.MeshLambertMaterial({
-        color: m.color,
-        map: m.map || null,
-        emissive: m.emissive,
-        emissiveIntensity: m.emissiveIntensity !== undefined ? m.emissiveIntensity : 1,
-        side: m.side,
-        transparent: m.transparent,
-        opacity: m.opacity,
-        depthWrite: m.depthWrite,
-        vertexColors: m.vertexColors
-      });
-      converted.set(m, lambert);
-    }
-    obj.material = lambert;
-  });
+  return setSceneMaterialQuality(scene, true);
 }
 
 export function stepMobileItemCulling(ctx, now) {
@@ -426,12 +507,75 @@ export function stepAutoQuality(now, deps) {
   }
   const elapsed = now - qualityState.fpsLastSampleAt;
   if (elapsed < 1000) return;
+  if (elapsed > 4000) {
+    qualityState.fpsFrames = 0;
+    qualityState.fpsLastSampleAt = now;
+    return;
+  }
 
   qualityState.currentFps = Math.max(1, Math.round((qualityState.fpsFrames * 1000) / elapsed));
   qualityState.fpsFrames = 0;
   qualityState.fpsLastSampleAt = now;
 
-  if (deps && deps.onQualityChange) {
-    deps.onQualityChange({ mode: qualityState.mode, tier: qualityState.tier, fps: qualityState.currentFps });
+  const onQualityChange = deps && deps.onQualityChange;
+  if (qualityState.mode !== 'auto' || now < qualityState.warmupUntil) {
+    if (onQualityChange) {
+      onQualityChange({
+        mode: qualityState.mode,
+        tier: qualityState.tier,
+        fps: qualityState.currentFps,
+        dynScale: qualityState.dynScale
+      });
+    }
+    return;
+  }
+
+  const isTouch = !!(deps && deps.isTouchDevice);
+  const tierIdx = QUALITY_TIERS_ORDER.indexOf(qualityState.tier);
+  const targetLow = isTouch ? (tierIdx <= 1 ? 34 : 28) : (tierIdx <= 1 ? 44 : 35);
+  const targetHigh = isTouch ? 52 : 56;
+  const renderer = deps && deps.renderer;
+
+  if (qualityState.currentFps < targetLow) {
+    qualityState.lowFpsStreak++;
+    qualityState.highFpsStreak = 0;
+    if (qualityState.lowFpsStreak >= 2) {
+      if (qualityState.dynScale > 0.72 && renderer && typeof renderer.setPixelRatio === 'function') {
+        qualityState.dynScale = Math.max(0.70, +(qualityState.dynScale - 0.14).toFixed(2));
+        renderer.setPixelRatio(Math.max(0.55, (qualityState.baseRatio || 1) * qualityState.dynScale));
+        qualityState.lowFpsStreak = 0;
+        qualityState.lastDowngradeAt = now;
+        qualityState.warmupUntil = now + 2200;
+      } else if (tierIdx !== -1 && tierIdx < QUALITY_TIERS_ORDER.length - 1) {
+        qualityState.lowFpsStreak = 0;
+        qualityState.lastDowngradeAt = now;
+        applyQualityTier(QUALITY_TIERS_ORDER[tierIdx + 1], deps);
+        return;
+      }
+    }
+  } else if (qualityState.currentFps >= targetHigh && (now - qualityState.lastDowngradeAt) > 16000) {
+    qualityState.highFpsStreak++;
+    qualityState.lowFpsStreak = 0;
+    if (qualityState.dynScale < 0.99 && qualityState.highFpsStreak >= 4 && renderer && typeof renderer.setPixelRatio === 'function') {
+      qualityState.dynScale = Math.min(1.0, +(qualityState.dynScale + 0.10).toFixed(2));
+      renderer.setPixelRatio(Math.max(0.55, (qualityState.baseRatio || 1) * qualityState.dynScale));
+      qualityState.highFpsStreak = 0;
+    } else if (qualityState.highFpsStreak >= 8 && tierIdx > (qualityState.tierCeilingIdx || 0)) {
+      qualityState.highFpsStreak = 0;
+      applyQualityTier(QUALITY_TIERS_ORDER[tierIdx - 1], deps);
+      return;
+    }
+  } else {
+    qualityState.lowFpsStreak = 0;
+    qualityState.highFpsStreak = 0;
+  }
+
+  if (onQualityChange) {
+    onQualityChange({
+      mode: qualityState.mode,
+      tier: qualityState.tier,
+      fps: qualityState.currentFps,
+      dynScale: qualityState.dynScale
+    });
   }
 }
