@@ -1,12 +1,26 @@
 /**
- * MycoCampus3D — Modal de Novidades da Atualização (Auto-fecha em 5s ou no X)
- * Sempre escrito em linguagem simples e direta para os jogadores.
+ * MycoCampus3D — Modal de Novidades da Atualização (fecha apenas pelos botões)
+ * Funciona tanto no PC quanto no Mobile (layout responsivo, touch-action: manipulation).
  */
+
+import { releaseInputForModal } from './dom-helpers.js';
 
 const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.8.1': {
+    title: '✨ Novidades da Atualização v1.8.1',
+    subtitle: 'Correção de carregamento + tudo que chegou na v1.8:',
+    items: [
+      { icon: '🛠️', text: 'Correção crítica: corrigido travamento na tela ao iniciar o Campus 3D (poças de chuva) e janela de novidades agora fecha só pelos botões (PC e Celular)!' },
+      { icon: '🔭', text: 'Luneta Astronômica na Praça: clique nela para dar zoom de 2.8x nas constelações e estrelas cadentes da noite!' },
+      { icon: '🧬', text: 'Cruzamento Genético (Albino & Dourado): use o bisturi com micélio sobre outra Placa colonizada no Fluxo Laminar para criar cepas F1 raras!' },
+      { icon: '🧺', text: 'Cestas Orgânicas da Horta: cada 3 tomates/alfaces colhidos rendem uma Cesta vendável no Empório Drive-Thru (+🪙 240)!' },
+      { icon: '🏆', text: 'Placar 3D na Quadra + Combo de Basquete/Futebol pagando +🪙 15 a +🪙 25 por gol ou cesta!' },
+      { icon: '💧', text: 'Poças reflexivas na Praça quando chove (1 único instanced draw call que some ao secar) + luz nas janelas à noite!' }
+    ]
+  },
   '1.8.0': {
     title: '✨ Novidades da Atualização v1.8.0',
     subtitle: 'Novas mecânicas incríveis mantendo o FPS leve! Veja o que chegou:',
@@ -35,14 +49,24 @@ export function markPendingAutoUpdateNotice(newVer) {
   } catch (e) {}
 }
 
-let activeTimer = null;
-let countdownInterval = null;
-
-function closeWhatsNewModal() {
-  if (activeTimer) { clearTimeout(activeTimer); activeTimer = null; }
-  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+export function closeWhatsNewModal() {
   const el = typeof document !== 'undefined' ? document.getElementById('whats-new-modal') : null;
   if (el) el.classList.add('hidden');
+}
+
+function bindCloseButton(btn) {
+  if (!btn) return;
+  const stopOnly = (e) => e.stopPropagation();
+  btn.addEventListener('pointerdown', stopOnly);
+  btn.addEventListener('touchstart', stopOnly, { passive: true });
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.playClick) {
+      window.MycoAudio.playClick();
+    }
+    closeWhatsNewModal();
+  });
 }
 
 function ensureWhatsNewModalDom() {
@@ -52,38 +76,46 @@ function ensureWhatsNewModalDom() {
 
   modal = document.createElement('div');
   modal.id = 'whats-new-modal';
-  modal.className = 'hidden fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-sm pointer-events-auto';
+  modal.className = 'hidden fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm pointer-events-auto overflow-y-auto';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
   modal.innerHTML = `
-    <div id="whats-new-card" class="glass-panel max-w-md w-full rounded-2xl border border-emerald-400/50 bg-slate-900/95 shadow-2xl overflow-hidden text-slate-100">
-      <div class="px-4 py-3 border-b border-slate-700/70 flex items-center justify-between gap-2 bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-slate-900/90">
+    <div id="whats-new-card" class="glass-panel max-w-md w-full max-h-[90dvh] flex flex-col rounded-2xl border border-emerald-400/50 bg-slate-900/95 shadow-2xl overflow-hidden text-slate-100 my-auto">
+      <div class="px-4 py-3 border-b border-slate-700/70 flex items-center justify-between gap-2 bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-slate-900/90 shrink-0">
         <div class="min-w-0">
           <h2 id="whats-new-title" class="text-sm sm:text-base font-extrabold text-emerald-300 truncate">✨ Novidades da Atualização</h2>
           <p id="whats-new-subtitle" class="text-[11px] sm:text-xs text-slate-300 truncate">Veja o que foi melhorado no jogo:</p>
         </div>
         <button id="btn-close-whats-new" type="button" aria-label="Fechar novidades"
-          class="w-7 h-7 rounded-lg bg-slate-800/90 hover:bg-rose-600 text-slate-200 hover:text-white text-xs font-extrabold flex items-center justify-center shrink-0 transition">✕</button>
+          style="touch-action: manipulation;"
+          class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-rose-600 active:scale-95 text-slate-200 hover:text-white text-sm font-extrabold flex items-center justify-center shrink-0 transition cursor-pointer select-none">✕</button>
       </div>
-      <div class="p-3.5 sm:p-4">
+      <div class="p-3.5 sm:p-4 overflow-y-auto flex-1 overscroll-contain">
         <ul id="whats-new-list" class="space-y-2 text-xs sm:text-[13px] text-slate-200 leading-snug"></ul>
       </div>
-      <div class="px-4 pb-3 pt-1 flex items-center justify-between gap-3">
-        <div class="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-          <div id="whats-new-progress" class="h-full bg-emerald-400 transition-all duration-100 ease-linear" style="width:100%"></div>
-        </div>
-        <span id="whats-new-countdown" class="text-[11px] font-bold text-emerald-300 shrink-0 tabular-nums">Fecha em 5s</span>
+      <div class="px-4 pb-3.5 pt-2 border-t border-slate-800/80 flex items-center justify-end gap-3 shrink-0 bg-slate-900/95">
+        <button id="btn-confirm-whats-new" type="button"
+          style="touch-action: manipulation;"
+          class="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-900/40 transition cursor-pointer select-none">
+          ✅ Entendi, fechar
+        </button>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
 
-  modal.querySelector('#btn-close-whats-new')?.addEventListener('click', closeWhatsNewModal);
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeWhatsNewModal();
-  });
+  bindCloseButton(modal.querySelector('#btn-close-whats-new'));
+  bindCloseButton(modal.querySelector('#btn-confirm-whats-new'));
+
+  const card = modal.querySelector('#whats-new-card');
+  if (card) {
+    card.addEventListener('pointerdown', (e) => e.stopPropagation());
+    card.addEventListener('mousedown', (e) => e.stopPropagation());
+  }
   return modal;
 }
 
-export function showWhatsNewModal(ver, autoCloseMs = 5000) {
+export function showWhatsNewModal(ver) {
   const notes = getCurrentNotes(ver);
   const modal = ensureWhatsNewModalDom();
   if (!notes || !modal) return;
@@ -91,8 +123,6 @@ export function showWhatsNewModal(ver, autoCloseMs = 5000) {
   const titleEl = modal.querySelector('#whats-new-title');
   const subEl = modal.querySelector('#whats-new-subtitle');
   const listEl = modal.querySelector('#whats-new-list');
-  const progEl = modal.querySelector('#whats-new-progress');
-  const countEl = modal.querySelector('#whats-new-countdown');
 
   if (titleEl) titleEl.textContent = notes.title;
   if (subEl) subEl.textContent = notes.subtitle;
@@ -109,34 +139,8 @@ export function showWhatsNewModal(ver, autoCloseMs = 5000) {
     }
   } catch (e) {}
 
+  releaseInputForModal();
   modal.classList.remove('hidden');
-
-  if (activeTimer) clearTimeout(activeTimer);
-  if (countdownInterval) clearInterval(countdownInterval);
-
-  if (autoCloseMs > 0) {
-    const startAt = Date.now();
-    if (progEl) {
-      progEl.parentElement?.classList.remove('hidden');
-      progEl.style.width = '100%';
-    }
-    if (countEl) countEl.textContent = `Fecha em ${Math.ceil(autoCloseMs / 1000)}s`;
-
-    countdownInterval = setInterval(() => {
-      const elapsed = Date.now() - startAt;
-      const remMs = Math.max(0, autoCloseMs - elapsed);
-      const pct = Math.max(0, Math.min(100, (remMs / autoCloseMs) * 100));
-      if (progEl) progEl.style.width = pct.toFixed(1) + '%';
-      if (countEl) countEl.textContent = `Fecha em ${Math.max(1, Math.ceil(remMs / 1000))}s`;
-    }, 100);
-
-    activeTimer = setTimeout(() => {
-      closeWhatsNewModal();
-    }, autoCloseMs);
-  } else {
-    if (progEl) progEl.parentElement?.classList.add('hidden');
-    if (countEl) countEl.textContent = 'Clique no ✕ para fechar';
-  }
 }
 
 export function checkAndShowWhatsNewModal(fallbackVer) {
@@ -150,6 +154,6 @@ export function checkAndShowWhatsNewModal(fallbackVer) {
     justUpdated = localStorage.getItem(JUST_UPDATED_KEY) || '';
   } catch (e) {}
   if (justUpdated === curVer || seen !== curVer) {
-    showWhatsNewModal(curVer, 5000);
+    showWhatsNewModal(curVer);
   }
 }

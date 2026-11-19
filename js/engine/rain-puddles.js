@@ -48,15 +48,18 @@ export function createRainPuddles(scene) {
   inst.userData.isDynamic = true;
   inst.userData.keepDynamic = true;
 
-  for (let i = 0; i < PUDDLE_SPOTS.length; i++) {
-    const p = PUDDLE_SPOTS[i];
-    _dummy.position.set(p.x, 0.024, p.z);
-    _dummy.rotation.set(-Math.PI / 2, 0, i * 0.7);
-    _dummy.scale.set(p.rx, p.rz, 1);
-    _dummy.updateMatrix();
-    inst.setMatrixAt(i, _dummy.matrix);
+  const dummy = ensureDummy();
+  if (dummy) {
+    for (let i = 0; i < PUDDLE_SPOTS.length; i++) {
+      const p = PUDDLE_SPOTS[i];
+      dummy.position.set(p.x, 0.024, p.z);
+      dummy.rotation.set(-Math.PI / 2, 0, i * 0.7);
+      dummy.scale.set(p.rx, p.rz, 1);
+      dummy.updateMatrix();
+      inst.setMatrixAt(i, dummy.matrix);
+    }
+    inst.instanceMatrix.needsUpdate = true;
   }
-  inst.instanceMatrix.needsUpdate = true;
   scene.add(inst);
 
   return {

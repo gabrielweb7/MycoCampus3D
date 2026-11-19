@@ -57,9 +57,12 @@ globalThis.window = {
     Vector3: class { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; } set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } copy(v) { Object.assign(this, v); return this; } },
     Group: class extends MockObj { constructor() { super(false, null); } },
     Mesh: class extends MockObj { constructor(_geo, mat) { super(true, mat); } },
+    Object3D: class extends MockObj { constructor() { super(false, null); this.matrix = []; } updateMatrix() {} },
+    InstancedMesh: class extends MockObj { constructor(_geo, mat) { super(true, mat); this.instanceMatrix = { needsUpdate: false }; } setMatrixAt() {} },
     RingGeometry: class {},
     CircleGeometry: class {},
     MeshBasicMaterial: MockMat,
+    MeshStandardMaterial: MockMat,
     DoubleSide: 2
   }
 };
@@ -107,18 +110,81 @@ test('updatePlacementGhostVisual funciona com userData circular (ownerItem no fo
   assert.equal(clonedRoot.children[0].visible, true);
 });
 
-test('RELEASE_NOTES_CATALOG tem notas simples da v1.8.0 e markPendingAutoUpdateNotice atualiza storage', () => {
-  const store = new Map([['myco_seen_whats_new_v', '1.7.0']]);
+test('RELEASE_NOTES_CATALOG tem notas simples da v1.8.1 e modal fecha apenas pelos botões', async () => {
+  const store = new Map([['myco_seen_whats_new_v', '1.8.0']]);
   globalThis.localStorage = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: (k) => store.delete(k)
   };
-  markPendingAutoUpdateNotice('1.8.0');
+  markPendingAutoUpdateNotice('1.8.1');
   assert.equal(store.get('myco_seen_whats_new_v'), undefined);
-  assert.equal(store.get('myco_just_updated_v'), '1.8.0');
-  assert.ok(RELEASE_NOTES_CATALOG['1.8.0']);
-  assert.ok(RELEASE_NOTES_CATALOG['1.8.0'].items.length >= 4);
+  assert.equal(store.get('myco_just_updated_v'), '1.8.1');
+  assert.ok(RELEASE_NOTES_CATALOG['1.8.1']);
+  assert.ok(RELEASE_NOTES_CATALOG['1.8.1'].items.length >= 4);
+
+  const elements = new Map();
+  const makeNode = (id = '') => {
+    const classes = new Set();
+    const listeners = new Map();
+    return {
+      id,
+      _listeners: listeners,
+      textContent: '',
+      _innerHTML: '',
+      set innerHTML(v) {
+        this._innerHTML = v;
+        if (String(v).includes('btn-close-whats-new')) elements.set('#btn-close-whats-new', makeNode('btn-close-whats-new'));
+        if (String(v).includes('btn-confirm-whats-new')) elements.set('#btn-confirm-whats-new', makeNode('btn-confirm-whats-new'));
+        if (String(v).includes('whats-new-card')) elements.set('#whats-new-card', makeNode('whats-new-card'));
+        if (String(v).includes('whats-new-title')) elements.set('#whats-new-title', makeNode('whats-new-title'));
+        if (String(v).includes('whats-new-subtitle')) elements.set('#whats-new-subtitle', makeNode('whats-new-subtitle'));
+        if (String(v).includes('whats-new-list')) elements.set('#whats-new-list', makeNode('whats-new-list'));
+      },
+      get innerHTML() { return this._innerHTML; },
+      classList: {
+        add: (...c) => c.forEach((k) => classes.add(k)),
+        remove: (...c) => c.forEach((k) => classes.delete(k)),
+        contains: (c) => classes.has(c)
+      },
+      setAttribute() {},
+      addEventListener: (ev, fn) => {
+        if (!listeners.has(ev)) listeners.set(ev, []);
+        listeners.get(ev).push(fn);
+      },
+      querySelector: (sel) => elements.get(sel) || null,
+      dispatchClick(target) {
+        const list = listeners.get('click') || [];
+        list.forEach((fn) => fn({ target: target || this, preventDefault() {}, stopPropagation() {} }));
+      }
+    };
+  };
+  const modalNode = makeNode('whats-new-modal');
+  const prevDoc = globalThis.document;
+  globalThis.document = {
+    getElementById: (id) => (id === 'whats-new-modal' && elements.has('whats-new-modal') ? elements.get('whats-new-modal') : null),
+    createElement: () => modalNode,
+    body: {
+      appendChild(el) {
+        elements.set(el.id, el);
+      }
+    }
+  };
+  const { showWhatsNewModal } = await import('../js/ui/whats-new-modal.js');
+  showWhatsNewModal('1.8.1');
+  assert.equal(modalNode.classList.contains('hidden'), false);
+  // Clicar no backdrop (modalNode diretamente) NÃO deve fechar
+  modalNode.dispatchClick(modalNode);
+  assert.equal(modalNode.classList.contains('hidden'), false);
+  // Clicar no botão confirmar fecha o modal
+  elements.get('#btn-confirm-whats-new').dispatchClick();
+  assert.equal(modalNode.classList.contains('hidden'), true);
+  // Reabrir e fechar pelo botão X
+  showWhatsNewModal('1.8.1');
+  assert.equal(modalNode.classList.contains('hidden'), false);
+  elements.get('#btn-close-whats-new').dispatchClick();
+  assert.equal(modalNode.classList.contains('hidden'), true);
+  globalThis.document = prevDoc;
 });
 
 test('força dos cogumelos mantém cores sem mandala e só ativa gnomos após >3 doses', async () => {
@@ -221,9 +287,9 @@ test('SHOP_SUPPLIES e LAB_QUEST_STEPS estão completos e marcos da Micoteca dão
   assert.equal(lastRes.rewardMilestone.coins, 50);
 });
 
-test('sports-scoreboard, rain-puddles e Cesta Orgânica da Horta funcionam sem overhead', async () => {
+test('sports-scoreboard, rain-puddles (create + step) e Cesta Orgânica da Horta funcionam sem overhead', async () => {
   const { recordSportScore } = await import('../js/world/sports-scoreboard.js');
-  const { stepRainPuddles } = await import('../js/engine/rain-puddles.js');
+  const { createRainPuddles, stepRainPuddles } = await import('../js/engine/rain-puddles.js');
   const { isHoldingPackOrCrateForStand } = await import('../js/items/dehydration-packaging.js');
 
   const s1 = recordSportScore('basketball');
@@ -233,17 +299,16 @@ test('sports-scoreboard, rain-puddles e Cesta Orgânica da Horta funcionam sem o
   assert.equal(s2.coins, 25);
   assert.equal(s2.streak, 2);
 
-  const puddleCtrl = {
-    inst: { visible: false, setMatrixAt() {}, instanceMatrix: { needsUpdate: false } },
-    mat: { opacity: 0 },
-    wetness: 0,
-    lastAppliedScale: -1
-  };
-  stepRainPuddles(puddleCtrl, 'clear', 1.0);
-  assert.equal(puddleCtrl.inst.visible, false);
-  stepRainPuddles(puddleCtrl, 'rain', 1.0);
-  assert.equal(puddleCtrl.inst.visible, true);
-  assert.ok(puddleCtrl.mat.opacity > 0);
+  const sceneMock = { add() {} };
+  const createdPuddle = createRainPuddles(sceneMock);
+  assert.ok(createdPuddle && createdPuddle.inst);
+  assert.equal(createdPuddle.inst.visible, false);
+
+  stepRainPuddles(createdPuddle, 'clear', 1.0);
+  assert.equal(createdPuddle.inst.visible, false);
+  stepRainPuddles(createdPuddle, 'rain', 1.0);
+  assert.equal(createdPuddle.inst.visible, true);
+  assert.ok(createdPuddle.mat.opacity > 0);
 
   assert.equal(isHoldingPackOrCrateForStand({ organicBasketCtrl: { packsValue: 2 } }), true);
 });

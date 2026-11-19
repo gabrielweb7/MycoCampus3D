@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.8.1] - 2026-11-19
+### Hotfix de Boot nas Poças de Chuva + Modal de Novidades com Fechamento Apenas por Botão (PC & Mobile)
+- **Hotfix de Renderização (`js/engine/rain-puddles.js`):**
+  - Corrigido crash em `createRainPuddles` causado por `_dummy` nulo antes do primeiro step, que interrompia `initCampus3D` antes de iniciar o loop 3D.
+- **Modal de Novidades (`js/ui/whats-new-modal.js`):**
+  - Removido fechamento automático por timer e fechamento ao clicar fora do card; agora fecha exclusivamente pelos botões (`✕` e `✅ Entendi, fechar`) com layout responsivo, `z-[90]`, `touch-action: manipulation` e `releaseInputForModal()` para funcionar perfeitamente no Mobile e no PC.
+
 ## [v1.8.0] - 2026-11-19
 ### Luneta na Praça, Poças de Chuva Instanciadas, Placar Esportivo, Cruzamento Genético & Cestas da Horta no Empório
 - **Luneta Astronômica & Poças de Chuva Leves (`js/world/plaza-telescope.js`, `js/engine/rain-puddles.js`, `js/engine/environment.js`):**
