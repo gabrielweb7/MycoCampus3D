@@ -296,7 +296,7 @@ export function handleScalpelTargetAction(ctx) {
     ctx.notifyWorldAction();
   } else if (target.mode === 'crossbreed' && target.item && target.item.mesh.userData.petriCtrl) {
     const petri = target.item.mesh.userData.petriCtrl;
-    const aseptic = scalpel.sterile && !scalpel.cutContaminated && isAsepticWorkArea(ctx, target.item) && !!(ctx.wearingGloves && !ctx.glovesExpired);
+    const aseptic = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!(ctx.wearingGloves && !ctx.glovesExpired);
     if (!petri.lidOpen || petri.mode !== 'clean' || petri.contaminated) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Para cruzar cepas, abra uma Placa colonizada saudável no Fluxo Laminar.');
       return;
@@ -311,17 +311,10 @@ export function handleScalpelTargetAction(ctx) {
       const isGold = ((petri.speciesName || '').length + (scalpel.biopsySpecies || '').length) % 2 === 0;
       petri.hybridMutant = isGold ? 'gold' : 'albino';
       petri.generation = 3;
-      const baseName = petri.speciesName || 'Psilocybe cubensis';
+      const baseName = (petri.speciesName || 'Psilocybe cubensis').replace(/\s*•\s*(?:🌟|✨).*$/, '').trim();
       const variantTag = isGold ? '🌟 Linhagem Dourada F1' : '✨ Albino Híbrido F1';
       petri.speciesName = `${baseName} • ${variantTag}`;
-      target.item.label = `🧫 Petri (${variantTag} T3 ⭐)`;
-      if (petri.colonyMat && petri.colonyMat.color) {
-        petri.colonyMat.color.setHex(isGold ? 0xfacc15 : 0xf8fafc);
-        if (petri.colonyMat.emissive) {
-          petri.colonyMat.emissive.setHex(isGold ? 0xca8a04 : 0xbae6fd);
-          petri.colonyMat.emissiveIntensity = 0.25;
-        }
-      }
+      updatePetriVisual(target.item);
       if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
       if (ctx.callbacks.onToast) {
         ctx.callbacks.onToast(`🧬✨ SUCESSO! Cruzamento gerou cepa rara "${petri.speciesName}" (T3 Elite)!`);

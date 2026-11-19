@@ -310,5 +310,24 @@ test('sports-scoreboard, rain-puddles (create + step) e Cesta Orgânica da Horta
   assert.equal(createdPuddle.inst.visible, true);
   assert.ok(createdPuddle.mat.opacity > 0);
 
+  const { getReplicatedItemState } = await import('../js/systems/world-objects-sync.js');
+  const mutantPetri = {
+    mesh: {
+      userData: {
+        petriCtrl: {
+          mode: 'clean',
+          lidOpen: false,
+          sterilized: true,
+          inoculated: true,
+          hybridMutant: 'gold',
+          speciesName: 'Psilocybe cubensis • 🌟 Linhagem Dourada F1',
+          colonization: 100
+        }
+      }
+    }
+  };
+  const rep = getReplicatedItemState({}, mutantPetri);
+  assert.equal(rep.petri.hybridMutant, 'gold');
+
   assert.equal(isHoldingPackOrCrateForStand({ organicBasketCtrl: { packsValue: 2 } }), true);
 });

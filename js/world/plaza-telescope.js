@@ -18,6 +18,7 @@ const SKY_FACTS = [
 ];
 
 let factIdx = 0;
+let activeScopeCtx = null;
 
 function syncTelescopeHudDom(active, isNight) {
   if (typeof document === 'undefined') return;
@@ -37,10 +38,15 @@ function syncTelescopeHudDom(active, isNight) {
         '<span id="myco-scope-const-list" class="text-[11px] text-sky-300 font-semibold"></span>' +
       '</div>' +
       '<div class="w-48 h-48 rounded-full border-2 border-cyan-400/35 shadow-[0_0_0_9999px_rgba(2,6,23,0.42)]"></div>' +
-      '<div class="mb-14 px-3 py-1 rounded-full bg-slate-950/80 border border-slate-700 text-[11px] text-slate-200 font-semibold">' +
-        'Clique na luneta ou aperte [Esc] / [E] para sair do zoom' +
-      '</div>';
+      '<button id="myco-scope-exit-btn" type="button" style="touch-action: manipulation;" class="mb-14 pointer-events-auto cursor-pointer px-4 py-2 rounded-full bg-slate-950/90 hover:bg-rose-600 border border-cyan-400/50 text-xs text-slate-100 font-bold shadow-lg transition">' +
+        '🔭 Sair do Zoom ([Esc] ou toque aqui)' +
+      '</button>';
     document.body.appendChild(hud);
+    hud.querySelector('#myco-scope-exit-btn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (activeScopeCtx) setTelescopeZoom(activeScopeCtx, false);
+    });
   }
   const statusEl = hud.querySelector('#myco-scope-sky-status');
   const listEl = hud.querySelector('#myco-scope-const-list');
@@ -128,6 +134,7 @@ export function buildPlazaTelescope(ctx, px = 5.4, pz = 14.8) {
 
 export function setTelescopeZoom(ctx, active) {
   if (!ctx || !ctx.camera) return false;
+  activeScopeCtx = ctx;
   ctx.telescopeZoomActive = !!active;
   const targetFov = active ? 26 : 72;
   if (ctx.camera.fov !== targetFov) {

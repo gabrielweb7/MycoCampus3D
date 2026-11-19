@@ -16,6 +16,7 @@ import { applyQualityTier } from './game-loop.js';
 import * as worldSync from './world-sync.js';
 import * as adminEditor from './admin-editor.js';
 import { openRadialMenu, closeRadialMenu, isRadialMenuOpen, triggerFloatingAction, inspectItemToast } from '../ui/radial-menu.js';
+import { setTelescopeZoom } from '../world/plaza-telescope.js';
 
 const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
 
@@ -26,6 +27,9 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
     sim.lobbyTourActive = false;
     sim.inFps = !!enable;
     sim.controls.enabled = !sim.inFps;
+    if (!sim.inFps && sim.telescopeZoomActive) {
+      setTelescopeZoom(sim, false);
+    }
     if (!sim.inFps && document.pointerLockElement) document.exitPointerLock();
     if (sim.inFps) {
       sim.camera.up.set(0, 1, 0);

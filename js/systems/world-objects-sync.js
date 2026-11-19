@@ -207,7 +207,8 @@ export function getReplicatedItemState(sim, item) {
       cutWedges: Math.max(0, Math.min(4, petri.cutWedges || 0)),
       delayedContamAtPct: Math.round((petri.delayedContamAtPct || 0) * 10) / 10,
       tempC: typeof petri.tempC === 'number' ? Math.round(petri.tempC * 10) / 10 : 24.5,
-      refrigerated: !!petri.refrigerated
+      refrigerated: !!petri.refrigerated,
+      hybridMutant: petri.hybridMutant === 'gold' || petri.hybridMutant === 'albino' ? petri.hybridMutant : ''
     };
   }
   if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
@@ -308,13 +309,14 @@ export function getReplicatedItemState(sim, item) {
   if (sanRemSec > 0) {
     state.sanitizedRemainingSec = sanRemSec;
   }
-  const containingCooker = sim.cookerPots.find((cooker) => cooker.contents.indexOf(item) !== -1);
+  const cookerPots = sim && Array.isArray(sim.cookerPots) ? sim.cookerPots : [];
+  const containingCooker = cookerPots.find((cooker) => cooker.contents && cooker.contents.indexOf(item) !== -1);
   if (containingCooker) {
     state.containerId = containingCooker.potItem.id;
   } else if (Object.keys(state).length) {
     state.containerId = '';
   }
-  const cooker = sim.cookerPots.find((candidate) => candidate.potItem === item);
+  const cooker = cookerPots.find((candidate) => candidate.potItem === item);
   if (cooker) {
     state.cooker = {
       waterMl: Math.round(cooker.waterMl || 0),
@@ -410,6 +412,12 @@ export function applyReplicatedItemState(sim, item, state) {
       petri.lastRenderedTempInt = Math.round(petri.tempC);
     }
     if (typeof incomingPetri.speciesName === 'string') petri.speciesName = incomingPetri.speciesName.slice(0, 80);
+    if (incomingPetri.hybridMutant === 'gold' || incomingPetri.hybridMutant === 'albino') {
+      petri.hybridMutant = incomingPetri.hybridMutant;
+      petri.generation = 3;
+    } else if (incomingPetri.hybridMutant === '') {
+      petri.hybridMutant = '';
+    }
     if (typeof incomingPetri.colonization === 'number' && Number.isFinite(incomingPetri.colonization)) {
       petri.colonization = Math.max(0, Math.min(100, incomingPetri.colonization));
     }

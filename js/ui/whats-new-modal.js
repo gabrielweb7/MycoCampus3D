@@ -9,6 +9,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.8.2': {
+    title: '✨ Novidades da Atualização v1.8.2',
+    subtitle: 'Polimento geral, luneta no celular e placas F1 com cor visual real:',
+    items: [
+      { icon: '🧬', text: 'Cruzamento Genético visual real: placas cruzadas no Fluxo Laminar agora exibem micélio Dourado F1 ou Albino F1 na placa e salvam no multiplayer!' },
+      { icon: '🔭', text: 'Luneta no Celular e PC: adicionado botão "Sair do Zoom" na tela e saída automática ao alternar câmera/lobby!' },
+      { icon: '🪟', text: 'Janela de novidades fecha exclusivamente pelos botões (✕ e "Entendi, fechar") no PC e no Celular.' },
+      { icon: '💧', text: 'Poças reflexivas na Praça (InstancedMesh leve), Placar 3D das Quadras e Cestas Orgânicas da Horta (+🪙 240 no Empório)!' }
+    ]
+  },
   '1.8.1': {
     title: '✨ Novidades da Atualização v1.8.1',
     subtitle: 'Correção de carregamento + tudo que chegou na v1.8:',

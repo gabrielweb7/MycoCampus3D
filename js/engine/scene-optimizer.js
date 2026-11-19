@@ -16,6 +16,7 @@ import { monotubRackHitMeshes } from '../items/monotub.js';
 import { gardenHitMeshes, gardenPlants, gardenState, gardenDynamicObjects } from '../world/campus-garden.js';
 import { alcoholLamps } from '../items/lab-advanced-tools.js';
 import { roadSaleStandMeshes, roadSaleDynamicObjects } from '../items/dehydration-packaging.js';
+import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 
 const THREE = window.THREE;
 const CHUNK_SIZE = 32;
@@ -128,6 +129,7 @@ function collectDynamicObjects(sim) {
   markTreeList(alcoholLamps, (al) => al && al.mesh);
   markList(roadSaleStandMeshes);
   markTreeList(roadSaleDynamicObjects);
+  markList(telescopeHitMeshes);
   if (gardenState.compostFillMesh) markDynamicTree(gardenState.compostFillMesh);
 
   // Armários (portas e gavetas articuladas)

@@ -103,10 +103,13 @@ function drawAgarTexture(pctx, ctrl) {
     pctx.beginPath();
     pctx.arc(128, 128, radius, 0, Math.PI * 2);
     pctx.clip();
-    pctx.fillStyle = '#f8fafc';
+    const hybrid = ctrl.hybridMutant;
+    pctx.fillStyle = hybrid === 'gold' ? '#fef08a' : (hybrid === 'albino' ? '#f0f9ff' : '#f8fafc');
     pctx.fillRect(0, 0, 256, 256);
-    pctx.strokeStyle = 'rgba(226,232,240,0.92)';
-    pctx.lineWidth = 1.6;
+    pctx.strokeStyle = hybrid === 'gold'
+      ? 'rgba(234, 179, 8, 0.92)'
+      : (hybrid === 'albino' ? 'rgba(186, 230, 253, 0.95)' : 'rgba(226,232,240,0.92)');
+    pctx.lineWidth = hybrid ? 2.0 : 1.6;
     for (let a = 0; a < 110; a++) {
       const ang = (a / 110) * Math.PI * 2;
       const rEnd = Math.min(radius, 58 + Math.sin(a * 7) * 14);
@@ -435,8 +438,9 @@ export function updatePetriVisual(item) {
   const spSuffix = ctrl.speciesName ? (' [' + ctrl.speciesName + ']') : '';
   const gen = Math.min(3, Math.max(0, ctrl.generation || 0));
   const genTags = ['T0 Esporos', 'T1 Setorizada', 'T2 Rizomórfica', 'T3 Elite ⭐'];
+  const hybridBadge = ctrl.hybridMutant === 'gold' ? ' • 🌟 Dourada F1' : (ctrl.hybridMutant === 'albino' ? ' • ✨ Albino F1' : '');
   const genSuffix = (ctrl.mode === 'clean' || ctrl.mode === 'colonizing')
-    ? (' [' + (genTags[gen] || 'T1') + ']')
+    ? (' [' + (genTags[gen] || 'T1') + hybridBadge + ']')
     : '';
   if (ctrl.mode === 'spore_print') {
     item.label = 'Placa de Petri' + spSuffix + ' (Carimbo de Esporos • Colete ponto com Bisturi)';

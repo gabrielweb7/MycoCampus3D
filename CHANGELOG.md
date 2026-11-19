@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.8.2] - 2026-11-19
+### Varredura de Bugs: Visual Dourado/Albino F1, Sincronização Petri, Saída da Luneta & Assepsia
+- **Cruzamento Genético & Petri (`js/items/petri-dish.js`, `js/systems/lab-culture-actions.js`, `js/systems/world-objects-sync.js`):**
+  - Corrigida tentativa inexistente de alterar `petri.colonyMat` no cruzamento; `drawPetriCanvasTexture` e `updatePetriVisual` agora tingem diretamente a textura de micélio em Dourado F1 (`gold`) ou Albino F1 (`albino`) e preservam o marcador no rótulo.
+  - Adicionada serialização/restauração de `hybridMutant` na sincronização de objetos e verificação completa de `biopsyAseptic` durante o cruzamento.
+- **Luneta Astronômica & Otimizador (`js/world/plaza-telescope.js`, `js/systems/campus-api.js`, `js/engine/scene-optimizer.js`):**
+  - Botão `#myco-scope-exit-btn` clicável/tocável na interface da luneta (PC e celular), proteção explícita de `telescopeHitMeshes` no `freezeStaticWorld` e saída automática do zoom ao sair do modo FPS.
+
 ## [v1.8.1] - 2026-11-19
 ### Hotfix de Boot nas Poças de Chuva + Modal de Novidades com Fechamento Apenas por Botão (PC & Mobile)
 - **Hotfix de Renderização (`js/engine/rain-puddles.js`):**
