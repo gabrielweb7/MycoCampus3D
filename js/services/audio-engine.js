@@ -399,6 +399,29 @@ export function playUfoBeam() {
   lfo.stop(now + 2.25);
 }
 
+export function playGreenhouseDoorBeep() {
+  const c = getAudioContext();
+  if (!c || getIsMuted()) return;
+  try {
+    const t = c.currentTime;
+    const tones = [1760, 1320];
+    for (let i = 0; i < tones.length; i++) {
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      const start = t + i * 0.14;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(tones[i], start);
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.14, start + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 0.12);
+      osc.connect(g);
+      g.connect(c.destination);
+      osc.start(start);
+      osc.stop(start + 0.13);
+    }
+  } catch (e) {}
+}
+
 export const AudioEngine = {
   playFootstep,
   playHarvest,
@@ -407,6 +430,7 @@ export const AudioEngine = {
   playDoor,
   playEmote,
   playLaserBeep,
+  playGreenhouseDoorBeep,
   playSwitch,
   playGnomeGiggle,
   playUmbralWhisper,

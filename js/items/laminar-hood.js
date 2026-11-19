@@ -207,6 +207,7 @@ export function buildLaminarHoodAndBenches(ctx) {
   supportMeshes.push(hoodBase, hoodWorkMat);
   hoodGroup.userData.twoHanded = true;
   hoodGroup.userData.isHood = true;
+  hoodGroup.userData.hoodLight = hoodLight;
   hoodGroup.userData.tableDims = { w: 1.39, h: 0.045, d: 2.34, surfOffset: 0 };
   hoodGroup.userData.dynamicSurface = hoodSurf;
   hoodGroup.userData.updateBounds = updateItemBounds;

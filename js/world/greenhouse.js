@@ -128,6 +128,12 @@ export var greenhouseEnv = {
   targetCo2: 650,
   tempC: 23.0,
   targetTempC: 23.0,
+  outsideTempC: 25.5,
+  outsideHumidity: 48,
+  weatherMode: 'clear',
+  doorOpen: false,
+  doorOpenSec: 0,
+  doorAlarmActive: false,
   lightOn: true,
   humidifierPower: 1, // 0=OFF, 1=Baixo, 2=Médio, 3=Turbo
   exhaustPower: 1,    // 0=OFF, 1=Baixo, 2=Forte
@@ -139,6 +145,10 @@ export var greenhouseEnv = {
   statusLevel: 'optimal', // optimal | adjusting | alert
   statusLabel: 'Ideal (Auto)'
 };
+
+const DOOR_OPEN_ALARM_DELAY = 10.0;
+const DOOR_ALARM_BEEP_INTERVAL = 3.5;
+var doorAlarmBeepAccum = 0;
 
 var MAX_GH_PARTICLES = 36;
 var MAX_MIST_PARTICLES = 48;
@@ -603,15 +613,16 @@ export function updateGreenhousePanelDisplay() {
   c.font = 'bold 22px system-ui, sans-serif';
   c.fillText('ESTUFA • ' + (greenhouseEnv.autoMode ? 'AUTO' : 'MANUAL') + ' • ' + greenhouseEnv.statusLabel, 20, 36);
 
-  c.fillStyle = '#94a3b8';
-  c.font = '16px system-ui, sans-serif';
+  c.fillStyle = greenhouseEnv.doorAlarmActive ? '#fb7185' : (greenhouseEnv.doorOpen ? '#fbbf24' : '#94a3b8');
   let activeBlocks = 0;
   let matureBlocks = 0;
   for (let i = 0; i < greenhouseSlots.length; i++) {
     if (!greenhouseSlots[i].empty && greenhouseSlots[i].stage >= 0) activeBlocks++;
     if (!greenhouseSlots[i].empty && greenhouseSlots[i].stage === 3) matureBlocks++;
   }
-  c.fillText(`Bolos: ${activeBlocks}/${greenhouseSlots.length}  •  Maduros: ${matureBlocks}  •  Saúde: ${Math.round(greenhouseEnv.avgHealth)}%`, 20, 64);
+  const doorLcd = greenhouseEnv.doorOpen ? `PORTA ABERTA ${Math.floor(greenhouseEnv.doorOpenSec)}s` : 'PORTA OK';
+  c.font = '15px system-ui, sans-serif';
+  c.fillText(`Bolos: ${activeBlocks}/${greenhouseSlots.length} • Ext: ${greenhouseEnv.outsideTempC.toFixed(1)}C • ${doorLcd}`, 20, 64);
 
   c.fillStyle = '#0f172a';
   c.fillRect(16, 80, w - 32, 188);
@@ -1242,6 +1253,12 @@ function evaluateClimateStress() {
     advices.push(`CO₂ alto (${Math.round(greenhouseEnv.co2Ppm)} ppm)`);
     severity += Math.min(2.5, (greenhouseEnv.co2Ppm - 1100) / 350 + 0.5);
   }
+  if (greenhouseEnv.doorAlarmActive) {
+    types.push('door_open');
+    reasons.push('Porta aberta');
+    advices.push(`Porta da Estufa aberta há ${Math.floor(greenhouseEnv.doorOpenSec)}s! Feche a porta`);
+    severity += 1.1;
+  }
   if (!greenhouseEnv.lightOn) {
     types.push('no_light');
     reasons.push('Sem luz LED Grow');
@@ -1265,6 +1282,56 @@ export function stepGreenhouse(ctx, dt) {
     if (!greenhouseSlots[i].empty && greenhouseSlots[i].stage >= 0) activeCount++;
   }
 
+  // 0. Leitura do clima externo e sensor da Porta da Estufa
+  if (ctx) {
+    if (typeof ctx.outsideTempC === 'number') greenhouseEnv.outsideTempC = ctx.outsideTempC;
+    if (typeof ctx.outsideHumidity === 'number') greenhouseEnv.outsideHumidity = ctx.outsideHumidity;
+    if (ctx.weatherMode) greenhouseEnv.weatherMode = ctx.weatherMode;
+  }
+
+  let isDoorOpen = greenhouseEnv.doorOpen;
+  if (ctx && Array.isArray(ctx.campusDoors)) {
+    for (let dIdx = 0; dIdx < ctx.campusDoors.length; dIdx++) {
+      const dr = ctx.campusDoors[dIdx];
+      if (dr && dr.label === 'Porta da Estufa') {
+        isDoorOpen = !!dr.open;
+        break;
+      }
+    }
+  }
+
+  const wasDoorAlarm = greenhouseEnv.doorAlarmActive;
+  const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
+  greenhouseEnv.doorOpen = isDoorOpen;
+  if (isDoorOpen) {
+    greenhouseEnv.doorOpenSec += dt;
+    if (greenhouseEnv.doorOpenSec >= DOOR_OPEN_ALARM_DELAY) {
+      if (!greenhouseEnv.doorAlarmActive) {
+        greenhouseEnv.doorAlarmActive = true;
+        doorAlarmBeepAccum = DOOR_ALARM_BEEP_INTERVAL;
+        if (onToast) {
+          onToast('🚨 ALARME ESTUFA: Porta aberta há muito tempo! Umidade caindo — feche a porta.');
+        }
+      }
+      doorAlarmBeepAccum += dt;
+      if (doorAlarmBeepAccum >= DOOR_ALARM_BEEP_INTERVAL) {
+        doorAlarmBeepAccum = 0;
+        const pPos = ctx && ctx.playerPos;
+        const nearEstufa = !pPos || Math.hypot(pPos.x - 19, pPos.z - 8) < 28;
+        if (nearEstufa && typeof window !== 'undefined' && window.MycoAudio && typeof window.MycoAudio.playGreenhouseDoorBeep === 'function') {
+          window.MycoAudio.playGreenhouseDoorBeep();
+        }
+      }
+    }
+  } else {
+    if (wasDoorAlarm && onToast) {
+      onToast('✅ Porta da Estufa fechada! Alarme silenciado e microclima normalizando.');
+    }
+    greenhouseEnv.doorOpenSec = 0;
+    greenhouseEnv.doorAlarmActive = false;
+    doorAlarmBeepAccum = 0;
+  }
+
   // 1. Controle Automático vs Manual do Microclima
   if (greenhouseEnv.autoMode) {
     const humDiff = greenhouseEnv.targetHumidity - greenhouseEnv.humidity;
@@ -1281,23 +1348,35 @@ export function stepGreenhouse(ctx, dt) {
     greenhouseEnv.coolerActive = Math.abs(greenhouseEnv.tempC - greenhouseEnv.targetTempC) > 0.20 || activeCount > 0;
   }
 
-  // 2. Dinâmica física de Umidade, CO2 e Temperatura da Câmara
+  // 2. Dinâmica física de Umidade, CO2 e Temperatura da Câmara (influenciada pela porta + clima externo)
   const mistGain = greenhouseEnv.humidifierPower * 0.95;
   const exhaustDryLoss = greenhouseEnv.exhaustPower * 0.42;
   const ambientLoss = 0.22;
-  greenhouseEnv.humidity = Math.max(32, Math.min(99, greenhouseEnv.humidity + (mistGain - exhaustDryLoss - ambientLoss) * dt));
+  const doorHumMix = isDoorOpen ? ((greenhouseEnv.outsideHumidity - greenhouseEnv.humidity) * 0.14 - 0.85) : 0;
+  greenhouseEnv.humidity = Math.max(25, Math.min(99, greenhouseEnv.humidity + (mistGain - exhaustDryLoss - ambientLoss + doorHumMix) * dt));
 
   const co2Produced = activeCount * 2.2 + 4.0;
   const co2Removed = greenhouseEnv.exhaustPower * 40.0;
-  greenhouseEnv.co2Ppm = Math.max(410, Math.min(2500, greenhouseEnv.co2Ppm + (co2Produced - co2Removed) * dt));
+  const doorCo2Mix = isDoorOpen ? (430 - greenhouseEnv.co2Ppm) * 0.18 : 0;
+  greenhouseEnv.co2Ppm = Math.max(410, Math.min(2500, greenhouseEnv.co2Ppm + (co2Produced - co2Removed + doorCo2Mix) * dt));
 
-  const ambientTemp = 29.5;
-  const tempRate = greenhouseEnv.coolerActive ? 0.55 : 0.20;
-  const tempGoal = greenhouseEnv.coolerActive ? greenhouseEnv.targetTempC : ambientTemp;
-  if (greenhouseEnv.tempC < tempGoal) {
-    greenhouseEnv.tempC = Math.min(tempGoal, greenhouseEnv.tempC + tempRate * dt);
-  } else if (greenhouseEnv.tempC > tempGoal) {
-    greenhouseEnv.tempC = Math.max(tempGoal, greenhouseEnv.tempC - tempRate * dt);
+  const closedAmbientTemp = 23.0 + (greenhouseEnv.outsideTempC - 21.0) * 0.45 + 1.5;
+  if (isDoorOpen) {
+    const doorTempExchange = (greenhouseEnv.outsideTempC - greenhouseEnv.tempC) * 0.22;
+    let coolerEffect = 0;
+    if (greenhouseEnv.coolerActive) {
+      const diffT = greenhouseEnv.targetTempC - greenhouseEnv.tempC;
+      coolerEffect = Math.sign(diffT) * Math.min(Math.abs(diffT), 0.18);
+    }
+    greenhouseEnv.tempC += (doorTempExchange + coolerEffect) * dt;
+  } else {
+    const tempRate = greenhouseEnv.coolerActive ? 0.55 : 0.16;
+    const tempGoal = greenhouseEnv.coolerActive ? greenhouseEnv.targetTempC : closedAmbientTemp;
+    if (greenhouseEnv.tempC < tempGoal) {
+      greenhouseEnv.tempC = Math.min(tempGoal, greenhouseEnv.tempC + tempRate * dt);
+    } else if (greenhouseEnv.tempC > tempGoal) {
+      greenhouseEnv.tempC = Math.max(tempGoal, greenhouseEnv.tempC - tempRate * dt);
+    }
   }
 
   // 3. Avaliação de estresse biológico e Score do microclima

@@ -11,6 +11,8 @@ globalThis.window = globalThis.window || {
 
 const { registerItemPrefab, getItemPrefab, listItemPrefabs, spawnItemFromPrefab } = await import('../js/items/item-prefabs.js');
 const { getItemsSupportedBy, moveItemWithSupported, dropSupportedItemsToGround } = await import('../js/systems/surface-group-move.js');
+const { updateItemBounds, isPointInBoundsXZ } = await import('../js/items/item-registry.js');
+const { clampPosAgainstWalls, getSupportSurfaceAt } = await import('../js/engine/physics.js');
 
 function makeMesh(x, y, z, ry = 0, userData = {}) {
   return {
@@ -112,4 +114,51 @@ test('dropSupportedItemsToGround faz itens em cima e dentro da panela caírem ao
   assert.deepEqual(dropped.map((i) => i.id), ['beaker_on_table']);
   assert.equal(beaker.mesh.position.y, 0);
   assert.deepEqual(moved, ['beaker_on_table']);
+});
+
+test('updateItemBounds e clampPosAgainstWalls usam OBB preciso sem parede invisível ao redor de mesas rotacionadas', () => {
+  const surf = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, topY: 0 };
+  const col = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, minY: 0, maxY: 0.9, surfaceTopY: 0.9 };
+  const hoodLight = { position: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } } };
+  const tableItem = {
+    id: 'table_hood_lab',
+    mesh: {
+      position: { x: -15.0, y: 0.12, z: -8.0 },
+      rotation: { y: Math.PI / 4 }, // 45 graus
+      scale: { x: 1, y: 1, z: 1 },
+      userData: {
+        tableDims: { w: 1.5, h: 0.9, d: 2.4 },
+        dynamicSurface: surf,
+        dynamicCollider: col,
+        hoodLight,
+        updateBounds: updateItemBounds
+      }
+    }
+  };
+
+  updateItemBounds(tableItem);
+  assert.equal(hoodLight.position.x, -15.0);
+  assert.equal(hoodLight.position.z, -8.0);
+
+  // Ponto próximo à lateral da mesa rotacionada (localX = 1.15m > halfW 0.80m + raio 0.30m, localZ = 0):
+  // No antigo AABB inflado (~1.43m de meia-largura), esse ponto ficava bloqueado por uma parede invisível!
+  const cos45 = Math.cos(Math.PI / 4);
+  const sin45 = Math.sin(Math.PI / 4);
+  const freeWorldX = -15.0 + 1.18 * cos45;
+  const freeWorldZ = -8.0 - 1.18 * sin45;
+  assert.equal(isPointInBoundsXZ(freeWorldX, freeWorldZ, surf, 0.08), false);
+  assert.equal(getSupportSurfaceAt({ supportSurfaces: [surf], heldItem: null }, freeWorldX, freeWorldZ, 0.08), null);
+
+  const playerFreePos = { x: freeWorldX, y: 0.12, z: freeWorldZ };
+  clampPosAgainstWalls({ wallSegments: [], campusDoors: [], solidColliders: [col], heldItem: null }, playerFreePos, 0.30);
+  assert.ok(Math.abs(playerFreePos.x - freeWorldX) < 1e-5, 'jogador perto da lateral da mesa rotacionada não deve bater em canto invisível');
+  assert.ok(Math.abs(playerFreePos.z - freeWorldZ) < 1e-5);
+
+  // Ponto realmente encostando na mesa (localX = 0.90m < halfW 0.80m + raio 0.30m = 1.10m) deve sofrer colisão normal
+  const hitWorldX = -15.0 + 0.90 * cos45;
+  const hitWorldZ = -8.0 - 0.90 * sin45;
+  const playerHitPos = { x: hitWorldX, y: 0.12, z: hitWorldZ };
+  clampPosAgainstWalls({ wallSegments: [], campusDoors: [], solidColliders: [col], heldItem: null }, playerHitPos, 0.30);
+  const pushedDist = Math.hypot(playerHitPos.x - (-15.0), playerHitPos.z - (-8.0));
+  assert.ok(Math.abs(pushedDist - (col.halfW + 0.30)) < 1e-4, 'colisão OBB deve empurrar jogador exatamente até a borda real da mesa');
 });

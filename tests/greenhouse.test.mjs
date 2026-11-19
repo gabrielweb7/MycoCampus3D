@@ -23,6 +23,7 @@ const {
   triggerGreenhouseVentPulse,
   isHoldingColonizedSpawn
 } = await import('../js/world/greenhouse.js');
+const { computeOutsideWeatherConditions } = await import('../js/engine/environment.js');
 
 test('estufa possui 24 lugares em 2 estantes x 3 andares com slots livres e ocupados', () => {
   assert.equal(greenhouseSlots.length, 24);
@@ -153,4 +154,69 @@ test('back-end PHP aceita 24 slots e chaves da estufa automatizada', () => {
   assert.ok(mp.includes("sKey === 'greenhouse_temp'"), 'multiplayer.php deve sanitizar greenhouse_temp sem virar 0/1');
   assert.ok(mp.includes("sKey === 'greenhouse_target_temp'"), 'multiplayer.php deve sanitizar greenhouse_target_temp');
   assert.ok(mp.includes("greenhouse_slot_([0-9]|1[0-9]|2[0-3])_humidity"), 'multiplayer.php deve sanitizar umidade dos 24 slots');
+});
+
+test('sensor de Porta da Estufa aberta derruba umidade, altera temperatura conforme clima externo, dispara beep após 10s e normaliza ao fechar', () => {
+  const sunnyNoon = computeOutsideWeatherConditions(1.0, 'clear');
+  const coldSnow = computeOutsideWeatherConditions(-0.8, 'snow');
+  assert.ok(sunnyNoon.tempC > 27.5, 'dia de sol deve ter temperatura externa quente');
+  assert.ok(sunnyNoon.humidity < 50, 'dia de sol deve ter umidade externa mais seca');
+  assert.ok(coldSnow.tempC < 5.0, 'neve deve ter temperatura externa fria');
+
+  restoreGreenhouseOptimal({ queueWorldStateChange: () => {} });
+  greenhouseEnv.humidity = 90.0;
+  greenhouseEnv.tempC = 23.0;
+  greenhouseEnv.co2Ppm = 650;
+
+  let beepCount = 0;
+  const toasts = [];
+  globalThis.window.MycoAudio = {
+    playGreenhouseDoorBeep: () => { beepCount++; }
+  };
+
+  const estufaDoor = { label: 'Porta da Estufa', open: true };
+  const simCtx = {
+    outsideTempC: sunnyNoon.tempC,
+    outsideHumidity: sunnyNoon.humidity,
+    weatherMode: 'clear',
+    campusDoors: [estufaDoor],
+    playerPos: { x: 19, y: 0.14, z: 8 },
+    callbacks: { onToast: (msg) => toasts.push(msg) },
+    queueWorldStateChange: () => {}
+  };
+
+  // Primeiros 5s de porta aberta: umidade já cai e temperatura sobe, mas alarme ainda não toca (<10s)
+  for (let i = 0; i < 5; i++) stepGreenhouse(simCtx, 1.0);
+  assert.equal(greenhouseEnv.doorOpen, true);
+  assert.equal(greenhouseEnv.doorAlarmActive, false);
+  assert.equal(beepCount, 0);
+  assert.ok(greenhouseEnv.humidity < 85.0, 'umidade deve cair com a porta aberta no sol');
+  assert.ok(greenhouseEnv.tempC > 24.5, 'temperatura deve subir com calor externo e porta aberta');
+
+  // Mais 6s (total 11s >= 10s): alarme sonoro dispara e diagnóstico acusa Porta aberta
+  for (let i = 0; i < 6; i++) stepGreenhouse(simCtx, 1.0);
+  assert.equal(greenhouseEnv.doorAlarmActive, true);
+  assert.ok(beepCount >= 1, 'deve emitir beep sonoro quando porta fica aberta >= 10s');
+  assert.ok(toasts.some((t) => t.includes('ALARME ESTUFA')));
+  assert.ok(greenhouseSlots[0].stressReasons.includes('Porta aberta'));
+
+  // No frio extremo lá fora com porta aberta, temperatura esfria
+  simCtx.outsideTempC = coldSnow.tempC;
+  simCtx.outsideHumidity = coldSnow.humidity;
+  simCtx.weatherMode = 'snow';
+  const tempBeforeCold = greenhouseEnv.tempC;
+  for (let i = 0; i < 6; i++) stepGreenhouse(simCtx, 1.0);
+  assert.ok(greenhouseEnv.tempC < tempBeforeCold - 4.0, 'temperatura da estufa deve cair com frio externo e porta aberta');
+
+  // Fechar a porta silencia o alarme e o modo automático normaliza umidade e temperatura
+  estufaDoor.open = false;
+  const humWhenOpen = greenhouseEnv.humidity;
+  const tempWhenCold = greenhouseEnv.tempC;
+  for (let i = 0; i < 12; i++) stepGreenhouse(simCtx, 1.0);
+  assert.equal(greenhouseEnv.doorOpen, false);
+  assert.equal(greenhouseEnv.doorAlarmActive, false);
+  assert.equal(greenhouseEnv.doorOpenSec, 0);
+  assert.ok(toasts.some((t) => t.includes('Porta da Estufa fechada')));
+  assert.ok(greenhouseEnv.humidity > humWhenOpen + 8.0, 'automação deve recuperar a umidade após fechar a porta');
+  assert.ok(greenhouseEnv.tempC > tempWhenCold + 3.0, 'climatizador deve recuperar a temperatura após fechar a porta');
 });

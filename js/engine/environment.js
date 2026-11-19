@@ -28,6 +28,29 @@ const _cloudDummy = _Obj3DCtor ? new _Obj3DCtor() : null;
 
 let lastSnowMix = -1;
 
+export function computeOutsideWeatherConditions(sunY, weatherMode) {
+  const s = typeof sunY === 'number' ? Math.max(-1, Math.min(1, sunY)) : 0.4;
+  const mode = weatherMode || 'clear';
+  let tempC;
+  let humidity;
+  if (mode === 'snow') {
+    tempC = -2.0 + s * 2.5;
+    humidity = Math.round(74 - s * 4);
+  } else {
+    let offset = 2.5;
+    let baseHum = 52;
+    if (mode === 'partly') { offset = 0.5; baseHum = 58; }
+    else if (mode === 'overcast') { offset = -2.0; baseHum = 68; }
+    else if (mode === 'rain') { offset = -6.0; baseHum = 86; }
+    tempC = 21.5 + s * 5.5 + offset;
+    humidity = Math.round(baseHum - s * (mode === 'rain' ? 4 : 10));
+  }
+  return {
+    tempC: Math.round(tempC * 10) / 10,
+    humidity: Math.max(25, Math.min(95, humidity))
+  };
+}
+
 export function updateDynamicEnvironment(dt, env) {
   env.envTime += dt;
   const dayFrac = env.getVirtualDayFrac();
@@ -51,6 +74,9 @@ export function updateDynamicEnvironment(dt, env) {
   }
   env.lastWeatherMode = weatherMode;
   env.weatherMode = weatherMode;
+  const extCond = computeOutsideWeatherConditions(sunY, weatherMode);
+  env.outsideTempC = extCond.tempC;
+  env.outsideHumidity = extCond.humidity;
 
   const targetSnow = weatherMode === 'snow' ? 1 : 0;
   env.snowMix += (targetSnow - env.snowMix) * Math.min(1, dt * 0.25);

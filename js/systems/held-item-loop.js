@@ -309,8 +309,10 @@ function updateThermometerLaser(ctx, dt, now) {
     ctx.thermoLaserLine.geometry.attributes.position.needsUpdate = true;
     ctx.thermoLaserLine.visible = true;
     ctx.thermoLaserDot.visible = false;
-    ctx.thermoTargetTemp = ctx.weatherMode === 'snow' ? -6.5 : (ctx.weatherMode === 'rain' ? 17.4 : 23.0);
-    ctx.thermoTargetLabel = 'Ambiente';
+    ctx.thermoTargetTemp = typeof ctx.outsideTempC === 'number'
+      ? ctx.outsideTempC
+      : (ctx.weatherMode === 'snow' ? -2.0 : (ctx.weatherMode === 'rain' ? 17.4 : 25.0));
+    ctx.thermoTargetLabel = 'Ambiente Externo';
   }
   ctx.thermoCurrentTemp += (ctx.thermoTargetTemp - ctx.thermoCurrentTemp) * Math.min(1, dt * 14);
   drawThermoScreen(ctx.thermoCurrentTemp, 'SCAN');

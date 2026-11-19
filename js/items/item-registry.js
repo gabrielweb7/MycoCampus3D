@@ -329,27 +329,61 @@ export function getLabItemGuide(items) {
   });
 }
 
+export function isPointInBoundsXZ(x, z, box, margin) {
+  if (!box) return false;
+  const m = margin || 0;
+  if (typeof box.halfW === 'number' && typeof box.halfD === 'number' &&
+      typeof box.centerX === 'number' && typeof box.centerZ === 'number' && box.ry) {
+    const dx = x - box.centerX;
+    const dz = z - box.centerZ;
+    const cosR = Math.cos(box.ry);
+    const sinR = Math.sin(box.ry);
+    const lx = dx * cosR - dz * sinR;
+    const lz = dx * sinR + dz * cosR;
+    return Math.abs(lx) <= box.halfW + m && Math.abs(lz) <= box.halfD + m;
+  }
+  return x >= box.minX - m && x <= box.maxX + m && z >= box.minZ - m && z <= box.maxZ + m;
+}
+
 export function updateItemBounds(item) {
   if (!item || !item.mesh) return;
   const px = item.mesh.position.x, py = item.mesh.position.y, pz = item.mesh.position.z;
+  const sx = Math.abs(item.mesh.scale ? item.mesh.scale.x : 1) || 1;
+  const sy = Math.abs(item.mesh.scale ? item.mesh.scale.y : 1) || 1;
+  const sz = Math.abs(item.mesh.scale ? item.mesh.scale.z : 1) || 1;
+  const ry = item.mesh.rotation.y || 0;
   const surf = item.mesh.userData.dynamicSurface;
   const col = item.mesh.userData.dynamicCollider;
   const dims = item.mesh.userData.tableDims;
   if (dims) {
-    const cRot = Math.abs(Math.cos(item.mesh.rotation.y));
-    const sRot = Math.abs(Math.sin(item.mesh.rotation.y));
-    const hw = (dims.w * cRot + dims.d * sRot) / 2;
-    const hd = (dims.w * sRot + dims.d * cRot) / 2;
+    const w = dims.w * sx;
+    const h = dims.h * sy;
+    const d = dims.d * sz;
+    const cRot = Math.abs(Math.cos(ry));
+    const sRot = Math.abs(Math.sin(ry));
+    const hw = (w * cRot + d * sRot) / 2;
+    const hd = (w * sRot + d * cRot) / 2;
     if (surf) {
       surf.minX = px - hw + 0.02; surf.maxX = px + hw - 0.02;
       surf.minZ = pz - hd + 0.02; surf.maxZ = pz + hd - 0.02;
-      surf.topY = py + dims.h + (dims.surfOffset || 0);
+      surf.topY = py + h + (dims.surfOffset || 0) * sy;
+      surf.centerX = px; surf.centerZ = pz;
+      surf.halfW = Math.max(0.05, w * 0.5 - 0.02);
+      surf.halfD = Math.max(0.05, d * 0.5 - 0.02);
+      surf.ry = ry;
     }
     if (col) {
       col.minX = px - hw - 0.05; col.maxX = px + hw + 0.05;
       col.minZ = pz - hd - 0.05; col.maxZ = pz + hd + 0.05;
-      col.minY = py; col.maxY = py + dims.h; col.surfaceTopY = py + dims.h;
+      col.minY = py; col.maxY = py + h; col.surfaceTopY = py + h;
+      col.centerX = px; col.centerZ = pz;
+      col.halfW = w * 0.5 + 0.05;
+      col.halfD = d * 0.5 + 0.05;
+      col.ry = ry;
     }
+  }
+  if (item.mesh.userData.hoodLight) {
+    item.mesh.userData.hoodLight.position.set(px, py + 0.80 * sy, pz);
   }
 }
 
@@ -360,8 +394,7 @@ export function isSurfaceOccupied(ctx, surf, ignoreItem) {
     const o = ctx.pickableItems[i];
     if (o === ignoreItem || o === heldItem || (ctx.isHeldByRemote && ctx.isHeldByRemote(o.id))) continue;
     const p = o.mesh.position;
-    if (p.x >= surf.minX - 0.08 && p.x <= surf.maxX + 0.08 &&
-      p.z >= surf.minZ - 0.08 && p.z <= surf.maxZ + 0.08 &&
+    if (isPointInBoundsXZ(p.x, p.z, surf, 0.08) &&
       p.y >= surf.topY - 0.12 && p.y <= surf.topY + 0.55) {
       return true;
     }

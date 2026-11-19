@@ -84,6 +84,8 @@ const _envArg = {
   getVirtualDayFrac,
   lastWeatherMode: '',
   weatherMode: '',
+  outsideTempC: 25.5,
+  outsideHumidity: 48,
   snowMix: 0,
   rainbow: _envRainbow,
   scene: null,
@@ -182,6 +184,8 @@ export function updateDynamicEnvironment(ctx, dt) {
   _envArg.envTime = ctx.envTime;
   _envArg.lastWeatherMode = ctx.lastWeatherMode;
   _envArg.weatherMode = ctx.weatherMode;
+  _envArg.outsideTempC = ctx.outsideTempC;
+  _envArg.outsideHumidity = ctx.outsideHumidity;
   _envArg.snowMix = ctx.snowMix;
   _envArg.scene = ctx.scene;
   _envArg.sunDisc = ctx.sunDisc;
@@ -211,6 +215,8 @@ export function updateDynamicEnvironment(ctx, dt) {
   ctx.envTime = _envArg.envTime;
   ctx.lastWeatherMode = _envArg.lastWeatherMode;
   ctx.weatherMode = _envArg.weatherMode;
+  ctx.outsideTempC = _envArg.outsideTempC;
+  ctx.outsideHumidity = _envArg.outsideHumidity;
   ctx.snowMix = _envArg.snowMix;
   ctx.rainbowActive = _envRainbow.active;
   ctx.rainbowTimer = _envRainbow.timer;

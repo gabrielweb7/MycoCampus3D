@@ -2,6 +2,7 @@
  * MycoCampus3D — Motor de Física, Terreno, Superfícies & Colisões
  */
 import { makeBox } from './textures.js';
+import { isPointInBoundsXZ } from '../items/item-registry.js';
 
 export function terrainHeight(x, z) {
   const distCenter = Math.max(Math.abs(x) - 76, Math.abs(z - 1) - 50);
@@ -49,10 +50,10 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
     if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
     if (typeof maxSurfTopY === 'number' && ss.topY > maxSurfTopY) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
-    const sW = ss.maxX - ss.minX;
-    const sD = ss.maxZ - ss.minZ;
+    const sW = typeof ss.halfW === 'number' ? ss.halfW * 2 : (ss.maxX - ss.minX);
+    const sD = typeof ss.halfD === 'number' ? ss.halfD * 2 : (ss.maxZ - ss.minZ);
     if (sW < 0.35 || sD < 0.35) continue;
-    if (x >= ss.minX - 0.08 && x <= ss.maxX + 0.08 && z >= ss.minZ - 0.08 && z <= ss.maxZ + 0.08) {
+    if (isPointInBoundsXZ(x, z, ss, 0.08)) {
       if (curY >= ss.topY - 0.40) h = Math.max(h, ss.topY);
     }
   }
@@ -70,7 +71,7 @@ export function getSupportSurfaceAt(ctx, x, z, margin, ignoreSurf, maxTopY) {
     if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
     if (typeof maxTopY === 'number' && ss.topY > maxTopY) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
-    if (x >= ss.minX - m && x <= ss.maxX + m && z >= ss.minZ - m && z <= ss.maxZ + m) {
+    if (isPointInBoundsXZ(x, z, ss, m)) {
       if (!best || ss.topY > best.topY) best = ss;
     }
   }
@@ -119,6 +120,54 @@ export function addSolidWall(scene, wallSegments, x1, z1, x2, z2, minY, height, 
   return mesh;
 }
 
+function clampCircleAgainstCollider(pos, radius, c) {
+  if (typeof c.halfW === 'number' && typeof c.halfD === 'number' &&
+      typeof c.centerX === 'number' && typeof c.centerZ === 'number' && c.ry) {
+    const dx = pos.x - c.centerX;
+    const dz = pos.z - c.centerZ;
+    const cosR = Math.cos(c.ry);
+    const sinR = Math.sin(c.ry);
+    const lx = dx * cosR - dz * sinR;
+    const lz = dx * sinR + dz * cosR;
+    const nearLX = Math.max(-c.halfW, Math.min(lx, c.halfW));
+    const nearLZ = Math.max(-c.halfD, Math.min(lz, c.halfD));
+    const clx = lx - nearLX;
+    const clz = lz - nearLZ;
+    const cdist = Math.hypot(clx, clz);
+    if (cdist >= radius) return;
+    let outLX, outLZ;
+    if (cdist < 0.0001) {
+      const penX = c.halfW - Math.abs(lx);
+      const penZ = c.halfD - Math.abs(lz);
+      if (penX < penZ) {
+        outLX = lx >= 0 ? c.halfW + radius : -c.halfW - radius;
+        outLZ = lz;
+      } else {
+        outLX = lx;
+        outLZ = lz >= 0 ? c.halfD + radius : -c.halfD - radius;
+      }
+    } else {
+      outLX = nearLX + (clx / cdist) * radius;
+      outLZ = nearLZ + (clz / cdist) * radius;
+    }
+    pos.x = c.centerX + outLX * cosR + outLZ * sinR;
+    pos.z = c.centerZ - outLX * sinR + outLZ * cosR;
+    return;
+  }
+
+  const nearX = Math.max(c.minX, Math.min(pos.x, c.maxX));
+  const nearZ = Math.max(c.minZ, Math.min(pos.z, c.maxZ));
+  const cdx = pos.x - nearX, cdz = pos.z - nearZ;
+  const cdist = Math.hypot(cdx, cdz);
+  if (cdist < radius) {
+    if (cdist < 0.0001) { pos.x = c.minX - radius; }
+    else {
+      pos.x = nearX + (cdx / cdist) * radius;
+      pos.z = nearZ + (cdz / cdist) * radius;
+    }
+  }
+}
+
 export function clampPosAgainstWalls(ctx, pos, radius) {
   const { wallSegments, campusDoors, solidColliders } = ctx;
 
@@ -153,17 +202,7 @@ export function clampPosAgainstWalls(ctx, pos, radius) {
     if (held && ((held.fridgeCtrl && held.fridgeCtrl.solidCollider === c) || (held.mesh && held.mesh.userData && held.mesh.userData.dynamicCollider === c))) continue;
     const surfY = (c.surfaceTopY !== undefined) ? c.surfaceTopY : c.maxY;
     if (pos.y >= surfY - 0.08 || pos.y + 1.5 < c.minY) continue;
-    const nearX = Math.max(c.minX, Math.min(pos.x, c.maxX));
-    const nearZ = Math.max(c.minZ, Math.min(pos.z, c.maxZ));
-    const cdx = pos.x - nearX, cdz = pos.z - nearZ;
-    const cdist = Math.hypot(cdx, cdz);
-    if (cdist < radius) {
-      if (cdist < 0.0001) { pos.x = c.minX - radius; }
-      else {
-        pos.x = nearX + (cdx / cdist) * radius;
-        pos.z = nearZ + (cdz / cdist) * radius;
-      }
-    }
+    clampCircleAgainstCollider(pos, radius, c);
   }
 
   pos.x = Math.max(-200, Math.min(200, pos.x));

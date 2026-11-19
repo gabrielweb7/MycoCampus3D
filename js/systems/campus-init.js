@@ -255,6 +255,8 @@ const sim = {
   weatherPosAttr: null,
   weatherMode: 'clear',
   lastWeatherMode: null,
+  outsideTempC: 25.5,
+  outsideHumidity: 48,
   rainbowMesh: null,
   rainbowActive: false,
   rainbowTimer: 0,

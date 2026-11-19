@@ -4,7 +4,7 @@
  * (incluindo pilhas recursivas) e marcando todos para persistência/sync multiplayer.
  */
 
-import { updateItemBounds } from '../items/item-registry.js';
+import { isPointInBoundsXZ, updateItemBounds } from '../items/item-registry.js';
 
 function getItemSurfaces(item) {
   if (!item || !item.mesh || !item.mesh.userData) return [];
@@ -20,8 +20,7 @@ function getItemSurfaces(item) {
 }
 
 function isPointOnSurface(p, surf) {
-  return p.x >= surf.minX - 0.08 && p.x <= surf.maxX + 0.08 &&
-    p.z >= surf.minZ - 0.08 && p.z <= surf.maxZ + 0.08 &&
+  return isPointInBoundsXZ(p.x, p.z, surf, 0.08) &&
     p.y >= surf.topY - 0.12 && p.y <= surf.topY + 0.55;
 }
 

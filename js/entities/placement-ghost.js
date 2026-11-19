@@ -1,4 +1,5 @@
 import { getItemGroundHeight } from '../engine/physics.js';
+import { isPointInBoundsXZ } from '../items/item-registry.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import {
   PETRI_DISH_HEIGHT,
@@ -624,8 +625,7 @@ export function dropUnsupportedItems(ctx) {
         if (s === item.mesh.userData.dynamicSurface) continue;
         if (item.fridgeCtrl && s.isCultureFridgeShelf) continue;
         if (item.mesh.userData.isHood && s.isHood) continue;
-        if (item.mesh.position.x >= s.minX - 0.09 && item.mesh.position.x <= s.maxX + 0.09 &&
-          item.mesh.position.z >= s.minZ - 0.09 && item.mesh.position.z <= s.maxZ + 0.09 &&
+        if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.09) &&
           item.mesh.position.y >= s.topY - 0.04) {
           supportedY = Math.max(supportedY, s.topY);
         }

@@ -55,6 +55,34 @@ export function renderGreenhouseModal() {
   if ($('gh-sub-co2')) $('gh-sub-co2').textContent = `Exaustor: ${greenhouseEnv.exhaustPower === 0 ? 'OFF' : (greenhouseEnv.exhaustPower === 1 ? 'Suave' : 'Forte')}`;
   if ($('gh-val-temp')) $('gh-val-temp').textContent = `${greenhouseEnv.tempC.toFixed(1)}°C`;
   if ($('gh-sub-temp')) $('gh-sub-temp').textContent = `3 Fans: ${greenhouseEnv.coolerActive ? 'ON (' + greenhouseEnv.targetTempC.toFixed(0) + '°C)' : 'OFF'}`;
+  if ($('gh-val-door')) {
+    const doorEl = $('gh-val-door');
+    const doorCard = $('gh-door-card');
+    if (greenhouseEnv.doorAlarmActive) {
+      doorEl.textContent = `🚨 ABERTA (${Math.floor(greenhouseEnv.doorOpenSec)}s) • ALARME BEEP!`;
+      doorEl.className = 'text-xs font-extrabold text-rose-300 animate-pulse';
+      if (doorCard) doorCard.className = 'rounded-xl bg-rose-950/70 border border-rose-500/60 px-3 py-2 flex items-center justify-between gap-2';
+    } else if (greenhouseEnv.doorOpen) {
+      doorEl.textContent = `⚠️ Aberta (${Math.floor(greenhouseEnv.doorOpenSec)}s)`;
+      doorEl.className = 'text-xs font-extrabold text-amber-300';
+      if (doorCard) doorCard.className = 'rounded-xl bg-amber-950/55 border border-amber-500/50 px-3 py-2 flex items-center justify-between gap-2';
+    } else {
+      doorEl.textContent = 'Fechada (Isolada) ✅';
+      doorEl.className = 'text-xs font-extrabold text-emerald-300';
+      if (doorCard) doorCard.className = 'rounded-xl bg-slate-900/80 border border-emerald-500/35 px-3 py-2 flex items-center justify-between gap-2';
+    }
+  }
+  if ($('gh-val-outside')) {
+    const weatherLabels = {
+      clear: '☀️ Céu Limpo',
+      partly: '⛅ Parcial',
+      overcast: '☁️ Nublado',
+      rain: '🌧️ Chuva',
+      snow: '❄️ Neve'
+    };
+    const wTag = weatherLabels[greenhouseEnv.weatherMode] || '🌤️ Externo';
+    $('gh-val-outside').textContent = `${wTag} • ${(greenhouseEnv.outsideTempC || 25).toFixed(1)}°C • ${Math.round(greenhouseEnv.outsideHumidity || 50)}% UR`;
+  }
   if ($('gh-val-health')) {
     const avgH = Math.round(greenhouseEnv.avgHealth);
     $('gh-val-health').textContent = `${avgH}%`;

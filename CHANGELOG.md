@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.2.4] - 2026-11-19
+### Sensor de Porta Aberta & Clima Externo na Estufa + Colisão OBB Precisa para Mesas Movidas no Editor
+- **Correção de Colisores Invisíveis ao Mover/Rotacionar Mesas (`js/items/item-registry.js`, `js/engine/physics.js`, `js/systems/surface-group-move.js`, `js/entities/placement-ghost.js`, `js/items/laminar-hood.js`):**
+  - Substituída a caixa AABB inflada por **OBB (Oriented Bounding Box)** rotacionado e escalonado com `mesh.scale` em `updateItemBounds`, `isPointInBoundsXZ`, `clampPosAgainstWalls` e `getSupportSurfaceAt`, eliminando as barreiras invisíveis nos cantos diagonais das mesas (`table_hood_lab`, `table_cooker_lab`) e acompanhando a luz do fluxo laminar (`hoodLight`).
+- **Temperatura & Umidade Externas do Mundo + Sensor de Porta da Estufa com Alarme Sonoro (`js/engine/environment.js`, `js/world/greenhouse.js`, `js/services/audio-engine.js`, `js/ui/modal-greenhouse.js`, `index.html`):**
+  - Adicionado cálculo dinâmico de clima externo (`computeOutsideWeatherConditions`: temperatura e umidade externas variando com ciclo dia/noite e clima sol, nublado, chuva e neve) integrado ao termômetro laser e à Estufa.
+  - Sensor na **`Porta da Estufa`**: enquanto aberta, a umidade cai, o $\text{CO}_2$ ventila e a temperatura interna esquenta (no sol) ou esfria (na chuva/noite/neve); após `10s` aberta, dispara **alarme sonoro (`playGreenhouseDoorBeep`)** periódico, alerta no LCD 3D/modal e diagnóstico nos bolos, normalizando automaticamente ao fechar a porta.
+
 ## [v1.2.3] - 2026-11-18
 ### Correção Crítica do Climatizador (`0°C`) + Diagnóstico Múltiplo nos Próprios Bolos & Modal Enxuto
 - **Correção da sanitização no back-end (`api/multiplayer.php`, `js/systems/world-devices-sync.js`):**
