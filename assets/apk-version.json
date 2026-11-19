@@ -1,7 +1,7 @@
 {
-  "versionCode": 1,
-  "versionName": "1.1.0",
+  "versionCode": 2,
+  "versionName": "1.1.1",
   "apkUrl": "https://mycocampus3d.alquimistasmagicos.com.br/MycoCampus3D.apk",
-  "notes": "Primeira versão oficial em APK do MycoCampus3D com tela cheia imersiva, aceleração de hardware e verificador automático de novas versões.",
+  "notes": "Atualização automática do APK (v1.1.1 / build 2): valida o alerta no app, o download direto do seu domínio e a instalação por cima mantendo seus dados.",
   "mandatory": false
 }

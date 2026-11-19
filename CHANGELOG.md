@@ -2,6 +2,10 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.1.1] - 2026-11-18
+### Teste de Atualização Automática (Web + APK Native Update)
+- Atualizada a versão do campus para `v1.1.1` e `versionCode` do APK para `2` em `assets/apk-version.json`, validando o fluxo completo de atualização automática web e alerta de atualização nativa do `MycoCampus3D.apk`.
+
 ## [v1.1.0] - 2026-11-18
 ### Refatoração Geral: Estabilidade, Qualidade Máxima, Auto-FPS + DRS (Mobile Antigo/Novo & PC) e Performance Back-end
 - **Estabilidade & Correções Críticas em Produção:**
