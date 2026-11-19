@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /database/
+Disallow: /data/
+Disallow: /tools/
 
+Sitemap: https://mycocampus3d.alquimistasmagicos.com.br/sitemap.xml

@@ -439,6 +439,53 @@ export function playGreenhouseDoorBeep() {
   } catch (e) {}
 }
 
+export function playCashRegister() {
+  const c = getAudioContext();
+  if (!c || getIsMuted()) return;
+  try {
+    const t = c.currentTime;
+    const notes = [1046.5, 1318.51, 1567.98, 2093.0];
+    notes.forEach((f, i) => {
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      const st = t + i * 0.045;
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, st);
+      g.gain.setValueAtTime(0.0001, st);
+      g.gain.exponentialRampToValueAtTime(0.16, st + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, st + 0.22);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(st);
+      osc.stop(st + 0.24);
+    });
+  } catch (e) {}
+}
+
+export function playCarHonk() {
+  const c = getAudioContext();
+  if (!c || getIsMuted()) return;
+  try {
+    const t = c.currentTime;
+    [0, 0.16].forEach((offset) => {
+      const st = t + offset;
+      [392.0, 493.88].forEach((freq) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, st);
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(0.055, st + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, st + 0.11);
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(st);
+        osc.stop(st + 0.12);
+      });
+    });
+  } catch (e) {}
+}
+
 export const AudioEngine = {
   playFootstep,
   playHarvest,
@@ -448,6 +495,8 @@ export const AudioEngine = {
   playEmote,
   playLaserBeep,
   playGreenhouseDoorBeep,
+  playCashRegister,
+  playCarHonk,
   playSwitch,
   playGnomeGiggle,
   playUmbralWhisper,

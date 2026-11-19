@@ -12,7 +12,7 @@ export const CAMPUS_SECTORS = [
   { id: 'storage', icon: '📦', name: 'Depósito de Insumos', desc: 'Bags, vidros, grãos, placas e borrifadores', x: -16.2, y: 0.14, z: 7.5, yaw: Math.PI / 2 },
   { id: 'dehydration', icon: '♨️', name: 'Sala de Desidratação & Embalagem', desc: '6 Desidratadoras, sacos Mylar, 3 seladoras, caixas e Monotubs LED', x: 17.0, y: 0.14, z: -7.0, yaw: -Math.PI / 2 },
   { id: 'greenhouse', icon: '🍄', name: 'Estufa Climatizada & Horta', desc: '24 bolos, umidificador, exaustor, alfaces e tomates orgânicos', x: 16.5, y: 0.14, z: 7.5, yaw: -Math.PI / 2 },
-  { id: 'drivethru', icon: '🚗', name: 'Drive-Thru de Vendas (Estrada)', desc: 'Venda caixas de cogumelos desidratados para carros de NPCs por 🪙 MycoCoins!', x: 11.5, y: 0.04, z: 33.8, yaw: Math.PI },
+  { id: 'drivethru', icon: '🚗', name: 'Empório & Drive-Thru (Estrada)', desc: 'Venda caixas de cogumelos desidratados para carros de NPCs por 🪙 MycoCoins!', x: 17.5, y: 0.04, z: 37.5, yaw: Math.PI },
   { id: 'cinema', icon: '🎬', name: 'Cinema & Auditório', desc: 'Telão interativo com aulas e poltronas', x: 48, y: 0.14, z: -6.5, yaw: 0 },
   { id: 'sports', icon: '⚽', name: 'Complexo Esportivo', desc: 'Futebol, basquete com bolas reais e tênis', x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
   { id: 'forest', icon: '🌲', name: 'Bosque & Lago', desc: 'Colha cogumelos silvestres pela floresta', x: 0, y: 0, z: -24, yaw: 0 },

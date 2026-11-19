@@ -15,10 +15,11 @@
  *    - Fica feliz (pula/comemora com balão de fala), pega o pacote de cogumelos na mão, volta para o carro, entra e vai embora pela estrada!
  */
 
-import { makeBox } from '../engine/textures.js';
+import { makeBox, brickMat, woodMat, updateTextSprite } from '../engine/textures.js';
 import { getCachedCanvasTexture, registerPickable, disposeObjectResources, updateItemBounds } from './item-registry.js';
 import { addWallLabBench } from './laminar-hood.js';
 import { addMovableStainlessTable } from './stainless-table.js';
+import { buildCuteAvatar, drawAvatarFace } from '../entities/avatars.js';
 
 const THREE = window.THREE;
 
@@ -105,23 +106,37 @@ function createMushroomPackVisual(filled, sealed) {
     roughness: 0.12,
     depthWrite: false
   });
-  const labelTex = getCachedCanvasTexture('myco_pack_label_v1', 128, 128, (lctx) => {
+  const labelTex = getCachedCanvasTexture('myco_pack_label_v2', 256, 256, (lctx) => {
     lctx.fillStyle = '#ffffff';
-    lctx.fillRect(0, 0, 128, 128);
-    lctx.fillStyle = '#16a34a';
-    lctx.fillRect(0, 44, 128, 42);
+    lctx.fillRect(0, 0, 256, 256);
+    lctx.strokeStyle = '#16a34a';
+    lctx.lineWidth = 6;
+    lctx.strokeRect(6, 6, 244, 244);
+
+    // Logo cogumelo vermelho no topo
     lctx.fillStyle = '#dc2626';
     lctx.beginPath();
-    lctx.arc(64, 24, 14, Math.PI, 0);
+    lctx.arc(128, 56, 26, Math.PI, 0);
     lctx.fill();
+    lctx.fillStyle = '#fef3c7';
+    lctx.fillRect(118, 56, 20, 18);
+
+    // Faixa verde central bem enquadrada sem cortar
+    lctx.fillStyle = '#16a34a';
+    lctx.fillRect(12, 86, 232, 86);
     lctx.fillStyle = '#ffffff';
-    lctx.font = 'bold 15px system-ui, sans-serif';
+    lctx.font = 'bold 28px system-ui, sans-serif';
     lctx.textAlign = 'center';
-    lctx.fillText('MycoCampus', 64, 64);
-    lctx.font = 'bold 12px system-ui, sans-serif';
-    lctx.fillText('COGUMELOS 25g', 64, 80);
+    lctx.fillText('MycoCampus', 128, 122);
+    lctx.fillStyle = '#fef08a';
+    lctx.font = 'bold 21px system-ui, sans-serif';
+    lctx.fillText('COGUMELO • 10g', 128, 156);
+
+    // Código de barras estilizado embaixo
     lctx.fillStyle = '#0f172a';
-    lctx.fillRect(24, 96, 80, 20);
+    for (let bx = 42; bx < 214; bx += 8) {
+      lctx.fillRect(bx, 190, (bx % 16 === 0) ? 4 : 2, 42);
+    }
   });
   const labelMat = new THREE.MeshStandardMaterial({ map: labelTex, roughness: 0.35 });
 
@@ -243,13 +258,13 @@ export function packDriedMushroomsIntoBag(ctx, bagItem, driedBatchItem) {
   const bc = bagItem.mushroomBagCtrl;
   const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
   if (bc.filled) {
-    if (onToast) onToast('⚠️ Este saco já está cheio com 25g de cogumelos secos! Leve-o à Seladora Térmica.');
+    if (onToast) onToast('⚠️ Este saco já está cheio com cogumelos secos! Segure e aponte na Seladora Térmica.');
     return true;
   }
   const dc = driedBatchItem.driedMushroomCtrl;
   bc.filled = true;
   bc.sealed = false;
-  bc.grams = dc.grams || 25;
+  bc.grams = dc.grams || 10;
   bc.speciesName = dc.speciesName || 'Golden Teacher';
   updateMushroomBagVisual(bagItem);
 
@@ -287,7 +302,7 @@ export function sealMushroomBag(ctx, bagItem) {
   const bc = bagItem.mushroomBagCtrl;
   const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
   if (!bc.filled) {
-    if (onToast) onToast('⚠️ Coloque primeiro 25g de Cogumelos Desidratados Crocantes dentro do saco antes de selar!');
+    if (onToast) onToast('⚠️ Coloque primeiro 10g de Cogumelos Desidratados Crocantes dentro do saco antes de selar!');
     return true;
   }
   if (bc.sealed) {
@@ -296,6 +311,19 @@ export function sealMushroomBag(ctx, bagItem) {
   }
   bc.sealed = true;
   updateMushroomBagVisual(bagItem);
+  // Anima a seladora térmica mais próxima pressionando a solda
+  if (ctx && ctx.pickableItems && bagItem.mesh) {
+    let bestSealer = null;
+    let bestD = Infinity;
+    const bp = bagItem.mesh.position;
+    for (let i = 0; i < ctx.pickableItems.length; i++) {
+      const it = ctx.pickableItems[i];
+      if (!it || !it.sealerCtrl || !it.mesh) continue;
+      const d = it.mesh.position.distanceToSquared(bp);
+      if (d < bestD) { bestD = d; bestSealer = it; }
+    }
+    if (bestSealer) bestSealer.sealerCtrl.triggerSealAnimation();
+  }
   playAudio('playClick');
   if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
   if (ctx && ctx.heldItem === bagItem && ctx.callbacks && ctx.callbacks.onHoldChange) {
@@ -482,30 +510,34 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
 function drawRoadStandSign() {
   const sctx = roadStandState.signCtx;
   if (!sctx) return;
+  const w = 512;
+  const h = 160;
   sctx.fillStyle = '#0f172a';
-  sctx.fillRect(0, 0, 320, 128);
+  sctx.fillRect(0, 0, w, h);
+  sctx.fillStyle = '#064e3b';
+  sctx.fillRect(8, 8, w - 16, 48);
   sctx.strokeStyle = '#fbbf24';
   sctx.lineWidth = 5;
-  sctx.strokeRect(4, 4, 312, 120);
-
-  sctx.fillStyle = '#fde047';
-  sctx.font = 'bold 20px system-ui, sans-serif';
-  sctx.textAlign = 'center';
-  sctx.fillText('🚗 DRIVE-THRU MYCOCAMPUS', 160, 32);
-
-  sctx.fillStyle = roadStandState.availablePacks > 0 ? '#34d399' : '#94a3b8';
-  sctx.font = 'bold 17px system-ui, sans-serif';
-  sctx.fillText(
-    roadStandState.availablePacks > 0
-      ? `📦 ${roadStandState.availablePacks} Pacote(s) Prontos p/ Venda!`
-      : '📦 Estoque: 0 Pacotes (Traga Caixas!)',
-    160,
-    64
-  );
+  sctx.strokeRect(5, 5, w - 10, h - 10);
 
   sctx.fillStyle = '#fef08a';
-  sctx.font = 'bold 15px system-ui, sans-serif';
-  sctx.fillText(`🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins / pacote • Vendidos: ${roadStandState.totalSoldPacks}`, 160, 96);
+  sctx.font = 'bold 26px system-ui, sans-serif';
+  sctx.textAlign = 'center';
+  sctx.fillText('🍄 EMPÓRIO MYCOCAMPUS', w / 2, 41);
+
+  sctx.fillStyle = roadStandState.availablePacks > 0 ? '#34d399' : '#cbd5e1';
+  sctx.font = 'bold 23px system-ui, sans-serif';
+  sctx.fillText(
+    roadStandState.availablePacks > 0
+      ? `📦 ${roadStandState.availablePacks} Pacote(s) 10g Prontos p/ Venda`
+      : '📦 Estoque Vazio — Traga Caixas de 10g!',
+    w / 2,
+    94
+  );
+
+  sctx.fillStyle = '#fcd34d';
+  sctx.font = 'bold 20px system-ui, sans-serif';
+  sctx.fillText(`🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins / pacote   •   Vendidos: ${roadStandState.totalSoldPacks}`, w / 2, 134);
 
   if (roadStandState.signTex) roadStandState.signTex.needsUpdate = true;
 }
@@ -526,104 +558,141 @@ export function buildRoadsideMushroomStand(ctx) {
   // Sincroniza saldo inicial de MycoCoins no HUD
   addLocalMycoCoins(0);
 
-  // CASA EMPÓRIO MYCOCAMPUS NA BEIRA DA ESTRADA (inspirada na quitanda da imagem: porta aberta, toldo listrado, estantes na frente, cogumelo gigante no teto, bancada + pia dentro!)
-  const hx = 11.5;
+  // CASA EMPÓRIO MYCOCAMPUS NA BEIRA DA ESTRADA (no mesmo padrão arquitetônico de tijolinhos, aço escuro e vidro dos prédios do Campus!)
+  const hx = 17.5;
   const hz = 32.5;
-  const houseW = 5.6;
+  const houseW = 5.8;
   const houseD = 4.6;
-  const wallH = 3.35;
+  const wallH = 3.40;
   const floorY = 0.12;
   const standGroup = new THREE.Group();
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0xe7dfd3, roughness: 0.82 });
-  const trimMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.65 });
+  const wallMat = brickMat(2, 2);
+  const woodShelfMat = woodMat(1, 1);
+  const steelFrameMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.55 });
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.78 });
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.82 });
-  const counterMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.72 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.65 });
+  const pineMat = new THREE.MeshStandardMaterial({ color: 0xead7b0, roughness: 0.78 });
   const orangeMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.65 });
   const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.65 });
-  const packMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.3, metalness: 0.25 });
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.38, roughness: 0.12 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.34, roughness: 0.1, metalness: 0.25 });
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
 
-  // 1. Piso caminhável da casa + calçada frontal até a Avenida Sul (z = 39.5)
-  const floorSlab = makeBox(houseW + 0.3, floorY, houseD + 0.3, 0x94a3b8, { roughness: 0.85 });
+  // 1. Piso caminhável de laje + calçada frontal até a Avenida Sul (z = 39.5)
+  const floorSlab = makeBox(houseW + 0.4, floorY, houseD + 0.4, 0x94a3b8, { roughness: 0.85 });
   floorSlab.position.set(hx, floorY * 0.5, hz);
-  standGroup.add(floorSlab);
+  const frontWalk = makeBox(houseW + 0.4, 0.04, 3.6, 0xcbd5e1, { roughness: 0.88, noShadow: true });
+  frontWalk.position.set(hx, 0.02, hz + houseD * 0.5 + 1.8);
+  standGroup.add(floorSlab, frontWalk);
   if (ctx.walkableFloors) {
     ctx.walkableFloors.push({
       minX: hx - houseW * 0.5,
       maxX: hx + houseW * 0.5,
       minZ: hz - houseD * 0.5,
-      maxZ: hz + houseD * 0.5 + 1.5,
+      maxZ: hz + houseD * 0.5 + 1.8,
       topY: floorY
     });
   }
 
-  // 2. Paredes externas (com vão de porta larga de 1.8m na frente z = 34.8 para entrar carregando caixas!)
-  const wBack = makeBox(houseW, wallH, 0.18, wallMat);
+  // 2. Paredes de tijolinhos + pilares de aço escuro (igual aos prédios do campus!)
+  const wBack = makeBox(houseW, wallH, 0.22, wallMat);
   wBack.position.set(hx, floorY + wallH * 0.5, hz - houseD * 0.5);
-  const wLeft = makeBox(0.18, wallH, houseD, wallMat);
+  const wLeft = makeBox(0.22, wallH, houseD, wallMat);
   wLeft.position.set(hx - houseW * 0.5, floorY + wallH * 0.5, hz);
-  const wRight = makeBox(0.18, wallH, houseD, wallMat);
+  const wRight = makeBox(0.22, wallH, houseD, wallMat);
   wRight.position.set(hx + houseW * 0.5, floorY + wallH * 0.5, hz);
-  // Parede frontal dividida em esquerda, direita e bandeira acima da porta
   const frontZ = hz + houseD * 0.5;
-  const wFrontL = makeBox(1.9, wallH, 0.18, wallMat);
-  wFrontL.position.set(hx - 1.85, floorY + wallH * 0.5, frontZ);
-  const wFrontR = makeBox(1.9, wallH, 0.18, wallMat);
-  wFrontR.position.set(hx + 1.85, floorY + wallH * 0.5, frontZ);
-  const wFrontTop = makeBox(1.8, 0.95, 0.18, wallMat);
+  // Parede frontal com aberturas reais para as 2 janelas (esq/dir) e porta central (1.8m)
+  const wFrontTop = makeBox(1.8, 0.95, 0.22, steelFrameMat);
   wFrontTop.position.set(hx, floorY + wallH - 0.475, frontZ);
-  standGroup.add(wBack, wLeft, wRight, wFrontL, wFrontR, wFrontTop);
+  standGroup.add(wBack, wLeft, wRight, wFrontTop);
 
-  // Colisores das paredes da casa (deixando a porta central x: 10.6..12.4 totalmente livre!)
-  ctx.solidColliders.push(
-    { minX: hx - houseW * 0.5 - 0.1, maxX: hx + houseW * 0.5 + 0.1, minZ: hz - houseD * 0.5 - 0.1, maxZ: hz - houseD * 0.5 + 0.1, minY: 0, maxY: 4.0 },
-    { minX: hx - houseW * 0.5 - 0.1, maxX: hx - houseW * 0.5 + 0.1, minZ: hz - houseD * 0.5, maxZ: frontZ, minY: 0, maxY: 4.0 },
-    { minX: hx + houseW * 0.5 - 0.1, maxX: hx + houseW * 0.5 + 0.1, minZ: hz - houseD * 0.5, maxZ: frontZ, minY: 0, maxY: 4.0 },
-    { minX: hx - houseW * 0.5, maxX: hx - 0.9, minZ: frontZ - 0.1, maxZ: frontZ + 0.1, minY: 0, maxY: 4.0 },
-    { minX: hx + 0.9, maxX: hx + houseW * 0.5, minZ: frontZ - 0.1, maxZ: frontZ + 0.1, minY: 0, maxY: 4.0 }
-  );
+  const blindSlatMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.55 });
+  const winGlassRealMat = new THREE.MeshStandardMaterial({
+    color: 0xbae6fd,
+    transparent: true,
+    opacity: 0.24,
+    roughness: 0.08,
+    metalness: 0.2,
+    depthWrite: false
+  });
+  [-1.90, 1.90].forEach((ox) => {
+    const cx = hx + ox;
+    // Peitoril inferior (0..1.05m), verga superior (2.35..3.40m) e montantes laterais da janela
+    const sillWall = makeBox(2.0, 1.05, 0.22, wallMat);
+    sillWall.position.set(cx, floorY + 0.525, frontZ);
+    const lintelWall = makeBox(2.0, 1.05, 0.22, wallMat);
+    lintelWall.position.set(cx, floorY + 2.875, frontZ);
+    const postOuter = makeBox(0.42, 1.30, 0.22, wallMat);
+    postOuter.position.set(cx + (ox < 0 ? -0.79 : 0.79), floorY + 1.70, frontZ);
+    const postInner = makeBox(0.42, 1.30, 0.22, wallMat);
+    postInner.position.set(cx + (ox < 0 ? 0.79 : -0.79), floorY + 1.70, frontZ);
+    standGroup.add(sillWall, lintelWall, postOuter, postInner);
 
-  // Janelas frontais com moldura branca
-  [-1.85, 1.85].forEach((ox) => {
-    const winFrame = makeBox(1.1, 1.05, 0.22, trimMat);
-    winFrame.position.set(hx + ox, floorY + 1.85, frontZ);
-    const winGlass = makeBox(0.95, 0.9, 0.24, glassMat, { noShadow: true });
-    winGlass.position.set(hx + ox, floorY + 1.85, frontZ);
-    standGroup.add(winFrame, winGlass);
+    // Moldura de aço escuro ao redor do vão + vidro transparente real
+    const fTop = makeBox(1.22, 0.07, 0.26, steelFrameMat);
+    fTop.position.set(cx, floorY + 2.35, frontZ);
+    const fBot = makeBox(1.22, 0.07, 0.26, steelFrameMat);
+    fBot.position.set(cx, floorY + 1.05, frontZ);
+    const fL = makeBox(0.07, 1.30, 0.26, steelFrameMat);
+    fL.position.set(cx - 0.575, floorY + 1.70, frontZ);
+    const fR = makeBox(0.07, 1.30, 0.26, steelFrameMat);
+    fR.position.set(cx + 0.575, floorY + 1.70, frontZ);
+    const winGlass = makeBox(1.10, 1.24, 0.04, winGlassRealMat, { noShadow: true });
+    winGlass.position.set(cx, floorY + 1.70, frontZ);
+    standGroup.add(fTop, fBot, fL, fR, winGlass);
+
+    // Persianas horizontais semi-recolhidas no estilo do Campus (dando pra ver dentro!)
+    const blindHead = makeBox(1.08, 0.05, 0.07, steelFrameMat, { noShadow: true });
+    blindHead.position.set(cx, floorY + 2.28, frontZ - 0.06);
+    standGroup.add(blindHead);
+    for (let sl = 0; sl < 6; sl++) {
+      const slat = makeBox(1.06, 0.012, 0.045, blindSlatMat, { noShadow: true });
+      slat.position.set(cx, floorY + 2.20 - sl * 0.065, frontZ - 0.06);
+      slat.rotation.x = 0.35;
+      standGroup.add(slat);
+    }
   });
 
-  // 3. Telhado inclinado + Água-furtada (2º piso decorativo) + COGUMELO GIGANTE NO TETO (como a maçã da foto!)
-  const roofBase = makeBox(houseW + 0.5, 0.22, houseD + 0.5, roofMat);
-  roofBase.position.set(hx, floorY + wallH + 0.11, hz);
-  const roofL = makeBox(houseW + 0.4, 0.18, houseD * 0.62, roofMat);
-  roofL.position.set(hx, floorY + wallH + 0.92, hz - 1.1);
-  roofL.rotation.x = 0.52;
-  const roofR = makeBox(houseW + 0.4, 0.18, houseD * 0.62, roofMat);
-  roofR.position.set(hx, floorY + wallH + 0.92, hz + 1.1);
-  roofR.rotation.x = -0.52;
-  const ridge = makeBox(houseW + 0.45, 0.35, 0.4, roofMat);
-  ridge.position.set(hx, floorY + wallH + 1.55, hz);
-  standGroup.add(roofBase, roofL, roofR, ridge);
+  // 4 pilares de aço escuro nos cantos
+  [[-houseW * 0.5, -houseD * 0.5], [houseW * 0.5, -houseD * 0.5], [-houseW * 0.5, houseD * 0.5], [houseW * 0.5, houseD * 0.5]].forEach((cp) => {
+    const col = makeBox(0.28, wallH + 0.12, 0.28, steelFrameMat);
+    col.position.set(hx + cp[0], floorY + wallH * 0.5, hz + cp[1]);
+    standGroup.add(col);
+  });
 
-  // Cogumelo Gigante no topo do telhado (substituindo a maçã da imagem!)
+  // Colisores das paredes da casa (deixando a porta central livre!)
+  ctx.solidColliders.push(
+    { minX: hx - houseW * 0.5 - 0.12, maxX: hx + houseW * 0.5 + 0.12, minZ: hz - houseD * 0.5 - 0.12, maxZ: hz - houseD * 0.5 + 0.12, minY: 0, maxY: 4.0 },
+    { minX: hx - houseW * 0.5 - 0.12, maxX: hx - houseW * 0.5 + 0.12, minZ: hz - houseD * 0.5, maxZ: frontZ, minY: 0, maxY: 4.0 },
+    { minX: hx + houseW * 0.5 - 0.12, maxX: hx + houseW * 0.5 + 0.12, minZ: hz - houseD * 0.5, maxZ: frontZ, minY: 0, maxY: 4.0 },
+    { minX: hx - houseW * 0.5, maxX: hx - 0.9, minZ: frontZ - 0.12, maxZ: frontZ + 0.12, minY: 0, maxY: 4.0 },
+    { minX: hx + 0.9, maxX: hx + houseW * 0.5, minZ: frontZ - 0.12, maxZ: frontZ + 0.12, minY: 0, maxY: 4.0 }
+  );
+
+  // 3. Laje de cobertura arquitetônica com platibanda + COGUMELO AMANITA GIGANTE NO TOPO!
+  const roofSlab = makeBox(houseW + 0.5, 0.26, houseD + 0.5, roofMat);
+  roofSlab.position.set(hx, floorY + wallH + 0.13, hz);
+  const roofTrim = makeBox(houseW + 0.62, 0.18, houseD + 0.62, steelFrameMat);
+  roofTrim.position.set(hx, floorY + wallH + 0.30, hz);
+  standGroup.add(roofSlab, roofTrim);
+
+  // Cogumelo Gigante no topo do Empório (símbolo da loja!)
   const roofStem = new THREE.Mesh(
     new THREE.CylinderGeometry(0.24, 0.34, 0.85, 14),
     new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.55 })
   );
-  roofStem.position.set(hx, floorY + wallH + 2.05, hz);
+  roofStem.position.set(hx, floorY + wallH + 0.78, hz);
   const roofCap = new THREE.Mesh(
     new THREE.SphereGeometry(0.95, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.56),
     new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.36, emissive: 0x7f1d1d, emissiveIntensity: 0.2 })
   );
-  roofCap.position.set(hx, floorY + wallH + 2.42, hz);
+  roofCap.position.set(hx, floorY + wallH + 1.15, hz);
   standGroup.add(roofStem, roofCap);
   for (let sp = 0; sp < 6; sp++) {
     const a = (sp / 6) * Math.PI * 2;
     const dot = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), whiteMat);
-    dot.position.set(hx + Math.cos(a) * 0.68, floorY + wallH + 2.86, hz + Math.sin(a) * 0.68);
+    dot.position.set(hx + Math.cos(a) * 0.68, floorY + wallH + 1.59, hz + Math.sin(a) * 0.68);
     standGroup.add(dot);
   }
 
@@ -632,8 +701,8 @@ export function buildRoadsideMushroomStand(ctx) {
   houseLight.position.set(hx, floorY + 2.85, hz);
   standGroup.add(houseLight);
 
-  // 4. Toldos Listrados Laranja e Branco na frente (esquerda e direita da entrada, igual à imagem!)
-  [-1.85, 1.85].forEach((ox) => {
+  // 4. Toldos Listrados Laranja e Branco na frente (esquerda e direita da entrada!)
+  [-1.90, 1.90].forEach((ox) => {
     for (let st = 0; st < 7; st++) {
       const stripe = makeBox(0.27, 0.08, 1.15, st % 2 === 0 ? orangeMat : whiteMat);
       stripe.position.set(hx + ox - 0.81 + st * 0.27, floorY + 2.38, frontZ + 0.58);
@@ -642,21 +711,23 @@ export function buildRoadsideMushroomStand(ctx) {
     }
   });
 
-  // Placa luminosa dinâmica na fachada frontal da casa ("🍄 EMPÓRIO MYCOCAMPUS")
+  // Placa luminosa dinâmica na fachada frontal da casa (abaixo da platibanda para não cortar!)
   if (typeof document !== 'undefined') {
     const c = document.createElement('canvas');
-    c.width = 320;
-    c.height = 128;
+    c.width = 512;
+    c.height = 160;
     roadStandState.signCanvas = c;
     roadStandState.signCtx = c.getContext('2d');
     roadStandState.signTex = new THREE.CanvasTexture(c);
     drawRoadStandSign();
+    const signBacking = makeBox(2.74, 0.88, 0.08, steelFrameMat, { noShadow: true });
+    signBacking.position.set(hx, floorY + 2.86, frontZ + 0.14);
     const signMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.65, 0.96),
+      new THREE.PlaneGeometry(2.62, 0.80),
       new THREE.MeshBasicMaterial({ map: roadStandState.signTex, side: THREE.DoubleSide })
     );
-    signMesh.position.set(hx, floorY + 3.05, frontZ + 0.14);
-    standGroup.add(signMesh);
+    signMesh.position.set(hx, floorY + 2.86, frontZ + 0.19);
+    standGroup.add(signBacking, signMesh);
   }
 
   // 5. INTERIOR DA CASA: Bancada com Pia Inox + Água Corrente + Bancada Lateral de Empilhamento de Caixas!
@@ -666,22 +737,32 @@ export function buildRoadsideMushroomStand(ctx) {
   });
   addMovableStainlessTable(ctx, 'table_emporio_east', 'Bancada Inox (Empório Estrada)', hx + 2.0, floorY, hz - 0.2, 1.1, 0.82, 2.2);
 
-  // 6. ESTANTES / BANCAS EXPOSITORAS DA FRENTE (x: 9.65 e x: 13.35, z: 35.65 — sob os toldos!)
-  // Possuem `supportSurfaces` reais para colocar caixas/pacotes/cogumelos em cima E hitbox de clique rápido!
-  const shelfXList = [hx - 1.85, hx + 1.85];
+  // 6. ESTANTES / BANCAS EXPOSITORAS DA FRENTE (madeira do campus com suporte real para caixotes e pacotes!)
+  const shelfXList = [hx - 1.90, hx + 1.90];
   const shelfZ = frontZ + 0.85;
   for (let si = 0; si < shelfXList.length; si++) {
     const sx = shelfXList[si];
-    const shelfBase = makeBox(1.75, 0.82, 0.85, counterMat);
+    const shelfBase = makeBox(1.75, 0.82, 0.85, woodShelfMat);
     shelfBase.position.set(sx, 0.41, shelfZ);
-    const shelfTop = makeBox(1.82, 0.06, 0.92, woodMat);
+    const shelfTop = makeBox(1.84, 0.06, 0.94, pineMat);
     shelfTop.position.set(sx, 0.85, shelfZ);
     standGroup.add(shelfBase, shelfTop);
 
-    // Plaquinha de preço verde ("$ 120") em cima da estante igual à imagem!
-    const pricePost = makeBox(0.04, 0.26, 0.04, woodMat, { noShadow: true });
+    // Plaquinha de preço verde ("🪙 120") em cima da estante igual à imagem!
+    const pricePost = makeBox(0.04, 0.26, 0.04, steelFrameMat, { noShadow: true });
     pricePost.position.set(sx - 0.72, 1.00, shelfZ + 0.36);
-    const priceCard = makeBox(0.32, 0.18, 0.04, new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.6 }), { noShadow: true });
+    const priceTex = getCachedCanvasTexture('emporio_price_tag_120', 128, 64, (pctx) => {
+      pctx.fillStyle = '#064e3b';
+      pctx.fillRect(0, 0, 128, 64);
+      pctx.strokeStyle = '#34d399';
+      pctx.lineWidth = 4;
+      pctx.strokeRect(3, 3, 122, 58);
+      pctx.fillStyle = '#fde047';
+      pctx.font = 'bold 28px system-ui, sans-serif';
+      pctx.textAlign = 'center';
+      pctx.fillText('$ 120', 64, 42);
+    });
+    const priceCard = makeBox(0.32, 0.18, 0.04, new THREE.MeshStandardMaterial({ map: priceTex, roughness: 0.55 }), { noShadow: true });
     priceCard.position.set(sx - 0.72, 1.14, shelfZ + 0.36);
     standGroup.add(pricePost, priceCard);
 
@@ -714,15 +795,17 @@ export function buildRoadsideMushroomStand(ctx) {
     roadSaleStandMeshes.push(standHit);
   }
 
-  // Pacotes verdes visuais empilhados sobre as 2 estantes da frente (até 12 visíveis)
+  // Pacotes reais com cogumelos visíveis e etiqueta empilhados sobre as 2 estantes da frente (até 12 visíveis)
   for (let i = 0; i < 12; i++) {
-    const pm = makeBox(0.22, 0.07, 0.16, packMat);
+    const pv = createMushroomPackVisual(true, true);
+    const pm = pv.wrap;
     const isRight = i >= 6;
     const localIdx = i % 6;
     const col = localIdx % 3;
     const row = Math.floor(localIdx / 3);
-    const baseShelfX = isRight ? (hx + 1.85) : (hx - 1.85);
-    pm.position.set(baseShelfX - 0.32 + col * 0.34, 0.92 + row * 0.08, shelfZ);
+    const baseShelfX = isRight ? (hx + 1.90) : (hx - 1.90);
+    pm.position.set(baseShelfX - 0.42 + col * 0.42, 0.885 + row * 0.052, shelfZ);
+    pm.scale.set(1.25, 1.25, 1.25);
     pm.visible = false;
     standGroup.add(pm);
     roadStandState.standPacksMeshes.push(pm);
@@ -731,77 +814,121 @@ export function buildRoadsideMushroomStand(ctx) {
 
   scene.add(standGroup);
 
-  // Cria o conjunto 3D reutilizável de Carro + NPC Comprador + Notas de Dinheiro para a animação Drive-Thru!
+  // Cria o conjunto 3D reutilizável de Carro Detalhado + Avatar NPC Fofo + Notas de Dinheiro!
   buildNpcCarActor(scene);
 }
 
 function buildNpcCarActor(scene) {
   const carGroup = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.32, metalness: 0.45 });
-  const cabinMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.3 });
-  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
-  const lightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.28, metalness: 0.48 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.12, metalness: 0.65 });
+  const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.85 });
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+  const headlightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+  const taillightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
 
-  const chassis = makeBox(3.4, 0.68, 1.65, bodyMat);
-  chassis.position.y = 0.52;
-  const cabin = makeBox(1.85, 0.58, 1.48, cabinMat);
-  cabin.position.set(-0.15, 1.10, 0);
-  carGroup.add(chassis, cabin);
+  // Chassi inferior + para-choques cromados + capô + para-brisa inclinado + teto
+  const lowerBody = makeBox(3.7, 0.56, 1.72, bodyMat);
+  lowerBody.position.set(0, 0.50, 0);
+  const frontBumper = makeBox(0.14, 0.22, 1.76, chromeMat);
+  frontBumper.position.set(1.86, 0.34, 0);
+  const rearBumper = makeBox(0.14, 0.22, 1.76, chromeMat);
+  rearBumper.position.set(-1.86, 0.34, 0);
+  const grille = makeBox(0.08, 0.20, 0.82, chromeMat);
+  grille.position.set(1.86, 0.52, 0);
 
-  const wGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 14);
+  const cabinRoof = makeBox(1.55, 0.48, 1.50, bodyMat);
+  cabinRoof.position.set(-0.20, 1.02, 0);
+  const windshield = makeBox(0.55, 0.44, 1.44, glassMat);
+  windshield.position.set(0.70, 0.98, 0);
+  windshield.rotation.z = -0.58;
+  const rearGlass = makeBox(0.50, 0.42, 1.44, glassMat);
+  rearGlass.position.set(-1.08, 0.98, 0);
+  rearGlass.rotation.z = 0.55;
+  const sideWindows = makeBox(1.42, 0.34, 1.54, glassMat);
+  sideWindows.position.set(-0.20, 1.01, 0);
+
+  // Porta articulada voltada para o Empório (lado z-)
+  const doorPivot = new THREE.Group();
+  doorPivot.position.set(0.42, 0.56, -0.87);
+  const doorPanel = makeBox(0.92, 0.48, 0.06, bodyMat);
+  doorPanel.position.set(-0.46, 0, 0);
+  const doorHandle = makeBox(0.14, 0.04, 0.08, chromeMat, { noShadow: true });
+  doorHandle.position.set(-0.74, 0.12, -0.02);
+  doorPivot.add(doorPanel, doorHandle);
+
+  carGroup.add(lowerBody, frontBumper, rearBumper, grille, cabinRoof, windshield, rearGlass, sideWindows, doorPivot);
+
+  const wheels = [];
+  const wGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 16);
   wGeo.rotateX(Math.PI / 2);
-  [[-1.1, -0.84], [1.1, -0.84], [-1.1, 0.84], [1.1, 0.84]].forEach((wp) => {
-    const w = new THREE.Mesh(wGeo, wheelMat);
-    w.position.set(wp[0], 0.32, wp[1]);
-    carGroup.add(w);
+  const rimGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.24, 10);
+  rimGeo.rotateX(Math.PI / 2);
+  [[-1.15, -0.84], [1.15, -0.84], [-1.15, 0.84], [1.15, 0.84]].forEach((wp) => {
+    const wg = new THREE.Group();
+    wg.position.set(wp[0], 0.32, wp[1]);
+    wg.add(new THREE.Mesh(wGeo, wheelMat), new THREE.Mesh(rimGeo, chromeMat));
+    carGroup.add(wg);
+    wheels.push(wg);
   });
-  const hl1 = makeBox(0.08, 0.16, 0.28, lightMat, { noShadow: true });
-  hl1.position.set(1.71, 0.56, -0.55);
-  const hl2 = makeBox(0.08, 0.16, 0.28, lightMat, { noShadow: true });
-  hl2.position.set(1.71, 0.56, 0.55);
-  carGroup.add(hl1, hl2);
+
+  [-0.58, 0.58].forEach((lz) => {
+    const hl = makeBox(0.08, 0.15, 0.28, headlightMat, { noShadow: true });
+    hl.position.set(1.86, 0.56, lz);
+    const tl = makeBox(0.08, 0.14, 0.26, taillightMat, { noShadow: true });
+    tl.position.set(-1.86, 0.58, lz);
+    carGroup.add(hl, tl);
+  });
+
   carGroup.visible = false;
   scene.add(carGroup);
   roadSaleDynamicObjects.push(carGroup);
 
-  // NPC Comprador articulado
-  const npcGroup = new THREE.Group();
-  const shirtMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.65 });
-  const headMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.55 });
-  const hatMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.48 });
+  // NPC Comprador Fofo (mesmo padrão visual dos avatares dos jogadores!)
+  const avatar = buildCuteAvatar(scene, {
+    id: 'npc_buyer',
+    name: 'Cliente',
+    role: 'student',
+    hat_color: '#1e3a8a',
+    body_color: '#0284c7',
+    current_hat: 'default',
+    x: 17.5,
+    y: 0.04,
+    z: 39.0
+  });
+  const npcGroup = avatar.group;
+  npcGroup.visible = false;
+  roadSaleDynamicObjects.push(npcGroup);
 
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.24, 0.72, 12), shirtMat);
-  torso.position.y = 0.66;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 10), headMat);
-  head.position.y = 1.22;
-  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hatMat);
-  hat.position.y = 1.34;
-  const heldPack = makeBox(0.18, 0.08, 0.14, new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.3 }));
-  heldPack.position.set(0, 0.76, -0.28);
+  // Pacote real de cogumelos nas mãos do NPC (mostrando os cogumelos e etiqueta!)
+  const heldPackVis = createMushroomPackVisual(true, true);
+  const heldPack = heldPackVis.wrap;
+  heldPack.position.set(0, 0.62, -0.26);
+  heldPack.scale.set(1.35, 1.35, 1.35);
   heldPack.visible = false;
+  npcGroup.add(heldPack);
 
-  // Cédulas de dinheiro / Moedas Douradas flutuando durante o pagamento
+  // Cédulas de dinheiro verde e moedas douradas flutuando durante o pagamento
   const cashGroup = new THREE.Group();
   const billMat = new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide });
   const coinMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
-  for (let i = 0; i < 5; i++) {
-    const bill = makeBox(0.16, 0.02, 0.09, i % 2 === 0 ? billMat : coinMat, { noShadow: true });
-    bill.position.set((i - 2) * 0.11, 1.55 + (i % 2) * 0.12, -0.15);
+  for (let i = 0; i < 6; i++) {
+    const bill = makeBox(0.14, 0.015, 0.08, i % 2 === 0 ? billMat : coinMat, { noShadow: true });
+    bill.position.set((i - 2.5) * 0.09, 1.35 + (i % 2) * 0.11, -0.18);
     cashGroup.add(bill);
   }
   cashGroup.visible = false;
-
-  npcGroup.add(torso, head, hat, heldPack, cashGroup);
-  npcGroup.visible = false;
-  scene.add(npcGroup);
-  roadSaleDynamicObjects.push(npcGroup);
+  npcGroup.add(cashGroup);
 
   roadStandState.actor = {
     carGroup,
     bodyMat,
+    doorPivot,
+    wheels,
+    avatar,
     npcGroup,
-    shirtMat,
-    hatMat,
+    shirtMat: avatar.bodyMat,
+    hatMat: avatar.hatMat,
     heldPack,
     cashGroup
   };
@@ -877,7 +1004,7 @@ function getFrontShelfSaleItems(ctx) {
     const it = ctx.pickableItems[i];
     if (!it || !it.mesh || !it.mesh.position || it === ctx.heldItem) continue;
     const p = it.mesh.position;
-    if (p.x < 8.5 || p.x > 14.5 || p.z < 34.8 || p.z > 36.8 || p.y < 0.4) continue;
+    if (p.x < 14.4 || p.x > 20.6 || p.z < 34.8 || p.z > 36.8 || p.y < 0.4) continue;
     if (it.deliveryCrateCtrl && it.deliveryCrateCtrl.packsCount > 0) {
       found.push({ item: it, kind: 'crate', count: it.deliveryCrateCtrl.packsCount });
     } else if (it.mushroomBagCtrl && it.mushroomBagCtrl.filled && it.mushroomBagCtrl.sealed) {
@@ -890,9 +1017,9 @@ function getFrontShelfSaleItems(ctx) {
 }
 
 /**
- * Simulação frame-a-frame dos clientes NPCs que passam de carro na Avenida Sul (z = 39.5)
- * apenas quando há pacotes de cogumelos desidratados disponíveis no Quiosque Drive-Thru
- * ou colocados fisicamente sobre as estantes da frente!
+ * Simulação frame-a-frame dos clientes NPCs que saem do Túnel Escuro das Colinas Oeste (-114),
+ * estacionam em frente ao Empório MycoCampus (x = 17.5), descem com animação de avatar fofo,
+ * pagam em dinheiro com emoções felizes e vão embora pelo Túnel Leste (+114)!
  */
 export function stepRoadsideMushroomSales(ctx, dt) {
   const actor = roadStandState.actor;
@@ -913,12 +1040,22 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     actor.bodyMat.color.setHex(profile.carColor);
     actor.shirtMat.color.setHex(profile.shirtColor);
     actor.hatMat.color.setHex(profile.hatColor);
-    actor.carGroup.position.set(-48, 0.04, 39.5);
+    // Carro nasce DENTRO do Túnel Escuro das Colinas Oeste (x = -114)!
+    actor.carGroup.position.set(-114, 0.04, 39.5);
     actor.carGroup.rotation.y = 0;
     actor.carGroup.visible = true;
+    if (actor.doorPivot) actor.doorPivot.rotation.y = 0;
     actor.npcGroup.visible = false;
     actor.heldPack.visible = false;
     actor.cashGroup.visible = false;
+    if (actor.avatar) {
+      if (actor.avatar.labelSprite) updateTextSprite(actor.avatar.labelSprite, profile.name, '#ffffff');
+      if (actor.avatar.chatSprite) actor.avatar.chatSprite.visible = false;
+      if (actor.avatar.faceCtx) {
+        drawAvatarFace(actor.avatar.faceCtx, 'happy', false);
+        if (actor.avatar.faceTex) actor.avatar.faceTex.needsUpdate = true;
+      }
+    }
 
     roadStandState.activeNpcOrder = {
       profile,
@@ -929,31 +1066,62 @@ export function stepRoadsideMushroomSales(ctx, dt) {
   }
 
   const order = roadStandState.activeNpcOrder;
-  const standX = 11.5;
+  const standX = 17.5;
   const roadZ = 39.5;
-  const standStopZ = 37.3;
+  const standStopZ = 36.65;
+
+  const spinWheels = (speed) => {
+    if (!actor.wheels) return;
+    for (let wi = 0; wi < actor.wheels.length; wi++) {
+      actor.wheels[wi].rotation.z -= dt * speed;
+    }
+  };
+
+  const animateWalkLimbs = (t, active) => {
+    const av = actor.avatar;
+    if (!av) return;
+    const sw = active ? Math.sin(t * 11) * 0.55 : 0;
+    if (av.leftLeg) av.leftLeg.rotation.x = sw;
+    if (av.rightLeg) av.rightLeg.rotation.x = -sw;
+    if (av.leftArm) av.leftArm.rotation.x = actor.heldPack.visible ? -0.75 : -sw * 0.8;
+    if (av.rightArm) av.rightArm.rotation.x = actor.heldPack.visible ? -0.75 : sw * 0.8;
+  };
 
   if (order.phase === 'driving_in') {
-    actor.carGroup.position.x = Math.min(standX, actor.carGroup.position.x + dt * 16.5);
+    const dist = Math.max(0.5, standX - actor.carGroup.position.x);
+    const speed = dist < 12 ? Math.max(4.5, dist * 1.45) : 22.0;
+    actor.carGroup.position.x = Math.min(standX, actor.carGroup.position.x + dt * speed);
+    spinWheels(speed * 2.2);
     if (actor.carGroup.position.x >= standX - 0.05) {
       actor.carGroup.position.x = standX;
       order.phase = 'walking_to_stand';
       order.timer = 0;
-      actor.npcGroup.position.set(standX, 0.04, roadZ - 0.9);
+      if (actor.doorPivot) actor.doorPivot.rotation.y = -1.05;
+      playAudio('playCarHonk');
+      actor.npcGroup.position.set(standX, 0.04, roadZ - 1.15);
       actor.npcGroup.rotation.y = Math.PI;
       actor.npcGroup.visible = true;
       actor.heldPack.visible = false;
       actor.cashGroup.visible = false;
+      if (actor.avatar && actor.avatar.chatSprite) {
+        updateTextSprite(actor.avatar.chatSprite, '🍄 Vim comprar cogumelos!', '#38bdf8');
+        actor.avatar.chatSprite.visible = true;
+      }
     }
   } else if (order.phase === 'walking_to_stand') {
     order.timer += dt;
-    actor.npcGroup.position.z = Math.max(standStopZ, actor.npcGroup.position.z - dt * 2.2);
-    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 10)) * 0.06;
+    if (actor.doorPivot && order.timer > 0.35) {
+      actor.doorPivot.rotation.y = Math.min(0, actor.doorPivot.rotation.y + dt * 3.5);
+    }
+    actor.npcGroup.position.z = Math.max(standStopZ, actor.npcGroup.position.z - dt * 2.3);
+    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 11)) * 0.05;
+    animateWalkLimbs(order.timer, true);
     if (actor.npcGroup.position.z <= standStopZ + 0.04) {
       order.phase = 'paying_happy';
       order.timer = 0;
+      animateWalkLimbs(0, false);
       actor.cashGroup.visible = true;
-      playAudio('playHarvest');
+      playAudio('playCashRegister');
       if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
 
       // Consome 1 pacote do balcão OU da estante da frente e paga 🪙 120 MycoCoins + XP!
@@ -983,6 +1151,16 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         const newBalance = addLocalMycoCoins(MYCOCOIN_PRICE_PER_PACK);
         syncRoadStandVisual();
         actor.heldPack.visible = true;
+        if (actor.avatar) {
+          if (actor.avatar.faceCtx) {
+            drawAvatarFace(actor.avatar.faceCtx, 'love', false);
+            if (actor.avatar.faceTex) actor.avatar.faceTex.needsUpdate = true;
+          }
+          if (actor.avatar.chatSprite) {
+            updateTextSprite(actor.avatar.chatSprite, '😍🍄 +🪙 120! Obrigado!', '#34d399');
+            actor.avatar.chatSprite.visible = true;
+          }
+        }
         if (ctx && ctx.callbacks && ctx.callbacks.onHarvestMushroom) {
           ctx.callbacks.onHarvestMushroom('sale_pack_' + roadStandState.totalSoldPacks);
         }
@@ -993,34 +1171,46 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     }
   } else if (order.phase === 'paying_happy') {
     order.timer += dt;
-    // Animação feliz do NPC pulando e notas de dinheiro subindo!
-    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 9.5)) * 0.18;
-    actor.npcGroup.rotation.y = Math.PI + Math.sin(order.timer * 7) * 0.35;
+    // Animação feliz do avatar pulando, acenando e notas de dinheiro subindo!
+    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 9.5)) * 0.22;
+    actor.npcGroup.rotation.y = Math.PI + Math.sin(order.timer * 6.5) * 0.28;
+    if (actor.avatar && actor.avatar.leftArm && actor.avatar.rightArm) {
+      actor.avatar.leftArm.rotation.x = -0.8 - Math.sin(order.timer * 12) * 0.35;
+      actor.avatar.rightArm.rotation.x = -0.8 + Math.sin(order.timer * 12) * 0.35;
+    }
     actor.cashGroup.position.y = order.timer * 0.45;
     actor.cashGroup.rotation.y = order.timer * 3.5;
 
-    if (order.timer >= 2.2) {
+    if (order.timer >= 2.3) {
       order.phase = 'walking_to_car';
       order.timer = 0;
       actor.cashGroup.visible = false;
       actor.cashGroup.position.y = 0;
       actor.npcGroup.rotation.y = 0;
+      if (actor.doorPivot) actor.doorPivot.rotation.y = -1.05;
     }
   } else if (order.phase === 'walking_to_car') {
     order.timer += dt;
-    actor.npcGroup.position.z = Math.min(roadZ - 0.85, actor.npcGroup.position.z + dt * 2.4);
-    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 10)) * 0.06;
-    if (actor.npcGroup.position.z >= roadZ - 0.88) {
+    actor.npcGroup.position.z = Math.min(roadZ - 1.10, actor.npcGroup.position.z + dt * 2.4);
+    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 11)) * 0.05;
+    animateWalkLimbs(order.timer, true);
+    if (actor.npcGroup.position.z >= roadZ - 1.12) {
       actor.npcGroup.visible = false;
+      if (actor.avatar && actor.avatar.chatSprite) actor.avatar.chatSprite.visible = false;
+      if (actor.doorPivot) actor.doorPivot.rotation.y = 0;
+      playAudio('playCarHonk');
       order.phase = 'driving_away';
       order.timer = 0;
     }
   } else if (order.phase === 'driving_away') {
-    actor.carGroup.position.x += dt * 19.0;
-    if (actor.carGroup.position.x >= 68) {
+    order.timer += dt;
+    const speed = Math.min(24.0, 6.0 + order.timer * 12.0);
+    actor.carGroup.position.x += dt * speed;
+    spinWheels(speed * 2.2);
+    // Entra no Túnel Escuro das Colinas Leste (x = +114)
+    if (actor.carGroup.position.x >= 114) {
       actor.carGroup.visible = false;
       roadStandState.activeNpcOrder = null;
-      // Próximo cliente vem em um tempo aleatório diferente (entre 3.5s e 7.5s) se ainda houver cogumelos!
       roadStandState.npcSpawnCooldown = 3.5 + Math.random() * 4.0;
     }
   }

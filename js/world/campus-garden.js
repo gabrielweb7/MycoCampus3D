@@ -111,7 +111,15 @@ export function buildCampusVegetableGarden(ctx) {
   const stakeMat = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.82 });
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
 
-  // Placa / Banner da Horta Orgânica ao sul da Estufa
+  // Placa / Banner da Horta Orgânica com mastro de aço fixado no chão (sem flutuar!)
+  const bannerPostMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.55 });
+  const bannerPole = makeBox(0.10, 3.05, 0.10, bannerPostMat);
+  bannerPole.position.set(19.35, 1.525, 20.2);
+  const bannerArm = makeBox(0.88, 0.08, 0.08, bannerPostMat);
+  bannerArm.position.set(18.95, 2.98, 20.2);
+  const bannerBase = makeBox(0.32, 0.08, 0.32, bannerPostMat);
+  bannerBase.position.set(19.35, 0.04, 20.2);
+  scene.add(bannerPole, bannerArm, bannerBase);
   createBanner(scene, 18.6, 2.35, 20.2, Math.PI, '#16a34a', '🥬');
 
   // 1. CAIXA DE SUBSTRATO & COMPOSTAGEM DA HORTA (x: 15.6, z: 17.6)

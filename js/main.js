@@ -6,6 +6,7 @@
 import './vendor/three-global.js';
 import { getAppVersion } from './core/constants.js';
 import { GAME_CONFIG } from './core/config.js';
+import { initI18n, setLanguage, getLanguage, t } from './core/i18n.js';
 import { logger, installGlobalErrorHandlers } from './core/logger.js';
 import { appState, worldState } from './core/state.js';
 import { events } from './core/events.js';
@@ -26,6 +27,7 @@ registerCampusPublicApi();
 window.__MYCO_DEBUG__ = {
   version: getAppVersion(),
   config: GAME_CONFIG,
+  i18n: { initI18n, setLanguage, getLanguage, t },
   logger,
   appState,
   worldState,
@@ -38,7 +40,11 @@ window.__MYCO_DEBUG__ = {
 };
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => logger.tryCall('bootApp', bootApp));
+  document.addEventListener('DOMContentLoaded', () => {
+    logger.tryCall('initI18n', initI18n);
+    logger.tryCall('bootApp', bootApp);
+  });
 } else {
+  logger.tryCall('initI18n', initI18n);
   logger.tryCall('bootApp', bootApp);
 }

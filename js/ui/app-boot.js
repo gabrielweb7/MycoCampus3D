@@ -3,6 +3,7 @@
  */
 import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
 import { events } from '../core/events.js';
+import { setLanguage, resetLanguageToAuto, t } from '../core/i18n.js';
 import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
 import { initPwaFeatures, requestScreenWakeLock, releaseScreenWakeLock } from '../engine/haptics-wakelock.js';
@@ -290,8 +291,60 @@ function bindModalsAndToolbar() {
     btnCloseMycoteca.onclick = () => $('mycoteca-modal')?.classList.add('hidden');
   }
 
+  // Configurações & Multi-Idioma (Settings Modal + Lobby Language Switcher)
+  const btnOpenSettings = $('btn-open-settings');
+  if (btnOpenSettings) {
+    btnOpenSettings.onclick = () => {
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      releaseInputForModal();
+      $('settings-modal')?.classList.remove('hidden');
+    };
+  }
+  const btnCloseSettings = $('btn-close-settings');
+  if (btnCloseSettings) {
+    btnCloseSettings.onclick = () => {
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      $('settings-modal')?.classList.add('hidden');
+    };
+  }
+  document.querySelectorAll('[data-lang-btn]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      const targetLang = btn.getAttribute('data-lang-btn');
+      if (targetLang) {
+        setLanguage(targetLang, { persist: true, apply: true });
+        showFloatingToast(t('settings.toast_changed'));
+      }
+    });
+  });
+  const btnLangAuto = $('btn-lang-auto');
+  if (btnLangAuto) {
+    btnLangAuto.onclick = (e) => {
+      e.stopPropagation();
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      resetLanguageToAuto();
+      showFloatingToast(t('settings.toast_changed'));
+    };
+  }
+  const btnSettingsQuality = $('btn-settings-quality');
+  if (btnSettingsQuality && btnQuality) {
+    btnSettingsQuality.onclick = (e) => btnQuality.onclick(e);
+  }
+  const btnSettingsAudio = $('btn-settings-audio');
+  if (btnSettingsAudio) {
+    btnSettingsAudio.onclick = () => $('btn-toggle-audio')?.click();
+  }
+  const btnSettingsFullscreen = $('btn-settings-fullscreen');
+  if (btnSettingsFullscreen) {
+    btnSettingsFullscreen.onclick = (e) => {
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      toggleCampusFullscreen({ explicitUserClick: true });
+    };
+  }
+
   // Permite fechar qualquer modal tocando no fundo escuro fora do card (seguro no celular)
-  ['guide-modal', 'lesson-modal', 'ranking-modal', 'shop-modal', 'map-modal', 'quest-modal', 'admin-modal', 'mycoteca-modal'].forEach((mId) => {
+  ['guide-modal', 'lesson-modal', 'ranking-modal', 'shop-modal', 'map-modal', 'quest-modal', 'admin-modal', 'mycoteca-modal', 'settings-modal'].forEach((mId) => {
     const mEl = $(mId);
     if (mEl) {
       mEl.addEventListener('click', (e) => {

@@ -507,10 +507,11 @@ export function interactLabMicroscope(ctx) {
 // ============================================================================
 // 3. POTES HERMÉTICOS COM SÍLICA GEL & PORÇÃO DE COGUMELOS DESIDRATADOS (25G)
 // ============================================================================
-export function makeDriedMushroomBatch(ctx, id, speciesName, px, py, pz) {
+export function makeDriedMushroomBatch(ctx, id, speciesName, px, py, pz, grams = 10) {
   const g = new THREE.Group();
   const stemMat = new THREE.MeshStandardMaterial({ color: 0xd6d3d1, roughness: 0.85 });
   const capMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.65 });
+  const wGrams = Number(grams) || 10;
   for (let i = -1; i <= 1; i++) {
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.011, 0.07, 8), stemMat);
     stem.position.set(i * 0.032, 0.02, 0);
@@ -524,7 +525,7 @@ export function makeDriedMushroomBatch(ctx, id, speciesName, px, py, pz) {
   const item = registerPickable(
     ctx,
     id,
-    `🍄 Cogumelos Desidratados Crocantes (${sp} • 25g • 0% UR — Guarde no Pote c/ Sílica Gel ou pese na Balança)`,
+    `🍄 Cogumelos Desidratados Crocantes (${sp} • ${wGrams}g • 0% UR — Guarde no Pote c/ Sílica Gel ou Saco Mylar)`,
     g,
     px,
     py,
@@ -534,34 +535,69 @@ export function makeDriedMushroomBatch(ctx, id, speciesName, px, py, pz) {
     0.09,
     {
       category: 'dried_harvest',
-      purpose: 'Cogumelos desidratados a 55°C (0% umidade, cracker dry); pese na balança ou armazene em Pote Hermético com Sílica Gel',
-      weightGrams: 25,
+      purpose: '3 cogumelos desidratados a 55°C (10g • 0% umidade, cracker dry); pese na balança, guarde no Pote c/ Sílica Gel ou embale no Saco',
+      weightGrams: wGrams,
       compatibilities: { canEnterCooker: false, isDriedMushroomBatch: true }
     }
   );
-  item.driedMushroomCtrl = { grams: 25, speciesName: sp };
+  item.driedMushroomCtrl = { grams: wGrams, speciesName: sp };
   return item;
 }
 
-export function makeSilicaStorageJar(ctx, id, px, py, pz, initialGrams = 0) {
+export function makeSilicaStorageJar(ctx, id, px, py, pz, initialOpt = 0) {
+  const initObj = (initialOpt && typeof initialOpt === 'object') ? initialOpt : { storedGrams: Number(initialOpt) || 0 };
+  const initialGrams = Math.max(0, Number(initObj.storedGrams) || 0);
+  const initialSpecies = initObj.speciesName || 'Psilocybe cubensis';
+
   const g = new THREE.Group();
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0xe0f2fe,
     transparent: true,
-    opacity: 0.36,
-    roughness: 0.1,
+    opacity: 0.28,
+    roughness: 0.08,
+    metalness: 0.1,
     depthWrite: false
   });
+  const glassRimMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.55, roughness: 0.12 });
   const lidMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.45, metalness: 0.2 });
+  const sealRingMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.65 });
   const clampMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.2 });
-  const driedFillMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.78 });
 
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.19, 16), glassMat);
-  body.position.y = 0.095;
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.022, 16), lidMat);
-  lid.position.y = 0.198;
-  const wireClamp = makeBox(0.182, 0.055, 0.012, clampMat, { noShadow: true });
-  wireClamp.position.y = 0.175;
+  // Corpo de vidro + fundo espesso + aro superior
+  const baseGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.084, 0.084, 0.014, 18), glassRimMat);
+  baseGlass.position.y = 0.007;
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.185, 18), glassMat);
+  body.position.y = 0.098;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.006, 8, 20), glassRimMat);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.188;
+
+  // Tampa articulada (pivot atrás em z = -0.085 para abrir de verdade!)
+  const lidPivot = new THREE.Group();
+  lidPivot.position.set(0, 0.194, -0.085);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.022, 18), lidMat);
+  lid.position.set(0, 0.008, 0.085);
+  const rubberSeal = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.005, 8, 18), sealRingMat);
+  rubberSeal.rotation.x = Math.PI / 2;
+  rubberSeal.position.set(0, -0.003, 0.085);
+  const wireClamp = makeBox(0.182, 0.048, 0.01, clampMat, { noShadow: true });
+  wireClamp.position.set(0, -0.015, 0.168);
+  lidPivot.add(lid, rubberSeal, wireClamp);
+
+  // Camada de bolinhas de Sílica Gel indicadora (laranja/âmbar secas) no fundo do pote
+  const silicaBeadGroup = new THREE.Group();
+  const amberBeadMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3, emissive: 0x92400e, emissiveIntensity: 0.15 });
+  const clearBeadMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.25 });
+  for (let sb = 0; sb < 18; sb++) {
+    const ang = sb * 2.39996;
+    const rad = 0.015 + (sb / 18) * 0.052;
+    const bead = new THREE.Mesh(
+      new THREE.SphereGeometry(0.0085, 6, 5),
+      sb % 3 === 0 ? amberBeadMat : clearBeadMat
+    );
+    bead.position.set(Math.cos(ang) * rad, 0.02, Math.sin(ang) * rad);
+    silicaBeadGroup.add(bead);
+  }
 
   // Sachê de Sílica Gel 3D dentro do pote!
   const silicaTex = getCachedCanvasTexture('silica_gel_sachet_tex', 128, 64, (c) => {
@@ -572,14 +608,42 @@ export function makeSilicaStorageJar(ctx, id, px, py, pz, initialGrams = 0) {
     c.fillStyle = '#dc2626'; c.font = 'bold 12px sans-serif';
     c.fillText('0% UMIDADE', 64, 48);
   });
-  const sachet = makeBox(0.058, 0.042, 0.012, new THREE.MeshBasicMaterial({ map: silicaTex }));
-  sachet.position.set(0, 0.045, 0.052);
+  const sachet = makeBox(0.054, 0.038, 0.01, new THREE.MeshBasicMaterial({ map: silicaTex }));
+  sachet.position.set(0, 0.036, 0.056);
+  sachet.rotation.x = -0.22;
 
-  const fillMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.076, 0.076, 0.15, 14), driedFillMat);
-  fillMesh.position.y = 0.08;
-  fillMesh.visible = initialGrams > 0;
+  // Cogumelos desidratados 3D reais empilhados dentro do pote (vão aparecendo conforme storedGrams sobe!)
+  const driedLayerGroup = new THREE.Group();
+  const jarStemMat = new THREE.MeshStandardMaterial({ color: 0xe7e5e4, roughness: 0.85 });
+  const jarCapMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.62 });
+  const jarMushMeshes = [];
+  const totalSlots = 30;
+  for (let mi = 0; mi < totalSlots; mi++) {
+    const layer = Math.floor(mi / 5); // 6 camadas de altura (0..5)
+    const slotInLayer = mi % 5;
+    const angle = slotInLayer * ((Math.PI * 2) / 5) + layer * 0.65;
+    const dist = slotInLayer === 0 ? 0.008 : 0.038;
+    const mGroup = new THREE.Group();
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.034, 6), jarStemMat);
+    const cp = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.016, 8), jarCapMat);
+    cp.position.y = 0.018;
+    mGroup.add(st, cp);
+    mGroup.position.set(
+      Math.cos(angle) * dist,
+      0.036 + layer * 0.024,
+      Math.sin(angle) * dist
+    );
+    mGroup.rotation.set(
+      Math.sin(mi * 1.7) * 0.45,
+      mi * 1.1,
+      Math.cos(mi * 2.3) * 0.5
+    );
+    mGroup.visible = false;
+    driedLayerGroup.add(mGroup);
+    jarMushMeshes.push(mGroup);
+  }
 
-  g.add(body, lid, wireClamp, sachet, fillMesh);
+  g.add(baseGlass, body, rim, lidPivot, silicaBeadGroup, sachet, driedLayerGroup);
   g.userData.isSilicaJar = true;
 
   const item = registerPickable(
@@ -595,29 +659,39 @@ export function makeSilicaStorageJar(ctx, id, px, py, pz, initialGrams = 0) {
     0.22,
     {
       category: 'storage_jar',
-      purpose: 'Pote hermético com sachê dessecante de Sílica Gel para conservar cogumelos desidratados crocantes por longo prazo',
+      purpose: 'Pote hermético com sachê e pérolas de Sílica Gel para conservar cogumelos desidratados crocantes (clique com cogumelos p/ guardar ou mão vazia p/ retirar 10g)',
       getWeightGrams: (it) => 240 + ((it && it.silicaJarCtrl && it.silicaJarCtrl.storedGrams) || 0),
       compatibilities: { canEnterCooker: false, isSilicaStorageJar: true }
     }
   );
 
+  let lidAnimTimer = null;
   item.silicaJarCtrl = {
     storedGrams: initialGrams,
+    speciesName: initialSpecies,
     maxGrams: 150,
     capacityGrams: 150,
-    fillMesh,
+    lidPivot,
+    jarMushMeshes,
+    pulseLid: () => {
+      lidPivot.rotation.x = -0.95;
+      if (lidAnimTimer) clearTimeout(lidAnimTimer);
+      lidAnimTimer = setTimeout(() => {
+        lidPivot.rotation.x = 0;
+        lidAnimTimer = null;
+      }, 480);
+    },
     updateVisual: () => {
       const jc = item.silicaJarCtrl;
       const cap = jc.maxGrams || jc.capacityGrams || 150;
-      const gVal = Math.round(jc.storedGrams || 0);
-      jc.fillMesh.visible = gVal > 0;
-      if (gVal > 0) {
-        const f = Math.max(0.18, Math.min(1, gVal / cap));
-        jc.fillMesh.scale.y = f;
-        jc.fillMesh.position.y = 0.015 + 0.075 * f;
+      const gVal = Math.max(0, Math.round(Number(jc.storedGrams) || 0));
+      jc.storedGrams = gVal;
+      const visibleCount = gVal <= 0 ? 0 : Math.min(jarMushMeshes.length, Math.max(3, Math.round((gVal / cap) * jarMushMeshes.length)));
+      for (let i = 0; i < jarMushMeshes.length; i++) {
+        jarMushMeshes[i].visible = i < visibleCount;
       }
       item.label = gVal > 0
-        ? `🫙 Pote Hermético c/ Sílica Gel (${gVal}/${cap}g Crocantes • 0% UR ✅)`
+        ? `🫙 Pote Hermético c/ Sílica Gel (${gVal}/${cap}g • ${jc.speciesName || 'Crocantes'} • Clique vazio p/ retirar 10g)`
         : '🫙 Pote Hermético com Sílica Gel (Vazio • Guarde Cogumelos Crocantes da Desidratadora)';
     }
   };
@@ -633,12 +707,14 @@ export function interactSilicaStorageJar(ctx, jarItem) {
   const onToast = ctx.callbacks && ctx.callbacks.onToast;
 
   if (held && held.driedMushroomCtrl) {
-    const addG = held.driedMushroomCtrl.grams || 25;
+    const addG = held.driedMushroomCtrl.grams || 10;
     if (jc.storedGrams >= cap) {
       if (onToast) onToast('⚠️ Este Pote Hermético com Sílica Gel já está cheio (150g)! Use outro pote.');
       return true;
     }
     jc.storedGrams = Math.min(cap, jc.storedGrams + addG);
+    if (held.driedMushroomCtrl.speciesName) jc.speciesName = held.driedMushroomCtrl.speciesName;
+    if (jc.pulseLid) jc.pulseLid();
     jc.updateVisual();
 
     if (held.mesh && held.mesh.parent) held.mesh.parent.remove(held.mesh);
@@ -655,7 +731,29 @@ export function interactSilicaStorageJar(ctx, jarItem) {
     playAudio('playClick');
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (onToast) {
-      onToast(`🫙 +${addG}g de Cogumelos Crocantes guardados no Pote Hermético com Sílica Gel (${jc.storedGrams}/${jc.maxGrams}g • 0% UR)!`);
+      onToast(`🫙 Tampa aberta e +${addG}g guardados no Pote c/ Sílica Gel (${jc.storedGrams}/${cap}g • 0% UR)!`);
+    }
+    if (ctx.notifyWorldAction) ctx.notifyWorldAction();
+    return true;
+  }
+
+  // Mão vazia e pote com >= 10g: abre a tampa e retira 10g de cogumelos crocantes para embalar ou pesar!
+  if (!held && jc.storedGrams >= 10) {
+    const takeG = 10;
+    jc.storedGrams -= takeG;
+    if (jc.pulseLid) jc.pulseLid();
+    jc.updateVisual();
+
+    const batchId = `dried_batch_jar_${Date.now()}_${Math.floor(Math.random() * 999)}`;
+    const pos = jarItem.mesh.position;
+    const batchItem = makeDriedMushroomBatch(ctx, batchId, jc.speciesName || 'Psilocybe cubensis', pos.x, pos.y + 0.25, pos.z, takeG);
+    ctx.heldItem = batchItem;
+    if (batchItem.mesh && batchItem.mesh.parent) batchItem.mesh.parent.remove(batchItem.mesh);
+    if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(batchItem);
+
+    playAudio('playClick');
+    if (onToast) {
+      onToast(`🍄 Retirou ${takeG}g de Cogumelos Crocantes do pote (${jc.storedGrams}/${cap}g restantes). Embale no Saco ou pese na Balança!`);
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;

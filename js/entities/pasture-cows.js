@@ -18,16 +18,23 @@ export const POOP_CUBENSIS_GROW_SEC = 30;
 export const POOP_TOTAL_LIFETIME_SEC = 120; // 30s crescendo + 90s disponível antes de desaparecer
 export const MAX_ACTIVE_POOPS = 18;
 
-const PASTURE_BOUNDS = { minX: -72, maxX: 74, minZ: -68, maxZ: 68 };
+const PASTURE_BOUNDS = { minX: -84, maxX: 84, minZ: -78, maxZ: 78 };
 const HERD_MIGRATION_SPOTS = [
-  { x: 56, z: 8 },
-  { x: 38, z: -26 },
-  { x: -34, z: -34 },
-  { x: -48, z: 18 },
-  { x: 10, z: 46 },
-  { x: 46, z: 36 }
+  { x: 64, z: 8 },
+  { x: 62, z: -38 },
+  { x: -62, z: -38 },
+  { x: -66, z: 16 },
+  { x: 52, z: 60 },
+  { x: -50, z: 60 }
 ];
 const COW_NAMES = ['Mimosa', 'Estrela', 'Pipoca', 'Bela', 'Malhada', 'Flor'];
+
+function isInsideTownOrRoad(x, z) {
+  // Mantém as vaquinhas longe do núcleo urbano do campus e da Avenida Sul
+  if (Math.abs(x) < 38 && Math.abs(z) < 32) return true;
+  if (z > 33 && z < 46) return true;
+  return false;
+}
 
 function hash01(a, b) {
   const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
@@ -65,14 +72,14 @@ function isBlockedAt(ctx, x, z, radius) {
 }
 
 function findSafePasturePoint(ctx, seedIdx) {
-  for (let attempt = 0; attempt < 40; attempt++) {
+  for (let attempt = 0; attempt < 60; attempt++) {
     const u = hash01(seedIdx + 1, attempt + 1);
     const v = hash01(seedIdx + 17, attempt + 31);
     const x = PASTURE_BOUNDS.minX + u * (PASTURE_BOUNDS.maxX - PASTURE_BOUNDS.minX);
     const z = PASTURE_BOUNDS.minZ + v * (PASTURE_BOUNDS.maxZ - PASTURE_BOUNDS.minZ);
-    if (!isBlockedAt(ctx, x, z, 1.1)) return { x, z };
+    if (!isInsideTownOrRoad(x, z) && !isBlockedAt(ctx, x, z, 1.1)) return { x, z };
   }
-  return { x: 56, z: 8 };
+  return { x: 64, z: 8 };
 }
 
 let cowSharedAssets = null;
@@ -313,13 +320,13 @@ export function createPastureAndCows(ctx) {
   const hayMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.95 });
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, transparent: true, opacity: 0.85 });
 
-  const ty = terrainHeight(57, 8);
+  const ty = terrainHeight(64, 8);
   const trough = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.42, 0.9), woodMat);
-  trough.position.set(57, ty + 0.21, 8);
+  trough.position.set(64, ty + 0.21, 8);
   const hayPile = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.26, 0.72), hayMat);
-  hayPile.position.set(56.45, ty + 0.36, 8);
+  hayPile.position.set(63.45, ty + 0.36, 8);
   const troughWater = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.14, 0.72), waterMat);
-  troughWater.position.set(57.55, ty + 0.32, 8);
+  troughWater.position.set(64.55, ty + 0.32, 8);
   fenceGroup.add(trough, hayPile, troughWater);
   ctx.scene.add(fenceGroup);
 
@@ -354,6 +361,7 @@ export function createPastureAndCows(ctx) {
     ctx.cowHitMeshes.push(cowVis.body);
     ctx.pastureCows.push(cowObj);
   }
+  createPastureBees(ctx);
 }
 
 export function petCow(cowObj) {
@@ -366,6 +374,7 @@ export function petCow(cowObj) {
 }
 
 export function stepPastureCows(ctx, dt) {
+  stepPastureBees(ctx, dt);
   if (!ctx || !ctx.pastureCows) return;
   const px = ctx.playerPos ? ctx.playerPos.x : 0;
   const pz = ctx.playerPos ? ctx.playerPos.z : 0;
@@ -448,6 +457,7 @@ export function stepPastureCows(ctx, dt) {
       let nz = cz + Math.cos(cow.yaw) * cow.speed * dt;
       let blocked = nx < PASTURE_BOUNDS.minX || nx > PASTURE_BOUNDS.maxX ||
         nz < PASTURE_BOUNDS.minZ || nz > PASTURE_BOUNDS.maxZ ||
+        isInsideTownOrRoad(nx, nz) ||
         isBlockedAt(ctx, nx, nz, 0.95);
 
       if (!blocked) {
@@ -469,6 +479,7 @@ export function stepPastureCows(ctx, dt) {
             const tz = cz + Math.cos(tryYaw) * cow.speed * dt;
             if (tx >= PASTURE_BOUNDS.minX && tx <= PASTURE_BOUNDS.maxX &&
                 tz >= PASTURE_BOUNDS.minZ && tz <= PASTURE_BOUNDS.maxZ &&
+                !isInsideTownOrRoad(tx, tz) &&
                 !isBlockedAt(ctx, tx, tz, 0.95)) {
               cow.yaw = tryYaw;
               nx = tx; nz = tz;
@@ -630,5 +641,174 @@ export function stepPastureCows(ctx, dt) {
         ctx.wildMushrooms.push(p.wildEntry);
       }
     }
+  }
+}
+
+// ============================================================================
+// ABELHAS FOFINHAS ESTILO MINECRAFT + COLMEIAS NAS ÁRVORES E FLORES
+// ============================================================================
+function createCuteBeeMesh() {
+  const g = new THREE.Group();
+  const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.55 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.72 });
+  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: 0xe0f2fe,
+    transparent: true,
+    opacity: 0.72,
+    roughness: 0.15,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const pollenMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.65 });
+
+  // Corpinho cúbico fofinho estilo Minecraft (mais largo e gorduchinho)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.17, 0.24), yellowMat);
+  g.add(body);
+
+  // 2 listras pretas no abdômen
+  const stripe1 = new THREE.Mesh(new THREE.BoxGeometry(0.186, 0.174, 0.045), darkMat);
+  stripe1.position.z = -0.015;
+  const stripe2 = new THREE.Mesh(new THREE.BoxGeometry(0.186, 0.174, 0.045), darkMat);
+  stripe2.position.z = -0.095;
+  const stinger = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.05, 5), darkMat);
+  stinger.rotation.x = -Math.PI / 2;
+  stinger.position.set(0, -0.01, -0.145);
+  g.add(stripe1, stripe2, stinger);
+
+  // Olhinhos grandes quadrados estilo Minecraft com brilho branco!
+  [-1, 1].forEach((side) => {
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.058, 0.016), darkMat);
+    eye.position.set(side * 0.052, 0.005, 0.122);
+    const glint = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.022, 0.018), eyeWhiteMat);
+    glint.position.set(side * 0.042, 0.02, 0.125);
+    const ant = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.045, 0.045), darkMat);
+    ant.position.set(side * 0.042, 0.09, 0.12);
+    ant.rotation.x = 0.35;
+    g.add(eye, glint, ant);
+  });
+
+  // 6 patinhas pequenas embaixo + pontinhos de pólen
+  for (let p = 0; p < 3; p++) {
+    [-1, 1].forEach((side) => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.038, 0.016), darkMat);
+      leg.position.set(side * 0.052, -0.10, 0.055 - p * 0.055);
+      g.add(leg);
+    });
+  }
+  const pollen = new THREE.Mesh(new THREE.SphereGeometry(0.024, 6, 5), pollenMat);
+  pollen.position.set(0.045, -0.08, -0.02);
+  g.add(pollen);
+
+  // Asinhas translúcidas articuladas (esq/dir)
+  const wingL = new THREE.Group();
+  wingL.position.set(-0.04, 0.088, 0.01);
+  const wMeshL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.008, 0.11), wingMat);
+  wMeshL.position.set(-0.08, 0, 0);
+  wingL.add(wMeshL);
+
+  const wingR = new THREE.Group();
+  wingR.position.set(0.04, 0.088, 0.01);
+  const wMeshR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.008, 0.11), wingMat);
+  wMeshR.position.set(0.08, 0, 0);
+  wingR.add(wMeshR);
+
+  g.add(wingL, wingR);
+  return { group: g, wingL, wingR };
+}
+
+function createPastureBees(ctx) {
+  if (!THREE || !ctx || !ctx.scene) return;
+  ctx.pastureBees = [];
+
+  // 3 Colmeias estilo madeira/mel perto de árvores e da horta/bosques
+  const hiveSpots = [
+    { x: 25.5, z: 18.5, bees: 3 },
+    { x: 46.0, z: -12.0, bees: 3 },
+    { x: -34.0, z: 24.0, bees: 3 }
+  ];
+
+  const hiveWoodMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.72 });
+  const hiveDarkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
+  const honeyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, emissive: 0x854d0e, emissiveIntensity: 0.15 });
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.85 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.8 });
+
+  hiveSpots.forEach((hs, hIdx) => {
+    const gy = terrainHeight(hs.x, hs.z);
+    // Árvore de bétula fofa com colmeia pendurada igual à referência!
+    const tree = new THREE.Group();
+    tree.position.set(hs.x, gy, hs.z);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 3.6, 8), trunkMat);
+    trunk.position.y = 1.8;
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(1.55, 2.3, 8), leafMat);
+    crown.position.y = 4.1;
+    const crown2 = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.8, 8), leafMat);
+    crown2.position.y = 5.1;
+
+    // Colmeia quadrada listrada com mel escorrendo
+    const hive = new THREE.Group();
+    hive.position.set(0.48, 2.55, 0);
+    const hiveBox = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.56, 0.56), hiveWoodMat);
+    const hiveBand = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.12, 0.58), hiveDarkMat);
+    hiveBand.position.y = -0.10;
+    const hiveHole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.10, 0.04), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+    hiveHole.position.set(0, -0.02, 0.285);
+    const honeyDrop = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.12, 0.05), honeyMat);
+    honeyDrop.position.set(0.08, -0.22, 0.285);
+    hive.add(hiveBox, hiveBand, hiveHole, honeyDrop);
+
+    tree.add(trunk, crown, crown2, hive);
+    ctx.scene.add(tree);
+
+    for (let b = 0; b < hs.bees; b++) {
+      const beeVis = createCuteBeeMesh();
+      beeVis.group.position.set(hs.x + 0.8, gy + 2.2, hs.z + 0.8);
+      ctx.scene.add(beeVis.group);
+      ctx.pastureBees.push({
+        group: beeVis.group,
+        wingL: beeVis.wingL,
+        wingR: beeVis.wingR,
+        homeX: hs.x + 0.4,
+        homeY: gy + 1.85,
+        homeZ: hs.z + 0.4,
+        phase: (hIdx * 3 + b) * 2.1,
+        radius: 1.6 + b * 0.75,
+        speed: 0.95 + b * 0.22
+      });
+    }
+  });
+}
+
+function stepPastureBees(ctx, dt) {
+  if (!ctx || !ctx.pastureBees || !ctx.pastureBees.length) return;
+  const nowSec = performance.now() * 0.001;
+  const px = ctx.playerPos ? ctx.playerPos.x : 0;
+  const pz = ctx.playerPos ? ctx.playerPos.z : 0;
+
+  for (let i = 0; i < ctx.pastureBees.length; i++) {
+    const bee = ctx.pastureBees[i];
+    const dist = Math.hypot(px - bee.homeX, pz - bee.homeZ);
+    bee.group.visible = dist <= 55;
+    if (!bee.group.visible) continue;
+
+    bee.phase += dt * bee.speed;
+    const t = bee.phase;
+    const nx = bee.homeX + Math.cos(t) * bee.radius + Math.sin(t * 2.3) * 0.45;
+    const nz = bee.homeZ + Math.sin(t * 0.85) * bee.radius + Math.cos(t * 1.7) * 0.45;
+    const ny = bee.homeY + Math.sin(t * 3.1) * 0.42;
+
+    const dx = nx - bee.group.position.x;
+    const dz = nz - bee.group.position.z;
+    if (dx * dx + dz * dz > 1e-6) {
+      bee.group.rotation.y = Math.atan2(dx, dz);
+    }
+    bee.group.position.set(nx, ny, nz);
+
+    // Batida rápida de asinhas + leve balanço fofo
+    const flap = Math.sin(nowSec * 42 + i * 1.7) * 0.75;
+    bee.wingL.rotation.z = flap;
+    bee.wingR.rotation.z = -flap;
+    bee.group.rotation.x = Math.sin(t * 3.1) * 0.12;
   }
 }

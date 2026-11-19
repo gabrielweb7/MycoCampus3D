@@ -8,7 +8,7 @@
   <script>
     (function () {
       var ua = navigator.userAgent || '';
-      var isBot = /Googlebot|bingbot/i.test(ua);
+      var isBot = /Googlebot|bingbot|DuckDuckBot|Baiduspider|YandexBot|Slurp|Applebot|facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|LinkedInBot|Pinterest|crawler|spider|bot\b/i.test(ua);
       if (isBot) return;
 
       var isStandalone = window.navigator.standalone === true ||
@@ -43,22 +43,31 @@
       }
     })();
   </script>
-  <title>MycoCampus3D — Universidade 3D do Cultivo de Cogumelos</title>
+  <title>MycoCampus3D — Universidade 3D do Cultivo de Cogumelos | Mushroom Cultivation 3D Game</title>
   <meta name="description"
-    content="Entre no campus 3D multiplayer e aprenda cultivo de cogumelos na prática: fluxo laminar, esterilização, spawn, contaminações e frutificação. Grátis, direto no navegador, no PC e no celular.">
+    content="Entre no campus 3D multiplayer e aprenda cultivo de cogumelos na prática: fluxo laminar, esterilização, spawn, contaminações e frutificação. Free 3D mushroom growing browser game (PT/EN/ES).">
   <meta name="keywords"
-    content="cultivo de cogumelos, micologia, jogo 3D, universidade virtual, fluxo laminar, spawn, cultura líquida, frutificação, multiplayer">
+    content="cultivo de cogumelos, micologia, jogo 3D online, jogo de navegador, simulador de cultivo, fluxo laminar, spawn, cultura líquida, frutificação, multiplayer, mushroom cultivation game, mushroom growing simulator, mycology 3D game, browser game, free online 3D game, juego de cultivo de hongos, simulador de setas, juego online gratis navegador, micología 3D, MycoCampus3D">
   <meta name="author" content="Alquimistas Mágicos">
-  <meta name="robots" content="index, follow">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="bingbot" content="index, follow">
   <link rel="canonical" href="https://mycocampus3d.alquimistasmagicos.com.br/">
+  <link rel="alternate" hreflang="x-default" href="https://mycocampus3d.alquimistasmagicos.com.br/">
+  <link rel="alternate" hreflang="pt-BR" href="https://mycocampus3d.alquimistasmagicos.com.br/?lang=pt-BR">
+  <link rel="alternate" hreflang="en" href="https://mycocampus3d.alquimistasmagicos.com.br/?lang=en">
+  <link rel="alternate" hreflang="es" href="https://mycocampus3d.alquimistasmagicos.com.br/?lang=es">
 
   <!-- Open Graph (WhatsApp, Facebook, Discord, Telegram) -->
   <meta property="og:type" content="website">
   <meta property="og:locale" content="pt_BR">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:locale:alternate" content="es_ES">
+  <meta property="og:locale:alternate" content="es_MX">
   <meta property="og:site_name" content="MycoCampus3D">
-  <meta property="og:title" content="🍄 MycoCampus3D — Universidade 3D do Cultivo de Cogumelos">
+  <meta property="og:title" content="🍄 MycoCampus3D — 3D Mushroom Cultivation Game & Virtual University">
   <meta property="og:description"
-    content="Campus 3D multiplayer no navegador: explore o laboratório, colha cogumelos, assista aulas ao vivo no auditório e suba no ranking.">
+    content="Campus 3D multiplayer no navegador para aprender cultivo de cogumelos na prática. Free 3D mushroom growing simulator in your browser (PT/EN/ES).">
   <meta property="og:url" content="https://mycocampus3d.alquimistasmagicos.com.br/">
   <meta property="og:image" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
   <meta property="og:image:secure_url" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
@@ -94,21 +103,23 @@
     "@context": "https://schema.org",
     "@type": "VideoGame",
     "name": "MycoCampus3D",
-    "description": "Universidade virtual 3D multiplayer para aprender cultivo de cogumelos na prática.",
+    "alternateName": ["MycoCampus 3D", "Universidade 3D do Cultivo de Cogumelos", "3D Mushroom Cultivation Simulator"],
+    "description": "Universidade virtual 3D multiplayer para aprender cultivo de cogumelos na prática. Free 3D mushroom cultivation browser game in Portuguese, English and Spanish.",
     "url": "https://mycocampus3d.alquimistasmagicos.com.br/",
     "image": "https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg",
-    "inLanguage": "pt-BR",
-    "genre": ["Educacional", "Simulação", "Multiplayer"],
+    "inLanguage": ["pt-BR", "en", "es"],
+    "keywords": "cultivo de cogumelos, mushroom cultivation game, juego de cultivo de hongos, mycology 3D, browser game, multiplayer",
+    "genre": ["Educational", "Simulation", "Multiplayer", "3D Browser Game"],
     "gamePlatform": ["Web Browser", "PC", "Android", "iOS"],
     "applicationCategory": "Game",
     "operatingSystem": "Any",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "publisher": { "@type": "Organization", "name": "Alquimistas Mágicos" }
   }
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=1.4.0">
+  <link rel="stylesheet" href="css/game.css?v=1.4.1">
 </head>
 
 <body>
@@ -126,36 +137,45 @@
   <div id="campus-lobby"
     class="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-950/45">
     <div class="glass-panel lobby-card space-y-4">
+      <div class="flex items-center justify-center gap-1.5" role="group" aria-label="Language">
+        <button type="button" data-lang-btn="pt-BR"
+          class="px-2.5 py-1 rounded-lg bg-slate-900/80 border border-slate-700 text-[11px] font-bold text-slate-300 hover:text-white transition">🇧🇷 PT</button>
+        <button type="button" data-lang-btn="en"
+          class="px-2.5 py-1 rounded-lg bg-slate-900/80 border border-slate-700 text-[11px] font-bold text-slate-300 hover:text-white transition">🇺🇸 EN</button>
+        <button type="button" data-lang-btn="es"
+          class="px-2.5 py-1 rounded-lg bg-slate-900/80 border border-slate-700 text-[11px] font-bold text-slate-300 hover:text-white transition">🇪🇸 ES</button>
+      </div>
+
       <div class="text-center space-y-1">
-        <div
+        <div data-i18n="lobby.badge"
           class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
           🍄 Campus Virtual Multiplayer 3D
         </div>
         <h1 class="text-2xl font-extrabold tracking-tight text-white">MycoCampus3D</h1>
-        <p class="text-xs text-slate-300">Universidade do Cultivo de Cogumelos</p>
+        <p data-i18n="lobby.subtitle" class="text-xs text-slate-300">Universidade do Cultivo de Cogumelos</p>
       </div>
 
       <form id="lobby-form" class="space-y-3" autocomplete="off">
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Seu Nome no Campus</label>
+          <label data-i18n="lobby.name_label" class="block text-xs font-semibold text-slate-300 mb-1">Seu Nome no Campus</label>
           <input id="input-name" name="campus_name" type="text" required minlength="2" maxlength="48"
-            autocomplete="nickname" placeholder="Ex: Gabriel ou Prof. Alquimista"
+            autocomplete="nickname" placeholder="Ex: Gabriel ou Prof. Alquimista" data-i18n-placeholder="lobby.name_placeholder"
             class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-400">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Senha (mínimo 4 caracteres)</label>
+          <label data-i18n="lobby.pin_label" class="block text-xs font-semibold text-slate-300 mb-1">Senha (mínimo 4 caracteres)</label>
           <input id="input-pin" name="campus_pin" type="password" required minlength="4" maxlength="20"
-            autocomplete="new-password" placeholder="Crie ou digite sua senha"
+            autocomplete="new-password" placeholder="Crie ou digite sua senha" data-i18n-placeholder="lobby.pin_placeholder"
             class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-400">
         </div>
 
         <div class="grid grid-cols-2 gap-3 pt-1">
           <div>
-            <span class="block text-xs font-semibold text-slate-300 mb-1.5">Chapéu Cogu</span>
+            <span data-i18n="lobby.hat_label" class="block text-xs font-semibold text-slate-300 mb-1.5">Chapéu Cogu</span>
             <div id="hat-swatches" class="flex flex-wrap gap-1.5"></div>
           </div>
           <div>
-            <span class="block text-xs font-semibold text-slate-300 mb-1.5">Jaleco / Roupa</span>
+            <span data-i18n="lobby.coat_label" class="block text-xs font-semibold text-slate-300 mb-1.5">Jaleco / Roupa</span>
             <div id="body-swatches" class="flex flex-wrap gap-1.5"></div>
           </div>
         </div>
@@ -163,17 +183,17 @@
         <div id="lobby-error"
           class="hidden text-xs text-rose-300 bg-rose-950/60 border border-rose-500/40 rounded-lg px-3 py-2"></div>
 
-        <button id="btn-enter-campus" type="submit"
+        <button id="btn-enter-campus" type="submit" data-i18n="lobby.enter_btn"
           class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm shadow-lg transition">
           🚀 Entrar no Campus 3D
         </button>
       </form>
 
-      <div id="lobby-stats" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
+      <div id="lobby-stats" data-i18n="lobby.connecting" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.4.0</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v1.4.1</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -183,7 +203,7 @@
     <!-- Top Left Profile & Stats -->
     <div id="hud-top-bar" class="pointer-events-auto">
       <div class="glass-panel rounded-xl px-2 py-1 sm:px-3 sm:py-2 flex flex-wrap items-center gap-1 sm:gap-2 text-xs">
-        <span id="hud-role-badge"
+        <span id="hud-role-badge" data-i18n="hud.role_student"
           class="hidden sm:inline-flex px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">🎓
           Aluno</span>
         <span id="hud-name" class="font-bold text-white truncate max-w-[74px] sm:max-w-[130px]">Explorador</span>
@@ -193,56 +213,50 @@
         <span class="hidden sm:inline text-sky-300 font-bold" title="Jogadores Online">🌐 <span id="hud-online">1</span></span>
 
         <!-- Primary quick actions (always visible on mobile & desktop, compact so it never overflows) -->
-        <button id="btn-open-map" type="button" title="Mapa & Teleporte Rápido"
+        <button id="btn-open-map" type="button" title="Mapa & Teleporte Rápido" data-i18n-title="hud.map_title"
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️
-          <span class="hidden sm:inline">Mapa</span></button>
-        <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório"
+          <span class="hidden sm:inline" data-i18n="hud.map">Mapa</span></button>
+        <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório" data-i18n-title="hud.quest_title"
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪
-          <span class="hidden sm:inline">Missão</span> <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/5</span></button>
-        <button id="btn-open-shop" type="button" title="Loja de Cosméticos, Chapéus & Brinquedos"
+          <span class="hidden sm:inline" data-i18n="hud.quest">Missão</span> <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/5</span></button>
+        <button id="btn-open-shop" type="button" title="Loja de Cosméticos, Chapéus & Brinquedos" data-i18n-title="hud.shop_title"
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
-          <span>Loja</span></button>
-        <button id="btn-quality" type="button" title="Qualidade Gráfica (clique para alternar)"
+          <span data-i18n="hud.shop">Loja</span></button>
+        <button id="btn-quality" type="button" title="Qualidade Gráfica (clique para alternar)" data-i18n-title="hud.quality_title"
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 font-bold border border-cyan-500/40 whitespace-nowrap">⚡
           Alto</button>
-        <button id="btn-fullscreen" type="button" title="Tela Cheia (Fullscreen)"
+        <button id="btn-fullscreen" type="button" title="Tela Cheia (Fullscreen)" data-i18n-title="hud.fullscreen_title"
           class="hud-pill-btn px-1.5 sm:px-2.5 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40 flex items-center gap-1">⛶
-          <span class="hidden sm:inline">Tela Cheia</span></button>
+          <span class="hidden sm:inline" data-i18n="hud.fullscreen">Tela Cheia</span></button>
 
         <!-- Mobile menu toggle (visible only on mobile) -->
-        <button id="btn-mobile-menu" type="button" title="Menu de Funções"
+        <button id="btn-mobile-menu" type="button" title="Menu de Funções" data-i18n-title="hud.menu_title"
           class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 font-extrabold border border-emerald-500/50 flex items-center gap-1">☰
-          <span class="hidden sm:inline">Menu</span></button>
+          <span class="hidden sm:inline" data-i18n="hud.menu">Menu</span></button>
 
         <!-- Secondary tools: inline on desktop, dropdown card on mobile -->
         <div id="hud-secondary-tools" class="hud-secondary-tools">
-          <button id="btn-open-lessons" type="button" title="Módulos & Aulas Teóricas"
-            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">📚
-            Aulas</button>
-          <button id="btn-open-ranking" type="button" title="Ranking Geral de Alunos"
-            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🏆
-            Ranking</button>
-          <button id="btn-open-guide" type="button" title="Controles, tutorial opcional e compatibilidade dos itens"
-            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 font-bold border border-indigo-500/50 flex items-center gap-1">📖
-            Guia</button>
-          <button id="btn-open-mycoteca" type="button" title="Coleção de Espécies de Cogumelos"
-            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-teal-900/60 hover:bg-teal-800 text-teal-200 font-bold border border-teal-500/50 flex items-center gap-1">🍄
-            Micoteca</button>
-          <button id="btn-open-admin" type="button" title="Painel Master Admin"
-            class="hidden hud-pill-btn px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🛡️
-            Admin</button>
-          <button id="btn-open-emotes" type="button" title="Emotes & Animações"
-            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-pink-900/60 hover:bg-pink-800 text-pink-200 font-bold border border-pink-500/50 flex items-center gap-1">💃
-            Emotes</button>
-          <a id="btn-discord" href="https://discord.gg/EmpEx6PxG" target="_blank" rel="noopener noreferrer" title="Entrar no Discord oficial (ou digite /discord no chat)"
-            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 font-bold border border-indigo-400/50 flex items-center gap-1 no-underline">💬
-            Discord</a>
-          <button id="btn-toggle-audio" type="button" title="Ativar/Desativar Som"
+          <button id="btn-open-lessons" type="button" title="Módulos & Aulas Teóricas" data-i18n="hud.lessons" data-i18n-title="hud.lessons_title"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">📚 Aulas</button>
+          <button id="btn-open-ranking" type="button" title="Ranking Geral de Alunos" data-i18n="hud.ranking" data-i18n-title="hud.ranking_title"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🏆 Ranking</button>
+          <button id="btn-open-guide" type="button" title="Controles, tutorial opcional e compatibilidade dos itens" data-i18n="hud.guide" data-i18n-title="hud.guide_title"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 font-bold border border-indigo-500/50 flex items-center gap-1">📖 Guia</button>
+          <button id="btn-open-mycoteca" type="button" title="Coleção de Espécies de Cogumelos" data-i18n="hud.mycoteca" data-i18n-title="hud.mycoteca_title"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-teal-900/60 hover:bg-teal-800 text-teal-200 font-bold border border-teal-500/50 flex items-center gap-1">🍄 Micoteca</button>
+          <button id="btn-open-admin" type="button" title="Painel Master Admin" data-i18n="hud.admin" data-i18n-title="hud.admin_title"
+            class="hidden hud-pill-btn px-2 py-0.5 rounded-lg bg-amber-900/60 hover:bg-amber-800 text-amber-200 font-bold border border-amber-500/50 flex items-center gap-1">🛡️ Admin</button>
+          <button id="btn-open-emotes" type="button" title="Emotes & Animações" data-i18n="hud.emotes" data-i18n-title="hud.emotes_title"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-pink-900/60 hover:bg-pink-800 text-pink-200 font-bold border border-pink-500/50 flex items-center gap-1">💃 Emotes</button>
+          <a id="btn-discord" href="https://discord.gg/EmpEx6PxG" target="_blank" rel="noopener noreferrer" title="Entrar no Discord oficial (ou digite /discord no chat)" data-i18n="hud.discord" data-i18n-title="hud.discord_title"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 font-bold border border-indigo-400/50 flex items-center gap-1 no-underline">💬 Discord</a>
+          <button id="btn-toggle-audio" type="button" title="Ativar/Desativar Som" data-i18n="hud.sound" data-i18n-title="hud.sound_title"
             class="hud-pill-btn px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40">🔊 Som</button>
-          <button id="btn-install-pwa" type="button" title="Instalar MycoCampus3D no Celular"
+          <button id="btn-open-settings" type="button" title="Configurações & Idioma" data-i18n="hud.settings" data-i18n-title="hud.settings_title"
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-emerald-300 font-bold border border-emerald-500/40 flex items-center gap-1">⚙️ Config</button>
+          <button id="btn-install-pwa" type="button" title="Instalar MycoCampus3D no Celular" data-i18n="hud.install" data-i18n-title="hud.install_title"
             style="display:none;"
-            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white font-extrabold border border-emerald-400/60 items-center gap-1 shadow-lg">📲
-            Instalar App</button>
+            class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white font-extrabold border border-emerald-400/60 items-center gap-1 shadow-lg">📲 Instalar App</button>
         </div>
       </div>
       <div id="hud-quick-actions" style="display:none!important;visibility:hidden!important;"></div>
@@ -252,7 +266,7 @@
     <div id="prof-toolbar" style="display:none!important;visibility:hidden!important;"></div>
 
     <!-- Center Fading Hint -->
-    <div id="fps-hint"
+    <div id="fps-hint" data-i18n="hud.fps_hint"
       class="fixed top-20 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs text-slate-200 text-center whitespace-nowrap max-w-[92vw] truncate z-20">
       WASD anda • Shift corre • Ctrl agacha • Espaço pula • R gira • Clique interage
     </div>
@@ -263,7 +277,7 @@
       <div class="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1">
         <div class="flex items-center gap-1.5 font-extrabold text-xs sm:text-sm text-emerald-300">
           <span id="item-status-icon">🔍</span>
-          <span id="item-status-title">Status do Item</span>
+          <span id="item-status-title" data-i18n="hud.item_status_title">Status do Item</span>
         </div>
         <button id="btn-close-status" type="button" title="Fechar (Esc)" class="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded hover:bg-slate-800/80 transition">✕</button>
       </div>
@@ -271,7 +285,7 @@
     </div>
 
     <!-- Interaction Prompt Pill -->
-    <div id="interact-pill"
+    <div id="interact-pill" data-i18n="hud.interact"
       class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40 z-24">
       Interagir
     </div>
@@ -317,16 +331,16 @@
     <!-- Emotes Quick Bar -->
     <div id="emote-bar"
       class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 glass-panel rounded-full px-3 py-1.5 z-30 shadow-2xl border border-purple-500/40">
-      <button type="button"
+      <button type="button" data-i18n="hud.emote_wave"
         class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
         data-emote="wave">👋 Acenar</button>
-      <button type="button"
+      <button type="button" data-i18n="hud.emote_dance"
         class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
         data-emote="dance">💃 Dançar</button>
-      <button type="button"
+      <button type="button" data-i18n="hud.emote_cheer"
         class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
         data-emote="cheer">🎉 Festa</button>
-      <button type="button"
+      <button type="button" data-i18n="hud.emote_meditate"
         class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
         data-emote="meditate">🧘 Meditar</button>
       <button id="btn-close-emotes" type="button" class="text-slate-400 hover:text-white text-xs font-bold px-1.5"
@@ -335,11 +349,11 @@
 
     <!-- Bottom Center Chat Bar & Mobile Toggle -->
     <div id="chat-container">
-      <button id="btn-mobile-chat-toggle" type="button" title="Abrir Chat">💬 <span>Chat</span></button>
+      <button id="btn-mobile-chat-toggle" type="button" title="Abrir Chat">💬 <span data-i18n="hud.chat_btn">Chat</span></button>
       <form id="chat-form" class="flex items-center gap-1.5 chat-bar-wrap">
-        <input id="chat-input" type="text" maxlength="140" placeholder="💬 Escreva no chat..."
+        <input id="chat-input" type="text" maxlength="140" placeholder="💬 Escreva no chat..." data-i18n-placeholder="hud.chat_placeholder"
           class="flex-1 px-3 py-2 rounded-full glass-panel text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-400">
-        <button type="submit"
+        <button type="submit" data-i18n="hud.chat_send"
           class="px-3.5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow">Enviar</button>
         <button id="btn-mobile-chat-close" type="button" title="Fechar Chat">✕</button>
       </form>
@@ -364,16 +378,16 @@
     <div role="dialog" aria-modal="true" aria-labelledby="guide-title"
       class="glass-panel rounded-2xl modal-card-lg flex flex-col overflow-hidden max-h-[92dvh]">
       <div class="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-slate-700/60">
-        <h2 id="guide-title" class="text-base font-extrabold text-white">📖 Guia de Jogabilidade</h2>
+        <h2 id="guide-title" data-i18n="modal.guide_title" class="text-base font-extrabold text-white">📖 Guia de Jogabilidade</h2>
         <button id="btn-close-guide" type="button" aria-label="Fechar guia"
           class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
       <nav class="flex gap-2 overflow-x-auto border-b border-slate-700/60 px-3 py-2" aria-label="Seções do guia">
-        <button type="button" data-guide-tab="controls"
+        <button type="button" data-guide-tab="controls" data-i18n="modal.guide_tab_controls"
           class="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-950">Controles</button>
-        <button type="button" data-guide-tab="tutorial"
+        <button type="button" data-guide-tab="tutorial" data-i18n="modal.guide_tab_tutorial"
           class="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-200">Tutorial opcional</button>
-        <button type="button" data-guide-tab="items"
+        <button type="button" data-guide-tab="items" data-i18n="modal.guide_tab_items"
           class="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-200">Itens e compatibilidade</button>
       </nav>
       <div class="overflow-y-auto p-4 sm:p-5 text-sm text-slate-200">
@@ -414,7 +428,7 @@
   <div id="lesson-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75">
     <div class="glass-panel rounded-2xl modal-card-lg flex flex-col overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
-        <h2 class="text-base font-extrabold text-white">📚 Universidade MycoCampus — Módulos Práticos</h2>
+        <h2 data-i18n="modal.lessons_title" class="text-base font-extrabold text-white">📚 Universidade MycoCampus — Módulos Práticos</h2>
         <button id="btn-close-lessons" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
       <div id="lessons-body" class="p-5 overflow-y-auto space-y-4 text-sm text-slate-200"></div>
@@ -425,7 +439,7 @@
   <div id="ranking-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75">
     <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
-        <h2 class="text-base font-extrabold text-white">🏆 Ranking da Universidade</h2>
+        <h2 data-i18n="modal.ranking_title" class="text-base font-extrabold text-white">🏆 Ranking da Universidade</h2>
         <button id="btn-close-ranking" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
       <div id="ranking-body" class="p-5 overflow-y-auto space-y-2 text-xs"></div>
@@ -440,8 +454,8 @@
         <div class="flex items-center gap-2">
           <span class="text-xl">👑</span>
           <div>
-            <h2 class="text-base font-extrabold text-white">Loja de Cosméticos & Brinquedos</h2>
-            <p class="text-[11px] text-purple-300">Equipe ou desative chapéus e brinquedos a qualquer momento</p>
+            <h2 data-i18n="modal.shop_title" class="text-base font-extrabold text-white">Loja de Cosméticos & Brinquedos</h2>
+            <p data-i18n="modal.shop_subtitle" class="text-[11px] text-purple-300">Equipe ou desative chapéus e brinquedos a qualquer momento</p>
           </div>
         </div>
         <button id="btn-close-shop" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
@@ -449,9 +463,9 @@
       <div
         class="px-5 py-2.5 bg-purple-950/40 border-b border-purple-500/20 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
         <div class="flex items-center gap-2">
-          <button id="shop-tab-hats"
+          <button id="shop-tab-hats" data-i18n="modal.shop_hats"
             class="px-3 py-1 rounded-lg bg-purple-600 text-white font-bold text-xs transition">🎩 Chapéus</button>
-          <button id="shop-tab-toys"
+          <button id="shop-tab-toys" data-i18n="modal.shop_toys"
             class="px-3 py-1 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🏂
             Brinquedos</button>
         </div>
@@ -475,8 +489,8 @@
         <div class="flex items-center gap-2">
           <span class="text-xl">🗺️</span>
           <div>
-            <h2 class="text-base font-extrabold text-white">Mapa Rápido do Campus</h2>
-            <p class="text-[11px] text-sky-300">Escolha um setor para ir direto até lá</p>
+            <h2 data-i18n="modal.map_title" class="text-base font-extrabold text-white">Mapa Rápido do Campus</h2>
+            <p data-i18n="modal.map_subtitle" class="text-[11px] text-sky-300">Escolha um setor para ir direto até lá</p>
           </div>
         </div>
         <button id="btn-close-map" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
@@ -493,8 +507,8 @@
         <div class="flex items-center gap-2">
           <span class="text-xl">🧪</span>
           <div>
-            <h2 class="text-base font-extrabold text-white">Missão Prática: Cultivo Asséptico</h2>
-            <p class="text-[11px] text-emerald-300">Complete os 5 passos reais no campus e ganhe +100 XP</p>
+            <h2 data-i18n="modal.quest_title" class="text-base font-extrabold text-white">Missão Prática: Cultivo Asséptico</h2>
+            <p data-i18n="modal.quest_subtitle" class="text-[11px] text-emerald-300">Complete os 5 passos reais no campus e ganhe +100 XP</p>
           </div>
         </div>
         <button id="btn-close-quest" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
@@ -768,16 +782,74 @@
     </div>
   </div>
 
+  <!-- SETTINGS / CONFIGURAÇÕES MODAL (Idioma, Gráficos, Áudio) -->
+  <div id="settings-modal"
+    class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+    <div role="dialog" aria-modal="true" aria-labelledby="settings-modal-title"
+      class="glass-panel modal-card-md rounded-2xl w-full flex flex-col border border-emerald-500/40 overflow-hidden shadow-2xl">
+      <div class="px-5 py-3.5 border-b border-slate-700/60 flex items-center justify-between bg-slate-900/50">
+        <div>
+          <h2 id="settings-modal-title" data-i18n="settings.title" class="text-base font-extrabold text-white">⚙️ Configurações do Jogo</h2>
+          <p data-i18n="settings.subtitle" class="text-[11px] text-emerald-300">Idioma, gráficos, áudio e tela cheia</p>
+        </div>
+        <button id="btn-close-settings" type="button" data-i18n="settings.close"
+          class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">✕ Fechar</button>
+      </div>
+      <div class="p-4 sm:p-5 space-y-4 text-xs text-slate-200 overflow-y-auto max-h-[80dvh]">
+        <div class="rounded-xl bg-slate-900/75 border border-slate-700/80 p-3.5 space-y-2.5">
+          <div data-i18n="settings.lang_section" class="font-extrabold text-emerald-300 text-sm">🌐 Idioma / Language / Idioma</div>
+          <p data-i18n="settings.lang_desc" class="text-[11px] text-slate-400">Detectado automaticamente pelo navegador. Você pode alterar quando quiser:</p>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" data-lang-btn="pt-BR"
+              class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 font-bold text-slate-200 transition">🇧🇷 Português</button>
+            <button type="button" data-lang-btn="en"
+              class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 font-bold text-slate-200 transition">🇺🇸 English</button>
+            <button type="button" data-lang-btn="es"
+              class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 font-bold text-slate-200 transition">🇪🇸 Español</button>
+          </div>
+          <button id="btn-lang-auto" type="button" data-i18n="settings.lang_auto"
+            class="w-full py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-700 border border-slate-700 text-[11px] font-semibold text-sky-300 transition">
+            ✨ Automático (Navegador)
+          </button>
+        </div>
+
+        <div class="rounded-xl bg-slate-900/75 border border-slate-700/80 p-3.5 space-y-2">
+          <div data-i18n="settings.graphics_section" class="font-extrabold text-cyan-300 text-sm">⚡ Qualidade Gráfica</div>
+          <p data-i18n="settings.graphics_desc" class="text-[11px] text-slate-400">Alterne entre Auto, Alto, Médio, Baixo ou Mínimo para melhor FPS.</p>
+          <button id="btn-settings-quality" type="button" data-i18n="settings.graphics_cycle"
+            class="w-full py-2 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/70 border border-cyan-500/40 text-cyan-200 font-bold transition">
+            Alternar Qualidade
+          </button>
+        </div>
+
+        <div class="rounded-xl bg-slate-900/75 border border-slate-700/80 p-3.5 space-y-2">
+          <div data-i18n="settings.audio_section" class="font-extrabold text-purple-300 text-sm">🔊 Áudio &amp; Tela</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button id="btn-settings-audio" type="button" data-i18n="settings.audio_toggle"
+              class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/50 text-slate-200 font-bold transition">
+              🔊 Ativar / Desativar Som
+            </button>
+            <button id="btn-settings-fullscreen" type="button" data-i18n="settings.fullscreen_toggle"
+              class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/50 text-slate-200 font-bold transition">
+              ⛶ Alternar Tela Cheia
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <noscript>
     <div
-      style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99;background:#0b1220;color:#fff;padding:24px;text-align:center">
-      🍄 O MycoCampus3D precisa de JavaScript ativado para carregar o campus 3D.
+      style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:99;background:#0b1220;color:#fff;padding:24px;text-align:center">
+      <h1>MycoCampus3D — 3D Mushroom Cultivation Simulator &amp; Browser Game</h1>
+      <p>🍄 O MycoCampus3D precisa de JavaScript ativado para carregar o campus 3D. / JavaScript is required to run this 3D multiplayer mushroom cultivation game. / Se requiere JavaScript para cargar este juego 3D de cultivo de hongos.</p>
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '1.4.0';</script>
+  <script>window.MYCO_VERSION = '1.4.1';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=1.4.0"></script>
+  <script type="module" src="js/main.js?v=1.4.1"></script>
 </body>
 
 </html>

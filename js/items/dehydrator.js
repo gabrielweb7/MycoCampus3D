@@ -92,7 +92,7 @@ export function interactDehydrator(ctx, item) {
       if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(driedBatch.label);
     }
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('✨ Lote de 25g de Cogumelos Desidratados Crocantes (0% umidade) na mão! Pese na Balança ou guarde no Pote Hermético com Sílica Gel! (+15 XP)');
+      ctx.callbacks.onToast('✨ Lote de 10g (3 cogumelos crocantes • 0% umidade) na mão! Pese na Balança, guarde no Pote c/ Sílica Gel ou embale no Saco! (+15 XP)');
     }
     return true;
   }

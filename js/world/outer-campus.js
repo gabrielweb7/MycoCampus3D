@@ -7,13 +7,39 @@ export function buildOuterCampus(ctx) {
   var texPaving = tex.texPaving;
   var texWater = tex.texWater;
 
-  // 1. Avenidas asfaltadas com faixas de pedestres
+  // 1. Avenidas asfaltadas ligando de ponta a ponta do mapa até os Túneis nas Colinas!
   var roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.88 });
-  var roadSouth = makeBox(140, 0.03, 7.0, roadMat, { noShadow: true });
+  var roadSouth = makeBox(240, 0.03, 7.2, roadMat, { noShadow: true });
   roadSouth.position.set(0, 0.015, 39.5);
   var roadEast = makeBox(7.0, 0.03, 62, roadMat, { noShadow: true });
   roadEast.position.set(30.5, 0.015, 8.5);
   scene.add(roadSouth, roadEast);
+
+  // Faixa amarela central tracejada na Avenida Sul
+  var dashMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+  for (var dx = -108; dx <= 108; dx += 5.5) {
+    var dash = makeBox(2.4, 0.036, 0.16, dashMat, { noShadow: true });
+    dash.position.set(dx, 0.019, 39.5);
+    scene.add(dash);
+  }
+
+  // Túneis Escuros nas Colinas (Oeste x=-112 e Leste x=+112) de onde os carros dos NPCs saem e entram!
+  var stoneTunnelMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 });
+  var darkVoidMat = new THREE.MeshBasicMaterial({ color: 0x020617 });
+  var hillTunnelMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.94 });
+  [-112, 112].forEach(function (tx) {
+    var dir = tx < 0 ? 1 : -1;
+    var tHill = new THREE.Mesh(new THREE.SphereGeometry(9.5, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hillTunnelMat);
+    tHill.scale.set(1.1, 0.72, 1.3);
+    tHill.position.set(tx - dir * 3.5, 0, 39.5);
+    var archFrame = makeBox(1.4, 5.2, 8.4, stoneTunnelMat);
+    archFrame.position.set(tx, 2.6, 39.5);
+    var darkPortal = makeBox(1.8, 3.8, 6.2, darkVoidMat, { noShadow: true });
+    darkPortal.position.set(tx - dir * 0.6, 1.9, 39.5);
+    var tunnelLamp = makeBox(0.2, 0.25, 1.6, new THREE.MeshBasicMaterial({ color: 0xfef08a }), { noShadow: true });
+    tunnelLamp.position.set(tx + dir * 0.65, 4.3, 39.5);
+    scene.add(tHill, archFrame, darkPortal, tunnelLamp);
+  });
 
   // Faixas de pedestres
   for (var s = -2; s <= 2; s++) {

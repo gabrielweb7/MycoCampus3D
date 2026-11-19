@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.4.1] - 2026-11-19
+### Polimento Geral: Casa Empório, Pote Hermético com Cogumelos Reais, Seladora Animada, Organização do Lab & Abelhas no Pasto
+- **Casa Empório MycoCampus (`js/items/dehydration-packaging.js`, `js/world/outer-campus.js`, `js/services/audio-engine.js`):**
+  - Movida para fora do lago (`x: 17.5, z: 32.5`) com estilo arquitetônico de tijolinhos/aço do campus, **janelas com vidro transparente real e persianas**, placa **🍄 EMPÓRIO MYCOCAMPUS** centralizada abaixo da platibanda (sem cortes), **caixotes de madeira ripada**, **pacotes 10g** com etiqueta nítida e **NPCs estilizados no estilo do avatar** dirigindo pela avenida estendida (`240m`) entre túneis nas colinas com buzina e caixa registradora.
+- **Pote Hermético com Sílica Gel & Seladora Térmica (`js/items/lab-advanced-tools.js`, `js/items/heat-sealer.js`):**
+  - Pote hermético agora exibe **tampa articulada com abertura animada**, **pérolas de sílica gel indicadora**, **cogumelos desidratados 3D reais visíveis** que enchem conforme a gramatura (`0..150g`), e permite **retirar 10g** ao clicar com a mão vazia.
+  - Seladora térmica anima o braço descendo, LED acendendo e faixa térmica aquecendo ao selar pacotes e bags.
+- **Organização do Lab, Estufa, Horta & Natureza (`js/world/lab-tools.js`, `js/items/monotub.js`, `js/world/campus-garden.js`, `js/entities/pasture-cows.js`):**
+  - Corrigidos itens que caíam no chão (`microscope_lab` na Bancada Norte, `infrared_thermometer_02` fora da balança, fluxo laminar desentupido), estante de Monotub afastada da porta, bancada da Estufa afastada do umidificador, banner da Horta fixado em mastro de aço, **vaquinhas movidas para os pastos arborizados longe da cidade**, e **3 colmeias com abelhas fofinhas estilo Minecraft**.
+
 ## [v1.4.0] - 2026-11-19
 ### Sala de Desidratação & Embalagem, Drive-Thru de Vendas com NPCs de Carro, Moeda Virtual (🪙 MycoCoins), 10 Mecânicas de Micologia Realista & HUD Mobile Compacto
 - **Sala de Desidratação, Embalagem & Expedição + Reorganização Multiplayer (`js/world/lab-tools.js`, `js/items/dehydration-packaging.js`):**

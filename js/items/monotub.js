@@ -1080,7 +1080,7 @@ export function stepMonotubs(ctx, dt) {
 
     // Detecta se está posicionado dentro dos limites da Estante LED de Monotubes (mesmo via placementMode 'G')
     const p = item.mesh.position;
-    const inLedRackBounds = (p.x >= 14.8 && p.x <= 15.8 && p.z >= -6.6 && p.z <= -3.8 && p.y >= 0.35);
+    const inLedRackBounds = (p.x >= 14.8 && p.x <= 15.8 && p.z >= -5.4 && p.z <= -2.2 && p.y >= 0.35);
     if (inLedRackBounds !== mc.onLedRack && item !== ctx.heldItem) {
       mc.onLedRack = inLedRackBounds;
       updateMonotubVisual(item);

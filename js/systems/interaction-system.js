@@ -417,6 +417,20 @@ export function handlePrimaryAction(ctx) {
       if (canSealSpawnBag(target)) {
         target.spawnCtrl.sealed = true;
         target.spawnCtrl.updateVisual();
+        if (ctx.hoveredHeatSealerObj && ctx.hoveredHeatSealerObj.sealerCtrl) {
+          ctx.hoveredHeatSealerObj.sealerCtrl.triggerSealAnimation();
+        } else if (ctx.pickableItems && target.mesh) {
+          let bestSealer = null;
+          let bestD = Infinity;
+          for (let i = 0; i < ctx.pickableItems.length; i++) {
+            const it = ctx.pickableItems[i];
+            if (it && it.sealerCtrl && it.mesh) {
+              const d = it.mesh.position.distanceToSquared(target.mesh.position);
+              if (d < bestD) { bestD = d; bestSealer = it; }
+            }
+          }
+          if (bestSealer) bestSealer.sealerCtrl.triggerSealAnimation();
+        }
         if (target === ctx.heldItem && ctx.callbacks.onHoldChange) {
           ctx.callbacks.onHoldChange(ctx.heldItem.label);
         }

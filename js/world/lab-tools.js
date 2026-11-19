@@ -89,16 +89,15 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeDistilledJug5L(ctx, 'distilled_jug_5l', -21.95, 1.02, -11.9, 5000);
   makeCultureFridge(ctx, 'culture_fridge_lab', -15.55, 0.12, -10.7);
 
-  // Mesa de Cultura Liquida & Placas de Petri (Estoque ampliado p/ vários players no Fluxo Laminar e Bancada!)
+  // Mesa de Cultura Liquida & Placas de Petri (Organizada e sem excessos!)
   addMovableStainlessTable(ctx, 'table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);
-  registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.32, 1.065, -8.55, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
-  registerPickable(ctx, 'petri_clean_02', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.32, 1.065, -8.38, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
-  registerPickable(ctx, 'petri_clean_03', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.32, 1.065, -8.21, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
+  registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.38, 1.065, -8.62, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
+  registerPickable(ctx, 'petri_clean_02', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.38, 1.065, -8.42, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
   registerPickable(ctx, 'petri_clean_fridge', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -15.35, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
   registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 0.78, -1.85, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('contam'));
   registerPickable(ctx, 'petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
-  for (let pse = 0; pse < 6; pse++) {
-    registerPickable(ctx, 'petri_sterile_hood_' + pad2(pse + 1), 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -18.18, 1.065, -7.75 - pse * 0.14, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
+  for (let pse = 0; pse < 4; pse++) {
+    registerPickable(ctx, 'petri_sterile_hood_' + pad2(pse + 1), 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -18.18, 1.065, -7.80 - pse * 0.16, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
   }
   registerPickable(ctx, 'petri_sterile_fridge_01', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -15.65, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
   registerPickable(ctx, 'petri_sterile_fridge_02', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -15.50, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
@@ -108,28 +107,28 @@ export function buildCampusWingsAndEquipment(ctx) {
   const pdaBottle = registerPickable(ctx, 'pda_bottle', 'Pó desidratado BDA/PDA 500g', pdaGroup, -19.6, 1.02, -12.0, 0, 0.15, 0.34, PDA_BOTTLE_META);
   attachPdaReagentCtrl(pdaBottle);
 
-  // Spawn Colonizado, Substrato Pasteurizado Pronto, Balança, Borrifadores, Papel Toalha & Seladoras (Múltiplos conjuntos na bancada para vários players!)
+  // Spawn Colonizado, Substrato, Balança, Borrifadores, Papel Toalha & Seladoras (Cada item no seu lugar exato!)
   makeSpawnJar800(ctx, 'spawn_jar', true, -23.1, 1.02, -4.5);
   makeSpawnJar800(ctx, 'spawn_jar_colonized_02', true, -23.1, 1.02, -4.1);
   makeSpawnJar800(ctx, 'spawn_jar_empty', false, -23.1, 1.02, -3.7);
-  makeSpawnBag1500(ctx, 'spawn_bag_colonized', true, -23.1, 1.02, -8.5);
-  makeSpawnBag1500(ctx, 'spawn_bag_colonized_02', true, -22.8, 1.02, -8.5);
-  makeSpawnBag1500(ctx, 'spawn_bag_empty', false, -23.1, 1.02, -7.8);
-  createPrecisionScale(ctx, 'precision_scale', -23.1, 1.02, -9.6);
-  makeMixingBowl(ctx, 'mixing_bowl_01', -23.1, 1.02, -10.1);
-  makeLabSpoon(ctx, 'lab_spoon_01', -23.1, 1.02, -10.35);
+  makeSpawnBag1500(ctx, 'spawn_bag_colonized', true, -23.1, 1.02, -8.25);
+  makeSpawnBag1500(ctx, 'spawn_bag_colonized_02', true, -22.8, 1.02, -8.25);
+  makeSpawnBag1500(ctx, 'spawn_bag_empty', false, -23.1, 1.02, -7.65);
+  createPrecisionScale(ctx, 'precision_scale', -23.1, 1.02, -9.65);
+  makeMixingBowl(ctx, 'mixing_bowl_01', -23.1, 1.02, -10.15);
+  makeLabSpoon(ctx, 'lab_spoon_01', -23.1, 1.02, -10.42);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray', -22.85, 1.02, -7.1);
-  makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_03', -18.55, 1.065, -8.35);
+  makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_03', -17.20, 1.02, -12.00);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_04', -20.20, 0.91, -10.18);
   makePaperTowelRoll(ctx, 'paper_towel_01', -22.85, 1.02, -7.45);
-  makePaperTowelRoll(ctx, 'paper_towel_lab_03', -18.55, 1.065, -8.10);
+  makePaperTowelRoll(ctx, 'paper_towel_lab_03', -16.85, 1.02, -12.00);
   makePaperTowelRoll(ctx, 'paper_towel_lab_04', -19.85, 0.91, -10.18);
-  makeGlovesBox(ctx, 'gloves_box_lab_01', -18.55, 1.065, -7.55);
+  makeGlovesBox(ctx, 'gloves_box_lab_01', -17.60, 1.02, -12.00);
   makeGlovesBox(ctx, 'gloves_box_lab_02', -22.85, 1.02, -6.75);
   createHeatSealer(ctx, 'heat_sealer', -23.1, 1.02, -6.2);
   buildLabTrashBin(ctx, -17.3, 0, -9.2);
 
-  // Agitador, Culturas Liquidas Saudaveis, Bequeres, Bandejas, Seringas & Termometros (Extras na bancada!)
+  // Agitador, Culturas Liquidas Saudaveis, Bequeres, Bandejas, Seringas & Termometros (Bem alinhados na mesa!)
   makeMagneticStirrer(ctx, 'magnetic_stirrer', -20.95, 0.91, -10.55);
   const lc1 = makeLiquidJar800(ctx, 'liquid_culture', -20.95, 1.015, -10.59, 350);
   if (lc1 && lc1.cultureCtrl) lc1.cultureCtrl.colonized = true;
@@ -143,14 +142,14 @@ export function buildCampusWingsAndEquipment(ctx) {
   attachPdaMediumCtrl(beakerA, 'beaker', false);
   attachPdaMediumCtrl(beakerB, 'beaker', false);
   makeLabTray(ctx, 'lab_tray_01', 'Bandeja Inox Cirúrgica', -19.70, 0.91, -10.57);
-  makeLabTray(ctx, 'lab_tray_02', 'Bandeja Inox (Fluxo)', -18.30, 1.065, -8.20);
+  makeLabTray(ctx, 'lab_tray_02', 'Bandeja Inox (Fluxo)', -18.35, 1.065, -8.12);
   makeLabTray(ctx, 'lab_tray_03', 'Bandeja Inox (Preparo)', -20.42, 0.91, -10.18);
   makeSyringe10ml(ctx, 'syringe_10ml_a', -19.70, 0.918, -10.50);
   makeSyringe10ml(ctx, 'syringe_10ml_b', -19.70, 0.918, -10.64);
   makeSyringe10ml(ctx, 'syringe_10ml_c', -19.58, 0.918, -10.50);
   makeSyringe10ml(ctx, 'syringe_10ml_d', -19.58, 0.918, -10.64);
   makeInfraredThermometer(ctx, 'infrared_thermometer', -20.0, 0.91, -10.2);
-  makeInfraredThermometer(ctx, 'infrared_thermometer_02', -22.85, 1.02, -9.55);
+  makeInfraredThermometer(ctx, 'infrared_thermometer_02', -22.78, 1.02, -10.05);
 
   // Estante azul + Tubos Falcon 15ml (azul) e 50ml (laranja) sobre a bancada norte fixa (y = 1.02)
   makeFalconRack(ctx, -20.50, 1.02, -12.00);
@@ -163,41 +162,35 @@ export function buildCampusWingsAndEquipment(ctx) {
   [falcon15a, falcon15b, falcon15c, falcon15d].forEach((item) => attachPdaMediumCtrl(item, 'falcon', true));
   [falcon50a, falcon50b].forEach((item) => attachPdaMediumCtrl(item, 'falcon', false));
 
-  // Bisturi Inox, Saches de Lamina #24, Lamparina a Alcool, Microscópio, Flocao de Milho 500g e Potinhos PP5 145ml (Estoque ampliado p/ multiplayer!)
-  makeScalpel(ctx, 'scalpel_01', -18.25, 1.065, -8.90);
-  makeScalpel(ctx, 'scalpel_05', -18.35, 1.065, -8.90);
-  makeScalpel(ctx, 'scalpel_06', -18.45, 1.065, -8.90);
-  for (let bpi = 0; bpi < 6; bpi++) {
-    makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi + 1), -18.12 + bpi * 0.036, 1.065, -8.92);
+  // Bisturi Inox, Saches de Lamina #24, Lamparina a Alcool, Microscópio (na Bancada Norte!), Potes de Sílica & Flocão
+  makeScalpel(ctx, 'scalpel_01', -18.32, 1.065, -8.92);
+  for (let bpi = 0; bpi < 3; bpi++) {
+    makeScalpelBladePack(ctx, 'scalpel_blade_' + pad2(bpi + 1), -18.18 + bpi * 0.045, 1.065, -8.92);
   }
-  makeAlcoholLamp(ctx, 'alcohol_lamp_hood', -18.55, 1.065, -8.88);
-  makeAlcoholLamp(ctx, 'alcohol_lamp_hood_02', -18.55, 1.065, -7.85);
-  makeLabMicroscope(ctx, 'microscope_lab', -19.25, 0.91, -10.55);
-  makeLabMicroscope(ctx, 'microscope_lab_02', -19.25, 0.91, -10.18);
-  makeSilicaStorageJar(ctx, 'silica_jar_01', -22.85, 1.02, -9.15, {
+  makeAlcoholLamp(ctx, 'alcohol_lamp_hood', -18.62, 1.065, -8.86);
+  makeLabMicroscope(ctx, 'microscope_lab', -18.45, 1.02, -12.00);
+  makeSilicaStorageJar(ctx, 'silica_jar_01', -22.85, 1.02, -9.25, {
     storedGrams: 50,
     speciesName: 'Golden Teacher (Psilocybe cubensis)'
   });
-  makeSilicaStorageJar(ctx, 'silica_jar_02', -22.85, 1.02, -8.92, {
+  makeSilicaStorageJar(ctx, 'silica_jar_02', -22.85, 1.02, -8.98, {
     storedGrams: 25,
     speciesName: 'B+ Cubensis'
   });
-  makeSilicaStorageJar(ctx, 'silica_jar_03', -22.85, 1.02, -8.70, {
+  makeSilicaStorageJar(ctx, 'silica_jar_03', -23.22, 1.02, -9.25, {
     storedGrams: 0
   });
-  makeSilicaStorageJar(ctx, 'silica_jar_04', -22.62, 1.02, -8.92, {
+  makeSilicaStorageJar(ctx, 'silica_jar_04', -23.22, 1.02, -8.98, {
     storedGrams: 0
   });
-  makeDriedMushroomBatch(ctx, 'dried_batch_demo', 'Golden Teacher (Psilocybe cubensis)', -22.62, 1.02, -9.15);
-  makeDriedMushroomBatch(ctx, 'dried_batch_demo_02', 'B+ Cubensis', -22.62, 1.02, -8.70);
+  makeDriedMushroomBatch(ctx, 'dried_batch_demo', 'Golden Teacher (Psilocybe cubensis)', -22.85, 1.02, -8.68);
+  makeDriedMushroomBatch(ctx, 'dried_batch_demo_02', 'B+ Cubensis', -23.22, 1.02, -8.68);
   makeFlocao500g(ctx, 'flocao_500g_01', -23.10, 1.02, -5.30);
   makeFlocao500g(ctx, 'flocao_500g_02', -23.10, 1.02, -5.05);
   makeFlocao500g(ctx, 'flocao_500g_03', -23.10, 1.02, -4.80);
   makeFlocao500g(ctx, 'flocao_500g_04', -22.85, 1.02, -5.18);
-  for (let ppIdx = 0; ppIdx < 8; ppIdx++) {
-    const ppRow = Math.floor(ppIdx / 4);
-    const ppCol = ppIdx % 4;
-    makePP5Cup145ml(ctx, 'pp5_cup_' + pad2(ppIdx + 1), false, -18.18 + ppCol * 0.12, 1.065, -7.45 + ppRow * 0.12);
+  for (let ppIdx = 0; ppIdx < 4; ppIdx++) {
+    makePP5Cup145ml(ctx, 'pp5_cup_' + pad2(ppIdx + 1), false, -18.58 + ppIdx * 0.13, 1.065, -7.35);
   }
 
   // Itens extras organizados dentro das Gavetas e Armarios do Lab (Bancada Norte)
@@ -385,7 +378,7 @@ export function buildCampusWingsAndEquipment(ctx) {
       {
         filled: isPreSealed || isPreFilled,
         sealed: isPreSealed,
-        grams: 25,
+        grams: 10,
         speciesName: mbi % 2 === 0 ? 'Golden Teacher' : 'B+ Cubensis'
       }
     );
@@ -401,9 +394,9 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeDeliveryCrate(ctx, 'delivery_crate_04', 19.00, 0.94, -6.10, { packsCount: 3 });
   makeDeliveryCrate(ctx, 'delivery_crate_05', 18.55, 0.12, -9.50, { packsCount: 0 });
   makeDeliveryCrate(ctx, 'delivery_crate_06', 19.05, 0.12, -9.50, { packsCount: 0 });
-  // 2 Caixas Cheias (4/4 pacotes) já posicionadas na bancada dentro do Empório da Estrada (x: 13.5, z: 32.3) para empilhar/levar às estantes da frente!
-  makeDeliveryCrate(ctx, 'delivery_crate_07', 13.5, 0.94, 32.0, { packsCount: 4 });
-  makeDeliveryCrate(ctx, 'delivery_crate_08', 13.5, 0.94, 32.6, { packsCount: 4 });
+  // 2 Caixas Cheias (4/4 pacotes) já posicionadas na bancada dentro do Empório da Estrada (x: 19.5, z: 32.3) para empilhar/levar às estantes da frente!
+  makeDeliveryCrate(ctx, 'delivery_crate_07', 19.5, 0.94, 32.0, { packsCount: 4 });
+  makeDeliveryCrate(ctx, 'delivery_crate_08', 19.5, 0.94, 32.6, { packsCount: 4 });
 
   // 3. Zona Sul da Sala (z: -3.8..-2.2): Tripé a Gás + Panela de Pasteurização + Spawn & Substrato Pasteurizado prontos para múltiplos players!
   makeCookerBase(ctx, 'cooker_base_sub', 21.8, 0.94, -5.35);
@@ -436,13 +429,13 @@ export function buildCampusWingsAndEquipment(ctx) {
     makeSubstrateBag5kg(ctx, 'substrate_coco_' + pad2(vi + 1), 'coco', 23.05, 0.12, -6.4 + vi * 0.65);
   }
 
-  // 4. Estante Exclusiva para Monotubes 24L com Luz LED embaixo de cada prateleira (Parede Oeste da Sala, x: 15.3)
-  buildMonotubLedRack(ctx, 15.3, -5.8);
+  // 4. Estante Exclusiva para Monotubes 24L com Luz LED embaixo de cada prateleira (Parede Oeste, z = -3.8 para deixar a porta 100% livre!)
+  buildMonotubLedRack(ctx, 15.3, -3.8);
 
   // 8 Caixas Monotub 24L Transparentes para vários jogadores cultivarem juntos!
-  makeMonotub24L(ctx, 'monotub_24l_01', 15.3, 1.80, -6.68, { ry: Math.PI / 2 });
-  makeMonotub24L(ctx, 'monotub_24l_02', 15.3, 1.80, -6.09, { ry: Math.PI / 2 });
-  makeMonotub24L(ctx, 'monotub_24l_03', 15.3, 0.48, -6.68, {
+  makeMonotub24L(ctx, 'monotub_24l_01', 15.3, 1.80, -4.68, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_02', 15.3, 1.80, -4.09, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_03', 15.3, 0.48, -4.68, {
     ry: Math.PI / 2,
     boxSanitized: true,
     hasSpawn: true,
@@ -456,7 +449,7 @@ export function buildCampusWingsAndEquipment(ctx) {
     flush: 1,
     speciesName: 'Golden Teacher (Psilocybe cubensis)'
   });
-  makeMonotub24L(ctx, 'monotub_24l_04', 15.3, 0.48, -6.09, {
+  makeMonotub24L(ctx, 'monotub_24l_04', 15.3, 0.48, -4.09, {
     ry: Math.PI / 2,
     boxSanitized: true,
     hasSpawn: true,
@@ -471,16 +464,16 @@ export function buildCampusWingsAndEquipment(ctx) {
     flush: 2,
     speciesName: 'B+ Cubensis'
   });
-  makeMonotub24L(ctx, 'monotub_24l_05', 15.3, 1.14, -6.68, { ry: Math.PI / 2 });
-  makeMonotub24L(ctx, 'monotub_24l_06', 15.3, 1.14, -6.09, { ry: Math.PI / 2 });
-  makeMonotub24L(ctx, 'monotub_24l_07', 15.3, 1.14, -5.51, { ry: Math.PI / 2 });
-  makeMonotub24L(ctx, 'monotub_24l_08', 15.3, 1.14, -4.92, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_05', 15.3, 1.14, -4.68, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_06', 15.3, 1.14, -4.09, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_07', 15.3, 1.14, -3.51, { ry: Math.PI / 2 });
+  makeMonotub24L(ctx, 'monotub_24l_08', 15.3, 1.14, -2.92, { ry: Math.PI / 2 });
 
-  // Equipamentos da Estufa Climatizada Inteligente (Leste-Sul) + Bancada e Pia Inox com água!
+  // Equipamentos da Estufa Climatizada Inteligente (Leste-Sul) + Bancada e Pia Inox com água (longe do Umidificador!)
   buildGreenhouseBench(scene, ctx);
-  addWallLabBench(ctx, 19.0, 2.9, 3.0, 1.0, {
-    hole: { cx: 18.0, cz: 2.9, w: 0.60, d: 0.50 },
-    sinkPos: { x: 18.0, z: 2.9 }
+  addWallLabBench(ctx, 20.6, 2.9, 2.8, 1.0, {
+    hole: { cx: 19.8, cz: 2.9, w: 0.60, d: 0.50 },
+    sinkPos: { x: 19.8, z: 2.9 }
   });
 
   // Horta Orgânica Externa com Alfaces, Tomates e Caixa de Substrato / Compostagem (Sul da Estufa)

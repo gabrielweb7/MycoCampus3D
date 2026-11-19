@@ -355,7 +355,7 @@ test('Monotub 24L exige misturar antes de nivelar, frutifica até 4 flushs sob L
   assert.equal(tub.monotubCtrl.colonization, 100);
 
   // 8. Levar para a Estante Exclusiva de Monotubes com Luz LED embaixo da prateleira
-  tub.mesh.position = { x: 15.3, y: 0.48, z: -5.5 };
+  tub.mesh.position = { x: 15.3, y: 0.48, z: -3.8 };
   for (let f = 1; f <= MONOTUB_MAX_FLUSHES; f++) {
     for (let s = 0; s < 75; s++) stepMonotubs(ctx, 1.0);
     assert.equal(tub.monotubCtrl.onLedRack, true);
