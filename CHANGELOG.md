@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.8] - 2026-11-20
+### Slants, Tubos Falcon & Recipientes na Autoclave + Inspeção de Esterilidade Completa
+- **Panela de Pressão (`js/systems/hover-held-handlers.js`, `js/items/pressure-cooker.js`, `js/items/liquid-culture.js`, `js/systems/world-objects-sync.js`, `api/multiplayer_schema.php`):**
+  - Tubos Falcon (`falcon_15ml_*`, `falcon_50ml_*`), slants e frascos de cultura líquida não oferecem mais despejar água na panela e entram direto para esterilização na autoclave.
+  - Todo item autoclavável posicionado dentro da panela em modo esterilizar (slants, tubos Falcon, placas de Petri, potinhos PP5, frascos PDA/CL, vidros com água/grãos, bags e bisturis) passa a constar como `Estéril ✅` em memória, UI e sync MySQL.
+- **Inspeção Unificada (`js/ui/radial-menu.js`):**
+  - `showItemStatusCard` agora sempre exibe `✅ Estéril` ou `⚠️ Não Esterilizado` em todos os recipientes e ferramentas esterilizáveis (mesmo vazios, como `Frasco de Meio PDA 1L (0ml/900ml)` e `Tubo Falcon 50ml`).
+
 ## [v1.9.7] - 2026-11-20
 ### Janelas Livres com Alt no PC, Largar no Chão, Fogareiro Corrigido, Bandeja Estável, Sorgo Real & PP5 Moderno
 - **Cursor com `Alt` & Modais Persistentes por Jogador (`js/ui/modal-window-manager.js`, `js/systems/input-controller.js`, `js/ui/hud-lobby.js`, `js/ui/app-boot.js`):**

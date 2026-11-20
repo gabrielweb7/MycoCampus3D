@@ -260,6 +260,8 @@ export function showItemStatusCard(item, ctx) {
       if (sp.contaminated) chips.push({ icon: '🦠', text: 'CONTAMINADO', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
     } else {
       chips.push({ icon: '📦', text: 'Recipiente Vazio', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+      const emptySterilized = !!(sp.sterilized || item.sterilized);
+      chips.push({ icon: emptySterilized ? '✅' : '⚠️', text: emptySterilized ? 'Esterilizado' : 'Não Esterilizado', color: emptySterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
     }
   }
 
@@ -298,9 +300,12 @@ export function showItemStatusCard(item, ctx) {
   }
 
   const cc = item.cultureCtrl || (item.mesh && item.mesh.userData && item.mesh.userData.cultureCtrl);
-  if (cc && (!lc || lc.volMl > 0)) {
-    chips.push({ icon: cc.contaminated ? '⚠️' : '✅', text: cc.contaminated ? 'Não Estéril' : 'Estéril', color: cc.contaminated ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
-    if (cc.colonized) {
+  if (cc) {
+    const ccSterilized = !cc.contaminated && (!lc || lc.volMl > 0 || !!cc.sterilized || !!item.sterilized);
+    chips.push({ icon: ccSterilized ? '✅' : '⚠️', text: ccSterilized ? 'Estéril' : 'Não Esterilizado', color: ccSterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
+    if (lc && lc.volMl <= 0) {
+      chips.push({ icon: '📦', text: 'Frasco Vazio', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    } else if (cc.colonized) {
       chips.push({ icon: '🍄', text: 'Colonizada (100%)', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
     } else if (cc.inoculated) {
       chips.push({ icon: '🍄', text: 'Colonizando (' + Math.round(cc.colonization || 0) + '%)', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
@@ -323,31 +328,38 @@ export function showItemStatusCard(item, ctx) {
   }
 
   const med = item.pdaMediumCtrl;
-  const hasLiquidVol = !!(lc && lc.volMl > 0);
-  if (med && ((med.powderGrams || 0) > 0 || med.mixed || med.sterilized || med.burned || hasLiquidVol)) {
+  const canAutoclave = !!(item.meta && item.meta.compatibilities && item.meta.compatibilities.canEnterCooker);
+  const isDistilledContainer = !!(item.meta && item.meta.compatibilities && item.meta.compatibilities.isDistilledWater);
+  if (med && !(sp && sp.isPP5 && (sp.filled && sp.substrateKind !== 'pda'))) {
     if ((med.powderGrams || 0) > 0) {
       chips.push({ icon: '🧪', text: 'Pó PDA: ' + (Math.round(med.powderGrams * 10) / 10) + 'g', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' });
     }
     if (med.mixed) chips.push({ icon: '🌀', text: 'Misturado', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' });
     if (med.burned) {
       chips.push({ icon: '🔥', text: 'Queimado', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
-    } else {
+    } else if (!(sp && sp.isPP5)) {
+      const isMedSter = !!(med.sterilized || (lc && lc.sterilized) || item.sterilized);
       chips.push({
-        icon: med.sterilized ? '✅' : '⚠️',
-        text: med.sterilized ? 'Estéril' : 'Não Esterilizado',
-        color: med.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+        icon: isMedSter ? '✅' : '⚠️',
+        text: isMedSter ? 'Estéril' : 'Não Esterilizado',
+        color: isMedSter ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
       });
     }
-  } else if (lc && hasLiquidVol && !cc && !sp) {
-    const isDistilled = !!(item.meta && item.meta.compatibilities && item.meta.compatibilities.isDistilledWater);
-    if (!isDistilled) {
-      const onlyDistilled = !!(item.liquidMix && item.liquidMix.distilledMl > 0.05 && (item.liquidMix.waterMl || 0) <= 0.05);
-      chips.push({
-        icon: onlyDistilled ? '✅' : '⚠️',
-        text: onlyDistilled ? 'Estéril (Água Destilada)' : 'Não Esterilizado',
-        color: onlyDistilled ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-      });
-    }
+  } else if (lc && !cc && !sp && !isDistilledContainer) {
+    const onlyDistilled = !!(lc.volMl > 0 && item.liquidMix && item.liquidMix.distilledMl > 0.05 && (item.liquidMix.waterMl || 0) <= 0.05);
+    const isLiqSter = !!(lc.sterilized || item.sterilized || onlyDistilled);
+    chips.push({
+      icon: isLiqSter ? '✅' : '⚠️',
+      text: isLiqSter ? (onlyDistilled && !lc.sterilized && !item.sterilized ? 'Estéril (Água Destilada)' : 'Estéril') : 'Não Esterilizado',
+      color: isLiqSter ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+    });
+  } else if (canAutoclave && !petri && !sp && !cc && !isDistilledContainer && !(item.mesh && item.mesh.userData && item.mesh.userData.isCookerBase)) {
+    const isItemSter = !!item.sterilized;
+    chips.push({
+      icon: isItemSter ? '✅' : '⚠️',
+      text: isItemSter ? 'Estéril' : 'Não Esterilizado',
+      color: isItemSter ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+    });
   }
 
   if (item.scalpelCtrl) {

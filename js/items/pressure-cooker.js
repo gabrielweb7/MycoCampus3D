@@ -6,7 +6,9 @@ import { GAME_CONFIG } from '../core/config.js';
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { isPdaRecipeBalanced, updatePdaMediumVisual } from './pda-mix.js';
-import { contaminatePetri, sterilizePetri } from './petri-dish.js';
+import { contaminatePetri, sterilizePetri, updatePetriVisual } from './petri-dish.js';
+import { updateContainerVolume } from './liquid-culture.js';
+import { updateScalpelLabel } from './scalpel.js';
 
 const THREE = window.THREE;
 const LAB = GAME_CONFIG.lab;
@@ -822,9 +824,12 @@ export function stepPressureCookers(ctx, dt) {
           if (cIt && cIt.pdaMediumCtrl) {
             const medium = cIt.pdaMediumCtrl;
             const liquidCtrl = cIt.mesh && cIt.mesh.userData && cIt.mesh.userData.liquidCtrl;
-            if (cp.mode === 'sterilize' && cp.progress >= 100 && medium.mixed && !medium.burned &&
-              liquidCtrl && isPdaRecipeBalanced(medium, liquidCtrl.volMl)) {
+            const hasPowder = (medium.powderGrams || 0) > 0;
+            const validMedium = medium.isSlant || !hasPowder || (medium.mixed && isPdaRecipeBalanced(medium, liquidCtrl ? liquidCtrl.volMl : 0));
+            if (cp.mode === 'sterilize' && cp.progress >= 100 && !medium.burned && validMedium) {
               medium.sterilized = true;
+              cIt.sterilized = true;
+              if (liquidCtrl) liquidCtrl.sterilized = true;
               if (cIt.spawnCtrl && cIt.spawnCtrl.substrateKind === 'pda') {
                 cIt.spawnCtrl.sterilized = true;
                 cIt.spawnCtrl.sterilizeProgress = 100;
@@ -833,9 +838,39 @@ export function stepPressureCookers(ctx, dt) {
               updatePdaMediumVisual(cIt);
             }
           }
-          if (cIt && cIt.mesh.userData.petriCtrl && cIt.mesh.userData.petriCtrl.mode === 'filled' &&
-            cp.mode === 'sterilize' && cp.progress >= 100) {
-            sterilizePetri(cIt);
+          if (cp.mode === 'sterilize' && cp.progress >= 100 && cIt && cIt.mesh) {
+            const cLiq = cIt.mesh.userData && cIt.mesh.userData.liquidCtrl;
+            const cCult = cIt.cultureCtrl || (cIt.mesh.userData && cIt.mesh.userData.cultureCtrl);
+            const cPetri = cIt.mesh.userData && cIt.mesh.userData.petriCtrl;
+            if (cLiq && !cIt.burned) {
+              cLiq.sterilized = true;
+              cIt.sterilized = true;
+              if (cCult && !cCult.contaminated) cCult.sterilized = true;
+              updateContainerVolume(cIt, cLiq.volMl);
+            }
+            if (cPetri) {
+              if (cPetri.mode === 'filled') {
+                sterilizePetri(cIt);
+              } else if (cPetri.mode === 'bare' || cPetri.mode === 'empty' || cPetri.mode === 'contam') {
+                cPetri.sterilized = true;
+                cPetri.contaminated = false;
+                if (cPetri.mode === 'contam') cPetri.mode = 'empty';
+                cIt.sterilized = true;
+                updatePetriVisual(cIt);
+              }
+            }
+            if (cIt.scalpelCtrl && cIt.scalpelCtrl.hasBlade) {
+              cIt.scalpelCtrl.sterile = true;
+              cIt.scalpelCtrl.bladeContaminated = false;
+              cIt.sterilized = true;
+              updateScalpelLabel(cIt);
+            }
+            if (!(cIt.mesh.userData && cIt.mesh.userData.isCookerBase) && !cIt.burned) {
+              cIt.sterilized = true;
+              const nowSan = performance.now() + 180000;
+              cIt.sanitizedUntil = Math.max(cIt.sanitizedUntil || 0, nowSan);
+              cIt._sanitizeUntil = cIt.sanitizedUntil;
+            }
           }
         }
         if (cp.progress >= 100) {

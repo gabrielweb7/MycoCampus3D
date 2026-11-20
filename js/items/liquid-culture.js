@@ -167,7 +167,8 @@ export function updateContainerVolume(item, newVol) {
   } else if (item.cultureCtrl) {
     updateCultureLiquidLabel(item);
   } else {
-    item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml)';
+    const sterTag = (ctrl.sterilized || item.sterilized) ? ' • ✅ Estéril' : '';
+    item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml' + sterTag + ')';
   }
 }
 

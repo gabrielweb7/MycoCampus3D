@@ -321,7 +321,8 @@ export function getReplicatedItemState(sim, item) {
   }
   if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
   const liquid = meshData.liquidCtrl;
-  if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0) };
+  if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0), sterilized: !!liquid.sterilized };
+  if (item.sterilized) state.sterilized = true;
   const culture = item.cultureCtrl || meshData.cultureCtrl;
   if (culture) {
     state.culture = {
@@ -594,7 +595,9 @@ export function applyReplicatedItemState(sim, item, state) {
       }
     });
   }
+  if (typeof state.sterilized === 'boolean') item.sterilized = state.sterilized;
   if (meshData.liquidCtrl && state.liquid && typeof state.liquid.volMl === 'number') {
+    if (typeof state.liquid.sterilized === 'boolean') meshData.liquidCtrl.sterilized = state.liquid.sterilized;
     updateContainerVolume(item, state.liquid.volMl);
   }
   if (item.pdaReagentCtrl && state.pdaReagent && typeof state.pdaReagent.remainingGrams === 'number' &&

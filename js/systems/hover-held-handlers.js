@@ -513,8 +513,14 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
   if (!ctx.heldItem.mesh || !ctx.heldItem.mesh.userData.liquidCtrl || ctx.heldItem.mesh.userData.liquidCtrl.volMl <= 0) return false;
   const sourceHasPda = hasPdaContents(ctx.heldItem);
   const sourceCanPourWater = !!(ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.poursWater);
+  const isTubeSlantOrCulture = !!(
+    (ctx.heldItem.id && ctx.heldItem.id.indexOf('falcon_') === 0) ||
+    ctx.heldItem.cultureCtrl ||
+    (ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.cultureCtrl) ||
+    (ctx.heldItem.pdaMediumCtrl && ctx.heldItem.pdaMediumCtrl.isSlant)
+  );
 
-  if (sourceCanPourWater && !sourceHasPda) {
+  if (sourceCanPourWater && !sourceHasPda && !isTubeSlantOrCulture) {
     const beakerRes = findPickableHit(
       ctx,
       3.5,

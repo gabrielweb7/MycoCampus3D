@@ -250,4 +250,37 @@ test('advanceOfflineItemState e applyCampusItemStates avançam culturas/desidrat
   assert.ok(mpPhp.includes("'fx_spray'"));
   assert.ok(mpPhp.includes("'fx_harvest'"));
   assert.ok(mpPhp.includes("'item_state_ages'"));
+
+  const hoverHeldSrc = fs.readFileSync('js/systems/hover-held-handlers.js', 'utf8');
+  assert.ok(hoverHeldSrc.includes('isTubeSlantOrCulture'), 'Tubo Falcon / Slant não deve tentar despejar água na panela');
+
+  const cookerSrc = fs.readFileSync('js/items/pressure-cooker.js', 'utf8');
+  assert.ok(cookerSrc.includes('cLiq.sterilized = true'), 'Autoclave deve marcar recipientes líquidos (ex.: Falcon 50ml) como estéreis ao concluir');
+
+  // Testa round-trip de esterilização de líquido/recipiente
+  const falconItem = {
+    id: 'falcon_50ml_01',
+    label: 'Tubo Falcon 50ml (15ml/50ml)',
+    sterilized: true,
+    mesh: {
+      userData: {
+        liquidCtrl: {
+          volMl: 15,
+          maxMl: 50,
+          baseY: 0.03,
+          maxH: 0.11,
+          baseLabel: 'Tubo Falcon 50ml',
+          sterilized: true,
+          liqMesh: { visible: false, scale: { set() {} }, position: { y: 0 } }
+        }
+      }
+    }
+  };
+  const serializedFalcon = getReplicatedItemState({ cookerPots: [] }, falconItem);
+  assert.equal(serializedFalcon.liquid.sterilized, true);
+  assert.equal(serializedFalcon.sterilized, true);
+
+  const radialSrc = fs.readFileSync('js/ui/radial-menu.js', 'utf8');
+  assert.ok(radialSrc.includes('emptySterilized'), 'Inspeção deve exibir status de esterilização mesmo para recipientes vazios');
+  assert.ok(radialSrc.includes('canAutoclave'), 'Inspeção deve cobrir todos itens autoclaváveis');
 });

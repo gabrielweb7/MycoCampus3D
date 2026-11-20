@@ -217,7 +217,14 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         isset($raw['liquid']) && is_array($raw['liquid']) &&
         isset($raw['liquid']['volMl']) && is_numeric($raw['liquid']['volMl']) && is_finite((float)$raw['liquid']['volMl'])) {
         $maxVolumeMl = strpos($itemId, 'pp5_cup_') === 0 ? 100 : 5000;
-        $clean['liquid'] = ['volMl' => max(0, min($maxVolumeMl, (int)round((float)$raw['liquid']['volMl'])))];
+        $liq = ['volMl' => max(0, min($maxVolumeMl, (int)round((float)$raw['liquid']['volMl'])))];
+        if (isset($raw['liquid']['sterilized']) && is_bool($raw['liquid']['sterilized'])) {
+            $liq['sterilized'] = $raw['liquid']['sterilized'];
+        }
+        $clean['liquid'] = $liq;
+    }
+    if (isset($raw['sterilized']) && is_bool($raw['sterilized'])) {
+        $clean['sterilized'] = $raw['sterilized'];
     }
 
     if (strpos($itemId, 'liquid_culture') === 0 && isset($raw['culture']) && is_array($raw['culture'])) {

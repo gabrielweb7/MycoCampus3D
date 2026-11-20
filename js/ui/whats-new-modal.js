@@ -9,6 +9,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.8': {
+    title: '✨ Novidades da Atualização v1.9.8',
+    subtitle: 'Slants & Tubos Falcon na Panela + Status Estéril em Todos os Recipientes:',
+    items: [
+      { icon: '🧪', text: 'Tubos Falcon & Slants na Autoclave: agora Tubos Falcon (15ml/50ml), Slants e Culturas Líquidas entram direto na Panela de Pressão para esterilizar em vez de despejar água na panela!' },
+      { icon: '♨️', text: 'Qualquer Item Autoclavável Consta como Estéril: ao esterilizar Slants, Tubos Falcon, Frascos PDA, Culturas Líquidas, Vidros com Água, Placas de Petri, Potinhos PP5 ou Bags na panela, todos constam ✅ Estéril no rótulo e no card!' },
+      { icon: '🔍', text: 'Inspeção Completa de Esterilização: ao clicar em Inspecionar [I], todos os frascos, tubos, placas, bags e potinhos (cheios ou vazios) agora mostram se estão ✅ Estéril ou ⚠️ Não Esterilizado.' }
+    ]
+  },
   '1.9.7': {
     title: '✨ Novidades da Atualização v1.9.7',
     subtitle: 'Controles mais práticos no PC, visuais corrigidos e físicas sem bugs:',
