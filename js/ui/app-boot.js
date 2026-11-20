@@ -2,6 +2,8 @@
  * MycoCampus3D — Bootstrap da Aplicação, Bindings de HUD, Chat & Eventos
  */
 import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
+import { forceCacheBustReload, isValidSemver } from '../core/version-updater.js';
+import { markPendingAutoUpdateNotice } from './whats-new-modal.js';
 import { events } from '../core/events.js';
 import { setLanguage, resetLanguageToAuto, t } from '../core/i18n.js';
 import { LESSONS } from '../core/lessons-data.js';
@@ -757,16 +759,40 @@ export function bootApp() {
       showWhatsNewModal(window.MYCO_VERSION || getAppVersion(), 0);
     });
   }
-  fetch('VERSION?_=' + Date.now(), { cache: 'no-store' })
-    .then((r) => (r.ok ? r.text() : ''))
-    .then((v) => {
-      const liveVer = (v || '').trim();
-      if (/^\d+\.\d+\.\d+$/.test(liveVer)) {
-        window.MYCO_VERSION = liveVer;
-        if (verEl) verEl.textContent = 'v' + liveVer;
+  const checkServerAppVersion = async () => {
+    let liveVer = '';
+    try {
+      const res = await fetch('api/auth.php?action=version&_=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && isValidSemver(json.version)) liveVer = json.version.trim();
       }
-    })
-    .catch(() => {});
+    } catch (e) {}
+    if (!liveVer) {
+      try {
+        const vRes = await fetch('VERSION?_=' + Date.now(), { cache: 'no-store' });
+        if (vRes.ok) {
+          const txt = (await vRes.text() || '').trim();
+          if (isValidSemver(txt)) liveVer = txt;
+        }
+      } catch (e) {}
+    }
+    const loadedVer = getAppVersion();
+    if (liveVer && isValidSemver(loadedVer) && liveVer !== loadedVer) {
+      await forceCacheBustReload(liveVer, {
+        currentVer: loadedVer,
+        delayMs: 900,
+        onBeforeReload: (nextVer) => {
+          markPendingAutoUpdateNotice(nextVer);
+          showFloatingToast(`🔄 Nova versão v${nextVer} encontrada! Atualizando jogo...`, 2800);
+        }
+      });
+    }
+  };
+  checkServerAppVersion();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkServerAppVersion();
+  });
   mobilePlacementModeActive = false;
   let currentHoldLabel = '';
   let currentHoverPrompt = '';

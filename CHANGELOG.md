@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.4] - 2026-11-19
+### Atualização Automática de Cache para Todos os Jogadores & Céu Noturno Natural
+- **Auto-Update Sem Aba Anônima (`js/core/version-updater.js`, `api/auth.php`, `sw.js`, `.htaccess`, `index.html`, `js/ui/app-boot.js`, `js/services/multiplayer-sync.js`, `js/engine/haptics-wakelock.js`):**
+  - Corrigido bug em `app-boot.js` que sobrescrevia `window.MYCO_VERSION` com a versão remota sem recarregar os módulos antigos em memória.
+  - Adicionado `forceCacheBustReload` com limpeza de `caches` do Service Worker, `reg.update()` (`updateViaCache: 'none'`), fetch `no-cache` de documentos/JS/CSS em `sw.js`, revalidação imediata no `.htaccess` (`ExpiresByType application/javascript "access plus 0 seconds"`) e endpoint `api/auth.php?action=version`.
+- **Céu Noturno Orgânico (`js/engine/sky-constellations.js`, `js/engine/sky-gradient.js`):**
+  - Substituída a distribuição áurea acoplada (`0.381966` / `0.618034`) que alinhava estrelas em arcos/círculos pontilhados por PRNG determinístico independente (260 estrelas menores com brilho variado natural), mantendo as constelações nítidas.
+  - Adicionado dithering suave ao shader de gradiente do céu para eliminar faixas/anéis escuros noturnos.
+
 ## [v1.9.3] - 2026-11-19
 ### Empilhamento Item-sobre-Item & Superfícies, Fim do Lag da Desidratadora & Multiplayer 100% Persistente
 - **Posicionamento em Mesas, Balcões, Estantes & Empilhamento Item-sobre-Item (`js/entities/placement-ghost.js`, `js/items/item-registry.js`, `js/systems/interaction-system.js`, `js/systems/surface-group-move.js`, `js/items/culture-fridge.js`, `js/world/greenhouse.js`):**

@@ -9,6 +9,18 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.4': {
+    title: '✨ Novidades da Atualização v1.9.4',
+    subtitle: 'Atualização automática para todos + melhorias visuais e mecânicas:',
+    items: [
+      { icon: '🔄', text: 'Atualização Automática para Todos: agora o jogo limpa o cache sozinho quando sai novidade no servidor — não precisa mais abrir aba anônima para receber as correções!' },
+      { icon: '📦', text: 'Colocar Coisas em Cima de Mesas, Cômodas e Caixas: itens agora ficam firmes em cima de mesas, balcões, estantes, geladeira e uns sobre os outros sem cair no chão.' },
+      { icon: '🌌', text: 'Céu Noturno Mais Realista: tiramos a linha pontilhada em curva do céu — agora ficam só as constelações bonitas e estrelinhas menores naturais.' },
+      { icon: '🌦️', text: 'Chuva e Neve Mais Suaves + Visual Nostálgico: o tempo muda aos poucos de verdade (sem trancos) e o céu/luzes ficaram ainda mais aconchegantes sem pesar no FPS.' },
+      { icon: '🌈', text: 'Brisa do Cogumelo Fofa: comer cubensis mágicos deixa sua visão colorida só para você, e os amigos veem uma aura arco-íris e carinha super feliz meme em você!' },
+      { icon: '⚡', text: 'Desidratadora Sem Lag & Multiplayer Persistente: corrigido o lag geral ao secar cogumelos e melhorada a sincronização de cultivos, caixas, estufa, horta e loja ao vivo e ao reconectar.' }
+    ]
+  },
   '1.9.3': {
     title: '✨ Novidades da Atualização v1.9.3',
     subtitle: 'Empilhamento em qualquer móvel/item + Fim do lag da Desidratadora + Sync 100% Completo:',
@@ -100,9 +112,17 @@ export function markPendingAutoUpdateNotice(newVer) {
   } catch (e) {}
 }
 
+let lastOpenedNotesVersion = '';
+
 export function closeWhatsNewModal() {
   const el = typeof document !== 'undefined' ? document.getElementById('whats-new-modal') : null;
   if (el) el.classList.add('hidden');
+  try {
+    if (typeof localStorage !== 'undefined' && lastOpenedNotesVersion) {
+      localStorage.setItem(STORAGE_SEEN_KEY, String(lastOpenedNotesVersion));
+      localStorage.removeItem(JUST_UPDATED_KEY);
+    }
+  } catch (e) {}
 }
 
 function bindCloseButton(btn) {
@@ -127,7 +147,7 @@ function ensureWhatsNewModalDom() {
 
   modal = document.createElement('div');
   modal.id = 'whats-new-modal';
-  modal.className = 'hidden fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm pointer-events-auto overflow-y-auto';
+  modal.className = 'hidden fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm pointer-events-auto overflow-y-auto';
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   modal.innerHTML = `
@@ -167,10 +187,13 @@ function ensureWhatsNewModalDom() {
 }
 
 export function showWhatsNewModal(ver) {
-  const notes = getCurrentNotes(ver);
+  if (typeof window !== 'undefined' && window._reloadingVersion) return;
+  const resolvedVer = String(ver || (typeof window !== 'undefined' && window.MYCO_VERSION) || Object.keys(RELEASE_NOTES_CATALOG)[0] || '').trim();
+  const notes = getCurrentNotes(resolvedVer);
   const modal = ensureWhatsNewModalDom();
   if (!notes || !modal) return;
 
+  lastOpenedNotesVersion = resolvedVer;
   const titleEl = modal.querySelector('#whats-new-title');
   const subEl = modal.querySelector('#whats-new-subtitle');
   const listEl = modal.querySelector('#whats-new-list');
@@ -183,19 +206,13 @@ export function showWhatsNewModal(ver) {
       .join('');
   }
 
-  try {
-    if (typeof localStorage !== 'undefined' && ver) {
-      localStorage.setItem(STORAGE_SEEN_KEY, String(ver));
-      localStorage.removeItem(JUST_UPDATED_KEY);
-    }
-  } catch (e) {}
-
   releaseInputForModal();
   modal.classList.remove('hidden');
 }
 
 export function checkAndShowWhatsNewModal(fallbackVer) {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  if (window._reloadingVersion) return;
   const curVer = String(window.MYCO_VERSION || fallbackVer || '').trim();
   if (!curVer) return;
   let seen = '';

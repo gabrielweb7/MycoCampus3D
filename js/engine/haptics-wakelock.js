@@ -6,6 +6,7 @@
  */
 
 import { isIosDevice, isStandaloneMode, openIosFullscreenModal } from '../ui/dom-helpers.js';
+import { forceCacheBustReload } from '../core/version-updater.js';
 
 let wakeLockSentinel = null;
 let deferredInstallPrompt = null;
@@ -81,17 +82,38 @@ window.triggerCampusHaptic = triggerHaptic;
 // 3. PWA Install Prompt & Service Worker Registration
 // ============================================================================
 export function initPwaFeatures() {
-  // Registra Service Worker se suportado
+  // Registra Service Worker sem cache HTTP no script e força verificação de update
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').then((reg) => {
-        // Atualiza silenciosamente se houver nova versão
+    let swRegistration = null;
+    const initialBootController = navigator.serviceWorker.controller;
+    const bootStartedAt = Date.now();
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // Se já havia um SW antigo controlando e um novo assumiu após o boot, atualiza o bundle em execução
+      if (initialBootController && Date.now() - bootStartedAt > 1500) {
+        fetch('api/auth.php?action=version&_=' + Date.now(), { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            const v = d && d.version ? String(d.version).trim() : '';
+            if (v && v !== (window.MYCO_VERSION || '')) {
+              forceCacheBustReload(v);
+            }
+          })
+          .catch(() => {});
+      }
+    });
+
+    const registerAndCheckSw = () => {
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+        swRegistration = reg;
+        if (typeof reg.update === 'function') reg.update().catch(() => {});
+        // Atualiza silenciosamente e ativa imediatamente se houver nova versão
         reg.onupdatefound = () => {
           const installingWorker = reg.installing;
           if (installingWorker) {
             installingWorker.onstatechange = () => {
               if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 console.log('[PWA] Nova versão disponível em cache');
+                try { installingWorker.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
               }
             };
           }
@@ -99,6 +121,15 @@ export function initPwaFeatures() {
       }).catch((err) => {
         console.warn('[PWA] Falha ao registrar Service Worker:', err);
       });
+    };
+
+    if (document.readyState === 'complete') registerAndCheckSw();
+    else window.addEventListener('load', registerAndCheckSw);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && swRegistration && typeof swRegistration.update === 'function') {
+        swRegistration.update().catch(() => {});
+      }
     });
   }
 

@@ -7,7 +7,7 @@ const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThi
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
 
 const _cTopDay = _ColorCtor ? new _ColorCtor(0x1d4ed8) : null;
-const _cTopSunset = _ColorCtor ? new _ColorCtor(0x4c1d95) : null;
+const _cTopSunset = _ColorCtor ? new _ColorCtor(0x6d28d9) : null;
 const _cTopNight = _ColorCtor ? new _ColorCtor(0x020617) : null;
 
 const _cHorDay = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
@@ -24,7 +24,7 @@ const _horWork = _ColorCtor ? new _ColorCtor() : null;
 export function createSkyGradientDome(scene) {
   if (!THREE || !scene || !THREE.ShaderMaterial || !THREE.SphereGeometry) return null;
 
-  const geo = new THREE.SphereGeometry(62, 16, 10);
+  const geo = new THREE.SphereGeometry(62, 24, 14);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -55,7 +55,8 @@ export function createSkyGradientDome(scene) {
         vec3 col = mix(uHorizonColor, uTopColor, curve);
         float sunAmt = max(0.0, dot(normalize(vWorldDir), normalize(uSunDir)));
         col += vec3(1.0, 0.72, 0.42) * pow(sunAmt, 7.0) * uSunWarmth;
-        gl_FragColor = vec4(col, 1.0);
+        float dither = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
+        gl_FragColor = vec4(col + dither, 1.0);
       }
     `
   });
@@ -72,7 +73,7 @@ export function createSkyGradientDome(scene) {
   return { mesh, mat, lastSunY: -99, lastMode: '' };
 }
 
-export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode) {
+export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode, weatherBlend) {
   if (!ctrl || !ctrl.mesh || !ctrl.mat || !_topWork || !_horWork) return;
   if (camPos) {
     ctrl.mesh.position.set(camPos.x, camPos.y, camPos.z);
@@ -81,13 +82,13 @@ export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode) {
   const sY = typeof sunY === 'number' ? sunY : 0.4;
   _topWork.copy(_cTopDay);
   _horWork.copy(_cHorDay);
-  let sunWarmth = 0.16;
+  let sunWarmth = 0.20;
 
   if (sY < 0.24 && sY > -0.18) {
     const sT = Math.max(0, Math.min(1, 1 - Math.abs(sY - 0.03) / 0.21));
     _topWork.lerp(_cTopSunset, sT * 0.85);
     _horWork.lerp(_cHorSunset, sT);
-    sunWarmth = 0.16 + sT * 0.28;
+    sunWarmth = 0.20 + sT * 0.30;
   } else if (sY <= -0.18) {
     const nT = Math.min(1, (-sY - 0.18) / 0.24);
     _topWork.lerp(_cTopNight, nT);
@@ -95,18 +96,25 @@ export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode) {
     sunWarmth = 0.0;
   }
 
-  if (weatherMode === 'overcast') {
-    _topWork.lerp(_cOverTint, 0.48);
-    _horWork.lerp(_cOverTint, 0.42);
-    sunWarmth *= 0.35;
-  } else if (weatherMode === 'rain') {
-    _topWork.lerp(_cRainTint, 0.72);
-    _horWork.lerp(_cRainTint, 0.65);
-    sunWarmth = 0.0;
-  } else if (weatherMode === 'snow') {
-    _topWork.lerp(_cSnowTint, 0.55);
-    _horWork.lerp(_cSnowTint, 0.50);
-    sunWarmth *= 0.25;
+  const wb = weatherBlend || null;
+  const overW = wb ? (wb.overcast || 0) : (weatherMode === 'overcast' ? 1 : 0);
+  const rainW = wb ? (wb.rain || 0) : (weatherMode === 'rain' ? 1 : 0);
+  const snowW = wb ? (wb.snow || 0) : (weatherMode === 'snow' ? 1 : 0);
+
+  if (overW > 0.005) {
+    _topWork.lerp(_cOverTint, 0.48 * overW);
+    _horWork.lerp(_cOverTint, 0.42 * overW);
+    sunWarmth *= (1 - 0.65 * overW);
+  }
+  if (rainW > 0.005) {
+    _topWork.lerp(_cRainTint, 0.72 * rainW);
+    _horWork.lerp(_cRainTint, 0.65 * rainW);
+    sunWarmth *= (1 - rainW);
+  }
+  if (snowW > 0.005) {
+    _topWork.lerp(_cSnowTint, 0.55 * snowW);
+    _horWork.lerp(_cSnowTint, 0.50 * snowW);
+    sunWarmth *= (1 - 0.75 * snowW);
   }
 
   ctrl.mat.uniforms.uTopColor.value.copy(_topWork);

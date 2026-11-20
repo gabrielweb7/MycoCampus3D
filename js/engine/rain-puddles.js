@@ -73,7 +73,7 @@ export function createRainPuddles(scene) {
 export function stepRainPuddles(ctrl, weatherMode, dt) {
   if (!ctrl || !ctrl.inst || !ctrl.mat) return;
   const target = weatherMode === 'rain' ? 1.0 : 0.0;
-  const speed = weatherMode === 'rain' ? 0.22 : 0.09;
+  const speed = weatherMode === 'rain' ? 0.085 : 0.045;
   if (target > ctrl.wetness) {
     ctrl.wetness = Math.min(1, ctrl.wetness + dt * speed);
   } else if (target < ctrl.wetness) {

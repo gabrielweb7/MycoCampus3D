@@ -84,13 +84,24 @@ export function disposeObject3D(root, skipMat) {
 
 export function drawAvatarFace(ctx, mood, blink) {
   ctx.clearRect(0, 0, 128, 128);
+  const isTripMeme = mood === 'trip_meme';
   // Bochechas rosadas
-  ctx.fillStyle = 'rgba(244, 114, 182, 0.55)';
-  ctx.beginPath(); ctx.ellipse(28, 76, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(100, 76, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = isTripMeme ? 'rgba(244, 114, 182, 0.78)' : 'rgba(244, 114, 182, 0.55)';
+  ctx.beginPath(); ctx.ellipse(28, 76, isTripMeme ? 14 : 12, isTripMeme ? 8.5 : 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(100, 76, isTripMeme ? 14 : 12, isTripMeme ? 8.5 : 7, 0, 0, Math.PI * 2); ctx.fill();
 
   // Olhos
-  if (blink) {
+  if (isTripMeme && !blink) {
+    // Olhos arco-íris / felizes estilo meme ^ ^ brilhantes
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 5.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(40, 58, 11, Math.PI + 0.25, -0.25); ctx.stroke();
+    ctx.beginPath(); ctx.arc(88, 58, 11, Math.PI + 0.25, -0.25); ctx.stroke();
+    ctx.fillStyle = '#fde047';
+    ctx.beginPath(); ctx.arc(27, 46, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(101, 46, 3.2, 0, Math.PI * 2); ctx.fill();
+  } else if (blink) {
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
@@ -110,7 +121,19 @@ export function drawAvatarFace(ctx, mood, blink) {
   ctx.strokeStyle = '#0f172a';
   ctx.lineWidth = 4.5;
   ctx.lineCap = 'round';
-  if (mood === 'focused') {
+  if (isTripMeme) {
+    // Sorrisão meme gigante :D com língua fofinha
+    ctx.fillStyle = '#be123c';
+    ctx.beginPath();
+    ctx.arc(64, 75, 16, 0.05, Math.PI - 0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fb7185';
+    ctx.beginPath();
+    ctx.ellipse(64, 87, 8, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (mood === 'focused') {
     ctx.beginPath(); ctx.moveTo(28, 38); ctx.lineTo(50, 42); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(100, 38); ctx.lineTo(78, 42); ctx.stroke();
     ctx.beginPath(); ctx.arc(64, 86, 5, 0, Math.PI * 2); ctx.stroke();
@@ -433,7 +456,7 @@ export function animateAvatarExpression(av, dt, holding, chatMsg) {
   av.blinkTimer -= dt;
   const blinkNow = av.blinkTimer <= 0;
   if (av.blinkTimer <= -0.14) av.blinkTimer = 2.4 + Math.random() * 3.5;
-  const mood = av.emote === 'rainbow_trip' ? 'happy' : (chatMsg ? 'chat' : (holding ? 'focused' : 'happy'));
+  const mood = av.emote === 'rainbow_trip' ? 'trip_meme' : (chatMsg ? 'chat' : (holding ? 'focused' : 'happy'));
   if (mood !== av.lastMood || blinkNow !== av.lastBlink) {
     av.lastMood = mood;
     av.lastBlink = blinkNow;

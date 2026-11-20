@@ -7,6 +7,7 @@ import { apiPost } from '../services/api-client.js';
 import { $, showFloatingToast } from '../ui/dom-helpers.js';
 import { applySlideTo3D } from '../ui/hud-lobby.js';
 import { markPendingAutoUpdateNotice } from '../ui/whats-new-modal.js';
+import { forceCacheBustReload } from '../core/version-updater.js';
 
 export async function syncMultiplayer() {
   if (!appState.currentUser) return;
@@ -83,21 +84,16 @@ export async function syncMultiplayer() {
       }
 
       if (data.app_version && window.MYCO_VERSION && data.app_version !== window.MYCO_VERSION && !window._reloadingVersion) {
-        let lastReloadInfo = '';
-        try { lastReloadInfo = sessionStorage.getItem('myco_reload_guard') || ''; } catch (e) {}
-        const guardedVer = lastReloadInfo.split('|')[0];
-        if (guardedVer !== data.app_version) {
-          window._reloadingVersion = true;
-          try { sessionStorage.setItem('myco_reload_guard', `${data.app_version}|${Date.now()}`); } catch (e) {}
-          markPendingAutoUpdateNotice(data.app_version);
-          showFloatingToast(`🔄 Nova versão v${data.app_version} disponível! Atualizando...`);
-          setTimeout(() => {
-            const base = window.location.pathname || '/';
-            window.location.replace(`${base}?_v=${encodeURIComponent(data.app_version)}`);
-          }, 1500);
-          return;
-        }
-        // Se ja recarregou nesta sessao para essa versao (ex: cache de proxy/HTML), evita loop de refresh
+        const reloaded = await forceCacheBustReload(data.app_version, {
+          currentVer: window.MYCO_VERSION,
+          delayMs: 1200,
+          onBeforeReload: (nextVer) => {
+            markPendingAutoUpdateNotice(nextVer);
+            showFloatingToast(`🔄 Nova versão v${nextVer} disponível! Limpando cache e atualizando...`);
+          }
+        });
+        if (reloaded) return;
+        // Se já recarregou nesta sessão dentro do cooldown, apenas alinha indicador local sem loop
         window.MYCO_VERSION = data.app_version;
         const verEl = $('app-version');
         if (verEl) verEl.textContent = 'v' + data.app_version;

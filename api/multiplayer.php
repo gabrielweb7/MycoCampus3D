@@ -206,7 +206,7 @@ if ($action === 'sync') {
     $yaw = $savedPose ? mp_num($savedPose['yaw'] ?? 0, 1000.0) : mp_num($body['yaw'] ?? 0, 1000.0);
     $pitch = $savedPose ? mp_num($savedPose['pitch'] ?? 0, 2.0) : mp_num($body['pitch'] ?? 0, 2.0);
     $holding = $savedPose ? (string)($savedPose['holding'] ?? '') : (string)($body['holding_item'] ?? '');
-    $holding = in_array($holding, MP_ITEMS, true) ? $holding : '';
+    $holding = mp_is_allowed_item_id($holding) ? $holding : '';
     $seated = $savedPose ? !empty($savedPose['seated']) : !empty($body['seated']);
     $toyMode = (string)($body['toy_mode'] ?? '');
     $walking = ($toyMode === 'parachute') ? 5 : (($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0))));

@@ -259,6 +259,32 @@ test('FAMOUS_CONSTELLATIONS inclui Órion, Cruzeiro do Sul, Ursa Maior, Escorpi�
   assert.ok(dome.conStarMat.opacity > 0.5);
   assert.ok(dome.conLineMat.opacity > 0.1);
   assert.notEqual(dome.group.rotation.y, 0);
+
+  // Valida que as estrelas de fundo são menores e espalhadas aleatoriamente sem alinhamento em arco circular
+  const { createCelestialSkyDome } = await import('../js/engine/sky-constellations.js');
+  const prevT = globalThis.window.THREE;
+  class Attr { constructor(arr) { this.array = arr; } }
+  const origThree = globalThis.window.THREE;
+  origThree.Float32BufferAttribute = Attr;
+  origThree.BufferAttribute = Attr;
+  origThree.BufferGeometry = class { constructor() { this.attrs = {}; } setAttribute(k, v) { this.attrs[k] = v; } getAttribute(k) { return this.attrs[k]; } };
+  origThree.PointsMaterial = class { constructor(o) { Object.assign(this, o); } };
+  origThree.Points = class { constructor(geo, mat) { this.geometry = geo; this.material = mat; } };
+  origThree.LineBasicMaterial = class { constructor(o) { Object.assign(this, o); } };
+  origThree.LineSegments = class { constructor(geo, mat) { this.geometry = geo; this.material = mat; } };
+  origThree.Line = class { constructor(geo, mat) { this.geometry = geo; this.material = mat; } };
+  const domeBuilt = createCelestialSkyDome({ add() {} });
+  assert.ok(domeBuilt.bgMat.size < domeBuilt.conStarMat.size, 'Estrelas de fundo devem ser menores que estrelas de constelação');
+  const posArr = domeBuilt.bgStars.geometry.getAttribute('position').array;
+  // Verifica que estrelas consecutivas não caem em passos angulares idênticos formando arco
+  const angleDeltas = new Set();
+  for (let i = 0; i < 60; i += 3) {
+    const a1 = Math.atan2(posArr[i + 2], posArr[i]);
+    const a2 = Math.atan2(posArr[i + 5], posArr[i + 3]);
+    angleDeltas.add(Math.round((a2 - a1) * 100));
+  }
+  assert.ok(angleDeltas.size > 10, 'Estrelas de fundo devem ter distribuição orgânica sem arco repetitivo');
+  globalThis.window.THREE = prevT;
 });
 
 test('SHOP_SUPPLIES e LAB_QUEST_STEPS estão completos e marcos da Micoteca dão recompensa', async () => {

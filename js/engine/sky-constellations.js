@@ -236,20 +236,28 @@ export function createCelestialSkyDome(scene) {
   });
   const conLines = new THREE.LineSegments(conLineGeo, conLineMat);
 
-  // Campo de estrelas de fundo (Via Lactea e estrelas gerais)
-  const bgCount = 420;
+  // Campo natural e orgânico de estrelas de fundo (PRNG determinístico independente — sem arcos/círculos artificiais)
+  const bgCount = 260;
   const bgPos = new Float32Array(bgCount * 3);
   const bgCol = new Float32Array(bgCount * 3);
   const bgPalette = [0xf8fafc, 0xdbeafe, 0xfef3c7, 0xfed7aa, 0xe0f2fe];
+  let rngState = 0x9e3779b9;
+  const nextRand = () => {
+    rngState = (rngState + 0x6d2b79f5) | 0;
+    let t = Math.imul(rngState ^ (rngState >>> 15), 1 | rngState);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
   for (let st = 0; st < bgCount; st++) {
-    const sTheta = (st * 2.399963) % (Math.PI * 2);
-    const sPhi = Math.asin(Math.max(0.05, Math.min(0.99, ((st * 0.618034) % 1))));
+    const sTheta = nextRand() * Math.PI * 2;
+    const sinPhi = 0.08 + nextRand() * 0.90;
+    const cosPhi = Math.sqrt(Math.max(0, 1 - sinPhi * sinPhi));
     const dist = 214;
-    bgPos[st * 3] = Math.cos(sTheta) * Math.cos(sPhi) * dist;
-    bgPos[st * 3 + 1] = Math.sin(sPhi) * dist + 14;
-    bgPos[st * 3 + 2] = Math.sin(sTheta) * Math.cos(sPhi) * dist;
-    tmpColor.setHex(bgPalette[st % bgPalette.length]);
-    const lum = 0.55 + ((st * 17) % 10) * 0.045;
+    bgPos[st * 3] = Math.cos(sTheta) * cosPhi * dist;
+    bgPos[st * 3 + 1] = sinPhi * dist + 14;
+    bgPos[st * 3 + 2] = Math.sin(sTheta) * cosPhi * dist;
+    tmpColor.setHex(bgPalette[Math.floor(nextRand() * bgPalette.length)]);
+    const lum = 0.28 + Math.pow(nextRand(), 1.6) * 0.62;
     bgCol[st * 3] = tmpColor.r * lum;
     bgCol[st * 3 + 1] = tmpColor.g * lum;
     bgCol[st * 3 + 2] = tmpColor.b * lum;
@@ -258,7 +266,7 @@ export function createCelestialSkyDome(scene) {
   bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
   bgGeo.setAttribute('color', new THREE.BufferAttribute(bgCol, 3));
   const bgMat = new THREE.PointsMaterial({
-    size: starSpriteTex ? 2.4 : 1.35,
+    size: starSpriteTex ? 1.55 : 0.95,
     map: starSpriteTex || null,
     vertexColors: true,
     transparent: true,

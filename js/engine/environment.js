@@ -89,7 +89,22 @@ export function updateDynamicEnvironment(dt, env) {
   env.outsideHumidity = extCond.humidity;
 
   const targetSnow = weatherMode === 'snow' ? 1 : 0;
-  env.snowMix += (targetSnow - env.snowMix) * Math.min(1, dt * 0.25);
+  env.snowMix += (targetSnow - env.snowMix) * Math.min(1, dt * 0.11);
+  if (!env.weatherBlend) {
+    env.weatherBlend = {
+      partly: weatherMode === 'partly' ? 1 : 0,
+      overcast: weatherMode === 'overcast' ? 1 : 0,
+      rain: weatherMode === 'rain' ? 1 : 0,
+      snow: weatherMode === 'snow' ? 1 : 0
+    };
+  }
+  const wb = env.weatherBlend;
+  const wFade = Math.min(1, dt * 0.22);
+  wb.partly += ((weatherMode === 'partly' ? 1 : 0) - wb.partly) * wFade;
+  wb.overcast += ((weatherMode === 'overcast' ? 1 : 0) - wb.overcast) * wFade;
+  wb.rain += ((weatherMode === 'rain' ? 1 : 0) - wb.rain) * wFade;
+  wb.snow += (targetSnow - wb.snow) * wFade;
+
   if (env.rainPuddles) stepRainPuddles(env.rainPuddles, weatherMode, dt);
 
   const skyCol = _cSkyWork.copy(_cSkyDay);
@@ -99,27 +114,27 @@ export function updateDynamicEnvironment(dt, env) {
   } else if (sunY <= -0.18) {
     skyCol.lerp(_cSkyNight, Math.min(1, (-sunY - 0.18) / 0.25));
   }
-  if (weatherMode === 'partly') skyCol.lerp(_cPartly, 0.2);
-  if (weatherMode === 'overcast') skyCol.lerp(_cOvercast, 0.45);
-  if (weatherMode === 'rain') skyCol.lerp(_cRain, 0.65);
-  if (weatherMode === 'snow') skyCol.lerp(_cSnow, 0.5);
+  if (wb.partly > 0.005) skyCol.lerp(_cPartly, 0.2 * wb.partly);
+  if (wb.overcast > 0.005) skyCol.lerp(_cOvercast, 0.45 * wb.overcast);
+  if (wb.rain > 0.005) skyCol.lerp(_cRain, 0.65 * wb.rain);
+  if (wb.snow > 0.005) skyCol.lerp(_cSnow, 0.5 * wb.snow);
   env.scene.background.copy(skyCol);
   if (env.scene.fog) env.scene.fog.color.copy(skyCol);
   if (env.skyGradient) {
     const skyOrigin = env.inFps ? env.playerPos : (env.camera ? env.camera.position : env.playerPos);
-    stepSkyGradientDome(env.skyGradient, skyOrigin, sunX, sunY, weatherMode);
+    stepSkyGradientDome(env.skyGradient, skyOrigin, sunX, sunY, weatherMode, wb);
   }
 
   if (env.sunDisc && env.sunHalo) {
     env.sunDisc.position.set(sunX * 165, sunY * 145, -45);
     env.sunHalo.position.copy(env.sunDisc.position);
-    const sunVis = sunY > -0.08 && weatherMode !== 'rain';
+    const sunVis = sunY > -0.08 && wb.rain < 0.85;
     env.sunDisc.visible = sunVis;
     env.sunHalo.visible = sunVis;
     const sunOrbCol = sunY < 0.22 ? 0xfb923c : 0xfef08a;
     env.sunDisc.material.color.setHex(sunOrbCol);
     env.sunHalo.material.color.setHex(sunOrbCol);
-    env.sunHalo.material.opacity = weatherMode === 'overcast' ? 0.16 : 0.36;
+    env.sunHalo.material.opacity = Math.max(0.04, (0.36 - 0.20 * wb.overcast) * (1 - wb.rain));
   }
   if (env.moonDisc) {
     env.moonDisc.position.set(-sunX * 165, -sunY * 145, -45);
@@ -147,7 +162,7 @@ export function updateDynamicEnvironment(dt, env) {
     if (sunY > 0.22) env.envSun.color.copy(_cSunDay);
     else if (sunY > -0.15) env.envSun.color.copy(_cSunSet);
     else env.envSun.color.copy(_cSunNight);
-    const cloudDim = weatherMode === 'rain' ? 0.52 : (weatherMode === 'overcast' ? 0.72 : (weatherMode === 'partly' ? 0.88 : 1));
+    const cloudDim = Math.max(0.48, 1 - 0.12 * wb.partly - 0.28 * wb.overcast - 0.48 * wb.rain - 0.22 * wb.snow);
     env.envSun.intensity = (env.isTouch ? Math.max(0.28, sunY * 0.75 + 0.35) : Math.max(0.20, sunY * 0.60 + 0.32)) * cloudDim;
   }
   if (env.envHemi) {
@@ -217,17 +232,21 @@ export function updateDynamicEnvironment(dt, env) {
   }
 
   if (env.weatherPoints && env.weatherPosAttr) {
-    const particleCount = env.weatherPoints.geometry.drawRange.count;
-    env.weatherPoints.visible = particleCount > 0 && (weatherMode === 'rain' || weatherMode === 'snow');
+    const maxParticles = env.weatherPoints.geometry.drawRange.count;
+    const precipSnow = wb.snow >= wb.rain;
+    const precipIntensity = Math.max(wb.rain, wb.snow);
+    const activeParticles = Math.floor(maxParticles * Math.min(1, precipIntensity * 1.1));
+    env.weatherPoints.visible = activeParticles > 4 && precipIntensity > 0.025;
     if (env.weatherPoints.visible) {
-      env.weatherPoints.material.color.setHex(weatherMode === 'rain' ? 0x93c5fd : 0xffffff);
-      env.weatherPoints.material.size = weatherMode === 'rain' ? 0.16 : 0.24;
+      env.weatherPoints.material.color.setHex(precipSnow ? 0xffffff : 0x93c5fd);
+      env.weatherPoints.material.size = precipSnow ? 0.24 : 0.16;
+      env.weatherPoints.material.opacity = Math.min(0.78, precipIntensity * 0.82);
       const arr = env.weatherPosAttr.array;
-      const fallSpeed = weatherMode === 'rain' ? 24 : 3.2;
-      const drift = weatherMode === 'rain' ? 2.5 : Math.sin(env.envTime * 1.5) * 1.2;
+      const fallSpeed = precipSnow ? (2.2 + wb.snow * 1.1) : (16.0 + wb.rain * 8.5);
+      const drift = precipSnow ? (Math.sin(env.envTime * 1.5) * 1.2) : (1.6 + wb.rain * 1.0);
       const cx = env.inFps ? env.playerPos.x : env.camera.position.x;
       const cz = env.inFps ? env.playerPos.z : env.camera.position.z;
-      for (let p = 0; p < particleCount * 3; p += 3) {
+      for (let p = 0; p < activeParticles * 3; p += 3) {
         arr[p] += drift * dt;
         arr[p + 1] -= fallSpeed * dt;
         let hitRoof = false;

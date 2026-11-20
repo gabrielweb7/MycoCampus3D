@@ -4,13 +4,13 @@
  * execute em tela cheia sem barra de navegador e carregue instantaneamente.
  */
 
-const CACHE_NAME = 'mycocampus-v1.9.3';
+const CACHE_NAME = 'mycocampus-v1.9.4';
 const STATIC_ASSETS = [
   './',
   'index.html',
   'manifest.webmanifest',
   'css/tailwind.min.css?v=0.8.3',
-  'css/game.css?v=1.9.3',
+  'css/game.css?v=1.9.4',
   'js/vendor/three.bundle.min.js',
   'assets/icon-192.png',
   'assets/icon-512.png',
@@ -28,6 +28,12 @@ self.addEventListener('install', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event && event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -38,19 +44,25 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()).then(() => {
+      return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => {
+          try { client.postMessage({ type: 'SW_ACTIVATED', cacheName: CACHE_NAME }); } catch (e) {}
+        });
+      });
+    })
   );
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Não intercepta chamadas de API dinâmica (login, ranking, multiplayer, etc.)
-  if (url.pathname.includes('/api/') || event.request.method !== 'GET') {
+  // Não intercepta chamadas de API dinâmica ou arquivo VERSION (sempre direto da rede)
+  if (url.pathname.includes('/api/') || url.pathname.endsWith('/VERSION') || event.request.method !== 'GET') {
     return;
   }
 
-  // Estratégia Network-First para HTML, JS e CSS (nunca misturar versões de módulos ES)
+  // Estratégia Network-First sem HTTP disk cache para HTML, JS e CSS (nunca misturar versões antigas)
   const isCodeOrDoc = event.request.mode === 'navigate' ||
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('.js') ||
@@ -58,8 +70,12 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/';
 
   if (isCodeOrDoc) {
+    const netPromise = (event.request.mode === 'navigate')
+      ? fetch(event.request.url, { cache: 'no-cache', credentials: 'same-origin', redirect: 'follow' })
+      : fetch(new Request(event.request, { cache: 'no-cache' }));
+
     event.respondWith(
-      fetch(event.request).then((networkResponse) => {
+      netPromise.then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {

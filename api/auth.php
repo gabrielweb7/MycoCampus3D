@@ -158,6 +158,11 @@ function mc_require_post(): void {
     }
 }
 
+if ($action === 'version') {
+    $ver = trim((string)@file_get_contents(__DIR__ . '/../VERSION'));
+    mc_json(['ok' => true, 'version' => $ver]);
+}
+
 if ($action === 'login' || $action === 'register_or_login') {
     mc_require_post();
     $displayName = trim((string)($body['display_name'] ?? ''));
