@@ -16,6 +16,12 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
   - Geradas texturas seamless 512×512 PNG para `corn-grain.png`, `wheat-grain.png`, `flocao-corn.png`, `coco-verm-substrate.png` e `mycelium-rhizo.png`, carregadas via `bindPngTexture` compartilhado e com colonização gradual realista desde o início até 100%, incluindo hifas ramificadas nas placas Petri.
 - **Vagalumes Exclusivos da Natureza (`js/world/trip-gnomes.js`):**
   - Adicionada verificação por `isInsideRoofZone` e `isOutdoorFireflySpot` em `stepFireflies`, ocultando vagalumes em ambientes internos e bloqueando geração dentro de laboratórios/edifícios.
+- **Vermiculita + Pó de Coco + Água + Colher -> Bag -> Pasteurizar (`js/world/lab-tools.js`, `js/items/storage-rack.js`, `js/items/mixing-bowl.js`, `js/systems/lab-culture-actions.js`, `js/systems/hover-held-handlers.js`, `js/systems/world-objects-sync.js`):**
+  - Substituídos os sacos genéricos `Serragem + Fibra Coco` por sacos separados de `Vermiculita 5kg` e `Pó de Coco 5kg`, exigindo a receita completa (`Vermiculita + Pó de Coco + Água`) no `Pote de Mistura` e homogeinização com a colher antes de porcionar na `Bag 1,5kg` e pasteurizar.
+- **Auditoria Completa de Títulos, Petri Vazia & Pote c/ Sílica `[1] Retirar 10g` (`js/items/spawn-containers.js`, `js/items/petri-dish.js`, `js/systems/admin-editor.js`, `js/items/lab-advanced-tools.js`, `js/entities/hover-3d-badge.js`):**
+  - Spawns (`Vidro 800ml` e `Bag 1,5kg`) agora especificam o grão exato (`Milho de Pipoca`, `Trigo em Grão`, `Sorgo Vermelho`) no rótulo e nos chips de inspeção; micélio 100% cobre o substrato de forma densa.
+  - Placas `bare` impedem contaminação falsa sem ágar e `admin-editor.js` preserva rótulos dinâmicos.
+  - `Pote Hermético c/ Sílica Gel` ganhou o botão/tecla `[1] Retirar 10g` (PC e Mobile) e suporte completo a parênteses aninhados no `hover3dBadge`.
 
 ## [v1.9.8] - 2026-11-20
 ### Slants, Tubos Falcon & Recipientes na Autoclave + Inspeção de Esterilidade Completa

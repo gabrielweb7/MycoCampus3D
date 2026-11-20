@@ -628,10 +628,15 @@ function handleSpoonOrBowlHover(ctx, intersectPickableItem, setHoverPrompt) {
   const spoonKindCount = isSpoonTarget && res.item.bowlCtrl
     ? Object.values(res.item.bowlCtrl.ingredients || {}).filter((v) => v > 0).length
     : 0;
+  const bIng = (isSpoonTarget && res.item.bowlCtrl && res.item.bowlCtrl.ingredients) || {};
+  const bulkIncomplete = isSpoonTarget && ((bIng.coco || 0) > 0 || (bIng.vermiculite || 0) > 0) &&
+    !((bIng.coco || 0) > 0 && (bIng.vermiculite || 0) > 0 && (bIng.water || 0) > 0);
   setHoverPrompt(ctx, isSpoonTarget
     ? (res.item.bowlCtrl && res.item.bowlCtrl.mixed
       ? '✅ Receita já homogênea'
-      : (spoonKindCount < 2 ? '⚠️ Adicione pelo menos 2 ingredientes antes de misturar' : '🥄 Segure 3s para misturar no Pote'))
+      : (bulkIncomplete
+        ? '⚠️ Substrato requer Vermiculita + Pó de Coco + Água antes de misturar!'
+        : (spoonKindCount < 2 ? '⚠️ Adicione pelo menos 2 ingredientes antes de misturar' : '🥄 Segure 3s para misturar no Pote')))
     : '🥣 Porcionar receita em ' + res.item.label);
   return true;
 }
@@ -760,9 +765,15 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
       }
     }
   }
+  const heldId = (ctx.heldItem && ctx.heldItem.id) || '';
+  const isVerm = heldId.indexOf('vermiculite') !== -1;
+  const isCoco = heldId.indexOf('coco') !== -1 || heldId.indexOf('sawdust') !== -1;
+  const isSorghum = heldId.indexOf('sorghum') !== -1;
+  const isWheat = heldId.indexOf('wheat') !== -1;
+  const isRawBulkPart = isVerm || isCoco;
   let isBowl = false;
   const res = findPickableHit(ctx, 3.5, (gCand) => {
-    const recSub = !!(gCand.spawnCtrl && !gCand.spawnCtrl.filled &&
+    const recSub = !isRawBulkPart && !!(gCand.spawnCtrl && !gCand.spawnCtrl.filled &&
       gCand.meta && gCand.meta.compatibilities && gCand.meta.compatibilities.receivesSubstrate);
     const recIng = !!(gCand.bowlCtrl && gCand.meta && gCand.meta.compatibilities && gCand.meta.compatibilities.receivesIngredients);
     if (!recSub && !recIng) return false;
@@ -773,9 +784,14 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
   ctx.hoverHit = res.hit;
   ctx.hoveredGrainTarget = res.item;
   hidePlacementGhost(ctx);
+  const subName = isVerm
+    ? 'Vermiculita'
+    : (isCoco
+      ? 'Pó de Coco'
+      : (isSorghum ? 'Sorgo Vermelho' : (isWheat ? 'Trigo em Grão' : 'Milho de Pipoca')));
   setHoverPrompt(ctx, isBowl
-    ? '🌾 Adicionar +100g de grãos/substrato no Pote de Mistura'
-    : '🌾 Encher ' + res.item.label + ' com grãos/substrato');
+    ? `🥣 Adicionar +100g de ${subName} no Pote de Mistura`
+    : `🌾 Encher ${res.item.label} com ${subName}`);
   return true;
 }
 

@@ -17,7 +17,9 @@ export const RELEASE_NOTES_CATALOG = {
       { icon: '🍄', text: 'Comer Cogumelo no Botão [1] + Ações em Chips: clicar com o mouse/toque não come mais o cogumelo sem querer — use [1] Comer Cogumelo (PC e Mobile) e ações rápidas em chips para Termômetro, Monotub, Luvas, Petri e PP5!' },
       { icon: '🍲', text: 'Panela Mais Limpa & Sem Ligar Sem Querer: removemos o balão gigante duplicado atrás do status da panela e clicar no fundo da panela ou na base perfurada não acende mais o fogareiro por engano.' },
       { icon: '🌽', text: 'Pacote de Texturas Reais & Micélio Rizomórfico: milho, trigo em grão, flocão de milho, fibra de coco + vermiculita, placas Petri e colonização gradual do micélio (de 5% a 100%) ganharam texturas detalhadas e fofas!' },
-      { icon: '✨', text: 'Vagalumes Só na Natureza: os vagalumes agora ficam exclusivamente nas áreas naturais externas, sem aparecer dentro dos laboratórios.' }
+      { icon: '✨', text: 'Vagalumes Só na Natureza: os vagalumes agora ficam exclusivamente nas áreas naturais externas, sem aparecer dentro dos laboratórios.' },
+      { icon: '🥥', text: 'Vermiculita + Pó de Coco + Água: substituímos a Serragem pronta por sacos separados de Vermiculita e Pó de Coco para misturar com Água no Pote, mexer com a Colher, colocar na Bag e Pasteurizar!' },
+      { icon: '🫙', text: 'Títulos Claros, Petri Vazia Real & Retirar 10g na Sílica: spawns agora informam exatamente se são de Milho de Pipoca, Trigo ou Sorgo, placas vazias não exibem mofo/contam falso e Potes c/ Sílica ganham o chip [1] Retirar 10g.' }
     ]
   },
   '1.9.8': {

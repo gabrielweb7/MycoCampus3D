@@ -42,13 +42,40 @@ export function getSpawnMeta(kind, filled) {
   };
 }
 
+export function getSpawnSubstrateDisplayName(kind, isPP5 = false) {
+  if (kind === 'flocao') return 'Flocão de Milho';
+  if (kind === 'pda') return 'Meio PDA/BDA';
+  if (kind === 'wheat') return 'Trigo em Grão';
+  if (kind === 'sorghum') return 'Sorgo Vermelho';
+  if (kind === 'corn' || kind === 'grain') return 'Milho de Pipoca';
+  if (kind === 'coco_verm' || kind === 'coco' || kind === 'vermiculite' || kind === 'sawdust') {
+    return 'Pó de Coco + Vermiculita';
+  }
+  return isPP5 ? 'Flocão de Milho' : 'Milho de Pipoca';
+}
+
+export function getSpawnContainerBaseLabel(isBag, isPP5, substrateKind, filled = true) {
+  if (!filled) {
+    return isPP5 ? 'Potinho PP5 145ml Vazio' : (isBag ? 'Bag 1,5kg Vazia' : 'Vidro 800ml Vazio');
+  }
+  if (isPP5) {
+    return substrateKind === 'pda' ? 'Potinho PP5 145ml (Meio PDA/BDA)' : 'Potinho PP5 145ml (Flocão de Milho)';
+  }
+  const subName = getSpawnSubstrateDisplayName(substrateKind, false);
+  const isBulk = substrateKind === 'coco_verm' || substrateKind === 'coco' || substrateKind === 'vermiculite' || substrateKind === 'sawdust';
+  if (isBag) {
+    return isBulk ? `Bag 1,5kg Substrato (${subName})` : `Bag 1,5kg Spawn (${subName})`;
+  }
+  return isBulk ? `Vidro 800ml Substrato (${subName})` : `Vidro 800ml Spawn (${subName})`;
+}
+
 export function fillSpawnWithSubstrate(item, kind) {
   if (!item || !item.spawnCtrl || item.spawnCtrl.filled ||
       !item.meta || !item.meta.compatibilities || !item.meta.compatibilities.receivesSubstrate) return false;
   const sc = item.spawnCtrl;
   sc.filled = true;
   sc.fillGrams = sc.isBag ? 1500 : 460;
-  sc.substrateKind = kind || 'grain';
+  sc.substrateKind = kind || 'corn';
   sc.sealed = false;
   sc.sterilized = false;
   sc.pasteurized = false;
@@ -58,11 +85,7 @@ export function fillSpawnWithSubstrate(item, kind) {
   Object.assign(sc, createCultureLifecycleState(false));
   sc.contaminated = false;
   sc.burned = false;
-  const isBulkSub = sc.substrateKind === 'coco_verm' || sc.substrateKind === 'sawdust' || sc.substrateKind === 'coco' || sc.substrateKind === 'vermiculite';
-  const grainName = sc.substrateKind === 'sorghum' ? 'Sorgo' : (sc.substrateKind === 'wheat' ? 'Trigo' : 'Milho');
-  sc.baseLabel = isBulkSub
-    ? (sc.isBag ? 'Bag 1,5kg Substrato (Coco + Vermiculita)' : 'Vidro 800ml Substrato (Coco + Vermiculita)')
-    : (sc.isBag ? `Bag 1,5kg Spawn (${grainName})` : `Vidro 800ml (${grainName})`);
+  sc.baseLabel = getSpawnContainerBaseLabel(sc.isBag, sc.isPP5, sc.substrateKind, true);
   if (sc.fillMesh) sc.fillMesh.visible = true;
   if (sc.mycOverlay) sc.mycOverlay.visible = false;
   if (item.meta && item.meta.compatibilities) {
@@ -117,7 +140,8 @@ export function updateSpawnVisual(item) {
   if (sc.mycOverlay) {
     sc.mycOverlay.visible = sc.burned || sc.colonization > 0;
     const f = sc.burned ? 1 : Math.min(1, sc.colonization / 100);
-    sc.mycOverlay.material.opacity = sc.burned ? 0.85 : (sc.contaminated ? 0.82 : (0.34 + f * 0.62));
+    const fullMatOpacity = sc.burned ? 0.85 : (sc.contaminated ? 0.84 : (sc.colonization >= 90 ? 1.0 : (0.36 + f * 0.58)));
+    sc.mycOverlay.material.opacity = fullMatOpacity;
     sc.mycOverlay.material.color.setHex(sc.burned ? 0x1c1917 : (sc.contaminated ? 0x15803d : 0xf8fafc));
     const xzScale = sc.isPP5 ? (0.48 + 0.52 * f) : 1;
     sc.mycOverlay.scale.set(xzScale, Math.max(0.08, f), xzScale);
@@ -290,17 +314,20 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
   if (filled) jg.add(corn, mycOverlay);
   else { corn.visible = false; mycOverlay.visible = false; jg.add(corn, mycOverlay); }
 
-  const item = registerPickable(ctx, id, 'Vidro 800ml', jg, px, py, pz, 0, 0.16, 0.28, getSpawnMeta('jar', filled));
+  const item = registerPickable(ctx, id, getSpawnContainerBaseLabel(false, false, 'corn', !!filled), jg, px, py, pz, 0, 0.16, 0.28, getSpawnMeta('jar', filled));
   item.spawnCtrl = {
     isBag: false,
     filled: !!filled,
     fillGrams: filled ? 460 : 0,
+    substrateKind: filled ? 'corn' : '',
     fillMesh: corn,
     minSterilizeMin: 120,
     sterilizeProgress: filled ? 100 : 0,
-    baseLabel: filled ? 'Vidro 800ml (Milho)' : 'Vidro 800ml Vazio',
+    baseLabel: getSpawnContainerBaseLabel(false, false, 'corn', !!filled),
     sterilized: filled, inoculated: filled,
     colonization: filled ? 100 : 0, contaminated: false,
+    speciesName: filled ? 'Psilocybe cubensis' : '',
+    generation: filled ? 2 : 0,
     ...createCultureLifecycleState(filled),
     mycOverlay,
     updateVisual: function () { updateSpawnVisual(item); }
@@ -342,19 +369,22 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   if (filled) bg.add(block, mycOverlay);
   else { block.visible = false; mycOverlay.visible = false; bg.add(block, mycOverlay); }
 
-  const item = registerPickable(ctx, id, 'Bag 1,5kg', bg, px, py, pz, 0, 0.22, 0.38, getSpawnMeta('bag', filled));
+  const item = registerPickable(ctx, id, getSpawnContainerBaseLabel(true, false, 'corn', !!filled), bg, px, py, pz, 0, 0.22, 0.38, getSpawnMeta('bag', filled));
   item.spawnCtrl = {
     isBag: true,
     filled: !!filled,
     sealed: !!filled,
     fillGrams: filled ? 1500 : 0,
+    substrateKind: filled ? 'corn' : '',
     fillMesh: block,
     sealBand,
     minSterilizeMin: 120, // 2h minimo para milho de pipoca
     sterilizeProgress: filled ? 100 : 0,
-    baseLabel: filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio',
+    baseLabel: getSpawnContainerBaseLabel(true, false, 'corn', !!filled),
     sterilized: filled, inoculated: filled,
     colonization: filled ? 100 : 0, contaminated: false,
+    speciesName: filled ? 'Psilocybe cubensis' : '',
+    generation: filled ? 2 : 0,
     ...createCultureLifecycleState(filled),
     mycOverlay,
     updateVisual: function () { updateSpawnVisual(item); }

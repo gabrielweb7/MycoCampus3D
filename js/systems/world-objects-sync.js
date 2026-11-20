@@ -8,7 +8,7 @@ import { markItemsFalling } from '../entities/placement-ghost.js';
 import { spawnPersistedWildMushroom } from './world-interactions.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { updateSyringeVolume } from '../items/syringe.js';
-import { updateSpawnVisual } from '../items/spawn-containers.js';
+import { updateSpawnVisual, getSpawnContainerBaseLabel } from '../items/spawn-containers.js';
 import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { setPetriLidOpen, updatePetriVisual, PETRI_STACK_SPACING, PETRI_STACK_ALIGNMENT_RADIUS } from '../items/petri-dish.js';
@@ -497,20 +497,7 @@ export function applyReplicatedItemState(sim, item, state) {
         item.meta.compatibilities.receivesFlocao = !spawn.filled;
       }
     }
-    const gLbl = spawn.substrateKind === 'sorghum' ? 'Sorgo' : (spawn.substrateKind === 'wheat' ? 'Trigo' : 'Milho');
-    if (spawn.isPP5) {
-      spawn.baseLabel = spawn.substrateKind === 'pda'
-        ? 'Potinho PP5 145ml (PDA/BDA)'
-        : (spawn.filled ? 'Potinho PP5 145ml (Flocão)' : 'Potinho PP5 145ml Vazio');
-    } else if (spawn.isBag) {
-      spawn.baseLabel = spawn.filled
-        ? (spawn.substrateKind === 'coco_verm' || spawn.substrateKind === 'sawdust'
-          ? 'Bag 1,5kg Substrato (Coco + Vermiculita)'
-          : `Bag 1,5kg Spawn (${gLbl})`)
-        : 'Bag 1,5kg Vazio';
-    } else {
-      spawn.baseLabel = spawn.filled ? `Vidro 800ml (${gLbl})` : 'Vidro 800ml Vazio';
-    }
+    spawn.baseLabel = getSpawnContainerBaseLabel(spawn.isBag, spawn.isPP5, spawn.substrateKind, spawn.filled);
     spawn.updateVisual ? spawn.updateVisual() : updateSpawnVisual(item);
     if (spawn.isPP5 && spawn.fillGrams > 0 && spawn.waterMl === 0 && !spawn.inoculated) {
       item.label = 'Potinho PP5 145ml (Flocão seco • Adicione água)';
@@ -652,7 +639,7 @@ export function applyReplicatedItemState(sim, item, state) {
   }
   if (item.bowlCtrl && state.bowl && typeof state.bowl === 'object') {
     const ingredients = state.bowl.ingredients || {};
-    ['flocao', 'water', 'corn', 'sawdust'].forEach(function (key) {
+    ['flocao', 'water', 'corn', 'wheat', 'sorghum', 'vermiculite', 'coco', 'sawdust'].forEach(function (key) {
       const value = ingredients[key];
       item.bowlCtrl.ingredients[key] = typeof value === 'number' && Number.isFinite(value)
         ? Math.max(0, Math.min(5000, value))

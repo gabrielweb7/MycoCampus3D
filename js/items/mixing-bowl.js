@@ -93,12 +93,19 @@ export function updateMixingBowlLabel(item) {
         ? 'Água'
         : (k === 'corn'
           ? 'Milho'
-          : (k === 'vermiculite' ? 'Vermiculita' : (k === 'coco' ? 'Pó de Coco' : k))));
+          : (k === 'wheat'
+            ? 'Trigo'
+            : (k === 'sorghum'
+              ? 'Sorgo'
+              : (k === 'vermiculite' ? 'Vermiculita' : (k === 'coco' ? 'Pó de Coco' : k))))));
     parts.push(tag + ' ' + val + 'g');
   });
   if (bc.mixMesh) {
-    const dryG = (bc.ingredients.flocao || 0) + (bc.ingredients.corn || 0) + (bc.ingredients.sawdust || 0) + (bc.ingredients.vermiculite || 0) + (bc.ingredients.coco || 0);
+    const dryG = (bc.ingredients.flocao || 0) + (bc.ingredients.corn || 0) + (bc.ingredients.wheat || 0) + (bc.ingredients.sorghum || 0) + (bc.ingredients.sawdust || 0) + (bc.ingredients.vermiculite || 0) + (bc.ingredients.coco || 0);
     const waterG = bc.ingredients.water || 0;
+    const hasBulkDry = (bc.ingredients.coco || 0) > 0 || (bc.ingredients.vermiculite || 0) > 0;
+    const mixHex = (bc.ingredients.coco || 0) > 0 ? 0x5c3a21 : (hasBulkDry ? 0xb45309 : 0xf59e0b);
+    const dryHex = (bc.ingredients.coco || 0) > 0 ? 0x6b4423 : (hasBulkDry ? 0xd97706 : 0xfde047);
     if (bc.mixed) {
       bc.mixMesh.visible = totalG > 0;
       const fillFrac = Math.min(1, totalG / 600);
@@ -106,7 +113,7 @@ export function updateMixingBowlLabel(item) {
       const sxz = 0.86 + 0.14 * fillFrac;
       bc.mixMesh.scale.set(sxz, sy, sxz);
       bc.mixMesh.position.y = 0.012 + (0.095 * sy) * 0.5;
-      bc.mixMesh.material.color.setHex(0xf59e0b);
+      bc.mixMesh.material.color.setHex(mixHex);
       if (bc.waterLayerMesh) bc.waterLayerMesh.visible = false;
     } else {
       const dryFrac = Math.min(1, dryG / 600);
@@ -117,7 +124,7 @@ export function updateMixingBowlLabel(item) {
         const sxz = 0.86 + 0.14 * dryFrac;
         bc.mixMesh.scale.set(sxz, sy, sxz);
         bc.mixMesh.position.y = 0.012 + dryH * 0.5;
-        bc.mixMesh.material.color.setHex(0xfde047);
+        bc.mixMesh.material.color.setHex(dryHex);
       } else {
         bc.mixMesh.visible = false;
       }
@@ -136,9 +143,29 @@ export function updateMixingBowlLabel(item) {
       }
     }
   }
+  const bulkCheck = getBowlBulkReadiness(bc);
   const kindCount = Object.values(bc.ingredients).filter((v) => v > 0).length;
-  const status = bc.mixed ? '✅ Receita Homogênea' : (kindCount < 2 ? '➕ Adicione outro ingrediente' : '🥄 Misture c/ colher');
+  const status = bc.mixed
+    ? '✅ Receita Homogênea'
+    : (bulkCheck.missingText ? ('➕ ' + bulkCheck.missingText) : (kindCount < 2 ? '➕ Adicione Água/outro item' : '🥄 Misture c/ colher'));
   item.label = 'Pote Mistura (' + parts.join(' + ') + ' = ' + totalG + 'g • ' + status + ')';
+}
+
+export function getBowlBulkReadiness(bc) {
+  const ing = (bc && bc.ingredients) || {};
+  const hasCoco = (ing.coco || 0) > 0;
+  const hasVerm = (ing.vermiculite || 0) > 0;
+  const hasWater = (ing.water || 0) > 0;
+  if (!hasCoco && !hasVerm) return { isBulk: false, ready: true, missingText: '' };
+  const missing = [];
+  if (!hasCoco) missing.push('Pó de Coco');
+  if (!hasVerm) missing.push('Vermiculita');
+  if (!hasWater) missing.push('Água');
+  return {
+    isBulk: true,
+    ready: missing.length === 0,
+    missingText: missing.length ? ('Falta ' + missing.join(' + ')) : ''
+  };
 }
 
 export function addIngredientToBowl(item, ingKey, grams) {
@@ -158,6 +185,10 @@ export function advanceMixingBowlStir(item, dt) {
   const total = Object.values(bc.ingredients).reduce((a, b) => a + b, 0);
   const kindCount = Object.values(bc.ingredients).filter((v) => v > 0).length;
   if (total <= 0) return { done: false, empty: true, progress: 0 };
+  const bulkCheck = getBowlBulkReadiness(bc);
+  if (bulkCheck.isBulk && !bulkCheck.ready) {
+    return { done: false, empty: false, needBulkTrio: true, missingText: bulkCheck.missingText, progress: 0 };
+  }
   if (kindCount < 2) return { done: false, empty: false, needTwo: true, progress: 0 };
   if (bc.mixed) return { done: true, empty: false, progress: 1 };
   bc.stirProgress = Math.min(1, (bc.stirProgress || 0) + dt / 3.0);

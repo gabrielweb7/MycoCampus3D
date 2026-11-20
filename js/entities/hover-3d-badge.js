@@ -74,11 +74,23 @@ export function formatHoverInfo(prompt, targetObj) {
   let params = '';
   let action = prompt.trim();
 
-  // 1. Extrai parâmetros entre parênteses
-  const parenMatch = action.match(/\(([^)]+)\)/);
-  if (parenMatch) {
-    params = parenMatch[1].trim();
-    action = action.replace(/\s*\([^)]+\)/g, '').trim();
+  // 1. Extrai primeiro bloco de parênteses balanceado (suporta parênteses aninhados)
+  let parenOuter = null;
+  const openIdx = action.indexOf('(');
+  if (openIdx !== -1) {
+    let depth = 0;
+    for (let i = openIdx; i < action.length; i++) {
+      if (action[i] === '(') depth++;
+      else if (action[i] === ')') {
+        depth--;
+        if (depth === 0) {
+          parenOuter = action.slice(openIdx, i + 1);
+          params = action.slice(openIdx + 1, i).trim();
+          action = (action.slice(0, openIdx) + action.slice(i + 1)).replace(/\s{2,}/g, ' ').trim();
+          break;
+        }
+      }
+    }
   }
 
   // 2. Extrai traço separador " — " ou " • "
@@ -107,9 +119,13 @@ export function formatHoverInfo(prompt, targetObj) {
     title = action;
   }
 
-  // Remove parâmetros do título se já vão aparecer na linha de parâmetros
-  if (params && title.includes(params)) {
-    params = '';
+  // Remove parâmetros redundantes do título quando já aparecem na linha de parâmetros
+  if (params) {
+    if (title.includes(params)) {
+      params = '';
+    } else if (parenOuter && title.includes(parenOuter)) {
+      title = title.replace(parenOuter, '').replace(/\s+•.*$/, '').trim();
+    }
   }
 
   // Remove emojis iniciais da linha de ação (pois já recebe "👉 " e o título já tem o ícone do item)

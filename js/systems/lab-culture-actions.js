@@ -1,7 +1,7 @@
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
-import { addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
+import { getBowlBulkReadiness, addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { markBladePackEmpty, updateScalpelLabel } from '../items/scalpel.js';
-import { fillSpawnWithSubstrate } from '../items/spawn-containers.js';
+import { fillSpawnWithSubstrate, getSpawnContainerBaseLabel } from '../items/spawn-containers.js';
 import { inoculatePetri, togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
 import { togglePP5Lid } from '../items/pp5-cup.js';
 
@@ -56,13 +56,24 @@ export function handleMixingBowlTargetAction(ctx) {
   if (ctx.heldItem.bowlCtrl && ctx.heldItem.bowlCtrl.mixed && target.spawnCtrl) {
     const dstSc = target.spawnCtrl;
     const bowl = ctx.heldItem.bowlCtrl;
+    const bulkState = getBowlBulkReadiness(bowl);
+    if (bulkState.isBulk && !bulkState.ready) {
+      if (ctx.callbacks.onToast) {
+        ctx.callbacks.onToast('⚠️ Para substrato bulk: adicione Vermiculita + Pó de Coco + Água e misture com a colher antes!');
+      }
+      return true;
+    }
     const needSolid = dstSc.isPP5 ? 45 : 200;
     const needWater = dstSc.isPP5 ? 35 : 100;
     const cocoVermG = (bowl.ingredients.coco || 0) + (bowl.ingredients.vermiculite || 0);
-    const isCocoVerm = cocoVermG >= needSolid;
+    const isCocoVerm = cocoVermG >= needSolid && (bowl.ingredients.coco || 0) > 0 && (bowl.ingredients.vermiculite || 0) > 0;
     const solidKey = isCocoVerm
       ? 'coco_verm'
-      : (bowl.ingredients.flocao > 0 ? 'flocao' : (bowl.ingredients.corn > 0 ? 'corn' : 'sawdust'));
+      : (bowl.ingredients.flocao > 0
+        ? 'flocao'
+        : (bowl.ingredients.wheat > 0
+          ? 'wheat'
+          : (bowl.ingredients.sorghum > 0 ? 'sorghum' : (bowl.ingredients.corn > 0 ? 'corn' : 'corn'))));
     const solidAvailable = isCocoVerm ? cocoVermG : (bowl.ingredients[solidKey] || 0);
     const waterAvailable = bowl.ingredients.water || 0;
     if (solidAvailable >= needSolid && waterAvailable >= needWater) {
@@ -86,11 +97,9 @@ export function handleMixingBowlTargetAction(ctx) {
       dstSc.substrateKind = solidKey;
       dstSc.fillGrams = needSolid;
       dstSc.waterMl = needWater;
-      if (isCocoVerm && !dstSc.isPP5) {
-        dstSc.baseLabel = dstSc.isBag
-          ? 'Bag 1,5kg Substrato (Coco + Vermiculita)'
-          : 'Vidro 800ml Substrato (Coco + Vermiculita)';
-      }
+      dstSc.pasteurized = false;
+      dstSc.sterilized = false;
+      dstSc.baseLabel = getSpawnContainerBaseLabel(dstSc.isBag, dstSc.isPP5, dstSc.substrateKind, true);
       if (dstSc.fillMesh) dstSc.fillMesh.visible = true;
       dstSc.updateVisual();
       if (window.MycoAudio) window.MycoAudio.playClick();
@@ -393,32 +402,35 @@ export function handleSubstrateTargetAction(ctx) {
   const target = ctx.hoveredGrainTarget;
   const heldId = (ctx.heldItem && ctx.heldItem.id) || '';
   const isVerm = heldId.indexOf('vermiculite') !== -1;
-  const isCoco = heldId.indexOf('coco') !== -1;
+  const isCoco = heldId.indexOf('coco') !== -1 || heldId.indexOf('sawdust') !== -1;
   const isSorghum = heldId.indexOf('sorghum') !== -1;
   const isWheat = heldId.indexOf('wheat') !== -1;
   const isGrain = heldId.indexOf('grain') !== -1 || isWheat || isSorghum;
-  const kind = isVerm ? 'vermiculite' : (isCoco ? 'coco' : (isSorghum ? 'sorghum' : (isWheat ? 'wheat' : (isGrain ? 'grain' : 'sawdust'))));
+  const kind = isVerm ? 'vermiculite' : (isCoco ? 'coco' : (isSorghum ? 'sorghum' : (isWheat ? 'wheat' : 'corn')));
   if (target.bowlCtrl) {
     const receivesIngredients = target.meta && target.meta.compatibilities &&
       target.meta.compatibilities.receivesIngredients;
     if (!receivesIngredients) return;
-    const ingKey = isVerm ? 'vermiculite' : (isCoco ? 'coco' : (isGrain ? 'corn' : 'sawdust'));
+    const ingKey = isVerm ? 'vermiculite' : (isCoco ? 'coco' : (isSorghum ? 'sorghum' : (isWheat ? 'wheat' : 'corn')));
     addIngredientToBowl(target, ingKey, 100);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onToast) {
-      const lbl = isVerm ? 'Vermiculita' : (isCoco ? 'Pó de Coco' : (isGrain ? 'Grãos' : 'Substrato'));
-      ctx.callbacks.onToast(`🌾 +100g de ${lbl} no Pote de Mistura!`);
+      const lbl = isVerm ? 'Vermiculita' : (isCoco ? 'Pó de Coco' : (isSorghum ? 'Sorgo Vermelho' : (isWheat ? 'Trigo em Grão' : 'Milho de Pipoca')));
+      ctx.callbacks.onToast(`🥣 +100g de ${lbl} no Pote de Mistura!`);
     }
     ctx.notifyWorldAction();
     return;
   }
-  const fillKind = (isVerm || isCoco) ? 'coco_verm' : kind;
-  if (fillSpawnWithSubstrate(target, fillKind)) {
+  if (isVerm || isCoco) {
+    if (ctx.callbacks.onToast) {
+      ctx.callbacks.onToast('🥥 Misture Vermiculita + Pó de Coco + Água no Pote de Mistura e mexa com a Colher antes de colocar na Bag!');
+    }
+    return;
+  }
+  if (fillSpawnWithSubstrate(target, kind)) {
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onToast) {
-      ctx.callbacks.onToast((isVerm || isCoco)
-        ? `🥥 ${target.label} preenchido com Vermiculita + Pó de Coco! Leve à Panela no modo PASTEURIZAR (Tecla M)!`
-        : '🌾 ' + target.label + ' preenchido!');
+      ctx.callbacks.onToast('🌾 ' + target.label + ' preenchido!');
     }
     ctx.notifyWorldAction();
   }

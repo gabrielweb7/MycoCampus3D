@@ -436,6 +436,10 @@ export function updatePetriVisual(item) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl) return;
   if (ctrl.mode === 'bare') {
+    ctrl.contaminated = false;
+    ctrl.inoculated = false;
+    ctrl.colonized = false;
+    ctrl.colonization = 0;
     if (ctrl.agarMesh) {
       item.mesh.remove(ctrl.agarMesh);
       ctrl.agarMesh = null;
@@ -613,7 +617,7 @@ export function inoculatePetri(item, method, sterile, contamRisk = 0, speciesNam
 
 export function contaminatePetri(item) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
-  if (!ctrl) return false;
+  if (!ctrl || ctrl.mode === 'bare') return false;
   ctrl.mode = 'contam';
   ctrl.sterilized = false;
   ctrl.inoculated = true;

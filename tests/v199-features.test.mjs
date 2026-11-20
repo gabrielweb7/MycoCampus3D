@@ -158,4 +158,18 @@ test('v1.9.9 comer cogumelo usa chip numérico [1] (sem comer ao clicar), panela
   assert.match(gnomesSrc, /function isInsideRoofZone\(/);
   assert.match(gnomesSrc, /function isOutdoorFireflySpot\(/);
   assert.match(gnomesSrc, /fireflyPoints\.visible\s*=\s*!playerIndoors/);
+
+  // Revisão v1.9.9: Petri bare sem contam fantasma, Silica Jar c/ chip [1] Retirar 10g, Vermiculita + Pó de Coco sem Serragem, Spawn c/ substrato exato
+  const petriSrc = fs.readFileSync(path.resolve('js/items/petri-dish.js'), 'utf8');
+  const rackSrc = fs.readFileSync(path.resolve('js/items/storage-rack.js'), 'utf8');
+  const labSrc = fs.readFileSync(path.resolve('js/world/lab-tools.js'), 'utf8');
+  const spawnSrc = fs.readFileSync(path.resolve('js/items/spawn-containers.js'), 'utf8');
+  const bowlSrc = fs.readFileSync(path.resolve('js/items/mixing-bowl.js'), 'utf8');
+
+  assert.match(petriSrc, /if \(!ctrl \|\| ctrl\.mode === 'bare'\) return false;/);
+  assert.match(radialSrc, /id:\s*'silica_take_10g_'[\s\S]*label:\s*'Retirar 10g'/);
+  assert.doesNotMatch(labSrc, /substrate_sawdust_/);
+  assert.doesNotMatch(rackSrc, /Serragem \+ Fibra Coco/);
+  assert.match(bowlSrc, /export function getBowlBulkReadiness\(/);
+  assert.match(spawnSrc, /Bag 1,5kg Spawn \(\$\{subName\}\)/);
 });

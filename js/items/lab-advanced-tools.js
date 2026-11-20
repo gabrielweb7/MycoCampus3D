@@ -791,8 +791,8 @@ export function makeSilicaStorageJar(ctx, id, px, py, pz, initialOpt = 0) {
         jarMushMeshes[i].visible = i < visibleCount;
       }
       item.label = gVal > 0
-        ? `🫙 Pote Hermético c/ Sílica Gel (${gVal}/${cap}g • ${jc.speciesName || 'Crocantes'} • Clique vazio p/ retirar 10g)`
-        : '🫙 Pote Hermético com Sílica Gel (Vazio • Guarde Cogumelos Crocantes da Desidratadora)';
+        ? `🫙 Pote Hermético c/ Sílica Gel (${gVal}/${cap}g • ${jc.speciesName || 'Crocantes'})`
+        : '🫙 Pote Hermético c/ Sílica Gel (Vazio • Guarde cogumelos crocantes)';
     }
   };
   item.silicaJarCtrl.updateVisual();

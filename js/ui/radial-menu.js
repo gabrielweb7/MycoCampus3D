@@ -23,7 +23,8 @@ import {
   toggleHeldThermometer
 } from '../systems/interaction-system.js';
 import { interactMonotub } from '../items/monotub.js';
-import { breakAndShakeSpawn } from '../items/spawn-containers.js';
+import { breakAndShakeSpawn, getSpawnSubstrateDisplayName } from '../items/spawn-containers.js';
+import { interactSilicaStorageJar } from '../items/lab-advanced-tools.js';
 import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
 
 let barEl = null;
@@ -229,24 +230,28 @@ export function showItemStatusCard(item, ctx) {
   if (petri) {
     chips.push({ icon: petri.lidOpen ? '⚠️' : '✅', text: petri.lidOpen ? 'Tampa Aberta' : 'Tampa Fechada', color: petri.lidOpen ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
     chips.push({ icon: petri.sterilized ? '✅' : '⚠️', text: petri.sterilized ? 'Estéril' : 'Não Estéril', color: petri.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
-    if (petri.parafilmSealed) chips.push({ icon: '🎞️', text: 'Vedada (Parafilm M)', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
-    if (petri.inoculated) {
-      chips.push({ icon: '🍄', text: 'Colonizada (' + Math.round(petri.colonization || 0) + '%)', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
-    } else if (petri.mode !== 'bare') {
-      chips.push({ icon: '⚪', text: 'Não Colonizada', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
-    }
-    if (petri.contaminated || petri.mode === 'contam') {
-      chips.push({ icon: '🦠', text: 'Contaminada', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
-    } else if (petri.mode !== 'bare') {
-      chips.push({ icon: '💚', text: 'Saudável', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
-    }
-    if (petri.expired) {
-      chips.push({ icon: '⏰', text: 'Vencida', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
-    } else if (petri.mode !== 'bare' && !petri.contaminated) {
-      const remD = getCultureRemainingDays(petri);
-      const pTemp = (typeof petri.tempC === 'number' ? petri.tempC : (petri.refrigerated ? 4.0 : 24.5)).toFixed(1).replace('.', ',');
-      const envTxt = petri.refrigerated ? `❄️ ${pTemp}°C Refrigerada` : `🌡️ ${pTemp}°C Ambiente`;
-      chips.push({ icon: '⏳', text: 'Validade: ' + remD + 'd (' + envTxt + ')', color: petri.refrigerated ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
+    if (petri.mode === 'bare') {
+      chips.push({ icon: '📦', text: 'Sem Ágar (Vazia)', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    } else {
+      if (petri.parafilmSealed) chips.push({ icon: '🎞️', text: 'Vedada (Parafilm M)', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
+      if (petri.inoculated) {
+        chips.push({ icon: '🍄', text: 'Colonizada (' + Math.round(petri.colonization || 0) + '%)', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+      } else {
+        chips.push({ icon: '⚪', text: 'Não Colonizada', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+      }
+      if (petri.contaminated || petri.mode === 'contam') {
+        chips.push({ icon: '🦠', text: 'Contaminada', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+      } else {
+        chips.push({ icon: '💚', text: 'Saudável', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+      }
+      if (petri.expired) {
+        chips.push({ icon: '⏰', text: 'Vencida', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+      } else if (!petri.contaminated) {
+        const remD = getCultureRemainingDays(petri);
+        const pTemp = (typeof petri.tempC === 'number' ? petri.tempC : (petri.refrigerated ? 4.0 : 24.5)).toFixed(1).replace('.', ',');
+        const envTxt = petri.refrigerated ? `❄️ ${pTemp}°C Refrigerada` : `🌡️ ${pTemp}°C Ambiente`;
+        chips.push({ icon: '⏳', text: 'Validade: ' + remD + 'd (' + envTxt + ')', color: petri.refrigerated ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
+      }
     }
   }
 
@@ -260,9 +265,9 @@ export function showItemStatusCard(item, ctx) {
       });
     }
     if (sp.filled) {
-      const subNames = { flocao: 'Flocão de Milho', corn: 'Milho de Pipoca', wheat: 'Trigo em Grão', sorghum: 'Sorgo Vermelho', coco_verm: 'Coco + Vermiculita', sawdust: 'Serragem', grain: 'Grãos' };
-      const subLbl = subNames[sp.substrateKind] || (sp.isPP5 ? 'Flocão de Milho' : 'Grãos');
-      chips.push({ icon: sp.isPP5 || sp.substrateKind === 'flocao' ? '🌽' : '🌾', text: 'Substrato: ' + subLbl, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+      const subLbl = getSpawnSubstrateDisplayName(sp.substrateKind, sp.isPP5);
+      chips.push({ icon: sp.isPP5 || sp.substrateKind === 'flocao' || sp.substrateKind === 'corn' || sp.substrateKind === 'grain' ? '🌽' : '🌾', text: 'Substrato: ' + subLbl, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+      if (sp.speciesName) chips.push({ icon: '🧬', text: sp.speciesName, color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' });
       if (sp.waterMl) chips.push({ icon: '💧', text: sp.waterMl + ' ml H₂O', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
       chips.push({ icon: sp.sterilized ? '✅' : '⚠️', text: sp.sterilized ? 'Esterilizado' : 'Não Esterilizado', color: sp.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
       if (sp.inoculated) chips.push({ icon: '🍄', text: 'Colonização ' + Math.round(sp.colonization || 0) + '%', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
@@ -334,6 +339,16 @@ export function showItemStatusCard(item, ctx) {
       const cEnvTxt = cc.refrigerated ? `❄️ ${cTemp}°C Refrigerada` : `🌡️ ${cTemp}°C Ambiente`;
       chips.push({ icon: '⏳', text: 'Validade: ' + remD + 'd (' + cEnvTxt + ')', color: cc.refrigerated ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
     }
+  }
+
+  const sj = item.silicaJarCtrl;
+  if (sj) {
+    const cap = sj.maxGrams || sj.capacityGrams || 150;
+    chips.push({ icon: '🫙', text: `Armazenado: ${sj.storedGrams || 0}/${cap}g`, color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+    if (sj.storedGrams > 0 && sj.speciesName) {
+      chips.push({ icon: '🧬', text: sj.speciesName, color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' });
+    }
+    chips.push({ icon: '💎', text: 'Sílica Gel (0% Umidade)', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
   }
 
   const med = item.pdaMediumCtrl;
@@ -608,6 +623,14 @@ function buildContextActions(ctx) {
         icon: '🥣',
         label: target.spawnCtrl.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
         run: () => togglePP5Lid(ctx, target)
+      });
+    }
+    if (target.silicaJarCtrl && target.silicaJarCtrl.storedGrams >= 10) {
+      actions.push({
+        id: 'silica_take_10g_' + target.id + '_' + target.silicaJarCtrl.storedGrams,
+        icon: '🍄',
+        label: 'Retirar 10g',
+        run: () => interactSilicaStorageJar(ctx, target)
       });
     }
     actions.push({

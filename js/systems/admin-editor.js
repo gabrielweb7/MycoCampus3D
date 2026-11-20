@@ -133,13 +133,13 @@ export function ensureCoreAdminPrefabs() {
   });
 
   registerItemPrefab('spawn_jar', {
-    label: 'Vidro 800ml (Spawn)',
+    label: 'Vidro 800ml Vazio',
     category: 'glassware',
     factory: (ctx, opts) => makeSpawnJar800(ctx, opts.id || ('dyn_spawn_jar_' + Date.now().toString(36)), false, opts.x, opts.y, opts.z)
   });
 
   registerItemPrefab('spawn_bag', {
-    label: 'Bag de Cultivo 1,5kg',
+    label: 'Bag 1,5kg Vazia',
     category: 'glassware',
     factory: (ctx, opts) => makeSpawnBag1500(ctx, opts.id || ('dyn_spawn_bag_' + Date.now().toString(36)), false, opts.x, opts.y, opts.z)
   });
@@ -266,7 +266,17 @@ export function applyCampusLayoutEdits(sim, layoutEdits) {
     }
 
     if (item) {
-      if (edit.label) {
+      const hasDynamicLabel = !!(
+        item.spawnCtrl ||
+        item.monotubCtrl ||
+        item.bowlCtrl ||
+        (item.mesh && item.mesh.userData && (
+          item.mesh.userData.petriCtrl ||
+          item.mesh.userData.liquidCtrl ||
+          item.mesh.userData.syrCtrl
+        ))
+      );
+      if (edit.label && !hasDynamicLabel) {
         item.label = edit.label;
         if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = edit.label;
       }

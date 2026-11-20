@@ -252,7 +252,9 @@ export function buildCampusWingsAndEquipment(ctx) {
     makeSubstrateBag5kg(ctx, 'substrate_grain_' + pad2(si + 1), 'grain', -21.35 + si * 0.58, 0.438, 3.05);
     makeSubstrateBag5kg(ctx, 'substrate_wheat_' + pad2(si + 1), 'wheat', -21.35 + si * 0.58, 1.118, 3.05);
     makeSubstrateBag5kg(ctx, 'substrate_sorghum_' + pad2(si + 1), 'sorghum', -18.85 + si * 0.58, 1.118, 3.05);
-    makeSubstrateBag5kg(ctx, 'substrate_sawdust_' + pad2(si + 1), 'sawdust', -18.85 + si * 0.58, 0.438, 3.05);
+    const bulkKind = si < 2 ? 'vermiculite' : 'coco';
+    const bulkId = si < 2 ? ('substrate_dep_vermiculite_' + pad2(si + 1)) : ('substrate_dep_coco_' + pad2(si - 1));
+    makeSubstrateBag5kg(ctx, bulkId, bulkKind, -18.85 + si * 0.58, 0.438, 3.05);
   }
   for (let pIdx = 0; pIdx < 40; pIdx++) {
     const stackIdx = Math.floor(pIdx / 7);

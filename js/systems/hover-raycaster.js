@@ -559,6 +559,12 @@ export function updateHoverRay(ctx, customNdc) {
         prompt = fridge.fridgeCtrl.doorOpen
           ? '🧊 Fechar Porta da Geladeira (4°C)'
           : '🧊 Abrir Porta da Geladeira (4°C)';
+      } else if (ctx.hoveredPickable.silicaJarCtrl) {
+        const jc = ctx.hoveredPickable.silicaJarCtrl;
+        const cap = jc.maxGrams || jc.capacityGrams || 150;
+        prompt = jc.storedGrams >= 10
+          ? `🫙 Retirar 10g (${jc.storedGrams}/${cap}g • ${jc.speciesName || 'Crocantes'})`
+          : `🫙 Pote Hermético c/ Sílica Gel (0/${cap}g • Vazio)`;
       } else {
         prompt = ctx.hoveredPickable.label;
       }
