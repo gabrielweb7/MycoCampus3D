@@ -394,8 +394,10 @@ export function handleSubstrateTargetAction(ctx) {
   const heldId = (ctx.heldItem && ctx.heldItem.id) || '';
   const isVerm = heldId.indexOf('vermiculite') !== -1;
   const isCoco = heldId.indexOf('coco') !== -1;
-  const isGrain = heldId.indexOf('grain') !== -1 || heldId.indexOf('wheat') !== -1 || heldId.indexOf('sorghum') !== -1;
-  const kind = isVerm ? 'vermiculite' : (isCoco ? 'coco' : (isGrain ? 'grain' : 'sawdust'));
+  const isSorghum = heldId.indexOf('sorghum') !== -1;
+  const isWheat = heldId.indexOf('wheat') !== -1;
+  const isGrain = heldId.indexOf('grain') !== -1 || isWheat || isSorghum;
+  const kind = isVerm ? 'vermiculite' : (isCoco ? 'coco' : (isSorghum ? 'sorghum' : (isWheat ? 'wheat' : (isGrain ? 'grain' : 'sawdust'))));
   if (target.bowlCtrl) {
     const receivesIngredients = target.meta && target.meta.compatibilities &&
       target.meta.compatibilities.receivesIngredients;

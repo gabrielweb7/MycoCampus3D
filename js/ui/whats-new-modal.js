@@ -9,6 +9,18 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.7': {
+    title: '✨ Novidades da Atualização v1.9.7',
+    subtitle: 'Controles mais práticos no PC, visuais corrigidos e físicas sem bugs:',
+    items: [
+      { icon: '🖱️', text: 'Alt Mostra o Cursor + Janelas Livres no PC: aperte Alt para mostrar/esconder o mouse, arrastar modais pela barra, redimensionar no canto ↘ e salvar sua posição para cada jogador!' },
+      { icon: '⬇️', text: 'Largar [X] no Chão + Sem Empilhar Itens: o botão Largar agora solta sempre no chão perto de você (sem ocupar o mesmo espaço de outro item) e o círculo do ghost ficou menor e mais fino.' },
+      { icon: '🔥', text: 'Fogareiro / Panela de Pressão Corrigido: resolvido o bug que fazia a água parar de subir por volta de 75°C depois de desligar e ligar o fogo novamente.' },
+      { icon: '🍽️', text: 'Bandeja Firme Sem Piscar: os itens carregados em cima da bandeja agora ficam estáveis enquanto você anda pelo laboratório.' },
+      { icon: '🌾', text: 'Sorgo com Textura Real + Potinho PP5 Moderno: bag/vidro de sorgo agora mostra grãos vermelho-bordô reais e o potinho PP5 tem parede dupla e tampa anatômica.' },
+      { icon: '🧼', text: 'Barra "Em Mãos" Mais Limpa + Temperatura Externa: removemos o botão repetido Status e o relógio no topo mostra a temperatura do lado de fora ao vivo!' }
+    ]
+  },
   '1.9.6': {
     title: '✨ Novidades da Atualização v1.9.6',
     subtitle: 'Correção imediata de inicialização + novidades completas para todos:',

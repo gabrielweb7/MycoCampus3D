@@ -448,19 +448,65 @@ test('sports-scoreboard, rain-puddles (create + step) e Cesta Orgânica da Horta
   pCtx.heldItem = droppedJar;
   dropHeldItem(pCtx);
   dropUnsupportedItems(pCtx);
-  assert.ok(Math.abs(droppedJar.mesh.position.y - 0.91) < 0.01, 'Item solto sobre mesa com vizinho deve permanecer em y=0.91 e não cair no chão');
+  assert.ok(Math.abs(droppedJar.mesh.position.y - 0.12) < 0.02, 'Botão Largar [X] deve soltar no chão próximo do jogador (y=0.12), nunca na mira/bancada');
 
-  // Empilhamento item-sobre-item: caixa em cima de outra caixa na bancada permanece empilhada (y = 0.91 + 0.165 = 1.075)
+  // Regra estrita: itens comuns NÃO podem ficar empilhados um em cima do outro nem ocupar o mesmo espaço
+  const { isPlacementBlocked } = await import('../js/entities/placement-ghost.js');
   const crateA = registerPickable(pCtx, 'crate_a', 'Caixa Base', new MockObj(), -20.45, 0.91, -10.56, 0, 0.24, 0.165);
-  const crateB = registerPickable(pCtx, 'crate_b', 'Caixa Empilhada', new MockObj(), -20.45, 1.075, -10.56, 0, 0.24, 0.165);
+  const crateB = registerPickable(pCtx, 'crate_b', 'Caixa Extra', new MockObj(), -19.5, 0.12, -9.5, 0, 0.24, 0.165);
   assert.ok(crateA && crateB);
-  dropUnsupportedItems(pCtx);
-  assert.ok(
-    Math.abs(crateB.mesh.position.y - 1.075) < 0.01,
-    'Item colocado em cima de outra caixa/item sobre a mesa deve permanecer empilhado em y=1.075'
-  );
+  pCtx.heldItem = crateB;
+  assert.equal(isPlacementBlocked(pCtx, { x: -20.45, y: 0.91, z: -10.56 }), true, 'Não pode colocar item no mesmo espaço de outro item');
 
   assert.equal(isHoldingPackOrCrateForStand({ organicBasketCtrl: { packsValue: 2 } }), true);
+});
+
+test('modal-window-manager persiste posição/tamanho por jogador, sorghum-grain.png existe e aquecimento do fogareiro não retrocede no sync', async () => {
+  const fsMod = await import('node:fs');
+  assert.equal(fsMod.existsSync('assets/textures/sorghum-grain.png'), true, 'Textura assets/textures/sorghum-grain.png deve existir');
+
+  const pp5Src = fsMod.readFileSync('js/items/pp5-cup.js', 'utf8');
+  assert.ok(pp5Src.includes('DoubleSide'), 'Potinho PP5 deve usar DoubleSide para mostrar a parede interna traseira');
+
+  const {
+    clampModalRectToViewport,
+    setModalManagerUserKey,
+    readModalLayoutMap
+  } = await import('../js/ui/modal-window-manager.js');
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => store.get(k) ?? null,
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+  setModalManagerUserKey({ id: 7, display_name: 'Gabriel' });
+  const clamped = clampModalRectToViewport({ x: 9999, y: -50, w: 120, h: 90 }, 1280, 720);
+  assert.ok(clamped.w >= 280);
+  assert.ok(clamped.h >= 160);
+  assert.ok(clamped.x <= 1280 - 56);
+  assert.ok(clamped.y >= 8);
+  assert.deepEqual(readModalLayoutMap(), {});
+
+  const { applyReplicatedItemState } = await import('../js/systems/world-objects-sync.js');
+  const cookerObj = { temp: 76, psi: 0, progress: 0, waterMl: 3300, contents: [], maxWaterMl: 20000 };
+  const potObj = {
+    id: 'pressure_cooker_sub',
+    lidItem: { id: 'pressure_lid_sub' },
+    mesh: { position: { x: 18, y: 0.65, z: 2 }, userData: {} }
+  };
+  const simHeat = {
+    burnerDevices: [{
+      id: 'gas_tripod_sub',
+      on: true,
+      surface: { minX: 17.7, maxX: 18.3, minZ: 1.7, maxZ: 2.3, topY: 0.65 }
+    }],
+    cookerPots: [{ potItem: potObj, ...cookerObj }],
+    findPickable: () => null
+  };
+  // Simula ref compatível como referenciado pelo item
+  simHeat.cookerPots[0] = Object.assign(cookerObj, { potItem: potObj });
+  applyReplicatedItemState(simHeat, potObj, { cooker: { temp: 70, psi: 0, progress: 0, waterMl: 3300 } });
+  assert.equal(cookerObj.temp, 76, 'Sync atrasado (70°C) não deve travar nem reduzir aquecimento ativo (76°C)');
 });
 
 test('whats-new modal usa zIndex explicito 9999, hover-raycaster prioriza Base Perfurada fora de bestLarge e avatars sincronizam conteúdo na mão', async () => {

@@ -429,7 +429,7 @@ export function getReplicatedItemState(sim, item) {
     state.cooker = {
       waterMl: Math.round(cooker.waterMl || 0),
       mode: cooker.mode === 'pasteurize' ? 'pasteurize' : 'sterilize',
-      temp: Math.round((cooker.temp || 0) / 10) * 10,
+      temp: Math.round((cooker.temp || 0) / 5) * 5,
       psi: Math.round((cooker.psi || 0) / 3) * 3,
       progress: quantizeStep(cooker.progress, 25),
       sterilized: !!cooker.sterilized,
@@ -479,8 +479,8 @@ export function applyReplicatedItemState(sim, item, state) {
       }
     });
     const validSubstrates = spawn.isPP5
-      ? ['grain', 'sawdust', 'flocao', 'corn', 'pda']
-      : ['grain', 'sawdust', 'flocao', 'corn'];
+      ? ['grain', 'sorghum', 'wheat', 'coco_verm', 'sawdust', 'flocao', 'corn', 'pda']
+      : ['grain', 'sorghum', 'wheat', 'coco_verm', 'sawdust', 'flocao', 'corn'];
     if (validSubstrates.indexOf(incoming.substrateKind) !== -1) {
       spawn.substrateKind = incoming.substrateKind;
     }
@@ -496,14 +496,19 @@ export function applyReplicatedItemState(sim, item, state) {
         item.meta.compatibilities.receivesFlocao = !spawn.filled;
       }
     }
+    const gLbl = spawn.substrateKind === 'sorghum' ? 'Sorgo' : (spawn.substrateKind === 'wheat' ? 'Trigo' : 'Milho');
     if (spawn.isPP5) {
       spawn.baseLabel = spawn.substrateKind === 'pda'
         ? 'Potinho PP5 145ml (PDA/BDA)'
         : (spawn.filled ? 'Potinho PP5 145ml (Flocão)' : 'Potinho PP5 145ml Vazio');
     } else if (spawn.isBag) {
-      spawn.baseLabel = spawn.filled ? 'Bag 1,5kg Spawn' : 'Bag 1,5kg Vazio';
+      spawn.baseLabel = spawn.filled
+        ? (spawn.substrateKind === 'coco_verm' || spawn.substrateKind === 'sawdust'
+          ? 'Bag 1,5kg Substrato (Coco + Vermiculita)'
+          : `Bag 1,5kg Spawn (${gLbl})`)
+        : 'Bag 1,5kg Vazio';
     } else {
-      spawn.baseLabel = spawn.filled ? 'Vidro 800ml (Milho)' : 'Vidro 800ml Vazio';
+      spawn.baseLabel = spawn.filled ? `Vidro 800ml (${gLbl})` : 'Vidro 800ml Vazio';
     }
     spawn.updateVisual ? spawn.updateVisual() : updateSpawnVisual(item);
     if (spawn.isPP5 && spawn.fillGrams > 0 && spawn.waterMl === 0 && !spawn.inoculated) {
@@ -691,14 +696,30 @@ export function applyReplicatedItemState(sim, item, state) {
         cooker.waterMl = Math.max(0, Math.min(cooker.maxWaterMl, incoming.waterMl));
       }
       if (incoming.mode === 'sterilize' || incoming.mode === 'pasteurize') cooker.mode = incoming.mode;
+      const potPos = item.mesh && item.mesh.position;
+      const onActiveBurner = !!(potPos && Array.isArray(sim.burnerDevices) && sim.burnerDevices.some(function (bn) {
+        return bn && bn.on && bn.surface &&
+          potPos.x >= bn.surface.minX - 0.06 && potPos.x <= bn.surface.maxX + 0.06 &&
+          potPos.z >= bn.surface.minZ - 0.06 && potPos.z <= bn.surface.maxZ + 0.06 &&
+          Math.abs(potPos.y - bn.surface.topY) < 0.11;
+      }));
+      const recentLocalThermal = (performance.now() - (cooker._lastHeatTouchAt || 0)) < 25000;
       ['temp', 'psi', 'progress', 'overheatTimer'].forEach(function (key) {
         if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
           const val = Math.max(0, incoming[key]);
           if (key === 'progress' && !incoming.sterilized && !cooker.sterilized && !incoming.burned && !cooker.burned &&
               cooker.temp >= 95 && (Number(incoming.temp) || 0) >= 95 && val < 100) {
             cooker.progress = Math.max(Number(cooker.progress) || 0, val);
-          } else if (key === 'temp' && cooker.temp >= 30 && val >= 30 && Math.abs(cooker.temp - val) <= 10) {
-            cooker.temp = Math.max(cooker.temp, val);
+          } else if (key === 'temp') {
+            if (onActiveBurner || recentLocalThermal) {
+              if (val > cooker.temp + 6) cooker.temp = val;
+            } else if (cooker.temp >= 30 && val >= 30 && Math.abs(cooker.temp - val) <= 10) {
+              cooker.temp = Math.max(cooker.temp, val);
+            } else {
+              cooker.temp = val;
+            }
+          } else if (key === 'psi' && (onActiveBurner || recentLocalThermal)) {
+            if (val > cooker.psi + 3) cooker.psi = val;
           } else {
             cooker[key] = val;
           }
@@ -880,8 +901,9 @@ export function applyCampusWorldObjects(sim, objectsMap) {
   sim.pickableItems.forEach(function (item) {
     if (!item.mesh.userData.updateBounds || item._removedForSync) return;
     const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
+    const isInHeldTray = !!(sim.heldItem && sim.heldItem.trayContents && sim.heldItem.trayContents.some((tc) => tc && tc.item === item));
     const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
-    if (sim.heldItem === item || isInHeldPot || isHeldLid || sim.isHeldByRemote(item.id)) return;
+    if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id)) return;
     if (sim.pendingMovedItems[item.id]) return;
     if (sim.recentlyDropped[item.id] > now) {
       const svCheck = objectsMap[item.id];
@@ -922,8 +944,9 @@ export function applyCampusWorldObjects(sim, objectsMap) {
   sim.pickableItems.forEach(function (item) {
     if (item.mesh.userData.updateBounds || item._removedForSync) return;
     const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
+    const isInHeldTray = !!(sim.heldItem && sim.heldItem.trayContents && sim.heldItem.trayContents.some((tc) => tc && tc.item === item));
     const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
-    if (sim.heldItem === item || isInHeldPot || isHeldLid || sim.isHeldByRemote(item.id)) return;
+    if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id)) return;
     if (sim.pendingMovedItems[item.id]) return;
     if (sim.recentlyDropped[item.id] > now) {
       const svCheck = objectsMap[item.id];

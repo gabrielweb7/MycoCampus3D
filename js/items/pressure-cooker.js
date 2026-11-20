@@ -614,14 +614,20 @@ export function stepPressureCookers(ctx, dt) {
     let activeBurner = null;
     for (let bi = 0; bi < ctx.burnerDevices.length; bi++) {
       const bn = ctx.burnerDevices[bi];
-      if (bn.on && potP.x >= bn.surface.minX && potP.x <= bn.surface.maxX && potP.z >= bn.surface.minZ && potP.z <= bn.surface.maxZ && Math.abs(potP.y - bn.surface.topY) < 0.09) {
+      if (bn.on &&
+          potP.x >= bn.surface.minX - 0.06 && potP.x <= bn.surface.maxX + 0.06 &&
+          potP.z >= bn.surface.minZ - 0.06 && potP.z <= bn.surface.maxZ + 0.06 &&
+          Math.abs(potP.y - bn.surface.topY) < 0.11) {
         activeBurner = bn; break;
       }
     }
 
     const heatLvl = activeBurner ? (activeBurner.level > 0 ? activeBurner.level : 3) : 0;
     const hasWater = cp.waterMl > 5;
-    const heatRate = heatLvl === 1 ? 2.8 : (heatLvl === 2 ? 4.8 : (heatLvl === 3 ? 7.5 : 0));
+    const heatRate = heatLvl === 1 ? 3.2 : (heatLvl === 2 ? 5.5 : (heatLvl === 3 ? 9.0 : 0));
+    if (activeBurner || cp.temp > 26 || cp.psi > 0.1) {
+      cp._lastHeatTouchAt = performance.now();
+    }
 
     // Evaporacao realista: panela tampada perde pouco vapor (dura 20m, 1h30 ou 2h com folga se encheu 3.0-4.0L)
     let evapRateMl = 0;

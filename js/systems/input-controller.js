@@ -18,6 +18,23 @@ export function bindControls(ctx) {
   });
 
   window.addEventListener('keydown', function (e) {
+    if (e.code === 'AltLeft' || e.code === 'AltRight') {
+      if (ctx.inFps && !e.repeat) {
+        e.preventDefault();
+        if (document.pointerLockElement === ctx.renderer.domElement) {
+          if (document.exitPointerLock) document.exitPointerLock();
+        } else {
+          const aeAlt = document.activeElement;
+          const typing = aeAlt && (aeAlt.tagName === 'INPUT' || aeAlt.tagName === 'TEXTAREA' || aeAlt.isContentEditable);
+          if (!typing) {
+            lastPointerLockExitAt = 0;
+            safeRequestPointerLock();
+          }
+        }
+      }
+      return;
+    }
+
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
 

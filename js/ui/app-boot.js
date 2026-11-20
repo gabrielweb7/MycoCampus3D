@@ -51,6 +51,7 @@ import {
 } from './modal-admin.js';
 import { setupMobileJoystick } from './mobile-controls.js';
 import { checkAndShowWhatsNewModal, showWhatsNewModal } from './whats-new-modal.js';
+import { initModalWindowManager } from './modal-window-manager.js';
 import { togglePhotoMode } from './photo-mode.js';
 
 function getMobileActionIcon(prompt) {
@@ -178,13 +179,6 @@ function bindModalsAndToolbar() {
     heldRotateBtn.onclick = (e) => {
       e.stopPropagation();
       if (window.rotateCampusHeldItem) window.rotateCampusHeldItem();
-    };
-  }
-  const heldStatusBtn = $('btn-held-status');
-  if (heldStatusBtn) {
-    heldStatusBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (window.inspectCampusHeldItem) window.inspectCampusHeldItem();
     };
   }
   const btnCloseStatus = $('btn-close-status');
@@ -1079,6 +1073,7 @@ export function bootApp() {
   window.addEventListener('mousedown', onFirstGameGesture, { passive: true });
 
   bindModalsAndToolbar();
+  initModalWindowManager(appState.currentUser);
   bindChatAndShortcuts();
 
   const hudClockBtn = $('btn-hud-clock');

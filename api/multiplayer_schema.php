@@ -165,7 +165,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (array_key_exists('tempC', $src) && is_numeric($src['tempC']) && is_finite((float)$src['tempC'])) {
             $spawn['tempC'] = max(-20, min(140, round((float)$src['tempC'], 1)));
         }
-        $validSubstrates = ['grain', 'sawdust', 'flocao', 'corn'];
+        $validSubstrates = ['grain', 'sorghum', 'wheat', 'coco_verm', 'sawdust', 'flocao', 'corn'];
         if (strpos($itemId, 'pp5_cup_') === 0) $validSubstrates[] = 'pda';
         if (in_array($src['substrateKind'] ?? '', $validSubstrates, true)) {
             $spawn['substrateKind'] = $src['substrateKind'];

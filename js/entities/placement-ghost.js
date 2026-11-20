@@ -1,5 +1,5 @@
 import { getItemGroundHeight } from '../engine/physics.js';
-import { getItemSupportHalfExtents, getItemSupportTopOffset, isPointInBoundsXZ } from '../items/item-registry.js';
+import { isPointInBoundsXZ } from '../items/item-registry.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import {
   PETRI_DISH_HEIGHT,
@@ -86,16 +86,16 @@ export function shouldHideHeldInPlacementMode(ctx) {
 export function createPlacementGhost(scene) {
   placementGhost = new THREE.Group();
   placementRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.11, 0.142, 48),
-    new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false })
+    new THREE.RingGeometry(0.102, 0.110, 48),
+    new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.56, side: THREE.DoubleSide, depthWrite: false })
   );
   placementRing.rotation.x = -Math.PI / 2;
   placementRing.position.y = 0.008;
   placementGhost.add(placementRing);
 
   placementDot = new THREE.Mesh(
-    new THREE.CircleGeometry(0.024, 24),
-    new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
+    new THREE.CircleGeometry(0.014, 24),
+    new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false })
   );
   placementDot.rotation.x = -Math.PI / 2;
   placementDot.position.y = 0.009;
@@ -255,7 +255,7 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
   }
 
   placementHoloWrap.rotation.y = rotY;
-  var ringPulse = 1 + Math.sin(elapsedTime * 6.0) * 0.06;
+  var ringPulse = 1 + Math.sin(elapsedTime * 5.0) * 0.025;
   placementRing.scale.set(ringPulse, ringPulse, 1);
 }
 
@@ -444,7 +444,7 @@ export function findPlacementTarget(ctx, customNdc) {
     }
   }
 
-  // 1. Raycast mais próximo entre meshes de suporte (mesas/bancadas/prateleiras) e outros itens empilháveis
+  // 1. Raycast mais próximo nos suportes oficiais (mesas, bancadas, prateleiras, bandeja, fogareiro, balança, agitador)
   var bestSupportHit = null;
   var bestSupportSurf = null;
   var bestSupportDist = 5.8;
@@ -473,13 +473,6 @@ export function findPlacementTarget(ctx, customNdc) {
     }
   }
 
-  var itemHitRes = findClosestItemSupportHit(ctx, raycaster, heldItem, bestSupportDist, origin);
-  if (itemHitRes) {
-    var topSurf = buildItemTopSurface(itemHitRes.item, _tmpItemSurf);
-    if (topSurf) {
-      return clampPointToSurfaceXZ(itemHitRes.hit.point.x, itemHitRes.hit.point.z, topSurf, topSurf.topY, _tmpPlacePt);
-    }
-  }
   if (bestSupportHit && bestSupportSurf) {
     return clampPointToSurfaceXZ(bestSupportHit.point.x, bestSupportHit.point.z, bestSupportSurf, bestSupportSurf.topY, _tmpPlacePt);
   }
@@ -616,11 +609,9 @@ export function isPlacementBlocked(ctx, pt) {
     if (ctx.isHeldByRemote(other.id)) continue;
 
     var oPos = other.mesh.position;
-    var otherTopOff = getItemSupportTopOffset(other);
     var otherH = other.height || (other.mesh.userData.tableDims ? other.mesh.userData.tableDims.h : 0.32);
-    var effectiveOtherH = otherTopOff > 0 ? Math.min(otherH, otherTopOff) : otherH;
     var otherMinY = oPos.y;
-    var otherMaxY = oPos.y + effectiveOtherH;
+    var otherMaxY = oPos.y + otherH;
 
     if (other.mesh.userData.dynamicSurface) {
       var dynSurf = other.mesh.userData.dynamicSurface;
@@ -780,9 +771,11 @@ export function dropUnsupportedItems(ctx) {
       item.mesh.rotation.copy(pot.mesh.rotation);
       continue;
     }
-    if (heldItem === item || ctx.isHeldByRemote(item.id)) {
+    var isInHeldTray = !!(heldItem && heldItem.trayContents && heldItem.trayContents.some(function (tc) { return tc && tc.item === item; }));
+    var isInHeldPot = !!(heldItem && heldItem.cookerRef && heldItem.cookerRef.contents && heldItem.cookerRef.contents.indexOf(item) !== -1);
+    if (heldItem === item || isInHeldTray || isInHeldPot || ctx.isHeldByRemote(item.id)) {
       item.movedAt = now;
-      ctx.removeFromCookerContents(item);
+      if (heldItem === item) ctx.removeFromCookerContents(item);
       continue;
     }
     var insideCooker = false;
@@ -850,22 +843,6 @@ export function dropUnsupportedItems(ctx) {
             if (dyStack > 0.008 || (Math.abs(dyStack) <= 0.008 && idx > pj)) {
               supportedY = Math.max(supportedY, pBase.mesh.position.y + itemStackCfg.spacing);
             }
-          }
-        }
-      }
-      if (!item.mesh.userData.isHood && !item.fridgeCtrl) {
-        for (var pk = 0; pk < pickableItems.length; pk++) {
-          if (pk === idx) continue;
-          var pSup = pickableItems[pk];
-          if (!pSup || !pSup.mesh || pSup === heldItem || ctx.isHeldByRemote(pSup.id)) continue;
-          var supTopOff = getItemSupportTopOffset(pSup);
-          if (supTopOff <= 0) continue;
-          if (pSup.mesh.position.y >= item.mesh.position.y - 0.01) continue;
-          var supTopY = pSup.mesh.position.y + supTopOff;
-          if (item.mesh.position.y < supTopY - 0.06) continue;
-          var supSurf = buildItemTopSurface(pSup, _tmpItemSurf);
-          if (supSurf && isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, supSurf, 0.06)) {
-            supportedY = Math.max(supportedY, supTopY);
           }
         }
       }

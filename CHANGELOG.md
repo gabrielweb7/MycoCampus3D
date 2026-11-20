@@ -2,6 +2,24 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.7] - 2026-11-20
+### Janelas Livres com Alt no PC, Largar no Chão, Fogareiro Corrigido, Bandeja Estável, Sorgo Real & PP5 Moderno
+- **Cursor com `Alt` & Modais Persistentes por Jogador (`js/ui/modal-window-manager.js`, `js/systems/input-controller.js`, `js/ui/hud-lobby.js`, `js/ui/app-boot.js`):**
+  - Pressionar `Alt` durante o FPS libera/recaptura o cursor do mouse no PC para interagir com a UI.
+  - Todos os modais agora podem ser arrastados pelo título e redimensionados pelo canto inferior direito (`↘`) dentro de dimensões mínimas seguras, salvando posição/tamanho individualmente por jogador.
+- **Botão Largar [X] & Espaço Único + Ghost Elegante (`js/systems/interaction-system.js`, `js/entities/placement-ghost.js`):**
+  - `dropHeldItem` (`[X] Largar`) solta sempre em um espaço livre no chão próximo do jogador (nunca na mira nem em cima de outros objetos).
+  - Removida a sobreposição/empilhamento de itens comuns sobre outros itens; anel de ghost afinado (`RingGeometry(0.102, 0.110)`).
+- **Simulação Térmica do Fogareiro/Panela (`js/items/pressure-cooker.js`, `js/systems/world-objects-sync.js`):**
+  - Corrigido bug em `applyReplicatedItemState` que derrubava `cooker.temp` de volta ao patamar quantizado anterior quando a diferença ultrapassava `10°C` após desligar e religar o fogo.
+  - Ampliada folga de contato do tripé a gás/fogareiro e protegida a simulação local contra retrocessos durante aquecimento ativo.
+- **Bandeja Sem Piscar (`js/systems/world-objects-sync.js`, `js/entities/placement-ghost.js`, `js/core/quality.js`):**
+  - Itens em `trayContents` são ignorados pelo sync de mundo, gravidade e culling mobile enquanto estão sendo carregados na bandeja.
+- **Sorgo Vermelho Real, Potinho PP5 Moderno & Barra Limpa (`assets/textures/sorghum-grain.png`, `js/items/spawn-containers.js`, `js/systems/lab-culture-actions.js`, `api/multiplayer_schema.php`, `js/items/pp5-cup.js`, `index.html`, `js/ui/app-boot.js`):**
+  - Gerada textura `assets/textures/sorghum-grain.png` e materiais separados para `sorghum`/`wheat`/`coco_verm` em bags/vidros.
+  - Potinho PP5 ganhou `side: THREE.DoubleSide`, aro superior reforçado e tampa com aba ergonômica.
+  - Removido o botão redundante `#btn-held-status` (`[I] 🔍 Status`) da barra `#held-item-bar`.
+
 ## [v1.9.6] - 2026-11-20
 ### Hotfix de Inicialização (`game-loop.js`) + Guarda Anti-TDZ
 - **Correção de TDZ no Boot (`js/systems/game-loop.js`):**

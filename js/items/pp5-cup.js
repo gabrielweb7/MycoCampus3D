@@ -13,14 +13,18 @@ const THREE = window.THREE;
 let sharedPP5Assets = null;
 function getPP5SharedAssets() {
   if (sharedPP5Assets) return sharedPP5Assets;
-  const bodyGeo = new THREE.CylinderGeometry(0.044, 0.036, 0.056, 18, 1, true);
-  const botGeo = new THREE.CylinderGeometry(0.036, 0.036, 0.004, 18);
+  const bodyGeo = new THREE.CylinderGeometry(0.044, 0.036, 0.056, 24, 1, true);
+  const botGeo = new THREE.CylinderGeometry(0.036, 0.036, 0.004, 24);
+  const rimGeo = new THREE.TorusGeometry(0.0445, 0.0028, 10, 24);
+  rimGeo.rotateX(Math.PI / 2);
   const cupShellGeo = mergeStaticGeos([
     { geo: bodyGeo, y: 0.028 },
-    { geo: botGeo, y: 0.002 }
+    { geo: botGeo, y: 0.002 },
+    { geo: rimGeo, y: 0.056 }
   ]);
   bodyGeo.dispose();
   botGeo.dispose();
+  rimGeo.dispose();
 
   const flocaoTex = getCachedCanvasTexture('pp5_flocao_128', 128, 128, (fctx) => {
     fctx.fillStyle = '#f59e0b'; fctx.fillRect(0, 0, 128, 128);
@@ -32,12 +36,17 @@ function getPP5SharedAssets() {
 
   sharedPP5Assets = {
     cupShellGeo,
-    lidGeo: new THREE.CylinderGeometry(0.047, 0.046, 0.008, 18),
-    flocaoGeo: new THREE.CylinderGeometry(0.040, 0.033, 0.032, 16),
-    mycGeo: new THREE.CylinderGeometry(0.041, 0.034, 0.034, 16),
-    liquidGeo: new THREE.CylinderGeometry(0.032, 0.030, 0.034, 16),
+    lidGeo: new THREE.CylinderGeometry(0.046, 0.046, 0.006, 24),
+    lidRimGeo: new THREE.TorusGeometry(0.046, 0.0032, 8, 24),
+    lidTabGeo: new THREE.BoxGeometry(0.014, 0.004, 0.018),
+    flocaoGeo: new THREE.CylinderGeometry(0.040, 0.033, 0.032, 20),
+    mycGeo: new THREE.CylinderGeometry(0.041, 0.034, 0.034, 20),
+    liquidGeo: new THREE.CylinderGeometry(0.032, 0.030, 0.034, 20),
     ppMat: new THREE.MeshStandardMaterial({
-      color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.22, depthWrite: false
+      color: 0xf1f5f9, transparent: true, opacity: 0.44, roughness: 0.24, metalness: 0.05, side: THREE.DoubleSide, depthWrite: false
+    }),
+    ppLidMat: new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0, transparent: true, opacity: 0.88, roughness: 0.28, metalness: 0.06
     }),
     flocaoMat: new THREE.MeshStandardMaterial({ map: flocaoTex, roughness: 0.85 })
   };
@@ -87,9 +96,14 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
   const cg = new THREE.Group();
   const lidPivot = new THREE.Group();
   lidPivot.position.set(-0.044, 0.058, 0);
-  const lid = new THREE.Mesh(A.lidGeo, A.ppMat);
+  const lid = new THREE.Mesh(A.lidGeo, A.ppLidMat || A.ppMat);
   lid.position.set(0.044, 0, 0);
-  lidPivot.add(lid);
+  const lidRim = new THREE.Mesh(A.lidRimGeo, A.ppLidMat || A.ppMat);
+  lidRim.rotation.x = Math.PI / 2;
+  lidRim.position.set(0.044, -0.002, 0);
+  const lidTab = new THREE.Mesh(A.lidTabGeo, A.ppLidMat || A.ppMat);
+  lidTab.position.set(0.094, -0.001, 0);
+  lidPivot.add(lid, lidRim, lidTab);
 
   const flocaoMesh = new THREE.Mesh(A.flocaoGeo, A.flocaoMat);
   flocaoMesh.position.y = 0.018;

@@ -453,7 +453,10 @@ export function stepMobileItemCulling(ctx, now) {
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     if (!it || !it.mesh) continue;
-    if (it === ctx.heldItem) {
+    if (it === ctx.heldItem ||
+        (ctx.heldItem && ctx.heldItem.lidItem === it && it.isAttached) ||
+        (ctx.heldItem && ctx.heldItem.trayContents && ctx.heldItem.trayContents.some((tc) => tc && tc.item === it)) ||
+        (ctx.heldItem && ctx.heldItem.cookerRef && ctx.heldItem.cookerRef.contents && ctx.heldItem.cookerRef.contents.indexOf(it) !== -1)) {
       it.mesh.visible = !shouldHideHeldInPlacementMode(ctx);
       continue;
     }

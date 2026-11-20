@@ -24,7 +24,7 @@ import {
 import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, getItemSupportHalfExtents, getItemSupportTopOffset, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
+import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray } from '../items/alcohol-spray.js';
@@ -114,32 +114,6 @@ function findSupportSurfaceAtPoint(ctx, pt) {
       }
     }
   }
-  if (ctx.pickableItems) {
-    for (let j = 0; j < ctx.pickableItems.length; j++) {
-      const cand = ctx.pickableItems[j];
-      if (!cand || cand === ctx.heldItem || !cand.mesh || (ctx.isHeldByRemote && ctx.isHeldByRemote(cand.id))) continue;
-      const topOff = getItemSupportTopOffset(cand);
-      if (topOff <= 0) continue;
-      const topY = cand.mesh.position.y + topOff;
-      if (Math.abs(pt.y - topY) > 0.08) continue;
-      const ext = getItemSupportHalfExtents(cand);
-      const itemSurf = {
-        centerX: cand.mesh.position.x,
-        centerZ: cand.mesh.position.z,
-        halfW: ext.w * 0.5,
-        halfD: ext.d * 0.5,
-        ry: (cand.mesh.rotation && cand.mesh.rotation.y) || 0,
-        minX: cand.mesh.position.x - ext.hw,
-        maxX: cand.mesh.position.x + ext.hw,
-        minZ: cand.mesh.position.z - ext.hd,
-        maxZ: cand.mesh.position.z + ext.hd,
-        topY: topY
-      };
-      if (isPointInBoundsXZ(pt.x, pt.z, itemSurf, 0.08) && (!best || topY > best.topY)) {
-        best = itemSurf;
-      }
-    }
-  }
   return best;
 }
 
@@ -196,36 +170,18 @@ export function dropHeldItem(ctx) {
   ctx.syringePunctureProgress = 0;
   ctx.lastSyringeTargetItem = null;
   if (!ctx.placementMode) ctx.heldRotY = ctx.playerYaw || 0;
+  cancelHeldItemPlacement(ctx);
+  if (ctx.setSnapClosePot) ctx.setSnapClosePot(null);
+  if (ctx.setSnapPetriStack) ctx.setSnapPetriStack(false);
 
   const candPt = _tmpDropPt;
   const baseYaw = ctx.playerYaw || 0;
   let chosenPt = null;
-  let snapLid = false;
 
-  // Se o jogador apertar X olhando diretamente para uma bancada, estante, bandeja, pilha ou panela, solta em cima!
-  const aimNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
-  if (aimNdc && ctx.supportSurfaces) {
-    const aimPt = findPlacementTarget(ctx.entityCtx, aimNdc);
-    const dAim = Math.hypot(aimPt.x - ctx.playerPos.x, aimPt.z - ctx.playerPos.z);
-    if (dAim <= 4.4 && Math.abs(aimPt.y - ctx.playerPos.y) <= 2.6) {
-      if ((ctx.snapClosePot || ctx.snapPetriStack) && !isPlacementBlocked(ctx.entityCtx, aimPt)) {
-        candPt.copy(aimPt);
-        chosenPt = candPt;
-        snapLid = !!ctx.snapClosePot;
-      } else {
-        const ss = findSupportSurfaceAtPoint(ctx, aimPt);
-        if (ss && findFreeSpotOnSurface(ctx, ss, aimPt, candPt)) {
-          chosenPt = candPt;
-        } else if (!isPlacementBlocked(ctx.entityCtx, aimPt)) {
-          candPt.copy(aimPt);
-          chosenPt = candPt;
-        }
-      }
-    }
-  }
-
-  const radii = [0.75, 1.15, 1.55, 0.45];
+  // Botão "Largar" sempre solta no CHÃO livre próximo ao jogador (nunca na mira nem em cima de outro item)
+  const radii = [0.78, 1.12, 1.48, 1.85, 0.48];
   const angleOffsets = [0, 0.45, -0.45, 0.95, -0.95, 1.5, -1.5, 2.2, -2.2, Math.PI];
+  const dynamicSurfFilter = ctx.heldItem.fridgeCtrl ? 'fridge' : ctx.heldItem.mesh.userData.dynamicSurface;
 
   for (let ri = 0; ri < radii.length && !chosenPt; ri++) {
     const r = radii[ri];
@@ -237,18 +193,12 @@ export function dropHeldItem(ctx) {
         ctx.physCtx,
         cx,
         cz,
-        ctx.playerPos.y + 1.15,
-        ctx.heldItem.fridgeCtrl ? 'fridge' : ctx.heldItem.mesh.userData.dynamicSurface,
-        ctx.playerPos.y + 1.35
+        ctx.playerPos.y + 0.35,
+        dynamicSurfFilter,
+        ctx.playerPos.y + 0.55
       );
+      if (Math.abs(cy - ctx.playerPos.y) > 0.24) continue;
       candPt.set(cx, cy, cz);
-      if (cy > ctx.playerPos.y + 0.16) {
-        const ssNear = findSupportSurfaceAtPoint(ctx, candPt);
-        if (ssNear && findFreeSpotOnSurface(ctx, ssNear, candPt, candPt)) {
-          chosenPt = candPt;
-          break;
-        }
-      }
       if (!isPlacementBlocked(ctx.entityCtx, candPt)) {
         chosenPt = candPt;
         break;
@@ -257,21 +207,15 @@ export function dropHeldItem(ctx) {
   }
 
   if (!chosenPt) {
-    const rayNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
-    const pt = findPlacementTarget(ctx.entityCtx, rayNdc);
-    if (!isPlacementBlocked(ctx.entityCtx, pt)) chosenPt = pt;
-  }
-
-  if (!chosenPt) {
     if (ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(getPlacementBlockedReason() || '🚫 Sem espaço livre ao redor para soltar o item!');
+      ctx.callbacks.onToast(getPlacementBlockedReason() || '🚫 Sem espaço livre no chão ao redor para largar o item!');
     }
     return;
   }
   const droppedLabel = ctx.heldItem ? ctx.heldItem.label : 'Item';
-  commitHeldItemPlacement(ctx, chosenPt, snapLid);
+  commitHeldItemPlacement(ctx, chosenPt, false);
   if (ctx.callbacks.onToast) {
-    ctx.callbacks.onToast('📦 ' + droppedLabel + ' solto.');
+    ctx.callbacks.onToast('⬇️ ' + droppedLabel + ' largado no chão.');
   }
 }
 

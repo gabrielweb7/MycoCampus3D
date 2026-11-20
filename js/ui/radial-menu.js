@@ -251,7 +251,7 @@ export function showItemStatusCard(item, ctx) {
       });
     }
     if (sp.filled) {
-      const subNames = { flocao: 'Flocão de Milho', corn: 'Milho de Pipoca', wheat: 'Trigo em Grão', sorghum: 'Sorgo', sawdust: 'Serragem', grain: 'Grãos' };
+      const subNames = { flocao: 'Flocão de Milho', corn: 'Milho de Pipoca', wheat: 'Trigo em Grão', sorghum: 'Sorgo Vermelho', coco_verm: 'Coco + Vermiculita', sawdust: 'Serragem', grain: 'Grãos' };
       const subLbl = subNames[sp.substrateKind] || (sp.isPP5 ? 'Flocão de Milho' : 'Grãos');
       chips.push({ icon: sp.isPP5 || sp.substrateKind === 'flocao' ? '🌽' : '🌾', text: 'Substrato: ' + subLbl, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
       if (sp.waterMl) chips.push({ icon: '💧', text: sp.waterMl + ' ml H₂O', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
@@ -323,15 +323,30 @@ export function showItemStatusCard(item, ctx) {
   }
 
   const med = item.pdaMediumCtrl;
-  if (med && ((med.powderGrams || 0) > 0 || med.mixed || med.sterilized || med.burned)) {
+  const hasLiquidVol = !!(lc && lc.volMl > 0);
+  if (med && ((med.powderGrams || 0) > 0 || med.mixed || med.sterilized || med.burned || hasLiquidVol)) {
     if ((med.powderGrams || 0) > 0) {
-      chips.push({ icon: '🧪', text: 'Pó PDA: ' + med.powderGrams + 'g', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' });
+      chips.push({ icon: '🧪', text: 'Pó PDA: ' + (Math.round(med.powderGrams * 10) / 10) + 'g', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' });
     }
     if (med.mixed) chips.push({ icon: '🌀', text: 'Misturado', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' });
     if (med.burned) {
       chips.push({ icon: '🔥', text: 'Queimado', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
     } else {
-      chips.push({ icon: med.sterilized ? '✅' : '⏳', text: med.sterilized ? 'Esterilizado' : 'Pendente Esterilização', color: med.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+      chips.push({
+        icon: med.sterilized ? '✅' : '⚠️',
+        text: med.sterilized ? 'Estéril' : 'Não Esterilizado',
+        color: med.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+      });
+    }
+  } else if (lc && hasLiquidVol && !cc && !sp) {
+    const isDistilled = !!(item.meta && item.meta.compatibilities && item.meta.compatibilities.isDistilledWater);
+    if (!isDistilled) {
+      const onlyDistilled = !!(item.liquidMix && item.liquidMix.distilledMl > 0.05 && (item.liquidMix.waterMl || 0) <= 0.05);
+      chips.push({
+        icon: onlyDistilled ? '✅' : '⚠️',
+        text: onlyDistilled ? 'Estéril (Água Destilada)' : 'Não Esterilizado',
+        color: onlyDistilled ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+      });
     }
   }
 

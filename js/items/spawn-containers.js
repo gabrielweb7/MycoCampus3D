@@ -59,9 +59,10 @@ export function fillSpawnWithSubstrate(item, kind) {
   sc.contaminated = false;
   sc.burned = false;
   const isBulkSub = sc.substrateKind === 'coco_verm' || sc.substrateKind === 'sawdust' || sc.substrateKind === 'coco' || sc.substrateKind === 'vermiculite';
+  const grainName = sc.substrateKind === 'sorghum' ? 'Sorgo' : (sc.substrateKind === 'wheat' ? 'Trigo' : 'Milho');
   sc.baseLabel = isBulkSub
     ? (sc.isBag ? 'Bag 1,5kg Substrato (Coco + Vermiculita)' : 'Vidro 800ml Substrato (Coco + Vermiculita)')
-    : (sc.isBag ? 'Bag 1,5kg Spawn' : 'Vidro 800ml (Milho)');
+    : (sc.isBag ? `Bag 1,5kg Spawn (${grainName})` : `Vidro 800ml (${grainName})`);
   if (sc.fillMesh) sc.fillMesh.visible = true;
   if (sc.mycOverlay) sc.mycOverlay.visible = false;
   if (item.meta && item.meta.compatibilities) {
@@ -100,6 +101,18 @@ function getSpawnCultureStatus(item) {
 export function updateSpawnVisual(item) {
   if (!item || !item.spawnCtrl) return;
   const sc = item.spawnCtrl;
+  if (sc.fillMesh && typeof THREE !== 'undefined' && sc.filled && sc.substrateKind !== 'pda' && !sc.isPP5) {
+    const A = getSpawnSharedAssets();
+    if (sc.substrateKind === 'sorghum') {
+      sc.fillMesh.material = sc.isBag ? A.bagSorghumMat : A.jarSorghumMat;
+    } else if (sc.substrateKind === 'wheat') {
+      sc.fillMesh.material = sc.isBag ? A.bagWheatMat : A.jarWheatMat;
+    } else if (sc.substrateKind === 'coco_verm' || sc.substrateKind === 'sawdust' || sc.substrateKind === 'coco' || sc.substrateKind === 'vermiculite') {
+      sc.fillMesh.material = A.bagBulkMat;
+    } else {
+      sc.fillMesh.material = sc.isBag ? A.bagGrainMat : A.cornMatFilled;
+    }
+  }
   if (sc.sealBand) sc.sealBand.visible = !!sc.sealed;
   if (sc.mycOverlay) {
     sc.mycOverlay.visible = sc.burned || sc.colonization > 0;
@@ -175,6 +188,49 @@ function getSpawnSharedAssets() {
       bctx.fillRect(Math.random() * 124, Math.random() * 124, 3, 4);
     }
   });
+  const bagWheatTex = getCachedCanvasTexture('spawn_bag_wheat', 128, 128, (bctx) => {
+    bctx.fillStyle = '#d6b47a'; bctx.fillRect(0, 0, 128, 128);
+    for (let g = 0; g < 220; g++) {
+      bctx.fillStyle = g % 3 === 0 ? '#a16207' : '#fef3c7';
+      bctx.fillRect(Math.random() * 124, Math.random() * 124, 2.5, 4.5);
+    }
+  });
+  const bagBulkTex = getCachedCanvasTexture('spawn_bag_bulk', 128, 128, (bctx) => {
+    bctx.fillStyle = '#5c3d2e'; bctx.fillRect(0, 0, 128, 128);
+    for (let g = 0; g < 240; g++) {
+      bctx.fillStyle = g % 5 === 0 ? '#d6d3d1' : (g % 2 === 0 ? '#3f271c' : '#78513c');
+      bctx.fillRect(Math.random() * 124, Math.random() * 124, 2.5, 2.5);
+    }
+  });
+  const sorghumFallbackTex = getCachedCanvasTexture('spawn_sorghum_fallback', 128, 128, (bctx) => {
+    bctx.fillStyle = '#4a1812'; bctx.fillRect(0, 0, 128, 128);
+    for (let g = 0; g < 260; g++) {
+      bctx.fillStyle = g % 3 === 0 ? '#991b1b' : (g % 2 === 0 ? '#b4422a' : '#7c2d12');
+      bctx.beginPath();
+      bctx.arc(Math.random() * 124 + 2, Math.random() * 124 + 2, 2.8, 0, Math.PI * 2);
+      bctx.fill();
+    }
+  });
+  const bagSorghumMat = new THREE.MeshStandardMaterial({ map: sorghumFallbackTex, roughness: 0.82 });
+  const jarSorghumMat = new THREE.MeshStandardMaterial({ map: sorghumFallbackTex, roughness: 0.78 });
+  if (typeof THREE.TextureLoader === 'function') {
+    try {
+      const loader = new THREE.TextureLoader();
+      loader.load('assets/textures/sorghum-grain.png', function (tex) {
+        if (!tex) return;
+        if (THREE.RepeatWrapping) {
+          tex.wrapS = THREE.RepeatWrapping;
+          tex.wrapT = THREE.RepeatWrapping;
+        }
+        if (tex.repeat && tex.repeat.set) tex.repeat.set(1.25, 1.25);
+        if (THREE.SRGBColorSpace && tex.colorSpace !== undefined) tex.colorSpace = THREE.SRGBColorSpace;
+        bagSorghumMat.map = tex;
+        bagSorghumMat.needsUpdate = true;
+        jarSorghumMat.map = tex;
+        jarSorghumMat.needsUpdate = true;
+      });
+    } catch (e) { /* keep procedural sorghum fallback */ }
+  }
 
   sharedSpawnAssets = {
     jarGlassGeo: new THREE.CylinderGeometry(0.11, 0.11, 0.24, 16),
@@ -201,7 +257,12 @@ function getSpawnSharedAssets() {
     bagFilterMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }),
     bagPortMat: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 }),
     bagSealMat: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.48 }),
-    bagGrainMat: new THREE.MeshStandardMaterial({ map: bagGrainTex, roughness: 0.85 })
+    bagGrainMat: new THREE.MeshStandardMaterial({ map: bagGrainTex, roughness: 0.85 }),
+    bagWheatMat: new THREE.MeshStandardMaterial({ map: bagWheatTex, roughness: 0.85 }),
+    jarWheatMat: new THREE.MeshStandardMaterial({ map: bagWheatTex, roughness: 0.78 }),
+    bagBulkMat: new THREE.MeshStandardMaterial({ map: bagBulkTex, roughness: 0.90 }),
+    bagSorghumMat,
+    jarSorghumMat
   };
   Object.keys(sharedSpawnAssets).forEach((k) => {
     const v = sharedSpawnAssets[k];
