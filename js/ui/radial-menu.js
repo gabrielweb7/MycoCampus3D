@@ -5,15 +5,20 @@
  * Acione com as teclas 1, 2, 3, 4 (PC) ou toque direto (Mobile).
  */
 
-import { setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
-import { togglePetriLid } from '../items/petri-dish.js';
+import { BURNER_LEVEL_NAMES, setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
 import { getSyringeMixParts } from '../items/syringe.js';
 import { togglePP5Lid } from '../items/pp5-cup.js';
 import { getSanitizationStatus } from '../items/alcohol-spray.js';
 import { getCultureRemainingDays } from '../items/culture-lifecycle.js';
-import { isPdaRecipeBalanced } from '../items/pda-mix.js';
+import { isPdaRecipeBalanced, updatePdaMediumVisual } from '../items/pda-mix.js';
+import { updateCultureLiquidLabel } from '../items/liquid-culture.js';
+import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
+import { updateScalpelLabel } from '../items/scalpel.js';
+import { interactDehydrator, updateDehydratorVisual } from '../items/dehydrator.js';
+import { updateMushroomBagVisual } from '../items/dehydration-packaging.js';
 import {
   handlePrimaryAction,
   dropHeldItem,
@@ -22,9 +27,9 @@ import {
   toggleHeldGloves,
   toggleHeldThermometer
 } from '../systems/interaction-system.js';
-import { interactMonotub } from '../items/monotub.js';
-import { breakAndShakeSpawn, getSpawnSubstrateDisplayName } from '../items/spawn-containers.js';
-import { interactSilicaStorageJar } from '../items/lab-advanced-tools.js';
+import { interactMonotub, updateMonotubVisual } from '../items/monotub.js';
+import { breakAndShakeSpawn, getSpawnSubstrateDisplayName, updateSpawnVisual } from '../items/spawn-containers.js';
+import { interactSilicaStorageJar, interactLabMicroscope } from '../items/lab-advanced-tools.js';
 import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
 
 let barEl = null;
@@ -207,8 +212,30 @@ function ensureStatusCardDraggable(card) {
   card.addEventListener('pointercancel', endDrag);
 }
 
+function syncItemLiveLabel(item, ctx) {
+  if (!item) return;
+  const ud = (item.mesh && item.mesh.userData) || {};
+  if (ud.petriCtrl) updatePetriVisual(item);
+  if (item.spawnCtrl) {
+    if (item.spawnCtrl.updateVisual) item.spawnCtrl.updateVisual();
+    else updateSpawnVisual(item);
+  }
+  if (item.cultureCtrl && ud.liquidCtrl) updateCultureLiquidLabel(item);
+  if (item.pdaMediumCtrl && ud.liquidCtrl) updatePdaMediumVisual(item);
+  if (item.bowlCtrl) updateMixingBowlLabel(item);
+  if (item.scalpelCtrl) updateScalpelLabel(item);
+  if (item.monotubCtrl) updateMonotubVisual(item);
+  if (item.dehydratorCtrl) updateDehydratorVisual(item);
+  if (item.mushroomBagCtrl) updateMushroomBagVisual(item);
+  if (item.silicaJarCtrl && item.silicaJarCtrl.updateVisual) item.silicaJarCtrl.updateVisual();
+  if (ctx && ctx.heldItem === item && ctx.callbacks && ctx.callbacks.onHoldChange) {
+    ctx.callbacks.onHoldChange(item.label);
+  }
+}
+
 export function showItemStatusCard(item, ctx) {
   if (!item) return;
+  syncItemLiveLabel(item, ctx);
   const card = document.getElementById('item-status-card');
   const titleEl = document.getElementById('item-status-title');
   const iconEl = document.getElementById('item-status-icon');
@@ -297,6 +324,11 @@ export function showItemStatusCard(item, ctx) {
   const syr = item.mesh && item.mesh.userData && item.mesh.userData.syrCtrl;
   if (syr) {
     const parts = getSyringeMixParts(syr);
+    chips.push({
+      icon: syr.sourceContam ? '🦠' : '✅',
+      text: syr.sourceContam ? 'Agulha Contaminada' : 'Agulha Estéril',
+      color: syr.sourceContam ? 'bg-rose-600/30 text-rose-300 border-rose-500/50' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+    });
     if (syr.volMl <= 0.05) {
       chips.push({ icon: '💉', text: 'Seringa Vazia (0/10 ml)', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
     } else {
@@ -311,6 +343,87 @@ export function showItemStatusCard(item, ctx) {
         color: syr.sourceContam ? 'bg-rose-600/30 text-rose-300 border-rose-500/50' : (hasLc ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-sky-500/20 text-sky-300 border-sky-500/30')
       });
     }
+  }
+
+  if (item.bowlCtrl) {
+    const bc = item.bowlCtrl;
+    const ingNames = { vermiculite: 'Vermiculita', coco: 'Pó de Coco', flocao: 'Flocão', corn: 'Milho', wheat: 'Trigo', sorghum: 'Sorgo', sawdust: 'Fibra Coco', water: 'Água' };
+    const ingList = Object.keys(bc.ingredients || {}).filter((k) => (bc.ingredients[k] || 0) > 0);
+    if (!ingList.length) {
+      chips.push({ icon: '🥣', text: 'Pote Vazio', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    } else {
+      ingList.forEach((k) => {
+        chips.push({
+          icon: k === 'water' ? '💧' : (k === 'coco' ? '🥥' : (k === 'vermiculite' ? '🧱' : '🌾')),
+          text: `${ingNames[k] || k}: ${Math.round(bc.ingredients[k])}${k === 'water' ? 'ml' : 'g'}`,
+          color: k === 'water' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+        });
+      });
+      chips.push({
+        icon: bc.mixed ? '✅' : '🥄',
+        text: bc.mixed ? 'Receita Homogênea' : 'Falta misturar c/ Colher',
+        color: bc.mixed ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+      });
+    }
+  }
+
+  if (item.wildMushroomCtrl) {
+    const wm = item.wildMushroomCtrl;
+    chips.push({
+      icon: wm.isMagic ? '✨' : '🍄',
+      text: wm.isMagic ? 'Psicoativo (Trip Mágica)' : 'Culinário / Medicinal',
+      color: wm.isMagic ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+    });
+    if (wm.speciesName) chips.push({ icon: '🧬', text: wm.speciesName, color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' });
+    chips.push({ icon: '♨️', text: 'Fresco (Desidrate ou tire Esporos)', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
+  }
+
+  if (item.driedMushroomCtrl) {
+    const dm = item.driedMushroomCtrl;
+    chips.push({ icon: '⚖️', text: `Peso: ${dm.grams || 10}g Crocantes`, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    chips.push({ icon: '💎', text: '0% Umidade', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+    if (dm.speciesName) chips.push({ icon: '🧬', text: dm.speciesName, color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' });
+  }
+
+  if (item.mushroomBagCtrl) {
+    const mb = item.mushroomBagCtrl;
+    chips.push({ icon: '⚖️', text: `Embalado: ${mb.grams || 0}/25g`, color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+    chips.push({
+      icon: mb.sealed ? '🔒' : '⚠️',
+      text: mb.sealed ? 'Selado a Vácuo/Calor' : 'Aberto (Passe na Seladora)',
+      color: mb.sealed ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+    });
+    if (mb.speciesName) chips.push({ icon: '🧬', text: mb.speciesName, color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' });
+  }
+
+  if (item.monotubCtrl) {
+    const mc = item.monotubCtrl;
+    chips.push({ icon: mc.lidOpen ? '⚠️' : '✅', text: mc.lidOpen ? 'Tampa Aberta' : 'Tampa Fechada', color: mc.lidOpen ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+    chips.push({ icon: mc.boxSanitized ? '✅' : '⚠️', text: mc.boxSanitized ? 'Caixa Desinfectada' : 'Precisa Álcool + Papel', color: mc.boxSanitized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    chips.push({ icon: mc.hasSpawn ? '🌽' : '⚪', text: mc.hasSpawn ? 'Com Spawn ✅' : 'Sem Spawn', color: mc.hasSpawn ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    chips.push({ icon: mc.hasBulk ? '🥥' : '⚪', text: mc.hasBulk ? 'Com Substrato ✅' : 'Sem Substrato', color: mc.hasBulk ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    if (mc.hasSpawn || mc.hasBulk) {
+      chips.push({ icon: mc.leveled ? '📐' : '🥄', text: mc.leveled ? 'Bolo Nivelado' : (mc.mixed ? 'Misturado (Falta Nivelar)' : 'Falta Misturar'), color: mc.leveled ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+      chips.push({ icon: '🍄', text: `Colonização ${Math.round(mc.colonization || 0)}%`, color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
+      chips.push({ icon: '📦', text: `Flush ${mc.flush || 1}/4`, color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' });
+    }
+    if (mc.contaminated) chips.push({ icon: '🦠', text: 'Contaminada (Trichoderma)', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+    else if (mc.spent) chips.push({ icon: '🍂', text: 'Bolo Esgotado (Levar à Horta)', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+  }
+
+  if (item.dehydratorCtrl) {
+    const dc = item.dehydratorCtrl;
+    chips.push({ icon: dc.on ? '♨️' : '⏸️', text: dc.on ? 'Ligada (55°C)' : 'Desligada', color: dc.on ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+    chips.push({
+      icon: dc.crisp ? '✅' : '🍄',
+      text: !dc.hasMushroom ? 'Bandejas Vazias' : (dc.crisp ? 'Crocante 10g Pronto!' : `Secando ${Math.round(dc.progress || 0)}%`),
+      color: dc.crisp ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+    });
+  }
+
+  if (item.mesh && item.mesh.userData && item.mesh.userData.isTray) {
+    const cnt = Array.isArray(item.trayContents) ? item.trayContents.length : 0;
+    chips.push({ icon: '📥', text: `Itens apoiados: ${cnt}`, color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
   }
 
   const cc = item.cultureCtrl || (item.mesh && item.mesh.userData && item.mesh.userData.cultureCtrl);
@@ -478,14 +591,18 @@ function buildContextActions(ctx) {
         }
       }
     });
+    const potItems = (hoveredPot.contents || []).filter((it) => it && (!it.mesh || !it.mesh.userData || !it.mesh.userData.isCookerBase));
     actions.push({
-      id: 'pot_water_' + Math.round(hoveredPot.waterMl),
-      icon: '💧',
-      label: 'Água ' + (hoveredPot.waterMl / 1000).toFixed(1) + 'L',
+      id: 'pot_contents_' + hoveredPot.potItem.id + '_' + potItems.length,
+      icon: '📦',
+      label: `Conteúdo (${potItems.length})`,
       run: () => {
         const baseTxt = hoveredPot.hasBase ? 'Base 4cm ✅' : 'Sem Base ⚠️';
+        const listTxt = potItems.length
+          ? potItems.map((it) => it.label || it.id).slice(0, 4).join(' • ') + (potItems.length > 4 ? ` (+${potItems.length - 4})` : '')
+          : 'Nenhum recipiente dentro';
         if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('💧 Panela: ' + (hoveredPot.waterMl / 1000).toFixed(1) + 'L (Ideal: 3.0–4.0L • +0,5cm da base) • ' + baseTxt);
+          ctx.callbacks.onToast(`🍲 Panela (${baseTxt} • ${Math.round(hoveredPot.temp || 25)}°C): ${listTxt}`);
         }
       }
     });
@@ -501,24 +618,104 @@ function buildContextActions(ctx) {
           if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 Excesso drenado para 3.4L (+0,5cm acima da base)!');
         }
       });
+    } else {
+      actions.push({
+        id: 'pot_water_' + Math.round(hoveredPot.waterMl),
+        icon: '💧',
+        label: 'Água ' + (hoveredPot.waterMl / 1000).toFixed(1) + 'L',
+        run: () => {
+          const baseTxt = hoveredPot.hasBase ? 'Base 4cm ✅' : 'Sem Base ⚠️';
+          if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast('💧 Panela: ' + (hoveredPot.waterMl / 1000).toFixed(1) + 'L (Ideal: 3.0–4.0L • +0,5cm da base) • ' + baseTxt);
+          }
+        }
+      });
+    }
+    if (ctx.heldItem && ctx.heldItem.wildMushroomCtrl) {
+      actions.push({
+        id: 'held_eat_mush_pot_' + ctx.heldItem.id,
+        icon: '🍄',
+        label: 'Comer Cogumelo',
+        run: () => eatHeldMushroom(ctx)
+      });
     }
     return actions;
   }
 
-  // 2. Fogareiro / Tripe a Gas
-  if (ctx.hoveredBurnerSwitch && ctx.hoveredBurnerSwitch.on) {
+  // 2. Fogareiro, Timer, Balanca, Agitador, Fluxo, Luz, Estufa, Horta, Vaquinha & Armario
+  if (ctx.hoveredBurnerTimer) {
     actions.push({
-      id: 'burner_off_' + (ctx.hoveredBurnerSwitch.id || '0'),
-      icon: '🛑',
-      label: 'Desligar Chama',
-      run: () => {
-        setBurnerLevel(ctx.hoveredBurnerSwitch, 0);
-        if (window.MycoAudio) window.MycoAudio.playSwitch();
-        const bId = ctx.hoveredBurnerSwitch.id || 'burner_lab';
-        ctx.queueWorldStateChange(bId, 0);
-        ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, 0);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🛑 Queimador desligado.');
-      }
+      id: 'burner_timer_' + (ctx.hoveredBurnerTimer.timerPresetMin || 0),
+      icon: '⏱️',
+      label: 'Alternar Timer',
+      run: () => handlePrimaryAction(ctx)
+    });
+    return actions;
+  }
+
+  if (ctx.hoveredBurnerSwitch) {
+    const curL = ctx.hoveredBurnerSwitch.level || (ctx.hoveredBurnerSwitch.on ? 3 : 0);
+    const nxtL = (curL + 1) % 4;
+    actions.push({
+      id: 'burner_step_' + (ctx.hoveredBurnerSwitch.id || '0') + '_' + curL,
+      icon: '🔥',
+      label: BURNER_LEVEL_NAMES ? BURNER_LEVEL_NAMES[nxtL] : (curL ? 'Próxima Chama' : 'Ligar Fogo'),
+      run: () => handlePrimaryAction(ctx)
+    });
+    if (ctx.hoveredBurnerSwitch.on) {
+      actions.push({
+        id: 'burner_off_' + (ctx.hoveredBurnerSwitch.id || '0'),
+        icon: '🛑',
+        label: 'Desligar Chama',
+        run: () => {
+          setBurnerLevel(ctx.hoveredBurnerSwitch, 0);
+          if (window.MycoAudio) window.MycoAudio.playSwitch();
+          const bId = ctx.hoveredBurnerSwitch.id || 'burner_lab';
+          ctx.queueWorldStateChange(bId, 0);
+          ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, 0);
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('🛑 Queimador desligado.');
+        }
+      });
+    }
+    return actions;
+  }
+
+  if (ctx.hoveredScaleTare) {
+    actions.push({
+      id: 'scale_tare',
+      icon: '⚖️',
+      label: 'Zerar (Tara)',
+      run: () => handlePrimaryAction(ctx)
+    });
+    return actions;
+  }
+
+  if (ctx.hoveredStirSwitch) {
+    actions.push({
+      id: 'stir_toggle_' + (ctx.hoveredStirSwitch.on ? '1' : '0'),
+      icon: '🌀',
+      label: ctx.hoveredStirSwitch.on ? 'Desligar Agitador' : 'Ligar Agitador',
+      run: () => handlePrimaryAction(ctx)
+    });
+    return actions;
+  }
+
+  if (ctx.hoveredHoodSwitch) {
+    actions.push({
+      id: 'hood_toggle_' + (ctx.hoveredHoodSwitch.on ? '1' : '0'),
+      icon: '💨',
+      label: ctx.hoveredHoodSwitch.on ? 'Desligar Fluxo' : 'Ligar Fluxo',
+      run: () => handlePrimaryAction(ctx)
+    });
+    return actions;
+  }
+
+  if (ctx.hoveredSwitch) {
+    actions.push({
+      id: 'light_toggle_' + (ctx.hoveredSwitch.on ? '1' : '0'),
+      icon: '💡',
+      label: ctx.hoveredSwitch.on ? 'Apagar Luz' : 'Acender Luz',
+      run: () => handlePrimaryAction(ctx)
     });
     return actions;
   }
@@ -530,6 +727,48 @@ function buildContextActions(ctx) {
       icon: '🗄️',
       label: (cp.open ? 'Fechar ' : 'Abrir ') + (cp.label || 'Armário'),
       run: () => toggleCabinetPart(ctx, cp)
+    });
+    return actions;
+  }
+
+  if (!ctx.heldItem && ctx.hoveredGreenhouseDevice) {
+    actions.push({
+      id: 'gh_dev_' + ctx.hoveredGreenhouseDevice,
+      icon: '🎛️',
+      label: 'Controles Estufa',
+      run: () => handlePrimaryAction(ctx)
+    });
+    return actions;
+  }
+
+  if (!ctx.heldItem && ctx.hoveredGreenhouseSlot) {
+    const gs = ctx.hoveredGreenhouseSlot;
+    actions.push({
+      id: 'gh_slot_' + gs.id + '_' + gs.stage,
+      icon: gs.stage === 3 ? '🍄' : '🌱',
+      label: gs.stage === 3 ? 'Colher Flush' : (gs.contaminated || gs.spent ? 'Retirar Bolo' : 'Abrir Estufa'),
+      run: () => handlePrimaryAction(ctx)
+    });
+    return actions;
+  }
+
+  if (!ctx.heldItem && ctx.hoveredGardenTarget) {
+    const gt = ctx.hoveredGardenTarget;
+    actions.push({
+      id: 'garden_' + gt.type,
+      icon: gt.type === 'harvest_basket' ? '🧺' : '🌿',
+      label: gt.type === 'harvest_basket' ? 'Pegar Cesta' : (gt.type === 'plant' && gt.plant?.stage === 2 ? 'Colher Planta' : 'Ver Horta'),
+      run: () => handlePrimaryAction(ctx)
+    });
+    return actions;
+  }
+
+  if (!ctx.heldItem && ctx.hoveredCow) {
+    actions.push({
+      id: 'cow_pet_' + ctx.hoveredCow.name,
+      icon: '💖',
+      label: 'Fazer Carinho',
+      run: () => handlePrimaryAction(ctx)
     });
     return actions;
   }
@@ -568,7 +807,7 @@ function buildContextActions(ctx) {
       });
       actions.push({
         id: 'fridge_info_' + target.id,
-        icon: '🔍',
+        icon: '📋',
         label: 'Ver Vagas',
         run: () => {
           const count = target.fridgeCtrl.slots ? target.fridgeCtrl.slots.filter(Boolean).length : 0;
@@ -576,37 +815,56 @@ function buildContextActions(ctx) {
         }
       });
       actions.push({
-        id: 'move_' + target.id,
-        icon: '📦',
-        label: 'Mover',
-        run: () => {
-          if (ctx.pickHoveredItemForMove) ctx.pickHoveredItemForMove(target);
-        }
+        id: 'inspect_' + target.id,
+        icon: '🔍',
+        label: 'Inspecionar',
+        run: () => inspectItemToast(ctx, target)
       });
       return actions;
     }
     if (target.id && target.id.indexOf('gloves_box_') === 0) {
-      const wearActive = !!(ctx.wearingGloves && !ctx.glovesExpired);
+      const gRem = ctx.glovesUntil ? Math.max(0, Math.ceil((ctx.glovesUntil - performance.now()) / 1000)) : 0;
+      const wearActive = !!(ctx.wearingGloves && !ctx.glovesExpired && gRem > 0);
       actions.push({
         id: 'gloves_toggle_' + target.id + '_' + (wearActive ? '1' : '0'),
         icon: '🧤',
-        label: wearActive ? 'Retirar Luvas Pretas' : (ctx.wearingGloves ? 'Trocar Luvas Pretas (160s)' : 'Calçar Luvas Pretas (160s)'),
-        run: () => {
-          const shouldWear = !ctx.wearingGloves || !!ctx.glovesExpired;
-          ctx.wearingGloves = shouldWear;
-          ctx.glovesExpired = false;
-          ctx.glovesUntil = shouldWear ? (performance.now() + 160000) : 0;
-          if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
-            ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x09090b : 0xfde68a);
-            ctx.fpsArmGroup.userData.handMat.roughness = ctx.wearingGloves ? 0.35 : 0.65;
-          }
-          if (window.MycoAudio) window.MycoAudio.playClick();
-          if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast(ctx.wearingGloves
-              ? '🧤 Luvas Pretas Nitrílicas Estéreis calçadas (160s)!'
-              : '🧤 Luvas Pretas retiradas.');
-          }
-        }
+        label: wearActive ? `Retirar Luvas (${gRem}s)` : (ctx.wearingGloves ? 'Trocar Luvas (160s)' : 'Calçar Luvas (160s)'),
+        run: () => toggleHeldGloves(ctx)
+      });
+    }
+    if (target.dehydratorCtrl) {
+      const dc = target.dehydratorCtrl;
+      actions.push({
+        id: 'dehyd_act_' + target.id + '_' + (dc.crisp ? 'c' : (dc.on ? '1' : '0')),
+        icon: dc.crisp ? '🍄' : (dc.on ? '⏸️' : '♨️'),
+        label: dc.crisp ? 'Retirar 10g' : (dc.on ? 'Desligar' : 'Ligar 55°C'),
+        run: () => interactDehydrator(ctx, target)
+      });
+    }
+    if (target.microscopeCtrl) {
+      actions.push({
+        id: 'microscope_use_' + target.id,
+        icon: '🔬',
+        label: 'Analisar Lente',
+        run: () => interactLabMicroscope(ctx, target)
+      });
+    }
+    if (target.monotubCtrl) {
+      const mc = target.monotubCtrl;
+      let tubAct = mc.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa';
+      let tubIcon = '📦';
+      if (!mc.spent && !mc.contaminated && mc.fruitingStage === 3) {
+        tubAct = 'Colher Flush'; tubIcon = '🍄';
+      } else if (mc.hasSpawn && mc.hasBulk && !mc.mixed) {
+        tubAct = 'Misturar Bolo'; tubIcon = '🙌';
+      } else if (mc.hasSpawn && mc.hasBulk && mc.mixed && !mc.leveled) {
+        tubAct = 'Nivelar Bolo'; tubIcon = '📐';
+      }
+      actions.push({
+        id: 'monotub_act_' + target.id + '_' + tubAct,
+        icon: tubIcon,
+        label: tubAct,
+        run: () => interactMonotub(ctx, target)
       });
     }
     if (target.mesh && target.mesh.userData && target.mesh.userData.isPetri) {
@@ -623,6 +881,15 @@ function buildContextActions(ctx) {
         icon: '🥣',
         label: target.spawnCtrl.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
         run: () => togglePP5Lid(ctx, target)
+      });
+    }
+    if (target.spawnCtrl && target.spawnCtrl.inoculated && !target.spawnCtrl.contaminated &&
+        target.spawnCtrl.colonization >= 20 && target.spawnCtrl.colonization < 95 && !target.spawnCtrl.shaken) {
+      actions.push({
+        id: 'target_shake_' + target.id,
+        icon: '💥',
+        label: 'Break & Shake',
+        run: () => breakAndShakeSpawn(ctx, target)
       });
     }
     if (target.silicaJarCtrl && target.silicaJarCtrl.storedGrams >= 10) {
@@ -647,7 +914,7 @@ function buildContextActions(ctx) {
       label: 'Inspecionar',
       run: () => inspectItemToast(ctx, target)
     });
-    return actions;
+    return actions.slice(0, 4);
   }
 
   // 4. Ações especiais contextuais do item em mãos (teclas 1-4 no PC e toque direto no Mobile)
@@ -689,12 +956,27 @@ function buildContextActions(ctx) {
         run: () => toggleHeldThermometer(ctx)
       });
     } else if (held.id && held.id.indexOf('gloves_box_') === 0) {
-      const wearActive = !!(ctx.wearingGloves && !ctx.glovesExpired);
+      const gRem = ctx.glovesUntil ? Math.max(0, Math.ceil((ctx.glovesUntil - performance.now()) / 1000)) : 0;
+      const wearActive = !!(ctx.wearingGloves && !ctx.glovesExpired && gRem > 0);
       actions.push({
         id: 'held_gloves_' + (wearActive ? '1' : '0'),
         icon: '🧤',
-        label: wearActive ? 'Retirar Luvas' : 'Calçar Luvas (160s)',
+        label: wearActive ? `Retirar Luvas (${gRem}s)` : 'Calçar Luvas (160s)',
         run: () => toggleHeldGloves(ctx)
+      });
+    } else if (held.scalpelCtrl) {
+      actions.push({
+        id: 'held_scalpel_status_' + held.id,
+        icon: '🔪',
+        label: 'Status Lâmina',
+        run: () => inspectItemToast(ctx, held)
+      });
+    } else if (held.dehydratorCtrl) {
+      actions.push({
+        id: 'held_dehyd_' + held.id + '_' + (held.dehydratorCtrl.on ? '1' : '0'),
+        icon: held.dehydratorCtrl.on ? '⏸️' : '♨️',
+        label: held.dehydratorCtrl.on ? 'Desligar' : 'Ligar 55°C',
+        run: () => interactDehydrator(ctx, held)
       });
     }
     if (held.spawnCtrl && held.spawnCtrl.inoculated && !held.spawnCtrl.contaminated &&
@@ -712,7 +994,7 @@ function buildContextActions(ctx) {
       label: 'Inspecionar',
       run: () => inspectItemToast(ctx, held)
     });
-    return actions;
+    return actions.slice(0, 4);
   }
 
   return actions;

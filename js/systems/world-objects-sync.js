@@ -556,6 +556,9 @@ export function applyReplicatedItemState(sim, item, state) {
     if (typeof incomingPetri.lidOpen === 'boolean') setPetriLidOpen(item, incomingPetri.lidOpen, false);
     updatePetriVisual(item);
   }
+  if (sim && sim.heldItem === item && sim.callbacks && sim.callbacks.onHoldChange) {
+    sim.callbacks.onHoldChange(item.label);
+  }
   if (item.fridgeCtrl && state.fridge && typeof state.fridge.doorOpen === 'boolean') {
     setCultureFridgeDoorOpen(item, state.fridge.doorOpen, false);
   }

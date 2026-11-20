@@ -445,6 +445,23 @@ export function updatePetriVisual(item) {
       ctrl.agarMesh = null;
     }
   } else {
+    if (ctrl.mode === 'contam') {
+      ctrl.contaminated = true;
+      ctrl.sterilized = false;
+      ctrl.colonized = false;
+    } else if (ctrl.mode === 'empty') {
+      ctrl.contaminated = false;
+      ctrl.inoculated = false;
+      ctrl.colonized = false;
+    } else if (ctrl.mode === 'clean') {
+      ctrl.contaminated = false;
+      ctrl.inoculated = true;
+      ctrl.colonized = true;
+      ctrl.colonization = 100;
+    } else if (ctrl.mode === 'colonizing') {
+      ctrl.contaminated = false;
+      ctrl.inoculated = true;
+    }
     ensurePetriCanvas(ctrl);
     if (!ctrl.texture) ctrl.texture = new THREE.CanvasTexture(ctrl.canvas);
     if (!ctrl.agarMesh) {
@@ -515,6 +532,7 @@ export function updatePetriVisual(item) {
   ctrl.lastRenderedColonization = Math.floor(ctrl.colonization);
   ctrl.lastRenderedRefrigerated = ctrl.refrigerated;
   ctrl.lastRenderedAgeDay = Math.floor(ctrl.ageGameDays);
+  if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
   updateLidPose(ctrl);
   item.height = ctrl.lidOpen ? PETRI_OPEN_HEIGHT : PETRI_DISH_HEIGHT;
 }

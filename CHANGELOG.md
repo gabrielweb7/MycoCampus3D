@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.0.0] - 2026-11-20
+### Rótulos Rápidos [1]–[4] Completos em Todo o Campus & Consistência Total de Títulos/Inspecionar
+- **Rótulos Rápidos Contextuais em Tudo (`js/ui/radial-menu.js`):**
+  - Dispositivos de bancada & cenário: **Fogareiro** (sempre exibe próxima potência + desligar quando ativo), **Timer Digital**, **Balança (Zerar/Tara)**, **Agitador Magnético**, **Fluxo Laminar**, **Interruptor de Luz**, **Estufa**, **Horta** e **Vaquinha**.
+  - Itens sob a mira: **Monotub 24L** (Colher Flush / Misturar / Nivelar / Abrir Tampa), **Desidratadora** (Ligar/Desligar/Retirar 10g), **Microscópio** (Analisar Lente), **Break & Shake** em Bags/Vidros/PP5 direto na bancada, **Panela de Pressão** (`[2] Conteúdo (X)` + mantém `[4] Comer Cogumelo` acessível), e **Geladeira** sem botão `Mover` duplicado (agora com `[4] Inspecionar`).
+- **Sincronização de Rótulos & Chips Ricos (`js/items/petri-dish.js`, `js/items/pda-mix.js`, `js/systems/world-objects-sync.js`, `js/ui/radial-menu.js`):**
+  - `syncItemLiveLabel` recalcula o rótulo vivo antes de exibir o card Inspecionar e atualiza a barra `#held-item-bar`; corrigido caso onde Petri esterilizada na panela ainda mantinha rótulo anterior e adicionado status estéril em frascos PDA/Falcon/Slant com `powderGrams === 0`.
+  - Card Inspecionar ampliado com chips para `Pote de Mistura`, `Cogumelo Fresco/Seco`, `Saco Mylar`, `Monotub 24L`, `Desidratadora`, `Bandeja` e `Agulha Estéril` da Seringa.
+
 ## [v1.9.9] - 2026-11-20
 ### Hold-Alt Cursor, Ações Numeradas para Cogumelos/Itens, Panela Limpa, Texturas Reais & Vagalumes Só na Natureza
 - **Segurar `Alt` para Cursor no PC (`js/systems/input-controller.js`):**

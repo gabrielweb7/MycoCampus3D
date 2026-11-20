@@ -172,4 +172,15 @@ test('v1.9.9 comer cogumelo usa chip numérico [1] (sem comer ao clicar), panela
   assert.doesNotMatch(rackSrc, /Serragem \+ Fibra Coco/);
   assert.match(bowlSrc, /export function getBowlBulkReadiness\(/);
   assert.match(spawnSrc, /Bag 1,5kg Spawn \(\$\{subName\}\)/);
+
+  // v2.0.0: Rótulos rápidos completos + syncItemLiveLabel + Geladeira sem duplicata + dispositivos
+  assert.match(radialSrc, /function syncItemLiveLabel\(/);
+  assert.match(radialSrc, /id:\s*'scale_tare'/);
+  assert.match(radialSrc, /id:\s*'burner_step_'/);
+  assert.match(radialSrc, /id:\s*'dehyd_act_'/);
+  assert.match(radialSrc, /id:\s*'monotub_act_'/);
+  assert.match(radialSrc, /id:\s*'pot_contents_'/);
+  const fridgeBlock = radialSrc.match(/if \(target\.fridgeCtrl\)[\s\S]*?return actions;/);
+  assert.ok(fridgeBlock);
+  assert.doesNotMatch(fridgeBlock[0], /id:\s*'move_'\s*\+\s*target\.id/);
 });

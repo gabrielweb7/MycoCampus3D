@@ -9,6 +9,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.0.0': {
+    title: '✨ Novidades da Atualização v2.0.0',
+    subtitle: 'Rótulos Rápidos [1]–[4] Completos em Todo o Lab + Inspeção Sempre Sincronizada:',
+    items: [
+      { icon: '🎮', text: 'Rótulos Rápidos [1]–[4] em Todos os Equipamentos (PC & Mobile): Fogareiro (ligar/potência/desligar + Timer), Balança (Tara), Agitador, Fluxo Laminar, Luz, Desidratadora, Microscópio, Monotub 24L, Estufa, Horta e Vaquinha!' },
+      { icon: '📦', text: 'Panela & Geladeira Melhoradas: a Panela ganhou o chip [2] Conteúdo para ver tudo que está dentro sem tirar a tampa, e a Geladeira removeu o botão repetido e ganhou [4] Inspecionar.' },
+      { icon: '🔍', text: 'Títulos & Card Inspecionar Sempre Coerentes: corrigida qualquer defasagem entre o título e os chips (Petri esterilizada na panela, Falcon/Slant/PDA, Seringa, Pote de Mistura, Monotub, Cogumelos Frescos/Secos, Saco Mylar e Bandeja).' }
+    ]
+  },
   '1.9.9': {
     title: '✨ Novidades da Atualização v1.9.9',
     subtitle: 'Texturas reais em todos os substratos + controles mais seguros e visual limpo:',

@@ -125,7 +125,9 @@ export function updatePdaMediumVisual(item) {
   }
 
   if (ctrl.powderGrams <= 0) {
-    item.label = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml)';
+    const isSter = !!(ctrl.sterilized || liquid.sterilized || item.sterilized);
+    const sterSuffix = isSter ? ' • Estéril' : (liquid.volMl > 0 ? ' • Não Esterilizado' : '');
+    item.label = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml' + sterSuffix + ')';
     return;
   }
 
