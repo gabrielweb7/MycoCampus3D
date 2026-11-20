@@ -93,14 +93,14 @@ export function buildCampusWingsAndEquipment(ctx) {
   addMovableStainlessTable(ctx, 'table_lc_lab', 'Mesa Inox (Cultura Líquida)', -20.5, 0.12, -10.6, 2.0, 0.79, 1.0);
   registerPickable(ctx, 'petri_clean', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.38, 1.065, -8.62, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
   registerPickable(ctx, 'petri_clean_02', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -18.38, 1.065, -8.42, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
-  registerPickable(ctx, 'petri_clean_fridge', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -15.35, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
+  registerPickable(ctx, 'petri_clean_fridge', 'Placa de Petri (Micélio Rizomórfico)', makePetriDish('clean'), -15.35, 1.14, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('clean'));
   registerPickable(ctx, 'petri_contam', 'Placa Contaminada (Mofo/Bactéria)', makePetriDish('contam'), -18.3, 0.78, -1.85, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('contam'));
   registerPickable(ctx, 'petri_empty', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -19.2, 1.34, -1.85, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
   for (let pse = 0; pse < 4; pse++) {
     registerPickable(ctx, 'petri_sterile_hood_' + pad2(pse + 1), 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -18.18, 1.065, -7.80 - pse * 0.16, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
   }
-  registerPickable(ctx, 'petri_sterile_fridge_01', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -15.65, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
-  registerPickable(ctx, 'petri_sterile_fridge_02', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -15.50, 1.22, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
+  registerPickable(ctx, 'petri_sterile_fridge_01', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -15.65, 1.14, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
+  registerPickable(ctx, 'petri_sterile_fridge_02', 'Placa de Petri Estéril (PDA)', makePetriDish('empty'), -15.50, 1.14, -10.66, 0, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, getPetriMeta('empty'));
 
   // Frasco PDA 500g
   const pdaGroup = createPdaBottleGroup();
@@ -126,13 +126,13 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeGlovesBox(ctx, 'gloves_box_lab_01', -17.60, 1.02, -12.00);
   makeGlovesBox(ctx, 'gloves_box_lab_02', -22.85, 1.02, -6.75);
   createHeatSealer(ctx, 'heat_sealer', -23.1, 1.02, -6.2);
-  buildLabTrashBin(ctx, -17.3, 0, -9.2);
+  buildLabTrashBin(ctx, -17.3, 0.12, -9.2);
 
   // Agitador, Culturas Liquidas Saudaveis, Bequeres, Bandejas, Seringas & Termometros (Bem alinhados na mesa!)
   makeMagneticStirrer(ctx, 'magnetic_stirrer', -20.95, 0.91, -10.55);
   const lc1 = makeLiquidJar800(ctx, 'liquid_culture', -20.95, 1.015, -10.59, 350);
   if (lc1 && lc1.cultureCtrl) lc1.cultureCtrl.colonized = true;
-  const lc2 = makeLiquidJar800(ctx, 'liquid_culture_02', -15.72, 0.46, -10.66, 500);
+  const lc2 = makeLiquidJar800(ctx, 'liquid_culture_02', -15.72, 0.32, -10.66, 500);
   if (lc2 && lc2.cultureCtrl) lc2.cultureCtrl.colonized = true;
   const lc3 = makeLiquidJar800(ctx, 'liquid_culture_03', -21.25, 0.91, -10.40, 420);
   if (lc3 && lc3.cultureCtrl) lc3.cultureCtrl.colonized = true;
@@ -216,7 +216,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   makePaperTowelRoll(ctx, 'paper_towel_lab_02', -16.50, 0.245, -11.95);
   // 4 colheres extras e 6 seringas extras nas gavetas do Lab
   for (let lsp = 0; lsp < 4; lsp++) {
-    makeLabSpoon(ctx, 'lab_spoon_' + pad2(lsp + 2), -20.52 + lsp * 0.12, 0.635, -11.72);
+    makeLabSpoon(ctx, 'lab_spoon_' + pad2(lsp + 2), -20.52 + lsp * 0.12, 0.646, -11.72);
   }
   for (let lsy = 0; lsy < 6; lsy++) {
     const sr = Math.floor(lsy / 3);
@@ -226,8 +226,8 @@ export function buildCampusWingsAndEquipment(ctx) {
   // 5 bacias extras nos armarios (6 bacias no total no Lab)
   makeMixingBowl(ctx, 'mixing_bowl_02', -18.55, 0.245, -11.95);
   makeMixingBowl(ctx, 'mixing_bowl_03', -18.20, 0.245, -11.95);
-  makeMixingBowl(ctx, 'mixing_bowl_04', -18.55, 0.60, -11.95);
-  makeMixingBowl(ctx, 'mixing_bowl_05', -18.20, 0.60, -11.95);
+  makeMixingBowl(ctx, 'mixing_bowl_04', -18.55, 0.245, -11.75);
+  makeMixingBowl(ctx, 'mixing_bowl_05', -18.20, 0.245, -11.75);
   makeMixingBowl(ctx, 'mixing_bowl_06', -17.02, 0.245, -11.95);
   // 8 frascos de cultura liquida vazios nos armarios do Lab (afastados da divisoria)
   for (let lca = 0; lca < 6; lca++) {
@@ -401,7 +401,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   // 3. Zona Sul da Sala (z: -3.8..-2.2): Tripé a Gás + Panela de Pasteurização + Spawn & Substrato Pasteurizado prontos para múltiplos players!
   makeCookerBase(ctx, 'cooker_base_sub', 21.8, 0.94, -5.50);
   makeGasTripodBurner(ctx, 'gas_tripod_sub', 21.8, 0.12, -3.1);
-  createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.8, 0.74, -3.1);
+  createPressureCookerPair(ctx, 'pressure_cooker_sub', 'pressure_lid_sub', 'Substrato', 21.8, 0.77, -3.1);
 
   // Kits prontos de Spawn 100% Colonizado + Substrato Pasteurizado + Álcool 70% + Papel Toalha na Sala de Desidratação/Monotubs para vários players montarem Monotubs 24L!
   makeSpawnBag1500(ctx, 'spawn_bag_colonized_03', true, 16.5, 0.12, -9.3);

@@ -8,6 +8,7 @@ import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 import {
+  clampPointToSurfaceXZ,
   findPlacementTarget,
   isPlacementBlocked,
   getPlacementBlockedReason,
@@ -17,7 +18,8 @@ import {
   beginHeldItemPlacement,
   cancelHeldItemPlacement,
   commitHeldItemPlacement,
-  setHeldTwoHandedGhost
+  setHeldTwoHandedGhost,
+  updateHeldItemPlacementPreview
 } from './held-item-placement.js';
 import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
@@ -96,6 +98,70 @@ export function setMeshGhostOpacity(root, active) {
   });
 }
 
+const RING_OFFSETS = [0.12, 0.22, 0.34, 0.48, 0.64];
+const RING_ANGLES = 12;
+
+function findSupportSurfaceAtPoint(ctx, pt) {
+  if (!ctx || !ctx.supportSurfaces || !pt) return null;
+  let best = null;
+  for (let i = 0; i < ctx.supportSurfaces.length; i++) {
+    const ss = ctx.supportSurfaces[i];
+    if (!ss || (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.dynamicSurface === ss)) continue;
+    if (ss.ownerItem && ss.ownerItem === ctx.heldItem) continue;
+    if (Math.abs(pt.y - ss.topY) <= 0.08 && isPointInBoundsXZ(pt.x, pt.z, ss, 0.14)) {
+      if (!best || ss.topY > best.topY) best = ss;
+    }
+  }
+  return best;
+}
+
+function findFreeSpotOnSurface(ctx, surf, anchorPt, outPt) {
+  if (!surf || !outPt) return false;
+  clampPointToSurfaceXZ(anchorPt.x, anchorPt.z, surf, surf.topY, outPt);
+  if (!isPlacementBlocked(ctx.entityCtx, outPt)) return true;
+
+  for (let ri = 0; ri < RING_OFFSETS.length; ri++) {
+    const rad = RING_OFFSETS[ri];
+    for (let ai = 0; ai < RING_ANGLES; ai++) {
+      const a = (ai / RING_ANGLES) * Math.PI * 2;
+      clampPointToSurfaceXZ(anchorPt.x + Math.cos(a) * rad, anchorPt.z + Math.sin(a) * rad, surf, surf.topY, outPt);
+      if (!isPlacementBlocked(ctx.entityCtx, outPt)) return true;
+    }
+  }
+  return false;
+}
+
+function tryPlaceHeldOnAimedSurface(ctx) {
+  if (!ctx.heldItem) return false;
+  const aimNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
+  if (!aimNdc) return false;
+  const aimPt = findPlacementTarget(ctx.entityCtx, aimNdc);
+  const dAim = Math.hypot(aimPt.x - ctx.playerPos.x, aimPt.z - ctx.playerPos.z);
+  if (dAim > 4.4 || Math.abs(aimPt.y - ctx.playerPos.y) > 2.6) return false;
+
+  if (ctx.snapClosePot || ctx.snapPetriStack) {
+    if (!isPlacementBlocked(ctx.entityCtx, aimPt)) {
+      const label = ctx.heldItem.label || 'Item';
+      commitHeldItemPlacement(ctx, aimPt, !!ctx.snapClosePot);
+      if (window.MycoAudio) window.MycoAudio.playClick();
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('📦 ' + label + ' colocado.');
+      return true;
+    }
+  }
+
+  const ss = findSupportSurfaceAtPoint(ctx, aimPt);
+  if (!ss || ss.topY <= ctx.playerPos.y + 0.16) return false;
+
+  const candPt = _tmpDropPt;
+  if (!findFreeSpotOnSurface(ctx, ss, aimPt, candPt)) return false;
+
+  const label = ctx.heldItem.label || 'Item';
+  commitHeldItemPlacement(ctx, candPt, false);
+  if (window.MycoAudio) window.MycoAudio.playClick();
+  if (ctx.callbacks.onToast) ctx.callbacks.onToast('📦 ' + label + ' colocado na superfície.');
+  return true;
+}
+
 export function dropHeldItem(ctx) {
   if (!ctx.heldItem) return;
   ctx.syringePumping = null;
@@ -106,26 +172,32 @@ export function dropHeldItem(ctx) {
   const candPt = _tmpDropPt;
   const baseYaw = ctx.playerYaw || 0;
   let chosenPt = null;
+  let snapLid = false;
 
-  // Se o jogador apertar X olhando diretamente para uma bancada, estante ou aparador livre, solta lá!
+  // Se o jogador apertar X olhando diretamente para uma bancada, estante, bandeja, pilha ou panela, solta em cima!
   const aimNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
   if (aimNdc && ctx.supportSurfaces) {
     const aimPt = findPlacementTarget(ctx.entityCtx, aimNdc);
     const dAim = Math.hypot(aimPt.x - ctx.playerPos.x, aimPt.z - ctx.playerPos.z);
-    if (dAim <= 3.6 && Math.abs(aimPt.y - ctx.playerPos.y) <= 2.4 && !isPlacementBlocked(ctx.entityCtx, aimPt)) {
-      for (let si = 0; si < ctx.supportSurfaces.length; si++) {
-        const ss = ctx.supportSurfaces[si];
-        if (Math.abs(aimPt.y - ss.topY) < 0.04 && isPointInBoundsXZ(aimPt.x, aimPt.z, ss, 0.10)) {
+    if (dAim <= 4.4 && Math.abs(aimPt.y - ctx.playerPos.y) <= 2.6) {
+      if ((ctx.snapClosePot || ctx.snapPetriStack) && !isPlacementBlocked(ctx.entityCtx, aimPt)) {
+        candPt.copy(aimPt);
+        chosenPt = candPt;
+        snapLid = !!ctx.snapClosePot;
+      } else {
+        const ss = findSupportSurfaceAtPoint(ctx, aimPt);
+        if (ss && findFreeSpotOnSurface(ctx, ss, aimPt, candPt)) {
+          chosenPt = candPt;
+        } else if (!isPlacementBlocked(ctx.entityCtx, aimPt)) {
           candPt.copy(aimPt);
           chosenPt = candPt;
-          break;
         }
       }
     }
   }
 
   const radii = [0.75, 1.15, 1.55, 0.45];
-  const angleOffsets = [0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.4, -2.4, Math.PI];
+  const angleOffsets = [0, 0.45, -0.45, 0.95, -0.95, 1.5, -1.5, 2.2, -2.2, Math.PI];
 
   for (let ri = 0; ri < radii.length && !chosenPt; ri++) {
     const r = radii[ri];
@@ -137,11 +209,18 @@ export function dropHeldItem(ctx) {
         ctx.physCtx,
         cx,
         cz,
-        ctx.playerPos.y + 0.9,
+        ctx.playerPos.y + 1.15,
         ctx.heldItem.fridgeCtrl ? 'fridge' : ctx.heldItem.mesh.userData.dynamicSurface,
-        ctx.playerPos.y + 1.25
+        ctx.playerPos.y + 1.35
       );
       candPt.set(cx, cy, cz);
+      if (cy > ctx.playerPos.y + 0.16) {
+        const ssNear = findSupportSurfaceAtPoint(ctx, candPt);
+        if (ssNear && findFreeSpotOnSurface(ctx, ssNear, candPt, candPt)) {
+          chosenPt = candPt;
+          break;
+        }
+      }
       if (!isPlacementBlocked(ctx.entityCtx, candPt)) {
         chosenPt = candPt;
         break;
@@ -162,7 +241,7 @@ export function dropHeldItem(ctx) {
     return;
   }
   const droppedLabel = ctx.heldItem ? ctx.heldItem.label : 'Item';
-  commitHeldItemPlacement(ctx, chosenPt, false);
+  commitHeldItemPlacement(ctx, chosenPt, snapLid);
   if (ctx.callbacks.onToast) {
     ctx.callbacks.onToast('📦 ' + droppedLabel + ' solto.');
   }
@@ -843,8 +922,9 @@ export function handlePrimaryAction(ctx) {
       ctx.queueWorldStateChange(fridgeTarget.fridge.id, fridgeTarget.fridge.fridgeCtrl.doorOpen ? 1 : 0);
       return;
     }
-    if (ctx.placementMode && ctx.placementValid && ctx.placementGhost) {
-      if (isPlacementBlocked(ctx.entityCtx, ctx.placementGhost.position)) {
+    if (ctx.placementMode && ctx.placementGhost) {
+      updateHeldItemPlacementPreview(ctx, ctx.inFps ? _vZero2 : ctx.pointerNdc);
+      if (!ctx.placementValid || isPlacementBlocked(ctx.entityCtx, ctx.placementGhost.position)) {
         ctx.placementValid = false;
         updatePlacementGhostVisual(ctx.heldItem, false, ctx.heldRotY, ctx.clock.elapsedTime);
         return;
@@ -945,6 +1025,9 @@ export function handlePrimaryAction(ctx) {
         ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
         return;
       }
+    }
+    if (!ctx.placementMode && tryPlaceHeldOnAimedSurface(ctx)) {
+      return;
     }
     return;
   }

@@ -2,6 +2,15 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.2] - 2026-11-19
+### Correção Completa de Posicionamento em Mesas, Bancadas, Estantes & Aparelhos
+- **`dropHeldItem` e Busca Inteligente em Superfícies (`js/systems/interaction-system.js`):**
+  - Ao apertar `[X]` / `⬇️ Largar` mirando em uma bancada/mesa/aparelho, `findFreeSpotOnSurface` agora busca espaços livres em anéis sobre a mesma superfície antes de recorrer ao chão, além de aceitar pilhas de Petri/PP5 e tampar panelas.
+  - Adicionado `tryPlaceHeldOnAimedSurface` em `handlePrimaryAction` (PC & Mobile): clicar diretamente sobre qualquer mesa, bancada, estante, bandeja ou aparelho segurando recipientes/equipamentos posiciona imediatamente em cima.
+- **Ghost, Colisão & Spawns (`js/entities/placement-ghost.js`, `js/systems/input-controller.js`, `js/world/lab-tools.js`):**
+  - Atualiza o raycast/preview instantaneamente no `mousedown` antes de confirmar em modo `[G]` (evita colocar no chão por posição atrasada de 33ms).
+  - Ajuste do raio mínimo de ocupação em bancadas, tolerância de `dynamicSurface` (fogareiro/bandeja/agitador), bloqueio de prateleira com geladeira fechada e alinhamento exato dos 13 itens iniciais de `lab-tools.js` (`count=0` quedas no boot).
+
 ## [v1.9.1] - 2026-11-19
 ### Vagalumes e Esporos Apenas no Meio da Floresta (Limpeza Urbana e Interna)
 - **Florestas & Atmosfera (`js/world/trip-gnomes.js`, `js/world/cozy-details.js`):**

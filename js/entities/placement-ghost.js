@@ -266,7 +266,11 @@ function isSurfaceOwnerHeld(ctx, surf) {
   return false;
 }
 
-function clampPointToSurfaceXZ(x, z, surf, topY, outPt) {
+function isClosedFridgeShelf(surf) {
+  return !!(surf && surf.isCultureFridgeShelf && surf.ownerItem && surf.ownerItem.fridgeCtrl && !surf.ownerItem.fridgeCtrl.doorOpen);
+}
+
+export function clampPointToSurfaceXZ(x, z, surf, topY, outPt) {
   if (typeof surf.halfW === 'number' && typeof surf.halfD === 'number' &&
       typeof surf.centerX === 'number' && typeof surf.centerZ === 'number' && surf.ry) {
     var dx = x - surf.centerX;
@@ -372,7 +376,7 @@ export function findPlacementTarget(ctx, customNdc) {
   // 1. Raycast direto nas meshes de suporte
   if (supportMeshes.length) {
     for (var sm = 0; sm < supportMeshes.length; sm++) {
-      if (supportMeshes[sm]) supportMeshes[sm].updateWorldMatrix(true, false);
+      if (supportMeshes[sm] && supportMeshes[sm].updateWorldMatrix) supportMeshes[sm].updateWorldMatrix(true, false);
     }
     var sHits = raycaster.intersectObjects(supportMeshes, false);
     for (var si = 0; si < sHits.length; si++) {
@@ -382,6 +386,7 @@ export function findPlacementTarget(ctx, customNdc) {
       var sSurf = sh.object.userData.supportSurface;
       if (!sSurf || isSurfaceOwnerHeld(ctx, sSurf)) continue;
       if (sSurf.isCabinetShelf && sSurf.requiresOpenPart && !sSurf.requiresOpenPart.open) continue;
+      if (isClosedFridgeShelf(sSurf)) continue;
       if (heldItem && heldItem.mesh) {
         if (heldItem.mesh.userData.dynamicSurface === sSurf) continue;
         if (heldItem.mesh === sh.object || heldItem.mesh.getObjectById(sh.object.id)) continue;
@@ -396,6 +401,7 @@ export function findPlacementTarget(ctx, customNdc) {
     if (isSurfaceOwnerHeld(ctx, s)) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === s) continue;
     if (s.isCabinetShelf && s.requiresOpenPart && !s.requiresOpenPart.open) continue;
+    if (isClosedFridgeShelf(s)) continue;
 
     var dy = s.topY - origin.y;
     if (Math.abs(dir.y) > 0.001) {
@@ -412,7 +418,7 @@ export function findPlacementTarget(ctx, customNdc) {
 
     var bMinX = s.minX - 0.05, bMaxX = s.maxX + 0.05;
     var bMinZ = s.minZ - 0.05, bMaxZ = s.maxZ + 0.05;
-    var bMinY = Math.max(0.12, s.topY - 0.95), bMaxY = s.topY + 0.08;
+    var bMinY = Math.max(0.0, s.topY - 0.95), bMaxY = s.topY + 0.08;
     var invDx = 1 / (Math.abs(dir.x) > 1e-6 ? dir.x : 1e-6);
     var invDy = 1 / (Math.abs(dir.y) > 1e-6 ? dir.y : 1e-6);
     var invDz = 1 / (Math.abs(dir.z) > 1e-6 ? dir.z : 1e-6);
@@ -522,8 +528,8 @@ export function isPlacementBlocked(ctx, pt) {
 
     if (other.mesh.userData.dynamicSurface) {
       var dynSurf = other.mesh.userData.dynamicSurface;
-      var onDynSurfXZ = isPointInBoundsXZ(pt.x, pt.z, dynSurf, 0.04);
-      if (onDynSurfXZ && pt.y >= dynSurf.topY - 0.04 && pt.y <= dynSurf.topY + 0.12) {
+      var onDynSurfXZ = isPointInBoundsXZ(pt.x, pt.z, dynSurf, 0.08);
+      if (onDynSurfXZ && pt.y >= dynSurf.topY - 0.06 && pt.y <= dynSurf.topY + 0.14) {
         if (other.mesh.userData.isTable && heldItem.mesh.userData.isTable) {
           placementBlockedReason = '🚫 Não é permitido sobrepor mesas';
           return true;
@@ -581,7 +587,7 @@ export function isPlacementBlocked(ctx, pt) {
 
     if (!heldIsBox && !other.mesh.userData.tableDims) {
       var oRad = other.radius || 0.16;
-      var minDist = (heldRad + oRad) * 0.94;
+      var minDist = Math.max(0.08, (heldRad + oRad) * 0.68);
       var dx = pt.x - oPos.x;
       var dz = pt.z - oPos.z;
       if (dx * dx + dz * dz < minDist * minDist) {
@@ -709,14 +715,16 @@ export function dropUnsupportedItems(ctx) {
     var ignoreTargetSurf = item.fridgeCtrl ? 'fridge' : item.mesh.userData.dynamicSurface;
     var supportedY = getItemGroundHeight(physCtx, item.mesh.position.x, item.mesh.position.z, item.mesh.position.y, ignoreTargetSurf, item.mesh.position.y + 0.04);
     if (!item.mesh.userData.isTable) {
+      var ownSurfs = Array.isArray(item.mesh.userData.dynamicSurfaces) ? item.mesh.userData.dynamicSurfaces : null;
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
         if (s === item.mesh.userData.dynamicSurface) continue;
+        if (ownSurfs && ownSurfs.indexOf(s) !== -1) continue;
         if (isSurfaceOwnerHeld(ctx, s)) continue;
         if (item.fridgeCtrl && s.isCultureFridgeShelf) continue;
         if (item.mesh.userData.isHood && s.isHood) continue;
-        if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.10) &&
-          item.mesh.position.y >= s.topY - 0.06) {
+        if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.12) &&
+          item.mesh.position.y >= s.topY - 0.08) {
           supportedY = Math.max(supportedY, s.topY);
         }
       }

@@ -208,6 +208,9 @@ export function bindControls(ctx) {
       return;
     }
     ctx.isPrimaryDown = true;
+    if (ctx.heldItem && ctx.placementMode && ctx.updateHoverRay) {
+      ctx.updateHoverRay(ctx.inFps ? null : ctx.pointerNdc);
+    }
     ctx.handlePrimaryAction();
   });
 

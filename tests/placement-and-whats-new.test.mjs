@@ -357,5 +357,72 @@ test('sports-scoreboard, rain-puddles (create + step) e Cesta Orgânica da Horta
   assert.equal(isPhotoModeActive(), false);
   setPhotoMode(false);
 
+  // Testa dropHeldItem sobre bancada com vizinhos próximos: deve permanecer na altura da mesa (topY=0.91), nunca cair no chão
+  const { addMovableStainlessTable } = await import('../js/items/stainless-table.js');
+  const { registerPickable } = await import('../js/items/item-registry.js');
+  const { dropHeldItem } = await import('../js/systems/interaction-system.js');
+  const { dropUnsupportedItems } = await import('../js/entities/placement-ghost.js');
+
+  globalThis.window.THREE.Raycaster = class {
+    constructor() {
+      this.ray = {
+        origin: { x: -20, y: 1.7, z: -9.2 },
+        direction: { x: 0, y: -0.5, z: -0.86 },
+        distanceSqToPoint: () => 99
+      };
+    }
+    setFromCamera() {}
+    intersectObjects() { return []; }
+    intersectObject() { return []; }
+  };
+  globalThis.window.THREE.BoxGeometry = class {};
+  globalThis.window.THREE.CylinderGeometry = class {};
+
+  const pCtx = {
+    scene: { add() {} },
+    camera: {},
+    raycaster: new globalThis.window.THREE.Raycaster(),
+    playerPos: { x: -20, y: 0.12, z: -9.2 },
+    playerYaw: 0,
+    inFps: true,
+    pointerNdc: { x: 0, y: 0 },
+    clock: { elapsedTime: 1 },
+    solidColliders: [],
+    wallSegments: [],
+    walkableFloors: [{ minX: -25, maxX: -15, minZ: -15, maxZ: -5, topY: 0.12 }],
+    stairsList: [],
+    supportSurfaces: [],
+    supportMeshes: [],
+    pickableItems: [],
+    pickableMap: new Map(),
+    cookerPots: [],
+    pendingMovedItems: {},
+    recentlyDropped: {},
+    heldRotY: 0,
+    heldItem: null,
+    snapClosePot: null,
+    snapPetriStack: false,
+    placementMode: false,
+    placementValid: false,
+    placementGhost: new MockObj(),
+    callbacks: {},
+    isHeldByRemote: () => false,
+    removeFromCookerContents() {},
+    setSnapClosePot(v) { this.snapClosePot = v; },
+    setSnapPetriStack(v) { this.snapPetriStack = v; },
+    setHeldRotY(v) { this.heldRotY = v; },
+    notifyWorldAction() {}
+  };
+  pCtx.physCtx = pCtx;
+  pCtx.entityCtx = pCtx;
+
+  addMovableStainlessTable(pCtx, 'tbl_test', 'Mesa Teste', -20, 0.12, -10.6, 2.0, 0.79, 1.0);
+  registerPickable(pCtx, 'blocker_jar', 'Vidro Vizinho', new MockObj(), -20, 0.91, -10.56, 0, 0.14, 0.25);
+  const droppedJar = registerPickable(pCtx, 'dropped_jar', 'Béquer', new MockObj(), -19, 0.12, -9, 0, 0.14, 0.25);
+  pCtx.heldItem = droppedJar;
+  dropHeldItem(pCtx);
+  dropUnsupportedItems(pCtx);
+  assert.ok(Math.abs(droppedJar.mesh.position.y - 0.91) < 0.01, 'Item solto sobre mesa com vizinho deve permanecer em y=0.91 e não cair no chão');
+
   assert.equal(isHoldingPackOrCrateForStand({ organicBasketCtrl: { packsValue: 2 } }), true);
 });

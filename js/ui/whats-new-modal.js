@@ -9,6 +9,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.2': {
+    title: '✨ Novidades da Atualização v1.9.2',
+    subtitle: 'Correção definitiva para colocar itens em mesas, bancadas e aparelhos:',
+    items: [
+      { icon: '📦', text: 'Colocar em Mesas e Bancadas Corrigido: itens nunca mais caem no chão ao largar ([X] / Soltar) em bancadas com outros objetos — agora o sistema encontra automaticamente o espaço livre na própria bancada!' },
+      { icon: '🖱️', text: 'Clique Direto na Bancada: ao segurar potes, béqueres, ferramentas ou equipamentos e clicar sobre uma mesa/bancada, já posiciona direto em cima dela (no PC e Celular), além do modo [G]!' },
+      { icon: '🎯', text: 'Precisão no PC e Superfícies: corrigido ghost desatualizado no clique rápido, prateleiras de geladeira fechada e posições iniciais de 13 itens do laboratório.' },
+      { icon: '🌲', text: 'Vagalumes & Esporos Exclusivos da Floresta + Céu em Gradiente + Modo Foto ([F9])!' }
+    ]
+  },
   '1.9.1': {
     title: '✨ Novidades da Atualização v1.9.1',
     subtitle: 'Vagalumes e esporos apenas na floresta + melhorias visuais da v1.9:',
