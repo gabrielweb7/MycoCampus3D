@@ -7,6 +7,7 @@ import {
   createCultureLifecycleState,
   getCultureRemainingDays
 } from './culture-lifecycle.js';
+import { pickContamKind, getContamInfo } from './contaminations.js';
 
 const THREE = window.THREE;
 
@@ -120,7 +121,16 @@ export function updateCultureLiquidLabel(item) {
   if (liquid.volMl <= 0) {
     item.label = volumeLabel + ' • sem cultura líquida';
   } else if (culture.contaminated) {
-    item.label = volumeLabel + ' • contaminada 🦠';
+    if (!culture.contamKind) culture.contamKind = pickContamKind('liquid');
+    const cInfo = getContamInfo(culture.contamKind);
+    if (liquid.liqMesh && liquid.liqMesh.material && liquid.liqMesh.material.color) {
+      liquid.liqMesh.material.color.setHex(cInfo.liquidHex || 0x166534);
+      liquid.liqMesh.material.opacity = 0.84;
+    }
+    if (liquid.mycCloud && liquid.mycCloud.material && liquid.mycCloud.material.color) {
+      liquid.mycCloud.material.color.setHex(cInfo.hex || 0x16a34a);
+    }
+    item.label = volumeLabel + ' • 🦠 ' + cInfo.shortLabel;
   } else if (culture.expired) {
     item.label = volumeLabel + ' • cultura vencida';
   } else if (culture.colonized) {

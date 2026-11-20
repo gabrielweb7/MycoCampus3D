@@ -256,7 +256,7 @@ export function canItemEnterCooker(item) {
   if (meta && meta.compatibilities && meta.compatibilities.canEnterCooker !== undefined) {
     return !!meta.compatibilities.canEnterCooker;
   }
-  return !item.mesh.userData.twoHanded && !item.mesh.userData.isSyringe && !item.mesh.userData.isAlcoholSpray;
+  return !item.mesh.userData.twoHanded && !item.mesh.userData.isSyringe && !item.mesh.userData.isAlcoholSpray && !item.mesh.userData.isH2O2Spray;
 }
 
 export function canSyringeTarget(item) {
@@ -431,7 +431,7 @@ export function getItemSupportTopOffset(item) {
     return 0;
   }
   if (ud.isPetri || (item.spawnCtrl && item.spawnCtrl.isPP5)) return 0;
-  if (ud.isSyringe || ud.isLabSpoon || ud.isThermometer || ud.isAlcoholSpray || ud.isPaperTowel ||
+  if (ud.isSyringe || ud.isLabSpoon || ud.isThermometer || ud.isAlcoholSpray || ud.isH2O2Spray || ud.isPaperTowel ||
       item.scalpelCtrl || item.bladePackCtrl || item.wildMushroomCtrl || item.driedMushroomCtrl ||
       item.potItem || item.bowlCtrl) {
     return 0;

@@ -15,8 +15,8 @@ export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
 
 const TIER_CONFIGS = {
   desktop: {
-    high:   { ratioCap: 2.00, shadows: true,  soft: true,  shadowExtent: 52, shadowMap: 1536, shadowEvery: 2, far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 4, itemCullDist: 56, lambert: false },
-    medium: { ratioCap: 1.25, shadows: true,  soft: false, shadowExtent: 34, shadowMap: 1024, shadowEvery: 3, far: 280, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 3, itemCullDist: 42, lambert: false },
+    high:   { ratioCap: 2.00, shadows: true,  soft: true,  shadowExtent: 52, shadowMap: 1536, shadowEvery: 4, far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 4, itemCullDist: 56, lambert: false },
+    medium: { ratioCap: 1.25, shadows: true,  soft: false, shadowExtent: 34, shadowMap: 1024, shadowEvery: 4, far: 280, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 3, itemCullDist: 42, lambert: false },
     low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 185, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false, maxLights: 2, itemCullDist: 30, lambert: true },
     min:    { fixedRatio: 0.65, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0, itemCullDist: 22, lambert: true }
   },
@@ -195,8 +195,7 @@ export function applyQualityTier(tier, deps) {
   }
   if (renderer.shadowMap) {
     renderer.shadowMap.enabled = cfg.shadows;
-    const shEvery = cfg.shadowEvery || (isTouchDevice ? 2 : 1);
-    renderer.shadowMap.autoUpdate = cfg.shadows && !isTouchDevice && shEvery <= 1;
+    renderer.shadowMap.autoUpdate = false;
     if (ThreeRef) {
       renderer.shadowMap.type = ThreeRef.PCFShadowMap;
     }

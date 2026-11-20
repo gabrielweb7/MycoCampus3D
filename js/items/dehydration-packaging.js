@@ -23,8 +23,18 @@ import { buildCuteAvatar, drawAvatarFace } from '../entities/avatars.js';
 
 const THREE = window.THREE;
 
-export const MYCOCOIN_PRICE_PER_PACK = 120; // 🪙 120 MycoCoins por pacote selado de 25g (4 pacotes na caixa = 🪙 480!)
+export const MYCOCOIN_PRICE_PER_PACK = 120; // 🪙 120 MycoCoins por pacote selado de 25g (VIP = +50%!)
 export const DELIVERY_CRATE_MAX_PACKS = 4;
+export const VIP_SPECIES_MENU = [
+  'Golden Teacher',
+  'Juba de Leão',
+  'Shimeji Rosa',
+  'Shiitake',
+  'Jack Frost',
+  'Reishi Vermelho',
+  'Blue Meanie',
+  'Penis Envy'
+];
 
 export const roadSaleStandMeshes = [];
 export const roadSaleDynamicObjects = [];
@@ -32,6 +42,7 @@ export const roadSaleDynamicObjects = [];
 export const roadStandState = {
   availablePacks: 0,
   speciesList: [],
+  vipOrders: ['Golden Teacher', 'Juba de Leão'],
   standPacksMeshes: [],
   signCanvas: null,
   signCtx: null,
@@ -41,6 +52,34 @@ export const roadStandState = {
   totalSoldPacks: 0,
   totalCoinsEarned: 0
 };
+
+export function getActiveVipOrders() {
+  if (!Array.isArray(roadStandState.vipOrders) || roadStandState.vipOrders.length < 2) {
+    roadStandState.vipOrders = [VIP_SPECIES_MENU[0], VIP_SPECIES_MENU[1]];
+  }
+  return roadStandState.vipOrders.slice(0, 2);
+}
+
+export function matchVipOrder(speciesName) {
+  const s = String(speciesName || '').toLowerCase();
+  if (!s) return null;
+  const vips = getActiveVipOrders();
+  for (let i = 0; i < vips.length; i++) {
+    const target = vips[i].toLowerCase();
+    if (s.includes(target) || target.includes(s)) {
+      return { index: i, species: vips[i] };
+    }
+  }
+  return null;
+}
+
+function rotateVipOrder(index) {
+  const vips = getActiveVipOrders();
+  const nextPool = VIP_SPECIES_MENU.filter((sp) => vips.indexOf(sp) === -1);
+  const pick = nextPool[(roadStandState.totalSoldPacks + index) % nextPool.length] || VIP_SPECIES_MENU[0];
+  vips[index] = pick;
+  roadStandState.vipOrders = vips;
+}
 
 const NPC_PROFILES = [
   { name: 'Dr. Henrique (Neurocientista)', carColor: 0x2563eb, shirtColor: 0x0284c7, hatColor: 0x1e3a8a, quote: '🍄 "Qualidade clínica impecável! Aqui estão seus 🪙 120 MycoCoins!"' },
@@ -541,6 +580,8 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
   }
 
   cc.packsCount++;
+  cc.speciesList = Array.isArray(cc.speciesList) ? cc.speciesList : [];
+  cc.speciesList.push(bc.speciesName || '');
   updateDeliveryCrateVisual(crateItem);
   if (ctx && ctx.markItemMoved) ctx.markItemMoved(crateItem);
   bagItem._removedForSync = true;
@@ -612,8 +653,13 @@ function drawRoadStandSign() {
   );
 
   sctx.fillStyle = '#fcd34d';
-  sctx.font = 'bold 20px system-ui, sans-serif';
-  sctx.fillText(`🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins / pacote   •   Vendidos: ${roadStandState.totalSoldPacks}`, w / 2, 134);
+  sctx.font = 'bold 17px system-ui, sans-serif';
+  sctx.fillText(`🪙 ${MYCOCOIN_PRICE_PER_PACK} Coins/pct • Vendidos: ${roadStandState.totalSoldPacks}`, w / 2, 122);
+
+  const vips = getActiveVipOrders();
+  sctx.fillStyle = '#fef08a';
+  sctx.font = 'bold 14px system-ui, sans-serif';
+  sctx.fillText(`⭐ VIP (+50%): ${vips[0]} | ${vips[1]}`, w / 2, 146);
 
   if (roadStandState.signTex) roadStandState.signTex.needsUpdate = true;
 }
@@ -1040,6 +1086,9 @@ export function applyRoadStandWorldState(stateMap) {
 
 function consumeHeldStandItem(ctx, held, packsVal) {
   roadStandState.availablePacks += packsVal;
+  const spName = (held && held.mushroomBagCtrl && held.mushroomBagCtrl.speciesName) ||
+    (held && held.wildMushroomCtrl && held.wildMushroomCtrl.speciesName) || '';
+  for (let i = 0; i < packsVal; i++) roadStandState.speciesList.push(spName);
   roadStandState.npcSpawnCooldown = Math.min(roadStandState.npcSpawnCooldown, 1.2);
   if (ctx && ctx.queueWorldStateChange) {
     ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
@@ -1080,7 +1129,10 @@ export function interactRoadsideStand(ctx) {
 
   if (held && held.deliveryCrateCtrl && held.deliveryCrateCtrl.packsCount > 0) {
     const count = held.deliveryCrateCtrl.packsCount;
+    const crateSpecies = Array.isArray(held.deliveryCrateCtrl.speciesList) ? held.deliveryCrateCtrl.speciesList.slice() : [];
     roadStandState.availablePacks += count;
+    for (let ci = 0; ci < count; ci++) roadStandState.speciesList.push(crateSpecies[ci] || '');
+    held.deliveryCrateCtrl.speciesList = [];
     roadStandState.npcSpawnCooldown = Math.min(roadStandState.npcSpawnCooldown, 1.2);
     held.deliveryCrateCtrl.packsCount = 0;
     updateDeliveryCrateVisual(held);
@@ -1261,20 +1313,26 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       playAudio('playCashRegister');
       if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
 
-      // Consome 1 pacote do balcão OU da estante da frente e paga 🪙 120 MycoCoins + XP!
+      // Consome 1 pacote do balcão OU da estante da frente e paga 🪙 120 MycoCoins (ou +50% em pedido VIP)!
       let soldOne = false;
+      let soldSpecies = '';
       if (roadStandState.availablePacks > 0) {
         roadStandState.availablePacks--;
+        soldSpecies = roadStandState.speciesList.length ? (roadStandState.speciesList.shift() || '') : '';
         soldOne = true;
       } else if (shelfItems.length > 0) {
         const entry = shelfItems[0];
         if (entry.kind === 'crate' && entry.item.deliveryCrateCtrl) {
           entry.item.deliveryCrateCtrl.packsCount = Math.max(0, entry.item.deliveryCrateCtrl.packsCount - 1);
+          const cs = entry.item.deliveryCrateCtrl.speciesList;
+          if (Array.isArray(cs) && cs.length) soldSpecies = cs.shift() || '';
           updateDeliveryCrateVisual(entry.item);
           if (ctx && ctx.markItemMoved) ctx.markItemMoved(entry.item);
           soldOne = true;
         } else {
           const soldIt = entry.item;
+          soldSpecies = (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.speciesName) ||
+            (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.speciesName) || '';
           if (soldIt && soldIt.id) {
             soldIt._removedForSync = true;
             if (ctx && ctx.pendingMovedItems) {
@@ -1298,9 +1356,12 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         }
       }
       if (soldOne) {
-        const earnedCoins = order.isVip ? Math.round(MYCOCOIN_PRICE_PER_PACK * 1.5) : MYCOCOIN_PRICE_PER_PACK;
+        const vipMatch = matchVipOrder(soldSpecies);
+        const isVipSale = !!(vipMatch || order.isVip);
+        const earnedCoins = isVipSale ? Math.round(MYCOCOIN_PRICE_PER_PACK * 1.5) : MYCOCOIN_PRICE_PER_PACK;
         roadStandState.totalSoldPacks++;
         roadStandState.totalCoinsEarned += earnedCoins;
+        if (vipMatch) rotateVipOrder(vipMatch.index);
         const newBalance = addLocalMycoCoins(earnedCoins);
         syncRoadStandVisual();
         if (ctx && ctx.queueWorldStateChange) {
@@ -1316,8 +1377,10 @@ export function stepRoadsideMushroomSales(ctx, dt) {
           if (actor.avatar.chatSprite) {
             updateTextSprite(
               actor.avatar.chatSprite,
-              order.isVip ? `⭐😍 VIP +🪙 ${earnedCoins}!` : `😍🍄 +🪙 ${earnedCoins}! Obrigado!`,
-              order.isVip ? '#fde047' : '#34d399'
+              vipMatch
+                ? `⭐😍 VIP ${vipMatch.species}! +🪙 ${earnedCoins}!`
+                : (isVipSale ? `⭐😍 VIP +🪙 ${earnedCoins}!` : `😍🍄 +🪙 ${earnedCoins}! Obrigado!`),
+              isVipSale ? '#fde047' : '#34d399'
             );
             actor.avatar.chatSprite.visible = true;
           }
@@ -1329,7 +1392,9 @@ export function stepRoadsideMushroomSales(ctx, dt) {
           ctx.callbacks.onLabStep('sell_pack');
         }
         if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-          const vipPrefix = order.isVip ? `⭐ PEDIDO VIP (+🪙 ${earnedCoins})! ` : '';
+          const vipPrefix = vipMatch
+            ? `⭐ VIP ATENDIDO (${vipMatch.species}: +🪙 ${earnedCoins}!) `
+            : (isVipSale ? `⭐ PEDIDO VIP (+🪙 ${earnedCoins})! ` : '');
           ctx.callbacks.onToast(`🚗💵 ${vipPrefix}${order.profile.name}: ${order.profile.quote} (Saldo: 🪙 ${newBalance} MycoCoins)`);
         }
       } else {

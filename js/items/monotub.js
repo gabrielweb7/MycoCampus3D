@@ -20,6 +20,7 @@ import { getSanitizationStatus } from './alcohol-spray.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 import { createMushroomMeshBySpeciesName, getMushroomVisualProfile } from '../world/mushroom-species.js';
+import { pickContamKind, getContamInfo } from './contaminations.js';
 
 const THREE = window.THREE;
 
@@ -132,6 +133,13 @@ function getSharedMonotubAssets() {
   return sharedMonotubAssets;
 }
 
+export function calculateHarvestYieldGrams(baseGrams = 10, generation = 1, hasCasing = false) {
+  let mult = 1.0;
+  if (Number(generation) >= 3) mult *= 1.35;
+  if (hasCasing) mult *= 1.25;
+  return Math.max(1, Math.round((Number(baseGrams) || 10) * mult));
+}
+
 export function getMonotubMeta() {
   return {
     category: 'fruiting_chamber',
@@ -177,6 +185,7 @@ export function getMonotubMeta() {
         onLedRack: !!mc.onLedRack,
         rackSlotId: typeof mc.rackSlotId === 'number' ? mc.rackSlotId : -1,
         contaminated: !!mc.contaminated,
+        contamKind: mc.contamKind ? String(mc.contamKind).slice(0, 32) : '',
         contamReason: mc.contamReason ? String(mc.contamReason).slice(0, 48) : '',
         spent: !!mc.spent,
         speciesName: mc.speciesName ? String(mc.speciesName).slice(0, 60) : ''
@@ -211,6 +220,7 @@ export function getMonotubMeta() {
       mc.onLedRack = !!custom.onLedRack;
       if (typeof custom.rackSlotId === 'number') mc.rackSlotId = custom.rackSlotId;
       mc.contaminated = !!custom.contaminated;
+      mc.contamKind = typeof custom.contamKind === 'string' && custom.contamKind ? custom.contamKind : null;
       mc.contamReason = typeof custom.contamReason === 'string' ? custom.contamReason : '';
       mc.spent = !!custom.spent;
       mc.speciesName = typeof custom.speciesName === 'string' ? custom.speciesName : '';
@@ -272,10 +282,15 @@ export function updateMonotubVisual(item) {
     const showMyc = (mc.colonization > 0 || mc.contaminated) && !mc.spent;
     mc.myceliumMesh.visible = showMyc;
     if (showMyc) {
+      if (mc.contaminated && !mc.contamKind) {
+        mc.contamKind = pickContamKind('monotub');
+      }
+      const cInfo = mc.contaminated ? getContamInfo(mc.contamKind) : null;
+      const isCobweb = !!(mc.contaminated && mc.contamKind === 'cobweb');
       const f = Math.max(0.08, Math.min(1, mc.colonization / 100));
-      mc.myceliumMesh.material.color.setHex(mc.contaminated ? 0x15803d : 0xf8fafc);
-      mc.myceliumMesh.material.opacity = mc.contaminated ? 0.88 : (0.35 + f * 0.63);
-      mc.myceliumMesh.scale.set(0.45 + 0.55 * f, 1, 0.45 + 0.55 * f);
+      mc.myceliumMesh.material.color.setHex(cInfo ? cInfo.hex : 0xf8fafc);
+      mc.myceliumMesh.material.opacity = mc.contaminated ? (isCobweb ? 0.62 : 0.88) : (0.35 + f * 0.63);
+      mc.myceliumMesh.scale.set(0.45 + 0.55 * f, isCobweb ? 2.6 : 1, 0.45 + 0.55 * f);
     }
   }
 
@@ -321,6 +336,17 @@ export function updateMonotubVisual(item) {
         ? (0.35 + (Math.max(0, Math.min(100, mc.growth)) / 100) * 0.58)
         : 1.0;
       mc.mushCanopyGroup.scale.set(1, s, 1);
+      const spLow = targetSp.toLowerCase();
+      if (spLow.includes('mycena') || spLow.includes('chlorophos') || spLow.includes('jack frost')) {
+        const isNight = typeof window !== 'undefined' && !!window.campusIsNight;
+        const glowTarget = spLow.includes('mycena') ? 0x22d3ee : 0x7dd3fc;
+        mc.mushCanopyGroup.traverse((child) => {
+          if (child && child.isMesh && child.material && child.material.emissive && !child.material.userData?.shared) {
+            child.material.emissive.setHex(glowTarget);
+            child.material.emissiveIntensity = isNight ? 1.1 : 0.45;
+          }
+        });
+      }
     }
   }
 
@@ -332,7 +358,12 @@ export function updateMonotubVisual(item) {
   const casingTag = mc.hasCasing ? ' • 🥥 Casing +40%' : '';
   const humTag = (mc.colonization >= 100 && !mc.spent && !mc.contaminated) ? ` • ${Math.round(mc.humidity || 90)}% UR` : '';
   if (mc.contaminated) {
-    item.label = `Caixa Monotub 24L (🦠 Contaminado por ${mc.contamReason || 'Trichoderma'}! Descarte)`;
+    if (!mc.contamKind) {
+      mc.contamKind = pickContamKind('monotub', /cobweb/i.test(mc.contamReason || '') ? 'cobweb' : '');
+    }
+    const cInfo = getContamInfo(mc.contamKind);
+    const cureHint = cInfo.curableWithH2O2 ? ' • Use H₂O₂ 3%!' : ' • Descarte!';
+    item.label = `Caixa Monotub 24L (🦠 ${cInfo.shortLabel}${cureHint})`;
   } else if (mc.spent) {
     item.label = `Caixa Monotub 24L (🍂 Bolo Seco Esgotado • 4/4 Flushs — Leve à Horta!)`;
   } else if (mc.fruitingStage === 3) {
@@ -378,12 +409,43 @@ export function resetMonotubToCleanEmpty(item) {
   mc.growth = 0;
   mc.flush = 1;
   mc.contaminated = false;
+  mc.contamKind = '';
   mc.contamReason = '';
   mc.spent = false;
   mc.speciesName = '';
   mc.boxSanitized = false;
   updateMonotubVisual(item);
   return true;
+}
+
+export function treatMonotubWithH2O2(ctx, item) {
+  if (!item || !item.monotubCtrl) return false;
+  const mc = item.monotubCtrl;
+  if (!mc.contaminated) {
+    if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast('✨ Este Monotub está saudável — não precisa de Água Oxigenada.');
+    }
+    return false;
+  }
+  const cInfo = getContamInfo(mc.contamKind);
+  if (typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.playFizz) {
+    window.MycoAudio.playFizz();
+  }
+  if (mc.contamKind === 'cobweb' || cInfo.curableWithH2O2) {
+    mc.contaminated = false;
+    mc.contamKind = '';
+    mc.contamReason = '';
+    updateMonotubVisual(item);
+    if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast('🫧 Água Oxigenada 3% dissolveu a teia de Cobweb! O bolo foi salvo!');
+    }
+    if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
+    return true;
+  }
+  if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast(`⚠️ H₂O₂ 3% não elimina ${cInfo.shortLabel} profundo — mantenha fechado e descarte no lixo!`);
+  }
+  return false;
 }
 
 export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
@@ -725,7 +787,10 @@ export function interactMonotub(ctx, tubItem) {
 
   // 1. Se o bolo está MADURO (fruitingStage === 3): colher o flush!
   if (!mc.spent && !mc.contaminated && mc.fruitingStage === 3) {
+    playAudio('playMushroomPop');
     if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
+    const yieldGrams = calculateHarvestYieldGrams(10, mc.generation, mc.hasCasing);
+    const cloneBonusTxt = (mc.generation || 1) >= 3 ? ` • 🌟 Clone T3 (+35% Biomassa: ${yieldGrams}g!)` : '';
     if (ctx.callbacks && ctx.callbacks.onHarvestGreenhouse) {
       ctx.callbacks.onHarvestGreenhouse({
         id: 'monotub_' + tubItem.id,
@@ -764,7 +829,7 @@ export function interactMonotub(ctx, tubItem) {
       mc.humidity = Math.max(62, (mc.humidity || 90) - 22);
       updateMonotubVisual(tubItem);
       if (onToast) {
-        onToast(`🍄 Flush ${doneFlush}/${MONOTUB_MAX_FLUSHES} colhido! Cogumelo fresco na mão (leve à Desidratadora ou tire Esporos). Borrife água no bolo (${Math.round(mc.humidity)}% UR) p/ o Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}!`);
+        onToast(`🍄 Flush ${doneFlush}/${MONOTUB_MAX_FLUSHES} colhido${cloneBonusTxt}! Cogumelo fresco na mão (leve à Desidratadora ou tire Esporos). Borrife água (${Math.round(mc.humidity)}% UR)!`);
       }
     }
     if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('monotub_harvest');

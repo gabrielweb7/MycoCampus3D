@@ -294,7 +294,9 @@ export function getReplicatedItemState(sim, item) {
       burned: !!spawn.burned,
       tempC: typeof spawn.tempC === 'number' ? Math.round(spawn.tempC * 10) / 10 : 24.5,
       refrigerated: !!spawn.refrigerated,
-      speciesName: spawn.speciesName || ''
+      speciesName: spawn.speciesName || '',
+      contamKind: spawn.contamKind || '',
+      generation: Math.max(0, Math.min(3, Math.round(Number(spawn.generation) || 0)))
     };
   }
   const petri = meshData.petriCtrl;
@@ -316,7 +318,8 @@ export function getReplicatedItemState(sim, item) {
       tempC: typeof petri.tempC === 'number' ? Math.round(petri.tempC * 10) / 10 : 24.5,
       refrigerated: !!petri.refrigerated,
       hybridMutant: petri.hybridMutant === 'gold' || petri.hybridMutant === 'albino' ? petri.hybridMutant : '',
-      generation: Math.max(1, Math.min(20, Math.round(Number(petri.generation) || 1)))
+      generation: Math.max(1, Math.min(20, Math.round(Number(petri.generation) || 1))),
+      contamKind: petri.contamKind || ''
     };
   }
   if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
@@ -335,7 +338,9 @@ export function getReplicatedItemState(sim, item) {
       expired: !!culture.expired,
       tempC: typeof culture.tempC === 'number' ? Math.round(culture.tempC * 10) / 10 : 24.5,
       refrigerated: !!culture.refrigerated,
-      speciesName: culture.speciesName || ''
+      speciesName: culture.speciesName || '',
+      contamKind: culture.contamKind || '',
+      generation: Math.max(0, Math.min(3, Math.round(Number(culture.generation) || 0)))
     };
   }
   if (item.pdaReagentCtrl) {
@@ -417,6 +422,9 @@ export function getReplicatedItemState(sim, item) {
       removed: !!item.wildMushroomCtrl.removed
     };
   }
+  if (typeof item.customTag === 'string' && item.customTag.trim()) {
+    state.customTag = item.customTag.trim().slice(0, 32);
+  }
   const sanRemSec = (item.sanitizedUntil || 0) > performance.now()
     ? Math.round(((item.sanitizedUntil - performance.now()) / 1000) / 5) * 5
     : 0;
@@ -460,6 +468,9 @@ export function getReplicatedItemState(sim, item) {
 
 export function applyReplicatedItemState(sim, item, state) {
   if (!item || !state || typeof state !== 'object') return;
+  if (typeof state.customTag === 'string') {
+    item.customTag = state.customTag.trim().slice(0, 32);
+  }
   const spawn = item.spawnCtrl || (item.mesh.userData && item.mesh.userData.spawnCtrl);
   if (spawn && state.spawn && typeof state.spawn === 'object') {
     const incoming = state.spawn;
@@ -471,6 +482,10 @@ export function applyReplicatedItemState(sim, item, state) {
       spawn.lastRenderedTempInt = Math.round(spawn.tempC);
     }
     if (typeof incoming.speciesName === 'string') spawn.speciesName = incoming.speciesName.slice(0, 80);
+    if (typeof incoming.contamKind === 'string') spawn.contamKind = incoming.contamKind.slice(0, 32) || null;
+    if (typeof incoming.generation === 'number' && Number.isFinite(incoming.generation)) {
+      spawn.generation = Math.max(0, Math.min(3, Math.round(incoming.generation)));
+    }
     ['fillGrams', 'waterMl', 'sterilizeProgress', 'colonization', 'ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
       if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
         const maxValue = key === 'colonization' || key === 'sterilizeProgress' ? 100 : 1000;
@@ -530,6 +545,7 @@ export function applyReplicatedItemState(sim, item, state) {
       petri.lastRenderedTempInt = Math.round(petri.tempC);
     }
     if (typeof incomingPetri.speciesName === 'string') petri.speciesName = incomingPetri.speciesName.slice(0, 80);
+    if (typeof incomingPetri.contamKind === 'string') petri.contamKind = incomingPetri.contamKind.slice(0, 32) || null;
     if (typeof incomingPetri.generation === 'number' && Number.isFinite(incomingPetri.generation)) {
       petri.generation = Math.max(1, Math.min(20, Math.round(incomingPetri.generation)));
     }
@@ -584,6 +600,10 @@ export function applyReplicatedItemState(sim, item, state) {
       culture.lastRenderedTempInt = Math.round(culture.tempC);
     }
     if (typeof state.culture.speciesName === 'string') culture.speciesName = state.culture.speciesName.slice(0, 80);
+    if (typeof state.culture.contamKind === 'string') culture.contamKind = state.culture.contamKind.slice(0, 32) || null;
+    if (typeof state.culture.generation === 'number' && Number.isFinite(state.culture.generation)) {
+      culture.generation = Math.max(0, Math.min(3, Math.round(state.culture.generation)));
+    }
     ['ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
       if (typeof state.culture[key] === 'number' && Number.isFinite(state.culture[key])) {
         culture[key] = Math.max(0, Math.min(1000, state.culture[key]));
@@ -752,11 +772,48 @@ export function applyReplicatedItemState(sim, item, state) {
   }
 }
 
-export function advanceOfflineItemState(item, ageSec) {
+export function advanceOfflineItemState(item, ageSec, sim) {
   const sec = Math.max(0, Math.min(7200, Number(ageSec) || 0));
   if (!item || sec < 2) return false;
   const meshData = item.mesh && item.mesh.userData;
   let progressed = false;
+
+  const cookerPots = sim && Array.isArray(sim.cookerPots) ? sim.cookerPots : [];
+  const cp = cookerPots.find((c) => c && c.potItem === item);
+  if (cp && !cp.burned && cp.waterMl > 5) {
+    if ((cp.grainGrams || 0) > 0 && !cp.grainAlDente && cp.temp >= 96 && !(cp.lidItem && cp.lidItem.isAttached)) {
+      cp.grainCookSec = (cp.grainCookSec || 0) + sec;
+      if (cp.grainCookSec >= 60) {
+        cp.grainAlDente = true;
+      }
+      updateCookerWaterVisual(cp);
+      progressed = true;
+    }
+    const isPressurized = !!(cp.lidItem && cp.lidItem.isAttached) &&
+      ((cp.mode === 'sterilize' && cp.psi >= 14.2) || (cp.mode === 'pasteurize' && cp.temp >= 74 && cp.temp <= 90));
+    if (isPressurized && cp.progress < 100) {
+      const potRate = cp.mode === 'pasteurize' ? (680 / 45) : (680 / 80);
+      cp.progress = Math.min(100, (Number(cp.progress) || 0) + sec * potRate);
+      if (cp.progress >= 100) {
+        cp.sterilized = true;
+      }
+      (cp.contents || []).forEach(function (cIt) {
+        if (!cIt) return;
+        if (cIt.spawnCtrl) {
+          cIt.spawnCtrl.sterilizeProgress = Math.min(100, Math.max(Number(cIt.spawnCtrl.sterilizeProgress) || 0, cp.progress));
+          if (cp.progress >= 100 && cp.mode !== 'pasteurize') cIt.spawnCtrl.sterilized = true;
+          if (cIt.spawnCtrl.updateVisual) cIt.spawnCtrl.updateVisual();
+        }
+        if (cIt.pdaMediumCtrl && cp.progress >= 100 && cp.mode === 'sterilize' && !cIt.pdaMediumCtrl.burned) {
+          cIt.pdaMediumCtrl.sterilized = true;
+          cIt.sterilized = true;
+          updatePdaMediumVisual(cIt);
+        }
+      });
+      updateCookerWaterVisual(cp);
+      progressed = true;
+    }
+  }
 
   const dc = item.dehydratorCtrl;
   if (dc && dc.on && dc.hasMushroom && !dc.crisp) {
@@ -880,7 +937,7 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
     if (!item) return;
     applyReplicatedItemState(sim, item, st);
     const ageSec = itemStateAges && typeof itemStateAges[itemId] === 'number' ? itemStateAges[itemId] : 0;
-    if (ageSec > 1 && advanceOfflineItemState(item, ageSec) && sim.markItemMoved) {
+    if (ageSec > 1 && advanceOfflineItemState(item, ageSec, sim) && sim.markItemMoved) {
       sim.markItemMoved(item);
     }
     sim.itemStateSignatures = sim.itemStateSignatures || {};

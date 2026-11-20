@@ -260,6 +260,7 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
     const kHum = 'greenhouse_slot_' + slot.id + '_humidity';
     const kEmpty = 'greenhouse_slot_' + slot.id + '_empty';
     const kSpecies = 'greenhouse_slot_' + slot.id + '_species';
+    const kContam = 'greenhouse_slot_' + slot.id + '_contam';
     let slotDirty = false;
     if (stateMap[kEmpty] !== undefined && sim.pendingStateChanges[kEmpty] === undefined && !(sim.recentlyChangedState[kEmpty] > now)) {
       const nextEmpty = Number(stateMap[kEmpty]) === 1;
@@ -267,10 +268,21 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
         slot.empty = nextEmpty;
         if (nextEmpty) {
           slot.stage = -1;
+          slot.contaminated = false;
+          slot.contamKind = null;
           slot.name = 'Espaço Livre #' + (slot.id + 1);
           slot.sci = 'Aguardando Spawn';
           slot.speciesName = '';
         }
+        slotDirty = true;
+      }
+    }
+    if (stateMap[kContam] !== undefined && sim.pendingStateChanges[kContam] === undefined && !(sim.recentlyChangedState[kContam] > now)) {
+      const cKind = String(stateMap[kContam] || '');
+      const nextContam = cKind.length > 0;
+      if (slot.contaminated !== nextContam || (nextContam && slot.contamKind !== cKind)) {
+        slot.contaminated = nextContam;
+        slot.contamKind = nextContam ? cKind : null;
         slotDirty = true;
       }
     }
@@ -302,6 +314,40 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
       }
     }
     if (slotDirty) updateGreenhouseSlotMesh(slot);
+  }
+
+  if (!sim._greenhouseOfflineApplied && typeof localStorage !== 'undefined') {
+    sim._greenhouseOfflineApplied = true;
+    try {
+      const rawTs = Number(localStorage.getItem('myco_gh_last_seen_v1') || 0);
+      const nowMs = Date.now();
+      if (rawTs > 0 && nowMs > rawTs + 5000) {
+        const elapsedSec = Math.min(7200, (nowMs - rawTs) / 1000);
+        const hum = greenhouseEnv.humidity >= 70 ? (greenhouseEnv.humidity / 100) : 0.72;
+        for (let gi = 0; gi < greenhouseSlots.length; gi++) {
+          const gSlot = greenhouseSlots[gi];
+          if (gSlot.empty || gSlot.spent || gSlot.contaminated || gSlot.stage < 0 || gSlot.stage >= 3) continue;
+          gSlot.growth = (Number(gSlot.growth) || 0) + elapsedSec * hum * 1.45;
+          let upgraded = false;
+          while (gSlot.growth >= 100 && gSlot.stage < 3) {
+            gSlot.growth -= 100;
+            gSlot.stage++;
+            upgraded = true;
+          }
+          if (gSlot.stage >= 3) gSlot.growth = 0;
+          if (upgraded) {
+            updateGreenhouseSlotMesh(gSlot);
+            if (sim.queueWorldStateChange) {
+              sim.queueWorldStateChange('greenhouse_slot_' + gSlot.id + '_stage', gSlot.stage);
+            }
+          }
+        }
+      }
+      localStorage.setItem('myco_gh_last_seen_v1', String(nowMs));
+    } catch (_err) {}
+  } else if (typeof localStorage !== 'undefined' && (!sim._lastGhTsSaveAt || now - sim._lastGhTsSaveAt > 12000)) {
+    sim._lastGhTsSaveAt = now;
+    try { localStorage.setItem('myco_gh_last_seen_v1', String(Date.now())); } catch (_err) {}
   }
   applySportBallStates(sim, stateMap);
   applyRoadStandWorldState(stateMap);

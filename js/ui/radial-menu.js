@@ -6,6 +6,7 @@
  */
 
 import { BURNER_LEVEL_NAMES, setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { getContamInfo } from '../items/contaminations.js';
 import { togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
@@ -299,7 +300,10 @@ export function showItemStatusCard(item, ctx) {
       if (sp.waterMl) chips.push({ icon: '💧', text: sp.waterMl + ' ml H₂O', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' });
       chips.push({ icon: sp.sterilized ? '✅' : '⚠️', text: sp.sterilized ? 'Esterilizado' : 'Não Esterilizado', color: sp.sterilized ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30' });
       if (sp.inoculated) chips.push({ icon: '🍄', text: 'Colonização ' + Math.round(sp.colonization || 0) + '%', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
-      if (sp.contaminated) chips.push({ icon: '🦠', text: 'CONTAMINADO', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+      if (sp.contaminated) {
+        const scInfo = getContamInfo(sp.contamKind || 'trichoderma');
+        chips.push({ icon: scInfo.emoji, text: scInfo.name, color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+      }
     } else {
       chips.push({ icon: '📦', text: 'Recipiente Vazio', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
       const emptySterilized = !!(sp.sterilized || item.sterilized);
@@ -408,7 +412,10 @@ export function showItemStatusCard(item, ctx) {
       chips.push({ icon: '🍄', text: `Colonização ${Math.round(mc.colonization || 0)}%`, color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' });
       chips.push({ icon: '📦', text: `Flush ${mc.flush || 1}/4`, color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' });
     }
-    if (mc.contaminated) chips.push({ icon: '🦠', text: 'Contaminada (Trichoderma)', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+    if (mc.contaminated) {
+      const mcInfo = getContamInfo(mc.contamKind || 'trichoderma');
+      chips.push({ icon: mcInfo.emoji, text: mcInfo.name + (mcInfo.curableWithH2O2 ? ' (Curável c/ H₂O₂)' : ''), color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+    }
     else if (mc.spent) chips.push({ icon: '🍂', text: 'Bolo Esgotado (Levar à Horta)', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
   }
 
@@ -441,7 +448,8 @@ export function showItemStatusCard(item, ctx) {
       chips.push({ icon: '⚪', text: 'Não Colonizada', color: 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
     }
     if (cc.contaminated) {
-      chips.push({ icon: '🦠', text: 'Contaminada', color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+      const ccInfo = getContamInfo(cc.contamKind || 'trichoderma');
+      chips.push({ icon: ccInfo.emoji, text: ccInfo.name, color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
     } else {
       chips.push({ icon: '💚', text: 'Saudável', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
     }
@@ -553,6 +561,10 @@ export function showItemStatusCard(item, ctx) {
     });
   }
 
+  if (item.customTag) {
+    chips.push({ icon: '🏷️', text: 'Etiqueta: ' + item.customTag, color: 'bg-teal-500/20 text-teal-200 border-teal-500/40' });
+  }
+
   const itemSpecies = (petri && petri.speciesName) || (cc && cc.speciesName) || (sp && sp.speciesName) || (syr && syr.speciesName) || (item.scalpelCtrl && item.scalpelCtrl.biopsySpecies) || '';
   if (itemSpecies) {
     chips.push({ icon: '🧬', text: 'Espécie: ' + itemSpecies, color: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' });
@@ -568,6 +580,30 @@ export function showItemStatusCard(item, ctx) {
   card.classList.remove('hidden');
   applySavedStatusCardPos(card);
   scheduleStatusCardDismiss(card);
+}
+
+function promptCustomItemTag(ctx, item) {
+  if (!item) return;
+  if (typeof document !== 'undefined' && document.pointerLockElement && typeof document.exitPointerLock === 'function') {
+    document.exitPointerLock();
+  }
+  const current = item.customTag || '';
+  const next = typeof window !== 'undefined' && typeof window.prompt === 'function'
+    ? window.prompt('🏷️ Digite uma etiqueta curta para este recipiente (máx 28 caracteres):', current)
+    : null;
+  if (next === null) return;
+  const cleaned = String(next).trim().slice(0, 28);
+  item.customTag = cleaned;
+  const base = String(item.label || '').replace(/\s*\[🏷️[^\]]+\]$/, '');
+  item.label = cleaned ? `${base} [🏷️ ${cleaned}]` : base;
+  if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
+  if (ctx && ctx.heldItem === item && ctx.callbacks && ctx.callbacks.onHoldChange) {
+    ctx.callbacks.onHoldChange(item.label);
+  }
+  if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
+  if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast(cleaned ? `🏷️ Etiqueta salva: "${cleaned}"` : '🏷️ Etiqueta removida.');
+  }
 }
 
 export function inspectItemToast(ctx, item) {
@@ -929,6 +965,14 @@ function buildContextActions(ctx) {
         icon: '🧪',
         label: `Ver Ampolas (${used}/50)`,
         run: () => openAmpouleCaseModal(ctx, target)
+      });
+    }
+    if (target.spawnCtrl || target.cultureCtrl || target.monotubCtrl || target.caseCtrl || (target.mesh && target.mesh.userData && target.mesh.userData.isPetri)) {
+      actions.push({
+        id: 'tag_' + target.id + '_' + (target.customTag || ''),
+        icon: '🏷️',
+        label: target.customTag ? 'Editar Etiqueta' : 'Etiqueta',
+        run: () => promptCustomItemTag(ctx, target)
       });
     }
     actions.push({

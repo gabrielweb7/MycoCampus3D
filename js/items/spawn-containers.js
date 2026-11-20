@@ -5,6 +5,7 @@
 import { makeBox } from '../engine/textures.js';
 import { bindPngTexture, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
+import { pickContamKind, getContamInfo } from './contaminations.js';
 import {
   createCultureLifecycleState,
   getCultureRemainingDays,
@@ -138,19 +139,24 @@ export function updateSpawnVisual(item) {
   }
   if (sc.sealBand) sc.sealBand.visible = !!sc.sealed;
   if (sc.mycOverlay) {
-    sc.mycOverlay.visible = sc.burned || sc.colonization > 0;
-    const f = sc.burned ? 1 : Math.min(1, sc.colonization / 100);
-    const fullMatOpacity = sc.burned ? 0.85 : (sc.contaminated ? 0.84 : (sc.colonization >= 90 ? 1.0 : (0.36 + f * 0.58)));
+    if (sc.contaminated && !sc.contamKind) {
+      sc.contamKind = pickContamKind(sc.isPP5 ? 'pp5' : 'spawn');
+    }
+    const contamHex = sc.contaminated ? getContamInfo(sc.contamKind).hex : 0x15803d;
+    sc.mycOverlay.visible = sc.burned || sc.contaminated || sc.colonization > 0;
+    const f = (sc.burned || (sc.contaminated && sc.colonization <= 0)) ? 0.65 : Math.min(1, Math.max(0.18, sc.colonization / 100));
+    const fullMatOpacity = sc.burned ? 0.85 : (sc.contaminated ? 0.86 : (sc.colonization >= 90 ? 1.0 : (0.36 + f * 0.58)));
     sc.mycOverlay.material.opacity = fullMatOpacity;
-    sc.mycOverlay.material.color.setHex(sc.burned ? 0x1c1917 : (sc.contaminated ? 0x15803d : 0xf8fafc));
+    sc.mycOverlay.material.color.setHex(sc.burned ? 0x1c1917 : (sc.contaminated ? contamHex : 0xf8fafc));
     const xzScale = sc.isPP5 ? (0.48 + 0.52 * f) : 1;
     sc.mycOverlay.scale.set(xzScale, Math.max(0.08, f), xzScale);
   }
+  const contamTag = (sc.contaminated && sc.contamKind) ? getContamInfo(sc.contamKind).shortLabel : 'Contaminado ⚠️';
   if (sc.substrateKind === 'pda') {
     if (sc.burned) {
       item.label = sc.baseLabel + ' (Queimado 🔥 Jogue fora)';
     } else if (sc.contaminated) {
-      item.label = sc.baseLabel + ' (Contaminado ⚠️)';
+      item.label = sc.baseLabel + ' (🦠 ' + contamTag + ')';
     } else if (sc.colonization >= 100) {
       item.label = sc.baseLabel + ' (100% Colonizado ✅)' + getSpawnCultureStatus(item);
     } else if (sc.inoculated) {
@@ -167,7 +173,7 @@ export function updateSpawnVisual(item) {
   if (sc.burned) {
     item.label = sc.baseLabel + ' (Queimado 🔥 Jogue fora)';
   } else if (sc.contaminated) {
-    item.label = sc.baseLabel + ' (Contaminado ⚠️)';
+    item.label = sc.baseLabel + ' (🦠 ' + contamTag + ')';
   } else if (sc.colonization >= 100) {
     item.label = sc.baseLabel + ' (100% Colonizado ✅)' + getSpawnCultureStatus(item);
   } else if (sc.inoculated) {

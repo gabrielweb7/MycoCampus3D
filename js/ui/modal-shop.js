@@ -27,6 +27,7 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_syringe', prefabId: 'syringe_10ml', name: 'Seringa Estéril 10ml', desc: 'Nova seringa extra para inoculação rápida.', price_coins: 40, icon: '💉' },
   { id: 'sup_petri', prefabId: 'petri_empty', name: 'Placa de Petri (PDA)', desc: 'Placa de cultivo para isolar genética.', price_coins: 45, icon: '🧫' },
   { id: 'sup_mylar', prefabId: 'mylar_bag', name: 'Saco Mylar Metalizado', desc: 'Saco para embalar 10g/25g e vender no Empório.', price_coins: 45, icon: '🛍️' },
+  { id: 'sup_h2o2', prefabId: 'h2o2_spray', name: 'Água Oxigenada 3% (H₂O₂)', desc: 'Borrife para curar mofo Cobweb (Teia) no Monotub e Bolos.', price_coins: 45, icon: '🫧' },
   { id: 'sup_flocao', prefabId: 'flocao_500g', name: 'Flocão de Milho 500g', desc: 'Substrato nutritivo para potes PP5 e misturas.', price_coins: 50, icon: '🌽' },
   { id: 'sup_spray', prefabId: 'alcohol_spray', name: 'Borrifador Álcool 70%', desc: 'Higienizador extra para suas bancadas.', price_coins: 60, icon: '🧴' },
   { id: 'sup_spawn_jar', prefabId: 'spawn_jar', name: 'Vidro 800ml (Spawn)', desc: 'Mais espaço para cultivar grãos inoculados.', price_coins: 70, icon: '🫙' },
@@ -55,6 +56,7 @@ window.toggleCampusSnowboard = function () {
   const next = !(window.isCampusSnowboardActive && window.isCampusSnowboardActive());
   if (next && window.setCampusParaglider) window.setCampusParaglider(false);
   if (window.setCampusSnowboard) window.setCampusSnowboard(next);
+  if (window.syncCampusUserProgress) window.syncCampusUserProgress({ equipped_toy: next ? 'snowboard' : '' });
   if (window.MycoAudio) window.MycoAudio.playClick();
   toast3D(next ? '🏂 Snowboard ativado! Olhe para baixo para ver nos seus pés!' : '🏂 Snowboard guardado!');
 };
@@ -68,6 +70,7 @@ window.toggleCampusParaglider = function () {
   const next = !(window.isCampusParagliderActive && window.isCampusParagliderActive());
   if (next && window.setCampusSnowboard) window.setCampusSnowboard(false);
   if (window.setCampusParaglider) window.setCampusParaglider(next);
+  if (window.syncCampusUserProgress) window.syncCampusUserProgress({ equipped_toy: next ? 'paraglider' : '' });
   if (window.MycoAudio) window.MycoAudio.playClick();
   toast3D(next ? '🪂 Paraglider ativado! Salte de uma montanha e entre nas correntes de ar!' : '🪂 Paraglider guardado!');
 };

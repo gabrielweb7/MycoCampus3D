@@ -718,6 +718,11 @@ export function stepPressureCookers(ctx, dt) {
         nearestSteamDist = sDist;
         bestSteamFactor = steamFactor;
       }
+      if (openBoiling && sDist < 12 && typeof window !== 'undefined' && window.MycoAudio &&
+          typeof window.MycoAudio.playBubble === 'function' && (!cp._nextBubbleAt || performance.now() > cp._nextBubbleAt)) {
+        cp._nextBubbleAt = performance.now() + 900 + Math.random() * 900;
+        window.MycoAudio.playBubble();
+      }
       stepSteamEmitter(cp.valveSteam, dt, pressureSteamFactor);
       stepSteamEmitter(cp.openPotSteam, dt, openSteamFactor);
       if (pressureSteamFactor > 0.02) {

@@ -3,6 +3,7 @@
  */
 
 import { isAsepticWorkArea, getAsepticWorkAreaReason } from './laminar-hood.js';
+import { pickContamKind, getContamInfo } from './contaminations.js';
 import {
   CULTURE_GAME_DAY_SECONDS,
   CULTURE_REFRIGERATED_SHELF_LIFE_DAYS,
@@ -185,12 +186,55 @@ function drawAgarTexture(pctx, ctrl) {
       }
     }
   } else if (mode === 'contam') {
-    pctx.fillStyle = '#4a3f28';
-    pctx.beginPath(); pctx.arc(88, 132, 62, 0, Math.PI * 2); pctx.fill();
-    pctx.fillStyle = '#1c1917';
-    pctx.beginPath(); pctx.arc(86, 134, 24, 0, Math.PI * 2); pctx.fill();
-    pctx.fillStyle = '#e7dcc8';
-    pctx.beginPath(); pctx.arc(174, 118, 44, 0, Math.PI * 2); pctx.fill();
+    if (!ctrl.contamKind) ctrl.contamKind = pickContamKind('petri');
+    const cInfo = getContamInfo(ctrl.contamKind);
+    if (ctrl.contamKind === 'penicillium') {
+      pctx.fillStyle = '#0f766e';
+      pctx.beginPath(); pctx.arc(96, 128, 52, 0, Math.PI * 2); pctx.fill();
+      pctx.strokeStyle = '#99f6e4';
+      pctx.lineWidth = 4;
+      pctx.beginPath(); pctx.arc(96, 128, 36, 0, Math.PI * 2); pctx.stroke();
+      pctx.beginPath(); pctx.arc(166, 114, 28, 0, Math.PI * 2); pctx.stroke();
+    } else if (ctrl.contamKind === 'aspergillus') {
+      pctx.fillStyle = '#334155';
+      pctx.beginPath(); pctx.arc(108, 134, 54, 0, Math.PI * 2); pctx.fill();
+      pctx.fillStyle = '#0f172a';
+      for (let d = 0; d < 18; d++) {
+        pctx.beginPath();
+        pctx.arc(72 + (d * 23) % 105, 86 + (d * 31) % 85, 6 + (d % 4), 0, Math.PI * 2);
+        pctx.fill();
+      }
+    } else if (ctrl.contamKind === 'wet_spot') {
+      pctx.fillStyle = 'rgba(234, 179, 8, 0.72)';
+      pctx.beginPath(); pctx.arc(118, 128, 66, 0, Math.PI * 2); pctx.fill();
+      pctx.fillStyle = '#fef08a';
+      pctx.beginPath(); pctx.arc(146, 112, 24, 0, Math.PI * 2); pctx.fill();
+    } else if (ctrl.contamKind === 'lipstick') {
+      pctx.fillStyle = '#e11d48';
+      pctx.beginPath(); pctx.arc(96, 124, 48, 0, Math.PI * 2); pctx.fill();
+      pctx.fillStyle = '#fda4af';
+      pctx.beginPath(); pctx.arc(162, 138, 34, 0, Math.PI * 2); pctx.fill();
+    } else if (ctrl.contamKind === 'cobweb') {
+      pctx.fillStyle = 'rgba(203, 213, 225, 0.55)';
+      pctx.beginPath(); pctx.arc(128, 128, 92, 0, Math.PI * 2); pctx.fill();
+      pctx.strokeStyle = 'rgba(100, 116, 139, 0.65)';
+      pctx.lineWidth = 1.6;
+      for (let w = 0; w < 20; w++) {
+        const wa = (w / 20) * Math.PI * 2;
+        pctx.beginPath();
+        pctx.moveTo(128, 128);
+        pctx.lineTo(128 + Math.cos(wa) * 98, 128 + Math.sin(wa) * 98);
+        pctx.stroke();
+      }
+    } else {
+      // Trichoderma (Duende Verde)
+      pctx.fillStyle = '#f8fafc';
+      pctx.beginPath(); pctx.arc(100, 130, 62, 0, Math.PI * 2); pctx.fill();
+      pctx.fillStyle = cInfo.badgeHex || '#16a34a';
+      pctx.beginPath(); pctx.arc(96, 130, 44, 0, Math.PI * 2); pctx.fill();
+      pctx.fillStyle = '#4ade80';
+      pctx.beginPath(); pctx.arc(168, 118, 30, 0, Math.PI * 2); pctx.fill();
+    }
   }
 }
 
@@ -510,7 +554,9 @@ export function updatePetriVisual(item) {
   } else if (ctrl.mode === 'colonizing') {
     item.label = 'Placa de Petri' + spSuffix + genSuffix + (ctrl.inoculationMethod === 'spores' ? ' (Esporos germinando • ' : ' (Micélio crescendo • ') + Math.floor(ctrl.colonization) + '%)';
   } else if (ctrl.mode === 'contam') {
-    item.label = ctrl.expired ? 'Placa de Petri (Cultura vencida)' : 'Placa Contaminada (Mofo/Bactéria)';
+    if (!ctrl.contamKind && !ctrl.expired) ctrl.contamKind = pickContamKind('petri');
+    const cName = ctrl.contamKind ? getContamInfo(ctrl.contamKind).shortLabel : 'Mofo/Bactéria';
+    item.label = ctrl.expired ? 'Placa de Petri (Cultura vencida)' : `Placa Contaminada (${cName})`;
   } else if (ctrl.mode === 'bare') {
     item.label = 'Placa de Petri Vazia';
   } else if (ctrl.mode === 'filled') {

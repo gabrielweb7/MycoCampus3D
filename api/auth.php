@@ -101,6 +101,7 @@ const MC_SHOP_SUPPLIES = [
     'sup_syringe' => ['price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_petri' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_mylar' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_h2o2' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_flocao' => ['price_coins' => 50, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_spray' => ['price_coins' => 60, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_spawn_jar' => ['price_coins' => 70, 'req_xp' => 0, 'req_mushrooms' => 0],
@@ -154,11 +155,17 @@ function mc_clean_progress($raw): array {
             }
         }
     }
+    $equippedToy = '';
+    if (isset($raw['equipped_toy']) && is_string($raw['equipped_toy']) &&
+        in_array($raw['equipped_toy'], ['', 'snowboard', 'paraglider'], true)) {
+        $equippedToy = $raw['equipped_toy'];
+    }
     return [
         'discovered_species' => $species,
         'micoteca_milestones' => $milestones,
         'lab_quest_steps' => $questSteps,
         'lab_tutorial_done' => !empty($raw['lab_tutorial_done']),
+        'equipped_toy' => $equippedToy,
     ];
 }
 
@@ -600,11 +607,15 @@ if ($action === 'sync_progress') {
         $st->execute([(int)$user['id']]);
         $cur = mc_clean_progress($st->fetchColumn() ?: null);
 
+        $nextToy = array_key_exists('equipped_toy', is_array($body['progress'] ?? null) ? $body['progress'] : ($body ?: []))
+            ? $inc['equipped_toy']
+            : ($cur['equipped_toy'] ?? '');
         $merged = [
             'discovered_species' => array_slice(array_values(array_unique(array_merge($cur['discovered_species'], $inc['discovered_species']))), 0, 120),
             'micoteca_milestones' => array_values(array_unique(array_merge($cur['micoteca_milestones'], $inc['micoteca_milestones']))),
             'lab_quest_steps' => array_values(array_unique(array_merge($cur['lab_quest_steps'], $inc['lab_quest_steps']))),
             'lab_tutorial_done' => ($cur['lab_tutorial_done'] || $inc['lab_tutorial_done']),
+            'equipped_toy' => $nextToy,
         ];
         sort($merged['micoteca_milestones']);
 

@@ -200,6 +200,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredPotInsert = null;
   ctx.hoveredSnapPot = null;
   ctx.hoveredSprayTarget = null;
+  ctx.hoveredH2O2Target = null;
   ctx.hoveredWipeTarget = null;
   ctx.hoveredTrash = false;
   ctx.hoveredSink = null;
@@ -464,13 +465,21 @@ export function updateHoverRay(ctx, customNdc) {
   let bestBlocked = null, bestBlockedDist = Infinity, bestBlockedHit = null;
 
   if (!prompt && !ctx.heldItem) {
+    const ray = ctx.raycaster && ctx.raycaster.ray;
+    const ro = ray && ray.origin;
+    const rd = ray && ray.direction;
     for (let i = 0; i < ctx.pickableItems.length; i++) {
       let item = ctx.pickableItems[i];
       if (item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem) ||
         !isCultureAccessibleFromFridge(ctx, item) || isItemInClosedCabinet(ctx, item)) continue;
       if (ctx.isHeldByRemote(item.id)) continue;
       const idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
-      if (idx * idx + idz * idz > maxPickSq) continue;
+      const dSq = idx * idx + idz * idz;
+      if (dSq > maxPickSq) continue;
+      if (ro && rd && dSq > 2.25) {
+        const dot = (item.mesh.position.x - ro.x) * rd.x + (item.mesh.position.z - ro.z) * rd.z;
+        if (dot < -0.6) continue;
+      }
       const hit0 = intersectPickableItem(ctx.raycaster, item);
       if (hit0 && hit0.distance < 4.5) {
         if (isRayOccludedByStructure(ctx, hit0.distance, {
@@ -646,7 +655,8 @@ export function updateHoverRay(ctx, customNdc) {
         if (hSlot) {
           ctx.hoverHit = ghHit;
           ctx.hoveredGreenhouseSlot = hSlot;
-          const isHoldingSpray = ctx.heldItem && (ctx.heldItem.id.indexOf('alcohol_spray') !== -1 || ctx.heldItem.id.indexOf('spray') !== -1);
+          const isHoldingH2O2 = ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.isH2O2Spray;
+          const isHoldingSpray = ctx.heldItem && !isHoldingH2O2 && (ctx.heldItem.id.indexOf('alcohol_spray') !== -1 || ctx.heldItem.id.indexOf('spray') !== -1);
           const hasColonizedSpawn = isHoldingColonizedSpawn(ctx.heldItem);
           const loc = `${hSlot.rackName} • A${hSlot.tier}`;
           const hPct = typeof hSlot.health === 'number' ? Math.round(hSlot.health) : 100;

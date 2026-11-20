@@ -17,7 +17,7 @@ import { createPdaBottleGroup, PDA_BOTTLE_META } from '../items/pda-bottle.js';
 import { attachPdaMediumCtrl, attachPdaReagentCtrl, makePdaMediaBottle1L } from '../items/pda-mix.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
 import { createPrecisionScale } from '../items/precision-scale.js';
-import { makeAlcoholSprayBottle } from '../items/alcohol-spray.js';
+import { makeAlcoholSprayBottle, makeH2O2SprayBottle } from '../items/alcohol-spray.js';
 import { makePaperTowelRoll } from '../items/paper-towel.js';
 import { buildLabTrashBin } from '../items/lab-trash.js';
 import { createHeatSealer } from '../items/heat-sealer.js';
@@ -120,6 +120,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   makeAlcoholSprayBottle(ctx, 'alcohol_spray', -22.85, 1.02, -7.1);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_03', -17.20, 1.02, -12.00);
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_lab_04', -20.20, 0.91, -10.18);
+  makeH2O2SprayBottle(ctx, 'h2o2_spray_lab', -22.85, 1.02, -6.42);
   makePaperTowelRoll(ctx, 'paper_towel_01', -22.85, 1.02, -7.45);
   makePaperTowelRoll(ctx, 'paper_towel_lab_03', -16.85, 1.02, -12.00);
   makePaperTowelRoll(ctx, 'paper_towel_lab_04', -19.85, 0.91, -10.18);

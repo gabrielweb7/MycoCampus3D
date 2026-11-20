@@ -133,6 +133,9 @@ function findPickableHit(ctx, maxDist, filterFn, intersectPickableItem, opts) {
   const nearest = opts && opts.nearest;
   const requireFridgeAccess = opts && opts.requireFridgeAccess;
   const ref = getRefXZ(ctx);
+  const ray = ctx.raycaster && ctx.raycaster.ray;
+  const ro = ray && ray.origin;
+  const rd = ray && ray.direction;
   let bestSmallDist = maxDist;
   let bestSmall = null;
   let bestBigDist = maxDist;
@@ -146,6 +149,10 @@ function findPickableHit(ctx, maxDist, filterFn, intersectPickableItem, opts) {
     const dx = cand.mesh.position.x - ref.x;
     const dz = cand.mesh.position.z - ref.z;
     if (dx * dx + dz * dz > 100) continue;
+    if (ro && rd && (dx * dx + dz * dz) > 2.25) {
+      const dot = (cand.mesh.position.x - ro.x) * rd.x + (cand.mesh.position.z - ro.z) * rd.z;
+      if (dot < -0.6) continue;
+    }
     const hit = intersectPickableItem(ctx.raycaster, cand);
     if (!hit || hit.distance >= maxDist) continue;
     if (isRayOccludedByStructure(ctx, hit.distance, {
@@ -195,6 +202,58 @@ function handleChalkboardHover(ctx, setHoverPrompt) {
   setHoverPrompt(ctx, toolCol === 'erase'
     ? (touchUi ? '🧽 Arraste na lousa para apagar' : '🧽 Segure o clique para apagar a lousa')
     : (touchUi ? '✏️ Arraste na lousa para escrever' : '✏️ Segure o clique para escrever na lousa'));
+  return true;
+}
+
+function handleH2O2SprayHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (!ctx.heldItem.mesh.userData.isH2O2Spray || ctx.placementMode) return false;
+  let bestTarget = null;
+  let bestLabel = '';
+  let bestDist = 4.2;
+  let bestPoint = null;
+  let bestHitObj = null;
+
+  const pickHit = findPickableHit(
+    ctx,
+    bestDist,
+    (cand) => !!(cand.monotubCtrl || cand.spawnCtrl || cand.cultureCtrl),
+    intersectPickableItem,
+    { nearest: true }
+  );
+  if (pickHit) {
+    bestDist = pickHit.hit.distance;
+    bestTarget = pickHit.item;
+    bestLabel = pickHit.item.label;
+    bestPoint = pickHit.hit.point;
+    bestHitObj = pickHit.hit;
+  }
+  if (greenhouseHitMeshes.length > 0) {
+    const ghHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(greenhouseHitMeshes, true), bestDist, { checkWalls: true });
+    if (ghHit && ghHit.object.userData.greenhouseSlot) {
+      const hSlot = ghHit.object.userData.greenhouseSlot;
+      bestDist = ghHit.distance;
+      bestTarget = hSlot;
+      bestLabel = hSlot.name;
+      bestPoint = ghHit.point;
+      bestHitObj = ghHit;
+      ctx.hoveredGreenhouseSlot = hSlot;
+    }
+  }
+  hidePlacementGhost(ctx);
+  ctx.hoverHit = bestHitObj;
+  ctx.hoveredH2O2Target = bestTarget ? { target: bestTarget, label: bestLabel, hitPoint: bestPoint } : null;
+  let prompt = '🫧 H₂O₂ 3% (Água Oxigenada) • Aponte em Monotub, Spawn ou Bolo da Estufa c/ Cobweb';
+  if (bestTarget) {
+    const isCobweb = !!(
+      (bestTarget.monotubCtrl && bestTarget.monotubCtrl.contaminated && bestTarget.monotubCtrl.contamKind === 'cobweb') ||
+      (bestTarget.spawnCtrl && bestTarget.spawnCtrl.contaminated && bestTarget.spawnCtrl.contamKind === 'cobweb') ||
+      (bestTarget.contaminated && bestTarget.contamKind === 'cobweb')
+    );
+    prompt = isCobweb
+      ? `🫧 Clique para dissolver Cobweb (Teia) com H₂O₂ 3% em ${bestLabel}`
+      : `🫧 Borrifar H₂O₂ 3% preventivo em ${bestLabel}`;
+  }
+  setHoverPrompt(ctx, prompt);
   return true;
 }
 
@@ -1165,6 +1224,7 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
   }
 
   if (handleChalkboardHover(ctx, setHoverPrompt)) return true;
+  if (handleH2O2SprayHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleParafilmHover(ctx, intersectPickableItem, setHoverPrompt)) return true;

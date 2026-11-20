@@ -9,6 +9,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.2.0': {
+    title: '✨ Novidades da Atualização v2.2.0',
+    subtitle: '6 Patógenos Reais + H₂O₂ 3%, Microscópio 2.0, Pedidos VIP, Etiquetas, Clones T3 & Otimização:',
+    items: [
+      { icon: '🦠', text: '6 Contaminações Reais + Água Oxigenada 3% (H₂O₂): Trichoderma, Cobweb (Teia), Mancha Úmida, Penicillium, Aspergillus e Mofo Batom com visuais próprios; borrife H₂O₂ 3% (Loja: 45 Coins ou na bancada) para dissolver Cobweb com efervescência!' },
+      { icon: '🔬', text: 'Microscópio Óptico 2.0 (40x–1000x): torreta de lentes interativa, corantes (Natural, Azul Lactofenol e Vermelho Congo), ajuste de foco e diagnóstico específico para cada fungo e conexões de grampo!' },
+      { icon: '⭐', text: 'Pedidos VIP no Drive-Thru, Etiquetas 🏷️ & Genética F1/T3: placa da Estrada exibe 2 espécies VIP (+50% bônus MycoCoins), coloque etiquetas personalizadas nos recipientes, clones T3 rendem +35% biomassa e espécies bioluminescentes brilham à noite!' },
+      { icon: '⚡', text: 'Otimização de FPS & Persistência Offline: shadowMap sob demanda no Desktop, pré-filtro direcional no raycaster, progressão offline na Autoclave/Estufa e sincronização automática do brinquedo equipado (Snowboard/Paraglider) e envio ao fechar a aba!' }
+    ]
+  },
   '2.1.1': {
     title: '✨ Novidades da Atualização v2.1.1',
     subtitle: 'Persistência Completa de Progresso na Conta (MycoCoins, Micoteca, Missões & Loja):',

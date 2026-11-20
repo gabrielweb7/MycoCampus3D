@@ -9,7 +9,7 @@ import { disposeObjectResources, registerPickable, updateItemBounds } from '../i
 import { markItemsFalling } from '../entities/placement-ghost.js';
 import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { makeLabTray } from '../items/lab-tray.js';
-import { makeAlcoholSprayBottle } from '../items/alcohol-spray.js';
+import { makeAlcoholSprayBottle, makeH2O2SprayBottle } from '../items/alcohol-spray.js';
 import { getPetriMeta, makePetriDish } from '../items/petri-dish.js';
 import { makeBeaker1L, makeLiquidJar800 } from '../items/liquid-culture.js';
 import { makePP5Cup145ml } from '../items/pp5-cup.js';
@@ -179,6 +179,12 @@ export function ensureCoreAdminPrefabs() {
     label: 'Ampola 3ML',
     category: 'glassware',
     factory: (ctx, opts) => makeVial3ml(ctx, opts.id || ('dyn_vial3ml_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
+  });
+
+  registerItemPrefab('h2o2_spray', {
+    label: 'Borrifador Água Oxigenada 3% (H₂O₂)',
+    category: 'sanitization',
+    factory: (ctx, opts) => makeH2O2SprayBottle(ctx, opts.id || ('dyn_h2o2_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
   });
 }
 

@@ -2,6 +2,21 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.2.0] - 2026-11-20
+### 6 Patógenos Reais + H₂O₂ 3%, Microscópio 2.0, Drive-Thru VIP, Etiquetas, Genética Viva & Otimização FPS
+- **6 Contaminações Reais & Tratamento H₂O₂ 3% (`js/items/contaminations.js`, `js/items/alcohol-spray.js`, `js/items/petri-dish.js`, `js/items/spawn-containers.js`, `js/items/liquid-culture.js`, `js/items/monotub.js`, `js/world/greenhouse.js`, `js/ui/modal-shop.js`, `api/auth.php`):**
+  - Novo catálogo completo com 6 patógenos distintos (`trichoderma`, `cobweb`, `wet_spot`, `penicillium`, `aspergillus`, `lipstick`), textura própria no Ágar BDA, tonalidade por recipiente, persistência de `contamKind` no backend (`api/multiplayer_schema.php`) e diagnóstico detalhado nos cards de inspeção.
+  - Novo **Borrifador Água Oxigenada 3% (H₂O₂)** no laboratório (`h2o2_spray_lab`) e na Loja (`sup_h2o2`, 45 MycoCoins) com efervescência (`playFizz`) para dissolver mofo *Cobweb* (Teia) em `Monotub`, `Estufa` e `Spawn`.
+- **Microscópio Óptico 2.0 (`js/items/lab-advanced-tools.js`):**
+  - Seletor de ampliação (`40x`, `100x`, `400x`, `1000x`), corantes laboratoriais (`Natural`, `Azul Lactofenol`, `Vermelho Congo`), controle de foco com blur dinâmico e lâmina interativa para identificar hifas, grampos de conexão e cada patógeno.
+- **Genética Viva, Drive-Thru VIP, Etiquetas & SFX (`js/items/dehydration-packaging.js`, `js/items/monotub.js`, `js/ui/radial-menu.js`, `js/services/audio-engine.js`, `js/items/ampoule-case.js`, `js/items/pressure-cooker.js`):**
+  - 2 pedidos VIP rotativos por espécie na placa do Quiosque Drive-Thru pagando +50% bônus de MycoCoins.
+  - Etiqueta editável (`🏷️ Etiqueta` / `customTag`) nos recipientes sincronizada com o servidor.
+  - Brilho noturno bioluminescente em *Mycena chlorophos* e *Jack Frost*, bônus de +35% de biomassa na colheita para clones F1/T3 (`calculateHarvestYieldGrams`) e novos efeitos sonoros (`playMushroomPop`, `playGlassClink`, `playFizz`, `playBubble`).
+- **Otimização de FPS & Persistência Offline/Sessão (`js/core/quality.js`, `js/systems/hover-raycaster.js`, `js/systems/hover-held-handlers.js`, `js/systems/world-objects-sync.js`, `js/systems/world-devices-sync.js`, `js/services/multiplayer-sync.js`, `js/ui/hud-lobby.js`, `api/auth.php`):**
+  - `renderer.shadowMap.autoUpdate = false` com atualização controlada via `shadowEvery` no desktop e pré-filtro direcional (dot-product) no raycasting de itens.
+  - Progresso offline para panelas de pressão ativas e bolos da estufa, flush imediato de objetos movidos via `sendBeacon` ao fechar a aba e persistência de `equipped_toy` (`snowboard` / `paraglider`) na conta do usuário.
+
 ## [v2.1.1] - 2026-11-20
 ### Persistência Completa de Progresso do Jogador (MycoCoins, Micoteca, Missão & Loja)
 - **MycoCoins Persistentes em Sessões Retomadas (`js/ui/app-boot.js`, `js/ui/hud-lobby.js`, `js/items/dehydration-packaging.js`):**

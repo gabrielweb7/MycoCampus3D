@@ -161,7 +161,19 @@ export async function syncMultiplayer() {
 }
 
 export function sendLeaveBeacon() {
-  if (appState.currentUser && navigator.sendBeacon) {
+  if (appState.currentUser && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+    const moved = window.consumeCampusMovedItems ? window.consumeCampusMovedItems() : [];
+    const stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
+    if ((moved && moved.length) || (stateChanges && Object.keys(stateChanges).length)) {
+      const syncPayload = {
+        session_id: appState.sessionId,
+        user_id: appState.currentUser.id,
+        moved_items: moved,
+        state_changes: stateChanges
+      };
+      if (appState.authToken) syncPayload.token = appState.authToken;
+      navigator.sendBeacon('api/multiplayer.php?action=sync', JSON.stringify(syncPayload));
+    }
     const body = { session_id: appState.sessionId, user_id: appState.currentUser.id };
     if (appState.authToken) body.token = appState.authToken;
     navigator.sendBeacon('api/multiplayer.php?action=leave', JSON.stringify(body));

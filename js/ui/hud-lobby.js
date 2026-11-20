@@ -90,6 +90,11 @@ export function enterCampus(user, token) {
   if (user && user.progress && user.progress.lab_tutorial_done) {
     try { localStorage.setItem('myco_lab_tutorial_done', '1'); } catch (e) {}
   }
+  const savedToy = (user && user.progress && user.progress.equipped_toy) || '';
+  if (typeof window !== 'undefined') {
+    if (window.setCampusSnowboard) window.setCampusSnowboard(savedToy === 'snowboard');
+    if (window.setCampusParaglider) window.setCampusParaglider(savedToy === 'paraglider');
+  }
   if (token) appState.authToken = token;
   if (user && typeof user.myco_coins === 'number' && Number.isFinite(user.myco_coins)) {
     setLocalMycoCoins(user.myco_coins);

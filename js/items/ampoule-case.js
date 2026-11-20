@@ -352,6 +352,9 @@ export function takeVialFromAmpouleCase(ctx, caseItem, slotIndex) {
     ctx.heldItem = vial;
     ctx.lastPickupAt = performance.now();
     ctx.heldRotY = 0;
+    if (typeof window !== 'undefined' && window.MycoAudio && typeof window.MycoAudio.playGlassClink === 'function') {
+      window.MycoAudio.playGlassClink();
+    }
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(vial.label);
     if (ctx.callbacks && ctx.callbacks.onToast) {
       ctx.callbacks.onToast(`🧪 Pegou Ampola 3ML: ${entry.speciesName}! Use a Seringa 10ml para inocular grãos/PDA!`);
@@ -412,6 +415,9 @@ export function storeVialInAmpouleCase(ctx, caseItem, vialItem, targetSlotIndex 
       if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
     }
     if (ctx.markItemMoved) ctx.markItemMoved(caseItem);
+    if (typeof window !== 'undefined' && window.MycoAudio && typeof window.MycoAudio.playGlassClink === 'function') {
+      window.MycoAudio.playGlassClink();
+    }
     if (ctx.callbacks && ctx.callbacks.onToast) {
       ctx.callbacks.onToast(`💼 Ampola guardada na vaga #${slotIdx + 1} (${cc.slots[slotIdx].speciesName})!`);
     }

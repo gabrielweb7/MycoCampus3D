@@ -51,6 +51,45 @@ export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
   return registerPickable(ctx, id, 'Borrifador Álcool 70%', ag, px, py, pz, Math.PI / 2, 0.12, 0.26, ALCOHOL_SPRAY_META);
 }
 
+export const H2O2_SPRAY_META = {
+  category: 'sanitization',
+  purpose: 'Água Oxigenada 3% (Peróxido) — dissolve e cura mofo Cobweb (Teia de Aranha) em bolos/monotubs',
+  weightGrams: 340,
+  baseTempC: 20.5,
+  compatibilities: {
+    canEnterCooker: false,
+    treatsCobwebMold: true
+  },
+  connections: ['monotub', 'greenhouse_slot', 'spawn_jar']
+};
+
+export function makeH2O2SprayBottle(ctx, id, px, py, pz) {
+  const ag = new THREE.Group();
+  const bottle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.052, 0.058, 0.17, 16),
+    new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.35 })
+  );
+  bottle.position.y = 0.085;
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.054, 0.055, 0.065, 16),
+    new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.4 })
+  );
+  band.position.y = 0.095;
+  const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.020, 0.032, 0.045, 12),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 })
+  );
+  neck.position.y = 0.19;
+  const nozzle = makeBox(0.026, 0.026, 0.072, 0xffffff, { noShadow: true });
+  nozzle.position.set(0, 0.218, 0.022);
+  const trig = makeBox(0.011, 0.040, 0.016, 0x0284c7, { noShadow: true });
+  trig.position.set(0, 0.198, 0.038);
+  ag.add(bottle, band, neck, nozzle, trig);
+  ag.userData.isH2O2Spray = true;
+  ag.userData.sprayTrig = trig;
+  return registerPickable(ctx, id, '🫧 Borrifador Água Oxigenada 3% (H₂O₂)', ag, px, py, pz, Math.PI / 2, 0.12, 0.25, H2O2_SPRAY_META);
+}
+
 /**
  * Retorna o status atual de higienizacao (0..3 borrifadas e tempo restante).
  */
@@ -196,6 +235,24 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
   if (ctx.callbacks && ctx.callbacks.onToast && (!st.alcoholWet || extraWet > 0)) {
     const extraTxt = extraWet > 0 ? ` (+${extraWet} ao redor)` : '';
     ctx.callbacks.onToast(`🧻 Álcool 70% aplicado em ${label}${extraTxt}! Agora seque com Papel Toalha.`);
+  }
+}
+
+export function fireH2O2Spray(ctx, sprayInfo) {
+  if (typeof window !== 'undefined' && window.MycoAudio) {
+    if (typeof window.MycoAudio.playFizz === 'function') window.MycoAudio.playFizz();
+    else window.MycoAudio.playSpray();
+  }
+  if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_spray');
+  if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData) {
+    ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
+  }
+  const spOrigin = new THREE.Vector3(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
+  const spDir = new THREE.Vector3(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
+  spawnSprayParticles(ctx, 0xf8fafc, 28, spOrigin, spDir, 0.9, 2.4, 0.035, 0.5);
+  if (sprayInfo && sprayInfo.hitPoint) {
+    const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);
+    spawnSprayParticles(ctx, 0xffffff, 24, bp, new THREE.Vector3(0, 1, 0), 1.4, 0.55, 0.045, 0.65);
   }
 }
 

@@ -472,10 +472,13 @@ export function startAnimationLoop(ctx) {
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);
       stepConfetti(dt);
-      if (typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.stepAmbience && ctx.playerPos) {
+      if (typeof window !== 'undefined' && ctx.playerPos) {
         const sunYNow = Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2);
-        const insideWing = Math.abs(ctx.playerPos.x) > 13 && Math.abs(ctx.playerPos.x) < 25 && Math.abs(ctx.playerPos.z) < 16;
-        window.MycoAudio.stepAmbience(sunYNow, !insideWing, sunYNow < -0.05, dt, ctx.weatherMode);
+        window.campusIsNight = sunYNow < -0.05;
+        if (window.MycoAudio && window.MycoAudio.stepAmbience) {
+          const insideWing = Math.abs(ctx.playerPos.x) > 13 && Math.abs(ctx.playerPos.x) < 25 && Math.abs(ctx.playerPos.z) < 16;
+          window.MycoAudio.stepAmbience(sunYNow, !insideWing, window.campusIsNight, dt, ctx.weatherMode);
+        }
       }
 
       if (ctx.localEmoteTimer > 0) {

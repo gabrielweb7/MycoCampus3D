@@ -12,6 +12,7 @@
 import { makeBox } from '../engine/textures.js';
 import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { updateScalpelLabel } from './scalpel.js';
+import { getContamInfo } from './contaminations.js';
 
 const THREE = window.THREE;
 
@@ -336,48 +337,76 @@ export function analyzeSpecimenForMicroscope(held) {
     const gen = petri.generation || 0;
     const isSporePrint = petri.mode === 'spore_print';
     const contam = !!(petri.contaminated || petri.mode === 'contam' || petri.sporeContaminated || (petri.delayedContamAtPct && petri.delayedContamAtPct > 0));
+    const cKind = contam ? (petri.contamKind || 'trichoderma') : '';
+    const cInfo = contam ? getContamInfo(cKind) : null;
     return {
       title: held.label,
       kind: isSporePrint ? 'spores' : 'mycelium',
       status: contam ? 'contaminated' : (isSporePrint ? 'spores' : (gen >= 2 ? 'rhizomorphic' : 'tomentose')),
       generation: gen,
+      speciesName: petri.speciesName || '',
       contaminated: contam,
-      contamType: contam ? 'Conídios verdes de Trichoderma / Endósporos ocultos' : '',
+      contamKind: cKind,
+      contamType: cInfo ? cInfo.name : '',
       diagnosis: contam
-        ? '🦠 ALERTA MICROSCÓPICO PRECOCE: Presença de conídios esféricos de mofo ou endósporos bacterianos ocultos na amostra! Descarte ou isole setor limpo.'
+        ? `🦠 ALERTA MICROSCÓPICO: ${cInfo.name} (${cInfo.scientific})! ${cInfo.microscopeNote}`
         : (isSporePrint
           ? '🔬 Basidiósporos elipsoides roxo-escuros íntegros (12×8 µm). Prontos para germinação T0 em ágar PDA!'
-          : `✅ Micélio Dicariótico Saudável • Geração T${gen} (${gen >= 3 ? 'Isolado Elite ⭐' : (gen >= 2 ? 'Rizomórfico Forte' : (gen === 1 ? 'Setorizado T1' : 'Multi-Esporos T0'))}).`)
+          : `✅ Micélio Dicariótico Saudável • Geração T${gen} (${gen >= 3 ? 'Isolado Elite ⭐' : (gen >= 2 ? 'Rizomórfico Forte' : (gen === 1 ? 'Setorizado T1' : 'Multi-Esporos T0'))}). Grampos de conexão visíveis em 1000x!`)
     };
   }
   if (held.spawnCtrl) {
     const sc = held.spawnCtrl;
     const gen = sc.generation || 1;
     const contam = !!(sc.contaminated || sc.pasteurizedOnly);
+    const cKind = contam ? (sc.pasteurizedOnly ? 'wet_spot' : (sc.contamKind || 'trichoderma')) : '';
+    const cInfo = contam ? getContamInfo(cKind) : null;
     return {
       title: held.label,
       kind: 'mycelium',
       status: contam ? 'contaminated' : (gen >= 2 ? 'rhizomorphic' : 'tomentose'),
       generation: gen,
+      speciesName: sc.speciesName || '',
       contaminated: contam,
-      contamType: sc.pasteurizedOnly ? 'Endósporos de Bacillus (Wet Spot)' : 'Trichoderma harzianum',
-      diagnosis: sc.pasteurizedOnly
-        ? '🦠 ALERTA: Endósporos bacterianos de Bacillus vivos! Grãos foram apenas pasteurizados a 75°C — esterilize a 121°C / 15 PSI!'
-        : (sc.contaminated
-          ? '🦠 Contaminação fúngica/bacteriana ativa detectada entre os grãos!'
-          : `✅ Micélio vigoroso (Geração T${gen}${sc.shaken ? ' • Break & Shake ativo' : ''}) colonizando o substrato sem competidores.`)
+      contamKind: cKind,
+      contamType: cInfo ? cInfo.name : '',
+      diagnosis: contam
+        ? `🦠 ALERTA: ${cInfo.name}! ${sc.pasteurizedOnly ? 'Grãos foram apenas pasteurizados a 75°C — esterilize a 121°C / 15 PSI!' : cInfo.microscopeNote}`
+        : `✅ Micélio vigoroso (Geração T${gen}${sc.shaken ? ' • Break & Shake ativo' : ''}) colonizando o substrato sem competidores.`
+    };
+  }
+  if (held.cultureCtrl) {
+    const cc = held.cultureCtrl;
+    const contam = !!cc.contaminated;
+    const cKind = contam ? (cc.contamKind || 'wet_spot') : '';
+    const cInfo = contam ? getContamInfo(cKind) : null;
+    return {
+      title: held.label,
+      kind: 'mycelium',
+      generation: cc.generation || 2,
+      speciesName: cc.speciesName || '',
+      contaminated: contam,
+      contamKind: cKind,
+      contamType: cInfo ? cInfo.name : '',
+      diagnosis: contam
+        ? `🦠 Cultura líquida contaminada por ${cInfo.name}! ${cInfo.microscopeNote}`
+        : `✅ Hifas fragmentadas em suspensão líquida pura (${cc.speciesName || 'Cubensis'}) prontas para seringa!`
     };
   }
   if (held.monotubCtrl) {
     const mc = held.monotubCtrl;
+    const cKind = mc.contaminated ? (mc.contamKind || (/cobweb/i.test(mc.contamReason || '') ? 'cobweb' : 'trichoderma')) : '';
+    const cInfo = mc.contaminated ? getContamInfo(cKind) : null;
     return {
       title: held.label,
       kind: 'mycelium',
       generation: mc.generation || 2,
+      speciesName: mc.speciesName || '',
       contaminated: !!mc.contaminated,
-      contamType: mc.contamReason || 'Trichoderma',
+      contamKind: cKind,
+      contamType: cInfo ? cInfo.name : '',
       diagnosis: mc.contaminated
-        ? `🦠 Conidióforos de ${mc.contamReason || 'Trichoderma'} detectados no substrato bulk!`
+        ? `🦠 ${cInfo.name} no Monotub! ${cInfo.microscopeNote}`
         : `✅ Rede micelial bulk saudável (Geração T${mc.generation || 1}${mc.hasCasing ? ' + Camada de Casing' : ''} • Flush ${mc.flush}/4).`
     };
   }
@@ -424,8 +453,26 @@ function ensureMicroscopeModalDom() {
         </div>
       </div>
       <div class="p-3 sm:p-4 overflow-y-auto space-y-3 text-xs flex flex-col items-center">
+        <div class="flex flex-wrap items-center justify-center gap-1.5 w-full">
+          <span class="text-[11px] font-bold text-slate-400 mr-1">Objetiva:</span>
+          <button data-mag="40" type="button" class="micro-mag-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 font-bold text-[11px]">40x</button>
+          <button data-mag="100" type="button" class="micro-mag-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 font-bold text-[11px]">100x</button>
+          <button data-mag="400" type="button" class="micro-mag-btn px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 font-bold text-[11px]">400x</button>
+          <button data-mag="1000" type="button" class="micro-mag-btn px-2.5 py-1 rounded-lg bg-cyan-500 text-slate-950 font-extrabold text-[11px]">1000x Óleo</button>
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-1.5 w-full">
+          <span class="text-[11px] font-bold text-slate-400 mr-1">Corante:</span>
+          <button data-stain="natural" type="button" class="micro-stain-btn px-2.5 py-1 rounded-lg bg-cyan-500 text-slate-950 font-extrabold text-[11px]">Natural</button>
+          <button data-stain="lactophenol" type="button" class="micro-stain-btn px-2.5 py-1 rounded-lg bg-slate-800 text-sky-300 font-bold text-[11px]">Azul Lactofenol</button>
+          <button data-stain="congo" type="button" class="micro-stain-btn px-2.5 py-1 rounded-lg bg-slate-800 text-rose-300 font-bold text-[11px]">Vermelho Congo</button>
+        </div>
         <div class="relative rounded-full p-1.5 bg-slate-950 border-4 border-cyan-500/60 shadow-inner">
-          <canvas id="microscope-lens-canvas" width="240" height="240" class="rounded-full block"></canvas>
+          <canvas id="microscope-lens-canvas" width="240" height="240" class="rounded-full block transition-[filter] duration-100"></canvas>
+        </div>
+        <div class="w-full max-w-xs flex items-center gap-2 text-[11px] text-slate-300">
+          <span class="font-bold shrink-0">🔍 Foco:</span>
+          <input id="micro-focus-slider" type="range" min="-5" max="5" step="1" value="0" class="w-full accent-cyan-400">
+          <span id="micro-focus-val" class="font-mono text-cyan-300 w-10 text-right">Nitido</span>
         </div>
         <div id="micro-diagnosis-box" class="w-full rounded-xl bg-slate-900/85 border border-cyan-500/35 p-3 text-slate-100 font-semibold leading-relaxed"></div>
       </div>
@@ -490,20 +537,70 @@ export function interactLabMicroscope(ctx, scopeItem) {
   if (canvas && canvas.getContext) {
     const c = canvas.getContext('2d');
     let phase = 0;
+    let currentMag = 1000;
+    let currentStain = 'natural';
+    let focusBlur = 0;
+
+    const magBtns = modal.querySelectorAll('.micro-mag-btn');
+    const stainBtns = modal.querySelectorAll('.micro-stain-btn');
+    const focusSlider = modal.querySelector('#micro-focus-slider');
+    const focusLabel = modal.querySelector('#micro-focus-val');
+
+    const syncControls = () => {
+      magBtns.forEach((b) => {
+        const active = Number(b.getAttribute('data-mag')) === currentMag;
+        b.className = 'micro-mag-btn px-2.5 py-1 rounded-lg text-[11px] transition ' +
+          (active ? 'bg-cyan-500 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-200 font-bold hover:bg-slate-700');
+      });
+      stainBtns.forEach((b) => {
+        const active = b.getAttribute('data-stain') === currentStain;
+        b.className = 'micro-stain-btn px-2.5 py-1 rounded-lg text-[11px] transition ' +
+          (active ? 'bg-cyan-500 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-200 font-bold hover:bg-slate-700');
+      });
+    };
+    magBtns.forEach((b) => {
+      b.onclick = () => {
+        currentMag = Number(b.getAttribute('data-mag')) || 1000;
+        playAudio('playClick');
+        syncControls();
+      };
+    });
+    stainBtns.forEach((b) => {
+      b.onclick = () => {
+        currentStain = b.getAttribute('data-stain') || 'natural';
+        playAudio('playClick');
+        syncControls();
+      };
+    });
+    if (focusSlider) {
+      focusSlider.value = '0';
+      canvas.style.filter = 'none';
+      if (focusLabel) focusLabel.textContent = 'Nítido';
+      focusSlider.oninput = () => {
+        focusBlur = Math.abs(Number(focusSlider.value) || 0);
+        canvas.style.filter = focusBlur > 0 ? `blur(${focusBlur * 0.9}px)` : 'none';
+        if (focusLabel) focusLabel.textContent = focusBlur === 0 ? 'Nítido' : 'Desf.';
+      };
+    }
+    syncControls();
+
     const renderLens = () => {
       if (modal.classList.contains('hidden')) return;
-      phase += 0.035;
+      phase += 0.038;
       c.clearRect(0, 0, 240, 240);
 
-      // Fundo iluminado do campo claro óptico
-      const bg = c.createRadialGradient(120, 120, 20, 120, 120, 120);
-      bg.addColorStop(0, info.contaminated ? '#fef2f2' : '#f0f9ff');
-      bg.addColorStop(0.82, info.contaminated ? '#fecdd3' : '#bae6fd');
+      const zoomFactor = currentMag === 40 ? 0.55 : (currentMag === 100 ? 0.72 : (currentMag === 400 ? 0.92 : 1.15));
+      const bgInner = currentStain === 'lactophenol' ? '#dbeafe' : (currentStain === 'congo' ? '#ffe4e6' : (info.contaminated ? '#fef2f2' : '#f0f9ff'));
+      const bgOuter = currentStain === 'lactophenol' ? '#60a5fa' : (currentStain === 'congo' ? '#fda4af' : (info.contaminated ? '#fecdd3' : '#bae6fd'));
+      const hyphaCol = currentStain === 'lactophenol' ? 'rgba(29, 78, 216, 0.85)' : (currentStain === 'congo' ? 'rgba(190, 18, 60, 0.85)' : 'rgba(30, 64, 175, 0.74)');
+
+      const bg = c.createRadialGradient(120, 120, 18, 120, 120, 120);
+      bg.addColorStop(0, bgInner);
+      bg.addColorStop(0.84, bgOuter);
       bg.addColorStop(1, '#0f172a');
       c.fillStyle = bg;
       c.fillRect(0, 0, 240, 240);
 
-      // Retículo micrométrico
       c.strokeStyle = 'rgba(15, 23, 42, 0.18)';
       c.lineWidth = 1;
       c.beginPath();
@@ -511,13 +608,16 @@ export function interactLabMicroscope(ctx, scopeItem) {
       c.moveTo(120, 40); c.lineTo(120, 200);
       c.stroke();
 
+      c.save();
+      c.translate(120, 120);
+      c.scale(zoomFactor, zoomFactor);
+
       if (info.kind === 'spores') {
-        // Basidiósporos elipsoides flutuando levemente no fluido da lâmina
         for (let i = 0; i < 34; i++) {
           const ang = (i * 1.7) + Math.sin(phase + i) * 0.15;
           const r = 16 + ((i * 19) % 85);
-          const sx = 120 + Math.cos(ang) * r + Math.sin(phase * 1.4 + i) * 2.5;
-          const sy = 120 + Math.sin(ang) * r + Math.cos(phase * 1.2 + i) * 2.5;
+          const sx = Math.cos(ang) * r + Math.sin(phase * 1.4 + i) * 2.5;
+          const sy = Math.sin(ang) * r + Math.cos(phase * 1.2 + i) * 2.5;
           c.save();
           c.translate(sx, sy);
           c.rotate(i * 0.6 + phase * 0.3);
@@ -531,37 +631,73 @@ export function interactLabMicroscope(ctx, scopeItem) {
           c.restore();
         }
       } else {
-        // Hifas ramificadas (densidade proporcional à geração T0..T3)
         const branchCount = 10 + (info.generation || 0) * 8;
-        c.strokeStyle = 'rgba(30, 64, 175, 0.72)';
+        c.strokeStyle = hyphaCol;
         c.lineWidth = 1.6 + (info.generation || 0) * 0.45;
         for (let b = 0; b < branchCount; b++) {
           const a = (b / branchCount) * Math.PI * 2;
           const len = 65 + ((b * 13) % 38);
-          const sway = Math.sin(phase + b) * 4;
+          const sway = Math.sin(phase + b) * 3.5;
+          const mx = Math.cos(a + 0.18) * len * 0.55 + sway;
+          const my = Math.sin(a + 0.18) * len * 0.55 + sway;
           c.beginPath();
-          c.moveTo(120, 120);
-          c.quadraticCurveTo(
-            120 + Math.cos(a + 0.18) * len * 0.55 + sway,
-            120 + Math.sin(a + 0.18) * len * 0.55 + sway,
-            120 + Math.cos(a) * len,
-            120 + Math.sin(a) * len
-          );
+          c.moveTo(0, 0);
+          c.quadraticCurveTo(mx, my, Math.cos(a) * len, Math.sin(a) * len);
           c.stroke();
+          // Grampos de conexão (clamp connections) visíveis em 400x/1000x
+          if (!info.contaminated && currentMag >= 400 && b % 2 === 0) {
+            c.fillStyle = hyphaCol;
+            c.beginPath();
+            c.arc(mx, my, 2.4, 0, Math.PI * 2);
+            c.fill();
+          }
         }
       }
 
       if (info.contaminated) {
-        // Conídios verdes de Trichoderma ou bastonetes de Bacillus agitados
-        c.fillStyle = '#15803d';
-        for (let k = 0; k < 28; k++) {
-          const kx = 55 + ((k * 37) % 130) + Math.sin(phase * 3 + k) * 4;
-          const ky = 55 + ((k * 53) % 130) + Math.cos(phase * 3 + k) * 4;
-          c.beginPath();
-          c.arc(kx, ky, 4.5, 0, Math.PI * 2);
-          c.fill();
+        const ck = info.contamKind || 'trichoderma';
+        const cHex = getContamInfo(ck).sporeHex || '#16a34a';
+        c.fillStyle = cHex;
+        c.strokeStyle = cHex;
+        if (ck === 'wet_spot') {
+          for (let k = 0; k < 30; k++) {
+            const ang = k * 2.1 + phase * 1.4;
+            const r = 12 + ((k * 29) % 85);
+            c.save();
+            c.translate(Math.cos(ang) * r, Math.sin(ang) * r);
+            c.rotate(ang);
+            c.beginPath();
+            c.roundRect(-5, -1.6, 10, 3.2, 1.5);
+            c.fill();
+            c.restore();
+          }
+        } else if (ck === 'cobweb') {
+          c.lineWidth = 2.2;
+          for (let w = 0; w < 14; w++) {
+            const a1 = w * 0.45 + Math.sin(phase + w) * 0.08;
+            c.beginPath();
+            c.moveTo(Math.cos(a1) * 15, Math.sin(a1) * 15);
+            c.lineTo(Math.cos(a1 + 0.6) * 95, Math.sin(a1 + 0.6) * 95);
+            c.stroke();
+          }
+        } else {
+          for (let k = 0; k < 28; k++) {
+            const kx = ((k * 37) % 150) - 75 + Math.sin(phase * 2.6 + k) * 3.5;
+            const ky = ((k * 53) % 150) - 75 + Math.cos(phase * 2.6 + k) * 3.5;
+            c.beginPath();
+            c.arc(kx, ky, ck === 'aspergillus' ? 5.6 : 4.2, 0, Math.PI * 2);
+            c.fill();
+          }
         }
       }
+      c.restore();
+
+      c.fillStyle = 'rgba(15, 23, 42, 0.78)';
+      c.fillRect(68, 212, 104, 18);
+      c.fillStyle = '#38bdf8';
+      c.font = 'bold 10px monospace';
+      c.textAlign = 'center';
+      c.fillText(`${currentMag}x • ${currentStain.toUpperCase()}`, 120, 224);
 
       if (typeof requestAnimationFrame === 'function') {
         microscopeAnimFrame = requestAnimationFrame(renderLens);

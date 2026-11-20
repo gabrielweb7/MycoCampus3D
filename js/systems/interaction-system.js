@@ -27,7 +27,8 @@ import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
 import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
-import { fireAlcoholSpray } from '../items/alcohol-spray.js';
+import { fireAlcoholSpray, fireH2O2Spray } from '../items/alcohol-spray.js';
+import { getContamInfo } from '../items/contaminations.js';
 import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { handleTrashDisposal, isContaminatedOrBurned, resetDisposableContainer } from '../items/lab-trash.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
@@ -37,9 +38,9 @@ import { interactDehydrator } from '../items/dehydrator.js';
 import { getItemsSupportedBy } from './surface-group-move.js';
 import { depositSporePrintOnPetri, fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { togglePP5Lid } from '../items/pp5-cup.js';
-import { interactMonotub, placeMonotubInLedRackSlot, rehydrateMonotubCake, dunkMonotubAtSink } from '../items/monotub.js';
+import { interactMonotub, placeMonotubInLedRackSlot, rehydrateMonotubCake, dunkMonotubAtSink, treatMonotubWithH2O2 } from '../items/monotub.js';
 import { interactGardenTarget } from '../world/campus-garden.js';
-import { breakAndShakeSpawn } from '../items/spawn-containers.js';
+import { breakAndShakeSpawn, updateSpawnVisual } from '../items/spawn-containers.js';
 import {
   interactAlcoholLamp,
   interactLabMicroscope,
@@ -423,6 +424,39 @@ export function handlePrimaryAction(ctx) {
       if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
       if (ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('cooker_heat');
       ctx.notifyWorldAction();
+      return;
+    }
+    if (ctx.heldItem.mesh.userData.isH2O2Spray && !ctx.placementMode) {
+      const hTarget = ctx.hoveredH2O2Target;
+      fireH2O2Spray(ctx, hTarget);
+      if (ctx.hoveredGreenhouseSlot) {
+        ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
+      } else if (hTarget && hTarget.target && hTarget.target.monotubCtrl) {
+        treatMonotubWithH2O2(ctx, hTarget.target);
+        ctx.notifyWorldAction();
+      } else if (hTarget && hTarget.target && hTarget.target.spawnCtrl) {
+        const sc = hTarget.target.spawnCtrl;
+        if (sc.contaminated) {
+          const info = getContamInfo(sc.contamKind || 'trichoderma');
+          if (info.curableWithH2O2) {
+            sc.contaminated = false;
+            sc.contamKind = null;
+            updateSpawnVisual(hTarget.target);
+            if (ctx.callbacks.onToast) {
+              ctx.callbacks.onToast(`🫧 H₂O₂ 3% dissolveu Cobweb (Teia) em ${hTarget.target.label}!`);
+            }
+            ctx.notifyWorldAction();
+          } else if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast(`⚠️ H₂O₂ 3% não cura ${info.name}! Descarte o recipiente na lixeira.`);
+          }
+        } else if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast(`🫧 H₂O₂ 3% aplicado preventivamente em ${hTarget.target.label}.`);
+        }
+      } else if (hTarget && hTarget.target && hTarget.target.cultureCtrl) {
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('⚠️ H₂O₂ não deve ser colocado em Cultura Líquida — prejudica o micélio vivo!');
+        }
+      }
       return;
     }
     if (ctx.heldItem.mesh.userData.isAlcoholSpray && !ctx.placementMode) {

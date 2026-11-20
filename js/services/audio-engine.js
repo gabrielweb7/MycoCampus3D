@@ -623,9 +623,96 @@ export function stepAmbience(sunY, isOutdoors, isNight, dt, weatherMode) {
   }
 }
 
+export function playMushroomPop() {
+  if (isMuted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(320, t);
+  osc.frequency.exponentialRampToValueAtTime(760, t + 0.065);
+  gain.gain.setValueAtTime(0.001, t);
+  gain.gain.exponentialRampToValueAtTime(0.18, t + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.085);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.09);
+}
+
+export function playGlassClink() {
+  if (isMuted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  [1840, 2760].forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t + idx * 0.02);
+    gain.gain.setValueAtTime(0.08, t + idx * 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.02 + 0.14);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(t + idx * 0.02);
+    osc.stop(t + idx * 0.02 + 0.15);
+  });
+}
+
+export function playFizz() {
+  if (isMuted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const rate = ctx.sampleRate || 44100;
+  const len = Math.floor(rate * 0.36);
+  const buf = ctx.createBuffer(1, len, rate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.setValueAtTime(2200, t);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.16, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(masterGain);
+  src.start(t);
+}
+
+export function playBubble() {
+  if (isMuted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(240 + Math.random() * 90, t);
+  osc.frequency.exponentialRampToValueAtTime(520 + Math.random() * 140, t + 0.09);
+  gain.gain.setValueAtTime(0.001, t);
+  gain.gain.exponentialRampToValueAtTime(0.09, t + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.12);
+}
+
 export const AudioEngine = {
   playFootstep,
   playHarvest,
+  playMushroomPop,
+  playGlassClink,
+  playFizz,
+  playBubble,
   playSpray,
   playClick,
   playDoor,

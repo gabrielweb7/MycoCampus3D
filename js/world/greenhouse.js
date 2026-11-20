@@ -13,6 +13,8 @@ import { makeBox, makeTextSprite, updateTextSprite } from '../engine/textures.js
 import { disposeObjectResources } from '../items/item-registry.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
 import { makeSpentCakeItem } from '../items/monotub.js';
+import { pickContamKind, getContamInfo } from '../items/contaminations.js';
+import { fireH2O2Spray } from '../items/alcohol-spray.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 
 const SPECIES_PRESETS = [
@@ -520,8 +522,20 @@ export function updateGreenhouseSlotMesh(slot) {
   const stage = slot.stage;
   const col = slot.color;
   const kind = slot.kind || inferKindFromSpecies(slot.name);
+  const spLower = String(slot.speciesName || slot.name || '').toLowerCase();
+  const isBiolum = spLower.indexOf('mycena') !== -1 || spLower.indexOf('chlorophos') !== -1 || spLower.indexOf('jack frost') !== -1;
 
-  if (!slot.empty && stage === 0) {
+  if (!slot.empty && slot.contaminated) {
+    const info = getContamInfo(slot.contamKind || 'trichoderma');
+    const cMat = getGreenhouseCapMat(info.hex, 0.92, 0x000000, 0);
+    const isCob = info.id === 'cobweb';
+    for (let cz = -2; cz <= 2; cz++) {
+      const tuft = new THREE.Mesh(assets.fuzzGeo, cMat);
+      tuft.scale.set(isCob ? 2.1 : 1.45, isCob ? 2.0 : 0.48, isCob ? 1.9 : 1.35);
+      tuft.position.set(cz * 0.055, isCob ? 0.19 : 0.168, ((cz * 3) % 4) * 0.025);
+      slot.mushGroup.add(tuft);
+    }
+  } else if (!slot.empty && stage === 0) {
     for (let fz = -2; fz <= 2; fz++) {
       const dot = new THREE.Mesh(assets.fuzzGeo, assets.fuzzMat);
       dot.scale.set(1.35, 0.35, 1.15);
@@ -529,7 +543,7 @@ export function updateGreenhouseSlotMesh(slot) {
       slot.mushGroup.add(dot);
     }
   } else if (!slot.empty && stage === 1) {
-    const pinMat = getGreenhouseCapMat(col, 0.5, 0, 0);
+    const pinMat = getGreenhouseCapMat(col, 0.5, isBiolum ? (spLower.indexOf('mycena') !== -1 ? 0x22d3ee : 0x38bdf8) : 0, isBiolum ? 0.45 : 0);
     for (let p = -2; p <= 2; p++) {
       const pStem = new THREE.Mesh(assets.pinStemGeo, assets.pinStemMat);
       pStem.position.set(p * 0.05, 0.175, ((p * 3) % 4) * 0.024);
@@ -538,7 +552,7 @@ export function updateGreenhouseSlotMesh(slot) {
       slot.mushGroup.add(pStem, pCap);
     }
   } else if (!slot.empty && stage === 2) {
-    const medMat = getGreenhouseCapMat(col, 0.45, 0, 0);
+    const medMat = getGreenhouseCapMat(col, 0.45, isBiolum ? (spLower.indexOf('mycena') !== -1 ? 0x22d3ee : 0x38bdf8) : 0, isBiolum ? 0.65 : 0);
     for (let m = -1; m <= 1; m++) {
       const mStem = new THREE.Mesh(assets.medStemGeo, assets.medStemMat);
       mStem.position.set(m * 0.08, 0.205, (m % 2) * 0.03);
@@ -548,7 +562,10 @@ export function updateGreenhouseSlotMesh(slot) {
     }
   } else if (!slot.empty && !slot.spent && stage >= 3) {
     const isGolden = col === 0xd97706 || kind === 'gt';
-    const matureMat = getGreenhouseCapMat(col, 0.38, isGolden ? 0xf59e0b : 0x000000, isGolden ? 0.30 : 0);
+    const isNight = typeof window !== 'undefined' && !!window.campusIsNight;
+    const glowHex = isBiolum ? (spLower.indexOf('mycena') !== -1 ? 0x22d3ee : 0x7dd3fc) : (isGolden ? 0xf59e0b : 0x000000);
+    const glowInt = isBiolum ? (isNight ? 1.25 : 0.72) : (isGolden ? 0.30 : 0);
+    const matureMat = getGreenhouseCapMat(col, 0.38, glowHex, glowInt);
 
     if (kind === 'shimeji') {
       for (let sb = -2; sb <= 2; sb++) {
@@ -596,15 +613,16 @@ export function updateGreenhouseSlotMesh(slot) {
       const sColors = ['#94a3b8', '#38bdf8', '#fbbf24', '#34d399', '#d97706'];
       const slotHealth = typeof slot.health === 'number' ? Math.round(slot.health) : 100;
       const isStressed = slot.stressType && slot.stressType !== 'none';
-      const badgeColor = slot.contaminated ? '#22c55e' : (slot.spent ? '#d97706' : (isStressed ? '#f87171' : (sColors[slot.stage] || '#94a3b8')));
+      const cInfo = slot.contaminated ? getContamInfo(slot.contamKind || 'trichoderma') : null;
+      const badgeColor = slot.contaminated ? cInfo.badgeHex : (slot.spent ? '#d97706' : (isStressed ? '#f87171' : (sColors[slot.stage] || '#94a3b8')));
       const statusTag = slot.contaminated
-        ? '🦠 Contaminado (Trichoderma) • Clique p/ descartar'
+        ? (cInfo.curableWithH2O2 ? `${cInfo.emoji} ${cInfo.name} • Borrife H₂O₂ 3%!` : `${cInfo.emoji} ${cInfo.name} • Clique p/ descartar`)
         : (slot.spent
           ? '🍂 Bolo Seco Esgotado (4/4 Flushs) • Leve à Horta!'
           : (isStressed
             ? `⚠️ Estressado (${slotHealth}%): ${slot.stressReason}`
             : `${sNames[slot.stage] || 'Em cultivo'} • Flush ${slot.flush || 1}/4 • ❤️ ${slotHealth}%`));
-      const badgeKey = `${slot.name}|${slot.stage}|${slot.flush}|${slot.spent ? 1 : 0}|${slot.contaminated ? 1 : 0}|${Math.round(slot.humidity / 5)}|${Math.round(slotHealth / 10)}|${slot.stressReason || ''}`;
+      const badgeKey = `${slot.name}|${slot.stage}|${slot.flush}|${slot.spent ? 1 : 0}|${slot.contaminated ? 1 : 0}|${slot.contamKind || ''}|${Math.round(slot.humidity / 5)}|${Math.round(slotHealth / 10)}|${slot.stressReason || ''}`;
       if (badgeKey !== slot.lastBadgeKey) {
         slot.lastBadgeKey = badgeKey;
         const infoText = `${slot.name}\n${statusTag}`;
@@ -1072,12 +1090,49 @@ export function isHoldingColonizedSpawn(heldItem) {
   return !!(heldItem && heldItem.spawnCtrl && heldItem.spawnCtrl.colonized && !heldItem.spawnCtrl.contaminated);
 }
 
+export function treatGreenhouseSlotWithH2O2(ctx, slot) {
+  if (!slot || slot.empty || !slot.contaminated) return false;
+  const info = getContamInfo(slot.contamKind || 'trichoderma');
+  if (!info.curableWithH2O2) {
+    if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(`⚠️ H₂O₂ 3% não cura ${info.name}! Só trata Cobweb (Teia). Retire o bolo contaminado!`);
+    }
+    return false;
+  }
+  slot.contaminated = false;
+  slot.contamKind = null;
+  slot.health = Math.max(76, Number(slot.health || 60));
+  if (typeof window !== 'undefined' && window.MycoAudio) {
+    if (typeof window.MycoAudio.playFizz === 'function') window.MycoAudio.playFizz();
+    else window.MycoAudio.playSpray();
+  }
+  updateGreenhouseSlotMesh(slot);
+  if (ctx && ctx.queueWorldStateChange) {
+    ctx.queueWorldStateChange('greenhouse_slot_' + slot.id + '_contam', '');
+  }
+  if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast(`🫧 Efervescência H₂O₂ 3%! Cobweb dissolvido no bolo de ${slot.name}!`);
+  }
+  return true;
+}
+
 export function interactGreenhouseSlot(slot, ctx) {
   const heldItem = ctx.heldItem;
   const callbacks = ctx.callbacks || {};
   const queueWorldStateChange = ctx.queueWorldStateChange;
-  const isHoldingSpray = !!(heldItem && (heldItem.id.indexOf('alcohol_spray') !== -1 || heldItem.id.indexOf('spray') !== -1));
+  const isHoldingH2O2 = !!(heldItem && heldItem.mesh && heldItem.mesh.userData && heldItem.mesh.userData.isH2O2Spray);
+  const isHoldingSpray = !!(heldItem && !isHoldingH2O2 && (heldItem.id.indexOf('alcohol_spray') !== -1 || heldItem.id.indexOf('spray') !== -1));
   const hasColonizedSpawn = isHoldingColonizedSpawn(heldItem);
+
+  if (isHoldingH2O2) {
+    fireH2O2Spray(ctx, { target: slot, hitPoint: { x: slot.x, y: slot.y + 0.16, z: slot.z } });
+    if (slot.contaminated) {
+      treatGreenhouseSlotWithH2O2(ctx, slot);
+    } else if (!slot.empty && callbacks.onToast) {
+      callbacks.onToast(`🫧 H₂O₂ 3% borrifado preventivamente sobre ${slot.name}.`);
+    }
+    return;
+  }
 
   if (hasColonizedSpawn) {
     if (slot.empty || slot.stage <= 0) {
@@ -1226,7 +1281,10 @@ export function interactGreenhouseSlot(slot, ctx) {
   }
 
   if (slot.stage === 3) {
-    if (window.MycoAudio) window.MycoAudio.playHarvest();
+    if (window.MycoAudio) {
+      if (typeof window.MycoAudio.playMushroomPop === 'function') window.MycoAudio.playMushroomPop();
+      window.MycoAudio.playHarvest();
+    }
     triggerSporeBurst(slot.x, slot.y + 0.35, slot.z, slot.color);
     if (callbacks.onHarvestGreenhouse) {
       callbacks.onHarvestGreenhouse(slot);
@@ -1530,7 +1588,7 @@ export function stepGreenhouse(ctx, dt) {
       (prevHealth >= 80 && gSlot.health < 80) ||
       (prevHealth < 80 && gSlot.health >= 80);
 
-    if (gSlot.humidity >= 60 && gSlot.health >= 30 && greenhouseEnv.tempC >= 15.5 && greenhouseEnv.tempC <= 30.5 && gSlot.stage < 3) {
+    if (gSlot.humidity >= 60 && gSlot.health >= 30 && greenhouseEnv.tempC >= 15.5 && greenhouseEnv.tempC <= 30.5 && gSlot.stage < 3 && !gSlot.contaminated) {
       const healthFactor = 0.45 + (gSlot.health / 100) * 0.55;
       gSlot.growth += dt * (gSlot.humidity / 100) * 1.75 * climateMultiplier * healthFactor;
       if (gSlot.growth >= 100) {
@@ -1542,6 +1600,13 @@ export function stepGreenhouse(ctx, dt) {
         }
       } else if (crossedLedThreshold) {
         updateGreenhouseSlotMesh(gSlot);
+      }
+    } else if (!gSlot.contaminated && gSlot.health < 45 && gSlot.humidity > 94.5 && Math.random() < dt * 0.015) {
+      gSlot.contaminated = true;
+      gSlot.contamKind = pickContamKind('greenhouse');
+      updateGreenhouseSlotMesh(gSlot);
+      if (ctx && ctx.queueWorldStateChange) {
+        ctx.queueWorldStateChange('greenhouse_slot_' + gSlot.id + '_contam', gSlot.contamKind);
       }
     } else if (crossedLedThreshold) {
       updateGreenhouseSlotMesh(gSlot);

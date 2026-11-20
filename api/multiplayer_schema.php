@@ -25,6 +25,7 @@ function mp_build_allowed_items(): array {
         // === Equipamentos & Ferramentas de Lab ===
         'heat_sealer', 'magnetic_stirrer', 'precision_scale',
         'alcohol_spray', 'alcohol_spray_02', 'alcohol_spray_03', 'alcohol_spray_east_01',
+        'h2o2_spray_lab',
         'paper_towel_01', 'paper_towel_02', 'paper_towel_east_01', 'lab_trash_01',
         'gloves_box_lab_01', 'gloves_box_lab_02',
         'burner_lab', 'gas_tripod_sub', 'infrared_thermometer', 'infrared_thermometer_02',
@@ -150,6 +151,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         $clean['containerId'] = $raw['containerId'];
     }
 
+    $validContamKinds = ['trichoderma', 'cobweb', 'wet_spot', 'penicillium', 'aspergillus', 'lipstick'];
     $isSpawn = strpos($itemId, 'spawn_') === 0 || strpos($itemId, 'pp5_cup_') === 0;
     if ($isSpawn && isset($raw['spawn']) && is_array($raw['spawn'])) {
         $src = $raw['spawn'];
@@ -164,6 +166,12 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         }
         if (array_key_exists('tempC', $src) && is_numeric($src['tempC']) && is_finite((float)$src['tempC'])) {
             $spawn['tempC'] = max(-20, min(140, round((float)$src['tempC'], 1)));
+        }
+        if (isset($src['generation']) && is_numeric($src['generation'])) {
+            $spawn['generation'] = max(0, min(3, (int)$src['generation']));
+        }
+        if (isset($src['contamKind']) && is_string($src['contamKind']) && in_array($src['contamKind'], $validContamKinds, true)) {
+            $spawn['contamKind'] = $src['contamKind'];
         }
         $validSubstrates = ['grain', 'sorghum', 'wheat', 'coco_verm', 'sawdust', 'flocao', 'corn'];
         if (strpos($itemId, 'pp5_cup_') === 0) $validSubstrates[] = 'pda';
@@ -181,6 +189,9 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         $cleanPetri = [];
         if (in_array($p['mode'] ?? '', ['bare', 'filled', 'empty', 'clean', 'contam', 'colonizing', 'spore_print'], true)) {
             $cleanPetri['mode'] = $p['mode'];
+        }
+        if (isset($p['contamKind']) && is_string($p['contamKind']) && in_array($p['contamKind'], $validContamKinds, true)) {
+            $cleanPetri['contamKind'] = $p['contamKind'];
         }
         foreach (['lidOpen', 'sterilized', 'inoculated', 'expired', 'parafilmSealed', 'refrigerated'] as $boolKey) {
             if (isset($p[$boolKey]) && is_bool($p[$boolKey])) {
@@ -243,6 +254,12 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         }
         if (isset($src['speciesName']) && is_string($src['speciesName'])) {
             $culture['speciesName'] = substr($src['speciesName'], 0, 80);
+        }
+        if (isset($src['contamKind']) && is_string($src['contamKind']) && in_array($src['contamKind'], $validContamKinds, true)) {
+            $culture['contamKind'] = $src['contamKind'];
+        }
+        if (isset($src['generation']) && is_numeric($src['generation'])) {
+            $culture['generation'] = max(0, min(3, (int)$src['generation']));
         }
         if ($culture) $clean['culture'] = $culture;
     }
@@ -401,6 +418,10 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         }
     }
 
+    if (isset($raw['customTag']) && is_string($raw['customTag'])) {
+        $clean['customTag'] = trim(mb_substr($raw['customTag'], 0, 32, 'UTF-8'));
+    }
+
     if (isset($raw['custom']) && is_array($raw['custom'])) {
         $customJson = json_encode($raw['custom'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if (is_string($customJson) && strlen($customJson) <= 16384) {
@@ -439,6 +460,6 @@ function mp_is_valid_state_key(string $k): bool {
     if (preg_match('/^blind_([0-9]|1[0-5])$/', $k)) return true;
     if (preg_match('/^cab_[a-z0-9_]+$/', $k)) return true;
     if (preg_match('/^wild_([0-9]|[12][0-9]|3[01])$/', $k)) return true;
-    if (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_(humidity|stage|empty|species)$/', $k)) return true;
+    if (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_(humidity|stage|empty|species|contam)$/', $k)) return true;
     return false;
 }
