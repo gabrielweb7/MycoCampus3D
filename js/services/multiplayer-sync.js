@@ -30,6 +30,7 @@ export async function syncMultiplayer() {
   try {
     if (firstSync) {
       appState.lastObjVer = '';
+      appState.lastItemStateVer = '';
       appState.lastStateVer = '';
       appState.lastLayoutVer = '';
     }
@@ -54,6 +55,7 @@ export async function syncMultiplayer() {
       moved_items: moved,
       state_changes: stateChanges,
       obj_ver: appState.lastObjVer,
+      item_state_ver: appState.lastItemStateVer,
       state_ver: appState.lastStateVer,
       layout_ver: appState.lastLayoutVer || '',
       board_since: appState.boardLastId,
@@ -106,6 +108,7 @@ export async function syncMultiplayer() {
         window.setCampusServerTime(data.server_ts);
       }
       if (typeof data.obj_ver === 'string') appState.lastObjVer = data.obj_ver;
+      if (typeof data.item_state_ver === 'string') appState.lastItemStateVer = data.item_state_ver;
       if (typeof data.state_ver === 'string') appState.lastStateVer = data.state_ver;
       if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;
       if (!data.layout_unchanged && data.layout_edits && window.applyCampusLayoutEdits) {
@@ -114,7 +117,7 @@ export async function syncMultiplayer() {
       if (!data.objects_unchanged && data.objects && window.applyCampusWorldObjects) {
         window.applyCampusWorldObjects(data.objects);
       }
-      if (data.item_states && window.applyCampusItemStates) {
+      if (!data.item_states_unchanged && data.item_states && window.applyCampusItemStates) {
         window.applyCampusItemStates(data.item_states);
       }
       if (firstSync && window.markCampusInitialItemStatesApplied) {

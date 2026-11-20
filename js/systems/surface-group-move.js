@@ -4,7 +4,7 @@
  * (incluindo pilhas recursivas) e marcando todos para persistência/sync multiplayer.
  */
 
-import { isPointInBoundsXZ, updateItemBounds } from '../items/item-registry.js';
+import { getItemSupportHalfExtents, getItemSupportTopOffset, isPointInBoundsXZ, updateItemBounds } from '../items/item-registry.js';
 
 function getItemSurfaces(item) {
   if (!item || !item.mesh || !item.mesh.userData) return [];
@@ -15,6 +15,23 @@ function getItemSurfaces(item) {
     for (let i = 0; i < ud.dynamicSurfaces.length; i++) {
       if (ud.dynamicSurfaces[i]) list.push(ud.dynamicSurfaces[i]);
     }
+  }
+  const topOff = getItemSupportTopOffset(item);
+  if (topOff > 0) {
+    const ext = getItemSupportHalfExtents(item);
+    const p = item.mesh.position;
+    list.push({
+      centerX: p.x,
+      centerZ: p.z,
+      halfW: ext.w * 0.5,
+      halfD: ext.d * 0.5,
+      ry: item.mesh.rotation ? (item.mesh.rotation.y || 0) : 0,
+      minX: p.x - ext.hw,
+      maxX: p.x + ext.hw,
+      minZ: p.z - ext.hd,
+      maxZ: p.z + ext.hd,
+      topY: p.y + topOff
+    });
   }
   return list;
 }

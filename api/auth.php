@@ -341,35 +341,60 @@ if ($action === 'buy_cosmetic') {
     mc_require_post();
     $user = mc_require_user($pdo);
     $hatId = (string)($body['hat_id'] ?? '');
+    $byCoins = !empty($body['by_coins']);
     $isToy = isset(MC_COSMETIC_TOYS[$hatId]);
     if (!isset(MC_COSMETIC_HATS[$hatId]) && !$isToy) {
         mc_json(['ok' => false, 'error' => 'Item cosmético não encontrado.'], 404);
     }
     $hatDef = $isToy ? MC_COSMETIC_TOYS[$hatId] : MC_COSMETIC_HATS[$hatId];
+    $coinPrices = [
+        'golden_shroom' => 240,
+        'wizard_hood' => 360,
+        'grad_cap' => 480,
+        'flower_crown' => 120,
+        'beret' => 120,
+        'snowboard' => 120,
+        'paraglider' => 240,
+    ];
+    $coinPrice = $coinPrices[$hatId] ?? 0;
 
     $pdo->beginTransaction();
     try {
-        $st = $pdo->prepare('SELECT xp, mushrooms_harvested, unlocked_hats, current_hat FROM mc_users WHERE id = ? FOR UPDATE');
+        $st = $pdo->prepare('SELECT xp, mushrooms_harvested, COALESCE(myco_coins, 250) AS myco_coins, unlocked_hats, current_hat FROM mc_users WHERE id = ? FOR UPDATE');
         $st->execute([(int)$user['id']]);
         $row = $st->fetch();
-        if (!$row || (int)$row['xp'] < $hatDef['req_xp']) {
-            $pdo->rollBack();
-            mc_json(['ok' => false, 'error' => 'XP insuficiente para desbloquear este item (Requer ' . $hatDef['req_xp'] . ' XP).'], 400);
-        }
-        if ((int)$row['mushrooms_harvested'] < $hatDef['req_mushrooms']) {
-            $pdo->rollBack();
-            mc_json(['ok' => false, 'error' => 'Cogumelos colhidos insuficientes (Requer ' . $hatDef['req_mushrooms'] . ' cogumelos).'], 400);
-        }
         $unlocked = json_decode((string)($row['unlocked_hats'] ?: '["default"]'), true);
         if (!is_array($unlocked)) $unlocked = ['default'];
-        if (!in_array($hatId, $unlocked, true)) {
-            $unlocked[] = $hatId;
-            if ($isToy) {
-                $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, last_seen = NOW() WHERE id = ?');
-                $upd->execute([json_encode(array_values($unlocked)), (int)$user['id']]);
+        $alreadyUnlocked = in_array($hatId, $unlocked, true);
+
+        if (!$alreadyUnlocked) {
+            if ($byCoins) {
+                if ($coinPrice <= 0) {
+                    $pdo->rollBack();
+                    mc_json(['ok' => false, 'error' => 'Este item não está disponível para compra com MycoCoins.'], 400);
+                }
+                if (!$row || (int)$row['myco_coins'] < $coinPrice) {
+                    $pdo->rollBack();
+                    mc_json(['ok' => false, 'error' => 'MycoCoins insuficientes (Requer ' . $coinPrice . ' moedas).'], 400);
+                }
             } else {
-                $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, current_hat = ?, last_seen = NOW() WHERE id = ?');
-                $upd->execute([json_encode(array_values($unlocked)), $hatId, (int)$user['id']]);
+                if (!$row || (int)$row['xp'] < $hatDef['req_xp']) {
+                    $pdo->rollBack();
+                    mc_json(['ok' => false, 'error' => 'XP insuficiente para desbloquear este item (Requer ' . $hatDef['req_xp'] . ' XP).'], 400);
+                }
+                if ((int)$row['mushrooms_harvested'] < $hatDef['req_mushrooms']) {
+                    $pdo->rollBack();
+                    mc_json(['ok' => false, 'error' => 'Cogumelos colhidos insuficientes (Requer ' . $hatDef['req_mushrooms'] . ' cogumelos).'], 400);
+                }
+            }
+            $unlocked[] = $hatId;
+            $coinsDelta = $byCoins ? -$coinPrice : 0;
+            if ($isToy) {
+                $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, myco_coins = GREATEST(0, COALESCE(myco_coins, 250) + ?), last_seen = NOW() WHERE id = ?');
+                $upd->execute([json_encode(array_values($unlocked)), $coinsDelta, (int)$user['id']]);
+            } else {
+                $upd = $pdo->prepare('UPDATE mc_users SET unlocked_hats = ?, current_hat = ?, myco_coins = GREATEST(0, COALESCE(myco_coins, 250) + ?), last_seen = NOW() WHERE id = ?');
+                $upd->execute([json_encode(array_values($unlocked)), $hatId, $coinsDelta, (int)$user['id']]);
                 $updSes = $pdo->prepare('UPDATE mc_sessions SET current_hat = ? WHERE user_id = ?');
                 $updSes->execute([$hatId, (int)$user['id']]);
             }

@@ -89,6 +89,24 @@ export function buildSportsScoreboard(scene) {
   return g;
 }
 
+export function applySportsWorldState(stateMap) {
+  if (!stateMap) return;
+  let dirty = false;
+  if (stateMap.sport_soccer_goals !== undefined) {
+    const v = Math.max(0, parseInt(stateMap.sport_soccer_goals, 10) || 0);
+    if (v !== sportsScoreState.soccerGoals) { sportsScoreState.soccerGoals = v; dirty = true; }
+  }
+  if (stateMap.sport_basket_points !== undefined) {
+    const v = Math.max(0, parseInt(stateMap.sport_basket_points, 10) || 0);
+    if (v !== sportsScoreState.basketPoints) { sportsScoreState.basketPoints = v; dirty = true; }
+  }
+  if (stateMap.sport_basket_streak !== undefined) {
+    const v = Math.max(0, parseInt(stateMap.sport_basket_streak, 10) || 0);
+    if (v !== sportsScoreState.basketStreak) { sportsScoreState.basketStreak = v; dirty = true; }
+  }
+  if (dirty) redrawSportsScoreboard();
+}
+
 export function recordSportScore(kind) {
   if (kind === 'soccer') {
     sportsScoreState.soccerGoals++;

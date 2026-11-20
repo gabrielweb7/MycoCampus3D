@@ -295,6 +295,8 @@ if ($action === 'sync') {
         $batchParams = [];
         $statePlaceholders = [];
         $stateParams = [];
+        $layoutPlaceholders = [];
+        $layoutParams = [];
         foreach (array_slice($body['moved_items'], 0, 300) as $item) {
             if (!is_array($item)) continue;
             $iid = (string)($item['id'] ?? '');
@@ -307,6 +309,14 @@ if ($action === 'sync') {
                 $batchParams[] = mp_num($item['z'], MP_WORLD_LIMIT);
                 $batchParams[] = mp_num($item['ry'] ?? 0, 1000.0);
             }
+            $prefabId = trim((string)($item['prefabId'] ?? $item['prefab_id'] ?? ''));
+            if ($prefabId !== '' && strpos($iid, 'dyn_') === 0 && preg_match('/^[a-z0-9_]{2,40}$/', $prefabId)) {
+                $dynLabel = mb_substr(trim(strip_tags((string)($item['label'] ?? ''))), 0, 120);
+                $layoutPlaceholders[] = '(?, ?, ?, 1.0, 0)';
+                $layoutParams[] = $iid;
+                $layoutParams[] = $prefabId;
+                $layoutParams[] = $dynLabel;
+            }
             $itemState = mp_clean_item_state($iid, $item['state'] ?? null);
             if ($itemState !== null) {
                 $statePlaceholders[] = '(?, ?)';
@@ -318,6 +328,11 @@ if ($action === 'sync') {
             $batchSql = 'INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES ' . implode(',', $batchPlaceholders)
                       . ' ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)';
             $pdo->prepare($batchSql)->execute($batchParams);
+        }
+        if ($layoutPlaceholders) {
+            $layoutSql = 'INSERT INTO mc_world_layout_edits (item_id, prefab_id, label, scale, removed) VALUES ' . implode(',', $layoutPlaceholders)
+                       . ' ON DUPLICATE KEY UPDATE prefab_id=VALUES(prefab_id), label=IF(VALUES(label) <> \'\', VALUES(label), label), removed=0';
+            $pdo->prepare($layoutSql)->execute($layoutParams);
         }
         if ($statePlaceholders) {
             $stateSql = 'INSERT INTO mc_world_item_states (item_id, state_json) VALUES ' . implode(',', $statePlaceholders)
@@ -423,6 +438,19 @@ if ($action === 'sync') {
                 $cleanVal = implode(',', $cleanParts);
             } elseif (strpos($sKey, 'cooker_mode_') === 0) {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
+            } elseif (in_array($sKey, ['stand_packs', 'stand_sold', 'garden_compost', 'garden_richness', 'garden_harvested', 'garden_baskets', 'sport_soccer_goals', 'sport_basket_points', 'sport_basket_streak'], true)) {
+                $maxMap = [
+                    'stand_packs' => 200,
+                    'stand_sold' => 1000000,
+                    'garden_compost' => 50,
+                    'garden_richness' => 100,
+                    'garden_harvested' => 50,
+                    'garden_baskets' => 1000000,
+                    'sport_soccer_goals' => 1000000,
+                    'sport_basket_points' => 1000000,
+                    'sport_basket_streak' => 10000,
+                ];
+                $cleanVal = (string)max(0, min($maxMap[$sKey], (int)round((float)$sVal)));
             } else {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             }
@@ -474,12 +502,9 @@ if ($action === 'sync') {
         (SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes) AS brd_max')->fetch();
 
     $clientObjVer = (string)($body['obj_ver'] ?? '');
-    $objVer = $meta
-        ? ((string)$meta['obj_c'] . ':' . (string)$meta['obj_u'] . '|' . (string)$meta['st_obj_c'] . ':' . (string)$meta['st_obj_u'])
-        : '0:|0:';
+    $objVer = $meta ? ((string)$meta['obj_c'] . ':' . (string)$meta['obj_u']) : '0:';
     $objectsUnchanged = (!$initSync && $clientObjVer !== '' && $clientObjVer === $objVer);
     $objects = null;
-    $itemStates = null;
     if (!$objectsUnchanged) {
         $objects = new stdClass();
         foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
@@ -491,6 +516,13 @@ if ($action === 'sync') {
                 'ry' => (float)$obj['ry'],
             ];
         }
+    }
+
+    $clientItemStateVer = (string)($body['item_state_ver'] ?? '');
+    $itemStateVer = $meta ? ((string)$meta['st_obj_c'] . ':' . (string)$meta['st_obj_u']) : '0:';
+    $itemStatesUnchanged = (!$initSync && $clientItemStateVer !== '' && $clientItemStateVer === $itemStateVer);
+    $itemStates = null;
+    if (!$itemStatesUnchanged) {
         $itemStates = new stdClass();
         foreach ($pdo->query('SELECT item_id, state_json FROM mc_world_item_states')->fetchAll() as $savedState) {
             $decodedState = json_decode((string)$savedState['state_json'], true);
@@ -574,9 +606,11 @@ if ($action === 'sync') {
         'force_teleport' => $forceTeleport,
         'players' => $players,
         'obj_ver' => $objVer,
+        'item_state_ver' => $itemStateVer,
         'state_ver' => $stateVer,
         'layout_ver' => $layoutVer,
         'objects_unchanged' => $objectsUnchanged,
+        'item_states_unchanged' => $itemStatesUnchanged,
         'state_unchanged' => $stateUnchanged,
         'layout_unchanged' => $layoutUnchanged,
         'board_strokes' => $boardStrokes,
@@ -584,6 +618,8 @@ if ($action === 'sync') {
     ];
     if (!$objectsUnchanged) {
         $resp['objects'] = $objects;
+    }
+    if (!$itemStatesUnchanged) {
         $resp['item_states'] = $itemStates;
     }
     if (!$stateUnchanged) {

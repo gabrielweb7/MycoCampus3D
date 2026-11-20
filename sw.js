@@ -4,13 +4,13 @@
  * execute em tela cheia sem barra de navegador e carregue instantaneamente.
  */
 
-const CACHE_NAME = 'mycocampus-v1.9.2';
+const CACHE_NAME = 'mycocampus-v1.9.3';
 const STATIC_ASSETS = [
   './',
   'index.html',
   'manifest.webmanifest',
   'css/tailwind.min.css?v=0.8.3',
-  'css/game.css?v=1.9.2',
+  'css/game.css?v=1.9.3',
   'js/vendor/three.bundle.min.js',
   'assets/icon-192.png',
   'assets/icon-512.png',

@@ -92,7 +92,18 @@ export function makeAlcoholLamp(ctx, id, px, py, pz) {
       purpose: 'Flambar lâmina do bisturi ou agulha da seringa até a incandescência para esterilizar no Fluxo Laminar',
       weightGrams: 165,
       getTempC: (it) => (it && it.alcoholLampCtrl && it.alcoholLampCtrl.lit ? 680.0 : 23.0),
-      compatibilities: { canEnterCooker: false, isAlcoholLamp: true }
+      compatibilities: { canEnterCooker: false, isAlcoholLamp: true },
+      serializeState: (it) => {
+        const lc = it && it.alcoholLampCtrl;
+        if (!lc) return null;
+        return { lit: !!lc.lit };
+      },
+      applyState: (it, custom) => {
+        const lc = it && it.alcoholLampCtrl;
+        if (!lc || !custom) return;
+        lc.lit = !!custom.lit;
+        if (lc.updateVisual) lc.updateVisual();
+      }
     }
   );
 
@@ -175,6 +186,7 @@ export function interactAlcoholLamp(ctx, lampItem) {
   // 3. Alternar chama acesa / apagada
   lc.lit = !lc.lit;
   lc.updateVisual();
+  if (ctx.markItemMoved) ctx.markItemMoved(lampItem);
   playAudio('playClick');
   if (onToast) {
     onToast(lc.lit ? '🔥 Lamparina a Álcool acesa!' : '🕯️ Lamparina a Álcool apagada.');
@@ -592,7 +604,24 @@ export function makeDriedMushroomBatch(ctx, id, speciesName, px, py, pz, grams =
       category: 'dried_harvest',
       purpose: '3 cogumelos desidratados a 55°C (10g • 0% umidade, cracker dry); pese na balança, guarde no Pote c/ Sílica Gel ou embale no Saco',
       weightGrams: wGrams,
-      compatibilities: { canEnterCooker: false, isDriedMushroomBatch: true }
+      compatibilities: { canEnterCooker: false, isDriedMushroomBatch: true },
+      serializeState: (it) => {
+        const dc = it && it.driedMushroomCtrl;
+        if (!dc) return null;
+        return {
+          dynamicKind: 'dried_batch',
+          grams: Math.max(1, Math.min(500, Math.round(Number(dc.grams) || 10))),
+          speciesName: dc.speciesName ? String(dc.speciesName).slice(0, 60) : 'Psilocybe cubensis',
+          removed: !!it._removedForSync
+        };
+      },
+      applyState: (it, custom) => {
+        const dc = it && it.driedMushroomCtrl;
+        if (!dc || !custom) return;
+        if (custom.grams !== undefined) dc.grams = Math.max(1, Math.min(500, Math.round(Number(custom.grams) || 10)));
+        if (typeof custom.speciesName === 'string' && custom.speciesName) dc.speciesName = custom.speciesName;
+        it.label = `🍄 Cogumelos Desidratados Crocantes (${dc.speciesName} • ${dc.grams}g • 0% UR — Guarde no Pote c/ Sílica Gel ou Saco Mylar)`;
+      }
     }
   );
   item.driedMushroomCtrl = { grams: wGrams, speciesName: sp };
@@ -716,7 +745,22 @@ export function makeSilicaStorageJar(ctx, id, px, py, pz, initialOpt = 0) {
       category: 'storage_jar',
       purpose: 'Pote hermético com sachê e pérolas de Sílica Gel para conservar cogumelos desidratados crocantes (clique com cogumelos p/ guardar ou mão vazia p/ retirar 10g)',
       getWeightGrams: (it) => 240 + ((it && it.silicaJarCtrl && it.silicaJarCtrl.storedGrams) || 0),
-      compatibilities: { canEnterCooker: false, isSilicaStorageJar: true }
+      compatibilities: { canEnterCooker: false, isSilicaStorageJar: true },
+      serializeState: (it) => {
+        const jc = it && it.silicaJarCtrl;
+        if (!jc) return null;
+        return {
+          storedGrams: Math.max(0, Math.min(500, Math.round(Number(jc.storedGrams) || 0))),
+          speciesName: jc.speciesName ? String(jc.speciesName).slice(0, 60) : 'Psilocybe cubensis'
+        };
+      },
+      applyState: (it, custom) => {
+        const jc = it && it.silicaJarCtrl;
+        if (!jc || !custom) return;
+        jc.storedGrams = Math.max(0, Math.min(jc.maxGrams || 150, Math.round(Number(custom.storedGrams) || 0)));
+        if (typeof custom.speciesName === 'string' && custom.speciesName) jc.speciesName = custom.speciesName;
+        if (jc.updateVisual) jc.updateVisual();
+      }
     }
   );
 
@@ -771,6 +815,14 @@ export function interactSilicaStorageJar(ctx, jarItem) {
     if (held.driedMushroomCtrl.speciesName) jc.speciesName = held.driedMushroomCtrl.speciesName;
     if (jc.pulseLid) jc.pulseLid();
     jc.updateVisual();
+    if (ctx.markItemMoved) ctx.markItemMoved(jarItem);
+    held._removedForSync = true;
+    if (ctx.pendingMovedItems && held.id) {
+      ctx.pendingMovedItems[held.id] = {
+        id: held.id,
+        state: { custom: { dynamicKind: 'dried_batch', removed: true } }
+      };
+    }
 
     if (held.mesh && held.mesh.parent) held.mesh.parent.remove(held.mesh);
     disposeObjectResources(held.mesh);
@@ -804,6 +856,10 @@ export function interactSilicaStorageJar(ctx, jarItem) {
     const batchItem = makeDriedMushroomBatch(ctx, batchId, jc.speciesName || 'Psilocybe cubensis', pos.x, pos.y + 0.25, pos.z, takeG);
     ctx.heldItem = batchItem;
     if (batchItem.mesh && batchItem.mesh.parent) batchItem.mesh.parent.remove(batchItem.mesh);
+    if (ctx.markItemMoved) {
+      ctx.markItemMoved(jarItem);
+      ctx.markItemMoved(batchItem);
+    }
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(batchItem);
 
     playAudio('playClick');

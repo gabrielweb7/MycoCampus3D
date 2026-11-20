@@ -150,7 +150,68 @@ export function getMonotubMeta() {
       canEnterCooker: false,
       isMonotub24L: true
     },
-    connections: ['alcohol_spray', 'paper_towel', 'spawn_bag_1500', 'spawn_jar_800', 'monotub_led_rack', 'campus_garden_compost']
+    connections: ['alcohol_spray', 'paper_towel', 'spawn_bag_1500', 'spawn_jar_800', 'monotub_led_rack', 'campus_garden_compost'],
+    serializeState: (item) => {
+      const mc = item && item.monotubCtrl;
+      if (!mc) return null;
+      const col = Math.max(0, Math.min(100, Number(mc.colonization) || 0));
+      const gr = Math.max(0, Math.min(100, Number(mc.growth) || 0));
+      return {
+        lidOpen: !!mc.lidOpen,
+        boxSanitized: !!mc.boxSanitized,
+        hasSpawn: !!mc.hasSpawn,
+        hasBulk: !!mc.hasBulk,
+        mixed: !!mc.mixed,
+        leveled: !!mc.leveled,
+        hasCasing: !!mc.hasCasing,
+        colonization: col >= 100 ? 100 : (Math.floor(col / 25) * 25),
+        fruitingStage: Math.max(0, Math.min(3, Math.round(Number(mc.fruitingStage) || 0))),
+        growth: gr >= 100 ? 100 : (Math.floor(gr / 25) * 25),
+        flush: Math.max(1, Math.min(4, Math.round(Number(mc.flush) || 1))),
+        humidity: Math.round(Math.max(0, Math.min(100, Number(mc.humidity ?? 92))) / 10) * 10,
+        generation: Math.max(1, Math.min(20, Math.round(Number(mc.generation ?? 2)))),
+        onLedRack: !!mc.onLedRack,
+        rackSlotId: typeof mc.rackSlotId === 'number' ? mc.rackSlotId : -1,
+        contaminated: !!mc.contaminated,
+        contamReason: mc.contamReason ? String(mc.contamReason).slice(0, 48) : '',
+        spent: !!mc.spent,
+        speciesName: mc.speciesName ? String(mc.speciesName).slice(0, 60) : ''
+      };
+    },
+    applyState: (item, custom) => {
+      const mc = item && item.monotubCtrl;
+      if (!mc || !custom) return;
+      mc.lidOpen = !!custom.lidOpen;
+      mc.lidAnimProgress = mc.lidOpen ? 1 : 0;
+      mc.boxSanitized = !!custom.boxSanitized;
+      mc.hasSpawn = !!custom.hasSpawn;
+      mc.hasBulk = !!custom.hasBulk;
+      mc.mixed = !!custom.mixed;
+      mc.leveled = !!custom.leveled;
+      mc.hasCasing = !!custom.hasCasing;
+      const nextCol = Math.max(0, Math.min(100, Number(custom.colonization) || 0));
+      mc.colonization = (mc.leveled && !mc.lidOpen && mc.colonization < 100 && nextCol < 100)
+        ? Math.max(Number(mc.colonization) || 0, nextCol)
+        : nextCol;
+      const nextStage = Math.max(0, Math.min(3, Math.round(Number(custom.fruitingStage) || 0)));
+      const nextGrowth = Math.max(0, Math.min(100, Number(custom.growth) || 0));
+      if (mc.fruitingStage === nextStage && nextStage > 0 && nextStage < 3 && mc.onLedRack) {
+        mc.growth = Math.max(Number(mc.growth) || 0, nextGrowth);
+      } else {
+        mc.growth = nextGrowth;
+      }
+      mc.fruitingStage = nextStage;
+      mc.flush = Math.max(1, Math.min(4, Math.round(Number(custom.flush) || 1)));
+      if (typeof custom.humidity === 'number') mc.humidity = custom.humidity;
+      if (typeof custom.generation === 'number') mc.generation = custom.generation;
+      mc.onLedRack = !!custom.onLedRack;
+      if (typeof custom.rackSlotId === 'number') mc.rackSlotId = custom.rackSlotId;
+      mc.contaminated = !!custom.contaminated;
+      mc.contamReason = typeof custom.contamReason === 'string' ? custom.contamReason : '';
+      mc.spent = !!custom.spent;
+      mc.speciesName = typeof custom.speciesName === 'string' ? custom.speciesName : '';
+      updateMonotubVisual(item);
+    }
   };
 }
 

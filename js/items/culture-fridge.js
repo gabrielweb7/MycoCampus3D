@@ -399,8 +399,24 @@ export function makeCultureFridge(ctx, id, x, y, z) {
   addBox(group, 0.07, FRIDGE_HEIGHT, FRIDGE_DEPTH, shellMat, -0.405, FRIDGE_HEIGHT * 0.5, 0);
   addBox(group, 0.07, FRIDGE_HEIGHT, FRIDGE_DEPTH, shellMat, 0.405, FRIDGE_HEIGHT * 0.5, 0);
   addBox(group, 0.82, 0.08, FRIDGE_DEPTH, shellMat, 0, 0.04, 0);
-  addBox(group, 0.82, 0.08, FRIDGE_DEPTH, shellMat, 0, FRIDGE_HEIGHT - 0.04, 0);
+  const roofBox = addBox(group, 0.82, 0.08, FRIDGE_DEPTH, shellMat, 0, FRIDGE_HEIGHT - 0.04, 0);
   addBox(group, 0.82, FRIDGE_HEIGHT - 0.16, 0.07, insideMat, 0, FRIDGE_HEIGHT * 0.5, -0.325);
+  const roofSurface = {
+    minX: x - FRIDGE_WIDTH * 0.5 + 0.03,
+    maxX: x + FRIDGE_WIDTH * 0.5 - 0.03,
+    minZ: z - FRIDGE_DEPTH * 0.5 + 0.03,
+    maxZ: z + FRIDGE_DEPTH * 0.5 - 0.03,
+    topY: y + FRIDGE_HEIGHT,
+    centerX: x,
+    centerZ: z,
+    halfW: FRIDGE_WIDTH * 0.5 - 0.03,
+    halfD: FRIDGE_DEPTH * 0.5 - 0.03,
+    ry: 0,
+    isFridgeRoof: true
+  };
+  roofBox.userData.supportSurface = roofSurface;
+  ctx.supportSurfaces.push(roofSurface);
+  ctx.supportMeshes.push(roofBox);
 
   const slots = [];
   const shelfSurfaces = [];
@@ -495,6 +511,7 @@ export function makeCultureFridge(ctx, id, x, y, z) {
   const fridgeCtrl = {
     slots,
     shelfSurfaces,
+    roofSurface,
     doorPivot,
     doorOpen: false,
     doorProgress: 0,
@@ -520,6 +537,7 @@ export function makeCultureFridge(ctx, id, x, y, z) {
   };
   ctx.solidColliders.push(solidCollider);
   group.userData.dynamicCollider = solidCollider;
+  group.userData.dynamicSurfaces = [roofSurface];
   group.userData.updateBounds = updateItemBounds;
   item.fridgeCtrl = fridgeCtrl;
   fridgeCtrl.solidCollider = solidCollider;

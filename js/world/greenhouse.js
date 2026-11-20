@@ -685,7 +685,7 @@ export function updateGreenhousePanelDisplay() {
   }
 }
 
-function buildCommercialRack(scene, rackDef, colliders) {
+function buildCommercialRack(scene, rackDef, colliders, ctx) {
   const THREE = window.THREE;
   const rackGroup = new THREE.Group();
   const steelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.72, roughness: 0.28 });
@@ -718,6 +718,18 @@ function buildCommercialRack(scene, rackDef, colliders) {
     const shelf = new THREE.Mesh(shelfGeo, shelfGridMat);
     shelf.position.set(rackDef.x, sy - 0.02, zCenter);
     rackGroup.add(shelf);
+    if (ctx && ctx.supportSurfaces && ctx.supportMeshes) {
+      const ghSurf = {
+        minX: rackDef.x - rackW * 0.5 + 0.02,
+        maxX: rackDef.x + rackW * 0.5 - 0.02,
+        minZ: zCenter - rackL * 0.5 + 0.02,
+        maxZ: zCenter + rackL * 0.5 - 0.02,
+        topY: sy
+      };
+      ctx.supportSurfaces.push(ghSurf);
+      shelf.userData.supportSurface = ghSurf;
+      ctx.supportMeshes.push(shelf);
+    }
 
     for (let px = 0; px < postXOffsets.length; px++) {
       const rail = new THREE.Mesh(railZGeo, steelMat);
@@ -948,7 +960,7 @@ export function buildGreenhouseBench(scene, ctx) {
   const colliders = ctx && ctx.solidColliders ? ctx.solidColliders : null;
 
   for (let r = 0; r < RACK_DEFS.length; r++) {
-    buildCommercialRack(scene, RACK_DEFS[r], colliders);
+    buildCommercialRack(scene, RACK_DEFS[r], colliders, ctx);
   }
   buildClimateHardware(scene, colliders);
 

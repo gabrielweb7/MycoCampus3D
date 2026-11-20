@@ -35,7 +35,31 @@ export const gardenState = {
   targetCompostFrac: 0.37
 };
 
-function makeOrganicGardenBasket(ctx, px, py, pz) {
+export function applyGardenWorldState(stateMap) {
+  if (!stateMap) return;
+  let dirtyCompost = false;
+  let dirtyBasket = false;
+  if (stateMap.garden_compost !== undefined) {
+    const v = Math.max(0, Math.min(50, parseInt(stateMap.garden_compost, 10) || 0));
+    if (v !== gardenState.compostCakes) { gardenState.compostCakes = v; dirtyCompost = true; }
+  }
+  if (stateMap.garden_richness !== undefined) {
+    const v = Math.max(0, Math.min(100, parseInt(stateMap.garden_richness, 10) || 0));
+    if (v !== Math.round(gardenState.soilRichness)) { gardenState.soilRichness = v; dirtyCompost = true; }
+  }
+  if (stateMap.garden_harvested !== undefined) {
+    const v = Math.max(0, Math.min(50, parseInt(stateMap.garden_harvested, 10) || 0));
+    if (v !== gardenState.totalHarvested) { gardenState.totalHarvested = v; dirtyBasket = true; }
+  }
+  if (stateMap.garden_baskets !== undefined) {
+    const v = Math.max(0, parseInt(stateMap.garden_baskets, 10) || 0);
+    if (v !== gardenState.readyBaskets) { gardenState.readyBaskets = v; dirtyBasket = true; }
+  }
+  if (dirtyCompost) updateCompostVisual(true);
+  if (dirtyBasket) updateHarvestBasketVisual();
+}
+
+export function makeOrganicGardenBasket(ctx, px, py, pz, customId = null) {
   const g = new THREE.Group();
   const woodM = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.78 });
   const tomM = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.32 });
@@ -50,7 +74,7 @@ function makeOrganicGardenBasket(ctx, px, py, pz) {
     letHead.position.set(-0.05 + i * 0.11, 0.165, 0.05);
     g.add(tom, letHead);
   }
-  const id = 'organic_basket_' + Date.now().toString(36);
+  const id = customId || ('organic_basket_' + Date.now().toString(36));
   const item = registerPickable(
     ctx,
     id,
@@ -60,7 +84,19 @@ function makeOrganicGardenBasket(ctx, px, py, pz) {
     {
       category: 'produce',
       purpose: 'Cesta fresca da horta adubada com micélio — venda no Empório Drive-Thru por MycoCoins',
-      weightGrams: 1800
+      weightGrams: 1800,
+      serializeState: (it) => ({
+        dynamicKind: 'organic_basket',
+        packsValue: (it && it.organicBasketCtrl && it.organicBasketCtrl.packsValue) || 2,
+        removed: !!(it && it._removedForSync)
+      }),
+      applyState: (it, custom) => {
+        if (!it || !custom) return;
+        it.organicBasketCtrl = it.organicBasketCtrl || { packsValue: 2 };
+        if (custom.packsValue !== undefined) {
+          it.organicBasketCtrl.packsValue = Math.max(1, Math.min(10, Math.round(Number(custom.packsValue) || 2)));
+        }
+      }
     }
   );
   item.organicBasketCtrl = { packsValue: 2 };
@@ -457,9 +493,17 @@ export function interactGardenTarget(ctx, target) {
       if (held.monotubCtrl) {
         cakeName = held.monotubCtrl.speciesName || 'Monotub 24L';
         resetMonotubToCleanEmpty(held);
+        if (ctx.markItemMoved) ctx.markItemMoved(held);
         if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
       } else if (held.spentCakeCtrl) {
         cakeName = held.spentCakeCtrl.speciesName || 'Bolo Esgotado';
+        held._removedForSync = true;
+        if (ctx.pendingMovedItems && held.id) {
+          ctx.pendingMovedItems[held.id] = {
+            id: held.id,
+            state: { custom: { dynamicKind: 'spent_cake', removed: true } }
+          };
+        }
         if (held.mesh && held.mesh.parent) held.mesh.parent.remove(held.mesh);
         disposeObjectResources(held.mesh);
         const idx = ctx.pickableItems.indexOf(held);
@@ -487,11 +531,16 @@ export function interactGardenTarget(ctx, target) {
         if (sc.fillMesh) sc.fillMesh.visible = false;
         if (sc.mycOverlay) sc.mycOverlay.visible = false;
         sc.updateVisual();
+        if (ctx.markItemMoved) ctx.markItemMoved(held);
         if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
       }
 
       gardenState.compostCakes++;
       gardenState.soilRichness = Math.min(100, gardenState.soilRichness + 25);
+      if (ctx.queueWorldStateChange) {
+        ctx.queueWorldStateChange('garden_compost', gardenState.compostCakes);
+        ctx.queueWorldStateChange('garden_richness', Math.round(gardenState.soilRichness));
+      }
       updateCompostVisual(false);
       triggerGardenBurst(15.6, 0.55, 17.6, 0xa3e635);
       if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
@@ -533,6 +582,8 @@ export function interactGardenTarget(ctx, target) {
       const basketItem = makeOrganicGardenBasket(ctx, px, py, pz);
       ctx.heldItem = basketItem;
       ctx.lastPickupAt = performance.now();
+      if (ctx.markItemMoved) ctx.markItemMoved(basketItem);
+      if (ctx.queueWorldStateChange) ctx.queueWorldStateChange('garden_baskets', gardenState.readyBaskets);
       if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(basketItem.label);
       if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
       if (onToast) {
@@ -558,6 +609,10 @@ export function interactGardenTarget(ctx, target) {
       gardenState.totalHarvested++;
       if (gardenState.totalHarvested % 3 === 0) {
         gardenState.readyBaskets++;
+      }
+      if (ctx.queueWorldStateChange) {
+        ctx.queueWorldStateChange('garden_harvested', gardenState.totalHarvested);
+        ctx.queueWorldStateChange('garden_baskets', gardenState.readyBaskets);
       }
       updatePlantVisual(pl);
       updateHarvestBasketVisual();

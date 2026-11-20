@@ -365,6 +365,69 @@ export function isPointInBoundsXZ(x, z, box, margin) {
   return x >= box.minX - m && x <= box.maxX + m && z >= box.minZ - m && z <= box.maxZ + m;
 }
 
+export function getItemSupportTopOffset(item) {
+  if (!item || !item.mesh) return 0;
+  const ud = item.mesh.userData || {};
+  if (ud.isTable || ud.isHood || ud.isTray || ud.isScale || ud.isStirrer || ud.isBurner || ud.isCultureFridge) {
+    return 0;
+  }
+  if (ud.isPetri || (item.spawnCtrl && item.spawnCtrl.isPP5)) return 0;
+  if (ud.isSyringe || ud.isLabSpoon || ud.isThermometer || ud.isAlcoholSpray || ud.isPaperTowel ||
+      item.scalpelCtrl || item.bladePackCtrl || item.wildMushroomCtrl || item.driedMushroomCtrl ||
+      item.potItem || item.bowlCtrl) {
+    return 0;
+  }
+  const sy = Math.abs(item.mesh.scale ? item.mesh.scale.y : 1) || 1;
+  if (item.deliveryCrateCtrl) return 0.165 * sy;
+  if (item.monotubCtrl) return item.monotubCtrl.lidOpen ? 0 : 0.32 * sy;
+  if (item.dehydratorCtrl) return 0.28 * sy;
+  if (item.sealerCtrl) return 0.11 * sy;
+  if (item.silicaJarCtrl) return 0.21 * sy;
+  if (item.organicBasketCtrl) return 0.14 * sy;
+  if (ud.isCookerBase) return 0.036 * sy;
+  if (item.lidItem && item.lidItem.isAttached) return 0.42 * sy;
+  if (item.mushroomBagCtrl) return 0.035 * sy;
+  const id = item.id || '';
+  if (id.indexOf('gloves_box_') === 0) return 0.122 * sy;
+  if (id.indexOf('substrate_') === 0) return 0.42 * sy;
+  if (id.indexOf('flocao_500g_') === 0) return 0.22 * sy;
+  if (id === 'falcon_rack_lab') return 0.08 * sy;
+  if (id.indexOf('foil_roll_') === 0) return 0.065 * sy;
+  return 0;
+}
+
+export function getItemSupportHalfExtents(item) {
+  const sx = Math.abs(item && item.mesh && item.mesh.scale ? item.mesh.scale.x : 1) || 1;
+  const sz = Math.abs(item && item.mesh && item.mesh.scale ? item.mesh.scale.z : 1) || 1;
+  const ry = (item && item.mesh && item.mesh.rotation && item.mesh.rotation.y) || 0;
+  let w = 0.24;
+  let d = 0.24;
+  if (item && item.deliveryCrateCtrl) { w = 0.42; d = 0.36; }
+  else if (item && item.monotubCtrl) { w = 0.52; d = 0.40; }
+  else if (item && item.dehydratorCtrl) { w = 0.34; d = 0.34; }
+  else if (item && item.silicaJarCtrl) { w = 0.17; d = 0.17; }
+  else if (item && item.organicBasketCtrl) { w = 0.32; d = 0.24; }
+  else if (item && item.sealerCtrl) { w = 0.28; d = 0.16; }
+  else if (item && item.id && item.id.indexOf('substrate_') === 0) { w = 0.30; d = 0.22; }
+  else if (item && item.id && item.id.indexOf('gloves_box_') === 0) { w = 0.24; d = 0.13; }
+  else if (item && item.id && item.id.indexOf('flocao_500g_') === 0) { w = 0.18; d = 0.12; }
+  else {
+    const r = (item && item.radius) || 0.18;
+    w = r * 1.6;
+    d = r * 1.6;
+  }
+  const sw = w * sx;
+  const sd = d * sz;
+  const cRot = Math.abs(Math.cos(ry));
+  const sRot = Math.abs(Math.sin(ry));
+  return {
+    w: sw,
+    d: sd,
+    hw: (sw * cRot + sd * sRot) * 0.5,
+    hd: (sw * sRot + sd * cRot) * 0.5
+  };
+}
+
 export function updateItemBounds(item) {
   if (!item || !item.mesh) return;
   const px = item.mesh.position.x, py = item.mesh.position.y, pz = item.mesh.position.z;
@@ -392,6 +455,17 @@ export function updateItemBounds(item) {
       surf.halfW = Math.max(0.05, w * 0.5 - 0.02);
       surf.halfD = Math.max(0.05, d * 0.5 - 0.02);
       surf.ry = ry;
+    }
+    if (item.fridgeCtrl && item.fridgeCtrl.roofSurface) {
+      const rs = item.fridgeCtrl.roofSurface;
+      attachSurfaceOwner(rs, item);
+      rs.minX = px - hw + 0.02; rs.maxX = px + hw - 0.02;
+      rs.minZ = pz - hd + 0.02; rs.maxZ = pz + hd - 0.02;
+      rs.topY = py + h;
+      rs.centerX = px; rs.centerZ = pz;
+      rs.halfW = Math.max(0.05, w * 0.5 - 0.02);
+      rs.halfD = Math.max(0.05, d * 0.5 - 0.02);
+      rs.ry = ry;
     }
     if (col) {
       col.minX = px - hw - 0.05; col.maxX = px + hw + 0.05;

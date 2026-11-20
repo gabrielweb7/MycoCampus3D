@@ -17,29 +17,66 @@ import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { spawnItemFromPrefab } from '../items/item-prefabs.js';
+import { disposeObjectResources } from '../items/item-registry.js';
+import { makeDriedMushroomBatch } from '../items/lab-advanced-tools.js';
+import { makeSpentCakeItem } from '../items/monotub.js';
+import { makeOrganicGardenBasket } from '../world/campus-garden.js';
 
 const LOCAL_MOVED_STORAGE_KEY = 'myco_local_world_objects_v1';
+let localMovedCache = null;
+let localMovedDirty = false;
+
+function quantizeStep(val, step = 25) {
+  const n = Math.max(0, Math.min(100, Number(val) || 0));
+  if (n >= 100) return 100;
+  return Math.floor(n / step) * step;
+}
 
 function readLocalMovedMap() {
-  if (typeof localStorage === 'undefined') return {};
+  if (localMovedCache !== null) return localMovedCache;
+  if (typeof localStorage === 'undefined') {
+    localMovedCache = {};
+    return localMovedCache;
+  }
   try {
     const raw = localStorage.getItem(LOCAL_MOVED_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return (parsed && typeof parsed === 'object') ? parsed : {};
+    const parsed = raw ? JSON.parse(raw) : {};
+    localMovedCache = (parsed && typeof parsed === 'object') ? parsed : {};
   } catch (e) {
-    return {};
+    localMovedCache = {};
   }
+  return localMovedCache;
 }
 
 function writeLocalMovedMap(map) {
+  localMovedCache = (map && typeof map === 'object') ? map : {};
+  localMovedDirty = false;
   if (typeof localStorage === 'undefined') return;
   try {
-    localStorage.setItem(LOCAL_MOVED_STORAGE_KEY, JSON.stringify(map || {}));
+    localStorage.setItem(LOCAL_MOVED_STORAGE_KEY, JSON.stringify(localMovedCache));
   } catch (e) {}
 }
 
-export function saveLocalMovedObject(item, state) {
+export function flushLocalMovedObjects() {
+  if (!localMovedDirty || localMovedCache === null) return;
+  writeLocalMovedMap(localMovedCache);
+}
+
+function setLocalMovedEntry(itemId, entry, deferFlush = false) {
+  const map = readLocalMovedMap();
+  const prev = map[itemId];
+  if (prev &&
+    prev.x === entry.x && prev.y === entry.y && prev.z === entry.z && prev.ry === entry.ry &&
+    prev.prefabId === entry.prefabId &&
+    JSON.stringify(prev.state || null) === JSON.stringify(entry.state || null)) {
+    return;
+  }
+  map[itemId] = entry;
+  localMovedDirty = true;
+  if (!deferFlush) flushLocalMovedObjects();
+}
+
+export function saveLocalMovedObject(item, state, deferFlush = false) {
   if (!item || !item.id || !item.mesh) return;
   const map = readLocalMovedMap();
   const prev = map[item.id] || {};
@@ -53,31 +90,94 @@ export function saveLocalMovedObject(item, state) {
   if (prefabId) entry.prefabId = prefabId;
   if (state !== undefined) entry.state = state;
   else if (prev.state !== undefined) entry.state = prev.state;
-  map[item.id] = entry;
-  writeLocalMovedMap(map);
+  setLocalMovedEntry(item.id, entry, deferFlush);
+}
+
+export function markItemRemovedForSync(sim, item, dynamicKind) {
+  if (!item || !item.id) return;
+  item._removedForSync = true;
+  const custom = { removed: true };
+  if (dynamicKind) custom.dynamicKind = dynamicKind;
+  if (sim) {
+    sim.pendingMovedItems = sim.pendingMovedItems || {};
+    sim.pendingMovedItems[item.id] = {
+      id: item.id,
+      state: { custom }
+    };
+  }
+  const map = readLocalMovedMap();
+  setLocalMovedEntry(item.id, Object.assign({}, map[item.id] || {}, { state: { custom } }), false);
 }
 
 export function clearLocalMovedObjects() {
+  localMovedCache = {};
+  localMovedDirty = false;
   if (typeof localStorage === 'undefined') return;
   try { localStorage.removeItem(LOCAL_MOVED_STORAGE_KEY); } catch (e) {}
 }
 
+function spawnDynamicItemFromCustom(sim, itemId, custom, pose) {
+  if (!sim || !itemId || !custom || custom.removed) return null;
+  const x = pose && typeof pose.x === 'number' ? pose.x : 0;
+  const y = pose && typeof pose.y === 'number' ? pose.y : 0.2;
+  const z = pose && typeof pose.z === 'number' ? pose.z : 0;
+  if (custom.dynamicKind === 'dried_batch') {
+    return makeDriedMushroomBatch(sim, itemId, custom.speciesName || 'Psilocybe cubensis', x, y, z, custom.grams || 10);
+  }
+  if (custom.dynamicKind === 'organic_basket') {
+    return makeOrganicGardenBasket(sim, x, y, z, itemId);
+  }
+  if (custom.dynamicKind === 'spent_cake') {
+    return makeSpentCakeItem(sim, itemId, custom.speciesName || 'Cogumelo', x, y, z);
+  }
+  return null;
+}
+
+function removeItemInstanceLocally(sim, item) {
+  if (!item) return;
+  item._removedForSync = true;
+  if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
+  disposeObjectResources(item.mesh);
+  if (sim && Array.isArray(sim.pickableItems)) {
+    const idx = sim.pickableItems.indexOf(item);
+    if (idx !== -1) sim.pickableItems.splice(idx, 1);
+  }
+  if (sim && sim.pickableMap && typeof sim.pickableMap.delete === 'function') {
+    sim.pickableMap.delete(item.id);
+  }
+  if (sim && sim.heldItem === item) {
+    sim.heldItem = null;
+    if (sim.placementGhost) sim.placementGhost.visible = false;
+    if (sim.callbacks && sim.callbacks.onHoldChange) sim.callbacks.onHoldChange(null);
+  }
+}
+
 export function restoreLocalWorldObjects(sim) {
   if (!sim || !Array.isArray(sim.pickableItems)) return;
+  localMovedCache = null;
   const localMap = readLocalMovedMap();
   if (!localMap || !Object.keys(localMap).length) return;
-  // Instancia primeiro quaisquer itens extras comprados na Loja / Prefabs salvos localmente
+  // Instancia primeiro quaisquer itens extras comprados na Loja / Prefabs ou dinâmicos salvos localmente
   Object.keys(localMap).forEach((itemId) => {
     const saved = localMap[itemId];
-    if (!saved || !saved.prefabId) return;
+    if (!saved) return;
+    if (saved.state && saved.state.custom && saved.state.custom.removed) {
+      const existing = sim.findPickable ? sim.findPickable(itemId) : null;
+      if (existing) removeItemInstanceLocally(sim, existing);
+      return;
+    }
     if (sim.findPickable && sim.findPickable(itemId)) return;
-    spawnItemFromPrefab(sim, saved.prefabId, {
-      id: itemId,
-      x: saved.x || 0,
-      y: saved.y || 0,
-      z: saved.z || 0,
-      ry: saved.ry || 0
-    });
+    if (saved.prefabId) {
+      spawnItemFromPrefab(sim, saved.prefabId, {
+        id: itemId,
+        x: saved.x || 0,
+        y: saved.y || 0,
+        z: saved.z || 0,
+        ry: saved.ry || 0
+      });
+    } else if (saved.state && saved.state.custom && saved.state.custom.dynamicKind) {
+      spawnDynamicItemFromCustom(sim, itemId, saved.state.custom, saved);
+    }
   });
   applyCampusWorldObjects(sim, localMap);
   Object.keys(localMap).forEach((itemId) => {
@@ -135,10 +235,15 @@ export function consumeCampusMovedItems(sim) {
       const signature = JSON.stringify(state);
       if (sim.itemStateSignatures[item.id] === signature) continue;
       sim.itemStateSignatures[item.id] = signature;
-      saveLocalMovedObject(item, state);
+      saveLocalMovedObject(item, state, true);
       const queued = byId[item.id] || (byId[item.id] = { id: item.id });
       queued.state = state;
-      if (queued.x === undefined && (item.isMoved || item.id.indexOf('wild_picked_') === 0)) {
+      const isDynamicSpawnId = item.id.indexOf('wild_picked_') === 0 ||
+        item.id.indexOf('dried_batch_') === 0 ||
+        item.id.indexOf('organic_basket_') === 0 ||
+        item.id.indexOf('spent_cake_') === 0 ||
+        item.id.indexOf('dyn_') === 0;
+      if (queued.x === undefined && !item._removedForSync && (item.isMoved || isDynamicSpawnId)) {
         queued.x = item.mesh.position.x;
         queued.y = item.mesh.position.y;
         queued.z = item.mesh.position.z;
@@ -146,6 +251,7 @@ export function consumeCampusMovedItems(sim) {
       }
     }
   }
+  flushLocalMovedObjects();
   const list = Object.values(pending);
   sim.pendingMovedItems = {};
   return list;
@@ -174,12 +280,12 @@ export function getReplicatedItemState(sim, item) {
       fillGrams: Math.round(spawn.fillGrams || 0),
       substrateKind: spawn.substrateKind || '',
       waterMl: Math.round(spawn.waterMl || 0),
-      sterilizeProgress: Math.round(spawn.sterilizeProgress || 0),
+      sterilizeProgress: quantizeStep(spawn.sterilizeProgress, 25),
       sterilized: !!spawn.sterilized,
       sealed: !!spawn.sealed,
       inoculated: !!spawn.inoculated,
       colonized: !!spawn.colonized,
-      colonization: Math.round(spawn.colonization || 0),
+      colonization: quantizeStep(spawn.colonization, 25),
       ageGameDays: Math.round((spawn.ageGameDays || 0) * 10) / 10,
       shelfLifeAgeDays: Math.round((spawn.shelfLifeAgeDays || 0) * 10) / 10,
       expired: !!spawn.expired,
@@ -191,7 +297,7 @@ export function getReplicatedItemState(sim, item) {
     };
   }
   const petri = meshData.petriCtrl;
-  if (petri && ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam'].indexOf(petri.mode) !== -1) {
+  if (petri && ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam', 'spore_print'].indexOf(petri.mode) !== -1) {
     state.petri = {
       mode: petri.mode,
       lidOpen: !!petri.lidOpen,
@@ -200,7 +306,7 @@ export function getReplicatedItemState(sim, item) {
       parafilmSealed: !!petri.parafilmSealed,
       inoculationMethod: petri.inoculationMethod === 'mycelium' ? 'mycelium' : (petri.inoculationMethod === 'liquid' ? 'liquid' : ''),
       speciesName: petri.speciesName || '',
-      colonization: Math.round((petri.colonization || 0) * 10) / 10,
+      colonization: quantizeStep(petri.colonization, 25),
       ageGameDays: Math.round((petri.ageGameDays || 0) * 10) / 10,
       shelfLifeAgeDays: Math.round((petri.shelfLifeAgeDays || 0) * 10) / 10,
       expired: !!petri.expired,
@@ -208,7 +314,8 @@ export function getReplicatedItemState(sim, item) {
       delayedContamAtPct: Math.round((petri.delayedContamAtPct || 0) * 10) / 10,
       tempC: typeof petri.tempC === 'number' ? Math.round(petri.tempC * 10) / 10 : 24.5,
       refrigerated: !!petri.refrigerated,
-      hybridMutant: petri.hybridMutant === 'gold' || petri.hybridMutant === 'albino' ? petri.hybridMutant : ''
+      hybridMutant: petri.hybridMutant === 'gold' || petri.hybridMutant === 'albino' ? petri.hybridMutant : '',
+      generation: Math.max(1, Math.min(20, Math.round(Number(petri.generation) || 1)))
     };
   }
   if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
@@ -219,7 +326,7 @@ export function getReplicatedItemState(sim, item) {
     state.culture = {
       inoculated: !!culture.inoculated,
       colonized: !!culture.colonized,
-      colonization: Math.round((culture.colonization || 0) * 10) / 10,
+      colonization: quantizeStep(culture.colonization, 25),
       contaminated: !!culture.contaminated,
       ageGameDays: Math.round((culture.ageGameDays || 0) * 10) / 10,
       shelfLifeAgeDays: Math.round((culture.shelfLifeAgeDays || 0) * 10) / 10,
@@ -321,12 +428,16 @@ export function getReplicatedItemState(sim, item) {
     state.cooker = {
       waterMl: Math.round(cooker.waterMl || 0),
       mode: cooker.mode === 'pasteurize' ? 'pasteurize' : 'sterilize',
-      temp: Math.round(cooker.temp || 0),
-      psi: Math.round((cooker.psi || 0) * 10) / 10,
-      progress: Math.round(cooker.progress || 0),
+      temp: Math.round((cooker.temp || 0) / 10) * 10,
+      psi: Math.round((cooker.psi || 0) / 3) * 3,
+      progress: quantizeStep(cooker.progress, 25),
       sterilized: !!cooker.sterilized,
       burned: !!cooker.burned,
-      overheatTimer: Math.round((cooker.overheatTimer || 0) * 10) / 10,
+      overheatTimer: Math.round((cooker.overheatTimer || 0) / 5) * 5,
+      grainGrams: Math.round(cooker.grainGrams || 0),
+      grainCookSec: Math.round((cooker.grainCookSec || 0) / 5) * 5,
+      grainAlDente: !!cooker.grainAlDente,
+      hasBase: cooker.hasBase !== false,
       contents: cooker.contents.slice(0, 6).map((content) => content.id)
     };
   }
@@ -356,7 +467,14 @@ export function applyReplicatedItemState(sim, item, state) {
     ['fillGrams', 'waterMl', 'sterilizeProgress', 'colonization', 'ageGameDays', 'shelfLifeAgeDays'].forEach(function (key) {
       if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
         const maxValue = key === 'colonization' || key === 'sterilizeProgress' ? 100 : 1000;
-        spawn[key] = Math.max(0, Math.min(maxValue, incoming[key]));
+        const clamped = Math.max(0, Math.min(maxValue, incoming[key]));
+        if (key === 'colonization' && spawn.inoculated && incoming.inoculated && !spawn.colonized && clamped < 100) {
+          spawn.colonization = Math.max(Number(spawn.colonization) || 0, clamped);
+        } else if (key === 'sterilizeProgress' && !spawn.sterilized && !incoming.sterilized && clamped < 100 && incoming.filled) {
+          spawn.sterilizeProgress = Math.max(Number(spawn.sterilizeProgress) || 0, clamped);
+        } else {
+          spawn[key] = clamped;
+        }
       }
     });
     const validSubstrates = spawn.isPP5
@@ -394,9 +512,10 @@ export function applyReplicatedItemState(sim, item, state) {
 
   const meshData = item.mesh.userData || {};
   if (meshData.petriCtrl && state.petri && typeof state.petri.mode === 'string' &&
-    ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam'].indexOf(state.petri.mode) !== -1) {
+    ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam', 'spore_print'].indexOf(state.petri.mode) !== -1) {
     const petri = meshData.petriCtrl;
     const incomingPetri = state.petri;
+    const wasColonizing = petri.mode === 'colonizing';
     petri.mode = incomingPetri.mode;
     ['sterilized', 'inoculated', 'expired', 'parafilmSealed', 'refrigerated'].forEach(function (key) {
       if (typeof incomingPetri[key] === 'boolean') petri[key] = incomingPetri[key];
@@ -412,6 +531,9 @@ export function applyReplicatedItemState(sim, item, state) {
       petri.lastRenderedTempInt = Math.round(petri.tempC);
     }
     if (typeof incomingPetri.speciesName === 'string') petri.speciesName = incomingPetri.speciesName.slice(0, 80);
+    if (typeof incomingPetri.generation === 'number' && Number.isFinite(incomingPetri.generation)) {
+      petri.generation = Math.max(1, Math.min(20, Math.round(incomingPetri.generation)));
+    }
     if (incomingPetri.hybridMutant === 'gold' || incomingPetri.hybridMutant === 'albino') {
       petri.hybridMutant = incomingPetri.hybridMutant;
       petri.generation = 3;
@@ -419,7 +541,10 @@ export function applyReplicatedItemState(sim, item, state) {
       petri.hybridMutant = '';
     }
     if (typeof incomingPetri.colonization === 'number' && Number.isFinite(incomingPetri.colonization)) {
-      petri.colonization = Math.max(0, Math.min(100, incomingPetri.colonization));
+      const nextCol = Math.max(0, Math.min(100, incomingPetri.colonization));
+      petri.colonization = (wasColonizing && incomingPetri.mode === 'colonizing' && nextCol < 100)
+        ? Math.max(Number(petri.colonization) || 0, nextCol)
+        : nextCol;
     }
     if (typeof incomingPetri.ageGameDays === 'number' && Number.isFinite(incomingPetri.ageGameDays)) {
       petri.ageGameDays = Math.max(0, Math.min(1000, incomingPetri.ageGameDays));
@@ -442,11 +567,15 @@ export function applyReplicatedItemState(sim, item, state) {
   }
   const culture = item.cultureCtrl || (meshData && meshData.cultureCtrl);
   if (culture && state.culture && typeof state.culture === 'object') {
+    const wasInoc = !!culture.inoculated && !culture.colonized;
     ['inoculated', 'colonized', 'contaminated', 'expired', 'refrigerated'].forEach(function (key) {
       if (typeof state.culture[key] === 'boolean') culture[key] = state.culture[key];
     });
     if (typeof state.culture.colonization === 'number' && Number.isFinite(state.culture.colonization)) {
-      culture.colonization = Math.max(0, Math.min(100, state.culture.colonization));
+      const nextCol = Math.max(0, Math.min(100, state.culture.colonization));
+      culture.colonization = (wasInoc && state.culture.inoculated && !state.culture.colonized && nextCol < 100)
+        ? Math.max(Number(culture.colonization) || 0, nextCol)
+        : nextCol;
     }
     if (typeof state.culture.tempC === 'number' && Number.isFinite(state.culture.tempC)) {
       culture.tempC = Math.max(-20, Math.min(140, state.culture.tempC));
@@ -562,8 +691,26 @@ export function applyReplicatedItemState(sim, item, state) {
       }
       if (incoming.mode === 'sterilize' || incoming.mode === 'pasteurize') cooker.mode = incoming.mode;
       ['temp', 'psi', 'progress', 'overheatTimer'].forEach(function (key) {
-        if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) cooker[key] = Math.max(0, incoming[key]);
+        if (typeof incoming[key] === 'number' && Number.isFinite(incoming[key])) {
+          const val = Math.max(0, incoming[key]);
+          if (key === 'progress' && !incoming.sterilized && !cooker.sterilized && !incoming.burned && !cooker.burned &&
+              cooker.temp >= 95 && (Number(incoming.temp) || 0) >= 95 && val < 100) {
+            cooker.progress = Math.max(Number(cooker.progress) || 0, val);
+          } else if (key === 'temp' && cooker.temp >= 30 && val >= 30 && Math.abs(cooker.temp - val) <= 10) {
+            cooker.temp = Math.max(cooker.temp, val);
+          } else {
+            cooker[key] = val;
+          }
+        }
       });
+      if (typeof incoming.grainGrams === 'number' && Number.isFinite(incoming.grainGrams)) {
+        cooker.grainGrams = Math.max(0, Math.min(5000, incoming.grainGrams));
+      }
+      if (typeof incoming.grainCookSec === 'number' && Number.isFinite(incoming.grainCookSec)) {
+        cooker.grainCookSec = Math.max(0, incoming.grainCookSec);
+      }
+      if (typeof incoming.grainAlDente === 'boolean') cooker.grainAlDente = incoming.grainAlDente;
+      if (typeof incoming.hasBase === 'boolean') cooker.hasBase = incoming.hasBase;
       ['sterilized', 'burned'].forEach(function (key) {
         if (typeof incoming[key] === 'boolean') cooker[key] = incoming[key];
       });
@@ -585,12 +732,34 @@ export function applyReplicatedItemState(sim, item, state) {
 export function applyCampusItemStates(sim, itemStates) {
   if (!itemStates || typeof itemStates !== 'object') return;
   const itemsById = new Map(sim.pickableItems.map((item) => [item.id, item]));
+  let spawnedPlaced = false;
   Object.keys(itemStates).forEach(function (itemId) {
     let item = itemsById.get(itemId);
     const st = itemStates[itemId];
+    if (st && st.custom && st.custom.removed === true) {
+      if (item) {
+        removeItemInstanceLocally(sim, item);
+        itemsById.delete(itemId);
+      }
+      return;
+    }
     if (!item && itemId.indexOf('wild_picked_') === 0 && st && st.wildMushroom && !st.wildMushroom.removed) {
       item = spawnPersistedWildMushroom(sim, itemId, st.wildMushroom);
       if (item) itemsById.set(itemId, item);
+    }
+    if (!item && st && st.custom && st.custom.dynamicKind && !st.custom.removed) {
+      const savedPose = (sim._lastWorldObjectsMap && sim._lastWorldObjectsMap[itemId]) || null;
+      item = spawnDynamicItemFromCustom(sim, itemId, st.custom, savedPose);
+      if (item) {
+        itemsById.set(itemId, item);
+        if (savedPose && item.mesh) {
+          item.mesh.position.set(savedPose.x || 0, savedPose.y || 0, savedPose.z || 0);
+          item.mesh.rotation.y = savedPose.ry || 0;
+          item.isMoved = true;
+          if (item.mesh.userData && item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+          spawnedPlaced = true;
+        }
+      }
     }
     if (!item) return;
     applyReplicatedItemState(sim, item, st);
@@ -598,14 +767,20 @@ export function applyCampusItemStates(sim, itemStates) {
     const currentState = getReplicatedItemState(sim, item);
     if (currentState) sim.itemStateSignatures[itemId] = JSON.stringify(currentState);
   });
+  if (spawnedPlaced) {
+    sim._stackPhysicsDirty = true;
+    markItemsFalling(sim);
+  }
 }
 
 export function applyCampusWorldObjects(sim, objectsMap) {
   if (!objectsMap) return;
+  sim._lastWorldObjectsMap = objectsMap;
   const now = performance.now();
+  let anyPositionChanged = false;
 
   sim.pickableItems.forEach(function (item) {
-    if (!item.mesh.userData.updateBounds) return;
+    if (!item.mesh.userData.updateBounds || item._removedForSync) return;
     const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
     const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
     if (sim.heldItem === item || isInHeldPot || isHeldLid || sim.isHeldByRemote(item.id)) return;
@@ -623,21 +798,31 @@ export function applyCampusWorldObjects(sim, objectsMap) {
     }
     const saved = objectsMap[item.id];
     if (saved) {
-      item.mesh.position.set(saved.x, saved.y, saved.z);
-      item.mesh.rotation.y = saved.ry || 0;
-      item.isMoved = true;
-      item.mesh.userData.updateBounds(item);
-      saveLocalMovedObject(item);
+      const nextRy = saved.ry || 0;
+      const changed = !item.isMoved ||
+        Math.abs(item.mesh.position.x - saved.x) > 0.002 ||
+        Math.abs(item.mesh.position.y - saved.y) > 0.002 ||
+        Math.abs(item.mesh.position.z - saved.z) > 0.002 ||
+        Math.abs((item.mesh.rotation.y || 0) - nextRy) > 0.002;
+      if (changed) {
+        item.mesh.position.set(saved.x, saved.y, saved.z);
+        item.mesh.rotation.y = nextRy;
+        item.isMoved = true;
+        item.mesh.userData.updateBounds(item);
+        saveLocalMovedObject(item, undefined, true);
+        anyPositionChanged = true;
+      }
     } else if (item.isMoved && !(item.movedAt && (now - item.movedAt < 25000))) {
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
       item.mesh.userData.updateBounds(item);
       item.isMoved = false;
+      anyPositionChanged = true;
     }
   });
 
   sim.pickableItems.forEach(function (item) {
-    if (item.mesh.userData.updateBounds) return;
+    if (item.mesh.userData.updateBounds || item._removedForSync) return;
     const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
     const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
     if (sim.heldItem === item || isInHeldPot || isHeldLid || sim.isHeldByRemote(item.id)) return;
@@ -671,27 +856,48 @@ export function applyCampusWorldObjects(sim, objectsMap) {
           Math.abs(saved.y - (refY + 0.36)) < 0.28;
         item.isAttached = attached;
         if (attached) {
-          item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
-          item.mesh.rotation.copy(pot.mesh.rotation);
-          item.isMoved = true;
-          saveLocalMovedObject(item);
+          const targetY = pot.mesh.position.y + 0.36;
+          const changed = !item.isMoved ||
+            Math.abs(item.mesh.position.x - pot.mesh.position.x) > 0.002 ||
+            Math.abs(item.mesh.position.y - targetY) > 0.002 ||
+            Math.abs(item.mesh.position.z - pot.mesh.position.z) > 0.002;
+          if (changed) {
+            item.mesh.position.set(pot.mesh.position.x, targetY, pot.mesh.position.z);
+            item.mesh.rotation.copy(pot.mesh.rotation);
+            item.isMoved = true;
+            saveLocalMovedObject(item, undefined, true);
+            anyPositionChanged = true;
+          }
           return;
         }
       }
-      item.mesh.position.set(saved.x, saved.y, saved.z);
-      item.mesh.rotation.y = saved.ry || 0;
-      item.isMoved = true;
-      saveLocalMovedObject(item);
+      const nextRy = saved.ry || 0;
+      const changed = !item.isMoved ||
+        Math.abs(item.mesh.position.x - saved.x) > 0.002 ||
+        Math.abs(item.mesh.position.y - saved.y) > 0.002 ||
+        Math.abs(item.mesh.position.z - saved.z) > 0.002 ||
+        Math.abs((item.mesh.rotation.y || 0) - nextRy) > 0.002;
+      if (changed) {
+        item.mesh.position.set(saved.x, saved.y, saved.z);
+        item.mesh.rotation.y = nextRy;
+        item.isMoved = true;
+        saveLocalMovedObject(item, undefined, true);
+        anyPositionChanged = true;
+      }
     } else if (item.isMoved && !(item.movedAt && (now - item.movedAt < 25000))) {
       sim.removeFromCookerContents(item);
       item.mesh.position.copy(item.homePos);
       item.mesh.rotation.y = item.homeRy;
       if (item.potItem) item.isAttached = true;
       item.isMoved = false;
+      anyPositionChanged = true;
     }
   });
-  sim._stackPhysicsDirty = true;
-  markItemsFalling(sim);
+  flushLocalMovedObjects();
+  if (anyPositionChanged) {
+    sim._stackPhysicsDirty = true;
+    markItemsFalling(sim);
+  }
 }
 
 export function resetCampusWorldObjects(sim) {

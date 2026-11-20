@@ -47,20 +47,27 @@ test('fogareiro elétrico possui presets de timer 20m, 1h, 1h30, 2h e Livre', ()
 test('DEHYDRATOR_META serializa e restaura estado da desidratadora e mycoteca funciona sem DOM', () => {
   const item = {
     label: 'Desidratadora',
-    dehydratorCtrl: { on: true, hasMushroom: true, progress: 65, crisp: false },
+    dehydratorCtrl: { on: true, hasMushroom: true, progress: 65, crisp: false, speciesName: 'Golden Teacher' },
     mesh: { userData: {} }
   };
   const saved = DEHYDRATOR_META.serializeState(item);
-  assert.deepEqual(saved, { on: true, hasMushroom: true, progress: 65, crisp: false });
+  assert.deepEqual(saved, { on: true, hasMushroom: true, progress: 50, crisp: false, speciesName: 'Golden Teacher' });
 
   const target = {
     label: '',
-    dehydratorCtrl: { on: false, hasMushroom: false, progress: 0, crisp: false },
+    dehydratorCtrl: { on: false, hasMushroom: false, progress: 0, crisp: false, speciesName: '' },
     mesh: { userData: {} }
   };
   DEHYDRATOR_META.applyState(target, saved);
   assert.equal(target.dehydratorCtrl.on, true);
-  assert.equal(target.dehydratorCtrl.progress, 65);
+  assert.equal(target.dehydratorCtrl.progress, 50);
+  assert.equal(target.dehydratorCtrl.speciesName, 'Golden Teacher');
+
+  // Não retrocede progresso local ativo ao receber pacote de progresso quantizado menor
+  target.dehydratorCtrl.progress = 78;
+  DEHYDRATOR_META.applyState(target, saved);
+  assert.equal(target.dehydratorCtrl.progress, 78);
+
   assert.ok(Array.isArray(getDiscoveredSpecies()));
   assert.equal(typeof registerDiscoveredSpecies('Psilocybe cubensis').isNew, 'boolean');
 });

@@ -14,6 +14,7 @@ export const appState = {
   pendingChatMsg: '',
   boardLastId: 0,
   lastObjVer: '',
+  lastItemStateVer: '',
   lastStateVer: '',
   syncTimer: null,
   syncInFlight: false,

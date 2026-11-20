@@ -255,15 +255,29 @@ export function renderShopModal() {
         try {
           if (window.MycoAudio) window.MycoAudio.playClick();
           if (canUnlockByCoins && !canUnlockByXp) {
-            addLocalMycoCoins(-item.price_coins);
-            if (coinUnlocked.indexOf(item.id) === -1) coinUnlocked.push(item.id);
-            try { localStorage.setItem('myco_coin_unlocked_items', JSON.stringify(coinUnlocked)); } catch (e) {}
+            let syncedFromServer = false;
             if (appState.currentUser) {
-              if (!Array.isArray(appState.currentUser.unlocked_hats)) appState.currentUser.unlocked_hats = ['default'];
-              if (appState.currentUser.unlocked_hats.indexOf(item.id) === -1) {
-                appState.currentUser.unlocked_hats.push(item.id);
+              const coinRes = await apiPost('api/auth.php?action=buy_cosmetic', { hat_id: item.id, by_coins: true }, true);
+              if (coinRes && coinRes.ok && coinRes.user) {
+                appState.currentUser = coinRes.user;
+                try { localStorage.setItem('myco_coins', String(coinRes.user.myco_coins ?? getLocalMycoCoins())); } catch (e) {}
+                syncedFromServer = true;
+              } else if (coinRes && coinRes.error) {
+                toast3D('❌ ' + coinRes.error);
+                return;
               }
             }
+            if (!syncedFromServer) {
+              addLocalMycoCoins(-item.price_coins);
+              if (appState.currentUser) {
+                if (!Array.isArray(appState.currentUser.unlocked_hats)) appState.currentUser.unlocked_hats = ['default'];
+                if (appState.currentUser.unlocked_hats.indexOf(item.id) === -1) {
+                  appState.currentUser.unlocked_hats.push(item.id);
+                }
+              }
+            }
+            if (coinUnlocked.indexOf(item.id) === -1) coinUnlocked.push(item.id);
+            try { localStorage.setItem('myco_coin_unlocked_items', JSON.stringify(coinUnlocked)); } catch (e) {}
             if (isToy) {
               if (item.id === 'paraglider') {
                 if (window.setCampusSnowboard) window.setCampusSnowboard(false);

@@ -252,6 +252,26 @@ export function makeMushroomBag(ctx, id, px, py, pz, opts = {}) {
       compatibilities: {
         canEnterCooker: false,
         isMushroomPackBag: true
+      },
+      serializeState: (it) => {
+        const bc = it && it.mushroomBagCtrl;
+        if (!bc) return null;
+        return {
+          filled: !!bc.filled,
+          sealed: !!bc.sealed,
+          grams: bc.filled ? Math.max(1, Math.min(200, Math.round(Number(bc.grams) || 10))) : 0,
+          speciesName: bc.speciesName ? String(bc.speciesName).slice(0, 60) : '',
+          removed: !!it._removedForSync
+        };
+      },
+      applyState: (it, custom) => {
+        const bc = it && it.mushroomBagCtrl;
+        if (!bc || !custom) return;
+        bc.filled = !!custom.filled;
+        bc.sealed = !!custom.sealed;
+        bc.grams = bc.filled ? Math.max(1, Math.min(200, Math.round(Number(custom.grams) || 10))) : 0;
+        bc.speciesName = typeof custom.speciesName === 'string' ? custom.speciesName : '';
+        updateMushroomBagVisual(it);
       }
     }
   );
@@ -285,6 +305,14 @@ export function packDriedMushroomsIntoBag(ctx, bagItem, driedBatchItem) {
   bc.grams = dc.grams || 10;
   bc.speciesName = dc.speciesName || 'Golden Teacher';
   updateMushroomBagVisual(bagItem);
+  if (ctx && ctx.markItemMoved) ctx.markItemMoved(bagItem);
+  driedBatchItem._removedForSync = true;
+  if (ctx && ctx.pendingMovedItems && driedBatchItem.id) {
+    ctx.pendingMovedItems[driedBatchItem.id] = {
+      id: driedBatchItem.id,
+      state: { custom: { dynamicKind: 'dried_batch', removed: true } }
+    };
+  }
 
   // Consome o lote da mão ou da bancada
   if (driedBatchItem.mesh && driedBatchItem.mesh.parent) {
@@ -460,6 +488,19 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
       compatibilities: {
         canEnterCooker: false,
         isDeliveryCrate: true
+      },
+      serializeState: (it) => {
+        const cc = it && it.deliveryCrateCtrl;
+        if (!cc) return null;
+        return {
+          packsCount: Math.max(0, Math.min(DELIVERY_CRATE_MAX_PACKS, Math.round(Number(cc.packsCount) || 0)))
+        };
+      },
+      applyState: (it, custom) => {
+        const cc = it && it.deliveryCrateCtrl;
+        if (!cc || !custom) return;
+        cc.packsCount = Math.max(0, Math.min(DELIVERY_CRATE_MAX_PACKS, Math.round(Number(custom.packsCount) || 0)));
+        updateDeliveryCrateVisual(it);
       }
     }
   );
@@ -494,6 +535,14 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
 
   cc.packsCount++;
   updateDeliveryCrateVisual(crateItem);
+  if (ctx && ctx.markItemMoved) ctx.markItemMoved(crateItem);
+  bagItem._removedForSync = true;
+  if (ctx && ctx.pendingMovedItems && bagItem.id) {
+    ctx.pendingMovedItems[bagItem.id] = {
+      id: bagItem.id,
+      state: { custom: { dynamicKind: 'mushroom_bag', removed: true } }
+    };
+  }
 
   // Reseta o saco para vazio na bancada ou remove se estava na mão e repõe ou mantém limpo
   if (bagItem.mesh && bagItem.mesh.parent) {
@@ -962,9 +1011,46 @@ export function isHoldingPackOrCrateForStand(held) {
   return false;
 }
 
+export function applyRoadStandWorldState(stateMap) {
+  if (!stateMap) return;
+  let dirty = false;
+  if (stateMap.stand_packs !== undefined) {
+    const p = Math.max(0, Math.min(200, parseInt(stateMap.stand_packs, 10) || 0));
+    if (p !== roadStandState.availablePacks) {
+      roadStandState.availablePacks = p;
+      dirty = true;
+    }
+  }
+  if (stateMap.stand_sold !== undefined) {
+    const s = Math.max(0, parseInt(stateMap.stand_sold, 10) || 0);
+    if (s !== roadStandState.totalSoldPacks) {
+      roadStandState.totalSoldPacks = s;
+      dirty = true;
+    }
+  }
+  if (dirty) syncRoadStandVisual();
+}
+
 function consumeHeldStandItem(ctx, held, packsVal) {
   roadStandState.availablePacks += packsVal;
   roadStandState.npcSpawnCooldown = Math.min(roadStandState.npcSpawnCooldown, 1.2);
+  if (ctx && ctx.queueWorldStateChange) {
+    ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
+  }
+  if (held && held.id) {
+    held._removedForSync = true;
+    if (ctx && ctx.pendingMovedItems) {
+      ctx.pendingMovedItems[held.id] = {
+        id: held.id,
+        state: {
+          custom: {
+            dynamicKind: held.organicBasketCtrl ? 'organic_basket' : 'mushroom_bag',
+            removed: true
+          }
+        }
+      };
+    }
+  }
   if (held.mesh && held.mesh.parent) held.mesh.parent.remove(held.mesh);
   disposeObjectResources(held.mesh);
   if (Array.isArray(ctx.pickableItems)) {
@@ -992,6 +1078,10 @@ export function interactRoadsideStand(ctx) {
     held.deliveryCrateCtrl.packsCount = 0;
     updateDeliveryCrateVisual(held);
     syncRoadStandVisual();
+    if (ctx && ctx.markItemMoved) ctx.markItemMoved(held);
+    if (ctx && ctx.queueWorldStateChange) {
+      ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
+    }
     playAudio('playClick');
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
@@ -1174,9 +1264,24 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         if (entry.kind === 'crate' && entry.item.deliveryCrateCtrl) {
           entry.item.deliveryCrateCtrl.packsCount = Math.max(0, entry.item.deliveryCrateCtrl.packsCount - 1);
           updateDeliveryCrateVisual(entry.item);
+          if (ctx && ctx.markItemMoved) ctx.markItemMoved(entry.item);
           soldOne = true;
         } else {
           const soldIt = entry.item;
+          if (soldIt && soldIt.id) {
+            soldIt._removedForSync = true;
+            if (ctx && ctx.pendingMovedItems) {
+              ctx.pendingMovedItems[soldIt.id] = {
+                id: soldIt.id,
+                state: {
+                  custom: {
+                    dynamicKind: soldIt.organicBasketCtrl ? 'organic_basket' : 'mushroom_bag',
+                    removed: true
+                  }
+                }
+              };
+            }
+          }
           if (soldIt.mesh && soldIt.mesh.parent) soldIt.mesh.parent.remove(soldIt.mesh);
           disposeObjectResources(soldIt.mesh);
           const idx = ctx.pickableItems.indexOf(soldIt);
@@ -1191,6 +1296,10 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         roadStandState.totalCoinsEarned += earnedCoins;
         const newBalance = addLocalMycoCoins(earnedCoins);
         syncRoadStandVisual();
+        if (ctx && ctx.queueWorldStateChange) {
+          ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
+          ctx.queueWorldStateChange('stand_sold', roadStandState.totalSoldPacks);
+        }
         actor.heldPack.visible = true;
         if (actor.avatar) {
           if (actor.avatar.faceCtx) {

@@ -424,5 +424,15 @@ test('sports-scoreboard, rain-puddles (create + step) e Cesta Orgânica da Horta
   dropUnsupportedItems(pCtx);
   assert.ok(Math.abs(droppedJar.mesh.position.y - 0.91) < 0.01, 'Item solto sobre mesa com vizinho deve permanecer em y=0.91 e não cair no chão');
 
+  // Empilhamento item-sobre-item: caixa em cima de outra caixa na bancada permanece empilhada (y = 0.91 + 0.165 = 1.075)
+  const crateA = registerPickable(pCtx, 'crate_a', 'Caixa Base', new MockObj(), -20.45, 0.91, -10.56, 0, 0.24, 0.165);
+  const crateB = registerPickable(pCtx, 'crate_b', 'Caixa Empilhada', new MockObj(), -20.45, 1.075, -10.56, 0, 0.24, 0.165);
+  assert.ok(crateA && crateB);
+  dropUnsupportedItems(pCtx);
+  assert.ok(
+    Math.abs(crateB.mesh.position.y - 1.075) < 0.01,
+    'Item colocado em cima de outra caixa/item sobre a mesa deve permanecer empilhado em y=1.075'
+  );
+
   assert.equal(isHoldingPackOrCrateForStand({ organicBasketCtrl: { packsValue: 2 } }), true);
 });

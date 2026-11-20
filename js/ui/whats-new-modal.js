@@ -9,6 +9,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.3': {
+    title: '✨ Novidades da Atualização v1.9.3',
+    subtitle: 'Empilhamento em qualquer móvel/item + Fim do lag da Desidratadora + Sync 100% Completo:',
+    items: [
+      { icon: '📦', text: 'Colocar em Cima de Qualquer Coisa (Mesas, Cômodas, Caixas & Itens): agora caixas, vidros, placas e equipamentos ficam firmes em cima de balcões (até na borda!), geladeira, prateleiras da estufa e uns sobre os outros — sem cair na frente!' },
+      { icon: '⚡', text: 'Desidratadora Sem Lag no Multiplayer: corrigido o gargalo que fazia a desidratadora e timers dispararem ressincronizações e gravações em massa para todos os jogadores a cada segundo!' },
+      { icon: '🌐', text: 'Multiplayer 100% Persistente ao Sair e Voltar: compras com MycoCoins (loja/chapéus/suprimentos), Monotub 24L, Caixa de Entrega, Sacos Mylar, Lamparina, Pote c/ Sílica, Lotes Secos, Horta Orgânica, Empório e Placar agora sincronizam ao vivo e ao reconectar!' }
+    ]
+  },
   '1.9.2': {
     title: '✨ Novidades da Atualização v1.9.2',
     subtitle: 'Correção definitiva para colocar itens em mesas, bancadas e aparelhos:',

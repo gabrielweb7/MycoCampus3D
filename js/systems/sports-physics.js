@@ -144,6 +144,10 @@ export function stepSportBalls(ctx, dt) {
       triggerCozyHeartBurst(bPos.x, bPos.y + 0.9, bPos.z, 0x4ade80);
       const res = recordSportScore('soccer');
       addLocalMycoCoins(res.coins);
+      if (ctx.queueWorldStateChange) {
+        ctx.queueWorldStateChange('sport_soccer_goals', res.soccerGoals);
+        ctx.queueWorldStateChange('sport_basket_streak', res.streak);
+      }
       if (window.MycoAudio) window.MycoAudio.playHarvest();
       if (ctx.callbacks.onToast) ctx.callbacks.onToast(`⚽ GOOOOL! Placar: ⚽ ${res.soccerGoals} (+🪙 ${res.coins} MycoCoins!)`);
       syncSportBallState(ctx, sb);
@@ -160,6 +164,10 @@ export function stepSportBalls(ctx, dt) {
           triggerCozyHeartBurst(hoop.x, hoop.y + 0.6, hoop.z, 0xfbbf24);
           const res = recordSportScore('basketball');
           addLocalMycoCoins(res.coins);
+          if (ctx.queueWorldStateChange) {
+            ctx.queueWorldStateChange('sport_basket_points', res.basketPoints);
+            ctx.queueWorldStateChange('sport_basket_streak', res.streak);
+          }
           if (window.MycoAudio) window.MycoAudio.playHarvest();
           const comboTxt = res.streak >= 2 ? ` 🔥 COMBO x${res.streak}!` : '';
           if (ctx.callbacks.onToast) ctx.callbacks.onToast(`🏀 CESTA!${comboTxt} Placar: 🏀 ${res.basketPoints} (+🪙 ${res.coins} MycoCoins!)`);

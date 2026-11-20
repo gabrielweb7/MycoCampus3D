@@ -1,5 +1,5 @@
 import { getItemGroundHeight } from '../engine/physics.js';
-import { isPointInBoundsXZ } from '../items/item-registry.js';
+import { getItemSupportHalfExtents, getItemSupportTopOffset, isPointInBoundsXZ } from '../items/item-registry.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import {
   PETRI_DISH_HEIGHT,
@@ -292,6 +292,77 @@ export function clampPointToSurfaceXZ(x, z, surf, topY, outPt) {
   return outPt.set(cx, topY, cz);
 }
 
+var _tmpItemSurf = {
+  minX: 0, maxX: 0, minZ: 0, maxZ: 0,
+  topY: 0, centerX: 0, centerZ: 0, halfW: 0, halfD: 0, ry: 0
+};
+var _sortedGravityIndices = [];
+
+function buildItemTopSurface(item, outSurf) {
+  var topOff = getItemSupportTopOffset(item);
+  if (topOff <= 0) return null;
+  var ext = getItemSupportHalfExtents(item);
+  var p = item.mesh.position;
+  var hwW = Math.max(0.02, ext.w * 0.5);
+  var hdD = Math.max(0.02, ext.d * 0.5);
+  outSurf.centerX = p.x;
+  outSurf.centerZ = p.z;
+  outSurf.halfW = hwW;
+  outSurf.halfD = hdD;
+  outSurf.ry = (item.mesh.rotation && item.mesh.rotation.y) || 0;
+  outSurf.minX = p.x - ext.hw;
+  outSurf.maxX = p.x + ext.hw;
+  outSurf.minZ = p.z - ext.hd;
+  outSurf.maxZ = p.z + ext.hd;
+  outSurf.topY = p.y + topOff;
+  return outSurf;
+}
+
+function isPlacementExcludedItem(ctx, heldItem, cand) {
+  if (!cand || !cand.mesh || cand.mesh.visible === false) return true;
+  if (cand === heldItem) return true;
+  if (heldItem) {
+    if (heldItem.lidItem && cand === heldItem.lidItem) return true;
+    if (heldItem.potItem && cand === heldItem.potItem) return true;
+    if (heldItem.trayContents && heldItem.trayContents.some(function (tc) { return tc.item === cand; })) return true;
+  }
+  if (cand.isAttached && cand.potItem) return true;
+  if (ctx.isHeldByRemote && ctx.isHeldByRemote(cand.id)) return true;
+  return false;
+}
+
+function findClosestItemSupportHit(ctx, raycaster, heldItem, maxDist, origin) {
+  var items = ctx.pickableItems;
+  if (!items || !items.length) return null;
+  var bestHit = null;
+  var bestItem = null;
+  var bestDist = maxDist;
+
+  for (var i = 0; i < items.length; i++) {
+    var cand = items[i];
+    if (isPlacementExcludedItem(ctx, heldItem, cand)) continue;
+    var topOff = getItemSupportTopOffset(cand);
+    if (topOff <= 0) continue;
+    if (heldItem && heldItem.mesh && (heldItem.mesh.userData.isTable || heldItem.mesh.userData.isHood || heldItem.mesh.userData.isCultureFridge)) continue;
+    if (origin.distanceToSquared(cand.mesh.position) > 36) continue;
+    if (raycaster.ray.distanceSqToPoint(cand.mesh.position) > 1.2) continue;
+
+    if (cand.mesh.updateWorldMatrix) cand.mesh.updateWorldMatrix(true, true);
+    var hits = raycaster.intersectObject(cand.mesh, true);
+    for (var hi = 0; hi < hits.length; hi++) {
+      var h = hits[hi];
+      if (!h || h.distance < 0.02 || h.distance >= bestDist) continue;
+      if (h.object && h.object.userData && (h.object.userData.ignoreRay || isInvisibleGhostMaterial(h.object.material))) continue;
+      bestDist = h.distance;
+      bestHit = h;
+      bestItem = cand;
+      break;
+    }
+  }
+  if (!bestHit || !bestItem) return null;
+  return { hit: bestHit, item: bestItem, dist: bestDist };
+}
+
 export function findPlacementTarget(ctx, customNdc) {
   var heldItem = ctx.heldItem;
   var cookerPots = ctx.cookerPots;
@@ -373,7 +444,10 @@ export function findPlacementTarget(ctx, customNdc) {
     }
   }
 
-  // 1. Raycast direto nas meshes de suporte
+  // 1. Raycast mais próximo entre meshes de suporte (mesas/bancadas/prateleiras) e outros itens empilháveis
+  var bestSupportHit = null;
+  var bestSupportSurf = null;
+  var bestSupportDist = 5.8;
   if (supportMeshes.length) {
     for (var sm = 0; sm < supportMeshes.length; sm++) {
       if (supportMeshes[sm] && supportMeshes[sm].updateWorldMatrix) supportMeshes[sm].updateWorldMatrix(true, false);
@@ -381,7 +455,7 @@ export function findPlacementTarget(ctx, customNdc) {
     var sHits = raycaster.intersectObjects(supportMeshes, false);
     for (var si = 0; si < sHits.length; si++) {
       var sh = sHits[si];
-      if (sh.distance < 0.02 || sh.distance > 5.8) continue;
+      if (sh.distance < 0.02 || sh.distance >= bestSupportDist) continue;
       if (sh.object.userData.ignoreRay) continue;
       var sSurf = sh.object.userData.supportSurface;
       if (!sSurf || isSurfaceOwnerHeld(ctx, sSurf)) continue;
@@ -389,17 +463,35 @@ export function findPlacementTarget(ctx, customNdc) {
       if (isClosedFridgeShelf(sSurf)) continue;
       if (heldItem && heldItem.mesh) {
         if (heldItem.mesh.userData.dynamicSurface === sSurf) continue;
+        if (Array.isArray(heldItem.mesh.userData.dynamicSurfaces) && heldItem.mesh.userData.dynamicSurfaces.indexOf(sSurf) !== -1) continue;
         if (heldItem.mesh === sh.object || heldItem.mesh.getObjectById(sh.object.id)) continue;
       }
-      return clampPointToSurfaceXZ(sh.point.x, sh.point.z, sSurf, sSurf.topY, _tmpPlacePt);
+      bestSupportDist = sh.distance;
+      bestSupportHit = sh;
+      bestSupportSurf = sSurf;
+      break;
     }
   }
 
-  // 1b. Interseção matemática com plano e volume de suportes
+  var itemHitRes = findClosestItemSupportHit(ctx, raycaster, heldItem, bestSupportDist, origin);
+  if (itemHitRes) {
+    var topSurf = buildItemTopSurface(itemHitRes.item, _tmpItemSurf);
+    if (topSurf) {
+      return clampPointToSurfaceXZ(itemHitRes.hit.point.x, itemHitRes.hit.point.z, topSurf, topSurf.topY, _tmpPlacePt);
+    }
+  }
+  if (bestSupportHit && bestSupportSurf) {
+    return clampPointToSurfaceXZ(bestSupportHit.point.x, bestSupportHit.point.z, bestSupportSurf, bestSupportSurf.topY, _tmpPlacePt);
+  }
+
+  // 1b. Interseção matemática com plano e volume de suportes (inclusive bordas/saias frontais de mesas e cômodas)
   for (var i = 0; i < supportSurfaces.length; i++) {
     var s = supportSurfaces[i];
     if (isSurfaceOwnerHeld(ctx, s)) continue;
-    if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === s) continue;
+    if (heldItem && heldItem.mesh) {
+      if (heldItem.mesh.userData.dynamicSurface === s) continue;
+      if (Array.isArray(heldItem.mesh.userData.dynamicSurfaces) && heldItem.mesh.userData.dynamicSurfaces.indexOf(s) !== -1) continue;
+    }
     if (s.isCabinetShelf && s.requiresOpenPart && !s.requiresOpenPart.open) continue;
     if (isClosedFridgeShelf(s)) continue;
 
@@ -409,16 +501,18 @@ export function findPlacementTarget(ctx, customNdc) {
       if (tPlane >= 0.05 && tPlane <= 5.8 && tPlane < bestT) {
         var hx = origin.x + dir.x * tPlane;
         var hz = origin.z + dir.z * tPlane;
-        if (isPointInBoundsXZ(hx, hz, s, 0.12)) {
+        if (isPointInBoundsXZ(hx, hz, s, 0.14)) {
           bestT = tPlane;
           bestPt = clampPointToSurfaceXZ(hx, hz, s, s.topY, _tmpBestPt);
         }
       }
     }
 
-    var bMinX = s.minX - 0.05, bMaxX = s.maxX + 0.05;
-    var bMinZ = s.minZ - 0.05, bMaxZ = s.maxZ + 0.05;
-    var bMinY = Math.max(0.0, s.topY - 0.95), bMaxY = s.topY + 0.08;
+    var isInternalCompartment = !!(s.isCabinetShelf || s.isCultureFridgeShelf);
+    var bMinX = s.minX - 0.10, bMaxX = s.maxX + 0.10;
+    var bMinZ = s.minZ - 0.10, bMaxZ = s.maxZ + 0.10;
+    var bMinY = isInternalCompartment ? (s.topY - 0.14) : Math.max(0.0, s.topY - 0.96);
+    var bMaxY = s.topY + 0.10;
     var invDx = 1 / (Math.abs(dir.x) > 1e-6 ? dir.x : 1e-6);
     var invDy = 1 / (Math.abs(dir.y) > 1e-6 ? dir.y : 1e-6);
     var invDz = 1 / (Math.abs(dir.z) > 1e-6 ? dir.z : 1e-6);
@@ -430,7 +524,7 @@ export function findPlacementTarget(ctx, customNdc) {
     if (tmax >= tmin && tmax >= 0.05 && tmin <= 5.5 && tmin < bestT) {
       var boxHitX = origin.x + dir.x * Math.max(0.05, tmin);
       var boxHitZ = origin.z + dir.z * Math.max(0.05, tmin);
-      if (isPointInBoundsXZ(boxHitX, boxHitZ, s, 0.12)) {
+      if (isPointInBoundsXZ(boxHitX, boxHitZ, s, 0.14)) {
         bestT = tmin;
         bestPt = clampPointToSurfaceXZ(boxHitX, boxHitZ, s, s.topY, _tmpBestPt);
       }
@@ -522,9 +616,11 @@ export function isPlacementBlocked(ctx, pt) {
     if (ctx.isHeldByRemote(other.id)) continue;
 
     var oPos = other.mesh.position;
+    var otherTopOff = getItemSupportTopOffset(other);
     var otherH = other.height || (other.mesh.userData.tableDims ? other.mesh.userData.tableDims.h : 0.32);
+    var effectiveOtherH = otherTopOff > 0 ? Math.min(otherH, otherTopOff) : otherH;
     var otherMinY = oPos.y;
-    var otherMaxY = oPos.y + otherH;
+    var otherMaxY = oPos.y + effectiveOtherH;
 
     if (other.mesh.userData.dynamicSurface) {
       var dynSurf = other.mesh.userData.dynamicSurface;
@@ -581,7 +677,7 @@ export function isPlacementBlocked(ctx, pt) {
       }
     }
 
-    if (heldMinY >= otherMaxY - 0.02 || heldMaxY <= otherMinY + 0.02) {
+    if (heldMinY >= otherMaxY - 0.025 || heldMaxY <= otherMinY + 0.02) {
       continue;
     }
 
@@ -623,7 +719,7 @@ export function isPlacementBlocked(ctx, pt) {
     for (var sbi = 0; sbi < ctx.supportSurfaces.length; sbi++) {
       var ssB = ctx.supportSurfaces[sbi];
       if (isSurfaceOwnerHeld(ctx, ssB)) continue;
-      if (ssB.topY > 0.20 && isPointInBoundsXZ(pt.x, pt.z, ssB, 0.06) && Math.abs(pt.y - ssB.topY) < 0.08) {
+      if (ssB.topY > 0.20 && isPointInBoundsXZ(pt.x, pt.z, ssB, 0.06) && pt.y >= ssB.topY - 0.08 && pt.y <= ssB.topY + 1.2) {
         onSupportedBench = true;
         break;
       }
@@ -665,7 +761,17 @@ export function dropUnsupportedItems(ctx) {
   var heldItem = ctx.heldItem;
   var physCtx = ctx.physCtx;
 
-  for (var idx = 0; idx < pickableItems.length; idx++) {
+  // Ordena indices por altura crescente para resolver pilhas (mesa -> caixa -> item) em passada única
+  _sortedGravityIndices.length = pickableItems.length;
+  for (var si = 0; si < pickableItems.length; si++) _sortedGravityIndices[si] = si;
+  _sortedGravityIndices.sort(function (a, b) {
+    var ya = pickableItems[a] && pickableItems[a].mesh ? pickableItems[a].mesh.position.y : 0;
+    var yb = pickableItems[b] && pickableItems[b].mesh ? pickableItems[b].mesh.position.y : 0;
+    return ya - yb;
+  });
+
+  for (var sIdx = 0; sIdx < _sortedGravityIndices.length; sIdx++) {
+    var idx = _sortedGravityIndices[sIdx];
     var item = pickableItems[idx];
     if (!item || !item.mesh) continue;
     if (item.potItem && item.isAttached) {
@@ -744,6 +850,22 @@ export function dropUnsupportedItems(ctx) {
             if (dyStack > 0.008 || (Math.abs(dyStack) <= 0.008 && idx > pj)) {
               supportedY = Math.max(supportedY, pBase.mesh.position.y + itemStackCfg.spacing);
             }
+          }
+        }
+      }
+      if (!item.mesh.userData.isHood && !item.fridgeCtrl) {
+        for (var pk = 0; pk < pickableItems.length; pk++) {
+          if (pk === idx) continue;
+          var pSup = pickableItems[pk];
+          if (!pSup || !pSup.mesh || pSup === heldItem || ctx.isHeldByRemote(pSup.id)) continue;
+          var supTopOff = getItemSupportTopOffset(pSup);
+          if (supTopOff <= 0) continue;
+          if (pSup.mesh.position.y >= item.mesh.position.y - 0.01) continue;
+          var supTopY = pSup.mesh.position.y + supTopOff;
+          if (item.mesh.position.y < supTopY - 0.06) continue;
+          var supSurf = buildItemTopSurface(pSup, _tmpItemSurf);
+          if (supSurf && isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, supSurf, 0.06)) {
+            supportedY = Math.max(supportedY, supTopY);
           }
         }
       }

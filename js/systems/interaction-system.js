@@ -24,7 +24,7 @@ import {
 import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
+import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, getItemSupportHalfExtents, getItemSupportTopOffset, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray } from '../items/alcohol-spray.js';
@@ -102,14 +102,42 @@ const RING_OFFSETS = [0.12, 0.22, 0.34, 0.48, 0.64];
 const RING_ANGLES = 12;
 
 function findSupportSurfaceAtPoint(ctx, pt) {
-  if (!ctx || !ctx.supportSurfaces || !pt) return null;
+  if (!ctx || !pt) return null;
   let best = null;
-  for (let i = 0; i < ctx.supportSurfaces.length; i++) {
-    const ss = ctx.supportSurfaces[i];
-    if (!ss || (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.dynamicSurface === ss)) continue;
-    if (ss.ownerItem && ss.ownerItem === ctx.heldItem) continue;
-    if (Math.abs(pt.y - ss.topY) <= 0.08 && isPointInBoundsXZ(pt.x, pt.z, ss, 0.14)) {
-      if (!best || ss.topY > best.topY) best = ss;
+  if (ctx.supportSurfaces) {
+    for (let i = 0; i < ctx.supportSurfaces.length; i++) {
+      const ss = ctx.supportSurfaces[i];
+      if (!ss || (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.dynamicSurface === ss)) continue;
+      if (ss.ownerItem && ss.ownerItem === ctx.heldItem) continue;
+      if (Math.abs(pt.y - ss.topY) <= 0.08 && isPointInBoundsXZ(pt.x, pt.z, ss, 0.14)) {
+        if (!best || ss.topY > best.topY) best = ss;
+      }
+    }
+  }
+  if (ctx.pickableItems) {
+    for (let j = 0; j < ctx.pickableItems.length; j++) {
+      const cand = ctx.pickableItems[j];
+      if (!cand || cand === ctx.heldItem || !cand.mesh || (ctx.isHeldByRemote && ctx.isHeldByRemote(cand.id))) continue;
+      const topOff = getItemSupportTopOffset(cand);
+      if (topOff <= 0) continue;
+      const topY = cand.mesh.position.y + topOff;
+      if (Math.abs(pt.y - topY) > 0.08) continue;
+      const ext = getItemSupportHalfExtents(cand);
+      const itemSurf = {
+        centerX: cand.mesh.position.x,
+        centerZ: cand.mesh.position.z,
+        halfW: ext.w * 0.5,
+        halfD: ext.d * 0.5,
+        ry: (cand.mesh.rotation && cand.mesh.rotation.y) || 0,
+        minX: cand.mesh.position.x - ext.hw,
+        maxX: cand.mesh.position.x + ext.hw,
+        minZ: cand.mesh.position.z - ext.hd,
+        maxZ: cand.mesh.position.z + ext.hd,
+        topY: topY
+      };
+      if (isPointInBoundsXZ(pt.x, pt.z, itemSurf, 0.08) && (!best || topY > best.topY)) {
+        best = itemSurf;
+      }
     }
   }
   return best;
@@ -150,7 +178,7 @@ function tryPlaceHeldOnAimedSurface(ctx) {
   }
 
   const ss = findSupportSurfaceAtPoint(ctx, aimPt);
-  if (!ss || ss.topY <= ctx.playerPos.y + 0.16) return false;
+  if (!ss || ss.topY <= ctx.playerPos.y + 0.04) return false;
 
   const candPt = _tmpDropPt;
   if (!findFreeSpotOnSurface(ctx, ss, aimPt, candPt)) return false;

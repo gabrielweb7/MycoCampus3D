@@ -20,20 +20,32 @@ export const DEHYDRATOR_META = {
   serializeState: (item) => {
     const dc = item && item.dehydratorCtrl;
     if (!dc) return null;
+    const rawProg = Math.max(0, Math.min(100, Number(dc.progress) || 0));
     return {
       on: !!dc.on,
       hasMushroom: !!dc.hasMushroom,
-      progress: Math.round(dc.progress || 0),
-      crisp: !!dc.crisp
+      progress: dc.crisp ? 100 : (Math.floor(rawProg / 25) * 25),
+      crisp: !!dc.crisp,
+      speciesName: dc.speciesName ? String(dc.speciesName).slice(0, 60) : ''
     };
   },
   applyState: (item, custom) => {
     const dc = item && item.dehydratorCtrl;
     if (!dc || !custom) return;
-    dc.on = !!custom.on;
-    dc.hasMushroom = !!custom.hasMushroom;
-    dc.progress = Number(custom.progress) || 0;
-    dc.crisp = !!custom.crisp;
+    const nextOn = !!custom.on;
+    const nextHas = !!custom.hasMushroom;
+    const nextCrisp = !!custom.crisp;
+    const nextProg = Math.max(0, Math.min(100, Number(custom.progress) || 0));
+    if (dc.on && dc.hasMushroom && !dc.crisp && nextOn && nextHas && !nextCrisp) {
+      dc.progress = Math.max(Number(dc.progress) || 0, nextProg);
+    } else {
+      dc.progress = nextProg;
+    }
+    dc.on = nextOn;
+    dc.hasMushroom = nextHas;
+    dc.crisp = nextCrisp;
+    if (typeof custom.speciesName === 'string') dc.speciesName = custom.speciesName;
+    dc._lastVisStep = Math.floor((Number(dc.progress) || 0) / 10);
     updateDehydratorVisual(item);
   }
 };
@@ -221,8 +233,12 @@ export function stepDehydrators(ctx, dt) {
         ctx.callbacks.onToast('✅ Desidratadora: 3 Cogumelos Crocantes (10g • 0% umidade) prontos!');
       }
       if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('dry_pack');
-    } else if (Math.floor(dc.progress) % 8 === 0) {
-      updateDehydratorVisual(item);
+    } else {
+      const visStep = Math.floor(dc.progress / 10);
+      if (dc._lastVisStep !== visStep) {
+        dc._lastVisStep = visStep;
+        updateDehydratorVisual(item);
+      }
     }
   }
 }

@@ -2,6 +2,20 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.3] - 2026-11-19
+### Empilhamento Item-sobre-Item & Superfícies, Fim do Lag da Desidratadora & Multiplayer 100% Persistente
+- **Posicionamento em Mesas, Balcões, Estantes & Empilhamento Item-sobre-Item (`js/entities/placement-ghost.js`, `js/items/item-registry.js`, `js/systems/interaction-system.js`, `js/systems/surface-group-move.js`, `js/items/culture-fridge.js`, `js/world/greenhouse.js`):**
+  - `findPlacementTarget` passa a fazer raycast também sobre itens empilháveis (`getItemSupportTopOffset`), teto da geladeira e todas as prateleiras comerciais da Estufa, além de snap automático pela borda/saia frontal de balcões (Empório e recepções).
+  - `dropUnsupportedItems` ordena itens de baixo para cima e reconhece apoio sobre outros itens abaixo (`box`/`item`), preservando múltiplas camadas (ex.: balcão → caixa → vidro/saco) e levando pilhas ao mover móveis.
+  - `isPlacementBlocked` corrige falso positivo vertical usando altura exata do item e permitindo encaixe sobre o topo de itens apoiados.
+- **Fim do Lag Geral da Desidratadora & Timers (`js/items/dehydrator.js`, `api/multiplayer.php`, `js/services/multiplayer-sync.js`, `js/systems/world-objects-sync.js`):**
+  - Separado `item_state_ver` de `obj_ver` no backend (`api/multiplayer.php`) para não reenviar todo o catálogo de posições nem re-disparar física/gravações por mudanças de estado.
+  - Progresso contínuo de desidratadora, spawn, petri, cultura líquida, monotub e panela quantizado para sincronização em marcos, sem retroceder progresso ativo em outros clientes, e cache em memória com flush único por ciclo para `localStorage` (`myco_local_world_objects_v1`).
+  - `applyCampusWorldObjects` agora só altera cena/bounds/física quando há mudança real de posição/rotação (`> 0.002`).
+- **Sincronização Completa Ao Vivo e Ao Reconectar (`api/multiplayer.php`, `api/multiplayer_schema.php`, `api/auth.php`, `js/ui/modal-shop.js`, `js/items/monotub.js`, `js/items/lab-advanced-tools.js`, `js/items/dehydration-packaging.js`, `js/world/campus-garden.js`, `js/world/sports-scoreboard.js`, `js/systems/world-devices-sync.js`):**
+  - Itens comprados na Loja (`dyn_*`) persistidos em `mc_world_layout_edits` ao sincronizar `moved_items`; cosméticos comprados por MycoCoins salvos no MySQL (`buy_cosmetic` com `by_coins`).
+  - `serializeState`/`applyState` adicionados em Monotub 24L, Pote c/ Sílica, Lamparina a Álcool, Caixa de Entrega, Saco Mylar, Lote Seco e Cesta Orgânica da Horta, além de sincronização de `spore_print`/`generation`, grãos na panela, remoção de itens consumidos e estado global de Empório (`stand_*`), Horta (`garden_*`) e Placar (`sport_*`).
+
 ## [v1.9.2] - 2026-11-19
 ### Correção Completa de Posicionamento em Mesas, Bancadas, Estantes & Aparelhos
 - **`dropHeldItem` e Busca Inteligente em Superfícies (`js/systems/interaction-system.js`):**

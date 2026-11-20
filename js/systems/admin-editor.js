@@ -193,7 +193,8 @@ export function spawnShopItemNearPlayer(sim, prefabId) {
     y: ty,
     z: tz,
     ry: yaw,
-    prefabId: prefabId
+    prefabId: prefabId,
+    label: item.label || prefabId
   };
   saveLocalMovedObject(item);
   sim._stackPhysicsDirty = true;

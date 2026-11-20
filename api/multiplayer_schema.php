@@ -127,7 +127,7 @@ define('MP_ITEMS', mp_build_allowed_items());
 function mp_is_allowed_item_id(string $itemId): bool {
     if (in_array($itemId, MP_ITEMS, true)) return true;
     if (preg_match('/^wild_picked_[a-z0-9_]{2,40}$/', $itemId)) return true;
-    if (preg_match('/^(?:harvest_tub_|dried_batch_|spent_cake_)[a-z0-9_]{2,40}$/', $itemId)) return true;
+    if (preg_match('/^(?:harvest_tub_|dried_batch_|spent_cake_|organic_basket_)[a-z0-9_]{2,40}$/', $itemId)) return true;
     return (bool)preg_match('/^dyn_[a-z0-9_]{2,56}$/', $itemId);
 }
 
@@ -179,7 +179,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     if (strpos($itemId, 'petri_') === 0 && isset($raw['petri']) && is_array($raw['petri'])) {
         $p = $raw['petri'];
         $cleanPetri = [];
-        if (in_array($p['mode'] ?? '', ['bare', 'filled', 'empty', 'clean', 'contam', 'colonizing'], true)) {
+        if (in_array($p['mode'] ?? '', ['bare', 'filled', 'empty', 'clean', 'contam', 'colonizing', 'spore_print'], true)) {
             $cleanPetri['mode'] = $p['mode'];
         }
         foreach (['lidOpen', 'sterilized', 'inoculated', 'expired', 'parafilmSealed', 'refrigerated'] as $boolKey) {
@@ -192,6 +192,12 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         }
         if (isset($p['speciesName']) && is_string($p['speciesName'])) {
             $cleanPetri['speciesName'] = substr($p['speciesName'], 0, 80);
+        }
+        if (isset($p['hybridMutant']) && is_string($p['hybridMutant']) && in_array($p['hybridMutant'], ['', 'gold', 'albino'], true)) {
+            $cleanPetri['hybridMutant'] = $p['hybridMutant'];
+        }
+        if (isset($p['generation']) && is_numeric($p['generation'])) {
+            $cleanPetri['generation'] = max(0, min(3, (int)$p['generation']));
         }
         foreach (['colonization' => 100, 'ageGameDays' => 365, 'shelfLifeAgeDays' => 365, 'cutWedges' => 4, 'delayedContamAtPct' => 100] as $numKey => $maxVal) {
             if (isset($p[$numKey]) && is_numeric($p[$numKey]) && is_finite((float)$p[$numKey])) {
@@ -364,12 +370,12 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
             $cooker['waterMl'] = max(0, min(20000, (int)round((float)$src['waterMl'])));
         }
         if (in_array($src['mode'] ?? '', ['sterilize', 'pasteurize'], true)) $cooker['mode'] = $src['mode'];
-        foreach (['temp' => 200, 'psi' => 25, 'progress' => 100, 'overheatTimer' => 3600] as $key => $limit) {
+        foreach (['temp' => 200, 'psi' => 25, 'progress' => 100, 'overheatTimer' => 3600, 'grainGrams' => 5000, 'grainCookSec' => 3600] as $key => $limit) {
             if (isset($src[$key]) && is_numeric($src[$key]) && is_finite((float)$src[$key])) {
                 $cooker[$key] = max(0, min($limit, (float)$src[$key]));
             }
         }
-        foreach (['sterilized', 'burned'] as $key) {
+        foreach (['sterilized', 'burned', 'grainAlDente', 'hasBase'] as $key) {
             if (isset($src[$key]) && is_bool($src[$key])) $cooker[$key] = $src[$key];
         }
         if (isset($src['contents']) && is_array($src['contents'])) {
@@ -413,7 +419,10 @@ function mp_is_valid_state_key(string $k): bool {
         'ball_soccer', 'ball_basket',
         'greenhouse_auto', 'greenhouse_hum', 'greenhouse_co2', 'greenhouse_temp',
         'greenhouse_target_hum', 'greenhouse_target_co2', 'greenhouse_target_temp',
-        'greenhouse_humidifier', 'greenhouse_exhaust', 'greenhouse_cooler', 'greenhouse_light'
+        'greenhouse_humidifier', 'greenhouse_exhaust', 'greenhouse_cooler', 'greenhouse_light',
+        'stand_packs', 'stand_sold',
+        'garden_compost', 'garden_richness', 'garden_harvested', 'garden_baskets',
+        'sport_soccer_goals', 'sport_basket_points', 'sport_basket_streak'
     ], true)) {
         return true;
     }
