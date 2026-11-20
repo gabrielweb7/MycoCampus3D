@@ -14,7 +14,16 @@ import { togglePP5Lid } from '../items/pp5-cup.js';
 import { getSanitizationStatus } from '../items/alcohol-spray.js';
 import { getCultureRemainingDays } from '../items/culture-lifecycle.js';
 import { isPdaRecipeBalanced } from '../items/pda-mix.js';
-import { handlePrimaryAction, dropHeldItem, setHeldTwoHandedGhost } from '../systems/interaction-system.js';
+import {
+  handlePrimaryAction,
+  dropHeldItem,
+  setHeldTwoHandedGhost,
+  eatHeldMushroom,
+  toggleHeldGloves,
+  toggleHeldThermometer
+} from '../systems/interaction-system.js';
+import { interactMonotub } from '../items/monotub.js';
+import { breakAndShakeSpawn } from '../items/spawn-containers.js';
 import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
 
 let barEl = null;
@@ -618,24 +627,68 @@ function buildContextActions(ctx) {
     return actions;
   }
 
-  // 4. Ações especiais contextuais do item em mãos (sem poluir com chips estáticos que já estão na barra #held-item-bar)
+  // 4. Ações especiais contextuais do item em mãos (teclas 1-4 no PC e toque direto no Mobile)
   if (ctx.heldItem) {
     const held = ctx.heldItem;
-    if (held.mesh && held.mesh.userData && held.mesh.userData.isPetri) {
+    if (held.wildMushroomCtrl) {
       actions.push({
-        id: 'held_petri_lid_' + held.id,
+        id: 'held_eat_mush_' + held.id,
+        icon: '🍄',
+        label: 'Comer Cogumelo',
+        run: () => eatHeldMushroom(ctx)
+      });
+    } else if (held.mesh && held.mesh.userData && held.mesh.userData.isPetri) {
+      actions.push({
+        id: 'held_petri_lid_' + held.id + '_' + (held.mesh.userData.petriCtrl?.lidOpen ? '1' : '0'),
         icon: '🧫',
         label: held.mesh.userData.petriCtrl?.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
         run: () => togglePetriLid(ctx, held)
       });
     } else if (held.spawnCtrl && held.spawnCtrl.isPP5) {
       actions.push({
-        id: 'held_pp5_lid_' + held.id,
+        id: 'held_pp5_lid_' + held.id + '_' + (held.spawnCtrl.lidOpen ? '1' : '0'),
         icon: '🥣',
         label: held.spawnCtrl.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
         run: () => togglePP5Lid(ctx, held)
       });
+    } else if (held.monotubCtrl) {
+      actions.push({
+        id: 'held_monotub_lid_' + held.id + '_' + (held.monotubCtrl.lidOpen ? '1' : '0'),
+        icon: '📦',
+        label: held.monotubCtrl.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
+        run: () => interactMonotub(ctx, held)
+      });
+    } else if (held.mesh && held.mesh.userData && held.mesh.userData.isThermometer) {
+      actions.push({
+        id: 'held_thermo_laser_' + (ctx.thermoLaserOn ? '1' : '0'),
+        icon: ctx.thermoLaserOn ? '⭕' : '🔴',
+        label: ctx.thermoLaserOn ? 'Desligar Laser' : 'Ligar Laser',
+        run: () => toggleHeldThermometer(ctx)
+      });
+    } else if (held.id && held.id.indexOf('gloves_box_') === 0) {
+      const wearActive = !!(ctx.wearingGloves && !ctx.glovesExpired);
+      actions.push({
+        id: 'held_gloves_' + (wearActive ? '1' : '0'),
+        icon: '🧤',
+        label: wearActive ? 'Retirar Luvas' : 'Calçar Luvas (160s)',
+        run: () => toggleHeldGloves(ctx)
+      });
     }
+    if (held.spawnCtrl && held.spawnCtrl.inoculated && !held.spawnCtrl.contaminated &&
+        held.spawnCtrl.colonization >= 20 && held.spawnCtrl.colonization < 95 && !held.spawnCtrl.shaken) {
+      actions.push({
+        id: 'held_shake_' + held.id,
+        icon: '💥',
+        label: 'Break & Shake',
+        run: () => breakAndShakeSpawn(ctx, held)
+      });
+    }
+    actions.push({
+      id: 'held_inspect_' + held.id,
+      icon: '🔍',
+      label: 'Inspecionar',
+      run: () => inspectItemToast(ctx, held)
+    });
     return actions;
   }
 

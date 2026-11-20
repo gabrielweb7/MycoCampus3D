@@ -9,6 +9,17 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.9': {
+    title: '✨ Novidades da Atualização v1.9.9',
+    subtitle: 'Texturas reais em todos os substratos + controles mais seguros e visual limpo:',
+    items: [
+      { icon: '⌨️', text: 'Alt Segurar para Cursor: ao segurar Alt no PC o mouse aparece na hora para mover/fechar modais, e ao soltar o Alt a mira normal do jogo volta automaticamente!' },
+      { icon: '🍄', text: 'Comer Cogumelo no Botão [1] + Ações em Chips: clicar com o mouse/toque não come mais o cogumelo sem querer — use [1] Comer Cogumelo (PC e Mobile) e ações rápidas em chips para Termômetro, Monotub, Luvas, Petri e PP5!' },
+      { icon: '🍲', text: 'Panela Mais Limpa & Sem Ligar Sem Querer: removemos o balão gigante duplicado atrás do status da panela e clicar no fundo da panela ou na base perfurada não acende mais o fogareiro por engano.' },
+      { icon: '🌽', text: 'Pacote de Texturas Reais & Micélio Rizomórfico: milho, trigo em grão, flocão de milho, fibra de coco + vermiculita, placas Petri e colonização gradual do micélio (de 5% a 100%) ganharam texturas detalhadas e fofas!' },
+      { icon: '✨', text: 'Vagalumes Só na Natureza: os vagalumes agora ficam exclusivamente nas áreas naturais externas, sem aparecer dentro dos laboratórios.' }
+    ]
+  },
   '1.9.8': {
     title: '✨ Novidades da Atualização v1.9.8',
     subtitle: 'Slants & Tubos Falcon na Panela + Status Estéril em Todos os Recipientes:',

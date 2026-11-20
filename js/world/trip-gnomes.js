@@ -221,13 +221,29 @@ function stepEnchantedFlora(ctx, dt, show) {
   }
 }
 
-function pickForestFireflySpot() {
-  for (let tries = 0; tries < 24; tries++) {
+function isInsideRoofZone(ctx, x, z, margin = 2.0) {
+  const zones = ctx && ctx.roofZones;
+  if (!zones || !zones.length) return false;
+  for (let i = 0; i < zones.length; i++) {
+    const zb = zones[i];
+    if (x >= zb.minX - margin && x <= zb.maxX + margin && z >= zb.minZ - margin && z <= zb.maxZ + margin) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isOutdoorFireflySpot(ctx, x, z, margin = 3.5) {
+  return isNaturalSoilSpot(x, z, margin) && !isInsideRoofZone(ctx, x, z, margin);
+}
+
+function pickForestFireflySpot(ctx) {
+  for (let tries = 0; tries < 28; tries++) {
     const ang = Math.random() * Math.PI * 2;
     const rad = 52 + Math.random() * 44;
     const fx = Math.cos(ang) * rad;
     const fz = Math.sin(ang) * rad;
-    if (isNaturalSoilSpot(fx, fz, 5.5)) {
+    if (isOutdoorFireflySpot(ctx, fx, fz, 5.5)) {
       const fy = terrainHeight(fx, fz) + 0.8 + Math.random() * 2.4;
       return { x: fx, y: fy, z: fz };
     }
@@ -253,7 +269,7 @@ function stepFireflies(ctx, dt, show, isDark, inTrip) {
     const col = new Float32Array(count * 3);
     fireflyData = [];
     for (let i = 0; i < count; i++) {
-      const spot = pickForestFireflySpot();
+      const spot = pickForestFireflySpot(ctx);
       pos[i * 3] = spot.x;
       pos[i * 3 + 1] = spot.y;
       pos[i * 3 + 2] = spot.z;
@@ -281,7 +297,9 @@ function stepFireflies(ctx, dt, show, isDark, inTrip) {
     fireflyPoints.frustumCulled = false;
     ctx.scene.add(fireflyPoints);
   }
-  fireflyPoints.visible = true;
+  const playerIndoors = isInsideRoofZone(ctx, px, pz, 0.5);
+  fireflyPoints.visible = !playerIndoors;
+  if (!fireflyPoints.visible) return;
   fireflyPoints.geometry.setDrawRange(0, activeCount);
   const posAttr = fireflyPoints.geometry.getAttribute('position');
   const colAttr = fireflyPoints.geometry.getAttribute('color');
@@ -293,8 +311,8 @@ function stepFireflies(ctx, dt, show, isDark, inTrip) {
     let y = posAttr.getY(i) + Math.sin(d.phase * 1.4) * dt * 0.32;
     let z = posAttr.getZ(i) + Math.sin(d.phase * 0.8) * dt * 0.48;
     if (nightForestOnly) {
-      if (Math.hypot(x - d.baseX, z - d.baseZ) > 9 || !isNaturalSoilSpot(x, z, 3.5)) {
-        const spot = pickForestFireflySpot();
+      if (Math.hypot(x - d.baseX, z - d.baseZ) > 9 || !isOutdoorFireflySpot(ctx, x, z, 3.5)) {
+        const spot = pickForestFireflySpot(ctx);
         d.baseX = spot.x;
         d.baseY = spot.y;
         d.baseZ = spot.z;
@@ -304,12 +322,27 @@ function stepFireflies(ctx, dt, show, isDark, inTrip) {
       }
       tmpC.setHSL(0.24 + Math.sin(d.phase * 0.5) * 0.04, 0.88, 0.62);
     } else {
-      if (Math.hypot(x - px, z - pz) > 18 || y < py - 1 || y > py + 5.5) {
-        const a = Math.random() * Math.PI * 2;
-        const r = 2 + Math.random() * 13;
-        x = px + Math.cos(a) * r;
-        y = py + 0.5 + Math.random() * 2.4;
-        z = pz + Math.sin(a) * r;
+      if (Math.hypot(x - px, z - pz) > 18 || y < py - 1 || y > py + 5.5 || !isOutdoorFireflySpot(ctx, x, z, 2.5)) {
+        let placed = false;
+        for (let t = 0; t < 10; t++) {
+          const a = Math.random() * Math.PI * 2;
+          const r = 4 + Math.random() * 13;
+          const cx = px + Math.cos(a) * r;
+          const cz = pz + Math.sin(a) * r;
+          if (isOutdoorFireflySpot(ctx, cx, cz, 2.5)) {
+            x = cx;
+            y = terrainHeight(cx, cz) + 0.8 + Math.random() * 2.4;
+            z = cz;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          const spot = pickForestFireflySpot(ctx);
+          x = spot.x;
+          y = spot.y;
+          z = spot.z;
+        }
       }
       if (isDark) {
         tmpC.setHSL(i % 2 === 0 ? 0.98 : 0.78, 0.9, 0.52);

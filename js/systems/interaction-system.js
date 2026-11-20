@@ -76,6 +76,73 @@ const _vZero2 = new THREE.Vector2(0, 0);
 
 export { setHeldTwoHandedGhost, updateHoverRay, firstValidRayHit, isSeatOccupied };
 
+export function toggleHeldThermometer(ctx) {
+  if (!ctx || !ctx.heldItem || !ctx.heldItem.mesh || !ctx.heldItem.mesh.userData.isThermometer) return false;
+  ctx.thermoLaserOn = !ctx.thermoLaserOn;
+  if (window.MycoAudio && window.MycoAudio.playLaserBeep) {
+    window.MycoAudio.playLaserBeep();
+  }
+  drawThermoScreen(ctx.thermoCurrentTemp, ctx.thermoLaserOn ? 'SCAN' : 'HOLD', true);
+  return true;
+}
+
+export function toggleHeldGloves(ctx) {
+  if (!ctx) return false;
+  const shouldWear = !ctx.wearingGloves || !!ctx.glovesExpired;
+  ctx.wearingGloves = shouldWear;
+  ctx.glovesExpired = false;
+  ctx.glovesUntil = shouldWear ? (performance.now() + 160000) : 0;
+  if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
+    ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x09090b : 0xfde68a);
+    ctx.fpsArmGroup.userData.handMat.roughness = ctx.wearingGloves ? 0.35 : 0.65;
+  }
+  if (window.MycoAudio) window.MycoAudio.playClick();
+  if (ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast(ctx.wearingGloves
+      ? '🧤 Luvas Pretas Nitrílicas Estéreis calçadas (160s)!'
+      : '🧤 Luvas Pretas retiradas.');
+  }
+  return true;
+}
+
+export function eatHeldMushroom(ctx) {
+  if (!ctx || !ctx.heldItem || !ctx.heldItem.wildMushroomCtrl) return false;
+  const wm = ctx.heldItem.wildMushroomCtrl;
+  const eatenItem = ctx.heldItem;
+  if (window.MycoAudio) window.MycoAudio.playHarvest();
+  if (wm.isMagic) {
+    triggerMagicCubensisEffect(() => {
+      if (ctx.playerPos) {
+        ctx.playerPos.y = 36;
+        ctx.playerVelY = 0;
+        ctx.onGround = false;
+      }
+    });
+    if (ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(`🍄✨ Você comeu ${wm.speciesName}!`);
+    }
+  } else if (ctx.callbacks && ctx.callbacks.onToast) {
+    ctx.callbacks.onToast(`🍄 Você comeu ${wm.speciesName}!`);
+  }
+  wm.removed = true;
+  ctx.pendingMovedItems[eatenItem.id] = {
+    id: eatenItem.id,
+    state: { wildMushroom: { speciesName: wm.speciesName, isMagic: !!wm.isMagic, removed: true } }
+  };
+  ctx.heldItem = null;
+  if (eatenItem.mesh && eatenItem.mesh.parent) eatenItem.mesh.parent.remove(eatenItem.mesh);
+  disposeObjectResources(eatenItem.mesh);
+  const idx = ctx.pickableItems.indexOf(eatenItem);
+  if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+  if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
+    ctx.pickableMap.delete(eatenItem.id);
+  }
+  if (ctx.placementGhost) ctx.placementGhost.visible = false;
+  if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+  ctx.notifyWorldAction();
+  return true;
+}
+
 export function setMeshGhostOpacity(root, active) {
   if (!root) return;
   root.traverse(function (ch) {
@@ -912,14 +979,7 @@ export function handlePrimaryAction(ctx) {
         if (window.MycoAudio) window.MycoAudio.playDoor(ctx.hoveredPickable.fridgeCtrl.doorOpen);
         return;
       }
-      if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer) {
-        ctx.thermoLaserOn = !ctx.thermoLaserOn;
-        if (window.MycoAudio && window.MycoAudio.playLaserBeep) {
-          window.MycoAudio.playLaserBeep();
-        }
-        drawThermoScreen(ctx.thermoCurrentTemp, ctx.thermoLaserOn ? 'SCAN' : 'HOLD', true);
-        return;
-      }
+      if (toggleHeldThermometer(ctx)) return;
       if (ctx.heldItem && ctx.heldItem.monotubCtrl) {
         interactMonotub(ctx, ctx.heldItem);
         return;
@@ -931,57 +991,8 @@ export function handlePrimaryAction(ctx) {
         togglePetriLid(ctx, ctx.heldItem);
         return;
       }
-      if (ctx.heldItem && ctx.heldItem.wildMushroomCtrl) {
-        const wm = ctx.heldItem.wildMushroomCtrl;
-        const eatenItem = ctx.heldItem;
-        if (window.MycoAudio) window.MycoAudio.playHarvest();
-        if (wm.isMagic) {
-          triggerMagicCubensisEffect(() => {
-            if (ctx.playerPos) {
-              ctx.playerPos.y = 36;
-              ctx.playerVelY = 0;
-              ctx.onGround = false;
-            }
-          });
-          if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast(`🍄✨ Você comeu ${wm.speciesName}!`);
-          }
-        } else if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast(`🍄 Você comeu ${wm.speciesName}!`);
-        }
-        wm.removed = true;
-        ctx.pendingMovedItems[eatenItem.id] = {
-          id: eatenItem.id,
-          state: { wildMushroom: { speciesName: wm.speciesName, isMagic: !!wm.isMagic, removed: true } }
-        };
-        ctx.heldItem = null;
-        if (eatenItem.mesh && eatenItem.mesh.parent) eatenItem.mesh.parent.remove(eatenItem.mesh);
-        disposeObjectResources(eatenItem.mesh);
-        const idx = ctx.pickableItems.indexOf(eatenItem);
-        if (idx !== -1) ctx.pickableItems.splice(idx, 1);
-        if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
-          ctx.pickableMap.delete(eatenItem.id);
-        }
-        if (ctx.placementGhost) ctx.placementGhost.visible = false;
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
-        ctx.notifyWorldAction();
-        return;
-      }
       if (ctx.heldItem && ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
-        const shouldWear = !ctx.wearingGloves || !!ctx.glovesExpired;
-        ctx.wearingGloves = shouldWear;
-        ctx.glovesExpired = false;
-        ctx.glovesUntil = shouldWear ? (performance.now() + 160000) : 0;
-        if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
-          ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x09090b : 0xfde68a);
-          ctx.fpsArmGroup.userData.handMat.roughness = ctx.wearingGloves ? 0.35 : 0.65;
-        }
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast(ctx.wearingGloves
-            ? '🧤 Luvas Pretas Nitrílicas Estéreis calçadas (160s)!'
-            : '🧤 Luvas Pretas retiradas.');
-        }
+        toggleHeldGloves(ctx);
         return;
       }
     }

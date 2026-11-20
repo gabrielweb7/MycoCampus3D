@@ -6,6 +6,65 @@
 const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
 
 const _canvasTextureCache = new Map();
+const _pngTextureCache = new Map();
+const _pngPendingMaterials = new Map();
+
+/**
+ * Carrega e compartilha uma textura PNG (com cache global + TextureLoader assíncrono)
+ * e aplica em um ou vários materiais assim que estiver pronta. Seguro em Node/SSR.
+ */
+export function bindPngTexture(url, matOrMats, opts = {}) {
+  const mats = (Array.isArray(matOrMats) ? matOrMats : [matOrMats]).filter(Boolean);
+  if (typeof window === 'undefined' || !THREE || !THREE.TextureLoader) return null;
+  const rx = opts.repeatX || 1;
+  const ry = opts.repeatY || 1;
+  const clamp = !!opts.clamp;
+  const key = `${url}|${rx}|${ry}|${clamp ? 1 : 0}`;
+
+  const cached = _pngTextureCache.get(key);
+  if (cached) {
+    for (let i = 0; i < mats.length; i++) {
+      mats[i].map = cached;
+      mats[i].needsUpdate = true;
+    }
+    return cached;
+  }
+
+  let waiters = _pngPendingMaterials.get(key);
+  if (waiters) {
+    for (let i = 0; i < mats.length; i++) waiters.push(mats[i]);
+    return null;
+  }
+
+  waiters = [...mats];
+  _pngPendingMaterials.set(key, waiters);
+
+  const loader = new THREE.TextureLoader();
+  loader.load(url, (loadedTex) => {
+    if (!loadedTex) return;
+    if (THREE.RepeatWrapping && !clamp) {
+      loadedTex.wrapS = THREE.RepeatWrapping;
+      loadedTex.wrapT = THREE.RepeatWrapping;
+    } else if (THREE.ClampToEdgeWrapping && clamp) {
+      loadedTex.wrapS = THREE.ClampToEdgeWrapping;
+      loadedTex.wrapT = THREE.ClampToEdgeWrapping;
+    }
+    if (loadedTex.repeat) loadedTex.repeat.set(rx, ry);
+    if (THREE.SRGBColorSpace && loadedTex.colorSpace !== undefined) {
+      loadedTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    loadedTex.userData = loadedTex.userData || {};
+    loadedTex.userData.shared = true;
+    _pngTextureCache.set(key, loadedTex);
+    const list = _pngPendingMaterials.get(key) || [];
+    _pngPendingMaterials.delete(key);
+    for (let i = 0; i < list.length; i++) {
+      list[i].map = loadedTex;
+      list[i].needsUpdate = true;
+    }
+  });
+  return null;
+}
 
 /**
  * Gera ou reutiliza uma CanvasTexture compartilhada (marcada com userData.shared = true)

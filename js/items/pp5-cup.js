@@ -3,7 +3,7 @@
  * Esterilizacao minima: 1h20m (80 min).
  */
 
-import { getCachedCanvasTexture, mergeStaticGeos, registerPickable } from './item-registry.js';
+import { bindPngTexture, getCachedCanvasTexture, mergeStaticGeos, registerPickable } from './item-registry.js';
 import { updateSpawnVisual } from './spawn-containers.js';
 import { createCultureLifecycleState } from './culture-lifecycle.js';
 import { attachPdaMediumCtrl } from './pda-mix.js';
@@ -34,6 +34,9 @@ function getPP5SharedAssets() {
     }
   });
 
+  const flocaoMat = new THREE.MeshStandardMaterial({ map: flocaoTex, roughness: 0.85 });
+  bindPngTexture('assets/textures/flocao-corn.png', flocaoMat, { repeatX: 2, repeatY: 2 });
+
   sharedPP5Assets = {
     cupShellGeo,
     lidGeo: new THREE.CylinderGeometry(0.046, 0.046, 0.006, 24),
@@ -48,7 +51,7 @@ function getPP5SharedAssets() {
     ppLidMat: new THREE.MeshStandardMaterial({
       color: 0xe2e8f0, transparent: true, opacity: 0.88, roughness: 0.28, metalness: 0.06
     }),
-    flocaoMat: new THREE.MeshStandardMaterial({ map: flocaoTex, roughness: 0.85 })
+    flocaoMat
   };
   Object.keys(sharedPP5Assets).forEach((k) => {
     const v = sharedPP5Assets[k];
@@ -109,9 +112,11 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
   flocaoMesh.position.y = 0.018;
   flocaoMesh.visible = !!filled;
 
+  const pp5MycMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 });
+  bindPngTexture('assets/textures/mycelium-rhizo.png', pp5MycMat, { repeatX: 2, repeatY: 2 });
   const mycOverlay = new THREE.Mesh(
     A.mycGeo,
-    new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 })
+    pp5MycMat
   );
   mycOverlay.position.y = 0.019;
   mycOverlay.visible = false;

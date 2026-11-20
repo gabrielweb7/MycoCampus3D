@@ -376,9 +376,9 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   valve2.userData.burnerSwitchIdx = bIdx;
   knob2.userData.burnerSwitchIdx = bIdx;
   valveHit.userData.burnerSwitchIdx = bIdx;
-  drumMesh.userData.burnerSwitchIdx = bIdx;
 
-  ctx.burnerSwitchMeshes.push(valve1, knob1, valve2, knob2, valveHit, drumMesh);
+  // Apenas válvulas/registros controlam a chama; nunca o suporte/fundo sob a panela
+  ctx.burnerSwitchMeshes.push(valve1, knob1, valve2, knob2, valveHit);
   ctx.burnerDevices.push(bState);
 
   return registerPickable(ctx, id, 'Tripé Fogareiro a Gás (GLP)', tg, px, py, pz, 0, 0.36, totalH, GAS_TRIPOD_META);

@@ -2,6 +2,21 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.9] - 2026-11-20
+### Hold-Alt Cursor, Ações Numeradas para Cogumelos/Itens, Panela Limpa, Texturas Reais & Vagalumes Só na Natureza
+- **Segurar `Alt` para Cursor no PC (`js/systems/input-controller.js`):**
+  - Pressionar e segurar `AltLeft`/`AltRight` em FPS libera o ponteiro do mouse para mover/redimensionar/fechar modais; ao soltar `Alt`, o Pointer Lock retorna automaticamente para a mira do jogo.
+- **Comer Cogumelo no `[1]` + Ações Contextuais em Chips (`js/systems/interaction-system.js`, `js/ui/radial-menu.js`, `js/systems/hover-raycaster.js`):**
+  - Clicar com o cogumelo em mãos (`wildMushroomCtrl`) não consome mais por acidente; adicionada a ação `[1] 🍄 Comer Cogumelo` no menu flutuante (funciona na tecla `1` no PC e por toque direto no Mobile).
+  - Chips rápidos expandidos no item em mãos para `Monotub 24L`, `Termômetro IR`, `Caixa de Luvas`, `Break & Shake` e `Inspecionar` universal.
+- **Balão Único & Clique Seguro na Panela (`js/items/pressure-cooker.js`, `js/items/gas-tripod.js`, `js/systems/hover-raycaster.js`):**
+  - Removido o sprite 3D gigante duplicado atrás do `hover3dBadge` na panela de pressão, mantendo apenas o balão frontal com temperatura, água, PSI e progresso.
+  - Removido `drumMesh` de `burnerSwitchMeshes` e adicionada checagem de oclusão por itens mais próximos, impedindo acender o fogareiro ao clicar no fundo ou na base da panela.
+- **Pacote de Texturas Reais & Colonização Rizomórfica (`assets/textures/*.png`, `js/items/item-registry.js`, `js/items/spawn-containers.js`, `js/items/pp5-cup.js`, `js/items/monotub.js`, `js/items/petri-dish.js`):**
+  - Geradas texturas seamless 512×512 PNG para `corn-grain.png`, `wheat-grain.png`, `flocao-corn.png`, `coco-verm-substrate.png` e `mycelium-rhizo.png`, carregadas via `bindPngTexture` compartilhado e com colonização gradual realista desde o início até 100%, incluindo hifas ramificadas nas placas Petri.
+- **Vagalumes Exclusivos da Natureza (`js/world/trip-gnomes.js`):**
+  - Adicionada verificação por `isInsideRoofZone` e `isOutdoorFireflySpot` em `stepFireflies`, ocultando vagalumes em ambientes internos e bloqueando geração dentro de laboratórios/edifícios.
+
 ## [v1.9.8] - 2026-11-20
 ### Slants, Tubos Falcon & Recipientes na Autoclave + Inspeção de Esterilidade Completa
 - **Panela de Pressão (`js/systems/hover-held-handlers.js`, `js/items/pressure-cooker.js`, `js/items/liquid-culture.js`, `js/systems/world-objects-sync.js`, `api/multiplayer_schema.php`):**

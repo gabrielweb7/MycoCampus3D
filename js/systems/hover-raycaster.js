@@ -309,17 +309,33 @@ export function updateHoverRay(ctx, customNdc) {
         break;
       }
     }
-    const bHits = anyBurnerNear ? ctx.raycaster.intersectObjects(ctx.burnerSwitchMeshes, false) : [];
-    if (bHits.length > 0 && bHits[0].distance < 4.0) {
-      ctx.hoverHit = bHits[0];
-      if (bHits[0].object.userData.burnerTimerIdx !== undefined) {
-        ctx.hoveredBurnerTimer = ctx.burnerDevices[bHits[0].object.userData.burnerTimerIdx];
+    const rawBHits = anyBurnerNear ? ctx.raycaster.intersectObjects(ctx.burnerSwitchMeshes, false) : [];
+    const bHit = firstUnoccludedRayHit(ctx, rawBHits, 4.0, { checkWalls: true });
+    let blockedByCloserObject = false;
+    if (bHit && ctx.pickableItems && ctx.pickableItems.length) {
+      for (let pi = 0; pi < ctx.pickableItems.length; pi++) {
+        const pIt = ctx.pickableItems[pi];
+        if (!pIt || pIt === ctx.heldItem || !pIt.mesh) continue;
+        if (pIt.mesh.userData && pIt.mesh.userData.isBurner) continue;
+        const pDx = pIt.mesh.position.x - refX, pDz = pIt.mesh.position.z - refZ;
+        if (pDx * pDx + pDz * pDz > maxPickSq) continue;
+        const pHit = intersectPickableItem(ctx.raycaster, pIt);
+        if (pHit && pHit.distance < bHit.distance - 0.015) {
+          blockedByCloserObject = true;
+          break;
+        }
+      }
+    }
+    if (bHit && !blockedByCloserObject) {
+      ctx.hoverHit = bHit;
+      if (bHit.object.userData.burnerTimerIdx !== undefined) {
+        ctx.hoveredBurnerTimer = ctx.burnerDevices[bHit.object.userData.burnerTimerIdx];
         const curLbl = formatBurnerTimerLabel(ctx.hoveredBurnerTimer.timerPresetMin || 0);
         prompt = '⏱️ Timer Digital (' + curLbl + ') • Clique para alternar (20m / 1h / 1h30 / 2h / Livre)';
         setHoverPrompt(ctx, prompt);
         return;
       }
-      ctx.hoveredBurnerSwitch = ctx.burnerDevices[bHits[0].object.userData.burnerSwitchIdx];
+      ctx.hoveredBurnerSwitch = ctx.burnerDevices[bHit.object.userData.burnerSwitchIdx];
       const curL = ctx.hoveredBurnerSwitch.level || (ctx.hoveredBurnerSwitch.on ? 3 : 0);
       const nxtL = (curL + 1) % 4;
       prompt = '🔥 ' + BURNER_LEVEL_NAMES[curL] + ' → Mudar para ' + BURNER_LEVEL_NAMES[nxtL];
@@ -503,21 +519,40 @@ export function updateHoverRay(ctx, customNdc) {
         }
       }
       if (ctx.hoveredPickable.potItem && ctx.hoveredPickable.isAttached) {
-        if (potStatus && potStatus.psi >= 1.5) {
+        const wLit = potStatus ? ((potStatus.waterMl / 1000).toFixed(1) + 'L') : '';
+        if (potStatus && potStatus.burned) {
+          prompt = '🔥 Tudo queimado :( • Retirar Tampa e descartar';
+        } else if (potStatus && potStatus.psi >= 1.5) {
           const pctP = Math.min(100, Math.round((potStatus.psi / 15) * 100));
           if (potStatus.progress >= 100) {
-            prompt = '🔒 Tampa Travada (' + potStatus.psi.toFixed(1) + ' PSI • ✅ 100%) — Desligue o fogo e aguarde';
+            prompt = `🔒 Tampa Travada (${potStatus.psi.toFixed(1)} PSI • ✅ 100% • ${Math.round(potStatus.temp)}°C • ${wLit}) — Desligue e aguarde`;
           } else if (potStatus.psi >= 14) {
-            prompt = '🔒 Esterilizando: ' + potStatus.psi.toFixed(1) + '/15 PSI (' + pctP + '%) • ' + Math.floor(potStatus.progress) + '%';
+            prompt = `🔒 Esterilizando: ${Math.floor(potStatus.progress)}% (${potStatus.psi.toFixed(1)}/15 PSI • ${Math.round(potStatus.temp)}°C • ${wLit})`;
           } else {
-            prompt = '🔒 Pressurizada: ' + potStatus.psi.toFixed(1) + '/15 PSI (' + pctP + '%) — Aguarde < 1.5 PSI';
+            prompt = `🔒 Pressurizada: ${potStatus.psi.toFixed(1)}/15 PSI (${pctP}% • ${Math.round(potStatus.temp)}°C • ${wLit}) — Aguarde < 1.5 PSI`;
           }
         } else if (potStatus && potStatus.progress >= 100) {
-          prompt = '🍲 Retirar Tampa (🔓 Despressurizada • ✅ Esterilizado 100%)';
-        } else if (potStatus && potStatus.temp > 32) {
-          prompt = '🍲 Retirar Tampa (🔥 Aquecendo: ' + Math.round(potStatus.temp) + '°C)';
+          const coolTag = potStatus.temp > 30 ? `❄️ ${Math.round(potStatus.temp)}°C` : '🔓 Despressurizada';
+          prompt = `🍲 Retirar Tampa (${coolTag} • ✅ Esterilizado 100% • Água ${wLit})`;
+        } else if (potStatus && potStatus.temp > 30) {
+          prompt = `🍲 Retirar Tampa (🌡️ ${Math.round(potStatus.temp)}°C • Água ${wLit})`;
         } else {
           prompt = '🍲 Retirar Tampa da Panela de Pressão';
+        }
+      } else if (potStatus && ctx.hoveredPickable === potStatus.potItem) {
+        const wLit = (potStatus.waterMl / 1000).toFixed(1) + 'L';
+        if (potStatus.burned) {
+          prompt = `${ctx.hoveredPickable.label} • 🔥 Queimada :( • Esvazie`;
+        } else if ((potStatus.grainGrams || 0) > 0) {
+          const gPct = potStatus.grainAlDente ? 100 : Math.min(100, Math.round(((potStatus.grainCookSec || 0) / 60) * 100));
+          prompt = `${ctx.hoveredPickable.label} • ${potStatus.grainAlDente ? '✅ Milho AO DENTE' : `🌽 Cozinhando ${gPct}%`} • ${Math.round(potStatus.temp)}°C • Água ${wLit}`;
+        } else if (potStatus.temp > 30 || potStatus.progress > 0 || potStatus.psi >= 1.5) {
+          const stPart = potStatus.psi >= 1.5
+            ? `🔒 ${potStatus.psi.toFixed(1)} PSI`
+            : (potStatus.progress >= 100 ? '✅ Esterilizado 100%' : `${Math.round(potStatus.temp)}°C`);
+          prompt = `${ctx.hoveredPickable.label} • ${stPart} • Água ${wLit}`;
+        } else {
+          prompt = `${ctx.hoveredPickable.label} • Água ${wLit}`;
         }
       } else if (ctx.hoveredPickable.fridgeCtrl) {
         const fridge = ctx.hoveredPickable;
@@ -712,7 +747,9 @@ export function updateHoverRay(ctx, customNdc) {
           (isTouch ? ' (Toque: Ligar Laser)' : ' (Clique: Ligar Laser • G/Q ou clique dir.: posicionar)');
       }
     } else if (ctx.heldItem.wildMushroomCtrl) {
-      prompt = (isTouch ? '🍄 Toque para comer ' : '🍄 Clique para comer ') + ctx.heldItem.wildMushroomCtrl.speciesName;
+      prompt = isTouch
+        ? `🍄 ${ctx.heldItem.wildMushroomCtrl.speciesName} • Toque em [1 Comer Cogumelo] para comer`
+        : `🍄 ${ctx.heldItem.wildMushroomCtrl.speciesName} • Tecla [1] Comer Cogumelo • G/Clique: posicionar`;
     } else {
       ctx.placementValid = false;
     }

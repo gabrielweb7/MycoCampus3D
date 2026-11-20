@@ -15,7 +15,7 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { getCachedCanvasTexture, registerPickable, updateItemBounds } from './item-registry.js';
+import { bindPngTexture, getCachedCanvasTexture, registerPickable, updateItemBounds } from './item-registry.js';
 import { getSanitizationStatus } from './alcohol-spray.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
@@ -59,6 +59,12 @@ function getSharedMonotubAssets() {
     }
   });
 
+  const cocoSubMat = new THREE.MeshStandardMaterial({
+    map: cocoTex,
+    roughness: 0.92
+  });
+  bindPngTexture('assets/textures/coco-verm-substrate.png', cocoSubMat, { repeatX: 3, repeatY: 2 });
+
   sharedMonotubAssets = {
     clearPlasticMat: new THREE.MeshStandardMaterial({
       color: 0xe2e8f0,
@@ -90,10 +96,7 @@ function getSharedMonotubAssets() {
       color: 0xf8fafc,
       roughness: 0.95
     }),
-    cocoSubMat: new THREE.MeshStandardMaterial({
-      map: cocoTex,
-      roughness: 0.92
-    }),
+    cocoSubMat,
     spentDryMat: new THREE.MeshStandardMaterial({
       map: spentTex,
       roughness: 0.98
@@ -270,8 +273,8 @@ export function updateMonotubVisual(item) {
     if (showMyc) {
       const f = Math.max(0.08, Math.min(1, mc.colonization / 100));
       mc.myceliumMesh.material.color.setHex(mc.contaminated ? 0x15803d : 0xf8fafc);
-      mc.myceliumMesh.material.opacity = mc.contaminated ? 0.86 : (0.18 + f * 0.76);
-      mc.myceliumMesh.scale.set(0.95 + 0.05 * f, 1, 0.95 + 0.05 * f);
+      mc.myceliumMesh.material.opacity = mc.contaminated ? 0.88 : (0.35 + f * 0.63);
+      mc.myceliumMesh.scale.set(0.45 + 0.55 * f, 1, 0.45 + 0.55 * f);
     }
   }
 
@@ -467,6 +470,7 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
     opacity: 0.0,
     roughness: 0.85
   });
+  bindPngTexture('assets/textures/mycelium-rhizo.png', mycMat, { repeatX: 3, repeatY: 2 });
   const myceliumMesh = makeBox(W - 0.022, 0.012, D - 0.022, mycMat);
   myceliumMesh.position.y = 0.102;
   myceliumMesh.visible = false;

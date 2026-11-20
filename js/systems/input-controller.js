@@ -17,19 +17,30 @@ export function bindControls(ctx) {
     }
   });
 
+  let altReleasedPointerLock = false;
+  let lastPointerLockExitAt = -2000;
+  function safeRequestPointerLock(force = false) {
+    if (!force && performance.now() - lastPointerLockExitAt < 1100) return;
+    try {
+      const res = ctx.renderer.domElement.requestPointerLock();
+      if (res && typeof res.catch === 'function') {
+        res.catch(function () {});
+      }
+    } catch (err) {}
+  }
+
+  function isTextInputFocused() {
+    const ae = document.activeElement;
+    return !!(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable));
+  }
+
   window.addEventListener('keydown', function (e) {
     if (e.code === 'AltLeft' || e.code === 'AltRight') {
-      if (ctx.inFps && !e.repeat) {
+      if (ctx.inFps && !isTextInputFocused()) {
         e.preventDefault();
-        if (document.pointerLockElement === ctx.renderer.domElement) {
+        if (!e.repeat && document.pointerLockElement === ctx.renderer.domElement) {
+          altReleasedPointerLock = true;
           if (document.exitPointerLock) document.exitPointerLock();
-        } else {
-          const aeAlt = document.activeElement;
-          const typing = aeAlt && (aeAlt.tagName === 'INPUT' || aeAlt.tagName === 'TEXTAREA' || aeAlt.isContentEditable);
-          if (!typing) {
-            lastPointerLockExitAt = 0;
-            safeRequestPointerLock();
-          }
         }
       }
       return;
@@ -158,7 +169,19 @@ export function bindControls(ctx) {
       }
     }
   });
-  window.addEventListener('keyup', function (e) { ctx.keys[e.code] = false; });
+  window.addEventListener('keyup', function (e) {
+    ctx.keys[e.code] = false;
+    if (e.code === 'AltLeft' || e.code === 'AltRight') {
+      if (ctx.inFps) e.preventDefault();
+      if (altReleasedPointerLock) {
+        altReleasedPointerLock = false;
+        if (ctx.inFps && !isTextInputFocused() && document.pointerLockElement !== ctx.renderer.domElement) {
+          lastPointerLockExitAt = -2000;
+          safeRequestPointerLock(true);
+        }
+      }
+    }
+  });
   ctx.renderer.domElement.addEventListener('contextmenu', function (e) {
     e.preventDefault();
   });
@@ -169,20 +192,16 @@ export function bindControls(ctx) {
     ctx.jumpHeld = false;
     ctx.flushCurrentStroke();
   }
-  window.addEventListener('blur', clearAllInputKeys);
-  document.addEventListener('visibilitychange', function () {
-    if (document.hidden) clearAllInputKeys();
+  window.addEventListener('blur', function () {
+    altReleasedPointerLock = false;
+    clearAllInputKeys();
   });
-  let lastPointerLockExitAt = 0;
-  function safeRequestPointerLock() {
-    if (performance.now() - lastPointerLockExitAt < 1100) return;
-    try {
-      const res = ctx.renderer.domElement.requestPointerLock();
-      if (res && typeof res.catch === 'function') {
-        res.catch(function () {});
-      }
-    } catch (err) {}
-  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      altReleasedPointerLock = false;
+      clearAllInputKeys();
+    }
+  });
 
   document.addEventListener('pointerlockchange', function () {
     if (document.pointerLockElement !== ctx.renderer.domElement) {

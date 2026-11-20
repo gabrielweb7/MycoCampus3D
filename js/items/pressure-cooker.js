@@ -250,20 +250,6 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   lidItem.isAttached = true;
   potItem.lidItem = lidItem;
 
-  const pCanvas = document.createElement('canvas');
-  pCanvas.width = 360; pCanvas.height = 128;
-  const pCtx = pCanvas.getContext('2d');
-  const pTex = new THREE.CanvasTexture(pCanvas);
-  pTex.generateMipmaps = false;
-  pTex.minFilter = THREE.LinearFilter;
-  const pSpriteMat = new THREE.SpriteMaterial({ map: pTex, transparent: true, depthTest: true });
-  const pSprite = new THREE.Sprite(pSpriteMat);
-  pSprite.scale.set(1.05, 0.37, 1);
-  pSprite.position.set(0, 0.80, 0);
-  pSprite.visible = false;
-  pSprite.userData.ignoreRay = true;
-  potGroup.add(pSprite);
-
   var cpState = {
     potItem,
     lidItem,
@@ -283,9 +269,9 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
     waterMl: 3400,
     maxWaterMl: 20000,
     mode: 'sterilize', // 'sterilize' | 'pasteurize'
-    statusSprite: pSprite,
-    statusCtx: pCtx,
-    statusTex: pTex,
+    statusSprite: null,
+    statusCtx: null,
+    statusTex: null,
     lastHudKey: '',
     psi: 0,
     temp: 25,
@@ -912,152 +898,7 @@ export function stepPressureCookers(ctx, dt) {
       }
     }
 
-    if (cp.statusSprite) {
-      const isHeld = ctx.heldItem === cp.potItem || ctx.heldItem === cp.lidItem;
-      const pDist = Math.hypot(potP.x - ctx.playerPos.x, potP.z - ctx.playerPos.z);
-      const pDy = Math.abs((potP.y || 0) - (ctx.playerPos.y || 0));
-      const showHud = !isHeld && pDist < 5.5 && pDy < 2.2 && (cp.burned || cp.temp > 26 || cp.psi > 0.1 || cp.progress > 0 || activeBurner);
-      cp.statusSprite.visible = showHud;
-      if (showHud) {
-        let stageTitle = '', stageSub = '', barPct = 0, barCol = '#38bdf8', borderCol = '#38bdf8';
-        const waterLit = (cp.waterMl / 1000).toFixed(1) + 'L';
-        const waterEta = '';
-        const fireTag = activeBurner ? (' • ' + BURNER_LEVEL_NAMES[heatLvl]) : '';
-
-        if (cp.burned) {
-          stageTitle = '🔥 Tudo queimado :(';
-          stageSub = 'Jogue fora o conteúdo!';
-          barPct = 100; barCol = '#ef4444'; borderCol = '#ef4444';
-        } else if (!hasWater) {
-          stageTitle = '⚠️ Panela sem água!';
-          stageSub = 'Encha na Pia ou Garrafão 5L';
-          barPct = 100; barCol = '#ef4444'; borderCol = '#ef4444';
-        } else if (hasContainers && !hasBase) {
-          stageTitle = '⚠️ Falta Base Perfurada!';
-          stageSub = 'Encaixe a base 4cm no fundo';
-          barPct = 100; barCol = '#ef4444'; borderCol = '#ef4444';
-        } else if (hasContainers && waterTooLow) {
-          stageTitle = activeBurner ? '⚠️ Água baixa! Desligue o fogo!' : '💧 Água abaixo da base!';
-          stageSub = activeBurner ? 'Desligue para perder pressão e não queimar tudo' : 'Ideal: 3.4L (+0.5cm acima da base)';
-          barPct = Math.max(5, Math.min(100, (cp.waterMl / 3400) * 100));
-          barCol = activeBurner ? '#ef4444' : '#f59e0b';
-          borderCol = barCol;
-        } else if (hasContainers && waterTooHigh) {
-          stageTitle = '🌊 Muita água na panela!';
-          stageSub = 'Ideal: 3.0–4.0L (+0.5cm da base)';
-          barPct = 100; barCol = '#f59e0b'; borderCol = '#f59e0b';
-        } else if (activeBurner && !(cp.lidItem && cp.lidItem.isAttached)) {
-          if ((cp.grainGrams || 0) > 0) {
-            barPct = cp.grainAlDente ? 100 : Math.min(100, Math.round(((cp.grainCookSec || 0) / 60) * 100));
-            stageTitle = cp.grainAlDente ? '🌽 Milho AO DENTE (Pronto!)' : '🌽 Cozinhando Milho (' + barPct + '%)';
-            stageSub = Math.round(cp.grainGrams) + 'g • ' + Math.round(cp.temp) + '°C • Água ' + waterLit;
-            barCol = cp.grainAlDente ? '#22c55e' : '#eab308';
-          } else {
-            barPct = Math.min(100, Math.round(((cp.temp - 25) / 75) * 100));
-            stageTitle = cp.temp >= 98 ? '♨️ Fervendo (sem tampa)' : '🔥 Aquecendo água...';
-            stageSub = Math.round(cp.temp) + '°C • Água ' + waterLit + waterEta;
-            barCol = cp.temp >= 98 ? '#38bdf8' : '#f97316';
-          }
-          borderCol = barCol;
-        } else if (activeBurner && (cp.lidItem && cp.lidItem.isAttached)) {
-          if (cp.mode === 'pasteurize') {
-            if (cp.temp < 74) {
-              barPct = Math.min(100, Math.round(((cp.temp - 25) / 50) * 100));
-              stageTitle = '🔥 Aquecendo p/ Pasteurizar...';
-              stageSub = Math.round(cp.temp) + '°C / 78°C • ' + waterLit + fireTag;
-              barCol = '#f97316'; borderCol = '#f97316';
-            } else if (cp.progress < 100) {
-              barPct = Math.floor(cp.progress);
-              stageTitle = '🌡️ Pasteurizando... (' + Math.round(cp.temp) + '°C)';
-              stageSub = barPct + '% • Água ' + waterLit + waterEta;
-              barCol = '#10b981'; borderCol = '#10b981';
-            } else {
-              stageTitle = '✅ Pasteurização 100%!';
-              stageSub = hasElectricTimer
-                ? ('Timer desliga em ' + Math.max(0, Math.ceil(activeBurner.timerRemainingSec || 0)) + 's • ' + waterLit)
-                : ('Desligue o fogo • ' + waterLit);
-              barPct = 100; barCol = '#22c55e'; borderCol = '#22c55e';
-            }
-          } else if (cp.temp < LAB.autoclaveTargetTempC) {
-            barPct = Math.min(100, Math.round(((cp.temp - 25) / 96) * 100));
-            stageTitle = '🔥 Aquecendo... (' + BURNER_LEVEL_NAMES[heatLvl] + ')';
-            stageSub = Math.round(cp.temp) + '°C / 121°C • ' + waterLit + waterEta;
-            barCol = '#f97316'; borderCol = '#f97316';
-          } else if (cp.psi < 14.2 && cp.progress < 100) {
-            barPct = Math.min(100, Math.round((cp.psi / LAB.autoclaveTargetPsi) * 100));
-            stageTitle = '🔒 PSI aumentando...';
-            stageSub = cp.psi.toFixed(1) + '/15 PSI • ' + waterLit + waterEta;
-            barCol = '#f59e0b'; borderCol = '#f59e0b';
-          } else if (cp.progress < 100) {
-            barPct = Math.floor(cp.progress);
-            stageTitle = '♨️ Esterilizando (15 PSI)...';
-            stageSub = barPct + '% • ' + waterLit + waterEta + (heatLvl === 3 ? ' (Baixe p/ Médio!)' : '');
-            barCol = '#22c55e'; borderCol = '#22c55e';
-          } else if (hasElectricTimer) {
-            const tSec = Math.max(0, Math.ceil(activeBurner.timerRemainingSec || 0));
-            barPct = 100;
-            stageTitle = '✅ 100% Esterilizado!';
-            stageSub = 'Timer desliga em ' + tSec + 's • ' + waterLit;
-            barCol = '#22c55e';
-            borderCol = '#22c55e';
-          } else {
-            const secLeft = Math.max(0, Math.ceil(LAB.autoclaveOverheatSec - cp.overheatTimer));
-            barPct = Math.round((secLeft / LAB.autoclaveOverheatSec) * 100);
-            stageTitle = '✅ 100% Esterilizado!';
-            stageSub = 'Desligue o fogo! (' + secLeft + 's)';
-            barCol = secLeft <= 5 ? '#ef4444' : '#eab308';
-            borderCol = barCol;
-          }
-        } else {
-          if (cp.psi >= LAB.autoclaveLockPsi) {
-            barPct = Math.min(100, Math.round((cp.psi / LAB.autoclaveTargetPsi) * 100));
-            stageTitle = '🔒 Perdendo pressão...';
-            stageSub = cp.psi.toFixed(1) + ' / 15 PSI (aguarde < 1.5)';
-            barCol = '#fb923c'; borderCol = '#f59e0b';
-          } else if (cp.temp > 30) {
-            barPct = Math.max(0, Math.min(100, Math.round(((cp.temp - 25) / 96) * 100)));
-            stageTitle = '❄️ Esfriando... (🔓 Destravada)';
-            stageSub = Math.round(cp.temp) + '°C • Água ' + waterLit;
-            barCol = '#38bdf8'; borderCol = '#38bdf8';
-          } else if (cp.progress >= 100) {
-            barPct = 100; stageTitle = '✅ 100% Esterilizado'; stageSub = 'Pronto para uso! • Água ' + waterLit;
-            barCol = '#22c55e'; borderCol = '#22c55e';
-          } else {
-            barPct = 0; stageTitle = '🔓 Tampa destravada'; stageSub = Math.round(cp.temp) + '°C • Água ' + waterLit;
-            barCol = '#94a3b8'; borderCol = '#64748b';
-          }
-        }
-
-        const hudKey = stageTitle + '|' + stageSub + '|' + barPct + '|' + barCol;
-        if (cp.lastHudKey !== hudKey) {
-          cp.lastHudKey = hudKey;
-          const ctxHud = cp.statusCtx;
-          ctxHud.clearRect(0, 0, 360, 128);
-          ctxHud.fillStyle = 'rgba(15, 23, 42, 0.90)';
-          ctxHud.beginPath();
-          ctxHud.roundRect(4, 4, 352, 120, 16);
-          ctxHud.fill();
-          ctxHud.lineWidth = 2.5;
-          ctxHud.strokeStyle = borderCol;
-          ctxHud.stroke();
-
-          ctxHud.font = 'bold 21px sans-serif';
-          ctxHud.fillStyle = '#f8fafc';
-          ctxHud.textAlign = 'left';
-          ctxHud.fillText(stageTitle, 16, 36);
-
-          ctxHud.fillStyle = '#1e293b';
-          ctxHud.fillRect(16, 52, 328, 16);
-          ctxHud.fillStyle = barCol;
-          ctxHud.fillRect(16, 52, Math.round(3.28 * barPct), 16);
-
-          ctxHud.font = 'bold 16px sans-serif';
-          ctxHud.fillStyle = cp.burned ? '#fca5a5' : '#e2e8f0';
-          ctxHud.fillText(stageSub, 16, 98);
-          cp.statusTex.needsUpdate = true;
-        }
-      }
-    }
+    // HUD em Sprite 3D gigante removido: o hover3dBadge frontal já exibe estado, temp, PSI e água.
   }
 
   if (window.MycoAudio) {

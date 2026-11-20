@@ -3,7 +3,7 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { getCachedCanvasTexture, registerPickable } from './item-registry.js';
+import { bindPngTexture, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
 import {
   createCultureLifecycleState,
@@ -117,9 +117,10 @@ export function updateSpawnVisual(item) {
   if (sc.mycOverlay) {
     sc.mycOverlay.visible = sc.burned || sc.colonization > 0;
     const f = sc.burned ? 1 : Math.min(1, sc.colonization / 100);
-    sc.mycOverlay.material.opacity = sc.burned ? 0.85 : (sc.contaminated ? 0.72 : (0.15 + f * 0.78));
+    sc.mycOverlay.material.opacity = sc.burned ? 0.85 : (sc.contaminated ? 0.82 : (0.34 + f * 0.62));
     sc.mycOverlay.material.color.setHex(sc.burned ? 0x1c1917 : (sc.contaminated ? 0x15803d : 0xf8fafc));
-    sc.mycOverlay.scale.set(1, Math.max(0.15, f), 1);
+    const xzScale = sc.isPP5 ? (0.48 + 0.52 * f) : 1;
+    sc.mycOverlay.scale.set(xzScale, Math.max(0.08, f), xzScale);
   }
   if (sc.substrateKind === 'pda') {
     if (sc.burned) {
@@ -213,24 +214,18 @@ function getSpawnSharedAssets() {
   });
   const bagSorghumMat = new THREE.MeshStandardMaterial({ map: sorghumFallbackTex, roughness: 0.82 });
   const jarSorghumMat = new THREE.MeshStandardMaterial({ map: sorghumFallbackTex, roughness: 0.78 });
-  if (typeof THREE.TextureLoader === 'function') {
-    try {
-      const loader = new THREE.TextureLoader();
-      loader.load('assets/textures/sorghum-grain.png', function (tex) {
-        if (!tex) return;
-        if (THREE.RepeatWrapping) {
-          tex.wrapS = THREE.RepeatWrapping;
-          tex.wrapT = THREE.RepeatWrapping;
-        }
-        if (tex.repeat && tex.repeat.set) tex.repeat.set(1.25, 1.25);
-        if (THREE.SRGBColorSpace && tex.colorSpace !== undefined) tex.colorSpace = THREE.SRGBColorSpace;
-        bagSorghumMat.map = tex;
-        bagSorghumMat.needsUpdate = true;
-        jarSorghumMat.map = tex;
-        jarSorghumMat.needsUpdate = true;
-      });
-    } catch (e) { /* keep procedural sorghum fallback */ }
-  }
+
+  const cornMatFilled = new THREE.MeshStandardMaterial({ map: cornTexFilled, roughness: 0.75 });
+  const cornMatEmpty = new THREE.MeshStandardMaterial({ map: cornTexEmpty, roughness: 0.75 });
+  const bagGrainMat = new THREE.MeshStandardMaterial({ map: bagGrainTex, roughness: 0.85 });
+  const bagWheatMat = new THREE.MeshStandardMaterial({ map: bagWheatTex, roughness: 0.85 });
+  const jarWheatMat = new THREE.MeshStandardMaterial({ map: bagWheatTex, roughness: 0.78 });
+  const bagBulkMat = new THREE.MeshStandardMaterial({ map: bagBulkTex, roughness: 0.90 });
+
+  bindPngTexture('assets/textures/sorghum-grain.png', [bagSorghumMat, jarSorghumMat], { repeatX: 1.5, repeatY: 1.5 });
+  bindPngTexture('assets/textures/corn-grain.png', [cornMatFilled, cornMatEmpty, bagGrainMat], { repeatX: 2, repeatY: 2 });
+  bindPngTexture('assets/textures/wheat-grain.png', [bagWheatMat, jarWheatMat], { repeatX: 2, repeatY: 2 });
+  bindPngTexture('assets/textures/coco-verm-substrate.png', [bagBulkMat], { repeatX: 2, repeatY: 2 });
 
   sharedSpawnAssets = {
     jarGlassGeo: new THREE.CylinderGeometry(0.11, 0.11, 0.24, 16),
@@ -250,17 +245,17 @@ function getSpawnSharedAssets() {
     lidFilledMat: new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.4, metalness: 0.25 }),
     lidEmptyMat: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.25 }),
     holeMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 }),
-    cornMatFilled: new THREE.MeshStandardMaterial({ map: cornTexFilled, roughness: 0.75 }),
-    cornMatEmpty: new THREE.MeshStandardMaterial({ map: cornTexEmpty, roughness: 0.75 }),
+    cornMatFilled,
+    cornMatEmpty,
     bagFilmFilledMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.2, depthWrite: false }),
     bagFilmEmptyMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.28, roughness: 0.2, depthWrite: false }),
     bagFilterMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }),
     bagPortMat: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 }),
     bagSealMat: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.48 }),
-    bagGrainMat: new THREE.MeshStandardMaterial({ map: bagGrainTex, roughness: 0.85 }),
-    bagWheatMat: new THREE.MeshStandardMaterial({ map: bagWheatTex, roughness: 0.85 }),
-    jarWheatMat: new THREE.MeshStandardMaterial({ map: bagWheatTex, roughness: 0.78 }),
-    bagBulkMat: new THREE.MeshStandardMaterial({ map: bagBulkTex, roughness: 0.90 }),
+    bagGrainMat,
+    bagWheatMat,
+    jarWheatMat,
+    bagBulkMat,
     bagSorghumMat,
     jarSorghumMat
   };
@@ -285,9 +280,11 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
   jg.add(glass, tntCloth, lid, lidHole);
   const corn = new THREE.Mesh(A.jarCornGeo, filled ? A.cornMatFilled : A.cornMatEmpty);
   corn.position.y = 0.108;
+  const jarMycMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 });
+  bindPngTexture('assets/textures/mycelium-rhizo.png', jarMycMat, { repeatX: 2, repeatY: 2 });
   const mycOverlay = new THREE.Mesh(
     A.jarMycGeo,
-    new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 })
+    jarMycMat
   );
   mycOverlay.position.y = 0.108;
   if (filled) jg.add(corn, mycOverlay);
@@ -335,9 +332,11 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   block.castShadow = true;
   block.receiveShadow = true;
   block.position.y = 0.115;
+  const bagMycMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 });
+  bindPngTexture('assets/textures/mycelium-rhizo.png', bagMycMat, { repeatX: 2, repeatY: 2 });
   const mycOverlay = new THREE.Mesh(
     A.bagMycGeo,
-    new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.0, roughness: 0.85 })
+    bagMycMat
   );
   mycOverlay.position.y = 0.115;
   if (filled) bg.add(block, mycOverlay);

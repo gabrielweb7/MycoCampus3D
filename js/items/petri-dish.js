@@ -98,25 +98,65 @@ function drawAgarTexture(pctx, ctrl) {
   pctx.fillRect(0, 0, 256, 256);
   if (mode === 'clean' || mode === 'colonizing') {
     const progress = mode === 'clean' ? 100 : Math.max(0, Math.min(100, ctrl.colonization || 0));
-    const radius = mode === 'clean' ? 128 : (10 + (progress / 100) * 118);
+    const radius = mode === 'clean' ? 128 : (12 + (progress / 100) * 116);
+    const hybrid = ctrl.hybridMutant;
+    const baseRgb = hybrid === 'gold' ? '254, 240, 138' : (hybrid === 'albino' ? '240, 249, 255' : '250, 252, 255');
+    const edgeRgba = hybrid === 'gold'
+      ? 'rgba(234, 179, 8, 0.92)'
+      : (hybrid === 'albino' ? 'rgba(186, 230, 253, 0.95)' : 'rgba(226, 232, 240, 0.88)');
+
     pctx.save();
     pctx.beginPath();
     pctx.arc(128, 128, radius, 0, Math.PI * 2);
     pctx.clip();
-    const hybrid = ctrl.hybridMutant;
-    pctx.fillStyle = hybrid === 'gold' ? '#fef08a' : (hybrid === 'albino' ? '#f0f9ff' : '#f8fafc');
+
+    // Base micelial suave com halo translúcido nas pontas das hifas
+    const mycGrad = pctx.createRadialGradient(128, 128, Math.max(2, radius * 0.14), 128, 128, radius);
+    mycGrad.addColorStop(0, `rgba(${baseRgb}, 0.98)`);
+    mycGrad.addColorStop(0.68, `rgba(${baseRgb}, ${progress > 45 ? 0.92 : 0.78})`);
+    mycGrad.addColorStop(1, `rgba(${baseRgb}, ${progress > 85 ? 0.88 : 0.24})`);
+    pctx.fillStyle = mycGrad;
     pctx.fillRect(0, 0, 256, 256);
-    pctx.strokeStyle = hybrid === 'gold'
-      ? 'rgba(234, 179, 8, 0.92)'
-      : (hybrid === 'albino' ? 'rgba(186, 230, 253, 0.95)' : 'rgba(226,232,240,0.92)');
-    pctx.lineWidth = hybrid ? 2.0 : 1.6;
-    for (let a = 0; a < 110; a++) {
-      const ang = (a / 110) * Math.PI * 2;
-      const rEnd = Math.min(radius, 58 + Math.sin(a * 7) * 14);
+
+    // Anéis fofos de crescimento concêntrico
+    if (radius > 28) {
+      pctx.strokeStyle = 'rgba(255, 255, 255, 0.48)';
+      pctx.lineWidth = 2.0;
+      for (let ring = 0.42; ring <= 0.82; ring += 0.36) {
+        pctx.beginPath();
+        pctx.arc(128, 128, radius * ring, 0, Math.PI * 2);
+        pctx.stroke();
+      }
+    }
+
+    // Cordões rizomórficos ramificados que se estendem do centro até toda a frente de colonização
+    const rays = 128;
+    for (let a = 0; a < rays; a++) {
+      const ang = (a / rays) * Math.PI * 2;
+      const wobble = Math.sin(a * 7.3) * 0.14 + Math.cos(a * 3.1) * 0.08;
+      const rEnd = radius * (0.86 + 0.13 * Math.sin(a * 5.7));
+      pctx.strokeStyle = edgeRgba;
+      pctx.lineWidth = (a % 3 === 0) ? (hybrid ? 2.1 : 1.7) : 1.05;
       pctx.beginPath();
       pctx.moveTo(128, 128);
-      pctx.quadraticCurveTo(128 + Math.cos(ang + 0.12) * rEnd * 0.55, 128 + Math.sin(ang + 0.12) * rEnd * 0.55, 128 + Math.cos(ang) * rEnd, 128 + Math.sin(ang) * rEnd);
+      const midR = rEnd * 0.56;
+      const mx = 128 + Math.cos(ang + wobble * 0.6) * midR;
+      const my = 128 + Math.sin(ang + wobble * 0.6) * midR;
+      const ex = 128 + Math.cos(ang + wobble) * rEnd;
+      const ey = 128 + Math.sin(ang + wobble) * rEnd;
+      pctx.quadraticCurveTo(mx, my, ex, ey);
       pctx.stroke();
+
+      // Ramificações secundárias finas na zona rizomórfica
+      if (rEnd > 24 && a % 2 === 0) {
+        pctx.lineWidth = 0.85;
+        pctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+        const forkA = ang + wobble + (a % 4 === 0 ? 0.28 : -0.28);
+        pctx.beginPath();
+        pctx.moveTo(mx, my);
+        pctx.lineTo(128 + Math.cos(forkA) * rEnd * 0.94, 128 + Math.sin(forkA) * rEnd * 0.94);
+        pctx.stroke();
+      }
     }
     pctx.restore();
     // Quadradinho branco inicial do fragmento transferido ou ponto escuro de esporos germinando no centro do PDA âmbar
