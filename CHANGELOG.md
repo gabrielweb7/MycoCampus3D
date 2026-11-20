@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.6] - 2026-11-20
+### Hotfix de Inicialização (`game-loop.js`) + Guarda Anti-TDZ
+- **Correção de TDZ no Boot (`js/systems/game-loop.js`):**
+  - Movida a declaração `const THREE = window.THREE;` para o topo antes da inicialização de `_fxOriginVec` e `_fxDirVec`, eliminando `Uncaught ReferenceError: Cannot access 'THREE' before initialization` durante o boot.
+- **Prevenção em Testes (`tests/static-integrity.test.mjs`):**
+  - Adicionado teste estático que verifica todos os módulos `js/` garantindo que `new THREE.*` nunca ocorra antes da declaração `const THREE`.
+
 ## [v1.9.5] - 2026-11-20
 ### Modal de Novidades Visível, Temperatura Externa ao Vivo, Base da Panela & Multiplayer Imersivo
 - **Correções Críticas de UI & Laboratório:**

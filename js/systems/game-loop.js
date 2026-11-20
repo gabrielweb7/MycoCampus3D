@@ -122,6 +122,8 @@ const _envArg = {
   fountainDropsAttr: null
 };
 
+const THREE = window.THREE;
+
 const _mpAvatarsArg = {
   remoteAvatars: null,
   clock: null,
@@ -195,7 +197,6 @@ export function applyQualityTier(ctx, tier) {
   ctx.auraEnabled = qualityMod.qualityState.auraEnabled;
 }
 
-const THREE = window.THREE;
 const _blindDummy = new THREE.Object3D();
 
 export function stepAutoQuality(ctx, now) {

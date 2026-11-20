@@ -9,6 +9,18 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.6': {
+    title: '✨ Novidades da Atualização v1.9.6',
+    subtitle: 'Correção imediata de inicialização + novidades completas para todos:',
+    items: [
+      { icon: '⚡', text: 'Correção de Carregamento Imediato: corrigimos o erro que travava a tela de entrada após atualizar para a 1.9.5.' },
+      { icon: '🎉', text: 'Modal de Novidades Sempre Visível: agora esta janela aparece sempre por cima do lobby e ao entrar no campus.' },
+      { icon: '🌡️', text: 'Temperatura Externa ao Vivo no Relógio: o botão do horário no topo mostra a temperatura real do lado de fora em tempo real.' },
+      { icon: '🍲', text: 'Base da Panela de Pressão Livre: agora você consegue mirar e retirar a Base Perfurada de dentro da panela facilmente.' },
+      { icon: '🙌', text: 'Mãos, Panelas, Bandejas e Ações Sincronizadas: itens dentro de panelas/bandejas e ações (borrifar, secar, flambar, selar, misturar, colher) aparecem para todos os jogadores.' },
+      { icon: '🌱', text: 'Horta, Fogareiro e Tempo Offline: plantas da horta, timer do fogareiro e avanço de cultivos ao reabrir a sala funcionando juntos!' }
+    ]
+  },
   '1.9.5': {
     title: '✨ Novidades da Atualização v1.9.5',
     subtitle: 'Mais sincronização entre jogadores, termômetro ao vivo e correções:',

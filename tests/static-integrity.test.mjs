@@ -228,6 +228,22 @@ test('proteção contra regressões de referências corrigidas na refatoração'
 
   const cooker = fs.readFileSync(path.join(JS_DIR, 'items/pressure-cooker.js'), 'utf8');
   assert.match(cooker, /ctx\.burnerDevices/);
+
+  // Garante que nenhum módulo acesse `THREE.` no escopo de módulo antes de `const THREE = ...` (evita TDZ no boot)
+  const jsFiles = listJsFiles(JS_DIR).filter((f) => !f.startsWith(VENDOR_DIR));
+  for (const jf of jsFiles) {
+    const src = fs.readFileSync(jf, 'utf8');
+    const declMatch = src.match(/^(?:const|let)\s+THREE\s*=/m);
+    if (!declMatch) continue;
+    const beforeDecl = src.slice(0, declMatch.index)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    assert.equal(
+      /\bnew\s+THREE\./.test(beforeDecl),
+      false,
+      `Uso de "new THREE." antes de declarar THREE em ${path.relative(ROOT, jf)}`
+    );
+  }
   assert.doesNotMatch(cooker, /ctx\.burnerStations/);
 
   const opt = fs.readFileSync(path.join(JS_DIR, 'engine/scene-optimizer.js'), 'utf8');
