@@ -578,3 +578,37 @@ test('10 Novas Mecânicas de Imersão: Break & Shake, Flambagem na Lamparina, Mi
   assert.equal(roadStandState.availablePacks, 0, 'NPC deve ter comprado o pacote de cogumelos desidratados');
   assert.ok(getLocalMycoCoins() >= coinsBefore + 120, 'NPC deve ter pago +120 MycoCoins');
 });
+
+test('Horta garden_plants serializa/restaura estágios e applySyncedBurnerTimer sincroniza contagem pelo servidor', async () => {
+  const {
+    serializeGardenPlants,
+    applySerializedGardenPlants,
+    applyGardenWorldState
+  } = await import('../js/world/campus-garden.js');
+  const { applySyncedBurnerTimer } = await import('../js/items/pressure-cooker.js');
+
+  const plants = [
+    { stage: 0, growth: 12, kind: 'lettuce', foliageGroup: { scale: { set() {} } } },
+    { stage: 2, growth: 88, kind: 'tomato', foliageGroup: { scale: { set() {} } }, fruits: [] }
+  ];
+  const serialized = serializeGardenPlants(plants);
+  assert.equal(serialized, '0:12,2:88');
+  assert.equal(applySerializedGardenPlants('1:55,0:4', plants), true);
+  assert.equal(plants[0].stage, 1);
+  assert.equal(plants[0].growth, 55);
+  assert.equal(plants[1].stage, 0);
+  applyGardenWorldState({ garden_compost: '3', garden_richness: '80', garden_plants: '2:0,1:40' });
+
+  const mockBurner = {
+    kind: 'electric',
+    on: true,
+    timerPresetMin: 0,
+    timerRemainingSec: 0,
+    timerCanvas: { width: 256, height: 64 },
+    timerCtx: new Proxy({}, { get: () => () => {} }),
+    timerTex: { needsUpdate: false }
+  };
+  applySyncedBurnerTimer(mockBurner, 60, 1000 + 125, 1000);
+  assert.equal(mockBurner.timerPresetMin, 60);
+  assert.equal(mockBurner.timerRemainingSec, 125);
+});

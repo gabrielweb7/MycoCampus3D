@@ -747,6 +747,7 @@ export function interactMonotub(ctx, tubItem) {
       }
     }
     if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('monotub_harvest');
+    if (ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_harvest');
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
   }
@@ -881,6 +882,7 @@ export function interactMonotub(ctx, tubItem) {
     mc.mixed = true;
     mc.mixAnimTimer = 0.95; // Animação 3D de mistura dos grãos no substrato!
     updateMonotubVisual(tubItem);
+    if (ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_mix');
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
     if (onToast) {
@@ -902,6 +904,7 @@ export function interactMonotub(ctx, tubItem) {
     mc.leveled = true;
     mc.levelAnimTimer = 0.85; // Animação 3D da espátula prensando e alisando o bolo!
     updateMonotubVisual(tubItem);
+    if (ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_level');
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (onToast) {

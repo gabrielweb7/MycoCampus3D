@@ -2,6 +2,20 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v1.9.5] - 2026-11-20
+### Modal de Novidades Visível, Temperatura Externa ao Vivo, Base da Panela & Multiplayer Imersivo
+- **Correções Críticas de UI & Laboratório:**
+  - `js/ui/whats-new-modal.js`, `js/ui/hud-lobby.js`: corrigido `#whats-new-modal` que usava classe `z-[120]` ausente em `css/tailwind.min.css` e acabava oculto atrás de `#campus-lobby` (`z-40`). Agora aplica `modal.style.zIndex = '9999'` e também verifica ao entrar no campus.
+  - `js/systems/hover-raycaster.js`, `js/items/pressure-cooker.js`: removida `isCookerBase` do grupo `bestLarge` para que a Base Perfurada da Panela fique em `bestSmall` (com `grainMesh.userData.ignoreRay = true`), permitindo retirá-la de dentro da panela de pressão aberta a qualquer momento.
+- **Temperatura Externa em Tempo Real no Relógio (`index.html`, `js/systems/campus-api.js`, `js/ui/app-boot.js`):**
+  - `#btn-hud-clock` agora exibe horário virtual + temperatura externa ao vivo (`• 🌡️ XX,X°C`) e tooltip com clima e umidade relativa.
+- **Avatares, Ferramentas e Ações Visíveis no Multiplayer (`js/entities/avatars.js`, `js/systems/campus-api.js`, `js/systems/game-loop.js`, `api/multiplayer.php`, `api/multiplayer_schema.php`):**
+  - Conteúdos dentro da Panela de Pressão segurada (`cookerRef.contents`) e em cima de Bandejas (`trayContents`) acompanham o avatar remoto na mão de todos os jogadores e entram em `remoteHeldIds`.
+  - Suavização EMA de velocidade quando `vx`/`vz` vêm zerados do servidor sem APCu, além de 10 ações visuais sincronizadas (`fx_spray`, `fx_wipe`, `fx_syringe`, `fx_flame`, `fx_shake`, `fx_mix`, `fx_level`, `fx_seal`, `fx_jar`, `fx_harvest`) com animação de braços/objetos e efeitos de partículas/máquinas visíveis aos demais jogadores.
+- **Persistência Completa & Avanço de Cultivos Offline (`js/world/campus-garden.js`, `js/items/pressure-cooker.js`, `js/systems/world-interactions.js`, `js/systems/world-devices-sync.js`, `js/systems/world-objects-sync.js`, `js/services/multiplayer-sync.js`):**
+  - Sincronizados os estágios/crescimento de todas as plantas da Horta Orgânica (`garden_plants`) e preset/contagem regressiva do timer do Fogareiro Elétrico (`burner_timer_preset_*`, `burner_timer_end_*`).
+  - Adicionado `item_state_ages` na reconexão quando a sala reabre (`online_count === 1`), avançando Desidratadora, Spawn, Petri, Cultura Líquida e Monotubs pelo tempo decorrido no servidor.
+
 ## [v1.9.4] - 2026-11-19
 ### Atualização Automática de Cache para Todos os Jogadores & Céu Noturno Natural
 - **Auto-Update Sem Aba Anônima (`js/core/version-updater.js`, `api/auth.php`, `sw.js`, `.htaccess`, `index.html`, `js/ui/app-boot.js`, `js/services/multiplayer-sync.js`, `js/engine/haptics-wakelock.js`):**

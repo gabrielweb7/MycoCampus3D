@@ -19,7 +19,8 @@ import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { spawnItemFromPrefab } from '../items/item-prefabs.js';
 import { disposeObjectResources } from '../items/item-registry.js';
 import { makeDriedMushroomBatch } from '../items/lab-advanced-tools.js';
-import { makeSpentCakeItem } from '../items/monotub.js';
+import { makeSpentCakeItem, updateMonotubVisual } from '../items/monotub.js';
+import { updateDehydratorVisual, DEHYDRATOR_DRY_SECONDS } from '../items/dehydrator.js';
 import { makeOrganicGardenBasket } from '../world/campus-garden.js';
 
 const LOCAL_MOVED_STORAGE_KEY = 'myco_local_world_objects_v1';
@@ -729,7 +730,100 @@ export function applyReplicatedItemState(sim, item, state) {
   }
 }
 
-export function applyCampusItemStates(sim, itemStates) {
+export function advanceOfflineItemState(item, ageSec) {
+  const sec = Math.max(0, Math.min(7200, Number(ageSec) || 0));
+  if (!item || sec < 2) return false;
+  const meshData = item.mesh && item.mesh.userData;
+  let progressed = false;
+
+  const dc = item.dehydratorCtrl;
+  if (dc && dc.on && dc.hasMushroom && !dc.crisp) {
+    dc.progress = Math.min(100, (Number(dc.progress) || 0) + (sec / DEHYDRATOR_DRY_SECONDS) * 100);
+    if (dc.progress >= 100) dc.crisp = true;
+    if (dc.updateVisual) dc.updateVisual();
+    else updateDehydratorVisual(item);
+    progressed = true;
+  }
+
+  const sc = item.spawnCtrl || (meshData && meshData.spawnCtrl);
+  if (sc && sc.inoculated && !sc.colonized && !sc.contaminated && !sc.burned && !sc.expired) {
+    const shakeMult = sc.shaken ? 2.2 : 1.0;
+    const genMult = 1 + Math.min(3, Math.max(0, sc.generation || 0)) * 0.15;
+    const rate = sc.refrigerated ? (4.2 * 0.2) : (4.2 * shakeMult * genMult);
+    sc.colonization = Math.min(100, (Number(sc.colonization) || 0) + sec * rate);
+    if (sc.colonization >= 100) sc.colonized = true;
+    sc.updateVisual();
+    progressed = true;
+  }
+
+  const petri = meshData && meshData.petriCtrl;
+  if (petri && petri.mode === 'colonizing' && !petri.expired && !petri.contaminated) {
+    const genBoost = 1 + Math.min(3, petri.generation || 0) * 0.22;
+    const rate = petri.refrigerated ? (0.8 * 0.2) : (0.8 * genBoost);
+    petri.colonization = Math.min(100, (Number(petri.colonization) || 0) + sec * rate);
+    if (petri.colonization >= 100) {
+      petri.mode = 'clean';
+      petri.colonized = true;
+    }
+    updatePetriVisual(item);
+    progressed = true;
+  }
+
+  const culture = item.cultureCtrl || (meshData && meshData.cultureCtrl);
+  if (culture && culture.inoculated && !culture.colonized && !culture.contaminated && !culture.expired) {
+    const rate = culture.refrigerated ? 0.25 : 2.5;
+    culture.colonization = Math.min(100, (Number(culture.colonization) || 0) + sec * rate);
+    if (culture.colonization >= 100) culture.colonized = true;
+    progressed = true;
+  }
+
+  const mc = item.monotubCtrl;
+  if (mc && !mc.spent && !mc.contaminated) {
+    let tubChanged = false;
+    let rem = sec;
+    if (mc.mixed && mc.leveled && !mc.lidOpen && mc.colonization < 100) {
+      const needCol = 100 - mc.colonization;
+      const tCol = needCol / 3.8;
+      if (rem >= tCol) {
+        mc.colonization = 100;
+        rem -= tCol;
+      } else {
+        mc.colonization += rem * 3.8;
+        rem = 0;
+      }
+      tubChanged = true;
+    }
+    const pos = item.mesh && item.mesh.position;
+    const inLed = mc.onLedRack || (pos && pos.x >= 14.8 && pos.x <= 15.8 && pos.z >= -5.4 && pos.z <= -2.2 && pos.y >= 0.35);
+    if (rem > 0 && mc.colonization >= 100 && inLed && mc.fruitingStage < 3) {
+      mc.onLedRack = true;
+      if (mc.fruitingStage === 0) {
+        mc.fruitingStage = 1;
+        mc.growth = 0;
+        tubChanged = true;
+      }
+      const casingMult = mc.hasCasing ? 1.4 : 1.0;
+      const humMult = (mc.humidity || 90) >= 85 ? 1.15 : 0.78;
+      const genMult = 1 + Math.min(3, Math.max(0, mc.generation || 0)) * 0.14;
+      const gRate = 4.5 * casingMult * humMult * genMult;
+      mc.growth = (Number(mc.growth) || 0) + rem * gRate;
+      while (mc.growth >= 100 && mc.fruitingStage < 3) {
+        mc.growth -= 100;
+        mc.fruitingStage++;
+      }
+      if (mc.fruitingStage >= 3) mc.growth = 0;
+      tubChanged = true;
+    }
+    if (tubChanged) {
+      if (mc.updateVisual) mc.updateVisual();
+      else updateMonotubVisual(item);
+      progressed = true;
+    }
+  }
+  return progressed;
+}
+
+export function applyCampusItemStates(sim, itemStates, itemStateAges) {
   if (!itemStates || typeof itemStates !== 'object') return;
   const itemsById = new Map(sim.pickableItems.map((item) => [item.id, item]));
   let spawnedPlaced = false;
@@ -763,6 +857,10 @@ export function applyCampusItemStates(sim, itemStates) {
     }
     if (!item) return;
     applyReplicatedItemState(sim, item, st);
+    const ageSec = itemStateAges && typeof itemStateAges[itemId] === 'number' ? itemStateAges[itemId] : 0;
+    if (ageSec > 1 && advanceOfflineItemState(item, ageSec) && sim.markItemMoved) {
+      sim.markItemMoved(item);
+    }
     sim.itemStateSignatures = sim.itemStateSignatures || {};
     const currentState = getReplicatedItemState(sim, item);
     if (currentState) sim.itemStateSignatures[itemId] = JSON.stringify(currentState);

@@ -462,3 +462,58 @@ test('sports-scoreboard, rain-puddles (create + step) e Cesta Orgânica da Horta
 
   assert.equal(isHoldingPackOrCrateForStand({ organicBasketCtrl: { packsValue: 2 } }), true);
 });
+
+test('whats-new modal usa zIndex explicito 9999, hover-raycaster prioriza Base Perfurada fora de bestLarge e avatars sincronizam conteúdo na mão', async () => {
+  const fsMod = await import('node:fs');
+  const raySrc = fsMod.readFileSync('js/systems/hover-raycaster.js', 'utf8');
+  const bestLargeLine = raySrc.split('\n').find((l) => l.includes('item.mesh.userData.isTable'));
+  assert.ok(bestLargeLine && !bestLargeLine.includes('isCookerBase'), 'isCookerBase deve ficar em bestSmall para poder retirar a base de dentro da panela');
+
+  const wnSrc = fsMod.readFileSync('js/ui/whats-new-modal.js', 'utf8');
+  assert.ok(wnSrc.includes("modal.style.zIndex = '9999'"), 'Modal de novidades deve forçar zIndex 9999 acima do lobby');
+
+  const { updateCampusPlayers, stepMultiplayerAvatars } = await import('../js/entities/avatars.js');
+  assert.equal(typeof stepMultiplayerAvatars, 'function');
+
+  const cookerItem = {
+    id: 'pressure_cooker_lab',
+    lidItem: { id: 'pressure_lid_lab', isAttached: true },
+    cookerRef: { contents: [{ id: 'cooker_base_lab' }, { id: 'spawn_jar_1' }] }
+  };
+  const remoteHeldIds = new Set();
+  const remoteAvatars = {
+    p2: {
+      id: 'p2',
+      name: 'Micólogo',
+      group: { position: { set() {} }, rotation: { y: 0 }, visible: true },
+      snapshots: [{ t: 1000, x: 0, y: 0, z: 2, yaw: 0, pitch: 0, vx: 0, vz: 0 }],
+      lastSnapAt: 1000,
+      avgIntervalMs: 140,
+      interpDelay: 185,
+      targetPos: { set() {} },
+      hatGroup: {},
+      hatMat: {},
+      current_hat: 'default',
+      role: 'student',
+      roleBadge: { material: { map: {} } },
+      labelSprite: { material: { map: { image: {} } } },
+      chatSprite: null,
+      lastChat: ''
+    }
+  };
+  updateCampusPlayers(
+    {
+      scene: { add() {} },
+      remoteAvatars,
+      remoteHeldIds,
+      findPickable: (id) => (id === 'pressure_cooker_lab' ? cookerItem : null),
+      heldItem: null
+    },
+    [{ id: 'p2', name: 'Micólogo', x: 1, y: 0, z: 2, yaw: 0, pitch: 0, holding: 'pressure_cooker_lab', emote: 'fx_spray', current_hat: 'default', role: 'student' }]
+  );
+  assert.ok(remoteHeldIds.has('pressure_cooker_lab'));
+  assert.ok(remoteHeldIds.has('pressure_lid_lab'));
+  assert.ok(remoteHeldIds.has('cooker_base_lab'));
+  assert.ok(remoteHeldIds.has('spawn_jar_1'));
+  assert.equal(remoteAvatars.p2.emote, 'fx_spray');
+});

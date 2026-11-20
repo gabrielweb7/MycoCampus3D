@@ -381,7 +381,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (isset($src['contents']) && is_array($src['contents'])) {
             $contents = [];
             foreach (array_slice($src['contents'], 0, 6) as $contentId) {
-                if (is_string($contentId) && in_array($contentId, MP_ITEMS, true)) $contents[] = $contentId;
+                if (is_string($contentId) && mp_is_allowed_item_id($contentId)) $contents[] = $contentId;
             }
             $cooker['contents'] = array_values(array_unique($contents));
         }
@@ -421,7 +421,9 @@ function mp_is_valid_state_key(string $k): bool {
         'greenhouse_target_hum', 'greenhouse_target_co2', 'greenhouse_target_temp',
         'greenhouse_humidifier', 'greenhouse_exhaust', 'greenhouse_cooler', 'greenhouse_light',
         'stand_packs', 'stand_sold',
-        'garden_compost', 'garden_richness', 'garden_harvested', 'garden_baskets',
+        'garden_compost', 'garden_richness', 'garden_harvested', 'garden_baskets', 'garden_plants',
+        'burner_timer_preset_lab', 'burner_timer_end_lab',
+        'burner_timer_preset_sub', 'burner_timer_end_sub',
         'sport_soccer_goals', 'sport_basket_points', 'sport_basket_streak'
     ], true)) {
         return true;

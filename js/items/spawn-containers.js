@@ -314,6 +314,7 @@ export function breakAndShakeSpawn(ctx, item) {
   sc.shakeAnimTimer = 0.75;
   sc.colonization = Math.min(95, sc.colonization + 8);
   sc.updateVisual();
+  if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_shake');
   if (typeof window !== 'undefined' && window.MycoAudio && typeof window.MycoAudio.playClick === 'function') {
     window.MycoAudio.playClick();
   }

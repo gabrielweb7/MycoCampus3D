@@ -33,7 +33,7 @@ import { stepMagneticStirrers } from '../items/magnetic-stirrer.js';
 import { stepPrecisionScales } from '../items/precision-scale.js';
 import { stepPressureCookers } from '../items/pressure-cooker.js';
 import { stepSpawnColonization } from '../items/spawn-containers.js';
-import { stepSprayBursts } from '../items/alcohol-spray.js';
+import { stepSprayBursts, spawnSprayParticles } from '../items/alcohol-spray.js';
 import { stepLabSinks } from '../items/lab-sink.js';
 import { stepCultureFridges } from '../items/culture-fridge.js';
 import { stepLabCabinets } from '../items/lab-cabinets.js';
@@ -128,8 +128,54 @@ const _mpAvatarsArg = {
   auraEnabled: false,
   findPickable: null,
   heldItem: null,
-  camera: null
+  camera: null,
+  onRemoteActionFx: null
 };
+let _fxLoopCtx = null;
+const _fxOriginVec = new THREE.Vector3();
+const _fxDirVec = new THREE.Vector3();
+
+function triggerRemoteAvatarFxInWorld(fxKind, av, heldObj) {
+  const ctx = _fxLoopCtx;
+  if (!ctx || !av || !av.group) return;
+  const ap = av.group.position;
+  const yaw = av.group.rotation.y || 0;
+  if (fxKind === 'fx_spray' || fxKind === 'fx_wipe') {
+    _fxOriginVec.set(-Math.sin(yaw) * 0.55, 1.05, -Math.cos(yaw) * 0.55).add(ap);
+    _fxDirVec.set(-Math.sin(yaw), -0.15, -Math.cos(yaw)).normalize();
+    spawnSprayParticles(ctx, fxKind === 'fx_spray' ? 0xe0f2fe : 0xf8fafc, 16, _fxOriginVec, _fxDirVec, 0.85, 2.0, 0.03, 0.42);
+  } else if (fxKind === 'fx_harvest' || fxKind === 'fx_flame') {
+    _fxOriginVec.set(-Math.sin(yaw) * 0.5, 1.05, -Math.cos(yaw) * 0.5).add(ap);
+    _fxDirVec.set(0, 1, 0);
+    spawnSprayParticles(ctx, fxKind === 'fx_flame' ? 0xf97316 : 0x34d399, 14, _fxOriginVec, _fxDirVec, 1.1, 1.4, 0.032, 0.5);
+  } else if (fxKind === 'fx_seal' && ctx.pickableItems) {
+    let bestSealer = null;
+    let bestD = 9.0;
+    for (let i = 0; i < ctx.pickableItems.length; i++) {
+      const it = ctx.pickableItems[i];
+      if (!it || !it.sealerCtrl || !it.mesh) continue;
+      const d = it.mesh.position.distanceToSquared(ap);
+      if (d < bestD) { bestD = d; bestSealer = it; }
+    }
+    if (bestSealer && bestSealer.sealerCtrl.triggerSealAnimation) {
+      bestSealer.sealerCtrl.triggerSealAnimation();
+    }
+  } else if (fxKind === 'fx_jar' && ctx.pickableItems) {
+    let bestJar = null;
+    let bestD = 9.0;
+    for (let i = 0; i < ctx.pickableItems.length; i++) {
+      const it = ctx.pickableItems[i];
+      if (!it || !it.silicaJarCtrl || !it.mesh) continue;
+      const d = it.mesh.position.distanceToSquared(ap);
+      if (d < bestD) { bestD = d; bestJar = it; }
+    }
+    if (bestJar && bestJar.silicaJarCtrl.pulseLid) {
+      bestJar.silicaJarCtrl.pulseLid();
+    }
+  } else if (fxKind === 'fx_shake' && heldObj && heldObj.spawnCtrl) {
+    heldObj.spawnCtrl.shakeAnimTimer = 0.75;
+  }
+}
 
 function syncQualityArg(ctx) {
   _qualityArg.renderer = ctx.renderer;
@@ -414,7 +460,7 @@ export function startAnimationLoop(ctx) {
         stepGreenhouse(ctx, slowDt);
         stepDehydrators(ctx, slowDt);
         stepMonotubs(ctx, slowDt);
-        stepCampusGarden(slowDt);
+        stepCampusGarden(slowDt, ctx);
         dropUnsupportedItems(ctx.entityCtx);
       }
 
@@ -437,12 +483,14 @@ export function startAnimationLoop(ctx) {
         }
       }
 
+      _fxLoopCtx = ctx;
       _mpAvatarsArg.remoteAvatars = ctx.remoteAvatars;
       _mpAvatarsArg.clock = ctx.clock;
       _mpAvatarsArg.auraEnabled = ctx.auraEnabled;
       _mpAvatarsArg.findPickable = ctx.findPickable;
       _mpAvatarsArg.heldItem = ctx.heldItem;
       _mpAvatarsArg.camera = ctx.camera;
+      _mpAvatarsArg.onRemoteActionFx = triggerRemoteAvatarFxInWorld;
       stepMultiplayerAvatars(_mpAvatarsArg, dt);
 
       ctx.renderer.render(ctx.scene, ctx.camera);

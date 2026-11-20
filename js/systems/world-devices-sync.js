@@ -12,7 +12,7 @@ import {
 } from '../world/greenhouse.js';
 import { applyStrokeToBoard } from './chalkboard.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
-import { setBurnerLevel } from '../items/pressure-cooker.js';
+import { setBurnerLevel, applySyncedBurnerTimer } from '../items/pressure-cooker.js';
 import { applyCabinetStates } from '../items/lab-cabinets.js';
 import { applySportBallStates } from './sports-physics.js';
 import { applyRoadStandWorldState } from '../items/dehydration-packaging.js';
@@ -162,6 +162,19 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
         ? Math.max(0, Math.min(3, savedValue))
         : (savedValue === 1 ? 3 : 0);
       if (bn.level !== burnerLevel) setBurnerLevel(bn, burnerLevel);
+    }
+    if (bn.kind === 'electric') {
+      const suffix = bId === 'burner_lab' ? 'lab' : 'sub';
+      const pKey = `burner_timer_preset_${suffix}`;
+      const eKey = `burner_timer_end_${suffix}`;
+      const canPreset = stateMap[pKey] !== undefined && sim.pendingStateChanges[pKey] === undefined && !(sim.recentlyChangedState[pKey] > now);
+      const canEnd = stateMap[eKey] !== undefined && sim.pendingStateChanges[eKey] === undefined && !(sim.recentlyChangedState[eKey] > now);
+      if (canPreset || canEnd) {
+        const nextPreset = canPreset ? parseInt(stateMap[pKey], 10) : undefined;
+        const nextEndTs = canEnd ? (parseInt(stateMap[eKey], 10) || 0) : 0;
+        const srvNow = typeof stateMap._serverTs === 'number' ? stateMap._serverTs : Math.floor(Date.now() / 1000);
+        applySyncedBurnerTimer(bn, nextPreset, nextEndTs, srvNow);
+      }
     }
   }
 

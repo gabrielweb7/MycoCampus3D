@@ -4,6 +4,7 @@
  */
 
 import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
+import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { createParagliderWingMesh, createRoundParachuteMesh } from './vehicles/paraglider.js';
 
 const THREE = window.THREE;
@@ -11,6 +12,8 @@ const THREE = window.THREE;
 const _tmpInterpPos = new THREE.Vector3();
 const _tmpAvatarHandOffset = new THREE.Vector3();
 const _tmpAvatarYAxis = new THREE.Vector3(0, 1, 0);
+const _tmpSubOff = new THREE.Vector3();
+const _tmpTrayPt = new THREE.Vector3();
 
 let sharedAvatarAssets = null;
 function getSharedAvatarAssets() {
@@ -372,6 +375,16 @@ export function updateCampusPlayers(ctx, players) {
         if (heldObj && heldObj.lidItem && heldObj.lidItem.isAttached) {
           remoteHeldIds.add(heldObj.lidItem.id);
         }
+        if (heldObj && heldObj.cookerRef && Array.isArray(heldObj.cookerRef.contents)) {
+          heldObj.cookerRef.contents.forEach(function (ci) {
+            if (ci && ci.id) remoteHeldIds.add(ci.id);
+          });
+        }
+        if (heldObj && Array.isArray(heldObj.trayContents)) {
+          heldObj.trayContents.forEach(function (tc) {
+            if (tc && tc.item && tc.item.id) remoteHeldIds.add(tc.item.id);
+          });
+        }
       }
     }
     const nyaw = normalizeAngle(p.yaw || 0);
@@ -400,9 +413,16 @@ export function updateCampusPlayers(ctx, players) {
       if (prev && vx === 0 && vz === 0) {
         const dtSec = (nowMs - prev.t) / 1000;
         if (dtSec > 0.03 && dtSec < 1.2) {
-          vx = (p.x - prev.x) / dtSec;
-          vz = (p.z - prev.z) / dtSec;
+          const rawVx = Math.max(-14, Math.min(14, (p.x - prev.x) / dtSec));
+          const rawVz = Math.max(-14, Math.min(14, (p.z - prev.z) / dtSec));
+          av._emaVx = (av._emaVx || 0) * 0.45 + rawVx * 0.55;
+          av._emaVz = (av._emaVz || 0) * 0.45 + rawVz * 0.55;
+          vx = av._emaVx;
+          vz = av._emaVz;
         }
+      } else {
+        av._emaVx = vx;
+        av._emaVz = vz;
       }
       snaps.push({ t: nowMs, x: p.x, y: p.y, z: p.z, yaw: nyaw, pitch: npitch, vx, vz });
       if (snaps.length > 8) snaps.shift();
@@ -626,6 +646,52 @@ export function stepMultiplayerAvatars(ctx, dt) {
           lidObj.position.set(heldObj.mesh.position.x, heldObj.mesh.position.y + 0.36, heldObj.mesh.position.z);
           lidObj.rotation.copy(heldObj.mesh.rotation);
         }
+        if (heldObj.cookerRef && Array.isArray(heldObj.cookerRef.contents)) {
+          let nonBaseIdx = 0;
+          const potQuat = heldObj.mesh.quaternion;
+          const potPos = heldObj.mesh.position;
+          for (let cci = 0; cci < heldObj.cookerRef.contents.length; cci++) {
+            const cIt = heldObj.cookerRef.contents[cci];
+            if (!cIt || !cIt.mesh) continue;
+            cIt.mesh.visible = true;
+            if (cIt.mesh.userData && cIt.mesh.userData.isCookerBase) {
+              _tmpSubOff.set(0, 0.036, 0).applyQuaternion(potQuat).add(potPos);
+              cIt.mesh.position.copy(_tmpSubOff);
+              cIt.mesh.quaternion.copy(potQuat);
+            } else {
+              const slot = COOKER_SLOT_OFFSETS[nonBaseIdx % COOKER_SLOT_OFFSETS.length];
+              _tmpSubOff.set(slot[0], COOKER_SLOT_Y, slot[1]).applyQuaternion(potQuat).add(potPos);
+              cIt.mesh.position.copy(_tmpSubOff);
+              cIt.mesh.quaternion.copy(potQuat);
+              nonBaseIdx++;
+            }
+          }
+        }
+        if (heldObj.trayContents && heldObj.trayContents.length) {
+          heldObj.mesh.updateMatrixWorld(true);
+          const hRy = heldObj.mesh.rotation.y;
+          const hp = heldObj.mesh.position;
+          const ch = Math.cos(hRy);
+          const sh = Math.sin(hRy);
+          for (let tci = 0; tci < heldObj.trayContents.length; tci++) {
+            const tc = heldObj.trayContents[tci];
+            if (!tc || !tc.item || !tc.item.mesh) continue;
+            tc.item.mesh.visible = true;
+            if (tc.localOffset) {
+              _tmpTrayPt.copy(tc.localOffset);
+              heldObj.mesh.localToWorld(_tmpTrayPt);
+              tc.item.mesh.position.copy(_tmpTrayPt);
+              tc.item.mesh.rotation.set(0, hRy + (tc.localRotY || 0), 0);
+            } else {
+              tc.item.mesh.position.set(
+                hp.x + (tc.lx || 0) * ch + (tc.lz || 0) * sh,
+                hp.y + (tc.ly || 0),
+                hp.z - (tc.lx || 0) * sh + (tc.lz || 0) * ch
+              );
+              tc.item.mesh.rotation.set(0, hRy + (tc.lry || 0), 0);
+            }
+          }
+        }
       }
     }
     const twoH = !!(heldObj && heldObj.mesh.userData.twoHanded);
@@ -772,6 +838,37 @@ export function stepMultiplayerAvatars(ctx, dt) {
           av.leftArm.rotation.z = -0.22 - Math.abs(Math.sin(tNow * 4)) * 0.16;
           av.rightArm.rotation.z = 0.22 + Math.abs(Math.sin(tNow * 4)) * 0.16;
         }
+      }
+      if (av.emote && av.emote.indexOf('fx_') === 0) {
+        if (av.emote === 'fx_spray') {
+          av.rightArm.rotation.x = 1.18 + Math.sin(tNow * 18) * 0.10;
+        } else if (av.emote === 'fx_wipe') {
+          av.rightArm.rotation.x = 1.12;
+          av.rightArm.rotation.z = Math.sin(tNow * 16) * 0.36;
+        } else if (av.emote === 'fx_syringe') {
+          av.rightArm.rotation.x = 1.25 + Math.sin(tNow * 10) * 0.14;
+        } else if (av.emote === 'fx_flame') {
+          av.rightArm.rotation.x = 1.16;
+          av.rightArm.rotation.z = Math.sin(tNow * 7) * 0.08;
+        } else if (av.emote === 'fx_shake') {
+          av.rightArm.rotation.x = 1.05 + Math.sin(tNow * 24) * 0.32;
+          av.rightArm.rotation.z = Math.cos(tNow * 22) * 0.18;
+          if (heldObj && heldObj.mesh) {
+            heldObj.mesh.rotation.z = Math.sin(tNow * 26) * 0.18;
+          }
+        } else if (av.emote === 'fx_mix' || av.emote === 'fx_level') {
+          av.rightArm.rotation.x = 1.10 + Math.cos(tNow * 12) * 0.16;
+          av.rightArm.rotation.z = Math.sin(tNow * 12) * 0.24;
+        } else {
+          av.rightArm.rotation.x = 1.14 + Math.sin(tNow * 12) * 0.16;
+        }
+        if (ctx.onRemoteActionFx && (av._lastFxKey !== av.emote || tNow - (av._lastFxAt || 0) > 1.25)) {
+          av._lastFxKey = av.emote;
+          av._lastFxAt = tNow;
+          ctx.onRemoteActionFx(av.emote, av, heldObj);
+        }
+      } else {
+        av._lastFxKey = '';
       }
     }
     if (av.group.visible && (!camPos || av.group.position.distanceToSquared(camPos) < 3025)) {

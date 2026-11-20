@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 globalThis.window = globalThis.window || {
   THREE: {
@@ -16,7 +17,8 @@ const {
   getReplicatedItemState,
   applyReplicatedItemState,
   applyCampusItemStates,
-  applyCampusWorldObjects
+  applyCampusWorldObjects,
+  advanceOfflineItemState
 } = await import('../js/systems/world-objects-sync.js');
 
 test('getReplicatedItemState e applyReplicatedItemState executam hooks meta.serializeState e meta.applyState', () => {
@@ -169,4 +171,83 @@ test('applyCampusWorldObjects ignora reprocessamento idêntico e applyCampusItem
   applyCampusItemStates(sim, { bag_1: { custom: { dynamicKind: 'mushroom_bag', removed: true } } });
   assert.equal(sim.pickableItems.length, 0);
   assert.equal(sim.pickableMap.has('bag_1'), false);
+});
+
+test('advanceOfflineItemState e applyCampusItemStates avançam culturas/desidratadora pelo tempo offline e backend aceita novos campos', () => {
+  const mkSimple = (id) => ({
+    id,
+    label: id,
+    mesh: { userData: {}, position: { x: 15.2, y: 1.0, z: -4.0 }, rotation: { y: 0 } }
+  });
+  const dehydrator = mkSimple('dehydrator_lab');
+  dehydrator.dehydratorCtrl = { on: true, hasMushroom: true, crisp: false, progress: 20, updateVisual() {} };
+
+  const spawn = mkSimple('spawn_jar_1');
+  spawn.spawnCtrl = {
+    inoculated: true,
+    colonized: false,
+    contaminated: false,
+    burned: false,
+    expired: false,
+    shaken: false,
+    generation: 1,
+    refrigerated: false,
+    colonization: 50,
+    updateVisual() {}
+  };
+
+  const tub = mkSimple('monotub_lab_1');
+  tub.monotubCtrl = {
+    spent: false,
+    contaminated: false,
+    mixed: true,
+    leveled: true,
+    lidOpen: false,
+    colonization: 90,
+    onLedRack: true,
+    hasCasing: true,
+    humidity: 90,
+    generation: 1,
+    fruitingStage: 0,
+    growth: 0,
+    updateVisual() {}
+  };
+
+  let markedIds = [];
+  const sim = {
+    pickableItems: [dehydrator, spawn, tub],
+    cookerPots: [],
+    markItemMoved: (it) => markedIds.push(it.id),
+    findPickable: () => null
+  };
+
+  applyCampusItemStates(
+    sim,
+    {
+      dehydrator_lab: { custom: { on: true, hasMushroom: true, crisp: false, progress: 20 } },
+      spawn_jar_1: { spawn: { inoculated: true, colonized: false, colonization: 50, generation: 1 } },
+      monotub_lab_1: { custom: { mixed: true, leveled: true, lidOpen: false, colonization: 90, hasCasing: true, humidity: 90 } }
+    },
+    { dehydrator_lab: 20, spawn_jar_1: 15, monotub_lab_1: 30 }
+  );
+
+  assert.equal(dehydrator.dehydratorCtrl.crisp, true);
+  assert.equal(dehydrator.dehydratorCtrl.progress, 100);
+  assert.equal(spawn.spawnCtrl.colonized, true);
+  assert.equal(tub.monotubCtrl.colonization, 100);
+  assert.ok(tub.monotubCtrl.fruitingStage >= 2);
+  assert.ok(markedIds.includes('dehydrator_lab'));
+  assert.ok(markedIds.includes('spawn_jar_1'));
+  assert.ok(markedIds.includes('monotub_lab_1'));
+  assert.equal(advanceOfflineItemState(null, 10), false);
+
+  const schemaPhp = fs.readFileSync('api/multiplayer_schema.php', 'utf8');
+  assert.ok(schemaPhp.includes('mp_is_allowed_item_id($contentId)'));
+  assert.ok(schemaPhp.includes("'garden_plants'"));
+  assert.ok(schemaPhp.includes("'burner_timer_end_lab'"));
+
+  const mpPhp = fs.readFileSync('api/multiplayer.php', 'utf8');
+  assert.ok(mpPhp.includes("'fx_spray'"));
+  assert.ok(mpPhp.includes("'fx_harvest'"));
+  assert.ok(mpPhp.includes("'item_state_ages'"));
 });

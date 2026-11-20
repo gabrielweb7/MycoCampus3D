@@ -109,6 +109,24 @@ export function cycleBurnerTimer(burner) {
   return nextMin;
 }
 
+export function applySyncedBurnerTimer(burner, presetMin, endServerTs, serverNowTs) {
+  if (!burner || burner.kind !== 'electric') return;
+  if (typeof presetMin === 'number' && BURNER_TIMER_PRESETS.indexOf(presetMin) !== -1) {
+    burner.timerPresetMin = presetMin;
+  }
+  if (burner.timerPresetMin > 0) {
+    if (endServerTs > 0 && burner.on) {
+      const serverNow = typeof serverNowTs === 'number' ? serverNowTs : Math.floor(Date.now() / 1000);
+      burner.timerRemainingSec = Math.max(0, Math.min(burner.timerPresetMin * BURNER_GAME_MIN_SECONDS, endServerTs - serverNow));
+    } else if (!burner.on) {
+      burner.timerRemainingSec = burner.timerPresetMin * BURNER_GAME_MIN_SECONDS;
+    }
+  } else {
+    burner.timerRemainingSec = 0;
+  }
+  drawBurnerTimerDisplay(burner);
+}
+
 function createSteamEmitter(parent, startY) {
   const count = 24;
   const positions = new Float32Array(count * 3);
@@ -219,6 +237,7 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   );
   grainMesh.position.y = 0.08;
   grainMesh.visible = false;
+  grainMesh.userData.ignoreRay = true;
   potGroup.add(grainMesh);
 
   const valveSteam = createSteamEmitter(lidGroup, 0.17);
@@ -469,8 +488,10 @@ export function stepPressureCookers(ctx, dt) {
         setBurnerLevel(bnd, 0);
         if (ctx.queueWorldStateChange) {
           const bId = bnd.id || 'burner_lab';
+          const suffix = bId === 'burner_lab' ? 'lab' : 'sub';
           ctx.queueWorldStateChange(bId, 0);
           ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, 0);
+          ctx.queueWorldStateChange(`burner_timer_end_${suffix}`, 0);
         }
         if (window.MycoAudio) {
           if (window.MycoAudio.playTimerDone) window.MycoAudio.playTimerDone();

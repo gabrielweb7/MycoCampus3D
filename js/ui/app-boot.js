@@ -1086,6 +1086,10 @@ export function bootApp() {
     if (!hudClockBtn || !window.getCampusClockInfo) return;
     const info = window.getCampusClockInfo();
     if (info && info.text) hudClockBtn.textContent = info.text;
+    if (info && info.tempText) {
+      const humStr = typeof info.outsideHumidity === 'number' ? ` • 💧 ${info.outsideHumidity}% UR` : '';
+      hudClockBtn.title = `Horário & Temperatura Externa ao Vivo (${info.tempText}${humStr}) — Clique para alternar horário`;
+    }
   };
   if (hudClockBtn) {
     hudClockBtn.addEventListener('click', (e) => {

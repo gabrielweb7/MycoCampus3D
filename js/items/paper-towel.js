@@ -63,6 +63,7 @@ function dryTarget(ctx, target, nowPerf) {
 
 export function wipeWithPaperTowel(ctx, wipeInfo) {
   if (window.MycoAudio) window.MycoAudio.playSpray();
+  if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_wipe');
   if (!wipeInfo || !wipeInfo.target) {
     if (ctx.callbacks && ctx.callbacks.onToast) {
       ctx.callbacks.onToast('🧻 Aponte para o Fluxo Laminar ou item com Álcool 70% para secar.');

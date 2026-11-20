@@ -157,6 +157,7 @@ export function interactAlcoholLamp(ctx, lampItem) {
     }
     updateScalpelLabel(held);
     playAudio('playSpray');
+    if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_flame');
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
     if (onToast) {
@@ -836,6 +837,7 @@ export function interactSilicaStorageJar(ctx, jarItem) {
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
 
     playAudio('playClick');
+    if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_jar');
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (onToast) {
       onToast(`🫙 Tampa aberta e +${addG}g guardados no Pote c/ Sílica Gel (${jc.storedGrams}/${cap}g • 0% UR)!`);

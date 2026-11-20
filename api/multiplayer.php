@@ -262,7 +262,11 @@ if ($action === 'sync') {
     }
 
     $emote = (string)($body['emote'] ?? '');
-    $validEmotes = ['wave', 'dance', 'cheer', 'meditate', 'rainbow_trip'];
+    $validEmotes = [
+        'wave', 'dance', 'cheer', 'meditate', 'rainbow_trip',
+        'fx_spray', 'fx_wipe', 'fx_syringe', 'fx_flame', 'fx_shake',
+        'fx_mix', 'fx_level', 'fx_seal', 'fx_jar', 'fx_harvest',
+    ];
     if (!in_array($emote, $validEmotes, true)) {
         $emote = '';
     }
@@ -451,6 +455,22 @@ if ($action === 'sync') {
                     'sport_basket_streak' => 10000,
                 ];
                 $cleanVal = (string)max(0, min($maxMap[$sKey], (int)round((float)$sVal)));
+            } elseif ($sKey === 'garden_plants') {
+                $rawPlants = trim((string)$sVal);
+                if (!preg_match('/^[0-2]:\d{1,3}(,[0-2]:\d{1,3}){0,23}$/', $rawPlants)) continue;
+                $cleanVal = $rawPlants;
+            } elseif ($sKey === 'burner_timer_preset_lab' || $sKey === 'burner_timer_preset_sub') {
+                $preset = (int)$sVal;
+                if (!in_array($preset, [0, 20, 60, 90, 120], true)) $preset = 0;
+                $cleanVal = (string)$preset;
+            } elseif ($sKey === 'burner_timer_end_lab' || $sKey === 'burner_timer_end_sub') {
+                $endTs = (int)$sVal;
+                if ($endTs <= 0) {
+                    $cleanVal = '0';
+                } else {
+                    $nowTimerTs = time();
+                    $cleanVal = (string)max($nowTimerTs - 3600, min($nowTimerTs + 86400, $endTs));
+                }
             } else {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             }
@@ -518,22 +538,26 @@ if ($action === 'sync') {
         }
     }
 
+    $nowTs = time();
     $clientItemStateVer = (string)($body['item_state_ver'] ?? '');
     $itemStateVer = $meta ? ((string)$meta['st_obj_c'] . ':' . (string)$meta['st_obj_u']) : '0:';
     $itemStatesUnchanged = (!$initSync && $clientItemStateVer !== '' && $clientItemStateVer === $itemStateVer);
     $itemStates = null;
+    $itemStateAges = null;
     if (!$itemStatesUnchanged) {
         $itemStates = new stdClass();
-        foreach ($pdo->query('SELECT item_id, state_json FROM mc_world_item_states')->fetchAll() as $savedState) {
+        $itemStateAges = new stdClass();
+        foreach ($pdo->query('SELECT item_id, state_json, UNIX_TIMESTAMP(updated_at) AS updated_ts FROM mc_world_item_states')->fetchAll() as $savedState) {
             $decodedState = json_decode((string)$savedState['state_json'], true);
             if (is_array($decodedState)) {
                 $itemStateId = (string)$savedState['item_id'];
                 $itemStates->{$itemStateId} = $decodedState;
+                if ($initSync && count($players) === 0 && isset($savedState['updated_ts'])) {
+                    $itemStateAges->{$itemStateId} = max(0, min(7200, $nowTs - (int)$savedState['updated_ts']));
+                }
             }
         }
     }
-
-    $nowTs = time();
     $clientStateVer = (string)($body['state_ver'] ?? '');
     // Inclui bucket de 2s para que respawns de wild_* (20s) sejam propagados sem polling pesado
     $stateVer = ($meta ? ((string)$meta['ws_c'] . ':' . (string)$meta['ws_u']) : '0:') . ':' . (string)floor($nowTs / 2);
@@ -621,6 +645,9 @@ if ($action === 'sync') {
     }
     if (!$itemStatesUnchanged) {
         $resp['item_states'] = $itemStates;
+        if ($initSync && count($players) === 0 && $itemStateAges !== null) {
+            $resp['item_state_ages'] = $itemStateAges;
+        }
     }
     if (!$stateUnchanged) {
         $resp['world_state'] = $state;

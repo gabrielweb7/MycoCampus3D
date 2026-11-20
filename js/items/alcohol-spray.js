@@ -120,6 +120,7 @@ export function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, s
  */
 export function fireAlcoholSpray(ctx, sprayInfo) {
   if (window.MycoAudio) window.MycoAudio.playSpray();
+  if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_spray');
   if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData) {
     ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
   }

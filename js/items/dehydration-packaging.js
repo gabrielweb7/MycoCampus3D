@@ -373,6 +373,7 @@ export function sealMushroomBag(ctx, bagItem) {
     if (bestSealer) bestSealer.sealerCtrl.triggerSealAnimation();
   }
   playAudio('playClick');
+  if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_seal');
   if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
   if (ctx && ctx.heldItem === bagItem && ctx.callbacks && ctx.callbacks.onHoldChange) {
     ctx.callbacks.onHoldChange(bagItem.label);
@@ -1324,6 +1325,16 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
           const vipPrefix = order.isVip ? `⭐ PEDIDO VIP (+🪙 ${earnedCoins})! ` : '';
           ctx.callbacks.onToast(`🚗💵 ${vipPrefix}${order.profile.name}: ${order.profile.quote} (Saldo: 🪙 ${newBalance} MycoCoins)`);
+        }
+      } else {
+        order.phase = 'walking_to_car';
+        order.timer = 0;
+        actor.cashGroup.visible = false;
+        actor.npcGroup.rotation.y = 0;
+        if (actor.doorPivot) actor.doorPivot.rotation.y = -1.05;
+        if (actor.avatar && actor.avatar.chatSprite) {
+          updateTextSprite(actor.avatar.chatSprite, '🛍️ Acabou! Volto já!', '#94a3b8');
+          actor.avatar.chatSprite.visible = true;
         }
       }
     }

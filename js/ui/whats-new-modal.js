@@ -9,6 +9,18 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '1.9.5': {
+    title: '✨ Novidades da Atualização v1.9.5',
+    subtitle: 'Mais sincronização entre jogadores, termômetro ao vivo e correções:',
+    items: [
+      { icon: '🎉', text: 'Modal de Novidades Sempre Visível: corrigimos o bug que escondia esta janela atrás do lobby — agora todos recebem o aviso sempre que o jogo atualizar!' },
+      { icon: '🌡️', text: 'Temperatura Externa ao Vivo no Relógio: agora o botão do horário no topo também mostra a temperatura real do lado de fora do laboratório em tempo real!' },
+      { icon: '🍲', text: 'Base da Panela de Pressão Livre: agora você consegue mirar e retirar a Base Perfurada de dentro da panela facilmente.' },
+      { icon: '🙌', text: 'Mãos, Panelas e Bandejas Visíveis para Todos: se um amigo carregar a panela com vidros/base ou uma bandeja cheia, todo mundo vê os itens dentro na mão dele!' },
+      { icon: '✨', text: 'Animações e Ações Sincronizadas: borrifar álcool, secar com papel, usar seringa, flambar bisturi, selar pacotes, colher e mexer no monotub aparecem para todos os jogadores.' },
+      { icon: '🌱', text: 'Horta, Fogareiro e Tempo Offline: plantas da horta e timer do fogareiro agora ficam sincronizados para todos, e o servidor avança desidratadora, spawn, petri, CL e monotubs quando a sala reabrir!' }
+    ]
+  },
   '1.9.4': {
     title: '✨ Novidades da Atualização v1.9.4',
     subtitle: 'Atualização automática para todos + melhorias visuais e mecânicas:',
@@ -147,7 +159,11 @@ function ensureWhatsNewModalDom() {
 
   modal = document.createElement('div');
   modal.id = 'whats-new-modal';
-  modal.className = 'hidden fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm pointer-events-auto overflow-y-auto';
+  modal.className = 'hidden fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm pointer-events-auto overflow-y-auto';
+  if (modal.style) {
+    modal.style.zIndex = '9999';
+    modal.style.backgroundColor = 'rgba(2, 6, 23, 0.72)';
+  }
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   modal.innerHTML = `

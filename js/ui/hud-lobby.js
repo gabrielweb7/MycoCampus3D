@@ -1,7 +1,7 @@
 /**
  * MycoCampus3D — HUD do Jogador, Lobby, Sessão e Controles de Vista/FPS
  */
-import { HAT_COLORS, BODY_COLORS, SYNC_INTERVAL_MS } from '../core/constants.js';
+import { HAT_COLORS, BODY_COLORS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
 import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
 import { events } from '../core/events.js';
@@ -9,6 +9,7 @@ import { apiGet, apiPost } from '../services/api-client.js';
 import { $, isTouch, requestCampusFullscreen } from './dom-helpers.js';
 import { loadLabQuestProgress } from './quest-map.js';
 import { getLocalMycoCoins, setLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { checkAndShowWhatsNewModal } from './whats-new-modal.js';
 
 export function renderSwatches() {
   const hatWrap = $('hat-swatches');
@@ -105,6 +106,9 @@ export function enterCampus(user, token) {
   if (appState.syncTimer) clearInterval(appState.syncTimer);
   events.emit('sync:now');
   appState.syncTimer = setInterval(() => events.emit('sync:now'), SYNC_INTERVAL_MS);
+  setTimeout(() => {
+    checkAndShowWhatsNewModal((typeof window !== 'undefined' && window.MYCO_VERSION) || getAppVersion());
+  }, 600);
 }
 
 export async function tryResumeSession() {

@@ -35,6 +35,31 @@ export const gardenState = {
   targetCompostFrac: 0.37
 };
 
+export function serializeGardenPlants(plants = gardenPlants) {
+  if (!Array.isArray(plants) || !plants.length) return '';
+  return plants.map((pl) => `${Math.max(0, Math.min(2, pl.stage | 0))}:${Math.max(0, Math.min(999, Math.round(pl.growth || 0)))}`).join(',');
+}
+
+export function applySerializedGardenPlants(rawStr, plants = gardenPlants) {
+  if (typeof rawStr !== 'string' || !rawStr.trim() || !Array.isArray(plants) || !plants.length) return false;
+  const tokens = rawStr.trim().split(',');
+  let anyChanged = false;
+  for (let i = 0; i < plants.length && i < tokens.length; i++) {
+    const parts = tokens[i].split(':');
+    if (parts.length !== 2) continue;
+    const st = Math.max(0, Math.min(2, parseInt(parts[0], 10) || 0));
+    const gr = Math.max(0, Math.min(99, parseInt(parts[1], 10) || 0));
+    const pl = plants[i];
+    if (pl.stage !== st || Math.abs((pl.growth || 0) - gr) > 6) {
+      pl.stage = st;
+      pl.growth = gr;
+      updatePlantVisual(pl);
+      anyChanged = true;
+    }
+  }
+  return anyChanged;
+}
+
 export function applyGardenWorldState(stateMap) {
   if (!stateMap) return;
   let dirtyCompost = false;
@@ -54,6 +79,9 @@ export function applyGardenWorldState(stateMap) {
   if (stateMap.garden_baskets !== undefined) {
     const v = Math.max(0, parseInt(stateMap.garden_baskets, 10) || 0);
     if (v !== gardenState.readyBaskets) { gardenState.readyBaskets = v; dirtyBasket = true; }
+  }
+  if (stateMap.garden_plants !== undefined) {
+    applySerializedGardenPlants(String(stateMap.garden_plants));
   }
   if (dirtyCompost) updateCompostVisual(true);
   if (dirtyBasket) updateHarvestBasketVisual();
@@ -557,6 +585,9 @@ export function interactGardenTarget(ctx, target) {
           }
         }
       }
+      if (ctx.queueWorldStateChange) {
+        ctx.queueWorldStateChange('garden_plants', serializeGardenPlants());
+      }
 
       if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
       if (onToast) {
@@ -613,6 +644,7 @@ export function interactGardenTarget(ctx, target) {
       if (ctx.queueWorldStateChange) {
         ctx.queueWorldStateChange('garden_harvested', gardenState.totalHarvested);
         ctx.queueWorldStateChange('garden_baskets', gardenState.readyBaskets);
+        ctx.queueWorldStateChange('garden_plants', serializeGardenPlants());
       }
       updatePlantVisual(pl);
       updateHarvestBasketVisual();
@@ -624,6 +656,7 @@ export function interactGardenTarget(ctx, target) {
         triggerCozyHeartBurst(pl.group.position.x, 0.72, pl.group.position.z, 0xfbbf24);
       }
       if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
+      if (ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_harvest');
       if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
       if (onToast) {
         const icon = pl.kind === 'tomato' ? '🍅' : '🥬';
@@ -645,7 +678,7 @@ export function interactGardenTarget(ctx, target) {
   return false;
 }
 
-export function stepCampusGarden(dt) {
+export function stepCampusGarden(dt, ctx) {
   gardenAnimTime += dt;
   const boost = 0.75 + (gardenState.soilRichness / 100) * 1.75;
 
@@ -660,18 +693,24 @@ export function stepCampusGarden(dt) {
   }
 
   // 2. Crescimento contínuo e balanço suave ao vento das Alfaces e Tomateiros
+  let anyStageChanged = false;
   for (let i = 0; i < gardenPlants.length; i++) {
     const pl = gardenPlants[i];
     if (pl.foliageGroup && pl.foliageGroup.rotation) {
       pl.foliageGroup.rotation.z = Math.sin(gardenAnimTime * 2.1 + i * 0.9) * 0.035;
     }
     if (pl.stage >= 2) continue;
+    const prevSt = pl.stage;
     pl.growth += dt * 1.8 * boost;
     if (pl.growth >= 100) {
       pl.growth = 0;
       pl.stage = Math.min(2, pl.stage + 1);
+      if (pl.stage !== prevSt) anyStageChanged = true;
     }
     updatePlantVisual(pl);
+  }
+  if (anyStageChanged && ctx && ctx.queueWorldStateChange) {
+    ctx.queueWorldStateChange('garden_plants', serializeGardenPlants());
   }
 
   // 3. Voo em "8" e bater de asas das Borboletas 3D sobre a Horta

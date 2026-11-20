@@ -100,7 +100,20 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.getCampusClockInfo = function () {
-    return getFormattedCampusClock();
+    const clk = getFormattedCampusClock();
+    const outTemp = typeof sim.outsideTempC === 'number' ? sim.outsideTempC : null;
+    const outHum = typeof sim.outsideHumidity === 'number' ? Math.round(sim.outsideHumidity) : null;
+    const wMode = sim.weatherMode || 'clear';
+    const wIcon = wMode === 'rain' ? '🌧️' : (wMode === 'snow' ? '❄️' : (wMode === 'overcast' ? '☁️' : (wMode === 'partly' ? '⛅' : clk.icon)));
+    const tempText = outTemp !== null ? `${outTemp.toFixed(1).replace('.', ',')}°C` : '';
+    return Object.assign({}, clk, {
+      weatherMode: wMode,
+      weatherIcon: wIcon,
+      outsideTempC: outTemp,
+      outsideHumidity: outHum,
+      tempText,
+      text: tempText ? `${clk.text} • 🌡️ ${tempText}` : clk.text
+    });
   };
 
   window.pickCampusHoveredItemForMove = function () {
@@ -120,6 +133,10 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.getCampusPlayerPose = function () {
     const gY = getGroundHeight(sim.physCtx, sim.playerPos.x, sim.playerPos.z, sim.playerPos.y);
     const inAir = sim.playerPos.y > gY + 0.18;
+    const isTrip = !!(window.isTripRainbowActive && window.isTripRainbowActive());
+    const actionFx = (sim.localActionFx && performance.now() < (sim.localActionFxUntil || 0))
+      ? sim.localActionFx
+      : '';
     return {
       x: sim.playerPos.x, y: sim.playerPos.y, z: sim.playerPos.z,
       vx: Math.round(sim.playerVelX * 100) / 100,
@@ -129,9 +146,16 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       walking: sim.isWalking, seated: !!sim.seatedSeat, in_fps: sim.inFps,
       toy_mode: (sim.roundParachuteActive && inAir) ? 'parachute' : ((sim.paragliderActive && inAir) ? 'paraglider' : (sim.snowboardActive ? 'snowboard' : '')),
       current_hat: sim.localHat,
-      emote: sim.localEmote || (window.isTripRainbowActive && window.isTripRainbowActive() ? 'rainbow_trip' : '')
+      emote: sim.localEmote || (isTrip ? 'rainbow_trip' : actionFx)
     };
   };
+
+  sim.triggerLocalAvatarAction = function (fxKind) {
+    if (!fxKind) return;
+    sim.localActionFx = String(fxKind);
+    sim.localActionFxUntil = performance.now() + 1350;
+  };
+  window.triggerCampusActionFx = sim.triggerLocalAvatarAction;
 
   window.setCampusQualityMode = function (mode) {
     if (mode === 'auto') {
@@ -205,7 +229,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.consumeCampusMovedItems = function () { return worldSync.consumeCampusMovedItems(sim); };
   window.requeueCampusMovedItems = function (list) { return worldSync.requeueCampusMovedItems(sim, list); };
   window.applyCampusWorldObjects = function (objectsMap) { return worldSync.applyCampusWorldObjects(sim, objectsMap); };
-  window.applyCampusItemStates = function (itemStates) { return worldSync.applyCampusItemStates(sim, itemStates); };
+  window.applyCampusItemStates = function (itemStates, itemStateAges) { return worldSync.applyCampusItemStates(sim, itemStates, itemStateAges); };
   window.resetCampusWorldObjects = function () { return worldSync.resetCampusWorldObjects(sim); };
   window.consumeCampusBoardStrokes = function () { return worldSync.consumeCampusBoardStrokes(sim); };
   window.requeueCampusBoardStrokes = function (strokes) { return worldSync.requeueCampusBoardStrokes(sim, strokes); };

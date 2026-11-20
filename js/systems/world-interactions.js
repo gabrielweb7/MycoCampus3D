@@ -316,6 +316,18 @@ export function handleWorldInteraction(ctx) {
   if (ctx.hoveredBurnerTimer) {
     const nextMin = cycleBurnerTimer(ctx.hoveredBurnerTimer);
     if (window.MycoAudio) window.MycoAudio.playSwitch();
+    if (ctx.queueWorldStateChange) {
+      const bId = ctx.hoveredBurnerTimer.id || 'burner_lab';
+      const suffix = bId === 'burner_lab' ? 'lab' : 'sub';
+      const baseNow = ctx.serverTimeSec || Math.floor(Date.now() / 1000);
+      const elapsedSinceSync = ctx.serverTimeSyncAt ? Math.max(0, (performance.now() - ctx.serverTimeSyncAt) / 1000) : 0;
+      const serverNow = Math.floor(baseNow + elapsedSinceSync);
+      ctx.queueWorldStateChange(`burner_timer_preset_${suffix}`, nextMin);
+      ctx.queueWorldStateChange(
+        `burner_timer_end_${suffix}`,
+        ctx.hoveredBurnerTimer.on && nextMin > 0 ? Math.ceil(serverNow + (ctx.hoveredBurnerTimer.timerRemainingSec || 0)) : 0
+      );
+    }
     if (ctx.callbacks && ctx.callbacks.onToast) {
       ctx.callbacks.onToast('⏱️ Timer do Fogareiro definido para: ' + formatBurnerTimerLabel(nextMin));
     }
@@ -328,6 +340,18 @@ export function handleWorldInteraction(ctx) {
     const bId = ctx.hoveredBurnerSwitch.id || 'burner_lab';
     ctx.queueWorldStateChange(bId, ctx.hoveredBurnerSwitch.on ? 1 : 0);
     ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, ctx.hoveredBurnerSwitch.level || 0);
+    if (ctx.hoveredBurnerSwitch.kind === 'electric') {
+      const suffix = bId === 'burner_lab' ? 'lab' : 'sub';
+      const baseNow = ctx.serverTimeSec || Math.floor(Date.now() / 1000);
+      const elapsedSinceSync = ctx.serverTimeSyncAt ? Math.max(0, (performance.now() - ctx.serverTimeSyncAt) / 1000) : 0;
+      const serverNow = Math.floor(baseNow + elapsedSinceSync);
+      ctx.queueWorldStateChange(
+        `burner_timer_end_${suffix}`,
+        ctx.hoveredBurnerSwitch.on && (ctx.hoveredBurnerSwitch.timerPresetMin || 0) > 0
+          ? Math.ceil(serverNow + (ctx.hoveredBurnerSwitch.timerRemainingSec || 0))
+          : 0
+      );
+    }
     if (ctx.callbacks.onToast) {
       let desc = BURNER_LEVEL_NAMES[nextLvl];
       if (ctx.hoveredBurnerSwitch.kind === 'gas_tripod') {

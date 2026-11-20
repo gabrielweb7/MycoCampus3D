@@ -433,6 +433,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         );
         ctx.heldItem.mesh.rotation.set(-1.05 * k - 0.15 * (1 - k), ctx.playerYaw + Math.sin(stirPhase) * 0.4 * k, 0);
         if (stirBowl.bowlCtrl && stirBowl.bowlCtrl.mixMesh) stirBowl.bowlCtrl.mixMesh.rotation.y += dt * 9;
+        if (isHoldingStir && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_mix');
       } else {
         ctx.heldItem.mesh.rotation.set(-0.15, ctx.playerYaw, 0);
       }
@@ -537,6 +538,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ? ctx.hoveredSyringeTarget.item
         : ((ctx.syringePumping && ctx.syringePumping.target && ctx.syringePumping.target.item && ctx.syringePumping.target.item.mesh.userData.liquidCtrl) ? ctx.syringePumping.target.item : null);
       const isPuncturing = !!activeSyrItem;
+      if (isPuncturing && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_syringe');
       if (activeSyrItem) ctx.lastSyringeTargetItem = activeSyrItem;
       ctx.syringePunctureProgress += ((isPuncturing ? 1 : 0) - ctx.syringePunctureProgress) * Math.min(1, dt * 10);
       if (ctx.syringePunctureProgress > 0.01 && ctx.lastSyringeTargetItem) {

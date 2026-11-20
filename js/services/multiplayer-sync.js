@@ -114,7 +114,10 @@ export async function syncMultiplayer() {
         window.applyCampusWorldObjects(data.objects);
       }
       if (!data.item_states_unchanged && data.item_states && window.applyCampusItemStates) {
-        window.applyCampusItemStates(data.item_states);
+        window.applyCampusItemStates(
+          data.item_states,
+          (firstSync && (data.online_count || 1) === 1) ? data.item_state_ages : null
+        );
       }
       if (firstSync && window.markCampusInitialItemStatesApplied) {
         window.markCampusInitialItemStatesApplied();
