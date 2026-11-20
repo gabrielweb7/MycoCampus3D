@@ -142,6 +142,9 @@ export function renderLabGuideModal() {
         if (text) text.textContent = 'Pronto. Você pode rever estas etapas quando quiser ou consultar a compatibilidade de qualquer item.';
         if (progress) progress.textContent = 'Concluído';
         try { localStorage.setItem('myco_lab_tutorial_done', '1'); } catch (e) {}
+        if (typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
+          window.syncCampusUserProgress({ lab_tutorial_done: true });
+        }
       } else {
         renderTutorialStep(Math.max(0, current + 1));
       }

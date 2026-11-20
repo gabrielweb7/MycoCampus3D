@@ -54,9 +54,17 @@ export function loadLabQuestProgress() {
       if (parsed && typeof parsed === 'object') labQuestDone = parsed;
     }
   } catch (e) {}
+  const srvSteps = (appState.currentUser && appState.currentUser.progress && Array.isArray(appState.currentUser.progress.lab_quest_steps))
+    ? appState.currentUser.progress.lab_quest_steps
+    : [];
+  srvSteps.forEach((k) => { labQuestDone[k] = true; });
   const mods = (appState.currentUser && appState.currentUser.completed_modules) || [];
   if (mods.indexOf('lab_practica_v1') !== -1) {
     LAB_QUEST_STEPS.forEach((st) => { labQuestDone[st.key] = true; });
+  }
+  const doneKeys = Object.keys(labQuestDone).filter((k) => labQuestDone[k]);
+  if (doneKeys.length > srvSteps.length && typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
+    window.syncCampusUserProgress({ lab_quest_steps: doneKeys });
   }
   updateQuestBadge();
 }
@@ -69,6 +77,10 @@ export async function completeLabStep(stepKey) {
   labQuestDone[stepKey] = true;
   try { localStorage.setItem(getQuestStorageKey(), JSON.stringify(labQuestDone)); } catch (e) {}
   updateQuestBadge();
+  const doneKeys = Object.keys(labQuestDone).filter((k) => labQuestDone[k]);
+  if (typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
+    window.syncCampusUserProgress({ lab_quest_steps: doneKeys });
+  }
 
   let doneCount = 0;
   LAB_QUEST_STEPS.forEach((st) => { if (labQuestDone[st.key]) doneCount++; });

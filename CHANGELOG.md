@@ -2,6 +2,16 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.1.1] - 2026-11-20
+### Persistência Completa de Progresso do Jogador (MycoCoins, Micoteca, Missão & Loja)
+- **MycoCoins Persistentes em Sessões Retomadas (`js/ui/app-boot.js`, `js/ui/hud-lobby.js`, `js/items/dehydration-packaging.js`):**
+  - Removida a trava `!appState.authToken` em `syncCampusMycoCoins` (sessões retomadas via cookie `mc_token` não tinham token em memória e perdiam vendas/recompensas de MycoCoins ao deslogar).
+  - Adicionados `window.flushCampusMycoCoins`, flush automático em `logoutCampus`, `pagehide` e `beforeunload` via `sendBeacon`, e escopo por usuário no cache local de moedas (`setMycoCoinsUserScope`).
+- **Compra Atômica de Insumos (`api/auth.php`, `js/ui/modal-shop.js`):**
+  - Novo endpoint transacional `action=buy_supply` (`MC_SHOP_SUPPLIES`) validando `price_coins`, `req_xp` e `req_mushrooms` no MySQL (`FOR UPDATE`) e emitindo `sync:now` após entrega do prefab.
+- **Micoteca, Passos da Missão & Tutorial na Conta (`api/db.php`, `database/schema.sql`, `api/auth.php`, `js/systems/mycoteca.js`, `js/ui/quest-map.js`, `js/ui/modal-lab-guide.js`):**
+  - Migração `v12` adicionando `progress_json` em `mc_users` e endpoint `action=sync_progress` para união persistente de `discovered_species`, `micoteca_milestones`, `lab_quest_steps` (`1/8`–`8/8`) e `lab_tutorial_done` entre dispositivos e sessões.
+
 ## [v2.1.0] - 2026-11-20
 ### Maleta Porta-Ampolas 3ML (50 Vagas), Espécies com Formas Reais & Correções Críticas
 - **Maleta Porta-Ampolas 3ML (`js/items/ampoule-case.js`, `js/ui/modal-shop.js`, `js/systems/admin-editor.js`, `js/ui/radial-menu.js`, `js/systems/interaction-system.js`):**

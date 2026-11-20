@@ -237,3 +237,28 @@ test('Carimbo de esporos na Petri dura >= 1 ano (730 dias) e receitas/schema/gav
   const cabJs = fs.readFileSync(path.resolve('js/items/lab-cabinets.js'), 'utf8');
   assert.ok(cabJs.includes('drawerLiner'));
 });
+
+test('Persistência completa de conta: MycoCoins sem trava de authToken, buy_supply e sync_progress no PHP', async () => {
+  const { SHOP_SUPPLIES } = await import('../js/ui/modal-shop.js');
+  const bootJs = fs.readFileSync(path.resolve('js/ui/app-boot.js'), 'utf8');
+  assert.ok(!bootJs.includes('if (!appState.currentUser || !appState.authToken) return;'));
+  assert.ok(bootJs.includes('flushCampusMycoCoins'));
+  assert.ok(bootJs.includes('syncCampusUserProgress'));
+
+  const authPhp = fs.readFileSync(path.resolve('api/auth.php'), 'utf8');
+  assert.ok(authPhp.includes("action === 'buy_supply'"));
+  assert.ok(authPhp.includes("action === 'sync_progress'"));
+  SHOP_SUPPLIES.forEach((sup) => {
+    assert.ok(authPhp.includes(`'${sup.id}'`), `MC_SHOP_SUPPLIES missing ${sup.id}`);
+  });
+
+  const dbPhp = fs.readFileSync(path.resolve('api/db.php'), 'utf8');
+  assert.ok(dbPhp.includes('progress_json'));
+
+  const { setMycoCoinsUserScope, getLocalMycoCoins, setLocalMycoCoins } = await import('../js/items/dehydration-packaging.js');
+  setMycoCoinsUserScope(77);
+  setLocalMycoCoins(1350);
+  assert.equal(getLocalMycoCoins(), 1350);
+  setMycoCoinsUserScope(null);
+  assert.equal(getLocalMycoCoins(), 250);
+});

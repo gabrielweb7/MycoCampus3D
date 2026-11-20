@@ -8,7 +8,8 @@ import { events } from '../core/events.js';
 import { apiGet, apiPost } from '../services/api-client.js';
 import { $, isTouch, requestCampusFullscreen } from './dom-helpers.js';
 import { loadLabQuestProgress } from './quest-map.js';
-import { getLocalMycoCoins, setLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { getLocalMycoCoins, setLocalMycoCoins, setMycoCoinsUserScope } from '../items/dehydration-packaging.js';
+import { hydrateMicotecaFromServer } from '../systems/mycoteca.js';
 import { checkAndShowWhatsNewModal } from './whats-new-modal.js';
 import { setModalManagerUserKey } from './modal-window-manager.js';
 
@@ -84,6 +85,11 @@ export function updateUserHud() {
 export function enterCampus(user, token) {
   appState.currentUser = user;
   setModalManagerUserKey(user);
+  setMycoCoinsUserScope(user ? user.id : null);
+  hydrateMicotecaFromServer(user);
+  if (user && user.progress && user.progress.lab_tutorial_done) {
+    try { localStorage.setItem('myco_lab_tutorial_done', '1'); } catch (e) {}
+  }
   if (token) appState.authToken = token;
   if (user && typeof user.myco_coins === 'number' && Number.isFinite(user.myco_coins)) {
     setLocalMycoCoins(user.myco_coins);
@@ -147,11 +153,14 @@ export async function logoutCampus() {
   appState.syncTimer = null;
   const lastName = appState.currentUser ? appState.currentUser.display_name : '';
   try {
+    if (window.flushCampusMycoCoins) await window.flushCampusMycoCoins();
     await apiPost('api/multiplayer.php?action=leave', { session_id: appState.sessionId }, true);
     await apiPost('api/auth.php?action=logout', {}, true);
   } catch (e) {}
   appState.currentUser = null;
   setModalManagerUserKey(null);
+  setMycoCoinsUserScope(null);
+  hydrateMicotecaFromServer(null);
   appState.authToken = '';
   appState.pendingChatMsg = '';
   appState.sessionId = 'mc_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);

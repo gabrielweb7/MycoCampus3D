@@ -57,11 +57,17 @@ function playAudio(method) {
 }
 
 let memoryMycoCoinsFallback = 250;
+let activeCoinsUserKey = 'myco_coins_balance';
+
+export function setMycoCoinsUserScope(userId) {
+  activeCoinsUserKey = userId ? ('myco_coins_balance_u' + String(userId)) : 'myco_coins_balance';
+  if (!userId) memoryMycoCoinsFallback = 250;
+}
 
 export function getLocalMycoCoins() {
   try {
     if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
-      const raw = localStorage.getItem('myco_coins_balance');
+      const raw = localStorage.getItem(activeCoinsUserKey);
       if (raw !== null) {
         const parsed = parseInt(raw, 10);
         if (Number.isFinite(parsed) && parsed >= 0) {
@@ -79,7 +85,7 @@ export function setLocalMycoCoins(value) {
   memoryMycoCoinsFallback = next;
   try {
     if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
-      localStorage.setItem('myco_coins_balance', String(next));
+      localStorage.setItem(activeCoinsUserKey, String(next));
     }
   } catch (e) {}
   if (typeof document !== 'undefined') {

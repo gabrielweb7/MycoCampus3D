@@ -9,6 +9,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.1.1': {
+    title: '✨ Novidades da Atualização v2.1.1',
+    subtitle: 'Persistência Completa de Progresso na Conta (MycoCoins, Micoteca, Missões & Loja):',
+    items: [
+      { icon: '🪙', text: 'MycoCoins 100% Persistentes no Banco: corrigido bug que impedia sincronizar moedas após recarregar a página por sessão salva; saldo agora sincroniza na hora e ao sair/fechar o jogo!' },
+      { icon: '🛒', text: 'Compras na Loja Validadas no Servidor: insumos (inclusive Maleta Porta-Ampolas 3ML) agora debitam moedas de forma atômica no MySQL e salvam os novos itens imediatamente.' },
+      { icon: '🏆', text: 'Progresso Completo por Conta: descobertas da Micoteca, marcos de recompensa, passos individuais (1/8 a 8/8) da Missão Prática e tutorial agora ficam salvos na sua conta em qualquer dispositivo!' }
+    ]
+  },
   '2.1.0': {
     title: '✨ Novidades da Atualização v2.1.0',
     subtitle: 'Maleta Porta-Ampolas 3ML (50 Vagas), Formas Reais de Cogumelos & Correções Críticas:',

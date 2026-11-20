@@ -14,7 +14,7 @@ import { checkForApkUpdate } from '../services/apk-updater.js';
 import { syncMultiplayer, sendLeaveBeacon } from '../services/multiplayer-sync.js';
 import { MUSHROOM_SPECIES_CATALOG } from '../world/mushroom-species.js';
 import { getDiscoveredSpecies, MICOTECA_MILESTONES } from '../systems/mycoteca.js';
-import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { addLocalMycoCoins, setLocalMycoCoins } from '../items/dehydration-packaging.js';
 import {
   $,
   applyDeviceUi,
@@ -716,22 +716,58 @@ export function bootApp() {
   };
   let pendingCoinDelta = 0;
   let coinSyncTimeout = null;
-  window.syncCampusMycoCoins = (delta) => {
-    if (!appState.currentUser || !appState.authToken) return;
-    pendingCoinDelta += (Number(delta) || 0);
-    if (coinSyncTimeout) return;
-    coinSyncTimeout = setTimeout(async () => {
-      const sendDelta = pendingCoinDelta;
-      pendingCoinDelta = 0;
+  window.flushCampusMycoCoins = async (opts = {}) => {
+    if (coinSyncTimeout) {
+      clearTimeout(coinSyncTimeout);
       coinSyncTimeout = null;
-      if (!sendDelta) return;
-      try {
-        const res = await apiPost('api/auth.php?action=sync_coins', { delta: sendDelta }, true);
-        if (res && res.ok && res.user && appState.currentUser) {
-          appState.currentUser.myco_coins = res.user.myco_coins;
-        }
-      } catch (e) {}
-    }, 350);
+    }
+    const sendDelta = pendingCoinDelta;
+    if (!sendDelta || !appState.currentUser) {
+      pendingCoinDelta = 0;
+      return;
+    }
+    pendingCoinDelta = 0;
+    if (opts.useBeacon && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      const payload = {
+        delta: sendDelta,
+        user_id: appState.currentUser.id
+      };
+      if (appState.authToken) payload.token = appState.authToken;
+      navigator.sendBeacon('api/auth.php?action=sync_coins', JSON.stringify(payload));
+      return;
+    }
+    try {
+      const res = await apiPost('api/auth.php?action=sync_coins', { delta: sendDelta }, true);
+      if (res && res.ok && res.user && appState.currentUser) {
+        const syncedVal = Math.max(0, Math.min(999999, (res.user.myco_coins || 0) + pendingCoinDelta));
+        appState.currentUser.myco_coins = res.user.myco_coins;
+        setLocalMycoCoins(syncedVal);
+      }
+    } catch (e) {
+      pendingCoinDelta += sendDelta;
+    }
+  };
+  window.syncCampusMycoCoins = (delta) => {
+    const d = Number(delta) || 0;
+    if (!appState.currentUser) return;
+    if (d !== 0) pendingCoinDelta += d;
+    if (!pendingCoinDelta) return;
+    if (coinSyncTimeout) return;
+    coinSyncTimeout = setTimeout(() => {
+      window.flushCampusMycoCoins();
+    }, 300);
+  };
+  window.syncCampusUserProgress = async (partialProgress) => {
+    if (!appState.currentUser || !partialProgress || typeof partialProgress !== 'object') return null;
+    try {
+      const res = await apiPost('api/auth.php?action=sync_progress', { progress: partialProgress }, true);
+      if (res && res.ok && res.user && appState.currentUser) {
+        appState.currentUser.progress = res.user.progress;
+      }
+      return res;
+    } catch (e) {
+      return null;
+    }
   };
   initPwaFeatures();
   renderSwatches();
@@ -1109,8 +1145,12 @@ export function bootApp() {
     }
   });
 
-  window.addEventListener('pagehide', sendLeaveBeacon);
-  window.addEventListener('beforeunload', sendLeaveBeacon);
+  const flushAndLeave = () => {
+    if (window.flushCampusMycoCoins) window.flushCampusMycoCoins({ useBeacon: true });
+    sendLeaveBeacon();
+  };
+  window.addEventListener('pagehide', flushAndLeave);
+  window.addEventListener('beforeunload', flushAndLeave);
 
   tryResumeSession();
   if (window.setCampusCinemaLessons) window.setCampusCinemaLessons(LESSONS);

@@ -96,6 +96,72 @@ const MC_COSMETIC_TOYS = [
     ],
 ];
 
+const MC_SHOP_SUPPLIES = [
+    'sup_pp5' => ['price_coins' => 30, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_syringe' => ['price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_petri' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_mylar' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_flocao' => ['price_coins' => 50, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_spray' => ['price_coins' => 60, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_spawn_jar' => ['price_coins' => 70, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_spawn_bag' => ['price_coins' => 85, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_lc' => ['price_coins' => 90, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_crate' => ['price_coins' => 110, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_silica' => ['price_coins' => 140, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_monotub' => ['price_coins' => 260, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_table' => ['price_coins' => 320, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_dehydrator' => ['price_coins' => 380, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_ampoule_case' => ['price_coins' => 1000, 'req_xp' => 1000, 'req_mushrooms' => 100],
+];
+
+const MC_LAB_QUEST_KEYS = [
+    'sanitize_hood', 'hood_on', 'cooker_heat', 'syringe_use',
+    'greenhouse_care', 'monotub_harvest', 'dry_pack', 'sell_pack',
+];
+
+function mc_clean_progress($raw): array {
+    if (is_string($raw)) {
+        $raw = json_decode($raw, true);
+    }
+    if (!is_array($raw)) {
+        $raw = [];
+    }
+    $species = [];
+    if (!empty($raw['discovered_species']) && is_array($raw['discovered_species'])) {
+        foreach (array_slice($raw['discovered_species'], 0, 120) as $sp) {
+            if (!is_string($sp)) continue;
+            $s = trim(mb_substr($sp, 0, 96, 'UTF-8'));
+            if ($s !== '' && !in_array($s, $species, true)) {
+                $species[] = $s;
+            }
+        }
+    }
+    $milestones = [];
+    if (!empty($raw['micoteca_milestones']) && is_array($raw['micoteca_milestones'])) {
+        foreach ($raw['micoteca_milestones'] as $m) {
+            $val = (int)$m;
+            if (in_array($val, [10, 25, 50, 75, 100], true) && !in_array($val, $milestones, true)) {
+                $milestones[] = $val;
+            }
+        }
+        sort($milestones);
+    }
+    $questSteps = [];
+    if (!empty($raw['lab_quest_steps']) && is_array($raw['lab_quest_steps'])) {
+        foreach ($raw['lab_quest_steps'] as $k) {
+            if (is_string($k) && in_array($k, MC_LAB_QUEST_KEYS, true) && !in_array($k, $questSteps, true)) {
+                $questSteps[] = $k;
+            }
+        }
+    }
+    return [
+        'discovered_species' => $species,
+        'micoteca_milestones' => $milestones,
+        'lab_quest_steps' => $questSteps,
+        'lab_tutorial_done' => !empty($raw['lab_tutorial_done']),
+    ];
+}
+
 function mc_clean_username(string $raw): string {
     $s = mb_strtolower(trim($raw), 'UTF-8');
     $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
@@ -139,6 +205,7 @@ function mc_format_user(array $row): array {
         'completed_modules' => $modules,
         'unlocked_hats' => $unlockedHats,
         'current_hat' => $currentHat,
+        'progress' => mc_clean_progress($row['progress_json'] ?? null),
     ];
 }
 
@@ -230,8 +297,8 @@ if ($action === 'login' || $action === 'register_or_login') {
         }
 
         try {
-            $ins = $pdo->prepare('INSERT INTO mc_users (username, display_name, role, pin_hash, hat_color, body_color, xp, mushrooms_harvested, completed_modules) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?)');
-            $ins->execute([$username, $displayName, $role, password_hash($pin, PASSWORD_DEFAULT), $hatColor, $bodyColor, '[]']);
+            $ins = $pdo->prepare('INSERT INTO mc_users (username, display_name, role, pin_hash, hat_color, body_color, xp, mushrooms_harvested, myco_coins, completed_modules, progress_json) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 250, ?, ?)');
+            $ins->execute([$username, $displayName, $role, password_hash($pin, PASSWORD_DEFAULT), $hatColor, $bodyColor, '[]', '{}']);
             $userId = (int)$pdo->lastInsertId();
             $created = true;
         } catch (PDOException $e) {
@@ -491,13 +558,73 @@ if ($action === 'sync_coins') {
     mc_json(['ok' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
+if ($action === 'buy_supply') {
+    mc_require_post();
+    $user = mc_require_user($pdo);
+    $supId = (string)($body['supply_id'] ?? '');
+    if (!isset(MC_SHOP_SUPPLIES[$supId])) {
+        mc_json(['ok' => false, 'error' => 'Insumo não encontrado na loja.'], 404);
+    }
+    $sup = MC_SHOP_SUPPLIES[$supId];
+    $price = (int)$sup['price_coins'];
+    $reqXp = (int)$sup['req_xp'];
+    $reqMush = (int)$sup['req_mushrooms'];
+
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare('SELECT xp, mushrooms_harvested, COALESCE(myco_coins, 250) AS myco_coins FROM mc_users WHERE id = ? FOR UPDATE');
+        $st->execute([(int)$user['id']]);
+        $row = $st->fetch();
+        if (!$row || (int)$row['xp'] < $reqXp || (int)$row['mushrooms_harvested'] < $reqMush || (int)$row['myco_coins'] < $price) {
+            $pdo->rollBack();
+            mc_json(['ok' => false, 'error' => 'Requisitos ou MycoCoins insuficientes para comprar este item.'], 400);
+        }
+        $upd = $pdo->prepare('UPDATE mc_users SET myco_coins = GREATEST(0, COALESCE(myco_coins, 250) - ?), last_seen = NOW() WHERE id = ?');
+        $upd->execute([$price, (int)$user['id']]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+    mc_json(['ok' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+}
+
+if ($action === 'sync_progress') {
+    mc_require_post();
+    $user = mc_require_user($pdo);
+    $inc = mc_clean_progress($body['progress'] ?? $body);
+
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare('SELECT progress_json FROM mc_users WHERE id = ? FOR UPDATE');
+        $st->execute([(int)$user['id']]);
+        $cur = mc_clean_progress($st->fetchColumn() ?: null);
+
+        $merged = [
+            'discovered_species' => array_slice(array_values(array_unique(array_merge($cur['discovered_species'], $inc['discovered_species']))), 0, 120),
+            'micoteca_milestones' => array_values(array_unique(array_merge($cur['micoteca_milestones'], $inc['micoteca_milestones']))),
+            'lab_quest_steps' => array_values(array_unique(array_merge($cur['lab_quest_steps'], $inc['lab_quest_steps']))),
+            'lab_tutorial_done' => ($cur['lab_tutorial_done'] || $inc['lab_tutorial_done']),
+        ];
+        sort($merged['micoteca_milestones']);
+
+        $upd = $pdo->prepare('UPDATE mc_users SET progress_json = ?, last_seen = NOW() WHERE id = ?');
+        $upd->execute([json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), (int)$user['id']]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+    mc_json(['ok' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+}
+
 if ($action === 'leaderboard') {
     $leaders = [];
     try {
         $topStmt = $pdo->query('SELECT * FROM mc_users ORDER BY xp DESC, mushrooms_harvested DESC, id ASC LIMIT 15');
         foreach ($topStmt->fetchAll() as $row) {
             $u = mc_format_user($row);
-            unset($u['username']);
+            unset($u['username'], $u['progress']);
             $leaders[] = $u;
         }
         $stats = $pdo->query('SELECT COUNT(*) AS total_users, COALESCE(SUM(xp), 0) AS total_xp, COALESCE(SUM(mushrooms_harvested), 0) AS total_harvests FROM mc_users')->fetch() ?: [];

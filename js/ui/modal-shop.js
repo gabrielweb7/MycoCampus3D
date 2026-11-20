@@ -2,10 +2,11 @@
  * MycoCampus3D — Loja de Cosméticos (Chapéus & Brinquedos)
  */
 import { appState } from '../core/state.js';
+import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
 import { $, escapeHtml } from './dom-helpers.js';
 import { updateUserHud } from './hud-lobby.js';
-import { getLocalMycoCoins, addLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { getLocalMycoCoins, addLocalMycoCoins, setLocalMycoCoins } from '../items/dehydration-packaging.js';
 
 export const COSMETIC_HATS = [
   { id: 'default', name: 'Cogumelo Vermelho Clássico', desc: 'O clássico Amanita com pintas brancas.', req_xp: 0, req_mushrooms: 0, price_coins: 0, icon: '🍄' },
@@ -88,8 +89,9 @@ export function renderShopModal() {
   const userCoins = getLocalMycoCoins();
   if ($('shop-user-coins')) $('shop-user-coins').textContent = String(userCoins);
   let coinUnlocked = [];
+  const coinUnlockedKey = user && user.id ? ('myco_coin_unlocked_items_u' + user.id) : 'myco_coin_unlocked_items';
   try {
-    const rawC = localStorage.getItem('myco_coin_unlocked_items');
+    const rawC = localStorage.getItem(coinUnlockedKey);
     if (rawC) coinUnlocked = JSON.parse(rawC) || [];
   } catch (e) {}
 
@@ -138,17 +140,36 @@ export function renderShopModal() {
       if (canBuy) {
         btn.className = 'w-full py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow transition';
         btn.textContent = `🛒 Comprar & Entregar (🪙 ${sup.price_coins})`;
-        btn.onclick = () => {
-          const spawned = window.spawnCampusShopItem ? window.spawnCampusShopItem(sup.prefabId) : null;
-          if (!spawned) {
-            toast3D('⚠️ Entre no Campus 3D para receber sua entrega!');
-            return;
+        btn.onclick = async () => {
+          btn.disabled = true;
+          try {
+            if (appState.currentUser) {
+              if (window.flushCampusMycoCoins) await window.flushCampusMycoCoins();
+              const buyRes = await apiPost('api/auth.php?action=buy_supply', { supply_id: sup.id }, true);
+              if (!buyRes || !buyRes.ok || !buyRes.user) {
+                toast3D('❌ ' + ((buyRes && buyRes.error) || 'Não foi possível concluir a compra no servidor.'));
+                btn.disabled = false;
+                return;
+              }
+              appState.currentUser = buyRes.user;
+              setLocalMycoCoins(buyRes.user.myco_coins);
+            }
+            const spawned = window.spawnCampusShopItem ? window.spawnCampusShopItem(sup.prefabId) : null;
+            if (!spawned) {
+              toast3D('⚠️ Entre no Campus 3D para receber sua entrega!');
+              btn.disabled = false;
+              return;
+            }
+            if (!appState.currentUser) addLocalMycoCoins(-sup.price_coins);
+            if (window.MycoAudio && window.MycoAudio.playCashRegister) window.MycoAudio.playCashRegister();
+            updateUserHud();
+            $('shop-modal')?.classList.add('hidden');
+            events.emit('sync:now');
+            toast3D(`📦 ${sup.name} entregue bem à sua frente!`);
+          } catch (e) {
+            toast3D('❌ ' + (e.message || 'Erro ao comprar insumo.'));
+            btn.disabled = false;
           }
-          addLocalMycoCoins(-sup.price_coins);
-          if (window.MycoAudio && window.MycoAudio.playCashRegister) window.MycoAudio.playCashRegister();
-          updateUserHud();
-          $('shop-modal')?.classList.add('hidden');
-          toast3D(`📦 ${sup.name} entregue bem à sua frente!`);
         };
       } else {
         btn.disabled = true;
@@ -273,7 +294,7 @@ export function renderShopModal() {
               const coinRes = await apiPost('api/auth.php?action=buy_cosmetic', { hat_id: item.id, by_coins: true }, true);
               if (coinRes && coinRes.ok && coinRes.user) {
                 appState.currentUser = coinRes.user;
-                try { localStorage.setItem('myco_coins', String(coinRes.user.myco_coins ?? getLocalMycoCoins())); } catch (e) {}
+                setLocalMycoCoins(coinRes.user.myco_coins ?? getLocalMycoCoins());
                 syncedFromServer = true;
               } else if (coinRes && coinRes.error) {
                 toast3D('❌ ' + coinRes.error);
@@ -290,7 +311,7 @@ export function renderShopModal() {
               }
             }
             if (coinUnlocked.indexOf(item.id) === -1) coinUnlocked.push(item.id);
-            try { localStorage.setItem('myco_coin_unlocked_items', JSON.stringify(coinUnlocked)); } catch (e) {}
+            try { localStorage.setItem(coinUnlockedKey, JSON.stringify(coinUnlocked)); } catch (e) {}
             if (isToy) {
               if (item.id === 'paraglider') {
                 if (window.setCampusSnowboard) window.setCampusSnowboard(false);

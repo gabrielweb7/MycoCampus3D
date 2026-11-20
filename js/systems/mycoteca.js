@@ -2,8 +2,41 @@
  * Micoteca (Álbum das 100 Espécies) & Efeito Mágico do Cubensis (MycoCampus3D)
  */
 
-const STORAGE_KEY = 'myco_discovered_species_v1';
-const MILESTONE_KEY = 'myco_micoteca_milestones_v1';
+const STORAGE_KEY_BASE = 'myco_discovered_species_v1';
+const MILESTONE_KEY_BASE = 'myco_micoteca_milestones_v1';
+let activeUserSuffix = '';
+
+function getStorageKey() { return STORAGE_KEY_BASE + activeUserSuffix; }
+function getMilestoneKey() { return MILESTONE_KEY_BASE + activeUserSuffix; }
+
+export function hydrateMicotecaFromServer(user) {
+  activeUserSuffix = (user && user.id) ? ('_u' + String(user.id)) : '';
+  if (!user) return;
+  const prog = (user.progress && typeof user.progress === 'object') ? user.progress : {};
+  const srvSpecies = Array.isArray(prog.discovered_species) ? prog.discovered_species : [];
+  const srvMilestones = Array.isArray(prog.micoteca_milestones) ? prog.micoteca_milestones : [];
+
+  const localSpecies = getDiscoveredSpecies();
+  const mergedSpecies = Array.from(new Set([...srvSpecies, ...localSpecies])).slice(0, 120);
+  const localMilestones = getClaimedMicotecaMilestones();
+  const mergedMilestones = Array.from(new Set([...srvMilestones, ...localMilestones]));
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(getStorageKey(), JSON.stringify(mergedSpecies));
+      localStorage.setItem(getMilestoneKey(), JSON.stringify(mergedMilestones));
+    }
+  } catch (e) {}
+
+  if (mergedSpecies.length > srvSpecies.length || mergedMilestones.length > srvMilestones.length) {
+    if (typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
+      window.syncCampusUserProgress({
+        discovered_species: mergedSpecies,
+        micoteca_milestones: mergedMilestones
+      });
+    }
+  }
+}
 
 export const MICOTECA_MILESTONES = [
   { count: 10, coins: 50, badge: '🌱 Coletor Iniciante' },
@@ -16,7 +49,7 @@ export const MICOTECA_MILESTONES = [
 export function getClaimedMicotecaMilestones() {
   try {
     if (typeof localStorage === 'undefined') return [];
-    const raw = localStorage.getItem(MILESTONE_KEY);
+    const raw = localStorage.getItem(getMilestoneKey());
     const arr = raw ? JSON.parse(raw) : [];
     return Array.isArray(arr) ? arr : [];
   } catch (e) {
@@ -26,7 +59,7 @@ export function getClaimedMicotecaMilestones() {
 
 export function getDiscoveredSpecies() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     const arr = raw ? JSON.parse(raw) : [];
     return Array.isArray(arr) ? arr : [];
   } catch (e) {
@@ -41,7 +74,7 @@ export function registerDiscoveredSpecies(speciesName) {
   if (list.indexOf(clean) !== -1) return { list, isNew: false, rewardMilestone: null };
   list.push(clean);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    localStorage.setItem(getStorageKey(), JSON.stringify(list));
   } catch (e) { }
 
   let rewardMilestone = null;
@@ -54,13 +87,19 @@ export function registerDiscoveredSpecies(speciesName) {
     }
   }
   if (rewardMilestone) {
-    try { localStorage.setItem(MILESTONE_KEY, JSON.stringify(claimed)); } catch (e) {}
+    try { localStorage.setItem(getMilestoneKey(), JSON.stringify(claimed)); } catch (e) {}
     if (typeof window !== 'undefined') {
       if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
       if (typeof window.onMicotecaMilestone === 'function') {
         window.onMicotecaMilestone(rewardMilestone, list.length);
       }
     }
+  }
+  if (typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
+    window.syncCampusUserProgress({
+      discovered_species: list,
+      micoteca_milestones: claimed
+    });
   }
   return { list, isNew: true, rewardMilestone };
 }

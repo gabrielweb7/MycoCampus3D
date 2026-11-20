@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS mc_users (
     mushrooms_harvested INT NOT NULL DEFAULT 0,
     myco_coins INT NOT NULL DEFAULT 250,
     completed_modules TEXT NULL,
+    progress_json MEDIUMTEXT NULL,
     last_harvest_at DATETIME(3) NULL,
     login_fails INT NOT NULL DEFAULT 0,
     login_locked_until DATETIME NULL,
