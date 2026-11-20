@@ -9,6 +9,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.1.0': {
+    title: '✨ Novidades da Atualização v2.1.0',
+    subtitle: 'Maleta Porta-Ampolas 3ML (50 Vagas), Formas Reais de Cogumelos & Correções Críticas:',
+    items: [
+      { icon: '💼', text: 'Maleta Porta-Ampolas 3ML (50 Vagas) na Loja: compre por 1000 MycoCoins (req. 1000 XP e 100 cogumelos) com 24 espécies colonizadas (Cubensis, Comestíveis & Raras) em ampolas 3ML transparentes + 26 vagas livres!' },
+      { icon: '🍄', text: 'Cogumelos com Formas Reais no Monotub & Colheita: Juba de Leão, Reishi, Cordyceps, Morel, Chanterelle, Enoki, Shimeji, Jack Frost, Penis Envy e mais agora frutificam no seu formato real fofinho!' },
+      { icon: '🧊', text: 'Geladeira & Receitas na Bacia Corrigidas: itens na geladeira permanecem firmes nas prateleiras ao recarregar, Vermiculita/Pó de Coco/Trigo/Sorgo não somem mais ao pôr Água na bacia e erro 500 do Ranking corrigido.' },
+      { icon: '🏷️', text: 'Leitura, Gavetas & Carimbo de Esporos: balão 3D cresce suavemente quando visto de longe, fundo das gavetas ficou escuro para destacar placas de vidro e Carimbo de Esporos agora tem validade de 2 anos (730 dias)!' }
+    ]
+  },
   '2.0.0': {
     title: '✨ Novidades da Atualização v2.0.0',
     subtitle: 'Rótulos Rápidos [1]–[4] Completos em Todo o Lab + Inspeção Sempre Sincronizada:',

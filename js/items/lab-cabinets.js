@@ -28,6 +28,7 @@ function getSharedCabMats() {
   _sharedCabMats = {
     carcass: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5, metalness: 0.1 }),
     inside: new THREE.MeshStandardMaterial({ color: 0xdbe4ee, roughness: 0.65 }),
+    drawerLiner: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.82, metalness: 0.08 }),
     steel: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.26 }),
     dark: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6, metalness: 0.2 }),
     blue: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.5 }),
@@ -225,7 +226,7 @@ export function buildBenchCabinets(ctx, cfg) {
         addBox(dg, 0.22, 0.014, 0.022, mats.handle, 0, 0, 0.036);
         const trayW = w - 0.07;
         const trayLen = Math.min(0.55, D - 0.12);
-        const trayBottom = addBox(dg, trayW, 0.008, trayLen, mats.inside, 0, -slotH / 2 + 0.03, -trayLen / 2);
+        const trayBottom = addBox(dg, trayW, 0.008, trayLen, mats.drawerLiner, 0, -slotH / 2 + 0.03, -trayLen / 2);
         const wallsGeo = getCachedDrawerWallsGeo(trayW, slotH, trayLen);
         if (wallsGeo) {
           dg.add(new THREE.Mesh(wallsGeo, mats.inside));

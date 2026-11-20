@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 10;
+const MC_SCHEMA_VERSION = 11;
 const MC_TOKEN_TTL_DAYS = 30;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -163,6 +163,15 @@ function mc_migrate(PDO $pdo): void {
         try {
             $pdo->exec("ALTER TABLE mc_world_objects MODIFY updated_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)");
         } catch (Throwable $e) {}
+
+        // v10 -> v11: Garantia idempotente de colunas de moedas/chapéus para leaderboard sem erro 500
+        foreach ([
+            "ALTER TABLE mc_users ADD COLUMN unlocked_hats TEXT NULL",
+            "ALTER TABLE mc_users ADD COLUMN current_hat VARCHAR(32) NOT NULL DEFAULT 'default'",
+            "ALTER TABLE mc_users ADD COLUMN myco_coins INT NOT NULL DEFAULT 250",
+        ] as $ddl) {
+            try { $pdo->exec($ddl); } catch (Throwable $e) {}
+        }
 
         try {
             $up = $pdo->prepare("INSERT INTO mc_meta (meta_key, meta_val) VALUES ('schema_version', ?) ON DUPLICATE KEY UPDATE meta_val = VALUES(meta_val)");

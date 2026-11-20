@@ -320,7 +320,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         $bowl = [];
         if (isset($src['ingredients']) && is_array($src['ingredients'])) {
             $ingredients = [];
-            foreach (['flocao', 'water', 'corn', 'sawdust'] as $key) {
+            foreach (['flocao', 'water', 'corn', 'wheat', 'sorghum', 'vermiculite', 'coco', 'sawdust'] as $key) {
                 $value = $src['ingredients'][$key] ?? 0;
                 if (is_numeric($value) && is_finite((float)$value)) {
                     $ingredients[$key] = max(0, min(5000, (int)round((float)$value)));
@@ -403,7 +403,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
 
     if (isset($raw['custom']) && is_array($raw['custom'])) {
         $customJson = json_encode($raw['custom'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (is_string($customJson) && strlen($customJson) <= 2048) {
+        if (is_string($customJson) && strlen($customJson) <= 16384) {
             $clean['custom'] = $raw['custom'];
         }
     }

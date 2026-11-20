@@ -117,7 +117,7 @@ export function updateMixingBowlLabel(item) {
       if (bc.waterLayerMesh) bc.waterLayerMesh.visible = false;
     } else {
       const dryFrac = Math.min(1, dryG / 600);
-      const dryH = dryG > 0 ? Math.max(0.014, 0.095 * dryFrac) : 0;
+      const dryH = dryG > 0 ? Math.max(0.020, 0.095 * dryFrac) : 0;
       if (dryG > 0) {
         bc.mixMesh.visible = true;
         const sy = dryH / 0.095;
@@ -175,6 +175,7 @@ export function addIngredientToBowl(item, ingKey, grams) {
   bc.mixed = false;
   bc.stirCount = 0;
   bc.stirProgress = 0;
+  item.movedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
   updateMixingBowlLabel(item);
   return true;
 }

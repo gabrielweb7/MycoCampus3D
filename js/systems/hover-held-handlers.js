@@ -1047,6 +1047,20 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
     }
   }
 
+  // 1b. Segurando Ampola 3ML -> Guardar dentro da Maleta Porta-Ampolas 3ML!
+  if (held.vial3mlCtrl) {
+    const caseRes = findPickableHit(ctx, 3.6, (cand) => !!cand.caseCtrl, intersectPickableItem);
+    if (caseRes) {
+      const cc = caseRes.item.caseCtrl;
+      const used = cc.slots ? cc.slots.filter(Boolean).length : 0;
+      ctx.hoverHit = caseRes.hit;
+      ctx.hoveredAmpouleCaseTarget = caseRes.item;
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, `💼 Guardar ${held.label} na Maleta Porta-Ampolas (${used}/${cc.maxSlots || 50} vagas)`);
+      return true;
+    }
+  }
+
   // 2. Segurando Lote de Cogumelos Desidratados Crocantes (25g) -> Guardar no Pote Hermético com Sílica Gel ou Embalar no Saco Mylar/Zip!
   if (held.driedMushroomCtrl) {
     const bagRes = findPickableHit(ctx, 3.6, (cand) => !!(cand.mushroomBagCtrl && !cand.mushroomBagCtrl.filled), intersectPickableItem);

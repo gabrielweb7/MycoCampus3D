@@ -562,8 +562,12 @@ export function isPlacementBlocked(ctx, pt) {
           Math.abs(pt.y - cs.topY) < 0.12) {
         var hUdCab = heldItem.mesh.userData;
         if (cs.isCultureFridgeShelf) {
+          if (cs.ownerItem && cs.ownerItem.fridgeCtrl && !cs.ownerItem.fridgeCtrl.doorOpen) {
+            placementBlockedReason = '🚫 Abra a porta da geladeira para guardar itens dentro';
+            return true;
+          }
           var isCultureItem = !!(heldItem.cultureCtrl || heldItem.spawnCtrl || heldItem.pdaMediumCtrl ||
-            (hUdCab && (hUdCab.isPetri || hUdCab.cultureCtrl || hUdCab.isSyringe)));
+            (hUdCab && (hUdCab.isPetri || hUdCab.cultureCtrl || hUdCab.isSyringe || hUdCab.vial3mlCtrl)));
           if (!isCultureItem) {
             placementBlockedReason = '🚫 Apenas culturas podem ser guardadas na geladeira!';
             return true;
@@ -823,8 +827,23 @@ export function dropUnsupportedItems(ctx) {
         if (item.fridgeCtrl && s.isCultureFridgeShelf) continue;
         if (item.mesh.userData.isHood && s.isHood) continue;
         if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.12) &&
-          item.mesh.position.y >= s.topY - 0.08) {
+          item.mesh.position.y >= s.topY - (s.isCultureFridgeShelf ? 0.15 : 0.08)) {
           supportedY = Math.max(supportedY, s.topY);
+        }
+      }
+      // Salvaguarda adicional: item dentro de uma geladeira nunca afunda para o piso abaixo da prateleira inferior
+      if (!item.fridgeCtrl && !item.mesh.userData.twoHanded) {
+        for (var fi = 0; fi < pickableItems.length; fi++) {
+          var fr = pickableItems[fi];
+          if (!fr || !fr.fridgeCtrl || fr === heldItem || ctx.isHeldByRemote(fr.id)) continue;
+          var shelves = fr.fridgeCtrl.shelfSurfaces;
+          if (!shelves || !shelves.length) continue;
+          var s0 = shelves[0];
+          if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s0, 0.10) &&
+              item.mesh.position.y >= fr.mesh.position.y - 0.05 &&
+              item.mesh.position.y < s0.topY) {
+            supportedY = Math.max(supportedY, s0.topY);
+          }
         }
       }
       var itemStackCfg = getStackConfig(item);

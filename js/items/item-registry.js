@@ -526,6 +526,52 @@ export function updateItemBounds(item) {
       rs.halfD = Math.max(0.05, d * 0.5 - 0.02);
       rs.ry = ry;
     }
+    if (item.fridgeCtrl && Array.isArray(item.fridgeCtrl.shelfSurfaces)) {
+      const cosF = Math.cos(ry);
+      const sinF = Math.sin(ry);
+      const shelves = item.fridgeCtrl.shelfSurfaces;
+      for (let sfi = 0; sfi < shelves.length; sfi++) {
+        const sf = shelves[sfi];
+        attachSurfaceOwner(sf, item);
+        const lMinX = sf.localMinX * sx, lMaxX = sf.localMaxX * sx;
+        const lMinZ = sf.localMinZ * sz, lMaxZ = sf.localMaxZ * sz;
+        const x0 = px + lMinX * cosF + lMinZ * sinF;
+        const x1 = px + lMinX * cosF + lMaxZ * sinF;
+        const x2 = px + lMaxX * cosF + lMinZ * sinF;
+        const x3 = px + lMaxX * cosF + lMaxZ * sinF;
+        const z0 = pz - lMinX * sinF + lMinZ * cosF;
+        const z1 = pz - lMinX * sinF + lMaxZ * cosF;
+        const z2 = pz - lMaxX * sinF + lMinZ * cosF;
+        const z3 = pz - lMaxX * sinF + lMaxZ * cosF;
+        sf.minX = Math.min(x0, x1, x2, x3);
+        sf.maxX = Math.max(x0, x1, x2, x3);
+        sf.minZ = Math.min(z0, z1, z2, z3);
+        sf.maxZ = Math.max(z0, z1, z2, z3);
+        sf.topY = py + sf.localTopY * sy;
+        const midZ = (lMinZ + lMaxZ) * 0.5;
+        sf.centerX = px + midZ * sinF;
+        sf.centerZ = pz + midZ * cosF;
+        sf.halfW = (lMaxX - lMinX) * 0.5;
+        sf.halfD = (lMaxZ - lMinZ) * 0.5;
+        sf.ry = ry;
+      }
+      if (Array.isArray(item.fridgeCtrl.slots)) {
+        for (let sli = 0; sli < item.fridgeCtrl.slots.length; sli++) {
+          const sl = item.fridgeCtrl.slots[sli];
+          if (sl && sl.worldPosition) {
+            sl.worldPosition.set(
+              px + (sl.localX * sx) * cosF + (sl.localZ * sz) * sinF,
+              py + sl.localY * sy,
+              pz - (sl.localX * sx) * sinF + (sl.localZ * sz) * cosF
+            );
+          }
+        }
+      }
+      item.fridgeCtrl._lastX = px;
+      item.fridgeCtrl._lastY = py;
+      item.fridgeCtrl._lastZ = pz;
+      item.fridgeCtrl._lastRy = ry;
+    }
     if (col) {
       col.minX = px - hw - 0.05; col.maxX = px + hw + 0.05;
       col.minZ = pz - hd - 0.05; col.maxZ = pz + hd + 0.05;

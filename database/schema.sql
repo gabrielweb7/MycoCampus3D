@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS mc_users (
     current_hat VARCHAR(32) NOT NULL DEFAULT 'default',
     xp INT NOT NULL DEFAULT 0,
     mushrooms_harvested INT NOT NULL DEFAULT 0,
+    myco_coins INT NOT NULL DEFAULT 250,
     completed_modules TEXT NULL,
     last_harvest_at DATETIME(3) NULL,
     login_fails INT NOT NULL DEFAULT 0,

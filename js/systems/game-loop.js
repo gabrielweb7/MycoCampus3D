@@ -46,6 +46,7 @@ import { stepMonotubs } from '../items/monotub.js';
 import { stepCampusGarden } from '../world/campus-garden.js';
 import { stepAlcoholLamps } from '../items/lab-advanced-tools.js';
 import { stepRoadsideMushroomSales } from '../items/dehydration-packaging.js';
+import { stepAmpouleCases } from '../items/ampoule-case.js';
 
 let lastMobileHoverAt = 0;
 let lastDesktopHoverAt = 0;
@@ -441,6 +442,7 @@ export function startAnimationLoop(ctx) {
       stepAlcoholLamps(ctx, dt);
       stepRoadsideMushroomSales(ctx, dt);
       stepCultureFridges(ctx, dt);
+      stepAmpouleCases(ctx, dt);
       stepLabCabinets(ctx, dt);
       stepMagneticStirrers(ctx, dt);
       stepPressureCookers(ctx, dt);

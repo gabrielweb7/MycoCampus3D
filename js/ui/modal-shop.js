@@ -35,7 +35,8 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_silica', prefabId: 'silica_jar', name: 'Pote com Sílica Gel', desc: 'Conserve até 8 lotes de cogumelos crocantes.', price_coins: 140, icon: '💎' },
   { id: 'sup_monotub', prefabId: 'monotub_24l', name: 'Caixa Monotub 24L', desc: 'Expanda sua produção com frutificação em massa.', price_coins: 260, icon: '📦' },
   { id: 'sup_dehydrator', prefabId: 'dehydrator', name: 'Desidratadora de Cogumelos', desc: 'Seque mais lotes simultâneos até 0% umidade.', price_coins: 380, icon: '♨️' },
-  { id: 'sup_table', prefabId: 'table_stainless', name: 'Bancada Inox (1.6m)', desc: 'Mesa móvel adicional para ampliar seu laboratório.', price_coins: 320, icon: '🛠️' }
+  { id: 'sup_table', prefabId: 'table_stainless', name: 'Bancada Inox (1.6m)', desc: 'Mesa móvel adicional para ampliar seu laboratório.', price_coins: 320, icon: '🛠️' },
+  { id: 'sup_ampoule_case', prefabId: 'ampoule_case', name: 'Maleta Porta-Ampolas 3ML (50 Vagas)', desc: '24 espécies (Cubensis, Comestíveis e Raras) já colonizadas em cultura líquida + 26 vagas extras (máx. 50).', price_coins: 1000, req_xp: 1000, req_mushrooms: 100, icon: '💼' }
 ];
 
 let activeShopTab = 'hats';
@@ -108,7 +109,15 @@ export function renderShopModal() {
 
   if (activeShopTab === 'supplies') {
     SHOP_SUPPLIES.forEach((sup) => {
-      const canBuy = userCoins >= sup.price_coins;
+      const reqXp = sup.req_xp || 0;
+      const reqMush = sup.req_mushrooms || 0;
+      const hasCoins = userCoins >= sup.price_coins;
+      const hasXp = userXp >= reqXp;
+      const hasMush = userMush >= reqMush;
+      const canBuy = hasCoins && hasXp && hasMush;
+      const reqLine = `🪙 ${sup.price_coins} MycoCoins` +
+        (reqXp > 0 ? ` • ⭐ ${reqXp} XP` : '') +
+        (reqMush > 0 ? ` • 🍄 ${reqMush} cogumelos` : '');
       const card = document.createElement('div');
       card.className = 'glass-panel rounded-xl p-3 flex flex-col justify-between border border-emerald-500/35';
       card.innerHTML =
@@ -120,7 +129,7 @@ export function renderShopModal() {
               `<div class="text-[11px] text-slate-400">${escapeHtml(sup.desc)}</div>` +
             `</div>` +
           `</div>` +
-          `<div class="pt-1 text-[11px] font-bold text-yellow-300">🪙 ${sup.price_coins} MycoCoins</div>` +
+          `<div class="pt-1 text-[11px] font-bold text-yellow-300">${reqLine}</div>` +
         `</div>`;
       const btnWrap = document.createElement('div');
       btnWrap.className = 'pt-3';
@@ -144,7 +153,11 @@ export function renderShopModal() {
       } else {
         btn.disabled = true;
         btn.className = 'w-full py-1.5 rounded-lg bg-slate-800/80 text-slate-500 font-semibold text-xs border border-slate-700/40';
-        btn.textContent = `🔒 Faltam ${sup.price_coins - userCoins} MycoCoins`;
+        const missing = [];
+        if (!hasCoins) missing.push(`${sup.price_coins - userCoins} MycoCoins`);
+        if (!hasXp) missing.push(`${reqXp - userXp} XP`);
+        if (!hasMush) missing.push(`${reqMush - userMush} cogumelos`);
+        btn.textContent = `🔒 Faltam ${missing.join(' + ')}`;
       }
       btnWrap.appendChild(btn);
       card.appendChild(btnWrap);

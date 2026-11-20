@@ -316,10 +316,12 @@ export function updateHover3dBadge(badgeState, data, camera, now) {
   badgeState.sprite.position.copy(badgeState.currentPos);
   badgeState.sprite.position.y += floatOffset;
 
-  // Escala balanceada e confortável adaptada à distância da câmera
+  // Escala balanceada e confortável: perto mantém o tamanho ideal; longe aumenta suavemente para manter leitura fácil
   if (camera) {
     const dist = camera.position.distanceTo(badgeState.sprite.position);
-    const s = Math.max(0.32, Math.min(0.68, dist * 0.22));
+    const s = dist <= 1.8
+      ? Math.max(0.32, dist * 0.22)
+      : Math.min(1.24, 0.396 + (dist - 1.8) * 0.265);
     badgeState.sprite.scale.set(s * 1.65, s * 0.65, 1);
 
     // Evita que o crachá 3D projete atrás da barra de menu superior (#hud-top-bar)

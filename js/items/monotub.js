@@ -19,6 +19,7 @@ import { bindPngTexture, getCachedCanvasTexture, registerPickable, updateItemBou
 import { getSanitizationStatus } from './alcohol-spray.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
+import { createMushroomMeshBySpeciesName, getMushroomVisualProfile } from '../world/mushroom-species.js';
 
 const THREE = window.THREE;
 
@@ -300,6 +301,22 @@ export function updateMonotubVisual(item) {
     const showCanopy = !mc.spent && !mc.contaminated && (mc.fruitingStage === 2 || mc.fruitingStage === 3);
     mc.mushCanopyGroup.visible = showCanopy;
     if (showCanopy) {
+      const targetSp = mc.speciesName || '';
+      if (targetSp && mc._lastCanopySpecies !== targetSp && typeof createMushroomMeshBySpeciesName === 'function') {
+        mc._lastCanopySpecies = targetSp;
+        while (mc.mushCanopyGroup.children.length) {
+          mc.mushCanopyGroup.remove(mc.mushCanopyGroup.children[0]);
+        }
+        for (let mx = -2; mx <= 2; mx++) {
+          for (let mz = -1; mz <= 1; mz++) {
+            const jitX = ((mx * 7 + mz * 13) % 5) * 0.006;
+            const jitZ = ((mx * 11 - mz * 5) % 5) * 0.006;
+            const mCluster = createMushroomMeshBySpeciesName(targetSp, 0.032);
+            mCluster.position.set(mx * 0.072 + jitX, 0.102, mz * 0.072 + jitZ);
+            mc.mushCanopyGroup.add(mCluster);
+          }
+        }
+      }
       const s = mc.fruitingStage === 2
         ? (0.35 + (Math.max(0, Math.min(100, mc.growth)) / 100) * 0.58)
         : 1.0;
@@ -722,10 +739,10 @@ export function interactMonotub(ctx, tubItem) {
     // para que possa levar à Desidratadora (55°C), tirar Carimbo de Esporos na Placa de Petri ou clonar com Bisturi!
     if (ctx && ctx.scene && !ctx.heldItem) {
       const spName = mc.speciesName || 'Golden Teacher (Psilocybe cubensis)';
-      const isMagic = spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1 || spName.indexOf('Golden') !== -1;
+      const prof = getMushroomVisualProfile(spName);
       const freshMush = spawnPersistedWildMushroom(ctx, 'harvest_tub_' + Date.now().toString(36), {
         speciesName: spName,
-        isMagic
+        isMagic: !!(prof && prof.isMagic)
       });
       ctx.heldItem = freshMush;
       ctx.lastPickupAt = performance.now();

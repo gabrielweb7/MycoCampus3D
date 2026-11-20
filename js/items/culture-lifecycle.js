@@ -1,6 +1,15 @@
 export const CULTURE_GAME_DAY_SECONDS = 86400;
 export const CULTURE_ROOM_SHELF_LIFE_DAYS = 15;
 export const CULTURE_REFRIGERATED_SHELF_LIFE_DAYS = 90;
+export const SPORE_PRINT_ROOM_SHELF_LIFE_DAYS = 730;
+export const SPORE_PRINT_REFRIGERATED_SHELF_LIFE_DAYS = 1460;
+
+function resolveShelfLimits(ctrl) {
+  const isSporePrint = !!(ctrl && ctrl.mode === 'spore_print');
+  return isSporePrint
+    ? { room: SPORE_PRINT_ROOM_SHELF_LIFE_DAYS, cold: SPORE_PRINT_REFRIGERATED_SHELF_LIFE_DAYS }
+    : { room: CULTURE_ROOM_SHELF_LIFE_DAYS, cold: CULTURE_REFRIGERATED_SHELF_LIFE_DAYS };
+}
 
 export function createCultureLifecycleState(colonized) {
   return {
@@ -42,10 +51,9 @@ export function stepCultureTemperature(ctrl, dt, inFridge, doorOpen) {
 
 export function getCultureRemainingDays(ctrl) {
   if (!ctrl) return 0;
-  const remainingRoomDays = Math.max(0, CULTURE_ROOM_SHELF_LIFE_DAYS - (ctrl.shelfLifeAgeDays || 0));
-  return Math.ceil(remainingRoomDays * (ctrl.refrigerated
-    ? CULTURE_REFRIGERATED_SHELF_LIFE_DAYS / CULTURE_ROOM_SHELF_LIFE_DAYS
-    : 1));
+  const { room, cold } = resolveShelfLimits(ctrl);
+  const remainingRoomDays = Math.max(0, room - (ctrl.shelfLifeAgeDays || 0));
+  return Math.ceil(remainingRoomDays * (ctrl.refrigerated ? (cold / room) : 1));
 }
 
 export function isCultureIncubationTemperatureSuitable(item, ctx) {

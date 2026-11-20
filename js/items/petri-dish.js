@@ -418,7 +418,7 @@ export function stepPetriCultures(ctx, dt) {
         updatePetriVisual(item);
       }
     }
-    if (ctrl.colonized && !ctrl.expired) {
+    if ((ctrl.colonized || ctrl.mode === 'spore_print') && !ctrl.expired) {
       const lifeStep = stepCultureShelfLife(ctrl, dt);
       if (lifeStep === 2) {
         ctrl.mode = 'contam';
@@ -520,6 +520,10 @@ export function updatePetriVisual(item) {
   }
   if (ctrl.colonized && !ctrl.expired) {
     item.label += ' • ' + (ctrl.refrigerated ? '4°C' : '25°C') + ' • validade ' + getCultureRemainingDays(ctrl) + ' dias';
+  } else if (ctrl.mode === 'spore_print' && !ctrl.expired) {
+    const spDays = getCultureRemainingDays(ctrl);
+    const yrTag = spDays >= 365 ? ' (~' + (spDays / 365).toFixed(1).replace(/\.0$/, '') + ' anos)' : '';
+    item.label += ' • validade ' + spDays + ' dias' + yrTag;
   } else if (ctrl.mode === 'colonizing') {
     item.label += ' • ' + (ctrl.refrigerated ? '4°C • colonização pausada' : '25°C');
   }
@@ -579,6 +583,8 @@ export function depositSporePrintOnPetri(item, speciesName = '') {
   ctrl.colonized = false;
   ctrl.contaminated = false;
   ctrl.expired = false;
+  ctrl.ageGameDays = 0;
+  ctrl.shelfLifeAgeDays = 0;
   ctrl.sporeDropAnimTimer = 1.15;
   if (!ctrl.sporeCapGroup && item.mesh && item.mesh.add && THREE && THREE.Group && THREE.ConeGeometry && THREE.CylinderGeometry) {
     const capG = new THREE.Group();

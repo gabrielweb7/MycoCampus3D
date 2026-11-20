@@ -198,7 +198,7 @@ export function applyQualityTier(tier, deps) {
     const shEvery = cfg.shadowEvery || (isTouchDevice ? 2 : 1);
     renderer.shadowMap.autoUpdate = cfg.shadows && !isTouchDevice && shEvery <= 1;
     if (ThreeRef) {
-      renderer.shadowMap.type = cfg.soft ? ThreeRef.PCFSoftShadowMap : ThreeRef.PCFShadowMap;
+      renderer.shadowMap.type = ThreeRef.PCFShadowMap;
     }
     renderer.shadowMap.needsUpdate = cfg.shadows;
   }

@@ -492,24 +492,35 @@ if ($action === 'sync_coins') {
 }
 
 if ($action === 'leaderboard') {
-    $topStmt = $pdo->query('SELECT id, username, display_name, role, hat_color, body_color, unlocked_hats, current_hat, xp, mushrooms_harvested, myco_coins, completed_modules FROM mc_users ORDER BY xp DESC, mushrooms_harvested DESC, id ASC LIMIT 15');
     $leaders = [];
-    foreach ($topStmt->fetchAll() as $row) {
-        $u = mc_format_user($row);
-        unset($u['username']);
-        $leaders[] = $u;
+    try {
+        $topStmt = $pdo->query('SELECT * FROM mc_users ORDER BY xp DESC, mushrooms_harvested DESC, id ASC LIMIT 15');
+        foreach ($topStmt->fetchAll() as $row) {
+            $u = mc_format_user($row);
+            unset($u['username']);
+            $leaders[] = $u;
+        }
+        $stats = $pdo->query('SELECT COUNT(*) AS total_users, COALESCE(SUM(xp), 0) AS total_xp, COALESCE(SUM(mushrooms_harvested), 0) AS total_harvests FROM mc_users')->fetch() ?: [];
+        mc_json([
+            'ok' => true,
+            'leaders' => $leaders,
+            'total_modules' => count(MC_MODULES),
+            'stats' => [
+                'total_users' => (int)($stats['total_users'] ?? 0),
+                'total_xp' => (int)($stats['total_xp'] ?? 0),
+                'total_harvests' => (int)($stats['total_harvests'] ?? 0),
+            ],
+        ]);
+    } catch (Throwable $e) {
+        error_log('[MycoCampus3D] leaderboard error: ' . $e->getMessage());
+        mc_json([
+            'ok' => true,
+            'leaders' => [],
+            'total_modules' => count(MC_MODULES),
+            'stats' => ['total_users' => 0, 'total_xp' => 0, 'total_harvests' => 0],
+            'degraded' => true,
+        ]);
     }
-    $stats = $pdo->query('SELECT COUNT(*) AS total_users, COALESCE(SUM(xp), 0) AS total_xp, COALESCE(SUM(mushrooms_harvested), 0) AS total_harvests FROM mc_users')->fetch();
-    mc_json([
-        'ok' => true,
-        'leaders' => $leaders,
-        'total_modules' => count(MC_MODULES),
-        'stats' => [
-            'total_users' => (int)($stats['total_users'] ?? 0),
-            'total_xp' => (int)($stats['total_xp'] ?? 0),
-            'total_harvests' => (int)($stats['total_harvests'] ?? 0),
-        ],
-    ]);
 }
 
 // -------------------------------------------------------------

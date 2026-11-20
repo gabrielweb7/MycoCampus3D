@@ -46,6 +46,11 @@ import {
   interactSilicaStorageJar
 } from '../items/lab-advanced-tools.js';
 import {
+  toggleAmpouleCaseLid,
+  storeVialInAmpouleCase,
+  openAmpouleCaseModal
+} from '../items/ampoule-case.js';
+import {
   packDriedMushroomsIntoBag,
   sealMushroomBag,
   addSealedBagToDeliveryCrate,
@@ -517,6 +522,10 @@ export function handlePrimaryAction(ctx) {
     }
     if (ctx.hoveredSilicaJarTarget && !ctx.placementMode) {
       interactSilicaStorageJar(ctx, ctx.hoveredSilicaJarTarget);
+      return;
+    }
+    if (ctx.hoveredAmpouleCaseTarget && !ctx.placementMode && ctx.heldItem.vial3mlCtrl) {
+      storeVialInAmpouleCase(ctx, ctx.hoveredAmpouleCaseTarget, ctx.heldItem);
       return;
     }
     if (ctx.hoveredMushroomBagPackTarget && !ctx.placementMode && ctx.heldItem.driedMushroomCtrl) {
@@ -1035,6 +1044,18 @@ export function handlePrimaryAction(ctx) {
         interactMonotub(ctx, ctx.hoveredPickable);
         return;
       }
+    }
+    if (!ctx.adminEditMode && ctx.hoveredPickable.caseCtrl) {
+      const cItem = ctx.hoveredPickable;
+      if (!cItem.caseCtrl.lidOpen) {
+        toggleAmpouleCaseLid(ctx, cItem, true);
+        if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('💼 Maleta Porta-Ampolas 3ML aberta! Clique novamente ou aperte [2] para ver as 50 vagas.');
+        }
+      } else {
+        openAmpouleCaseModal(ctx, cItem);
+      }
+      return;
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable.fridgeCtrl) {
       const fridge = ctx.hoveredPickable;

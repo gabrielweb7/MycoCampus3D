@@ -30,6 +30,7 @@ import {
 import { interactMonotub, updateMonotubVisual } from '../items/monotub.js';
 import { breakAndShakeSpawn, getSpawnSubstrateDisplayName, updateSpawnVisual } from '../items/spawn-containers.js';
 import { interactSilicaStorageJar, interactLabMicroscope } from '../items/lab-advanced-tools.js';
+import { toggleAmpouleCaseLid, openAmpouleCaseModal } from '../items/ampoule-case.js';
 import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
 
 let barEl = null;
@@ -462,6 +463,21 @@ export function showItemStatusCard(item, ctx) {
       chips.push({ icon: '🧬', text: sj.speciesName, color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' });
     }
     chips.push({ icon: '💎', text: 'Sílica Gel (0% Umidade)', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' });
+  }
+
+  if (item.caseCtrl) {
+    const cc = item.caseCtrl;
+    const used = cc.slots ? cc.slots.filter(Boolean).length : 0;
+    const contam = cc.slots ? cc.slots.filter((s) => s && s.contaminated).length : 0;
+    chips.push({ icon: '💼', text: `Vagas: ${used}/${cc.maxSlots || 50}`, color: 'bg-orange-500/20 text-orange-300 border-orange-500/30' });
+    chips.push({ icon: cc.lidOpen ? '📂' : '🔒', text: cc.lidOpen ? 'Tampa Aberta' : 'Tampa Fechada', color: 'bg-slate-700/60 text-slate-200 border-slate-600/40' });
+    if (contam > 0) {
+      chips.push({ icon: '🦠', text: `${contam} Contaminadas`, color: 'bg-rose-600/30 text-rose-300 border-rose-500/50' });
+    }
+  }
+
+  if (item.vial3mlCtrl) {
+    chips.push({ icon: '🧪', text: `Ampola 3ML (${item.vial3mlCtrl.group || 'Cubensis'})`, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
   }
 
   const med = item.pdaMediumCtrl;
@@ -900,6 +916,21 @@ function buildContextActions(ctx) {
         run: () => interactSilicaStorageJar(ctx, target)
       });
     }
+    if (target.caseCtrl) {
+      const used = target.caseCtrl.slots ? target.caseCtrl.slots.filter(Boolean).length : 0;
+      actions.push({
+        id: 'case_lid_' + target.id + '_' + (target.caseCtrl.lidOpen ? '1' : '0'),
+        icon: '💼',
+        label: target.caseCtrl.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
+        run: () => toggleAmpouleCaseLid(ctx, target)
+      });
+      actions.push({
+        id: 'case_modal_' + target.id + '_' + used,
+        icon: '🧪',
+        label: `Ver Ampolas (${used}/50)`,
+        run: () => openAmpouleCaseModal(ctx, target)
+      });
+    }
     actions.push({
       id: 'move_' + target.id,
       icon: '📦',
@@ -977,6 +1008,20 @@ function buildContextActions(ctx) {
         icon: held.dehydratorCtrl.on ? '⏸️' : '♨️',
         label: held.dehydratorCtrl.on ? 'Desligar' : 'Ligar 55°C',
         run: () => interactDehydrator(ctx, held)
+      });
+    } else if (held.caseCtrl) {
+      const used = held.caseCtrl.slots ? held.caseCtrl.slots.filter(Boolean).length : 0;
+      actions.push({
+        id: 'held_case_lid_' + held.id + '_' + (held.caseCtrl.lidOpen ? '1' : '0'),
+        icon: '💼',
+        label: held.caseCtrl.lidOpen ? 'Fechar Tampa' : 'Abrir Tampa',
+        run: () => toggleAmpouleCaseLid(ctx, held)
+      });
+      actions.push({
+        id: 'held_case_modal_' + held.id + '_' + used,
+        icon: '🧪',
+        label: `Ver Ampolas (${used}/50)`,
+        run: () => openAmpouleCaseModal(ctx, held)
       });
     }
     if (held.spawnCtrl && held.spawnCtrl.inoculated && !held.spawnCtrl.contaminated &&

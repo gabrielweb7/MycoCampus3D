@@ -43,7 +43,8 @@ function resolveHoverTargetObj(ctx) {
     (ctx.hoveredFridgeTarget && ctx.hoveredFridgeTarget.fridge) ||
     ctx.hoveredAlcoholLampTarget ||
     ctx.hoveredMicroscopeTarget ||
-    ctx.hoveredSilicaJarTarget ||
+    (ctx.hoveredSilicaJarTarget) ||
+    (ctx.hoveredAmpouleCaseTarget) ||
     ctx.hoveredMushroomBagPackTarget ||
     ctx.hoveredDriedBatchForBag ||
     ctx.hoveredMushroomBagSealTarget ||
@@ -218,6 +219,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredAlcoholLampTarget = null;
   ctx.hoveredMicroscopeTarget = null;
   ctx.hoveredSilicaJarTarget = null;
+  ctx.hoveredAmpouleCaseTarget = null;
   ctx.hoveredMushroomBagPackTarget = null;
   ctx.hoveredDriedBatchForBag = null;
   ctx.hoveredMushroomBagSealTarget = null;
@@ -554,6 +556,12 @@ export function updateHoverRay(ctx, customNdc) {
         } else {
           prompt = `${ctx.hoveredPickable.label} • Água ${wLit}`;
         }
+      } else if (ctx.hoveredPickable.caseCtrl) {
+        const cc = ctx.hoveredPickable.caseCtrl;
+        const used = cc.slots ? cc.slots.filter(Boolean).length : 0;
+        prompt = cc.lidOpen
+          ? `💼 Abrir Catálogo de Ampolas 3ML (${used}/${cc.maxSlots || 50})`
+          : `💼 Abrir Maleta Porta-Ampolas 3ML (${used}/${cc.maxSlots || 50})`;
       } else if (ctx.hoveredPickable.fridgeCtrl) {
         const fridge = ctx.hoveredPickable;
         prompt = fridge.fridgeCtrl.doorOpen

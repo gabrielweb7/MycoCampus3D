@@ -636,7 +636,7 @@ export function initCampus3D(containerId, cbs) {
     sim.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75));
     sim.renderer.shadowMap.enabled = true;
     sim.renderer.shadowMap.autoUpdate = false;
-    sim.renderer.shadowMap.type = touch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    sim.renderer.shadowMap.type = THREE.PCFShadowMap;
     sim.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (THREE.ACESFilmicToneMapping) {
       sim.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -670,7 +670,30 @@ export function initCampus3D(containerId, cbs) {
     sim.scene.add(sun.target);
     sim.envSun = sun;
 
-    sim.clock = new THREE.Clock();
+    const frameTimer = THREE.Timer ? new THREE.Timer() : null;
+    const bootPerf = performance.now();
+    sim.clock = frameTimer
+      ? {
+          getDelta() {
+            frameTimer.update();
+            return frameTimer.getDelta();
+          },
+          get elapsedTime() {
+            return frameTimer.getElapsed();
+          }
+        }
+      : {
+          _last: bootPerf,
+          getDelta() {
+            const now = performance.now();
+            const dt = Math.max(0, (now - this._last) * 0.001);
+            this._last = now;
+            return dt;
+          },
+          get elapsedTime() {
+            return (performance.now() - bootPerf) * 0.001;
+          }
+        };
     createProceduralTextures();
 
     const wbCtx = getWorldBuilderCtx();

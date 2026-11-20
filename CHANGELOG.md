@@ -2,6 +2,19 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.1.0] - 2026-11-20
+### Maleta Porta-Ampolas 3ML (50 Vagas), Espécies com Formas Reais & Correções Críticas
+- **Maleta Porta-Ampolas 3ML (`js/items/ampoule-case.js`, `js/ui/modal-shop.js`, `js/systems/admin-editor.js`, `js/ui/radial-menu.js`, `js/systems/interaction-system.js`):**
+  - Nova **Maleta Porta-Ampolas 3ML** com 50 vagas (`5 × 10`), tampa articulada, catálogo visual filtrável e 24 ampolas 3ML transparentes pré-carregadas com líquido + micélio colonizado (8 *Cubensis*, 8 Comestíveis Gourmet e 8 Raros/Medicinais/Bioluminescentes) e suporte visual a ampolas contaminadas e aspiração direta com a `Seringa 10ml`.
+  - Disponível na Loja (`SHOP_SUPPLIES`) por **1000 MycoCoins** (exigindo também **1000 XP** e **100 cogumelos colhidos**).
+- **Frutificação com Formas Reais por Espécie (`js/world/mushroom-species.js`, `js/items/monotub.js`, `js/world/greenhouse.js`, `js/systems/world-interactions.js`):**
+  - Mapeamento completo `getMushroomVisualProfile` e `createMushroomMeshBySpeciesName` para que o dossel do `Monotub 24L`, a `Estufa` e cogumelos colhidos exibam suas formas reais fofinhas (*Hericium*, *Cordyceps*, *Morchella*, *Cantharellus*, *Flammulina*, *Ganoderma*, *Pleurotus*, *Cubensis*, *Panaeolus*, etc.).
+- **Correções Críticas & Melhorias de UX:**
+  - **Ranking (`/api/auth.php?action=leaderboard`) & Avisos Three.js (`api/auth.php`, `api/db.php`, `database/schema.sql`, `js/core/quality.js`, `js/systems/campus-init.js`):** auto-migração idempotente v11 e query resiliente eliminam erro HTTP 500 no leaderboard; `PCFSoftShadowMap` e `THREE.Clock` substituídos por `PCFShadowMap` e `THREE.Timer`.
+  - **Geladeira Persistente (`js/items/culture-fridge.js`, `js/items/item-registry.js`, `js/entities/placement-ghost.js`):** prateleiras agora possuem `ownerItem`, atualizam síncronamente em `updateItemBounds` e possuem proteção contra queda para o piso inferior ao recarregar.
+  - **Bacia de Receitas (`api/multiplayer_schema.php`, `js/systems/world-objects-sync.js`, `js/items/mixing-bowl.js`):** sincronização e whitelist PHP expandidas para todos os 8 ingredientes (`flocao`, `water`, `corn`, `wheat`, `sorghum`, `vermiculite`, `coco`, `sawdust`) com janela anti-sobrescrita.
+  - **Gavetas Escuras, Balão 3D à Distância & Validade de Carimbo (`js/items/lab-cabinets.js`, `js/entities/hover-3d-badge.js`, `js/items/culture-lifecycle.js`, `js/items/petri-dish.js`):** fundo das gavetas em cinza-ardósia escuro (`0x334155`) para máximo contraste; `hover3dBadge` escala confortavelmente a distância maior; `spore_print` passa a durar 730 dias (2 anos) à temperatura ambiente.
+
 ## [v2.0.0] - 2026-11-20
 ### Rótulos Rápidos [1]–[4] Completos em Todo o Campus & Consistência Total de Títulos/Inspecionar
 - **Rótulos Rápidos Contextuais em Tudo (`js/ui/radial-menu.js`):**

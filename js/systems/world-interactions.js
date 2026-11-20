@@ -13,9 +13,16 @@ import { registerDiscoveredSpecies, triggerMagicCubensisEffect } from './mycotec
 import { registerPickable } from '../items/item-registry.js';
 import { interactGardenTarget } from '../world/campus-garden.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
+import { createMushroomMeshBySpeciesName } from '../world/mushroom-species.js';
 
-function createPersistedMushroomMesh(isMagic) {
+function createPersistedMushroomMesh(speciesName, isMagic) {
   const THREE = window.THREE;
+  if (speciesName) {
+    try {
+      const m = createMushroomMeshBySpeciesName(speciesName, 0.072);
+      if (m) return m;
+    } catch (_) {}
+  }
   const g = new THREE.Group();
   const stemMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.65 });
   const capMat = new THREE.MeshStandardMaterial({ color: isMagic ? 0xa1551c : 0xd97706, roughness: 0.45, side: THREE.DoubleSide });
@@ -34,7 +41,7 @@ export function spawnPersistedWildMushroom(ctx, pickedId, wildState) {
   const THREE = window.THREE;
   const spName = (wildState && wildState.speciesName) || 'Cubensis Dourado do Pasto (Psilocybe cubensis)';
   const isMagic = !wildState || wildState.isMagic !== false;
-  const cloned = createPersistedMushroomMesh(isMagic);
+  const cloned = createPersistedMushroomMesh(spName, isMagic);
   const mBox = new THREE.Box3().setFromObject(cloned);
   const mCenter = new THREE.Vector3();
   const mSize = new THREE.Vector3();

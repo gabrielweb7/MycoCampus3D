@@ -23,6 +23,7 @@ import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js'
 import { makeMushroomBag, makeDeliveryCrate } from '../items/dehydration-packaging.js';
 import { makeSyringe10ml } from '../items/syringe.js';
 import { makeFlocao500g } from '../items/flocao-corn.js';
+import { makeAmpouleCase, makeVial3ml } from '../items/ampoule-case.js';
 import { saveLocalMovedObject } from './world-objects-sync.js';
 import { moveItemWithSupported, dropSupportedItemsToGround } from './surface-group-move.js';
 import { getItemGroundHeight } from '../engine/physics.js';
@@ -166,6 +167,18 @@ export function ensureCoreAdminPrefabs() {
     label: 'Flocão de Milho 500g',
     category: 'tools',
     factory: (ctx, opts) => makeFlocao500g(ctx, opts.id || ('dyn_flocao_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('ampoule_case', {
+    label: 'Maleta Porta-Ampolas 3ML (50 Vagas)',
+    category: 'equipment',
+    factory: (ctx, opts) => makeAmpouleCase(ctx, opts.id || ('dyn_ampoule_case_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
+  });
+
+  registerItemPrefab('vial_3ml', {
+    label: 'Ampola 3ML',
+    category: 'glassware',
+    factory: (ctx, opts) => makeVial3ml(ctx, opts.id || ('dyn_vial3ml_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
   });
 }
 

@@ -1,4 +1,4 @@
-import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
+import { registerPickable, updateItemBounds, isSurfaceOccupied, attachSurfaceOwner } from './item-registry.js';
 import { PETRI_DISH_RADIUS } from './petri-dish.js';
 import { updateCultureLiquidLabel } from './liquid-culture.js';
 import { stepCultureShelfLife, stepCultureTemperature } from './culture-lifecycle.js';
@@ -67,6 +67,12 @@ function updateShelfSurfaces(fridge) {
     surface.minZ = Math.min(z0, z1, z2, z3);
     surface.maxZ = Math.max(z0, z1, z2, z3);
     surface.topY = pos.y + surface.localTopY;
+    const midZ = (minZ + maxZ) * 0.5;
+    surface.centerX = pos.x + midZ * sin;
+    surface.centerZ = pos.z + midZ * cos;
+    surface.halfW = (maxX - minX) * 0.5;
+    surface.halfD = (maxZ - minZ) * 0.5;
+    surface.ry = fridge.mesh.rotation.y || 0;
   }
 }
 
@@ -245,6 +251,7 @@ function getAnyRefrigeratableCtrl(item) {
   if (item.spawnCtrl) return item.spawnCtrl;
   if (item.syringeCtrl) return item.syringeCtrl;
   if (item.pdaMediumCtrl) return item.pdaMediumCtrl;
+  if (item.cultureCtrl) return item.cultureCtrl;
   return null;
 }
 
@@ -426,6 +433,11 @@ export function makeCultureFridge(ctx, id, x, y, z) {
       minX: x - 0.34, maxX: x + 0.34,
       minZ: z - 0.285, maxZ: z + 0.275,
       topY: y + shelfTop,
+      centerX: x,
+      centerZ: z - 0.005,
+      halfW: 0.34,
+      halfD: 0.28,
+      ry: 0,
       localMinX: -0.34, localMaxX: 0.34,
       localMinZ: -0.285, localMaxZ: 0.275,
       localTopY: shelfTop,
@@ -542,5 +554,9 @@ export function makeCultureFridge(ctx, id, x, y, z) {
   item.fridgeCtrl = fridgeCtrl;
   fridgeCtrl.solidCollider = solidCollider;
   fridgeCtrl.item = item;
+  for (let sfi = 0; sfi < shelfSurfaces.length; sfi++) {
+    attachSurfaceOwner(shelfSurfaces[sfi], item);
+  }
+  updateShelfSurfaces(item);
   return item;
 }

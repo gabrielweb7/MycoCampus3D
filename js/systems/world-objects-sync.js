@@ -377,12 +377,17 @@ export function getReplicatedItemState(sim, item) {
     };
   }
   if (item.bowlCtrl) {
+    const ing = item.bowlCtrl.ingredients || {};
     state.bowl = {
       ingredients: {
-        flocao: Math.round(item.bowlCtrl.ingredients.flocao || 0),
-        water: Math.round(item.bowlCtrl.ingredients.water || 0),
-        corn: Math.round(item.bowlCtrl.ingredients.corn || 0),
-        sawdust: Math.round(item.bowlCtrl.ingredients.sawdust || 0)
+        flocao: Math.round(ing.flocao || 0),
+        water: Math.round(ing.water || 0),
+        corn: Math.round(ing.corn || 0),
+        wheat: Math.round(ing.wheat || 0),
+        sorghum: Math.round(ing.sorghum || 0),
+        vermiculite: Math.round(ing.vermiculite || 0),
+        coco: Math.round(ing.coco || 0),
+        sawdust: Math.round(ing.sawdust || 0)
       },
       mixed: !!item.bowlCtrl.mixed,
       stirCount: Math.max(0, Math.min(3, item.bowlCtrl.stirCount || 0))
@@ -641,16 +646,19 @@ export function applyReplicatedItemState(sim, item, state) {
     };
   }
   if (item.bowlCtrl && state.bowl && typeof state.bowl === 'object') {
-    const ingredients = state.bowl.ingredients || {};
-    ['flocao', 'water', 'corn', 'wheat', 'sorghum', 'vermiculite', 'coco', 'sawdust'].forEach(function (key) {
-      const value = ingredients[key];
-      item.bowlCtrl.ingredients[key] = typeof value === 'number' && Number.isFinite(value)
-        ? Math.max(0, Math.min(5000, value))
-        : 0;
-    });
-    if (typeof state.bowl.mixed === 'boolean') item.bowlCtrl.mixed = state.bowl.mixed;
-    if (typeof state.bowl.stirCount === 'number') item.bowlCtrl.stirCount = Math.max(0, Math.min(3, state.bowl.stirCount));
-    updateMixingBowlLabel(item);
+    const recentBowlEdit = item.movedAt && (performance.now() - item.movedAt) < 2500;
+    if (!recentBowlEdit) {
+      const ingredients = state.bowl.ingredients || {};
+      ['flocao', 'water', 'corn', 'wheat', 'sorghum', 'vermiculite', 'coco', 'sawdust'].forEach(function (key) {
+        const value = ingredients[key];
+        item.bowlCtrl.ingredients[key] = typeof value === 'number' && Number.isFinite(value)
+          ? Math.max(0, Math.min(5000, value))
+          : 0;
+      });
+      if (typeof state.bowl.mixed === 'boolean') item.bowlCtrl.mixed = state.bowl.mixed;
+      if (typeof state.bowl.stirCount === 'number') item.bowlCtrl.stirCount = Math.max(0, Math.min(3, state.bowl.stirCount));
+      updateMixingBowlLabel(item);
+    }
   }
   if (item.scalpelCtrl && state.scalpel && typeof state.scalpel === 'object') {
     ['hasBlade', 'sterile', 'hasMycelium', 'bladeContaminated', 'cutContaminated'].forEach(function (key) {
@@ -1053,10 +1061,9 @@ export function resetCampusWorldObjects(sim) {
       updateSyringeVolume(item, 0);
     }
     if (item.bowlCtrl) {
-      item.bowlCtrl.ingredients.flocao = 0;
-      item.bowlCtrl.ingredients.water = 0;
-      item.bowlCtrl.ingredients.corn = 0;
-      item.bowlCtrl.ingredients.sawdust = 0;
+      ['flocao', 'water', 'corn', 'wheat', 'sorghum', 'vermiculite', 'coco', 'sawdust'].forEach((k) => {
+        item.bowlCtrl.ingredients[k] = 0;
+      });
       item.bowlCtrl.mixed = false;
       item.bowlCtrl.stirCount = 0;
       updateMixingBowlLabel(item);

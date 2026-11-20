@@ -175,6 +175,80 @@ function getCachedSpeciesMat(colorHex, roughness, metalness, emissiveHex, emissi
   return m;
 }
 
+const EXTRA_CULTURE_PROFILES = [
+  { match: 'penis envy', scientific: 'Pleurotus eryngii envy', capColor: 0xe7c697, stemColor: 0xfef3c7, shape: 'king_oyster', isMagic: true },
+  { match: 'jack frost', scientific: 'Psilocybe cubensis frost', capColor: 0xe0f2fe, stemColor: 0xf0f9ff, shape: 'cubensis', isMagic: true, glow: true },
+  { match: 'avery', scientific: 'Psilocybe cubensis albino', capColor: 0xf8fafc, stemColor: 0xffffff, shape: 'cubensis', isMagic: true },
+  { match: 'golden teacher', scientific: 'Psilocybe cubensis', capColor: 0xd97706, stemColor: 0xfef3c7, shape: 'cubensis', isMagic: true },
+  { match: 'b+ cubensis', scientific: 'Psilocybe cubensis', capColor: 0xc27838, stemColor: 0xfef3c7, shape: 'cubensis', isMagic: true },
+  { match: 'cambodian', scientific: 'Psilocybe cubensis', capColor: 0xeab308, stemColor: 0xfef3c7, shape: 'cubensis', isMagic: true },
+  { match: 'blue meanie', scientific: 'Panaeolus cyanescens', capColor: 0xcbd5e1, stemColor: 0xe0f2fe, shape: 'enoki', isMagic: true },
+  { match: 'azurescens', scientific: 'Cantharellus azurescens', capColor: 0xb45309, stemColor: 0xdbeafe, shape: 'funnel', isMagic: true },
+  { match: 'cordyceps', scientific: 'Cordyceps militaris', capColor: 0xf97316, stemColor: 0xfb923c, shape: 'cordyceps', isMagic: false },
+  { match: 'neon', scientific: 'Mycena chlorophos', capColor: 0x4ade80, stemColor: 0xbbf7d0, shape: 'enoki', isMagic: false, glow: true },
+  { match: 'chlorophos', scientific: 'Mycena chlorophos', capColor: 0x4ade80, stemColor: 0xbbf7d0, shape: 'enoki', isMagic: false, glow: true },
+  { match: 'azul', scientific: 'Lactarius indigo', capColor: 0x2563eb, stemColor: 0x93c5fd, shape: 'funnel', isMagic: false },
+  { match: 'indigo', scientific: 'Lactarius indigo', capColor: 0x2563eb, stemColor: 0x93c5fd, shape: 'funnel', isMagic: false },
+  { match: 'coral roxo', scientific: 'Ramaria zollingeri', capColor: 0x9333ea, stemColor: 0xc084fc, shape: 'coral', isMagic: false },
+  { match: 'clavaria', scientific: 'Ramaria zollingeri', capColor: 0x9333ea, stemColor: 0xc084fc, shape: 'coral', isMagic: false },
+  { match: 'carmim', scientific: 'Cookeina speciosa', capColor: 0xf43f5e, stemColor: 0xfda4af, shape: 'cup', isMagic: false },
+  { match: 'morel', scientific: 'Morchella esculenta', capColor: 0xb45309, stemColor: 0xfef3c7, shape: 'morel', isMagic: false },
+  { match: 'chanterelle', scientific: 'Cantharellus cibarius', capColor: 0xfacc15, stemColor: 0xfef08a, shape: 'funnel', isMagic: false },
+  { match: 'cantarelo', scientific: 'Cantharellus cibarius', capColor: 0xfacc15, stemColor: 0xfef08a, shape: 'funnel', isMagic: false },
+  { match: 'juba', scientific: 'Hericium erinaceus', capColor: 0xf8fafc, stemColor: 0xf1f5f9, shape: 'lions_mane', isMagic: false },
+  { match: 'eryngii', scientific: 'Pleurotus eryngii', capColor: 0xd6b588, stemColor: 0xf5f5f4, shape: 'king_oyster', isMagic: false },
+  { match: 'enoki', scientific: 'Flammulina velutipes', capColor: 0xf8fafc, stemColor: 0xfef3c7, shape: 'enoki', isMagic: false },
+  { match: 'reishi', scientific: 'Ganoderma lucidum', capColor: 0xb91c1c, stemColor: 0xfef3c7, shape: 'shelf', isMagic: false, glossy: true },
+  { match: 'cauda de peru', scientific: 'Trametes versicolor', capColor: 0x0ea5e9, stemColor: 0xfef3c7, shape: 'shelf', isMagic: false },
+  { match: 'shimeji rosa', scientific: 'Pleurotus djamor', capColor: 0xfb7185, stemColor: 0xfbcfe8, shape: 'shelf', isMagic: false },
+  { match: 'salm', scientific: 'Pleurotus djamor', capColor: 0xfb7185, stemColor: 0xfbcfe8, shape: 'shelf', isMagic: false },
+  { match: 'shimeji dourado', scientific: 'Pleurotus citrinopileatus', capColor: 0xfacc15, stemColor: 0xfef9c3, shape: 'shelf', isMagic: false },
+  { match: 'shimeji branco', scientific: 'Pleurotus ostreatus', capColor: 0xf1f5f9, stemColor: 0xf8fafc, shape: 'shelf', isMagic: false },
+  { match: 'shiitake', scientific: 'Lentinula edodes', capColor: 0x78350f, stemColor: 0xfef3c7, shape: 'classic', isMagic: false }
+];
+
+export function getMushroomVisualProfile(speciesName) {
+  const s = String(speciesName || '').toLowerCase();
+  for (let i = 0; i < EXTRA_CULTURE_PROFILES.length; i++) {
+    const p = EXTRA_CULTURE_PROFILES[i];
+    if (s.includes(p.match)) return p;
+  }
+  const allLists = [WOOD_SPECIES, FOREST_SPECIES, PASTURE_SPECIES];
+  for (let li = 0; li < allLists.length; li++) {
+    const arr = allLists[li];
+    for (let j = 0; j < arr.length; j++) {
+      const [sci, ptName, capColor, stemColor] = arr[j];
+      if (s.includes(sci.toLowerCase()) || s.includes(ptName.toLowerCase())) {
+        return {
+          scientific: sci,
+          capColor,
+          stemColor,
+          shape: getSpeciesShape({ scientific: sci }),
+          isMagic: sci.indexOf('Psilocybe') !== -1 || sci.indexOf('Panaeolus') !== -1
+        };
+      }
+    }
+  }
+  return {
+    scientific: 'Psilocybe cubensis',
+    capColor: 0xd97706,
+    stemColor: 0xfef3c7,
+    shape: 'cubensis',
+    isMagic: s.includes('cubensis') || s.includes('psilocybe') || s.includes('panaeolus') || !s
+  };
+}
+
+export function createMushroomMeshBySpeciesName(speciesName, scale = 0.085) {
+  const prof = getMushroomVisualProfile(speciesName);
+  const spec = {
+    scientific: prof.scientific || 'Psilocybe cubensis',
+    capColor: prof.capColor,
+    stemColor: prof.stemColor,
+    scale
+  };
+  return makeSpeciesMushroomMesh(spec).g;
+}
+
 function getSpeciesShape(spec) {
   const n = spec.scientific;
   if (n.indexOf('Hericium') !== -1) return 'lions_mane';

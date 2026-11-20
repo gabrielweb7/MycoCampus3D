@@ -29,18 +29,28 @@ const SPECIES_PRESETS = [
 export function inferKindFromSpecies(speciesName) {
   const s = String(speciesName || '').toLowerCase();
   if (s.includes('juba') || s.includes('hericium') || s.includes('lion')) return 'lion';
-  if (s.includes('shimeji') || s.includes('pleurotus') || s.includes('ostra')) return 'shimeji';
-  if (s.includes('cubensis') || s.includes('golden') || s.includes('psilocybe')) return 'gt';
+  if (s.includes('shimeji') || s.includes('pleurotus') || s.includes('ostra') || s.includes('reishi') || s.includes('cauda de peru')) return 'shimeji';
+  if (s.includes('cubensis') || s.includes('golden') || s.includes('psilocybe') || s.includes('penis envy') || s.includes('jack frost') || s.includes('avery') || s.includes('blue meanie')) return 'gt';
   return 'shiitake';
 }
 
 export function inferColorFromSpecies(speciesName) {
   const s = String(speciesName || '').toLowerCase();
-  if (s.includes('dourad')) return 0xfacc15;
+  if (s.includes('jack frost')) return 0xe0f2fe;
+  if (s.includes('avery')) return 0xf8fafc;
+  if (s.includes('penis envy')) return 0xe7c697;
+  if (s.includes('blue meanie')) return 0xcbd5e1;
+  if (s.includes('cordyceps')) return 0xf97316;
+  if (s.includes('neon') || s.includes('chlorophos')) return 0x4ade80;
+  if (s.includes('azul') || s.includes('indigo')) return 0x2563eb;
+  if (s.includes('coral roxo') || s.includes('clavaria')) return 0x9333ea;
+  if (s.includes('carmim') || s.includes('cookeina')) return 0xf43f5e;
+  if (s.includes('cauda de peru')) return 0x0ea5e9;
+  if (s.includes('dourad') || s.includes('chanterelle')) return 0xfacc15;
   if (s.includes('salm') || s.includes('rosa') || s.includes('djamor')) return 0xfb7185;
-  if (s.includes('branc') || s.includes('juba') || s.includes('hericium')) return 0xf8fafc;
+  if (s.includes('branc') || s.includes('juba') || s.includes('hericium') || s.includes('enoki')) return 0xf8fafc;
   if (s.includes('reishi') || s.includes('ganoderma') || s.includes('amanita')) return 0xdc2626;
-  if (s.includes('cubensis') || s.includes('golden')) return 0xd97706;
+  if (s.includes('cubensis') || s.includes('golden') || s.includes('azurescens') || s.includes('morel')) return 0xd97706;
   return 0x854d0e;
 }
 
