@@ -10,6 +10,7 @@ let companion = null;
 let ownerId = null;
 const bowls = { food: null, water: null };
 const BOWL_KINDS = ['food', 'water'];
+const STAY_RADIUS = 4;
 const remotePets = new Map();
 let remoteSnapshots = [];
 let remoteSnapshotIds = new Set();
@@ -212,23 +213,35 @@ export function stepPets(ctx, dt) {
   if (ownerId !== user.id) { removeAll(); ownerId = user.id; }
   updateBowl(ctx, 'food', state.bowls?.food);
   updateBowl(ctx, 'water', state.bowls?.water);
+  const anchor = state.mode === 'stay' ? state.anchor : null;
   if (companion?.id !== state.selected) {
     if (companion?.group.parent) companion.group.parent.remove(companion.group);
     companion = state.selected ? createAnimal(state.selected) : null;
     if (companion) {
-      companion.group.position.set(ctx.playerPos.x + 1, ctx.playerPos.y, ctx.playerPos.z + 1);
+      if (anchor) companion.group.position.set(anchor.x, anchor.y, anchor.z);
+      else companion.group.position.set(ctx.playerPos.x + 1, ctx.playerPos.y, ctx.playerPos.z + 1);
       ctx.scene.add(companion.group);
     }
   }
   if (!companion || !ctx.inFps) return;
   const pet = companion;
   const pos = pet.group.position;
+  if (pet.anchor !== anchor) {
+    const previous = pet.anchor;
+    pet.anchor = anchor;
+    if (!anchor || !previous || previous.x !== anchor.x || previous.z !== anchor.z || previous.y !== anchor.y) {
+      pet.roamTimer = 0;
+    }
+  }
+  if (anchor && (Math.hypot(pos.x - anchor.x, pos.z - anchor.z) > STAY_RADIUS || Math.abs(pos.y - anchor.y) > 2)) {
+    pos.set(anchor.x, anchor.y, anchor.z);
+  }
   const now = Date.now();
   const food = state.bowls?.food;
   const water = state.bowls?.water;
   let need = null;
-  if (pet.id.startsWith('cat_') && food?.full && food.pos && (state.next_food?.[pet.id] || 0) * 1000 <= now) need = 'food';
-  else if (water?.full && water.pos && (state.next_water?.[pet.id] || 0) * 1000 <= now) need = 'water';
+  if (pet.id.startsWith('cat_') && food?.full && canReachBowlFromAnchor(food.pos, anchor) && (state.next_food?.[pet.id] || 0) * 1000 <= now) need = 'food';
+  else if (water?.full && canReachBowlFromAnchor(water.pos, anchor) && (state.next_water?.[pet.id] || 0) * 1000 <= now) need = 'water';
   let tx, tz, stop;
   if (need) {
     const target = state.bowls[need].pos;
@@ -239,10 +252,10 @@ export function stepPets(ctx, dt) {
     pet.roamTimer -= dt;
     if (pet.roamTimer <= 0) {
       pet.roamTimer = 5 + Math.random() * 8;
-      const nearOwner = Math.random() < 0.38 || Math.hypot(pos.x - ctx.playerPos.x, pos.z - ctx.playerPos.z) > 18;
-      const base = nearOwner ? ctx.playerPos : pos;
+      const nearOwner = !anchor && (Math.random() < 0.38 || Math.hypot(pos.x - ctx.playerPos.x, pos.z - ctx.playerPos.z) > 18);
+      const base = anchor || (nearOwner ? ctx.playerPos : pos);
       const a = Math.random() * Math.PI * 2;
-      const r = nearOwner ? 1.6 + Math.random() * 2 : 2 + Math.random() * 4;
+      const r = anchor ? 0.7 + Math.random() * 2.4 : (nearOwner ? 1.6 + Math.random() * 2 : 2 + Math.random() * 4);
       pet.targetX = base.x + Math.cos(a) * r;
       pet.targetZ = base.z + Math.sin(a) * r;
     }
@@ -251,6 +264,11 @@ export function stepPets(ctx, dt) {
   if (!need && state.mode === 'follow' && Math.hypot(pos.x - ctx.playerPos.x, pos.z - ctx.playerPos.z) > 30) {
     pos.set(ctx.playerPos.x + 1, ctx.playerPos.y, ctx.playerPos.z + 1);
     clampPosAgainstWalls(ctx.physCtx, pos, 0.23);
+    if (anchor && Math.hypot(pos.x - anchor.x, pos.z - anchor.z) > STAY_RADIUS) {
+      pos.x = oldX;
+      pos.z = oldZ;
+      pet.roamTimer = 0;
+    }
     pos.y = getGroundHeight(ctx.physCtx, pos.x, pos.z, ctx.playerPos.y, null, ctx.playerPos.y + 0.5);
   }
   const dx = tx - pos.x, dz = tz - pos.z;
@@ -271,7 +289,7 @@ export function stepPets(ctx, dt) {
     else pet.stuck = Math.max(0, pet.stuck - dt);
     if (pet.stuck > 0.7) { pet.sidestep = 2; pet.stuck = 0; }
     else pet.sidestep = Math.max(0, pet.sidestep - dt);
-    if (Math.hypot(pos.x - oldX, pos.z - oldZ) < 0.001 && state.mode === 'roam' && !need) pet.roamTimer = 0;
+    if (Math.hypot(pos.x - oldX, pos.z - oldZ) < 0.001 && state.mode !== 'follow' && !need) pet.roamTimer = 0;
     pos.y = getGroundHeight(ctx.physCtx, pos.x, pos.z, pos.y, null, pos.y + 0.5);
     pet.group.rotation.y = Math.atan2(dx, dz);
     pet.phase += dt * (speed > 2 ? 12 : 7);
@@ -302,4 +320,8 @@ export function stepPets(ctx, dt) {
     pet.body.rotation.x = 0.13;
     pet.legs[0].rotation.x = -0.6; pet.legs[2].rotation.x = -0.6;
   } else pet.body.rotation.x = 0;
+}
+
+function canReachBowlFromAnchor(pos, anchor) {
+  return pos && (!anchor || (Math.hypot(pos.x - anchor.x, pos.z - anchor.z) < STAY_RADIUS && Math.abs(pos.y - anchor.y) < 1.1));
 }

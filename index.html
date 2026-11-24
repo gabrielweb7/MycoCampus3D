@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.6.0">
+  <link rel="stylesheet" href="css/game.css?v=2.7.0">
 </head>
 
 <body>
@@ -202,7 +202,7 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.6.0</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.7.0</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -238,23 +238,9 @@
         <span class="hidden sm:inline text-sky-300 font-bold" title="Jogadores Online">🌐 <span id="hud-online">1</span></span>
 
         <!-- Primary quick actions (always visible on mobile & desktop, compact so it never overflows) -->
-        <button id="btn-hud-clock" type="button" title="Ciclo Dia/Noite & Temperatura Externa (Clique para alternar horário)"
-          class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-indigo-950/75 hover:bg-indigo-800 text-amber-200 font-bold border border-indigo-400/50 flex items-center gap-1 whitespace-nowrap">☀️ 12:00 • 🌡️ 25,0°C</button>
         <button id="btn-open-map" type="button" title="Mapa & Teleporte Rápido" data-i18n-title="hud.map_title" data-i18n-aria="hud.map_title"
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️
           <span class="hidden sm:inline" data-i18n="hud.map">Mapa</span></button>
-        <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório" data-i18n-title="hud.quest_title" data-i18n-aria="hud.quest_title"
-          class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪
-          <span class="hidden sm:inline" data-i18n="hud.quest">Missão</span> <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/8</span></button>
-        <button id="btn-open-shop" type="button" title="Loja de Cosméticos, Chapéus & Brinquedos" data-i18n-title="hud.shop_title"
-          class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
-          <span data-i18n="hud.shop">Loja</span></button>
-        <button id="btn-quality" type="button" title="Qualidade Gráfica (clique para alternar)" data-i18n-title="hud.quality_title"
-          class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 font-bold border border-cyan-500/40 whitespace-nowrap">⚡
-          Alto</button>
-        <button id="btn-fullscreen" type="button" title="Tela Cheia (Fullscreen)" data-i18n-title="hud.fullscreen_title" data-i18n-aria="hud.fullscreen_title"
-          class="hud-pill-btn px-1.5 sm:px-2.5 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40 flex items-center gap-1">⛶
-          <span class="hidden sm:inline" data-i18n="hud.fullscreen">Tela Cheia</span></button>
 
         <!-- Mobile menu toggle (visible only on mobile) -->
         <button id="btn-mobile-menu" type="button" title="Menu de Funções" data-i18n-title="hud.menu_title" data-i18n-aria="hud.menu_title"
@@ -264,6 +250,20 @@
 
         <!-- Secondary tools: inline on desktop, dropdown card on mobile -->
         <div id="hud-secondary-tools" class="hud-secondary-tools">
+          <button id="btn-hud-clock" type="button" title="Ciclo Dia/Noite & Temperatura Externa (Clique para alternar horário)"
+            class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-indigo-950/75 hover:bg-indigo-800 text-amber-200 font-bold border border-indigo-400/50 flex items-center gap-1 whitespace-nowrap">☀️ 12:00 • 🌡️ 25,0°C</button>
+          <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório" data-i18n-title="hud.quest_title" data-i18n-aria="hud.quest_title"
+            class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪
+            <span data-i18n="hud.quest">Missão</span> <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/8</span></button>
+          <button id="btn-open-shop" type="button" title="Loja de Cosméticos, Chapéus & Brinquedos" data-i18n-title="hud.shop_title"
+            class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
+            <span data-i18n="hud.shop">Loja</span></button>
+          <button id="btn-quality" type="button" title="Qualidade Gráfica (clique para alternar)" data-i18n-title="hud.quality_title"
+            class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 font-bold border border-cyan-500/40 whitespace-nowrap">⚡
+            Alto</button>
+          <button id="btn-fullscreen" type="button" title="Tela Cheia (Fullscreen)" data-i18n-title="hud.fullscreen_title" data-i18n-aria="hud.fullscreen_title"
+            class="hud-pill-btn px-1.5 sm:px-2.5 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold border border-slate-600/40 flex items-center gap-1">⛶
+            <span data-i18n="hud.fullscreen">Tela Cheia</span></button>
           <button id="btn-open-lessons" type="button" title="Módulos & Aulas Teóricas" data-i18n="hud.lessons" data-i18n-title="hud.lessons_title"
             class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">📚 Aulas</button>
           <button id="btn-open-ranking" type="button" title="Ranking Geral de Alunos" data-i18n="hud.ranking" data-i18n-title="hud.ranking_title"
@@ -290,9 +290,12 @@
         </div>
       </div>
       <div id="quick-inventory" class="hidden" role="group" aria-label="Inventário rápido">
-        <button type="button" data-pocket="0"><span class="inventory-key">5</span><span class="inventory-item">Vazio</span></button>
-        <button type="button" data-pocket="1"><span class="inventory-key">6</span><span class="inventory-item">Vazio</span></button>
-        <button type="button" data-pocket="2"><span class="inventory-key">7</span><span class="inventory-item">Vazio</span></button>
+        <button type="button" id="inventory-toggle" aria-expanded="false" aria-controls="inventory-pockets" data-i18n-aria="inventory.title">🎒 <span id="inventory-count">0</span></button>
+        <div id="inventory-pockets">
+          <button type="button" data-pocket="0"><span class="inventory-key">5</span><span class="inventory-item">Vazio</span></button>
+          <button type="button" data-pocket="1"><span class="inventory-key">6</span><span class="inventory-item">Vazio</span></button>
+          <button type="button" data-pocket="2"><span class="inventory-key">7</span><span class="inventory-item">Vazio</span></button>
+        </div>
       </div>
       <div id="hud-quick-actions" style="display:none!important;visibility:hidden!important;"></div>
     </div>
@@ -397,7 +400,6 @@
   <div id="mobile-actions">
     <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular">⬆️</button>
     <button id="btn-mobile-action" type="button" class="touch-btn" title="Ação pela mira central (segure para ações contínuas)" aria-label="Ação pela mira central" style="display:none">✋</button>
-    <button id="btn-mobile-sprint" type="button" class="touch-btn" title="Correr">🏃</button>
     <button id="btn-mobile-drop" type="button" class="touch-btn" title="Largar item no chão" style="display:none">⬇️</button>
     <button id="btn-mobile-place" type="button" class="touch-btn" title="Mover ou posicionar item" aria-label="Mover ou posicionar item" style="display:none">📦</button>
     <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
@@ -898,9 +900,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.6.0';</script>
+  <script>window.MYCO_VERSION = '2.7.0';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.6.0"></script>
+  <script type="module" src="js/main.js?v=2.7.0"></script>
 </body>
 
 </html>

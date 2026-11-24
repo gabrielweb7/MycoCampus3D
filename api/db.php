@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 15;
+const MC_SCHEMA_VERSION = 16;
 const MC_TOKEN_TTL_DAYS = 30;
 const MC_PETS = ['cat_orange', 'cat_black', 'cat_calico', 'dog_golden', 'dog_husky', 'dog_pug'];
 
@@ -79,6 +79,14 @@ function mc_migrate(PDO $pdo): void {
 
     if ($version < MC_SCHEMA_VERSION) {
         mc_run_schema_file($pdo);
+
+        if ($version < 16) {
+            $pdo->query('SELECT lot_id, owner_id, expires_at, lease_epoch FROM mc_village_lots LIMIT 0');
+            $pdo->query('SELECT item_id, owner_id, lot_id, lease_epoch FROM mc_village_items LIMIT 0');
+            $pdo->query('SELECT item_id, owner_id, pickup_at, paid FROM mc_village_sales LIMIT 0');
+            $pdo->query('SELECT owner_id, body FROM mc_village_notes LIMIT 0');
+            $pdo->exec('INSERT IGNORE INTO mc_village_lots (lot_id) VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10)');
+        }
 
         if ($version < 15) {
             $petColumn = $pdo->query("SHOW COLUMNS FROM mc_sessions LIKE 'pet_json'")->fetch();
@@ -300,4 +308,16 @@ function mc_is_admin(array $user): bool {
 
 function mc_is_professor(array $user): bool {
     return in_array((string)$user['role'], ['professor', 'admin'], true);
+}
+
+function mc_clean_pet_position($position): ?array {
+    if (!is_array($position)) return null;
+    $point = [];
+    foreach (['x' => 500, 'y' => 180, 'z' => 500] as $axis => $limit) {
+        if (!is_numeric($position[$axis] ?? null)) return null;
+        $value = (float)$position[$axis];
+        if (!is_finite($value) || abs($value) > $limit) return null;
+        $point[$axis] = $value;
+    }
+    return $point;
 }

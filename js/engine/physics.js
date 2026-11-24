@@ -3,6 +3,7 @@
  */
 import { makeBox } from './textures.js';
 import { isPointInBoundsXZ } from '../items/item-registry.js';
+import { villageDistance } from '../core/village-layout.js';
 
 export function terrainHeight(x, z) {
   const distCenter = Math.max(Math.abs(x) - 76, Math.abs(z - 1) - 50);
@@ -18,6 +19,11 @@ export function terrainHeight(x, z) {
   }
 
   const hills = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 2.4 + Math.sin(x * 0.11 + z * 0.09) * 0.7;
+  if (z > 40) {
+    const t = Math.min(1, villageDistance(x, z) / 10);
+    if (t === 0) return 0;
+    return (blend * hills + mtn) * t * t * (3 - 2 * t);
+  }
   return blend * hills + mtn;
 }
 

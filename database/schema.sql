@@ -35,6 +35,39 @@ CREATE TABLE IF NOT EXISTS mc_coin_operations (
     PRIMARY KEY (user_id, operation_id)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS mc_village_lots (
+    lot_id TINYINT UNSIGNED PRIMARY KEY,
+    owner_id INT NULL,
+    expires_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    lease_epoch BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    INDEX idx_village_owner (owner_id, expires_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS mc_village_items (
+    item_id VARCHAR(64) PRIMARY KEY,
+    owner_id INT NOT NULL,
+    lot_id TINYINT UNSIGNED NULL,
+    lease_epoch BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    INDEX idx_village_item_owner (owner_id, lot_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_village_sales (
+    item_id VARCHAR(64) PRIMARY KEY,
+    owner_id INT NOT NULL,
+    lot_id TINYINT UNSIGNED NOT NULL,
+    pickup_at BIGINT UNSIGNED NOT NULL,
+    price INT UNSIGNED NOT NULL,
+    paid TINYINT(1) NOT NULL DEFAULT 0,
+    INDEX idx_village_sale_due (paid, pickup_at),
+    INDEX idx_village_sale_owner (owner_id, paid, pickup_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_village_notes (
+    owner_id INT PRIMARY KEY,
+    body TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS mc_auth_tokens (
     token_hash CHAR(64) PRIMARY KEY,
     user_id INT NOT NULL,

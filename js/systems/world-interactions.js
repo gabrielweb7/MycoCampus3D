@@ -14,6 +14,8 @@ import { registerPickable } from '../items/item-registry.js';
 import { interactGardenTarget } from '../world/campus-garden.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
 import { createMushroomMeshBySpeciesName } from '../world/mushroom-species.js';
+import { terrainHeight } from '../engine/physics.js';
+import { t } from '../core/i18n.js';
 
 function createPersistedMushroomMesh(speciesName, isMagic) {
   const THREE = window.THREE;
@@ -71,6 +73,54 @@ export function spawnPersistedWildMushroom(ctx, pickedId, wildState) {
   return mItem;
 }
 
+async function claimWildMushroom(ctx, mushroom) {
+  if (mushroom.claimPending || !ctx.callbacks?.onHarvestMushroom) return;
+  const species = mushroom.capMesh?.userData.speciesName || 'Cogumelo Selvagem';
+  const sourcePos = mushroom.group.getWorldPosition(new window.THREE.Vector3());
+  const x = mushroom.worldX ?? sourcePos.x;
+  const z = mushroom.worldZ ?? sourcePos.z;
+  const pos = { x, y: terrainHeight(x, z) + 0.02, z };
+  if (Math.hypot(x - ctx.playerPos.x, z - ctx.playerPos.z) > 5) return;
+  if (!mushroom.claimOperationId) {
+    const bytes = crypto.getRandomValues(new Uint8Array(12));
+    const suffix = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+    mushroom.claimOperationId = 'harvest_' + mushroom.id + '_' + suffix;
+  }
+  mushroom.claimPending = true;
+  try {
+    const reply = await ctx.callbacks.onHarvestMushroom(mushroom.id, { species, pos }, mushroom.claimOperationId);
+    if (!reply?.ok) {
+      ctx.callbacks.onToast?.(t('harvest.pending'));
+      return;
+    }
+    mushroom.claimOperationId = null;
+    if (!reply.awarded || !reply.picked_id) {
+      ctx.callbacks.onToast?.(t('harvest.unavailable'));
+      return;
+    }
+    mushroom.active = false;
+    mushroom.group.visible = false;
+    mushroom.respawnAt = performance.now() + 20000;
+    const disc = registerDiscoveredSpecies(species);
+    if (!reply.replayed && !ctx.heldItem && Math.hypot(x - ctx.playerPos.x, z - ctx.playerPos.z) < 5) {
+      const isMagic = mushroom.id.startsWith('wild_poop_') || /Psilocybe|Panaeolus/i.test(species);
+      const item = ctx.findPickable?.(reply.picked_id) || spawnPersistedWildMushroom(ctx, reply.picked_id, { speciesName: species, isMagic, grams: 10 });
+      item.mesh.position.set(pos.x, pos.y, pos.z);
+      item.wildMushroomCtrl.bodyGroup.rotation.z = 0;
+      item.wildMushroomCtrl.bodyGroup.position.y = 0;
+      ctx.heldItem = item;
+      ctx.lastPickupAt = performance.now();
+      ctx.callbacks.onHoldChange?.(item.label);
+    }
+    window.MycoAudio?.playHarvest?.();
+    const summary = disc.isNew ? ' (' + disc.list.length + '/100)' : '';
+    ctx.callbacks.onToast?.('🍄 ' + species + summary);
+    ctx.notifyWorldAction?.();
+  } finally {
+    mushroom.claimPending = false;
+  }
+}
+
 export function isSeatOccupied(remoteAvatars, seat) {
   if (!seat) return false;
   for (const avId in remoteAvatars) {
@@ -95,6 +145,10 @@ export function handleWorldInteraction(ctx) {
   if (ctx.hoveredSportBall) {
     return grabSportBall(ctx, ctx.hoveredSportBall);
   }
+  if (!ctx.heldItem && ctx.hoveredVillageLot) {
+    ctx.callbacks?.onOpenVillageLot?.(ctx.hoveredVillageLot);
+    return true;
+  }
   if (ctx.hoveredGreenhouseDevice) {
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks && ctx.callbacks.onOpenGreenhouseModal) {
@@ -116,58 +170,7 @@ export function handleWorldInteraction(ctx) {
       }
       return true;
     }
-    const wm = ctx.hoveredMushroom;
-    wm.active = false;
-    wm.group.visible = false;
-    wm.respawnAt = performance.now() + 20000;
-    ctx.queueWorldStateChange(wm.id, 0);
-    if (window.MycoAudio) window.MycoAudio.playHarvest();
-    const spName = (wm.capMesh && wm.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
-    const disc = registerDiscoveredSpecies(spName);
-    const isMagic = (wm.id && wm.id.indexOf('wild_poop_') === 0) ||
-      spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1;
-
-    const cloned = wm.group.clone();
-    cloned.visible = true;
-    cloned.position.set(0, 0, 0);
-    cloned.rotation.set(0, 0, 0);
-    cloned.traverse((ch) => {
-      ch.matrixAutoUpdate = true;
-      ch.updateMatrix();
-    });
-    cloned.updateMatrixWorld(true);
-    const mBox = new THREE.Box3().setFromObject(cloned);
-    const mCenter = new THREE.Vector3();
-    const mSize = new THREE.Vector3();
-    mBox.getCenter(mCenter);
-    mBox.getSize(mSize);
-    cloned.position.set(-mCenter.x, -mBox.min.y, -mCenter.z);
-
-    const bodyGroup = new THREE.Group();
-    bodyGroup.add(cloned);
-
-    const heldGroup = new THREE.Group();
-    heldGroup.add(bodyGroup);
-    const normScale = mSize.y > 0.01 ? Math.max(0.55, Math.min(2.2, 0.24 / mSize.y)) : 0.65;
-    heldGroup.scale.setScalar(normScale);
-
-    const sideRestY = Math.max(0.03, mSize.x * 0.5);
-    const pickedId = 'wild_picked_' + Date.now().toString(36);
-    const mItem = registerPickable(ctx, pickedId, '🍄 ' + spName, heldGroup, 0, 0, 0, 0, 0.14, 0.20, {
-      category: 'specimen',
-      purpose: 'Comer ou levar ao Fluxo Laminar para clonar com bisturi',
-      weightGrams: 18,
-      compatibilities: { canEnterCooker: false }
-    });
-    mItem.wildMushroomCtrl = { speciesName: spName, isMagic, bodyGroup, sideRestY };
-    ctx.heldItem = mItem;
-    ctx.lastPickupAt = performance.now();
-    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(mItem.label);
-    if (ctx.callbacks.onHarvestMushroom) ctx.callbacks.onHarvestMushroom(wm.id);
-    if (ctx.callbacks.onToast) {
-      const micMsg = disc.isNew ? ` (Nova na Micoteca: ${disc.list.length}/100!)` : '';
-      ctx.callbacks.onToast(`🍄 Colheu ${spName}${micMsg}! Coma ou leve ao Lab para clonar.`);
-    }
+    claimWildMushroom(ctx, ctx.hoveredMushroom).catch(() => ctx.callbacks.onToast?.(t('harvest.pending')));
     return true;
   }
   if (ctx.hoveredDoorObj) {

@@ -21,6 +21,7 @@ import { gardenHitMeshes, gardenState } from '../world/campus-garden.js';
 import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
 import { getMonotubActionLabel } from '../items/monotub.js';
 import { telescopeHitMeshes } from '../world/plaza-telescope.js';
+import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -164,7 +165,7 @@ export function firstValidRayHit(hits) {
  * o centro do item esta distante da linha do raio.
  */
 function intersectPickableItem(raycaster, item) {
-  if (!item || !item.mesh) return null;
+  if (!item || !item.mesh || item.isReadOnly) return null;
   const ud = item.mesh.userData;
   const maxRadSq = (ud && (ud.isTable || ud.isHood || ud.isRack || item.fridgeCtrl)) ? 9.0 : 0.72;
   if (raycaster.ray.distanceSqToPoint(item.mesh.position) > maxRadSq) return null;
@@ -176,6 +177,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoverHit = null;
   ctx.hoveredPickable = null;
   ctx.hoveredMushroom = null;
+  ctx.hoveredVillageLot = null;
   ctx.hoveredDoorObj = null;
   ctx.hoveredBlindObj = null;
   ctx.hoveredBoardHit = null;
@@ -639,6 +641,14 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoverHit = cowHit;
       ctx.hoveredCow = cowHit.object.userData.cowObj;
       prompt = `🐄 ${ctx.hoveredCow.name} (Saúde ${ctx.hoveredCow.health}% • ${ctx.hoveredCow.mood}) • Clique para fazer carinho`;
+    }
+  }
+  if (!prompt && !ctx.heldItem && refZ >= 43 && refZ <= 97 && ctx.villageHitMeshes?.length) {
+    const hit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.villageHitMeshes, false), 4, { checkWalls: true });
+    if (hit) {
+      ctx.hoverHit = hit;
+      ctx.hoveredVillageLot = hit.object.userData.villageLot;
+      prompt = t('village.open_lot', { id: String(ctx.hoveredVillageLot).padStart(2, '0') });
     }
   }
   if (!prompt && refX > 11 && refX < 28 && refZ > -2 && refZ < 17) {

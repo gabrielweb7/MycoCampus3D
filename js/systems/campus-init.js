@@ -35,6 +35,7 @@ import {
   triggerGreenhouseVentPulse
 } from '../world/greenhouse.js';
 import { buildOuterCampus } from '../world/outer-campus.js';
+import { buildVillage } from '../world/village.js';
 import { ensureCoreAdminPrefabs } from './admin-editor.js';
 import { initConfettiSystem } from '../entities/confetti.js';
 import { buildFirstPersonArm } from '../entities/first-person-arm.js';
@@ -77,6 +78,7 @@ const sim = {
   inventory: createQuickInventory(),
   _stackPhysicsDirty: true,
   wildMushrooms: [],
+  villageHitMeshes: [],
 
   // Portas, persianas, telao e relogio
   campusDoors: [],
@@ -486,6 +488,7 @@ function getWorldBuilderCtx() {
     pickableMap: sim.pickableMap,
     remoteHeldIds: sim.remoteHeldIds,
     wildMushrooms: sim.wildMushrooms,
+    villageHitMeshes: sim.villageHitMeshes,
     campusDoors: sim.campusDoors,
     doorHitMeshes: sim.doorHitMeshes,
     windowBlinds: sim.windowBlinds,
@@ -712,6 +715,7 @@ export function initCampus3D(containerId, cbs) {
     buildClockTowerAndAuditorium(wbCtx);
     buildCampusWingsAndEquipment(wbCtx);
     buildOuterCampus(wbCtx);
+    buildVillage(wbCtx);
     buildPlazaTelescope(wbCtx);
     buildSportsScoreboard(sim.scene);
     createStorybookLandmarks(sim.scene, touch);

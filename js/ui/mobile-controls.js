@@ -10,7 +10,15 @@ export function setupMobileJoystick() {
 
   let activeId = null;
   let cachedRect = null;
+  let sprinting = false;
   const maxR = 42;
+
+  function setSprint(active) {
+    if (sprinting === active) return;
+    sprinting = active;
+    zone.classList.toggle('joystick-sprint', active);
+    window.setCampusSprint?.(active);
+  }
 
   function invalidateRect() {
     cachedRect = null;
@@ -25,6 +33,7 @@ export function setupMobileJoystick() {
     let dx = clientX - cx;
     let dy = clientY - cy;
     const dist = Math.hypot(dx, dy);
+    setSprint(dist >= (sprinting ? maxR : maxR + 8));
     if (dist > maxR) {
       dx = (dx / dist) * maxR;
       dy = (dy / dist) * maxR;
@@ -40,6 +49,7 @@ export function setupMobileJoystick() {
     activeId = null;
     cachedRect = null;
     knob.style.transform = 'translate(0px, 0px)';
+    setSprint(false);
     if (window.setCampusJoystick) window.setCampusJoystick(0, 0);
   }
 
@@ -97,41 +107,6 @@ export function setupMobileJoystick() {
   bindTouchTap($('btn-mobile-drop'), () => {
     if (window.dropCampusHeldItem) window.dropCampusHeldItem();
   });
-
-  const sprintBtn = $('btn-mobile-sprint');
-  let sprintLatched = false;
-  let sprintTouchStartAt = 0;
-  function syncSprintState(active) {
-    if (sprintBtn) sprintBtn.classList.toggle('sprint-active', !!active);
-    if (window.setCampusSprint) window.setCampusSprint(!!active);
-  }
-  if (sprintBtn) {
-    sprintBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      sprintTouchStartAt = performance.now();
-      syncSprintState(true);
-    }, { passive: false });
-    const endSprint = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const heldMs = performance.now() - sprintTouchStartAt;
-      if (heldMs < 240) {
-        sprintLatched = !sprintLatched;
-        syncSprintState(sprintLatched);
-      } else {
-        sprintLatched = false;
-        syncSprintState(false);
-      }
-    };
-    sprintBtn.addEventListener('touchend', endSprint, { passive: false });
-    sprintBtn.addEventListener('touchcancel', endSprint, { passive: false });
-    sprintBtn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      sprintLatched = !sprintLatched;
-      syncSprintState(sprintLatched);
-    });
-  }
 
   const jumpBtn = $('btn-mobile-jump');
   if (jumpBtn) {

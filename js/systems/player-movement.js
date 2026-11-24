@@ -144,17 +144,11 @@ export function stepPlayerMovement(ctx, dt, now) {
 
   // Correntes termicas
   let inThermal = false;
-  for (let tci = 0; tci < ctx.thermalColumns.length; tci++) {
-    const tc = ctx.thermalColumns[tci];
-    for (let tri = 0; tri < tc.rings.length; tri++) {
-      const tr = tc.rings[tri];
-      const relH = ((ctx.clock.elapsedTime * 7.5 + tr.offset) % 84);
-      tr.mesh.position.y = tc.baseY + 2 + relH;
-      tr.mesh.rotation.z = ctx.clock.elapsedTime * 1.2 + tri;
-    }
-    if (ctx.paragliderActive && !ctx.onGround && ctx.playerPos.y < tc.maxH) {
-      if (Math.hypot(ctx.playerPos.x - tc.x, ctx.playerPos.z - tc.z) < tc.radius) {
+  if (ctx.paragliderActive && !ctx.onGround) {
+    for (const tc of ctx.thermalColumns) {
+      if (ctx.playerPos.y < tc.maxH && Math.hypot(ctx.playerPos.x - tc.x, ctx.playerPos.z - tc.z) < tc.radius) {
         inThermal = true;
+        break;
       }
     }
   }

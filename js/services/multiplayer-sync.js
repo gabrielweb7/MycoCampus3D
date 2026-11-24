@@ -2,6 +2,7 @@
  * MycoCampus3D — Sincronização Multiplayer em Tempo Real (Delta Sync)
  */
 import { appState } from '../core/state.js';
+import { setVillageTraffic } from '../world/village-traffic.js';
 import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
 import { $, showFloatingToast } from '../ui/dom-helpers.js';
@@ -80,6 +81,8 @@ export async function syncMultiplayer(forceHeldState = false) {
     }
 
     if (data.ok) {
+      appState.villageLease = data.village_lease || null;
+      setVillageTraffic(data.village_traffic);
       if (data.force_teleport && window.teleportCampusPlayer) {
         window.teleportCampusPlayer(
           data.force_teleport.x,

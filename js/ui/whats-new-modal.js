@@ -10,6 +10,17 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.7.0': {
+    title: '✨ Novidades da Atualização v2.7.0',
+    subtitle: 'A Vila do Campus está aberta',
+    items: [
+      { icon: '🏡', text: 'Visite a vila no mapa. São 10 casas numeradas com quintal, bancada, pia e torneira para seus experimentos.' },
+      { icon: '📬', text: 'Alugue por dias corridos e organize seus itens no lote ou no depósito pessoal. Use o caderno para acompanhar seus experimentos.' },
+      { icon: '🐾', text: 'Além de seguir e passear, os pets podem ficar pertinho do lugar que você marcar.' },
+      { icon: '🎒', text: 'No celular, abra a mochila para trocar de bolso. As opções do item ficam em um menu e a corrida fica no joystick.' },
+      { icon: '🍄', text: 'Espécies low-poly, chão texturizado e árvores com casca renovada dão mais identidade aos caminhos do campus.' }
+    ]
+  },
   '2.6.0': {
     title: '✨ Novidades da Atualização v2.6.0',
     subtitle: 'Primeiros passos e qualidade automática',

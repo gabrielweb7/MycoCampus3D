@@ -6,6 +6,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/village_store.php';
+require_once __DIR__ . '/multiplayer_schema.php';
 
 const MC_XP_HARVEST = 25;
 const MC_XP_MODULE = 50;
@@ -107,15 +109,7 @@ function mc_clean_pet_state($raw): array {
     $bowls = [];
     foreach (['food', 'water'] as $kind) {
         $b = is_array($raw['bowls'][$kind] ?? null) ? $raw['bowls'][$kind] : [];
-        $pos = null;
-        if (is_array($b['pos'] ?? null)) {
-            $p = $b['pos'];
-            if (isset($p['x'], $p['y'], $p['z']) && is_numeric($p['x']) && is_numeric($p['y']) && is_numeric($p['z']) &&
-                is_finite((float)$p['x']) && is_finite((float)$p['y']) && is_finite((float)$p['z']) &&
-                abs((float)$p['x']) <= 500 && abs((float)$p['y']) <= 500 && abs((float)$p['z']) <= 500) {
-                $pos = ['x' => (float)$p['x'], 'y' => (float)$p['y'], 'z' => (float)$p['z']];
-            }
-        }
+        $pos = mc_clean_pet_position($b['pos'] ?? null);
         $bowls[$kind] = ['owned' => !empty($b['owned']), 'pos' => $pos, 'full' => !empty($b['owned']) && !empty($b['full'])];
     }
     $nextFood = [];
@@ -126,10 +120,13 @@ function mc_clean_pet_state($raw): array {
         $nextFood[$id] = max(0, (int)($rawFood[$id] ?? 0));
         $nextWater[$id] = max(0, (int)($rawWater[$id] ?? 0));
     }
+    $mode = $raw['mode'] ?? 'follow';
+    $anchor = $mode === 'stay' ? mc_clean_pet_position($raw['anchor'] ?? null) : null;
     return [
         'owned' => $owned, 'selected' => $selected,
         'revision' => max(0, (int)($raw['revision'] ?? 0)),
-        'mode' => ($raw['mode'] ?? '') === 'roam' ? 'roam' : 'follow',
+        'mode' => $anchor ? 'stay' : ($mode === 'roam' ? 'roam' : 'follow'),
+        'anchor' => $anchor,
         'bowls' => $bowls, 'cat_food' => max(0, min(999, (int)($raw['cat_food'] ?? 0))),
         'next_food' => $nextFood, 'next_water' => $nextWater,
     ];
@@ -358,6 +355,7 @@ if ($action === 'login' || $action === 'register_or_login') {
         }
     }
 
+    mc_village_settle_sales($pdo, $userId);
     $token = mc_issue_token($pdo, $userId);
     mc_json(['ok' => true, 'created' => $created, 'token' => $token, 'user' => mc_format_user(mc_fetch_user($pdo, $userId))]);
 }
@@ -375,24 +373,50 @@ if ($action === 'logout') {
 
 if ($action === 'me') {
     $user = mc_require_user($pdo);
-    mc_json(['ok' => true, 'user' => mc_format_user($user)]);
+    mc_village_settle_sales($pdo, (int)$user['id']);
+    mc_json(['ok' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
 if ($action === 'harvest') {
     mc_require_post();
     $user = mc_require_user($pdo);
     $mushId = trim((string)($body['mushroom_id'] ?? ''));
-    if ($mushId !== '' && !preg_match('/^wild_(?:[0-9]{1,3}|poop_[a-zA-Z0-9_]{1,40})$/', $mushId)) {
+    if ($mushId !== '' && (!str_starts_with($mushId, 'wild_') || !mp_is_valid_state_key($mushId))) {
         mc_json(['ok' => false, 'error' => 'Cogumelo inválido.'], 400);
     }
     $isPoopCubensis = strpos($mushId, 'wild_poop_') === 0;
     $xpReward = $isPoopCubensis ? 40 : MC_XP_HARVEST;
+    $specimen = $body['specimen'] ?? null;
+    $request = $body['operation_id'] ?? null;
+    $position = null;
+    $pickedId = null;
+    $speciesName = '';
+    if ($specimen !== null || $request !== null) {
+        $position = is_array($specimen) ? mc_clean_pet_position($specimen['pos'] ?? null) : null;
+        $speciesName = is_string($specimen['species'] ?? null) ? mb_substr(trim(strip_tags($specimen['species'])), 0, 80) : '';
+        if (!$mushId || !$position || !$speciesName || !is_string($request) || !preg_match('/\Aharvest_' . preg_quote($mushId, '/') . '_[a-f0-9]{24}\z/', $request)) {
+            mc_json(['ok' => false, 'error' => 'Pedido de colheita inválido.'], 400);
+        }
+        $pickedId = 'wild_picked_' . substr(hash('sha256', $user['id'] . ':' . $request), 0, 32);
+    }
 
     $awarded = false;
     $pdo->beginTransaction();
     try {
+        $account = $pdo->prepare('SELECT progress_json FROM mc_users WHERE id = ? FOR UPDATE');
+        $account->execute([(int)$user['id']]);
+        $progress = mc_clean_progress($account->fetchColumn() ?: null);
+        if ($request !== null) {
+            $previous = $pdo->prepare('SELECT 1 FROM mc_coin_operations WHERE user_id = ? AND operation_id = ?');
+            $previous->execute([(int)$user['id'], $request]);
+            if ($previous->fetchColumn()) {
+                $pdo->commit();
+                mc_json(['ok' => true, 'awarded' => true, 'picked_id' => $pickedId, 'replayed' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+            }
+        }
         $canHarvest = true;
         if ($mushId !== '') {
+            $pdo->prepare("INSERT IGNORE INTO mc_world_state (state_key, state_val) VALUES (?, '0')")->execute([$mushId]);
             $stMush = $pdo->prepare('SELECT state_val FROM mc_world_state WHERE state_key = ? FOR UPDATE');
             $stMush->execute([$mushId]);
             $until = (int)($stMush->fetchColumn() ?: 0);
@@ -410,13 +434,25 @@ if ($action === 'harvest') {
                 $upState = $pdo->prepare('INSERT INTO mc_world_state (state_key, state_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE state_val = VALUES(state_val)');
                 $upState->execute([$mushId, (string)(time() + 20)]);
             }
+            if ($awarded && $pickedId !== null) {
+                $state = ['speciesName' => $speciesName, 'grams' => 10,
+                    'isMagic' => $isPoopCubensis || preg_match('/Psilocybe|Panaeolus/i', $speciesName) === 1];
+                $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, 0)')
+                    ->execute([$pickedId, $position['x'], $position['y'], $position['z']]);
+                $pdo->prepare('INSERT INTO mc_world_item_states (item_id, state_json) VALUES (?, ?)')
+                    ->execute([$pickedId, json_encode(['wildMushroom' => $state], JSON_UNESCAPED_UNICODE)]);
+                $progress['discovered_species'] = array_slice(array_values(array_unique(array_merge($progress['discovered_species'], [$speciesName]))), 0, 120);
+                $pdo->prepare('UPDATE mc_users SET progress_json = ? WHERE id = ?')
+                    ->execute([json_encode($progress, JSON_UNESCAPED_UNICODE), (int)$user['id']]);
+                $pdo->prepare('INSERT INTO mc_coin_operations (user_id, operation_id) VALUES (?, ?)')->execute([(int)$user['id'], $request]);
+            }
         }
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         throw $e;
     }
-    mc_json(['ok' => true, 'awarded' => $awarded, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+    mc_json(['ok' => true, 'awarded' => $awarded, 'picked_id' => $awarded ? $pickedId : null, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
 if ($action === 'harvest_greenhouse') {
@@ -683,6 +719,12 @@ if ($action === 'buy_supply' || $action === 'buy_supply_durable') {
             $alreadyPurchased = (bool)$seen->fetchColumn();
         }
         if (!$alreadyPurchased) {
+            $lotId = $pose ? mc_village_lot_at((float)$pose['x'], (float)$pose['z']) : null;
+            $lot = $lotId !== null ? mc_village_read_lot($pdo, $lotId) : null;
+            if ($lotId !== null && !mc_village_has_lease($lot, (int)$user['id'], time())) {
+                $pdo->rollBack();
+                mc_json(['ok' => false, 'charged' => false, 'error' => 'Escolha uma área pública ou o seu próprio lote para a entrega.'], 403);
+            }
             if (!$row || (int)$row['xp'] < $reqXp || (int)$row['mushrooms_harvested'] < $reqMush || (int)$row['myco_coins'] < $price) {
                 $pdo->rollBack();
                 mc_json(['ok' => false, 'error' => 'Requisitos ou MycoCoins insuficientes para comprar este item.', 'charged' => false], 400);
@@ -695,6 +737,8 @@ if ($action === 'buy_supply' || $action === 'buy_supply_durable') {
                     ->execute([$deliveryId, (float)$pose['x'], (float)$pose['y'], (float)$pose['z'], (float)$pose['ry']]);
                 $pdo->prepare('INSERT INTO mc_world_layout_edits (item_id, prefab_id, label, scale, removed) VALUES (?, ?, ?, 1.0, 0)')
                     ->execute([$deliveryId, $sup['prefab_id'], '']);
+                $pdo->prepare('INSERT INTO mc_village_items (item_id, owner_id, lot_id, lease_epoch) VALUES (?, ?, ?, ?)')
+                    ->execute([$deliveryId, (int)$user['id'], $lotId, (int)($lot['lease_epoch'] ?? 0)]);
             }
         }
         $pdo->commit();
@@ -727,11 +771,18 @@ if ($action === 'pet_action') {
             }
         } elseif ($op === 'select') {
             if ($petId !== '' && !in_array($petId, $pets['owned'], true)) throw new InvalidArgumentException('Você ainda não comprou este pet.');
+            if ($petId !== '' && $pets['selected'] !== $petId && $pets['mode'] === 'stay') {
+                $pets['mode'] = 'follow';
+                $pets['anchor'] = null;
+            }
             $pets['selected'] = $petId;
         } elseif ($op === 'mode') {
             $mode = (string)($body['mode'] ?? '');
-            if (!in_array($mode, ['follow', 'roam'], true)) throw new InvalidArgumentException('Modo de pet inválido.');
+            if (!in_array($mode, ['follow', 'roam', 'stay'], true)) throw new InvalidArgumentException('Modo de pet inválido.');
+            $anchor = $mode === 'stay' ? mc_clean_pet_position($body['pos'] ?? null) : null;
+            if ($mode === 'stay' && (!$pets['selected'] || !$anchor)) throw new InvalidArgumentException('Escolha um pet e um local no campus.');
             $pets['mode'] = $mode;
+            $pets['anchor'] = $anchor;
         } elseif (in_array($op, ['buy_food_bowl', 'buy_water_bowl'], true)) {
             $kind = $op === 'buy_food_bowl' ? 'food' : 'water';
             if (!$pets['bowls'][$kind]['owned']) {

@@ -286,8 +286,12 @@ export function applyCampusLayoutEdits(sim, layoutEdits) {
     if (!edit || typeof edit !== 'object') return;
     let item = itemsById.get(itemId);
 
-    if (edit.removed) {
+    if (edit.stored || edit.removed) {
       if (item) removeItemLocally(sim, item);
+      if (edit.stored) {
+        sim.removedItemIds?.delete(itemId);
+        if (sim.pendingMovedItems) delete sim.pendingMovedItems[itemId];
+      }
       return;
     }
 
@@ -306,6 +310,8 @@ export function applyCampusLayoutEdits(sim, layoutEdits) {
     }
 
     if (item) {
+      item.isPersonal = !!edit.personal;
+      item.isReadOnly = !!edit.read_only;
       const hasDynamicLabel = !!(
         item.spawnCtrl ||
         item.monotubCtrl ||
@@ -356,7 +362,7 @@ export async function adminAddPrefabAtPlayer(sim, prefabId) {
 }
 
 export async function adminRemoveTargetItem(sim, item) {
-  if (!item) return false;
+  if (!item || item.isPersonal) return false;
   dropSupportedItemsToGround(sim, item, (x, z, refY, ignoreSurf) =>
     getItemGroundHeight(sim.physCtx || sim, x, z, refY, ignoreSurf)
   );

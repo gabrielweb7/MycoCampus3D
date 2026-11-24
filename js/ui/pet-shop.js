@@ -17,7 +17,7 @@ export const PETS = [
 const PET_TEXT = {
   'pt-BR': {
     login: 'Entre na sua conta para comprar e cuidar dos pets.', buy: 'Comprar', call: 'Chamar este pet', putAway: 'Guardar pet',
-    roaming: 'Solto · mudar para seguir', following: 'Seguindo · deixar solto', foodBowl: 'Potinho de comida', waterBowl: 'Potinho de água',
+    roam: 'Andar solto', follow: 'Me seguir', stay: 'Ficar por aqui', stayHere: 'Marcar este local', foodBowl: 'Potinho de comida', waterBowl: 'Potinho de água',
     buyBowl: 'Compre uma vez e coloque onde quiser.', placeHint: 'Coloque o potinho à sua frente no campus.', full: 'O potinho está cheio.', empty: 'O potinho está vazio.',
     moveBowl: 'Mudar potinho de lugar', place: 'Colocar à minha frente', fillFood: 'Colocar ração de gato', fillWater: 'Encher com água',
     food: 'Ração para gatos', portions: n => `Pacote com 5 porções. Você tem ${n} porções.`, enter: 'Entre no campus para colocar o potinho.', sync: 'Aguarde a sincronização das moedas e tente novamente.', error: 'Não foi possível concluir. Tente novamente.', network: 'Falha de conexão. Tente novamente.'
@@ -26,7 +26,7 @@ const PET_TEXT = {
     names: ['Orange kitten', 'Black kitten', 'Calico kitten', 'Golden puppy', 'Husky puppy', 'Pug puppy'],
     descriptions: ['Striped with a white chest.', 'Green eyes and white paws.', 'Orange, black and white patches.', 'Golden fur and floppy ears.', 'Gray and white fur.', 'Dark muzzle and curled tail.'],
     login: 'Sign in to buy and care for pets.', buy: 'Buy', call: 'Call this pet', putAway: 'Put pet away',
-    roaming: 'Roaming · switch to follow', following: 'Following · let roam', foodBowl: 'Food bowl', waterBowl: 'Water bowl',
+    roam: 'Roam freely', follow: 'Follow me', stay: 'Stay nearby', stayHere: 'Set this spot', foodBowl: 'Food bowl', waterBowl: 'Water bowl',
     buyBowl: 'Buy once and place wherever you like.', placeHint: 'Place the bowl in front of you on campus.', full: 'The bowl is full.', empty: 'The bowl is empty.',
     moveBowl: 'Move bowl', place: 'Place in front of me', fillFood: 'Add cat food', fillWater: 'Fill with water',
     food: 'Cat food', portions: n => `Pack of 5 servings. You have ${n} servings.`, enter: 'Enter the campus to place the bowl.', sync: 'Wait for your coins to sync and try again.', error: 'Could not complete. Please try again.', network: 'Connection failed. Please try again.'
@@ -35,7 +35,7 @@ const PET_TEXT = {
     names: ['Gatito naranja', 'Gatito negro', 'Gatito tricolor', 'Cachorro dorado', 'Cachorro husky', 'Cachorro pug'],
     descriptions: ['Atigrado con pecho blanco.', 'Ojos verdes y patitas blancas.', 'Manchas naranjas, negras y blancas.', 'Pelaje dorado y orejas caídas.', 'Pelaje gris y blanco.', 'Hocico oscuro y cola enrollada.'],
     login: 'Inicia sesión para comprar y cuidar mascotas.', buy: 'Comprar', call: 'Llamar a esta mascota', putAway: 'Guardar mascota',
-    roaming: 'Suelta · cambiar a seguir', following: 'Siguiendo · dejar suelta', foodBowl: 'Cuenco de comida', waterBowl: 'Cuenco de agua',
+    roam: 'Pasear libremente', follow: 'Sígueme', stay: 'Quédate por aquí', stayHere: 'Marcar este lugar', foodBowl: 'Cuenco de comida', waterBowl: 'Cuenco de agua',
     buyBowl: 'Cómpralo una vez y colócalo donde quieras.', placeHint: 'Coloca el cuenco frente a ti en el campus.', full: 'El cuenco está lleno.', empty: 'El cuenco está vacío.',
     moveBowl: 'Mover cuenco', place: 'Colocar frente a mí', fillFood: 'Poner comida de gato', fillWater: 'Llenar con agua',
     food: 'Comida para gatos', portions: n => `Paquete de 5 porciones. Tienes ${n} porciones.`, enter: 'Entra al campus para colocar el cuenco.', sync: 'Espera a que se sincronicen tus monedas e inténtalo de nuevo.', error: 'No se pudo completar. Inténtalo de nuevo.', network: 'Falló la conexión. Inténtalo de nuevo.'
@@ -103,7 +103,15 @@ export function renderPetShop(grid, rerender) {
       actionButton(el, '🐾 ' + text.call, () => run('select', { pet_id: pet.id }));
     } else {
       actionButton(el, '💤 ' + text.putAway, () => run('select', { pet_id: '' }));
-      actionButton(el, '🐾 ' + (pets.mode === 'roam' ? text.roaming : text.following), () => run('mode', { mode: pets.mode === 'roam' ? 'follow' : 'roam' }));
+      for (const mode of ['follow', 'roam', 'stay']) {
+        const current = mode === (pets.mode || 'follow');
+        actionButton(el, `${current ? '✓ ' : ''}${current && mode === 'stay' ? text.stayHere : text[mode]}`, () => {
+          if (mode !== 'stay') return run('mode', { mode });
+          const pos = window.getCampusPetBowlPosition?.();
+          if (!pos) { window.showCampusToast?.(text.enter); return; }
+          return run('mode', { mode, pos });
+        }, current && mode !== 'stay');
+      }
     }
   }
   for (const [kind, name] of [['food', '🍽️ ' + text.foodBowl], ['water', '💧 ' + text.waterBowl]]) {

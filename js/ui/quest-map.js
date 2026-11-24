@@ -8,6 +8,8 @@ import { $, escapeHtml, showFloatingToast } from './dom-helpers.js';
 import { updateUserHud } from './hud-lobby.js';
 import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
 import { CULTIVATION_TRACKS, calculateRealWorldRecipe } from '../core/cultivation-tracks.js';
+import { VILLAGE_ENTRY } from '../core/village-layout.js';
+import { renderVillageRentals } from './village-rentals.js';
 
 export const CAMPUS_SECTORS = [
   { id: 'plaza', icon: '🏛️', name: 'Praça Central', desc: 'Ponto inicial, fonte e torre do relógio', x: 0, y: 0, z: 10.5, yaw: 0 },
@@ -16,6 +18,7 @@ export const CAMPUS_SECTORS = [
   { id: 'dehydration', icon: '♨️', name: 'Sala de Desidratação & Embalagem', desc: '6 Desidratadoras, sacos Mylar, 3 seladoras, caixas e Monotubs LED', x: 17.0, y: 0.14, z: -7.0, yaw: -Math.PI / 2 },
   { id: 'greenhouse', icon: '🍄', name: 'Estufa Climatizada & Horta', desc: '24 bolos, umidificador, exaustor, alfaces e tomates orgânicos', x: 16.5, y: 0.14, z: 7.5, yaw: -Math.PI / 2 },
   { id: 'drivethru', icon: '🚗', name: 'Empório & Drive-Thru (Estrada)', desc: 'Venda caixas de cogumelos desidratados para carros de NPCs por 🪙 MycoCoins!', x: 17.5, y: 0.04, z: 37.5, yaw: Math.PI },
+  { id: 'village', icon: '🏡', nameKey: 'map.village', descKey: 'map.village_desc', ...VILLAGE_ENTRY },
   { id: 'cinema', icon: '🎬', name: 'Cinema & Auditório', desc: 'Telão interativo com aulas e poltronas', x: 48, y: 0.14, z: -6.5, yaw: 0 },
   { id: 'sports', icon: '⚽', name: 'Complexo Esportivo', desc: 'Futebol, basquete com bolas reais e tênis', x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
   { id: 'forest', icon: '🌲', name: 'Bosque & Lago', desc: 'Colha cogumelos silvestres pela floresta', x: 0, y: 0, z: -24, yaw: 0 },
@@ -147,17 +150,23 @@ export function renderMapModal() {
   if (!grid) return;
   grid.innerHTML = '';
   CAMPUS_SECTORS.forEach((sec) => {
+    const name = sec.nameKey ? t(sec.nameKey) : sec.name;
+    const desc = sec.descKey ? t(sec.descKey) : sec.desc;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'text-left p-3 rounded-xl bg-slate-900/80 hover:bg-sky-900/50 border border-slate-700/70 hover:border-sky-400/60 transition flex items-start gap-2.5';
     btn.innerHTML =
       `<span class="text-2xl leading-none">${sec.icon}</span>` +
-      `<div><div class="font-bold text-white">${escapeHtml(sec.name)}</div>` +
-      `<div class="text-[11px] text-slate-400">${escapeHtml(sec.desc)}</div></div>`;
+      `<div><div class="font-bold text-white">${escapeHtml(name)}</div>` +
+      `<div class="text-[11px] text-slate-400">${escapeHtml(desc)}</div></div>`;
     btn.onclick = () => {
+      if (sec.id === 'village') {
+        renderVillageRentals(grid, renderMapModal);
+        return;
+      }
       if (window.teleportCampusPlayer) {
         window.teleportCampusPlayer(sec.x, sec.y, sec.z, sec.yaw);
-        showFloatingToast(`${sec.icon} Teleportado para ${sec.name}`, 2500);
+        showFloatingToast(`${sec.icon} ${name}`, 2500);
       }
       const mm = $('map-modal');
       if (mm) mm.classList.add('hidden');

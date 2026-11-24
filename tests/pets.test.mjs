@@ -4,7 +4,7 @@ import * as THREE from '../js/vendor/three.bundle.min.js';
 
 globalThis.window = { THREE };
 const { appState } = await import('../js/core/state.js');
-const { stepPets, updateRemotePets } = await import('../js/entities/pets.js');
+const { stepPets, updateRemotePets, getLocalPetPose } = await import('../js/entities/pets.js');
 
 function context() {
   const playerPos = new THREE.Vector3(0, 0, 0);
@@ -45,6 +45,28 @@ test('remote pet and bowl follow multiplayer snapshots and disappear on disconne
   stepPets(ctx, 0.05);
   assert.equal(ctx.scene.children.length, 0);
   appState.currentUser = null;
+});
+
+test('stay restores the marked location, keeps the pet nearby and ignores a distant bowl', () => {
+  const ctx = context();
+  ctx.playerPos.set(30, 0, 30);
+  const petState = state('dog_golden');
+  petState.mode = 'stay';
+  petState.anchor = { x: 0, y: 0, z: 0 };
+  petState.bowls.water = { owned: true, full: true, pos: { x: 30, y: 0, z: 25 } };
+  appState.currentUser = { id: 4, progress: { pets: petState } };
+  stepPets(ctx, 0.05);
+  const distanceFromAnchor = () => {
+    const pose = getLocalPetPose();
+    return Math.hypot(pose.x, pose.z);
+  };
+  assert.ok(distanceFromAnchor() < 0.2);
+  for (let i = 0; i < 1000; i++) {
+    stepPets(ctx, 0.05);
+    assert.ok(distanceFromAnchor() <= 4);
+  }
+  appState.currentUser = null;
+  stepPets(ctx, 0.05);
 });
 
 test('a hungry cat approaches a full food bowl and asks the server to consume it', async () => {

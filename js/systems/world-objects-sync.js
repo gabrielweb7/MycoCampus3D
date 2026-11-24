@@ -79,7 +79,7 @@ function setLocalMovedEntry(itemId, entry, deferFlush = false) {
 }
 
 export function saveLocalMovedObject(item, state, deferFlush = false) {
-  if (!item || !item.id || !item.mesh) return;
+  if (!item || !item.id || !item.mesh || item.isPersonal) return;
   const map = readLocalMovedMap();
   const prev = map[item.id] || {};
   const entry = {
@@ -97,7 +97,7 @@ export function saveLocalMovedObject(item, state, deferFlush = false) {
 
 /** Queue an immediate state change without waiting for the periodic scan. */
 export function queueItemStateSync(sim, item) {
-  if (!sim || !item?.id || !item.mesh || item._removedForSync) return;
+  if (!sim || !item?.id || !item.mesh || item._removedForSync || item.isReadOnly) return;
   const state = getReplicatedItemState(sim, item);
   if (!state) return;
   sim.pendingMovedItems = sim.pendingMovedItems || {};
@@ -116,7 +116,7 @@ export function queueItemStateSync(sim, item) {
 }
 
 export function markItemRemovedForSync(sim, item, dynamicKind) {
-  if (!item || !item.id) return;
+  if (!item || !item.id || item.isReadOnly) return;
   item._removedForSync = true;
   const custom = { removed: true };
   if (dynamicKind) custom.dynamicKind = dynamicKind;
@@ -127,8 +127,10 @@ export function markItemRemovedForSync(sim, item, dynamicKind) {
       state: { custom }
     };
   }
-  const map = readLocalMovedMap();
-  setLocalMovedEntry(item.id, Object.assign({}, map[item.id] || {}, { state: { custom } }), false);
+  if (!item.isPersonal) {
+    const map = readLocalMovedMap();
+    setLocalMovedEntry(item.id, Object.assign({}, map[item.id] || {}, { state: { custom } }), false);
+  }
 }
 
 export function clearLocalMovedObjects() {
@@ -255,7 +257,7 @@ export function consumeCampusMovedItems(sim) {
     const items = sim.pickableItems;
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (!hasPotentiallyReplicableState(item, sim, now)) continue;
+      if (item.isReadOnly || !hasPotentiallyReplicableState(item, sim, now)) continue;
       if (sim.isHeldByRemote(item.id) && !sim.inventory?.slots.includes(item.id)) continue;
       const state = getReplicatedItemState(sim, item);
       if (!state) continue;

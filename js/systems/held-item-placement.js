@@ -11,6 +11,8 @@ import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { saveLocalMovedObject } from './world-objects-sync.js';
+import { appState } from '../core/state.js';
+import { canPlaceVillageItem } from '../core/village-layout.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
 const _vPlaceZero2 = new window.THREE.Vector2(0, 0);
@@ -122,7 +124,7 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
 
 export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   const held = ctx.heldItem;
-  if (!held) return false;
+  if (!held || !canPlaceVillageItem(point.x, point.z, held, appState.villageLease)) return false;
 
   held.mesh.visible = true;
   held.mesh.position.copy(point);

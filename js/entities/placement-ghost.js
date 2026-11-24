@@ -1,4 +1,7 @@
 import { getItemGroundHeight } from '../engine/physics.js';
+import { appState } from '../core/state.js';
+import { canPlaceVillageItem } from '../core/village-layout.js';
+import { t } from '../core/i18n.js';
 import { isPointInBoundsXZ } from '../items/item-registry.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import {
@@ -547,6 +550,10 @@ export function isPlacementBlocked(ctx, pt) {
   placementBlockedReason = '';
   var heldItem = ctx.heldItem;
   if (!heldItem || !heldItem.mesh) return false;
+  if (!canPlaceVillageItem(pt.x, pt.z, heldItem, appState.villageLease)) {
+    placementBlockedReason = t('village.placement_locked');
+    return true;
+  }
   if (ctx.snapClosePot || ctx.snapPetriStack) return false;
 
   var heldH = heldItem.height || (heldItem.mesh.userData.tableDims ? heldItem.mesh.userData.tableDims.h : 0.32);

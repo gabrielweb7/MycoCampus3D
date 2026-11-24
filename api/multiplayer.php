@@ -8,6 +8,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/multiplayer_schema.php';
 require_once __DIR__ . '/inventory.php';
+require_once __DIR__ . '/village_store.php';
 
 const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
@@ -60,9 +61,10 @@ if ($action === 'reset_world') {
         mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
     }
     mp_inventory_lock($pdo);
-    $protectedItems = array_fill_keys($pdo->query('SELECT item_id FROM mc_inventory_slots')->fetchAll(PDO::FETCH_COLUMN), true);
+    $protectedItems = array_fill_keys($pdo->query('SELECT item_id FROM mc_inventory_slots UNION SELECT item_id FROM mc_village_items')->fetchAll(PDO::FETCH_COLUMN), true);
     foreach (['mc_world_objects', 'mc_world_item_states', 'mc_world_layout_edits'] as $table) {
-        $pdo->exec("DELETE FROM $table WHERE NOT EXISTS (SELECT 1 FROM mc_inventory_slots WHERE mc_inventory_slots.item_id = $table.item_id)");
+        $pdo->exec("DELETE FROM $table WHERE NOT EXISTS (SELECT 1 FROM mc_inventory_slots WHERE mc_inventory_slots.item_id = $table.item_id)
+            AND NOT EXISTS (SELECT 1 FROM mc_village_items WHERE mc_village_items.item_id = $table.item_id)");
     }
 
     // Se o Admin salvou um layout padrão, restaura tudo para a posição/configuração definida por ele
@@ -92,6 +94,7 @@ if ($action === 'save_world_default') {
         mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
     }
     $snapshot = is_array($body['items'] ?? null) ? $body['items'] : [];
+    $protectedItems = array_fill_keys($pdo->query('SELECT item_id FROM mc_village_items')->fetchAll(PDO::FETCH_COLUMN), true);
     $pdo->exec('DELETE FROM mc_admin_layout_defaults');
     $insDef = $pdo->prepare('INSERT INTO mc_admin_layout_defaults (item_id, prefab_id, label, scale, x, y, z, ry, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $insObj = $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)');
@@ -99,7 +102,7 @@ if ($action === 'save_world_default') {
     foreach (array_slice($snapshot, 0, 500) as $row) {
         if (!is_array($row)) continue;
         $iid = (string)($row['id'] ?? '');
-        if (!mp_is_allowed_item_id($iid)) continue;
+        if (!mp_is_allowed_item_id($iid) || isset($protectedItems[$iid])) continue;
         $prefabId = substr(preg_replace('/[^a-zA-Z0-9_]/', '', (string)($row['prefab_id'] ?? '')), 0, 64);
         $label = mb_substr(trim((string)($row['label'] ?? '')), 0, 96);
         $scale = max(0.25, min(4.0, (float)($row['scale'] ?? 1.0)));
@@ -125,6 +128,9 @@ if ($action === 'admin_layout_edit') {
     $iid = (string)($body['item_id'] ?? '');
     if (!mp_is_allowed_item_id($iid)) {
         mc_json(['ok' => false, 'error' => 'ID de item inválido.'], 400);
+    }
+    if (mc_village_item_rows($pdo, [$iid])) {
+        mc_json(['ok' => false, 'error' => 'O item pertence a um jogador.'], 403);
     }
     $prefabId = substr(preg_replace('/[^a-zA-Z0-9_]/', '', (string)($body['prefab_id'] ?? '')), 0, 64);
     $label = mb_substr(trim((string)($body['label'] ?? '')), 0, 96);
@@ -214,7 +220,24 @@ if ($action === 'sync') {
     $pitch = $savedPose ? mp_num($savedPose['pitch'] ?? 0, 2.0) : mp_num($body['pitch'] ?? 0, 2.0);
     $holding = $savedPose ? (string)($savedPose['holding'] ?? '') : (string)($body['holding_item'] ?? '');
     $holding = mp_is_allowed_item_id($holding) ? $holding : '';
-    $inventory = mp_inventory_sync($pdo, $userId, $sessionKey, $holding, $initSync, $body);
+    $incomingItems = array_slice(is_array($body['moved_items'] ?? null) ? $body['moved_items'] : [], 0, 300);
+    $candidateIds = [$holding];
+    foreach ($incomingItems as $item) if (is_array($item)) $candidateIds[] = $item['id'] ?? null;
+    $villageItems = mc_village_item_rows($pdo, $candidateIds);
+    $villageLots = [];
+    $villageNow = time();
+    $getLot = static function (int $id) use ($pdo, &$villageLots): ?array {
+        if (!array_key_exists($id, $villageLots)) $villageLots[$id] = mc_village_read_lot($pdo, $id);
+        return $villageLots[$id];
+    };
+    $canAccessItem = static function (string $id) use ($pdo, $villageItems, $getLot, $userId, $villageNow): bool {
+        if (!str_starts_with($id, 'dyn_shop_')) return true;
+        $item = $villageItems[$id] ?? (mc_village_item_rows($pdo, [$id])[$id] ?? null);
+        if (!$item) return true;
+        if ((int)$item['owner_id'] !== $userId || !empty($item['on_sale'])) return false;
+        return mc_village_item_active($item, $item['lot_id'] !== null ? $getLot((int)$item['lot_id']) : null, $villageNow);
+    };
+    $inventory = mp_inventory_sync($pdo, $userId, $sessionKey, $holding, $initSync, $body, $canAccessItem);
     $holding = $inventory['holding'];
     if ($savedPose) $savedPose['holding'] = $holding;
 
@@ -229,6 +252,7 @@ if ($action === 'sync') {
     $ownedPets = is_array($petState['owned'] ?? null) ? $petState['owned'] : [];
     $petPose = is_array($body['pet_pose'] ?? null) ? $body['pet_pose'] : [];
     $publicPet = null;
+    $anchor = ($petState['mode'] ?? '') === 'stay' ? mc_clean_pet_position($petState['anchor'] ?? null) : null;
     if (in_array($selectedPet, MC_PETS, true) && in_array($selectedPet, $ownedPets, true) && ($petPose['id'] ?? '') === $selectedPet &&
         isset($petPose['x'], $petPose['y'], $petPose['z']) && is_numeric($petPose['x']) && is_numeric($petPose['y']) && is_numeric($petPose['z'])) {
         $publicPet = [
@@ -237,6 +261,9 @@ if ($action === 'sync') {
             'yaw' => mp_num($petPose['yaw'] ?? 0, 1000),
             'motion' => in_array(($petPose['motion'] ?? ''), ['idle', 'walk', 'run', 'eat', 'sleep'], true) ? $petPose['motion'] : 'idle',
         ];
+        if ($anchor && (hypot($publicPet['x'] - $anchor['x'], $publicPet['z'] - $anchor['z']) > 4.25 || abs($publicPet['y'] - $anchor['y']) > 2)) {
+            $publicPet = array_merge($publicPet, $anchor, ['motion' => 'idle']);
+        }
     }
     $publicBowls = [];
     foreach (['food', 'water'] as $kind) {
@@ -330,38 +357,52 @@ if ($action === 'sync') {
     }
     $pdo->prepare($sql)->execute($params);
 
-    if (!$initSync && !empty($body['moved_items']) && is_array($body['moved_items'])) {
+    if (!$initSync && $incomingItems) {
         $batchPlaceholders = [];
         $batchParams = [];
         $statePlaceholders = [];
         $stateParams = [];
         $layoutPlaceholders = [];
         $layoutParams = [];
-        foreach (array_slice($body['moved_items'], 0, 300) as $item) {
+        $moveVillageItem = $pdo->prepare('UPDATE mc_village_items SET lot_id = ?, lease_epoch = ? WHERE item_id = ? AND owner_id = ?');
+        foreach ($incomingItems as $item) {
             if (!is_array($item)) continue;
             $iid = (string)($item['id'] ?? '');
             if (!mp_is_allowed_item_id($iid)) continue;
+            if (!$canAccessItem($iid)) continue;
+            $villageItem = $villageItems[$iid] ?? null;
+            $itemState = mp_clean_item_state($iid, $item['state'] ?? null);
             $reservedOwner = $inventory['_reserved_owners'][$iid] ?? null;
             if (($reservedOwner !== null && ($reservedOwner !== $userId || !$inventory['ready'])) ||
                 isset($inventory['_other_held'][$iid])) continue;
 
             if ($reservedOwner === null && array_key_exists('x', $item) && array_key_exists('y', $item) && array_key_exists('z', $item)) {
+                $itemX = mp_num($item['x'], MP_WORLD_LIMIT);
+                $itemZ = mp_num($item['z'], MP_WORLD_LIMIT);
+                $lotId = mc_village_lot_at($itemX, $itemZ);
+                $targetLot = $lotId !== null ? $getLot($lotId) : null;
+                if ($lotId !== null && (!$villageItem || !mc_village_has_lease($targetLot, $userId, $villageNow))) continue;
+                if ($villageItem && ($villageItem['lot_id'] === null ? null : (int)$villageItem['lot_id']) !== $lotId) {
+                    $moveVillageItem->execute([$lotId, (int)($targetLot['lease_epoch'] ?? 0), $iid, $userId]);
+                }
+                if ($villageItem && $lotId !== null) {
+                    mc_village_offer($pdo, $iid, $userId, $lotId, $itemX, mp_num($item['y'], 50.0), $itemZ, $villageNow, $itemState);
+                }
                 $batchPlaceholders[] = '(?, ?, ?, ?, ?)';
                 $batchParams[] = $iid;
-                $batchParams[] = mp_num($item['x'], MP_WORLD_LIMIT);
+                $batchParams[] = $itemX;
                 $batchParams[] = mp_num($item['y'], 50.0);
-                $batchParams[] = mp_num($item['z'], MP_WORLD_LIMIT);
+                $batchParams[] = $itemZ;
                 $batchParams[] = mp_num($item['ry'] ?? 0, 1000.0);
             }
             $prefabId = trim((string)($item['prefabId'] ?? $item['prefab_id'] ?? ''));
-            if ($prefabId !== '' && strpos($iid, 'dyn_') === 0 && preg_match('/^[a-z0-9_]{2,40}$/', $prefabId)) {
+            if (!$villageItem && $prefabId !== '' && strpos($iid, 'dyn_') === 0 && preg_match('/^[a-z0-9_]{2,40}$/', $prefabId)) {
                 $dynLabel = mb_substr(trim(strip_tags((string)($item['label'] ?? ''))), 0, 120);
                 $layoutPlaceholders[] = '(?, ?, ?, 1.0, 0)';
                 $layoutParams[] = $iid;
                 $layoutParams[] = $prefabId;
                 $layoutParams[] = $dynLabel;
             }
-            $itemState = mp_clean_item_state($iid, $item['state'] ?? null);
             if ($itemState !== null) {
                 $statePlaceholders[] = '(?, ?)';
                 $stateParams[] = $iid;
@@ -386,6 +427,9 @@ if ($action === 'sync') {
     }
 
     $pdo->commit();
+
+    // A nearby player's polling is enough to advance pickups for offline owners.
+    if ($initSync || mt_rand(1, 15) === 1) mc_village_settle_sales($pdo, $initSync ? $userId : null);
 
     $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps, pet_json,
             IF(chat_at IS NOT NULL AND chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), chat_msg, NULL) AS chat_msg
@@ -435,7 +479,8 @@ if ($action === 'sync') {
             $sKey = (string)$sKey;
             if (!mp_is_valid_state_key($sKey)) continue;
             if (strpos($sKey, 'wild_') === 0) {
-                $cleanVal = (string)(time() + 20);
+                // Harvest cooldowns are written in the same transaction as the reward.
+                continue;
             } elseif ($sKey === 'hood_sanitized_until') {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? (string)(time() + 120) : '0';
             } elseif ($sKey === 'burner_level_lab' || $sKey === 'gas_tripod_sub_level' || $sKey === 'gas_tripod_level_sub') {
@@ -572,13 +617,18 @@ if ($action === 'sync') {
         (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_layout_edits) AS le_u,
         (SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes) AS brd_max')->fetch();
 
+    $nowTs = time();
+    $villageVersion = mc_village_layout_version($pdo, $nowTs);
+    $leaseQuery = $pdo->prepare('SELECT lot_id, expires_at FROM mc_village_lots WHERE owner_id = ? AND expires_at > ? LIMIT 1');
+    $leaseQuery->execute([$userId, $nowTs]);
+    $activeLease = $leaseQuery->fetch();
     $clientObjVer = (string)($body['obj_ver'] ?? '');
-    $objVer = $meta ? ((string)$meta['obj_c'] . ':' . (string)$meta['obj_u']) : '0:';
+    $objVer = ($meta ? ((string)$meta['obj_c'] . ':' . (string)$meta['obj_u']) : '0:') . ':' . $villageVersion;
     $objectsUnchanged = (!$initSync && $clientObjVer !== '' && $clientObjVer === $objVer);
     $objects = null;
     if (!$objectsUnchanged) {
         $objects = new stdClass();
-        foreach ($pdo->query('SELECT item_id, x, y, z, ry FROM mc_world_objects')->fetchAll() as $obj) {
+        foreach ($pdo->query('SELECT w.item_id, w.x, w.y, w.z, w.ry FROM mc_world_objects w' . MC_VILLAGE_ITEM_JOINS . ' WHERE ' . MC_VILLAGE_ITEM_VISIBLE) as $obj) {
             $itemId = (string)$obj['item_id'];
             $objects->{$itemId} = [
                 'x' => (float)$obj['x'],
@@ -589,16 +639,15 @@ if ($action === 'sync') {
         }
     }
 
-    $nowTs = time();
     $clientItemStateVer = (string)($body['item_state_ver'] ?? '');
-    $itemStateVer = $meta ? ((string)$meta['st_obj_c'] . ':' . (string)$meta['st_obj_u']) : '0:';
+    $itemStateVer = ($meta ? ((string)$meta['st_obj_c'] . ':' . (string)$meta['st_obj_u']) : '0:') . ':' . $villageVersion;
     $itemStatesUnchanged = (!$initSync && $clientItemStateVer !== '' && $clientItemStateVer === $itemStateVer);
     $itemStates = null;
     $itemStateAges = null;
     if (!$itemStatesUnchanged) {
         $itemStates = new stdClass();
         $itemStateAges = new stdClass();
-        foreach ($pdo->query('SELECT item_id, state_json, UNIX_TIMESTAMP(updated_at) AS updated_ts FROM mc_world_item_states')->fetchAll() as $savedState) {
+        foreach ($pdo->query('SELECT w.item_id, w.state_json, UNIX_TIMESTAMP(w.updated_at) AS updated_ts FROM mc_world_item_states w' . MC_VILLAGE_ITEM_JOINS . ' WHERE ' . MC_VILLAGE_ITEM_VISIBLE) as $savedState) {
             $decodedState = json_decode((string)$savedState['state_json'], true);
             if (is_array($decodedState)) {
                 $itemStateId = (string)$savedState['item_id'];
@@ -656,18 +705,22 @@ if ($action === 'sync') {
     }
 
     $clientLayoutVer = (string)($body['layout_ver'] ?? '');
-    $layoutVer = $meta ? ((string)$meta['le_c'] . ':' . (string)$meta['le_u']) : '0:';
+    $layoutVer = ($meta ? ((string)$meta['le_c'] . ':' . (string)$meta['le_u']) : '0:') . ':' . $villageVersion;
     $layoutUnchanged = (!$initSync && $clientLayoutVer !== '' && $clientLayoutVer === $layoutVer);
     $layoutEdits = null;
     if (!$layoutUnchanged) {
         $layoutEdits = new stdClass();
-        foreach ($pdo->query('SELECT item_id, prefab_id, label, scale, removed FROM mc_world_layout_edits')->fetchAll() as $le) {
+        foreach ($pdo->query('SELECT w.item_id, w.prefab_id, w.label, w.scale, w.removed, vi.owner_id, vs.item_id IS NOT NULL AS on_sale, ' .
+            MC_VILLAGE_ITEM_VISIBLE . ' AS visible FROM mc_world_layout_edits w' . MC_VILLAGE_ITEM_JOINS . ' LEFT JOIN mc_village_sales vs ON vs.item_id = w.item_id') as $le) {
             $leId = (string)$le['item_id'];
             $layoutEdits->{$leId} = [
                 'prefab_id' => (string)$le['prefab_id'],
                 'label' => (string)$le['label'],
                 'scale' => (float)$le['scale'],
                 'removed' => ((int)$le['removed'] === 1),
+                'stored' => !(int)$le['visible'],
+                'read_only' => !empty($le['on_sale']) || ($le['owner_id'] !== null && (int)$le['owner_id'] !== $userId),
+                'personal' => $le['owner_id'] !== null,
             ];
         }
     }
@@ -680,6 +733,7 @@ if ($action === 'sync') {
         'app_version' => $appVersion,
         'online_count' => count($players) + 1,
         'saved_pose' => $savedPose,
+        'village_lease' => $activeLease ? ['id' => (int)$activeLease['lot_id'], 'expires_at' => (int)$activeLease['expires_at']] : null,
         'force_teleport' => $forceTeleport,
         'players' => $players,
         'obj_ver' => $objVer,
@@ -693,6 +747,11 @@ if ($action === 'sync') {
         'board_strokes' => $boardStrokes,
         'board_last_id' => $lastBoardId,
     ];
+    if ($z >= 32 && $z <= 115 && abs($x) <= 110) {
+        $traffic = $pdo->prepare('SELECT lot_id, pickup_at FROM mc_village_sales WHERE pickup_at BETWEEN ? AND ? GROUP BY lot_id, pickup_at ORDER BY pickup_at LIMIT 10');
+        $traffic->execute([$nowTs - 10, $nowTs + 14]);
+        $resp['village_traffic'] = $traffic->fetchAll();
+    }
     if (!$objectsUnchanged) {
         $resp['objects'] = $objects;
     }

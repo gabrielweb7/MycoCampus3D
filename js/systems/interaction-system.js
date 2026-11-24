@@ -25,6 +25,7 @@ import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
 import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
+import { discardHeldLiquid } from './liquid-disposal.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray, fireH2O2Spray, fireWaterSpray } from '../items/alcohol-spray.js';
@@ -800,6 +801,10 @@ export function handlePrimaryAction(ctx, aimNdc) {
       return;
     }
     if (ctx.hoveredSink) {
+      if (ctx.hoveredSinkAction === 'drain') {
+        discardHeldLiquid(ctx, ctx.hoveredSink);
+        return;
+      }
       if (isContaminatedOrBurned(ctx.heldItem) && resetDisposableContainer(ctx.heldItem)) {
         triggerSinkStream(ctx.hoveredSink, 500);
         if (window.MycoAudio) window.MycoAudio.playSpray();
@@ -1236,7 +1241,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
 
 function pickUpTargetItem(ctx, targetItem, startPlacement) {
   if (ctx.inventory?.pending) return false;
-  if (!ctx || !targetItem) return false;
+  if (!ctx || !targetItem || targetItem.isReadOnly) return false;
   if (!ctx.adminEditMode && targetItem.mesh.userData.isBlockedPickup && targetItem.mesh.userData.isBlockedPickup(targetItem)) {
     if (ctx.callbacks.onToast) {
       ctx.callbacks.onToast(targetItem.mesh.userData.isBurner

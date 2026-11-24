@@ -133,6 +133,63 @@ function seededRand(seed) {
 let sharedSpeciesGeos = null;
 const speciesMatCache = new Map();
 
+// The normalized cap profiles include the rolled rim and darker underside.
+// Geometry and material instances are reused by wild, held and cultivated specimens.
+const CAP_PROFILES = {
+  dome: [[0, 0.69], [0.33, 0.65], [0.72, 0.44], [1, 0.07], [0.89, -0.13], [0.42, -0.11], [0, -0.08]],
+  saucer: [[0, 0.37], [0.37, 0.35], [0.77, 0.23], [1, 0.08], [0.93, -0.08], [0.42, -0.15], [0, -0.11]],
+  conical: [[0, 0.86], [0.26, 0.72], [0.58, 0.42], [1, 0.04], [0.91, -0.08], [0.36, -0.14], [0, -0.09]],
+  bell: [[0, 0.94], [0.35, 0.89], [0.67, 0.61], [0.85, 0.26], [1, 0.03], [0.92, -0.09], [0, -0.16]],
+  bowl: [[0, -0.16], [0.31, -0.10], [0.65, 0.11], [1, 0.49], [0.98, 0.35], [0.59, -0.12], [0, -0.31]],
+  saddle: [[0, 0.29], [0.43, 0.33], [0.78, 0.21], [1, 0.02], [0.91, -0.14], [0.39, -0.19], [0, -0.13]],
+  morel: [[0, 1.24], [0.40, 1.16], [0.63, 0.91], [0.73, 0.63], [0.76, 0.41], [0.64, 0.16], [0.53, -0.04], [0, -0.12]]
+};
+
+function makeFacetedCap(profile, segments, wave = 0, pockets = false) {
+  const positions = [];
+  const colors = [];
+  const index = [];
+  for (const [ring, [radius, y]] of profile.entries()) {
+    for (let side = 0; side < segments; side++) {
+      const angle = side / segments * Math.PI * 2;
+      const hollow = pockets && radius > 0 && (side + ring) % 2 === 0;
+      const r = radius * (hollow ? 0.76 : 1);
+      const wobble = Math.cos(angle * 3) * wave * radius * radius;
+      positions.push(Math.cos(angle) * r, y + wobble, Math.sin(angle) * r);
+      const underside = ring >= profile.length - 2;
+      const value = (hollow ? 0.48 : underside ? 0.70 : 0.94) + Math.sin(side * 2.4 + ring) * 0.055;
+      colors.push(value, value * 0.98, value * 0.94);
+      if (ring === 0) continue;
+      const i = ring * segments + side;
+      const j = ring * segments + ((side + 1) % segments);
+      if (profile[ring - 1][0] > 0) index.push(i - segments, j - segments, j);
+      if (radius > 0) index.push(i - segments, j, i);
+    }
+  }
+  const indexed = new THREE.BufferGeometry();
+  indexed.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  indexed.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  indexed.setIndex(index);
+  const geometry = indexed.toNonIndexed();
+  indexed.dispose();
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function getSpeciesVariation(spec) {
+  let seed = 0;
+  for (const char of spec.scientific) seed = (Math.imul(seed, 31) + char.charCodeAt(0)) >>> 0;
+  return {
+    seed,
+    capWidth: 0.78 + seededRand(seed + 3) * 0.46,
+    capDepth: 0.80 + seededRand(seed + 7) * 0.24,
+    capHeight: 0.79 + seededRand(seed + 11) * 0.44,
+    stemHeight: 0.81 + seededRand(seed + 17) * 0.40,
+    stemWidth: 0.70 + seededRand(seed + 19) * 0.56,
+    lean: (seededRand(seed + 23) - 0.5) * 0.28
+  };
+}
+
 function getMushroomSharedGeos() {
   if (sharedSpeciesGeos) return sharedSpeciesGeos;
   sharedSpeciesGeos = {
@@ -141,8 +198,13 @@ function getMushroomSharedGeos() {
     cylFunnel: new THREE.CylinderGeometry(1.0, 0.38, 1.0, 10, 1, true),
     cylClub: new THREE.CylinderGeometry(1.0, 0.67, 1.0, 7),
     cylVeil: new THREE.CylinderGeometry(0.57, 1.0, 1.0, 8, 1, true),
-    dome: new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.56),
-    cup: new THREE.SphereGeometry(1, 10, 7, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.65),
+    dome: makeFacetedCap(CAP_PROFILES.dome, 10),
+    saucer: makeFacetedCap(CAP_PROFILES.saucer, 12, 0.05),
+    bell: makeFacetedCap(CAP_PROFILES.bell, 10),
+    cup: makeFacetedCap(CAP_PROFILES.bowl, 10, 0.08),
+    wave: makeFacetedCap(CAP_PROFILES.saddle, 12, 0.21),
+    conical: makeFacetedCap(CAP_PROFILES.conical, 10, 0.06),
+    morel: makeFacetedCap(CAP_PROFILES.morel, 12, 0, true),
     dot: new THREE.SphereGeometry(1, 5, 5),
     cone12: new THREE.ConeGeometry(1, 1, 12),
     cone7: new THREE.ConeGeometry(1, 1, 7),
@@ -155,8 +217,8 @@ function getMushroomSharedGeos() {
   return sharedSpeciesGeos;
 }
 
-function getCachedSpeciesMat(colorHex, roughness, metalness, emissiveHex, emissiveInt, doubleSide, basic) {
-  const key = `${colorHex}|${roughness}|${metalness}|${emissiveHex}|${emissiveInt}|${doubleSide ? 1 : 0}|${basic ? 1 : 0}`;
+function getCachedSpeciesMat(colorHex, roughness, metalness, emissiveHex, emissiveInt, doubleSide, basic, vertexColors = false) {
+  const key = `${colorHex}|${roughness}|${metalness}|${emissiveHex}|${emissiveInt}|${doubleSide ? 1 : 0}|${basic ? 1 : 0}|${vertexColors ? 1 : 0}`;
   let m = speciesMatCache.get(key);
   if (!m) {
     m = basic
@@ -167,6 +229,7 @@ function getCachedSpeciesMat(colorHex, roughness, metalness, emissiveHex, emissi
           metalness,
           emissive: emissiveHex,
           emissiveIntensity: emissiveInt,
+          vertexColors,
           side: doubleSide ? THREE.DoubleSide : THREE.FrontSide
         });
     m.userData.shared = true;
@@ -209,6 +272,9 @@ const EXTRA_CULTURE_PROFILES = [
 
 export function getMushroomVisualProfile(speciesName) {
   const s = String(speciesName || '').toLowerCase();
+  const exact = MUSHROOM_SPECIES_CATALOG.find(item => s === item.scientific.toLowerCase() || s === item.common.toLowerCase() ||
+    s === `${item.common} (${item.scientific})`.toLowerCase());
+  if (exact) return { ...exact, shape: getSpeciesShape(exact), isMagic: /^(Psilocybe|Panaeolus)/.test(exact.scientific) };
   for (let i = 0; i < EXTRA_CULTURE_PROFILES.length; i++) {
     const p = EXTRA_CULTURE_PROFILES[i];
     if (s.includes(p.match)) return p;
@@ -254,6 +320,13 @@ export function createMushroomMeshBySpeciesName(speciesName, scale = 0.085) {
 
 function getSpeciesShape(spec) {
   const n = spec.scientific;
+  if (n.includes('Penis Envy')) return 'king_oyster';
+  if (n === 'Psilocybe cyanescens') return 'wavy';
+  if (n === 'Psilocybe semilanceata' || /^(Conocybe|Entoloma|Hygrocybe conica)/.test(n)) return 'pointed';
+  if (/^(Coprinus|Coprinopsis|Bolbitius)/.test(n)) return 'bell';
+  if (/^(Tremella|Inonotus)/.test(n)) return 'lobed';
+  if (/^(Schizophyllum|Fistulina|Phellinus|Piptoporus|Panellus)/.test(n)) return 'shelf';
+  if (/^(Russula|Agaricus|Lepista|Clitocybe)/.test(n)) return 'saucer';
   if (n.indexOf('Hericium') !== -1) return 'lions_mane';
   if (n.indexOf('Ramaria') !== -1 || n.indexOf('Sparassis') !== -1 || n.indexOf('Clathrus') !== -1) return 'coral';
   if (n.indexOf('Macrolepiota') !== -1 || n.indexOf('Chlorophyllum') !== -1) return 'parasol';
@@ -266,7 +339,8 @@ function getSpeciesShape(spec) {
   if (n.indexOf('Cookeina') !== -1 || n.indexOf('Sarcoscypha') !== -1 || n.indexOf('Peziza') !== -1) return 'cup';
   if (n.indexOf('Cantharellus') !== -1 || n.indexOf('Craterellus') !== -1 || n.indexOf('Lactarius') !== -1 || n.indexOf('Gomphus') !== -1) return 'funnel';
   if (n.indexOf('Cordyceps') !== -1 || n.indexOf('Xylaria') !== -1) return 'cordyceps';
-  if (n.indexOf('Calvatia') !== -1 || n.indexOf('Lycoperdon') !== -1 || n.indexOf('Geastrum') !== -1 || n.indexOf('Tuber') !== -1) return 'puffball';
+  if (n.startsWith('Geastrum')) return 'earthstar';
+  if (/^(Calvatia|Lycoperdon|Tuber|Vascellum)/.test(n)) return 'puffball';
   if (n.indexOf('Amanita muscaria') !== -1) return 'amanita_dots';
   if (n.indexOf('Psilocybe') !== -1) return 'cubensis';
   return 'classic';
@@ -278,10 +352,11 @@ function makeSpeciesMushroomMesh(spec) {
   const shape = spec.shape || getSpeciesShape(spec);
   const isGlow = !!spec.glow || spec.scientific.indexOf('chlorophos') !== -1 || spec.scientific.indexOf('Panellus') !== -1;
   const isGlossy = !!spec.glossy || spec.scientific.indexOf('Ganoderma') !== -1;
+  const variation = getSpeciesVariation(spec);
 
   const geos = getMushroomSharedGeos();
   const stemMat = getCachedSpeciesMat(spec.stemColor, 0.72, 0, 0x000000, 0, false, false);
-  const capMat = getCachedSpeciesMat(
+  const capMaterialArgs = [
     spec.capColor,
     isGlossy ? 0.16 : 0.48,
     isGlossy ? 0.15 : 0.02,
@@ -289,17 +364,19 @@ function makeSpeciesMushroomMesh(spec) {
     isGlow ? 0.75 : 0,
     true,
     false
-  );
+  ];
+  const capMat = getCachedSpeciesMat(...capMaterialArgs);
+  const shadedCapMat = getCachedSpeciesMat(...capMaterialArgs, true);
 
   let cap = null;
-  if (shape === 'lions_mane') {
+  if (shape === 'lions_mane' || shape === 'lobed') {
     cap = new THREE.Mesh(geos.dodeca, capMat);
     cap.scale.setScalar(s * 1.15);
     cap.position.y = s * 1.05;
     for (let i = 0; i < 4; i++) {
       const tuft = new THREE.Mesh(geos.dodeca, capMat);
       const a = (i / 4) * Math.PI * 2;
-      tuft.scale.setScalar(s * 0.65);
+      tuft.scale.set(s * 0.57, s * (shape === 'lions_mane' ? 0.82 : 0.54), s * 0.57);
       tuft.position.set(Math.cos(a) * s * 0.55, s * 0.85, Math.sin(a) * s * 0.55);
       g.add(tuft);
     }
@@ -307,8 +384,8 @@ function makeSpeciesMushroomMesh(spec) {
   } else if (shape === 'shelf') {
     for (let i = 0; i < 6; i++) {
       const fanW = 1.05 - (i % 3) * 0.18;
-      const fan = new THREE.Mesh(geos.cylFan, capMat);
-      fan.scale.set(s * fanW, s * 0.18, s * fanW);
+      const fan = new THREE.Mesh(geos.saucer, shadedCapMat);
+      fan.scale.set(s * fanW * variation.capWidth, s * 0.47, s * fanW * 0.76);
       fan.position.set(((i % 3) - 1) * s * 0.48, s * (0.35 + i * 0.24), Math.floor(i / 3) * s * 0.34);
       fan.rotation.x = 0.26;
       fan.rotation.z = ((i % 2) - 0.5) * 0.22;
@@ -322,7 +399,7 @@ function makeSpeciesMushroomMesh(spec) {
       const st = new THREE.Mesh(geos.cylStem, stemMat);
       st.scale.set(s * 0.15, s * 2.4, s * 0.15);
       st.position.set(Math.cos(a) * r, s * 1.2, Math.sin(a) * r);
-      const cp = new THREE.Mesh(geos.dome, capMat);
+      const cp = new THREE.Mesh(geos.bell, shadedCapMat);
       cp.scale.setScalar(s * 0.42);
       cp.position.set(Math.cos(a) * r, s * 2.35, Math.sin(a) * r);
       g.add(st, cp);
@@ -332,15 +409,15 @@ function makeSpeciesMushroomMesh(spec) {
     const st = new THREE.Mesh(geos.cylStem, stemMat);
     st.scale.set(s * 0.72, s * 1.9, s * 0.72);
     st.position.y = s * 0.95;
-    cap = new THREE.Mesh(geos.dome, capMat);
-    cap.scale.setScalar(s * 0.98);
+    cap = new THREE.Mesh(geos.dome, shadedCapMat);
+    cap.scale.set(s * variation.capWidth, s * variation.capHeight * 0.80, s * variation.capDepth);
     cap.position.y = s * 1.85;
     g.add(st, cap);
     [[s * 0.85, 0.52], [-s * 0.68, 0.40]].forEach(([bx, bSc]) => {
       const bst = new THREE.Mesh(geos.cylStem, stemMat);
       bst.scale.set(s * 0.5 * bSc, s * 1.4 * bSc, s * 0.5 * bSc);
       bst.position.set(bx, s * 0.7 * bSc, s * 0.25);
-      const bcp = new THREE.Mesh(geos.dome, capMat);
+      const bcp = new THREE.Mesh(geos.dome, shadedCapMat);
       bcp.scale.setScalar(s * 0.75 * bSc);
       bcp.position.set(bx, s * 1.35 * bSc, s * 0.25);
       g.add(bst, bcp);
@@ -349,9 +426,9 @@ function makeSpeciesMushroomMesh(spec) {
     const st = new THREE.Mesh(geos.cylStem, stemMat);
     st.scale.set(s * 0.38, s * 1.3, s * 0.38);
     st.position.y = s * 0.65;
-    cap = new THREE.Mesh(geos.cone7, capMat);
-    cap.scale.set(s * 0.65, s * 1.5, s * 0.65);
-    cap.position.y = s * 1.85;
+    cap = new THREE.Mesh(geos.morel, shadedCapMat);
+    cap.scale.set(s * variation.capWidth, s * 1.32, s * variation.capDepth);
+    cap.position.y = s * 1.20;
     g.add(st, cap);
   } else if (shape === 'cup') {
     for (let i = 0; i < 4; i++) {
@@ -361,7 +438,7 @@ function makeSpeciesMushroomMesh(spec) {
       const st = new THREE.Mesh(geos.cylClub, stemMat);
       st.scale.set(s * 0.20 * scCup, s * 0.9 * scCup, s * 0.20 * scCup);
       st.position.set(ox, s * 0.45 * scCup, oz);
-      const cup = new THREE.Mesh(geos.cup, capMat);
+      const cup = new THREE.Mesh(geos.cup, shadedCapMat);
       cup.scale.setScalar(s * 0.55 * scCup);
       cup.position.set(ox, s * 1.15 * scCup, oz);
       cup.rotation.z = (i - 1.5) * 0.18;
@@ -377,7 +454,7 @@ function makeSpeciesMushroomMesh(spec) {
       const st = new THREE.Mesh(geos.cylClub, capMat);
       st.scale.set(s * 0.36 * fSc, s * 1.45 * fSc, s * 0.36 * fSc);
       st.position.set(fx, s * 0.72 * fSc, fz);
-      const fn = new THREE.Mesh(geos.cylFunnel, capMat);
+      const fn = new THREE.Mesh(geos.cup, shadedCapMat);
       fn.scale.set(s * 0.95 * fSc, s * 0.52 * fSc, s * 0.95 * fSc);
       fn.position.set(fx, s * 1.60 * fSc, fz);
       fn.rotation.z = (i === 0 ? 0 : Math.cos(ang)) * 0.16;
@@ -415,6 +492,19 @@ function makeSpeciesMushroomMesh(spec) {
       g.add(club);
       if (i === 1) cap = club;
     }
+  } else if (shape === 'earthstar') {
+    cap = new THREE.Mesh(geos.dodeca, stemMat);
+    cap.scale.setScalar(s * 0.65);
+    cap.position.y = s * 0.70;
+    g.add(cap);
+    for (let i = 0; i < 7; i++) {
+      const angle = i * Math.PI * 2 / 7;
+      const point = new THREE.Mesh(geos.cone7, capMat);
+      point.scale.set(s * 0.37, s * 1.3, s * 0.24);
+      point.position.set(Math.sin(angle) * s * 0.56, s * 0.22, Math.cos(angle) * s * 0.56);
+      point.rotation.set(Math.PI * 0.37, angle, 0, 'YXZ');
+      g.add(point);
+    }
   } else if (shape === 'puffball') {
     cap = new THREE.Mesh(geos.dodeca, capMat);
     cap.scale.setScalar(s * 0.95);
@@ -435,29 +525,35 @@ function makeSpeciesMushroomMesh(spec) {
     const veil = new THREE.Mesh(geos.cylVeil, veilMat);
     veil.scale.set(s * 0.42, s * 0.24, s * 0.42);
     veil.position.y = s * 1.45;
-    cap = new THREE.Mesh(geos.cone12, capMat);
-    cap.scale.set(s * 1.05, s * 0.62, s * 1.05);
+    cap = new THREE.Mesh(geos.saucer, shadedCapMat);
+    cap.scale.set(s * variation.capWidth, s * variation.capHeight, s * variation.capDepth);
     cap.position.y = s * 2.35;
     g.add(st, veil, cap);
   } else {
     const stem = new THREE.Mesh(geos.cylStem, stemMat);
-    stem.scale.set(s * 0.36, s * 2.1, s * 0.36);
-    stem.position.y = s * 1.05;
-    cap = new THREE.Mesh(geos.dome, capMat);
-    cap.scale.setScalar(s * 0.95);
-    cap.position.y = s * 1.95;
+    const stemLength = s * 2.1 * variation.stemHeight;
+    stem.scale.set(s * 0.36 * variation.stemWidth, stemLength, s * 0.36 * variation.stemWidth);
+    stem.position.set(stemLength * variation.lean * 0.21, stemLength * 0.5, 0);
+    stem.rotation.z = -variation.lean * 0.45;
+    const capGeo = { wavy: 'wave', pointed: 'conical', bell: 'bell', saucer: 'saucer' }[shape] || 'dome';
+    cap = new THREE.Mesh(geos[capGeo], shadedCapMat);
+    const uniform = shape === 'amanita_dots';
+    cap.scale.set(s * (uniform ? 0.95 : variation.capWidth), s * (uniform ? 1 : variation.capHeight), s * (uniform ? 0.95 : variation.capDepth));
+    cap.position.set(stemLength * variation.lean * 0.43, stemLength * 0.97, 0);
+    cap.rotation.z = -variation.lean;
     g.add(stem, cap);
     if (shape === 'amanita_dots') {
       const dotMat = getCachedSpeciesMat(0xffffff, 0.5, 0, 0, 0, false, true);
       for (let di = 0; di < 5; di++) {
         const a = (di / 5) * Math.PI * 2;
         const dot = new THREE.Mesh(geos.dot, dotMat);
-        dot.scale.setScalar(s * 0.14);
-        dot.position.set(Math.cos(a) * s * 0.52, s * 2.42, Math.sin(a) * s * 0.52);
-        g.add(dot);
+        dot.position.set(Math.cos(a) * 0.53, 0.54 + ((di % 3) - 1) * 0.035, Math.sin(a) * 0.53);
+        dot.scale.set(0.17, 0.06, 0.14);
+        cap.add(dot);
       }
     }
   }
+  g.scale.set(0.93 + seededRand(variation.seed + 29) * 0.14, 0.88 + seededRand(variation.seed + 31) * 0.24, 0.93 + seededRand(variation.seed + 37) * 0.14);
   return { g, cap };
 }
 

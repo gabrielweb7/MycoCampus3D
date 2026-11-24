@@ -176,6 +176,7 @@ export async function logoutCampus() {
     await apiPost('api/auth.php?action=logout', {}, true);
   } catch (e) {}
   appState.currentUser = null;
+  appState.villageLease = null;
   setModalManagerUserKey(null);
   setMycoCoinsUserScope(null);
   hydrateMicotecaFromServer(null);
@@ -206,6 +207,7 @@ export function handleSessionExpired(msg) {
   if (appState.syncTimer) clearInterval(appState.syncTimer);
   appState.syncTimer = null;
   appState.currentUser = null;
+  appState.villageLease = null;
   setModalManagerUserKey(null);
   appState.authToken = '';
   if (window.updateCampusPlayers) window.updateCampusPlayers([]);

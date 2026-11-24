@@ -22,6 +22,7 @@ import { stepTripGnomes } from '../world/trip-gnomes.js';
 import { stepUfoAbduction } from '../world/ufo-abduction.js';
 import { dropUnsupportedItems } from '../entities/placement-ghost.js';
 import { stepMultiplayerAvatars } from '../entities/avatars.js';
+import { stepThermalGuides } from '../entities/vehicles/paraglider.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
 import { stepLobbyTour } from './lobby-tour.js';
 import { updateHoverRay } from './interaction-system.js';
@@ -44,6 +45,7 @@ import { stepGreenhouse } from '../world/greenhouse.js';
 import { stepForestDistanceCulling } from '../world/mushroom-species.js';
 import { stepPastureCows } from '../entities/pasture-cows.js';
 import { stepPets } from '../entities/pets.js';
+import { stepVillageTraffic } from '../world/village-traffic.js';
 import { stepDehydrators } from '../items/dehydrator.js';
 import { stepMonotubs } from '../items/monotub.js';
 import { stepCampusGarden } from '../world/campus-garden.js';
@@ -454,6 +456,7 @@ export function startAnimationLoop(ctx) {
       stepSprayBursts(ctx, dt);
       stepPastureCows(ctx, dt);
       stepPets(ctx, dt);
+      stepVillageTraffic(ctx, now);
       stepTripGnomes(ctx, dt);
       stepUfoAbduction(ctx, dt);
 
@@ -475,6 +478,7 @@ export function startAnimationLoop(ctx) {
       }
 
       stepForestDistanceCulling(ctx);
+      stepThermalGuides(ctx);
       qualityMod.stepMobileItemCulling(ctx, now);
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);

@@ -36,11 +36,14 @@ import { handleWorldInteraction } from '../systems/world-interactions.js';
 import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
 import { escapeHtml } from './dom-helpers.js';
 import { diagnoseItemPedagogy } from '../core/cultivation-tracks.js';
+import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposal.js';
+import { t } from '../core/i18n.js';
 
 let barEl = null;
 let styleInjected = false;
 let currentActions = [];
 let lastSignature = '';
+let touchActionsOpen = false;
 
 function ensureFloatingStyles() {
   if (styleInjected) return;
@@ -675,6 +678,14 @@ export function inspectItemToast(ctx, item) {
 function buildHeldItemActions(ctx) {
   const actions = [];
   const held = ctx.heldItem;
+  if (!ctx.placementMode && getDrainableVolume(ctx, held) > 0) {
+    actions.push({
+      id: 'held_discard_liquid_' + held.id,
+      icon: '💧',
+      label: t(ctx.hoveredSinkAction === 'drain' ? 'liquid.drain_sink' : 'liquid.drain_ground'),
+      run: () => discardHeldLiquid(ctx, ctx.hoveredSinkAction === 'drain' ? ctx.hoveredSink : null)
+    });
+  }
   if (held.wildMushroomCtrl) {
     actions.push({
       id: 'held_eat_mush_' + held.id,
@@ -1190,6 +1201,7 @@ export function syncFloatingActions(ctx) {
   if (!ctx || !ctx.inFps || ctx.lobbyTourActive || ctx.inventory?.pending) {
     if (barEl) barEl.classList.add('hidden');
     currentActions = [];
+    touchActionsOpen = false;
     lastSignature = '';
     return;
   }
@@ -1200,6 +1212,7 @@ export function syncFloatingActions(ctx) {
       barEl.classList.add('hidden');
     }
     currentActions = [];
+    touchActionsOpen = false;
     lastSignature = '';
     return;
   }
@@ -1207,7 +1220,8 @@ export function syncFloatingActions(ctx) {
   if (barEl) {
     barEl.classList.toggle('with-held-item', !!ctx.heldItem);
   }
-  const sig = actions.map((a) => a.id).join('|');
+  const touch = !!ctx.isTouchDevice?.();
+  const sig = `${touch ? 'touch:' : ''}${actions.map((action) => action.id).join('|')}`;
   currentActions = actions;
   if (sig === lastSignature && barEl && !barEl.classList.contains('hidden')) return;
   lastSignature = sig;
@@ -1222,6 +1236,28 @@ export function syncFloatingActions(ctx) {
   barEl.classList.remove('hidden');
   barEl.replaceChildren();
 
+  if (touch) {
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'myco-float-chip action-drawer-toggle';
+    toggle.textContent = touchActionsOpen ? `× ${t('hud.item_actions')}` : `⋯ ${t('hud.item_actions')}`;
+    toggle.setAttribute('aria-expanded', String(touchActionsOpen));
+    toggle.setAttribute('aria-controls', 'myco-item-actions-list');
+    toggle.addEventListener('click', event => {
+      event.stopPropagation();
+      touchActionsOpen = !touchActionsOpen;
+      lastSignature = '';
+      syncFloatingActions(ctx);
+    });
+    barEl.appendChild(toggle);
+    if (!touchActionsOpen) return;
+  }
+
+  const container = touch ? document.createElement('div') : barEl;
+  if (touch) {
+    container.id = 'myco-item-actions-list';
+    barEl.appendChild(container);
+  }
   actions.forEach(function (act, idx) {
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -1230,8 +1266,9 @@ export function syncFloatingActions(ctx) {
     chip.addEventListener('click', function (ev) {
       ev.stopPropagation();
       act.run();
+      if (touch) closeRadialMenu();
     });
-    barEl.appendChild(chip);
+    container.appendChild(chip);
   });
 }
 
@@ -1243,11 +1280,20 @@ export function triggerFloatingAction(index) {
   return false;
 }
 
-export function isRadialMenuOpen() { return false; }
-export function closeRadialMenu() {}
+export function isRadialMenuOpen() { return touchActionsOpen; }
+export function closeRadialMenu() {
+  if (!touchActionsOpen) return;
+  touchActionsOpen = false;
+  lastSignature = '';
+  document.getElementById('myco-item-actions-list')?.remove();
+}
 export function openRadialMenu(ctx) {
+  if (ctx.isTouchDevice?.()) {
+    touchActionsOpen = true;
+    lastSignature = '';
+    syncFloatingActions(ctx);
+    return;
+  }
   syncFloatingActions(ctx);
-  ctx?.callbacks?.onToast?.(ctx.isTouchDevice?.()
-    ? '🎯 Toque no botão numerado para escolher uma ação.'
-    : '🎯 Pressione o número mostrado na ação que deseja usar (1–4).');
+  ctx?.callbacks?.onToast?.('🎯 Pressione o número mostrado na ação que deseja usar (1–4).');
 }

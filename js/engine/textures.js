@@ -7,7 +7,24 @@ export const snowableEntries = [];
 let texBrick = null;
 let texPaving = null;
 let texWood = null;
+let texBark = null;
 let texWater = null;
+let groundTextures = null;
+
+export function getGroundTextures() {
+  if (groundTextures) return groundTextures;
+  const loader = new THREE.TextureLoader();
+  function loadTile(file) {
+    const texture = loader.load('assets/textures/' + file);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    texture.userData.shared = true;
+    return texture;
+  }
+  groundTextures = { grass: loadTile('campus-grass.jpg'), dirt: loadTile('village-dirt.jpg') };
+  return groundTextures;
+}
 
 export function registerSnowable(mat) {
   if (mat && mat.color && !mat._snowRegistered) {
@@ -74,6 +91,27 @@ export function createProceduralTextures() {
   texWood.wrapS = THREE.RepeatWrapping;
   texWood.wrapT = THREE.RepeatWrapping;
 
+  const barkCanvas = document.createElement('canvas');
+  barkCanvas.width = barkCanvas.height = 64;
+  const bark = barkCanvas.getContext('2d');
+  bark.fillStyle = '#aa8d76';
+  bark.fillRect(0, 0, 64, 64);
+  for (let x = 1; x < 64; x += 4) {
+    bark.strokeStyle = x % 3 === 0 ? '#735747' : (x % 19 === 0 ? '#bfa28b' : '#95806b');
+    bark.lineWidth = x % 7 === 0 ? 2.1 : 1;
+    bark.beginPath();
+    for (let y = 0; y <= 64; y += 4) {
+      const wobble = Math.sin(y * Math.PI / 32 + x) * 1.3 + Math.sin(y * Math.PI / 16) * 0.4;
+      if (y === 0) bark.moveTo(x + wobble, y);
+      else bark.lineTo(x + wobble, y);
+    }
+    bark.stroke();
+  }
+  texBark = new THREE.CanvasTexture(barkCanvas);
+  texBark.colorSpace = THREE.SRGBColorSpace;
+  texBark.wrapS = texBark.wrapT = THREE.RepeatWrapping;
+  texBark.userData.shared = true;
+
   // 4. Água cristalina com cáusticas
   const watC = document.createElement('canvas');
   watC.width = 256; watC.height = 256;
@@ -110,11 +148,11 @@ export function createProceduralTextures() {
   texWater.wrapT = THREE.RepeatWrapping;
   texWater.repeat.set(4, 4);
 
-  return { texBrick, texPaving, texWood, texWater };
+  return { texBrick, texPaving, texWood, texBark, texWater };
 }
 
 export function getTextures() {
-  return { texBrick, texPaving, texWood, texWater };
+  return { texBrick, texPaving, texWood, texBark, texWater };
 }
 
 const _brickMatCache = new Map();

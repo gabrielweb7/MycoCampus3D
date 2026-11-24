@@ -1,8 +1,10 @@
 /**
  * MycoCampus3D — Mundo Natural, Floresta InstancedMesh, Cogumelos Silvestres & Praça Central
  */
-import { makeBox, getTextures } from '../engine/textures.js';
+import { makeBox, getTextures, getGroundTextures } from '../engine/textures.js';
 import { terrainHeight } from '../engine/physics.js';
+import { villageDistance } from '../core/village-layout.js';
+import { createMushroomMeshBySpeciesName } from './mushroom-species.js';
 
 const THREE = window.THREE;
 const LITE_FLORA = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -14,6 +16,7 @@ const LITE_FLORA = typeof window !== 'undefined' && !!window.matchMedia && windo
  */
 export function isNaturalSoilSpot(x, z, margin = 0.8) {
   const m = margin;
+  if (z >= 43 - m && villageDistance(x, z) <= m) return false;
   // 1. Praça Central concretada + alas Oeste/Leste (plane 56x42 em (0, 1) -> x:-28..28, z:-20..22)
   if (x >= -28.0 - m && x <= 28.0 + m && z >= -20.5 - m && z <= 22.0 + m) return false;
   // 2. Reitoria / Prédio Norte & Auditórios Norte (x: -25.5..25.5, z: -43.0..-20.0)
@@ -46,25 +49,29 @@ export function buildNatureWorld(ctx) {
   const geo = new THREE.PlaneGeometry(size, size, segs, segs);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
-  const colors = [];
-  const cGrass = new THREE.Color(0x4c9a43);
-  const cGrassAlt = new THREE.Color(0x63ad4e);
-  const cMtn = new THREE.Color(0x2f7140);
-  const cRock = new THREE.Color(0x68758a);
+  const uv = geo.attributes.uv;
+  const colors = new Float32Array(pos.count * 3);
+  const cGrass = new THREE.Color(0xacc6b3);
+  const cGrassAlt = new THREE.Color(0xe8e3c5);
+  const cMtn = new THREE.Color(0x8ab1a2);
+  const cRock = new THREE.Color(0x74838b);
+  const col = new THREE.Color();
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
     const y = terrainHeight(x, z);
     pos.setY(i, y);
-    const col = ((Math.sin(x * 0.14) + Math.cos(z * 0.14)) > 0 ? cGrass : cGrassAlt).clone();
+    uv.setXY(i, x / 5, -z / 5);
+    const variation = 0.5 + Math.sin(x * 0.16 + z * 0.07) * 0.23 + Math.cos(z * 0.20 - x * 0.04) * 0.22;
+    col.copy(cGrass).lerp(cGrassAlt, variation);
     if (y > 6) col.lerp(cMtn, Math.min(1, (y - 6) / 14));
     if (y > 22) col.lerp(cRock, Math.min(0.65, (y - 22) / 16));
-    colors.push(col.r, col.g, col.b);
+    col.toArray(colors, i * 3);
   }
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const terrainSnowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0.02 });
+  const terrainSnowMat = new THREE.MeshStandardMaterial({ map: getGroundTextures().grass, vertexColors: true, roughness: 0.94 });
   terrainSnowMat.userData.keepPbr = true;
   const terrain = new THREE.Mesh(geo, terrainSnowMat);
   terrain.receiveShadow = true;
@@ -89,85 +96,7 @@ export function buildNatureWorld(ctx) {
     treePositions.push({ x: et[0], y: terrainHeight(et[0], et[1]), z: et[1], s: 0.95 + (k % 3) * 0.15 });
   });
 
-  // Nova floresta Myco Cozy: mistura pinheiros em camadas e árvores de copa
-  // arredondada. Cinco draw calls atendem toda a floresta, inclusive mobile.
-  const count = treePositions.length;
-  const pineCount = treePositions.filter((_, i) => i % 5 !== 0).length;
-  const broadCount = count - pineCount;
-  const trunkGeo = new THREE.CylinderGeometry(0.24, 0.42, 3.45, 8);
-  const pineGeo = new THREE.ConeGeometry(1, 1, 9);
-  const crownGeo = new THREE.DodecahedronGeometry(1, 1);
-  // `setColorAt` ativa instanceColor automaticamente. Não usar vertexColors
-  // aqui: as geometrias não possuem atributo `color` e ficariam pretas.
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-  const pineDarkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86 });
-  const pineLightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82 });
-  const crownMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.84 });
-
-  const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
-  const pineDark = new THREE.InstancedMesh(pineGeo, pineDarkMat, Math.max(1, pineCount * 2));
-  const pineLight = new THREE.InstancedMesh(pineGeo, pineLightMat, Math.max(1, pineCount * 2));
-  const crowns = new THREE.InstancedMesh(crownGeo, crownMat, Math.max(1, broadCount * 5));
-  const dummy = new THREE.Object3D();
-  const color = new THREE.Color();
-  let darkIdx = 0, lightIdx = 0, crownIdx = 0;
-  const crownOffsets = [[0, 3.75, 0, 1.28], [-0.82, 3.35, 0.18, 0.9], [0.78, 3.42, -0.22, 0.94], [0.08, 3.32, 0.82, 0.86], [-0.12, 4.42, -0.12, 0.83]];
-
-  treePositions.forEach((tp, i) => {
-    const yaw = (i * 1.618) % (Math.PI * 2);
-    const isPine = i % 5 !== 0;
-    dummy.rotation.set(0, yaw, 0);
-    dummy.scale.set(tp.s * (isPine ? 0.9 : 1.08), tp.s, tp.s * (isPine ? 0.9 : 1.08));
-    dummy.position.set(tp.x, tp.y + 1.72 * tp.s, tp.z);
-    dummy.updateMatrix();
-    trunkInst.setMatrixAt(i, dummy.matrix);
-    color.setHex(i % 7 === 0 ? 0x9b6a43 : (isPine ? 0x724329 : 0x855437));
-    trunkInst.setColorAt(i, color);
-
-    if (isPine) {
-      for (let layer = 0; layer < 4; layer++) {
-        const radius = (2.05 - layer * 0.32) * tp.s;
-        const height = (2.45 - layer * 0.16) * tp.s;
-        dummy.position.set(tp.x, tp.y + (3.0 + layer * 0.92) * tp.s, tp.z);
-        dummy.rotation.set(0, yaw + layer * 0.38, (layer % 2 ? 0.025 : -0.02));
-        dummy.scale.set(radius, height, radius);
-        dummy.updateMatrix();
-        const inst = layer % 2 ? pineLight : pineDark;
-        const idx = layer % 2 ? lightIdx++ : darkIdx++;
-        inst.setMatrixAt(idx, dummy.matrix);
-        color.setHex(layer % 2 ? (i % 3 ? 0x31b867 : 0x42c977) : (i % 4 ? 0x137d4b : 0x196c43));
-        inst.setColorAt(idx, color);
-      }
-    } else {
-      for (let ci = 0; ci < crownOffsets.length; ci++) {
-        const c = crownOffsets[ci];
-        dummy.position.set(tp.x + c[0] * tp.s, tp.y + c[1] * tp.s, tp.z + c[2] * tp.s);
-        dummy.rotation.set(ci * 0.19, yaw + ci * 0.73, ci * 0.11);
-        dummy.scale.set(c[3] * tp.s, c[3] * 0.82 * tp.s, c[3] * tp.s);
-        dummy.updateMatrix();
-        crowns.setMatrixAt(crownIdx, dummy.matrix);
-        color.setHex(ci % 2 ? 0x62c55c : (i % 10 === 0 ? 0xf2b84b : 0x35a854));
-        crowns.setColorAt(crownIdx++, color);
-      }
-    }
-
-    if (Math.abs(tp.x) < 90 && Math.abs(tp.z) < 70) {
-      solidColliders.push({ minX: tp.x - 0.5, maxX: tp.x + 0.5, minZ: tp.z - 0.5, maxZ: tp.z + 0.5, minY: tp.y, maxY: tp.y + 6.3 * tp.s });
-    }
-  });
-  trunkInst.instanceMatrix.needsUpdate = true;
-  pineDark.instanceMatrix.needsUpdate = true;
-  pineLight.instanceMatrix.needsUpdate = true;
-  crowns.instanceMatrix.needsUpdate = true;
-  if (trunkInst.instanceColor) trunkInst.instanceColor.needsUpdate = true;
-  if (pineDark.instanceColor) pineDark.instanceColor.needsUpdate = true;
-  if (pineLight.instanceColor) pineLight.instanceColor.needsUpdate = true;
-  if (crowns.instanceColor) crowns.instanceColor.needsUpdate = true;
-  [trunkInst, pineDark, pineLight, crowns].forEach((mesh) => {
-    mesh.castShadow = !LITE_FLORA;
-    mesh.receiveShadow = true;
-  });
-  scene.add(trunkInst, pineDark, pineLight, crowns);
+  buildForestSectors(scene, solidColliders, treePositions);
 
   const mushCoords = [
     [-31, 15.5], [25, 22], [-31, 8], [-31, -6], [37, 2], [37, -25],
@@ -177,32 +106,119 @@ export function buildNatureWorld(ctx) {
     [-70, 16], [-72, -12], [-58, -48], [-24, -48], [24, -48], [44, -40],
     [-74, 2], [74, 10]
   ].filter((mc) => isNaturalSoilSpot(mc[0], mc[1], 1.0));
-  const capColors = [0xef4444, 0xf59e0b, 0xa855f7, 0xec4899, 0x10b981];
-  const plazaStemGeo = new THREE.CylinderGeometry(0.09, 0.14, 0.38, 8);
-  plazaStemGeo.userData.shared = true;
-  const plazaCapGeo = new THREE.SphereGeometry(0.32, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55);
-  plazaCapGeo.userData.shared = true;
-  const plazaStemMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.7 });
-  plazaStemMat.userData.shared = true;
-  const plazaCapMats = capColors.map((col) => {
-    const m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.42, emissive: col, emissiveIntensity: 0.22 });
-    m.userData.shared = true;
-    return m;
-  });
+  const pathSpecies = [
+    'Agárico-das-Moscas (Amanita muscaria)', 'Cantarelo Dourado (Cantharellus cibarius)',
+    'Pé-Azul (Wood Blewit) (Lepista nuda)', 'Chapéu-de-Fada Azul (Mycena interrupta)',
+    'Rússula Verde-Acolchoada (Russula virescens)'
+  ];
   mushCoords.forEach((mc, idx) => {
     const mx = mc[0], mz = mc[1];
     const my = terrainHeight(mx, mz);
-    const g = new THREE.Group();
+    const speciesName = pathSpecies[idx % pathSpecies.length];
+    const g = createMushroomMeshBySpeciesName(speciesName, 0.105 + (idx % 4) * 0.011);
     g.position.set(mx, my, mz);
-    const stem = new THREE.Mesh(plazaStemGeo, plazaStemMat);
-    stem.position.y = 0.19;
-    g.add(stem);
-    const cap = new THREE.Mesh(plazaCapGeo, plazaCapMats[idx % plazaCapMats.length]);
-    cap.position.y = 0.36; cap.castShadow = true;
-    g.add(cap);
+    g.rotation.y = idx * 2.39996;
+    g.userData.speciesName = speciesName;
     scene.add(g);
-    wildMushrooms.push({ id: `wild_${idx}`, group: g, capMesh: cap, active: true, respawnAt: 0 });
+    wildMushrooms.push({ id: `wild_${idx}`, group: g, capMesh: g, active: true, respawnAt: 0 });
   });
+}
+
+const FOREST_SECTOR_SIZE = 48;
+const CROWN_OFFSETS = [
+  [0, 3.75, 0, 1.28], [-0.82, 3.35, 0.18, 0.9], [0.78, 3.42, -0.22, 0.94],
+  [0.08, 3.32, 0.82, 0.86], [-0.12, 4.42, -0.12, 0.83]
+];
+
+function buildForestSectors(scene, solidColliders, treePositions) {
+  const sectors = new Map();
+  for (let i = 0; i < treePositions.length; i++) {
+    const tree = treePositions[i];
+    const key = `${Math.floor(tree.x / FOREST_SECTOR_SIZE)},${Math.floor(tree.z / FOREST_SECTOR_SIZE)}`;
+    let sector = sectors.get(key);
+    if (!sector) {
+      sector = { trees: [], pines: 0 };
+      sectors.set(key, sector);
+    }
+    const isPine = i % 5 !== 0;
+    sector.trees.push({ ...tree, i, isPine });
+    sector.pines += Number(isPine);
+  }
+
+  const trunkGeo = new THREE.CylinderGeometry(0.24, 0.42, 3.45, 8);
+  const pineGeo = new THREE.ConeGeometry(1, 1, LITE_FLORA ? 7 : 9);
+  const crownGeo = new THREE.IcosahedronGeometry(1, LITE_FLORA ? 0 : 1);
+  const trunkMat = new THREE.MeshStandardMaterial({ map: getTextures().texBark, color: 0xffffff, roughness: 0.9 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86 });
+  const dummy = new THREE.Object3D();
+  const color = new THREE.Color();
+  const layers = [0x1b7750, 0x259451, 0x389f55, 0x4cab63];
+
+  function addBatch(name, geometry, material, count, receiveShadow) {
+    if (!count) return null;
+    const mesh = new THREE.InstancedMesh(geometry, material, count);
+    mesh.name = name;
+    mesh.castShadow = !LITE_FLORA;
+    mesh.receiveShadow = receiveShadow;
+    scene.add(mesh);
+    return mesh;
+  }
+
+  for (const { trees, pines } of sectors.values()) {
+    const trunkInst = addBatch('ForestTrunks', trunkGeo, trunkMat, trees.length, true);
+    // As copas sombreiam o terreno sem projetar serrilhado nas próprias camadas.
+    const pineInst = addBatch('ForestPines', pineGeo, leafMat, pines * layers.length, false);
+    const crowns = addBatch('ForestCrowns', crownGeo, leafMat, (trees.length - pines) * CROWN_OFFSETS.length, false);
+    let pineIdx = 0;
+    let crownIdx = 0;
+    for (let trunkIdx = 0; trunkIdx < trees.length; trunkIdx++) {
+      const { x, y, z, s, i, isPine } = trees[trunkIdx];
+      const yaw = (i * 1.618) % (Math.PI * 2);
+      const trunkWidth = s * (isPine ? 0.9 : 1.08);
+      dummy.rotation.set(0, yaw, 0);
+      dummy.scale.set(trunkWidth, s, trunkWidth);
+      dummy.position.set(x, y + 1.72 * s, z);
+      dummy.updateMatrix();
+      trunkInst.setMatrixAt(trunkIdx, dummy.matrix);
+      color.setHex(i % 7 === 0 ? 0xc6a27a : (isPine ? 0xa17855 : 0xb3906d));
+      trunkInst.setColorAt(trunkIdx, color);
+
+      if (isPine) {
+        for (let layer = 0; layer < layers.length; layer++) {
+          const radius = (2.05 - layer * 0.32) * s;
+          const height = (2.45 - layer * 0.16) * s;
+          dummy.position.set(x, y + (3.0 + layer * 0.92) * s, z);
+          dummy.rotation.set(0, yaw + layer * 0.38, layer % 2 ? 0.025 : -0.02);
+          dummy.scale.set(radius, height, radius);
+          dummy.updateMatrix();
+          pineInst.setMatrixAt(pineIdx, dummy.matrix);
+          color.setHex(layers[layer]).multiplyScalar(0.89 + (i % 7) * 0.035);
+          pineInst.setColorAt(pineIdx++, color);
+        }
+      } else {
+        for (let ci = 0; ci < CROWN_OFFSETS.length; ci++) {
+          const [dx, dy, dz, radius] = CROWN_OFFSETS[ci];
+          dummy.position.set(x + dx * s, y + dy * s, z + dz * s);
+          dummy.rotation.set(ci * 0.19, yaw + ci * 0.73, ci * 0.11);
+          dummy.scale.set(radius * s, radius * 0.82 * s, radius * s);
+          dummy.updateMatrix();
+          crowns.setMatrixAt(crownIdx, dummy.matrix);
+          color.setHex(ci % 2 ? 0x62c55c : (i % 10 === 0 ? 0xf2b84b : 0x35a854));
+          crowns.setColorAt(crownIdx++, color);
+        }
+      }
+
+      if (Math.abs(x) < 90 && Math.abs(z) < 70) {
+        solidColliders.push({ minX: x - 0.5, maxX: x + 0.5, minZ: z - 0.5, maxZ: z + 0.5, minY: y, maxY: y + 6.3 * s });
+      }
+    }
+    for (const batch of [trunkInst, pineInst, crowns]) {
+      if (!batch) continue;
+      batch.instanceMatrix.needsUpdate = true;
+      batch.instanceColor.needsUpdate = true;
+      batch.computeBoundingSphere();
+    }
+  }
 }
 
 let sharedBedAssets = null;

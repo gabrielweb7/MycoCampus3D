@@ -80,9 +80,13 @@ export function buildParagliderRig(ctx) {
   ctx.setParagliderGroup(paragliderGroup);
 }
 
+const THERMAL_RING_COUNT = 6;
+const THERMAL_RING_GAP = 14;
+let thermalDummy;
+
 export function buildThermalColumns(ctx) {
   if (ctx.thermalColumns.length) return;
-  var spots = [
+  const spots = [
     { x: 0, z: -135 },
     { x: -70, z: -125 },
     { x: 70, z: -125 },
@@ -90,21 +94,39 @@ export function buildThermalColumns(ctx) {
     { x: -105, z: 12 },
     { x: 105, z: 12 }
   ];
-  var ringMat = new THREE.MeshBasicMaterial({
-    color: 0x67e8f9, transparent: true, opacity: 0.24, side: THREE.DoubleSide, depthWrite: false
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x67e8f9, transparent: true, opacity: 0.24, side: THREE.DoubleSide,
+    forceSinglePass: true, depthWrite: false
   });
-  spots.forEach(function (sp) {
-    var baseY = terrainHeight(sp.x, sp.z);
-    var rings = [];
-    for (var r = 0; r < 6; r++) {
-      var radius = 4.5 + r * 0.9;
-      var rm = new THREE.Mesh(new THREE.RingGeometry(radius - 0.35, radius, 28), ringMat);
-      rm.rotation.x = -Math.PI / 2;
-      rm.position.set(sp.x, baseY + 3 + r * 14, sp.z);
-      rm.userData.ignoreRay = true;
-      ctx.scene.add(rm);
-      rings.push({ mesh: rm, offset: r * 14 });
+  const ringGeo = new THREE.RingGeometry(0.945, 1, 24).rotateX(-Math.PI / 2);
+  thermalDummy ||= new THREE.Object3D();
+  for (const { x, z } of spots) {
+    const baseY = terrainHeight(x, z);
+    const rings = new THREE.InstancedMesh(ringGeo, ringMat, THERMAL_RING_COUNT);
+    rings.name = 'ParagliderThermal';
+    rings.position.set(x, baseY, z);
+    rings.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    rings.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 44, 0), 44);
+    rings.visible = false;
+    rings.userData.ignoreRay = true;
+    ctx.scene.add(rings);
+    ctx.thermalColumns.push({ x, z, maxH: 118, radius: 13, rings });
+  }
+}
+
+export function stepThermalGuides(ctx) {
+  const show = ctx.inFps && ctx.paragliderActive && !ctx.lobbyTourActive;
+  const elapsed = show ? ctx.clock.elapsedTime : 0;
+  for (const { rings } of ctx.thermalColumns) {
+    rings.visible = !!show;
+    if (!show) continue;
+    for (let i = 0; i < THERMAL_RING_COUNT; i++) {
+      const y = (elapsed * 7.5 + i * THERMAL_RING_GAP) % (THERMAL_RING_COUNT * THERMAL_RING_GAP);
+      thermalDummy.position.y = 2 + y;
+      thermalDummy.scale.setScalar(4.5 + i * 0.9);
+      thermalDummy.updateMatrix();
+      rings.setMatrixAt(i, thermalDummy.matrix);
     }
-    ctx.thermalColumns.push({ x: sp.x, z: sp.z, baseY: baseY, maxH: 118, radius: 13, rings: rings });
-  });
+    rings.instanceMatrix.needsUpdate = true;
+  }
 }

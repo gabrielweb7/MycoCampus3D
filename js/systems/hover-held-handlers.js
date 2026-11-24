@@ -9,6 +9,8 @@ import { getSyringeInjectionDoseMl } from '../items/syringe.js';
 import { updatePlacementGhostVisual } from '../entities/placement-ghost.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
+import { getDrainableVolume } from './liquid-disposal.js';
+import { t } from '../core/i18n.js';
 import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge } from '../items/culture-fridge.js';
 import { PDA_POWDER_DOSE_GRAMS } from '../items/pda-mix.js';
 import { formatSprayHoverPrompt, getSanitizationStatus } from '../items/alcohol-spray.js';
@@ -640,18 +642,34 @@ function handleSinkHover(ctx, setHoverPrompt) {
     ctx.heldItem.spawnCtrl.hydrated === false && !ctx.heldItem.spawnCtrl.sterilized && !ctx.heldItem.spawnCtrl.inoculated);
   const isDunkMonotubHeld = !!(ctx.heldItem && ctx.heldItem.monotubCtrl &&
     ctx.heldItem.monotubCtrl.colonization >= 100 && !ctx.heldItem.monotubCtrl.spent && !ctx.heldItem.monotubCtrl.contaminated);
-  if (!isPotHeld && !isLiquidHeld && !isBowlHeld && !isDrySpawnHeld && !isDunkMonotubHeld) return false;
-  const sHits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
-  if (sHits.length === 0 || sHits[0].distance >= 3.5) return false;
-  ctx.hoverHit = sHits[0];
+  const canDrain = getDrainableVolume(ctx, ctx.heldItem) > 0;
+  const canFill = isPotHeld || isLiquidHeld || isBowlHeld || isDrySpawnHeld;
+  if (!canFill && !canDrain && !isDunkMonotubHeld) return false;
+  const hits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
+  const hit = hits.find(candidate => candidate.distance < 3.5 && !isRayOccludedByStructure(ctx, candidate.distance, {
+    checkWalls: true,
+    ignoreCollider: candidate.object.userData.labSink?.collider
+  }));
+  if (!hit) return false;
+  const sinkAction = hit.object.userData.sinkAction || 'fill';
+  if (sinkAction === 'drain' && !isDunkMonotubHeld) {
+    if (!canDrain) return false;
+    ctx.hoverHit = hit;
+    ctx.hoveredSink = hit.object.userData.labSink;
+    ctx.hoveredSinkAction = 'drain';
+    hidePlacementGhost(ctx);
+    setHoverPrompt(ctx, t('liquid.drain_sink'));
+    return true;
+  }
+  if (sinkAction === 'fill' && !canFill && !isDunkMonotubHeld) return false;
+  ctx.hoverHit = hit;
   if (isDunkMonotubHeld) {
     ctx.hoveredMonotubDunkSink = true;
     hidePlacementGhost(ctx);
     setHoverPrompt(ctx, `💦 Mergulhar/Encher Monotub 24L na Pia (Cold Shock / Dunk 99% UR p/ Flush ${ctx.heldItem.monotubCtrl.flush}/4!)`);
     return true;
   }
-  ctx.hoveredSink = sHits[0].object.userData.labSink;
-  const sinkAction = sHits[0].object.userData.sinkAction || 'fill';
+  ctx.hoveredSink = hit.object.userData.labSink;
   ctx.hoveredSinkAction = sinkAction;
   hidePlacementGhost(ctx);
   if (isDrySpawnHeld) {

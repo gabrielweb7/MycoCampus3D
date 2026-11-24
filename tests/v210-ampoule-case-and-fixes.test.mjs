@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { BufferGeometry, Float32BufferAttribute } from '../js/vendor/three.bundle.min.js';
 
 class MockVec3 {
   constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
@@ -68,6 +69,8 @@ globalThis.window = {
     Mesh: MockMesh,
     Vector3: MockVec3,
     BoxGeometry: MockGeo,
+    BufferGeometry,
+    Float32BufferAttribute,
     CylinderGeometry: MockGeo,
     SphereGeometry: MockGeo,
     ConeGeometry: MockGeo,

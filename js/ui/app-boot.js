@@ -39,6 +39,7 @@ import {
   updateUserHud
 } from './hud-lobby.js';
 import { CAMPUS_SECTORS, claimLabQuestReward, completeLabStep, renderMapModal, renderQuestModal } from './quest-map.js';
+import { renderVillageRentals } from './village-rentals.js';
 import { renderShopModal } from './modal-shop.js';
 import { initFirstSteps } from './first-steps.js';
 import { broadcastSlide, renderLessonsModal } from './modal-lessons.js';
@@ -75,15 +76,18 @@ function getMobileActionIcon(prompt) {
   return '✅';
 }
 
-async function harvestMushroom(mushId) {
+async function harvestMushroom(mushId, specimen, operationId) {
   if (!appState.currentUser) return;
   try {
-    const data = await apiPost('api/auth.php?action=harvest', { mushroom_id: mushId || '' }, true);
+    const request = { mushroom_id: mushId || '' };
+    if (specimen) Object.assign(request, { specimen, operation_id: operationId });
+    const data = await apiPost('api/auth.php?action=harvest', request, true);
     if (data.ok && data.user) {
       if (appState.currentUser?.id !== data.user.id) return;
       appState.currentUser = preserveNewerPetState(appState.currentUser, data.user);
       updateUserHud();
     }
+    return data;
   } catch (e) {}
 }
 
@@ -942,15 +946,7 @@ export function bootApp() {
       actBtn.title = currentHoverPrompt;
       actBtn.setAttribute('aria-label', currentHoverPrompt);
       const placeBtnEmpty = $('btn-mobile-place');
-      const canMoveHovered = !!(window.hasCampusHoveredPickable && window.hasCampusHoveredPickable());
-      if (placeBtnEmpty) {
-        placeBtnEmpty.style.display = canMoveHovered ? 'flex' : 'none';
-        if (canMoveHovered) {
-          placeBtnEmpty.textContent = '📦';
-          placeBtnEmpty.title = 'Mover item para outro local';
-          placeBtnEmpty.classList.remove('placement-active');
-        }
-      }
+      if (placeBtnEmpty) placeBtnEmpty.style.display = 'none';
     } else {
       actBtn.style.display = 'none';
       actBtn.dataset.action = '';
@@ -976,9 +972,16 @@ export function bootApp() {
   }
 
   window.initCampus3D('campus-canvas-wrap', {
-    onHarvestMushroom: (mushId) => harvestMushroom(mushId),
+    onHarvestMushroom: harvestMushroom,
     onHarvestGreenhouse: (slot) => harvestGreenhouseSlot(slot),
     onOpenGreenhouseModal: () => openGreenhouseControlModal(),
+    onOpenVillageLot: (lotId) => {
+      const grid = $('map-sectors-grid');
+      if (!grid) return;
+      releaseInputForModal();
+      $('map-modal')?.classList.remove('hidden');
+      renderVillageRentals(grid, renderMapModal, lotId);
+    },
     onDehydrateReward: () => harvestMushroom('dehydrator_crisp'),
     onOpenLessons: () => {
       renderLessonsModal();
@@ -1004,7 +1007,7 @@ export function bootApp() {
         }
       }
       const dropBtn = $('btn-mobile-drop');
-      if (dropBtn) dropBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
+      if (dropBtn) dropBtn.style.display = (label && isTouch() && !mobilePlacementModeActive) ? 'flex' : 'none';
       const rotBtn = $('btn-mobile-rotate');
       if (rotBtn) rotBtn.style.display = (label && isTouch() && mobilePlacementModeActive) ? 'flex' : 'none';
       const heldRot = $('btn-held-rotate');
@@ -1022,6 +1025,8 @@ export function bootApp() {
     },
     onPlacementModeChange: (active) => {
       mobilePlacementModeActive = active;
+      const dropBtn = $('btn-mobile-drop');
+      if (dropBtn) dropBtn.style.display = (currentHoldLabel && isTouch() && !active) ? 'flex' : 'none';
       const rotBtn = $('btn-mobile-rotate');
       if (rotBtn) rotBtn.style.display = (currentHoldLabel && isTouch() && active) ? 'flex' : 'none';
       const heldRot = $('btn-held-rotate');

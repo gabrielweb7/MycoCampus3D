@@ -10,7 +10,7 @@ for (const key of ['MYCO_TEST_DB_HOST', 'MYCO_TEST_DB_USER', 'MYCO_TEST_DB_PASS'
 }
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'myco-backend-test-'));
-const files = ['api/auth.php', 'api/db.php', 'api/multiplayer.php', 'api/multiplayer_schema.php', 'api/inventory.php', 'database/schema.sql', 'VERSION'];
+const files = ['api/auth.php', 'api/db.php', 'api/multiplayer.php', 'api/multiplayer_schema.php', 'api/inventory.php', 'api/village.php', 'api/village_store.php', 'database/schema.sql', 'VERSION'];
 const suffix = randomBytes(6).toString('hex');
 
 function post(file, action, body) {
@@ -43,6 +43,12 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   assert.equal(pet('buy_pet', { pet_id: 'cat_black' }).user.myco_coins, 50);
   assert.equal(pet('select', { pet_id: 'cat_black' }).user.progress.pets.selected, 'cat_black');
   assert.equal(pet('mode', { mode: 'roam' }).user.progress.pets.mode, 'roam');
+  assert.equal(pet('mode', { mode: 'stay' }).ok, false);
+  const anchor = { x: -33, y: 0, z: 54 };
+  const staying = pet('mode', { mode: 'stay', pos: anchor });
+  assert.equal(staying.user.progress.pets.mode, 'stay');
+  assert.deepEqual(staying.user.progress.pets.anchor, anchor);
+  assert.equal(pet('mode', { mode: 'roam' }).ok, true);
   assert.equal(pet('buy_food_bowl').user.myco_coins, 10);
   assert.equal(pet('place_food', { pos: { x: 9999, y: 0, z: 0 } }).ok, false);
   assert.equal(pet('place_food', { pos: { x: 1, y: 0, z: 2 } }).ok, true);
@@ -198,6 +204,84 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   syncInventory({ holding_item: '' }, rejoined);
   post('multiplayer.php', 'leave', rejoined);
   post('multiplayer.php', 'leave', session);
+
+  const tenantLogin = post('auth.php', 'login', { display_name: `House QA ${suffix}`, pin: randomBytes(8).toString('hex') });
+  const tenant = { user_id: tenantLogin.user.id, token: tenantLogin.token };
+  const initialLots = post('village.php', 'status', tenant);
+  assert.equal(initialLots.lots.length, 10);
+  const available = initialLots.lots.filter(row => !row.occupied);
+  assert.ok(available.length >= 2, 'test database needs two unoccupied lots');
+  const lot = available[0];
+  const rent = { lot_id: lot.id, days: 1, operation_id: `village_rent_${lot.id}_1_${randomBytes(16).toString('hex')}` };
+  const lease = post('village.php', 'rent', { ...tenant, ...rent });
+  assert.equal(lease.ok, true, lease.error);
+  assert.equal(lease.myco_coins, 250 - lease.daily_price);
+  const expiry = lease.lots.find(row => row.mine).expires_at;
+  assert.equal(expiry - lease.server_ts, 86400);
+  const replayLease = post('village.php', 'rent', { ...tenant, ...rent });
+  assert.equal(replayLease.myco_coins, lease.myco_coins);
+  assert.equal(replayLease.lots.find(row => row.mine).expires_at, expiry);
+  assert.equal(post('village.php', 'rent', { ...petAuth, ...rent }).ok, false);
+  const delivery = { x: ((lot.id - 1) % 5 - 2) * 26 + 2, y: 0.1, z: lot.id <= 5 ? 54 : 84, ry: 0 };
+  const orderVillage = { supply_id: 'sup_pp5', delivery, order_id: `purchase_sup_pp5_${randomBytes(16).toString('hex')}` };
+  assert.equal(post('auth.php', 'buy_supply_durable', { ...auth, ...orderVillage }).charged, false);
+  const belonging = post('auth.php', 'buy_supply_durable', { ...tenant, ...orderVillage });
+  assert.equal(belonging.ok, true, belonging.error);
+  const protectedId = belonging.delivery_id;
+  const visit = { ...auth, session_id: `village_guest_${suffix}` };
+  const seeLot = post('multiplayer.php', 'sync', { ...visit, x: delivery.x, z: delivery.z,
+    holding_item: protectedId, moved_items: [{ id: protectedId, x: 9, y: 0, z: 0, state: { liquidMl: 70 } }] });
+  assert.equal(seeLot.inventory.conflict, true);
+  assert.equal(seeLot.layout_edits[protectedId].read_only, true);
+  assert.equal(seeLot.objects[protectedId].x, delivery.x);
+  const ownerScene = post('multiplayer.php', 'sync', { ...tenant, session_id: `village_owner_${suffix}`, init_sync: 1 });
+  assert.equal(ownerScene.layout_edits[protectedId].read_only, false);
+  assert.equal(ownerScene.village_lease.id, lot.id);
+  assert.equal(post('village.php', 'save_note', { ...tenant, note: 'Experimento da vila' }).ok, true);
+  assert.equal(post('village.php', 'status', tenant).notebook, 'Experimento da vila');
+  assert.notEqual(post('village.php', 'status', auth).notebook, 'Experimento da vila');
+
+  const front = lot.id <= 5 ? 1 : -1;
+  const bench = { x: ((lot.id - 1) % 5 - 2) * 26 + front * 4.6, y: 0.89, z: front > 0 ? 62.48 : 75.52, ry: 0 };
+  const orderedBag = post('auth.php', 'buy_supply_durable', { ...tenant, supply_id: 'sup_mylar',
+    delivery, order_id: `purchase_sup_mylar_${randomBytes(16).toString('hex')}` });
+  assert.equal(orderedBag.ok, true, orderedBag.error);
+  const offering = post('multiplayer.php', 'sync', { ...tenant, session_id: `village_owner_${suffix}`,
+    x: bench.x, z: bench.z, moved_items: [{ id: orderedBag.delivery_id, ...bench, state: { custom: { filled: true, sealed: true, grams: 10 } } }] });
+  assert.equal(offering.layout_edits[orderedBag.delivery_id].read_only, true);
+  const dueSale = 'require $argv[1]; $q=mc_db()->prepare("UPDATE mc_village_sales SET pickup_at=0 WHERE item_id=? AND owner_id=?"); $q->execute([$argv[2],$argv[3]]);';
+  execFileSync('php', ['-r', dueSale, path.join(fixture, 'api', 'db.php'), orderedBag.delivery_id, String(tenant.user_id)], { cwd: fixture, timeout: 15000 });
+  const settled = post('village.php', 'status', tenant);
+  assert.equal(settled.myco_coins, orderedBag.user.myco_coins + 120);
+  assert.equal(post('village.php', 'status', tenant).myco_coins, settled.myco_coins);
+  assert.equal(post('multiplayer.php', 'sync', visit).layout_edits[orderedBag.delivery_id].removed, true);
+
+  const expireLot = 'require $argv[1]; $q=mc_db()->prepare("UPDATE mc_village_lots SET expires_at=0 WHERE lot_id=? AND owner_id=?"); $q->execute([$argv[2],$argv[3]]);';
+  execFileSync('php', ['-r', expireLot, path.join(fixture, 'api', 'db.php'), String(lot.id), String(tenant.user_id)], { cwd: fixture, timeout: 15000 });
+  assert.ok(post('village.php', 'status', tenant).stored_items.some(row => row.item_id === protectedId));
+  assert.equal(post('multiplayer.php', 'sync', visit).layout_edits[protectedId].stored, true);
+  const next = available[1];
+  const secondLease = post('village.php', 'rent', { ...tenant, lot_id: next.id, days: 1,
+    operation_id: `village_rent_${next.id}_1_${randomBytes(16).toString('hex')}` });
+  assert.equal(secondLease.ok, true, secondLease.error);
+  const recovered = post('village.php', 'withdraw', { ...tenant, item_id: protectedId });
+  assert.equal(recovered.ok, true, recovered.error);
+  assert.ok(!recovered.stored_items.some(row => row.item_id === protectedId));
+  const visibleAgain = post('multiplayer.php', 'sync', visit);
+  assert.equal(visibleAgain.layout_edits[protectedId].stored, false);
+  assert.equal(visibleAgain.objects[protectedId].z, next.id <= 5 ? 59 : 79);
+  execFileSync('php', ['-r', expireLot, path.join(fixture, 'api', 'db.php'), String(next.id), String(tenant.user_id)], { cwd: fixture, timeout: 15000 });
+
+  const wildId = 'wild_125';
+  const harvestRequest = { mushroom_id: wildId, operation_id: `harvest_${wildId}_${randomBytes(12).toString('hex')}`,
+    specimen: { species: 'Rússula Vermelha (Russula emetica)', pos: { x: -60, y: 0.02, z: 15 } } };
+  const harvest = post('auth.php', 'harvest', { ...tenant, ...harvestRequest });
+  assert.equal(harvest.awarded, true);
+  assert.ok(harvest.user.progress.discovered_species.includes(harvestRequest.specimen.species));
+  assert.equal(post('auth.php', 'harvest', { ...tenant, ...harvestRequest }).picked_id, harvest.picked_id);
+  const afterHarvest = post('multiplayer.php', 'sync', visit);
+  assert.equal(afterHarvest.world_state[wildId], '0');
+  assert.equal(afterHarvest.item_states[harvest.picked_id].wildMushroom.speciesName, harvestRequest.specimen.species);
 
 
   console.log('Backend: migração, moedas e traços sem duplicidade e recompensa da missão verificados em MySQL; inventário multijogador persistente verificado.');

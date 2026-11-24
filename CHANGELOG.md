@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.7.0] - 2026-11-24
+
+- Vila ao sul do campus com dez casas numeradas, quintais cercados, bancadas, pias e torneiras externas. Aluguel em dias corridos e acesso pelo mapa ou pela placa da casa.
+- Equipamentos comprados são protegidos pelo servidor. Quando o aluguel vence, itens do lote podem ser retirados pelo depósito pessoal. Caderno de experimentos por conta e coleta de embalagens seladas no quintal.
+- Pets podem seguir, passear ou ficar no local escolhido. Frascos e outros recipientes compatíveis podem ser esvaziados na pia ou no chão.
+- Inventário recolhível, menu e ações contextuais simplificados no celular, com corrida no joystick.
+- Novos perfis low-poly para as 100 espécies, texturas de grama, terra e casca, floresta em setores e correntes de voo visíveis apenas com o parapente ativado. Colheitas silvestres confirmam prêmio e espécime juntos no servidor.
+
 <!-- coderabbit-ai-generated:v1 -->
 
 <!-- coderabbit-ai-generated-section:v1:20213ee14b9229f017ca5ecb8eb411dfbf59663276c685e763fafbb8f8ecefc2 -->
