@@ -1,10 +1,10 @@
+import { normalizeCultureOrigin } from '../core/culture-origin.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { getBowlBulkReadiness, addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { markBladePackEmpty, updateScalpelLabel } from '../items/scalpel.js';
 import { fillSpawnWithSubstrate, getSpawnContainerBaseLabel } from '../items/spawn-containers.js';
 import { updateFalconCultureVisual } from '../items/falcon-tubes.js';
-import { inoculatePetri, togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
-import { togglePP5Lid } from '../items/pp5-cup.js';
+import { inoculatePetri, updatePetriVisual } from '../items/petri-dish.js';
 
 export function handleFlocaoTargetAction(ctx) {
   const target = ctx.hoveredFlocaoTarget;
@@ -128,6 +128,8 @@ export function handleMixingBowlTargetAction(ctx) {
 export function handleScalpelTargetAction(ctx) {
   const scalpel = ctx.heldItem.scalpelCtrl;
   const target = ctx.hoveredScalpelTarget;
+  if (!target) return;
+  if (scalpel.hasMycelium && ['cut', 'scrape_spores', 'biopsy'].includes(target.mode)) return;
   if (target.mode === 'blade') {
     if (target.item && target.item.bladePackCtrl && target.item.bladePackCtrl.empty) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Esta embalagem de lâmina já está vazia! Jogue no lixo.');
@@ -142,6 +144,7 @@ export function handleScalpelTargetAction(ctx) {
     scalpel.biopsySpecies = '';
     scalpel.bladeAttachedAt = performance.now();
     scalpel.hasMycelium = false;
+    scalpel.origin = '';
     if (scalpel.bladeMesh) scalpel.bladeMesh.visible = true;
     markBladePackEmpty(target.item);
     updateScalpelLabel(ctx.heldItem);
@@ -159,10 +162,19 @@ export function handleScalpelTargetAction(ctx) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Colete o ponto de esporos apenas dentro do Fluxo Laminar ligado e higienizado.');
       return;
     }
+    if (!scalpel.sterile || scalpel.bladeExpired || scalpel.bladeContaminated) {
+      ctx.callbacks.onToast?.('🔪 Use uma lâmina estéril para coletar um monoesporo.');
+      return;
+    }
     if (!petri || !petri.lidOpen || petri.mode !== 'spore_print') {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Abra a placa com Carimbo de Esporos dentro do Fluxo Laminar.');
       return;
     }
+    if (petri.expired || petri.sporeContaminated || petri.contaminated) {
+      ctx.callbacks.onToast?.('⚠️ Use um carimbo viável e sem contaminação.');
+      return;
+    }
+    scalpel.origin = 'monospore';
     const spName = petri.speciesName || 'Psilocybe cubensis';
     scalpel.hasMycelium = true;
     scalpel.isSporeSample = true;
@@ -174,7 +186,7 @@ export function handleScalpelTargetAction(ctx) {
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
     if (ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`🔪 Ponto de esporos de ${spName} coletado na ponta do bisturi! Transfira para Placa de Petri (PDA) ou Potinho PP5 de Flocão para germinar!`);
+      ctx.callbacks.onToast(`🔪 Monoesporo de ${spName} coletado. Transfira para um meio sólido estéril ou caldo nutritivo estéril para germinar.`);
     }
     ctx.notifyWorldAction();
   } else if (target.mode === 'cut') {
@@ -202,8 +214,7 @@ export function handleScalpelTargetAction(ctx) {
       return;
     }
     if (spawn && spawn.isPP5 && !spawn.lidOpen) {
-      togglePP5Lid(ctx, target.item);
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🥣 Tampa do Potinho PP5 aberta! Clique novamente com o bisturi para cortar um fragmento.');
+      ctx.callbacks.onToast?.('🥣 Use a opção numerada Abrir potinho no alvo antes de cortar.');
       return;
     }
     const cutSpecies = (petri && petri.speciesName) || (slantCult && slantCult.speciesName) || (spawn && spawn.speciesName) || '';
@@ -215,6 +226,7 @@ export function handleScalpelTargetAction(ctx) {
     }
     if (genKey) scalpel.lastGeneticsKey = genKey;
     scalpel.biopsySpecies = cutSpecies;
+    scalpel.origin = normalizeCultureOrigin((petri || slantCult || spawn)?.origin);
     const srcGen = petri ? (petri.generation || 0) : (slantCult ? (slantCult.generation || 1) : ((spawn && spawn.generation) || 1));
     scalpel.cutGeneration = Math.min(3, srcGen + 1);
     scalpel.biopsyAseptic = true;
@@ -265,6 +277,7 @@ export function handleScalpelTargetAction(ctx) {
     scalpel.hasMycelium = true;
     scalpel.isSporeSample = false;
     scalpel.cutGeneration = 1;
+    scalpel.origin = 'tissue_clone';
     scalpel.biopsySpecies = wm.speciesName;
     scalpel.biopsyAseptic = hoodOk && bladeOk && glovesOk;
     scalpel.cutContaminated = !bladeOk;
@@ -275,14 +288,12 @@ export function handleScalpelTargetAction(ctx) {
       ctx.callbacks.onToast(changedGenetics
         ? '🦠 Você usou a mesma lâmina em outra genética! Lâmina contaminada.'
         : (scalpel.biopsyAseptic
-          ? `🔪 Amostra estéril de ${wm.speciesName} coletada! Transfira para Placa de Petri ou Cultura Líquida.`
+          ? `🔪 Tecido de ${wm.speciesName} coletado para clonagem. Transfira para um meio estéril.`
           : `🔪 Amostra de ${wm.speciesName} coletada (⚠️ risco de contaminação sem fluxo/luvas/lâmina estéril!).`));
     }
     ctx.notifyWorldAction();
-  } else if (target.mode === 'open' && target.item && target.item.mesh.userData.isPetri) {
-    togglePetriLid(ctx, target.item);
-  } else if (target.mode === 'open' && target.item && target.item.spawnCtrl && target.item.spawnCtrl.isPP5) {
-    togglePP5Lid(ctx, target.item);
+  } else if (target.mode === 'open') {
+    ctx.callbacks.onToast?.('🧫 Use a opção numerada para abrir a tampa no alvo.');
   } else if (target.mode === 'transfer' && target.item && target.item.mesh.userData.petriCtrl) {
     const petri = target.item.mesh.userData.petriCtrl;
     const receivesMyceliumCut = target.item.meta && target.item.meta.compatibilities &&
@@ -296,19 +307,23 @@ export function handleScalpelTargetAction(ctx) {
     if (!(ctx.wearingGloves && !ctx.glovesExpired)) contamRisk += 0.25;
     if (!((target.item.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
     if (!((ctx.heldItem.sanitizedUntil || 0) > performance.now())) contamRisk += 0.15;
+    if (scalpel.isSporeSample && !sterileTransfer) {
+      ctx.callbacks.onToast?.('🌱 Para germinar o monoesporo, use uma placa estéril no Fluxo Laminar preparado.');
+      return;
+    }
     const inocMethod = scalpel.isSporeSample ? 'spores' : 'mycelium';
     const nextGen = scalpel.isSporeSample ? 0 : Math.min(3, Math.max(1, scalpel.cutGeneration || 1));
-    if (!inoculatePetri(target.item, inocMethod, sterileTransfer, contamRisk, scalpel.biopsySpecies, nextGen)) {
+    if (!inoculatePetri(target.item, inocMethod, sterileTransfer, contamRisk, scalpel.biopsySpecies, nextGen, scalpel.origin)) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Não foi possível transferir para esta placa.');
       return;
     }
-    const genNames = ['T0 Esporos', 'T1 Setorizada', 'T2 Rizomórfica', 'T3 Elite ⭐'];
     if (ctx.callbacks.onToast) ctx.callbacks.onToast(sterileTransfer
       ? (scalpel.isSporeSample
-        ? `🌱 Ponto de esporos [T0]${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} inoculado no ágar PDA! Aguarde germinar para setorizar T1!`
-        : `🧬 Isolamento [${genNames[nextGen] || 'T1'}]${scalpel.biopsySpecies ? ' (' + scalpel.biopsySpecies + ')' : ''} transferido! A lâmina segue estéril para a mesma genética.`)
+        ? '🌱 Monoesporo transferido para o ágar. Aguarde a germinação.'
+        : (scalpel.origin === 'tissue_clone' ? '🧬 Tecido ou micélio clonal transferido. Aguarde a colonização.' : '🍄 Fragmento transferido. Aguarde a colonização.'))
       : '🦠 A transferência contaminou a placa; higienize o Fluxo Laminar, use luvas e lâmina estéril.');
     scalpel.hasMycelium = false;
+    scalpel.origin = '';
     scalpel.isSporeSample = false;
     scalpel.cutContaminated = false;
     scalpel.biopsyAseptic = true;
@@ -317,6 +332,7 @@ export function handleScalpelTargetAction(ctx) {
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
     ctx.notifyWorldAction();
   } else if (target.mode === 'crossbreed' && target.item && target.item.mesh.userData.petriCtrl) {
+    if (scalpel.isSporeSample) return;
     const petri = target.item.mesh.userData.petriCtrl;
     const aseptic = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!(ctx.wearingGloves && !ctx.glovesExpired);
     if (!petri.lidOpen || petri.mode !== 'clean' || petri.contaminated) {
@@ -333,16 +349,18 @@ export function handleScalpelTargetAction(ctx) {
       const isGold = ((petri.speciesName || '').length + (scalpel.biopsySpecies || '').length) % 2 === 0;
       petri.hybridMutant = isGold ? 'gold' : 'albino';
       petri.generation = 3;
+      petri.origin = 'hybrid';
       const baseName = (petri.speciesName || 'Psilocybe cubensis').replace(/\s*•\s*(?:🌟|✨).*$/, '').trim();
       const variantTag = isGold ? '🌟 Linhagem Dourada F1' : '✨ Albino Híbrido F1';
       petri.speciesName = `${baseName} • ${variantTag}`;
       updatePetriVisual(target.item);
       if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
       if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast(`🧬✨ SUCESSO! Cruzamento gerou cepa rara "${petri.speciesName}" (T3 Elite)!`);
+        ctx.callbacks.onToast(`🧬✨ SUCESSO! Cruzamento gerou cepa rara "${petri.speciesName}" (F1)!`);
       }
     }
     scalpel.hasMycelium = false;
+    scalpel.origin = '';
     scalpel.isSporeSample = false;
     scalpel.cutContaminated = false;
     scalpel.biopsyAseptic = true;
@@ -357,6 +375,7 @@ export function handleScalpelTargetAction(ctx) {
       return;
     }
     const aseptic = scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!(ctx.wearingGloves && !ctx.glovesExpired);
+    sl.origin = normalizeCultureOrigin(scalpel.origin);
     sl.inoculated = true;
     sl.colonized = false;
     sl.sterilized = true;
@@ -373,6 +392,7 @@ export function handleScalpelTargetAction(ctx) {
     }
     updateFalconCultureVisual(target.item);
     scalpel.hasMycelium = false;
+    scalpel.origin = '';
     scalpel.isSporeSample = false;
     scalpel.cutContaminated = false;
     scalpel.biopsyAseptic = true;
@@ -389,14 +409,19 @@ export function handleScalpelTargetAction(ctx) {
     const lcLiq = target.item.mesh && target.item.mesh.userData && target.item.mesh.userData.liquidCtrl;
     const lcSterile = !!(lc.sterilized || target.item.sterilized || (lcLiq && lcLiq.sterilized));
     const aseptic = lcSterile && scalpel.sterile && !scalpel.cutContaminated && (scalpel.biopsyAseptic !== false) && isAsepticWorkArea(ctx, target.item) && !!(ctx.wearingGloves && !ctx.glovesExpired);
+    if (scalpel.isSporeSample && (!lcSterile || !aseptic)) {
+      ctx.callbacks.onToast?.('🧪 Para germinar o monoesporo, use caldo estéril e trabalhe no Fluxo Laminar preparado.');
+      return;
+    }
+    lc.origin = normalizeCultureOrigin(scalpel.origin);
     lc.inoculated = true;
     lc.colonized = false;
-    lc.generation = Math.min(3, Math.max(1, scalpel.cutGeneration || 1));
+    lc.generation = scalpel.isSporeSample ? 0 : Math.min(3, Math.max(1, scalpel.cutGeneration || 1));
     if (scalpel.biopsySpecies) lc.speciesName = scalpel.biopsySpecies;
     if (aseptic) {
       lc.colonization = 2;
       lc.contaminated = false;
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🍄 Fragmento inserido na Cultura Líquida! Aguarde colonizar até 100%.');
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast(scalpel.isSporeSample ? '🌱 Monoesporo inoculado no caldo estéril. Aguarde germinar e colonizar.' : '🍄 Fragmento inserido na cultura líquida. Aguarde colonizar.');
     } else {
       lc.colonization = 0;
       lc.contaminated = true;
@@ -408,6 +433,7 @@ export function handleScalpelTargetAction(ctx) {
       target.item.setVolume(target.item.mesh.userData.liquidCtrl.volMl);
     }
     scalpel.hasMycelium = false;
+    scalpel.origin = '';
     scalpel.cutContaminated = false;
     scalpel.biopsyAseptic = true;
     if (!aseptic) scalpel.sterile = false;
@@ -426,6 +452,15 @@ export function handleScalpelTargetAction(ctx) {
       return;
     }
     const isAseptic = isAsepticWorkArea(ctx, target.item);
+    if (spawn.isPP5 && !spawn.lidOpen) {
+      ctx.callbacks.onToast?.('🥣 Abra a tampa do PP5 pela opção numerada antes de transferir.');
+      return;
+    }
+    if (scalpel.isSporeSample && (!spawn.sterilized || !isAseptic || !scalpel.biopsyAseptic)) {
+      ctx.callbacks.onToast?.('🌱 Para germinar o monoesporo, use substrato estéril no Fluxo Laminar preparado.');
+      return;
+    }
+    spawn.origin = normalizeCultureOrigin(scalpel.origin);
     spawn.inoculated = true;
     spawn.generation = scalpel.isSporeSample ? 0 : Math.min(3, Math.max(1, scalpel.cutGeneration || 1));
     if (scalpel.biopsySpecies) spawn.speciesName = scalpel.biopsySpecies;
@@ -439,6 +474,7 @@ export function handleScalpelTargetAction(ctx) {
     spawn.updateVisual();
     const wasSpores = !!scalpel.isSporeSample;
     scalpel.hasMycelium = false;
+    scalpel.origin = '';
     scalpel.isSporeSample = false;
     scalpel.cutContaminated = false;
     scalpel.biopsyAseptic = true;
@@ -446,7 +482,7 @@ export function handleScalpelTargetAction(ctx) {
     updateScalpelLabel(ctx.heldItem);
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
     if (okTransfer && wasSpores && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`🌱 Ponto de esporos germinando em ${spawn.baseLabel}!`);
+      ctx.callbacks.onToast(`🌱 Monoesporo germinando em ${spawn.baseLabel}!`);
     }
     ctx.notifyWorldAction();
   }

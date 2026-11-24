@@ -44,6 +44,10 @@ test('canDisposeItemInTrash aceita recipientes com conteúdo e bloqueia lixeira/
   assert.equal(canDisposeItemInTrash({ id: 'beaker_1', mesh: { userData: { liquidCtrl: { volMl: 100 } } } }), false);
   assert.equal(canDisposeItemInTrash({ id: 'beaker_1', pdaMediumCtrl: { powderGrams: 10 }, mesh: { userData: { liquidCtrl: { volMl: 100 } } } }), true);
   assert.equal(canDisposeItemInTrash({ id: 'bag_1', spawnCtrl: { filled: true }, mesh: { userData: {} } }), true);
+  const bladePack = { id: 'scalpel_blade_1', bladePackCtrl: { empty: false }, mesh: { userData: {} } };
+  assert.equal(canDisposeItemInTrash(bladePack), false);
+  bladePack.bladePackCtrl.empty = true;
+  assert.equal(canDisposeItemInTrash(bladePack), true);
   assert.equal(canDisposeItemInTrash({ id: 'petri_1', mesh: { userData: { isPetri: true, petriCtrl: { mode: 'bare' } } } }), true);
   assert.equal(canDisposeItemInTrash({ id: 'petri_2', mesh: { userData: { isPetri: true, petriCtrl: { mode: 'clean' } } } }), true);
 });

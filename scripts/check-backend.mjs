@@ -10,7 +10,7 @@ for (const key of ['MYCO_TEST_DB_HOST', 'MYCO_TEST_DB_USER', 'MYCO_TEST_DB_PASS'
 }
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'myco-backend-test-'));
-const files = ['api/auth.php', 'api/db.php', 'api/multiplayer.php', 'api/multiplayer_schema.php', 'database/schema.sql', 'VERSION'];
+const files = ['api/auth.php', 'api/db.php', 'api/multiplayer.php', 'api/multiplayer_schema.php', 'api/inventory.php', 'database/schema.sql', 'VERSION'];
 const suffix = randomBytes(6).toString('hex');
 
 function post(file, action, body) {
@@ -61,7 +61,69 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   assert.equal(first.board_strokes.length, 1);
   assert.equal(second.board_last_id, first.board_last_id);
   assert.equal(second.board_strokes.length, 1);
-  console.log('Backend: migração, moedas e traços sem duplicidade e recompensa da missão verificados em MySQL.');
+  const qaName = `Inventário ${suffix}`;
+  const qaPin = randomBytes(8).toString('hex');
+  const firstLogin = post('auth.php', 'login', { display_name: qaName, pin: qaPin });
+  assert.ok(firstLogin.ok, firstLogin.error);
+  const inventoryAuth = { user_id: firstLogin.user.id, token: firstLogin.token };
+  const inventorySession = { ...inventoryAuth, session_id: `inventory_${suffix}`, inventory_enabled: true };
+  const syncInventory = (args = {}, sessionData = inventorySession) =>
+    post('multiplayer.php', 'sync', { ...sessionData, ...args });
+  const petri = 'petri_sterile_hood_09';
+  const syringe = 'syringe_10ml_19';
+  const scalpel = 'scalpel_08';
+  assert.equal(syncInventory({ init_sync: 1 }).inventory.ready, true);
+  assert.equal(syncInventory({ holding_item: petri }).inventory.holding, petri);
+  const lidOpen = { id: 'inventory_open', slot: 1, held: petri, state: { petri: { lidOpen: true } } };
+  assert.equal(syncInventory({ holding_item: petri, inventory_op: lidOpen }).inventory.result, 'open');
+  const stowPetri = { id: 'inventory_petri', slot: 1, held: petri, state: { petri: { lidOpen: false, mode: 'empty' } } };
+  let bag = syncInventory({ holding_item: petri, inventory_op: stowPetri }).inventory;
+  assert.deepEqual(bag.slots, [petri, null, null]);
+  assert.equal(bag.active, 1);
+  assert.equal(bag.holding, '');
+  assert.equal(syncInventory({ holding_item: petri, inventory_op: stowPetri }).inventory.result, 'ok', 'Lost acknowledgement can be replayed');
+  const state = { syringe: { volMl: 4.2 } };
+  const equipped = syncInventory({ holding_item: syringe, inventory_hand: { id: syringe, state } });
+  assert.equal(equipped.inventory.holding, syringe);
+  assert.equal(equipped.item_states[syringe].syringe.volMl, 4.2, 'equipped state is saved without a separate movement');
+  bag = syncInventory({ holding_item: syringe, inventory_op: { id: 'inventory_syringe', slot: 2, held: syringe, state } }).inventory;
+  assert.deepEqual(bag.slots, [petri, syringe, null]);
+  const full = syncInventory({ holding_item: scalpel }).inventory;
+  assert.deepEqual(full.slots, [petri, syringe, scalpel]);
+  assert.equal(full.holding, scalpel);
+
+  assert.equal(post('multiplayer.php', 'leave', inventorySession).ok, true);
+  assert.equal(post('auth.php', 'logout', inventoryAuth).ok, true);
+  const observer = syncInventory({ holding_item: scalpel, moved_items: [{ id: syringe, state: { syringe: { volMl: 9 } } }] }, session);
+  assert.equal(observer.inventory.conflict, true, 'equipped item stays reserved while owner is offline');
+  assert.deepEqual(observer.inventory.slots, [null, null, null], 'other accounts receive only the public reservations');
+  assert.ok(observer.inventory.reserved.includes(petri));
+  assert.equal(observer.item_states[syringe].syringe.volMl, 4.2, 'other account cannot replace stored state');
+
+  const secondLogin = post('auth.php', 'login', { display_name: qaName, pin: qaPin });
+  assert.equal(secondLogin.user.id, firstLogin.user.id);
+  const rejoined = { ...inventorySession, token: secondLogin.token, session_id: `rejoin_${suffix}` };
+  const restored = syncInventory({ init_sync: 1 }, rejoined);
+  assert.deepEqual(restored.inventory.slots, [petri, syringe, scalpel]);
+  assert.equal(restored.inventory.holding, scalpel);
+  assert.equal(restored.item_states[syringe].syringe.volMl, 4.2);
+  const swap = { id: 'inventory_swap', slot: 1, held: scalpel, state: { scalpel: { hasBlade: true } } };
+  bag = syncInventory({ holding_item: scalpel, inventory_op: swap }, rejoined).inventory;
+  assert.equal(bag.holding, syringe);
+  assert.deepEqual(bag.slots, [petri, syringe, scalpel]);
+  const drop = syncInventory({ holding_item: '', moved_items: [{ id: syringe, x: 1, y: 1, z: 1, state }] }, rejoined);
+  assert.deepEqual(drop.inventory.slots, [petri, null, scalpel]);
+  assert.equal(drop.objects[syringe].x, 1);
+  assert.equal(syncInventory({ holding_item: syringe }, session).inventory.holding, syringe, 'released object is available again');
+  syncInventory({ inventory_op: { id: 'inventory_cleanup_petri', slot: 0, held: '' } }, rejoined);
+  syncInventory({ holding_item: '' }, rejoined);
+  syncInventory({ inventory_op: { id: 'inventory_cleanup_scalpel', slot: 2, held: '' } }, rejoined);
+  syncInventory({ holding_item: '' }, rejoined);
+  post('multiplayer.php', 'leave', rejoined);
+  post('multiplayer.php', 'leave', session);
+
+
+  console.log('Backend: migração, moedas e traços sem duplicidade e recompensa da missão verificados em MySQL; inventário multijogador persistente verificado.');
 } finally {
   for (const file of [...files, 'api/config.php']) {
     fs.rmSync(path.join(fixture, file), { force: true });

@@ -2,7 +2,25 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:d36d4f80864beea8a22bde94abefafa8bbbf5d4fa172222b849a74e58b8b9867 -->
+
+## [v2.5.0] - 2026-11-24
+
+- Barra com três espaços: um para o item em mãos e dois para guardar itens. Use 5, 6 e 7 no PC ou toque nos espaços no celular.
+- Itens compatíveis e seus estados ficam salvos na conta. Outros jogadores só podem pegá-los depois que o dono os devolver ao cenário.
+- Recipientes abertos e equipamentos grandes não podem ser guardados.
+
+## [v2.4.0] - 2026-11-24
+
+- Germinação de monoesporos e clonagem de tecido têm origens separadas. Apenas clones de tecido ganham +35% na colheita.
+- O toque na cena usa a posição do dedo; ações sobre o próprio item ficam no menu numerado.
+- Seringa, descarte persistente e cartões de inspeção receberam correções. Monotub, secagem, embalagem e pesos foram alinhados com as instruções.
+
 ## [v2.3.5] - 2026-11-24
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 - Fonte da praça com bico de cerâmica, água turquesa e colisão circular junto à borda.
 - Trampolins com modelo próprio e tufos de vegetação baixa agrupados pelo cenário.

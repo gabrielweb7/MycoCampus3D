@@ -49,7 +49,7 @@ export const DEHYDRATOR_META = {
     dc.hasMushroom = nextHas;
     dc.crisp = nextCrisp;
     if (typeof custom.speciesName === 'string') dc.speciesName = custom.speciesName;
-    if (custom.grams !== undefined) dc.grams = Math.max(1, Math.min(200, Math.round(Number(custom.grams) || 10)));
+    dc.grams = Math.max(1, Math.min(200, Math.round(Number(custom.grams) || 10)));
     dc._lastVisStep = Math.floor((Number(dc.progress) || 0) / 10);
     updateDehydratorVisual(item);
   }
@@ -80,7 +80,7 @@ export function updateDehydratorVisual(item) {
   const stTxt = !dc.hasMushroom
     ? (dc.on ? '55°C • Vazia' : 'Desligada')
     : (dc.crisp
-      ? '✅ Crocante (0% umidade)'
+      ? `✅ Lote crocante • ${dc.grams} g • retire com a mão livre`
       : (dc.on ? '♨️ Secando ' + Math.round(dc.progress) + '%' : '⏸️ Pausada (' + Math.round(dc.progress) + '%)'));
   item.label = 'Desidratadora de Cogumelos • ' + stTxt;
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
@@ -143,7 +143,14 @@ export function interactDehydrator(ctx, item, explicitMushroomItem = null) {
     }
     return true;
   }
+  if (ctx.heldItem) {
+    if (ctx.callbacks?.onToast) ctx.callbacks.onToast(dc.crisp
+      ? '🍄 Lote pronto. Libere a mão para retirá-lo.'
+      : '♨️ A desidratadora já tem um lote. Espere terminar para carregar outro.');
+    return true;
+  }
   if (dc.crisp) {
+    if (!ctx.scene) return false;
     const spName = dc.speciesName || 'Golden Teacher (Psilocybe cubensis)';
     const batchGrams = Math.max(1, Math.min(200, Math.round(Number(dc.grams) || 10)));
     dc.hasMushroom = false;
@@ -282,7 +289,7 @@ export function stepDehydrators(ctx, dt) {
       }
       if (ctx.markItemMoved) ctx.markItemMoved(item);
       if (ctx.callbacks && ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('✅ Desidratadora: 3 Cogumelos Crocantes (10g • 0% umidade) prontos!');
+        ctx.callbacks.onToast(`✅ Lote crocante de ${dc.grams} g pronto! Clique na desidratadora com a mão livre para retirar.`);
       }
       if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('dry_pack');
     } else {

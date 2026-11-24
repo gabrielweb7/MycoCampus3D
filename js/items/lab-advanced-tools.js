@@ -9,6 +9,7 @@
  *    saídos da Desidratadora para pesagem na balança e conservação a 0% de umidade.
  */
 
+import { getCultureOriginLabel } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
 import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { updateScalpelLabel } from './scalpel.js';
@@ -149,6 +150,7 @@ export function interactAlcoholLamp(ctx, lampItem) {
     sc.cutContaminated = false;
     sc.hasMycelium = false;
     sc.isSporeSample = false;
+    sc.origin = '';
     sc.lastGeneticsKey = '';
     sc.bladeAttachedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
     sc.flameGlowTimer = 2.2;
@@ -352,7 +354,7 @@ export function analyzeSpecimenForMicroscope(held) {
         ? `🦠 ALERTA MICROSCÓPICO: ${cInfo.name} (${cInfo.scientific})! ${cInfo.microscopeNote}`
         : (isSporePrint
           ? '🔬 Basidiósporos elipsoides roxo-escuros íntegros (12×8 µm). Prontos para germinação T0 em ágar PDA!'
-          : `✅ Micélio Dicariótico Saudável • Geração T${gen} (${gen >= 3 ? 'Isolado Elite ⭐' : (gen >= 2 ? 'Rizomórfico Forte' : (gen === 1 ? 'Setorizado T1' : 'Multi-Esporos T0'))}). Grampos de conexão visíveis em 1000x!`)
+          : `✅ Micélio • T${gen}${getCultureOriginLabel(petri.origin) ? ' • ' + getCultureOriginLabel(petri.origin) : ''}. A imagem mostra a morfologia; a origem vem do registro do cultivo.`)
     };
   }
   if (held.spawnCtrl) {
@@ -739,8 +741,8 @@ export function makeDriedMushroomBatch(ctx, id, speciesName, px, py, pz, grams =
     0.09,
     {
       category: 'dried_harvest',
-      purpose: '3 cogumelos desidratados a 55°C (10g • 0% umidade, cracker dry); pese na balança, guarde no Pote c/ Sílica Gel ou embale no Saco',
-      weightGrams: wGrams,
+      purpose: 'Lote de cogumelos desidratados. Pese na balança, guarde no pote com sílica ou embale no saco Mylar.',
+      getWeightGrams: (it) => it?.driedMushroomCtrl?.grams || wGrams,
       compatibilities: { canEnterCooker: false, isDriedMushroomBatch: true },
       serializeState: (it) => {
         const dc = it && it.driedMushroomCtrl;
@@ -944,11 +946,11 @@ export function interactSilicaStorageJar(ctx, jarItem) {
 
   if (held && held.driedMushroomCtrl) {
     const addG = held.driedMushroomCtrl.grams || 10;
-    if (jc.storedGrams >= cap) {
-      if (onToast) onToast('⚠️ Este Pote Hermético com Sílica Gel já está cheio (150g)! Use outro pote.');
+    if (jc.storedGrams + addG > cap) {
+      if (onToast) onToast(`⚠️ O lote de ${addG} g não cabe. Restam ${Math.max(0, cap - jc.storedGrams)} g de espaço; use outro pote.`);
       return true;
     }
-    jc.storedGrams = Math.min(cap, jc.storedGrams + addG);
+    jc.storedGrams += addG;
     if (held.driedMushroomCtrl.speciesName) jc.speciesName = held.driedMushroomCtrl.speciesName;
     if (jc.pulseLid) jc.pulseLid();
     jc.updateVisual();
@@ -982,9 +984,9 @@ export function interactSilicaStorageJar(ctx, jarItem) {
     return true;
   }
 
-  // Mão vazia e pote com >= 10g: abre a tampa e retira 10g de cogumelos crocantes para embalar ou pesar!
-  if (!held && jc.storedGrams >= 10) {
-    const takeG = 10;
+  // Com a mão livre, retire até 10 g, incluindo a última porção do pote.
+  if (!held && jc.storedGrams > 0) {
+    const takeG = Math.min(10, jc.storedGrams);
     jc.storedGrams -= takeG;
     if (jc.pulseLid) jc.pulseLid();
     jc.updateVisual();
@@ -998,7 +1000,7 @@ export function interactSilicaStorageJar(ctx, jarItem) {
       ctx.markItemMoved(jarItem);
       ctx.markItemMoved(batchItem);
     }
-    if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(batchItem);
+    if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(batchItem.label);
 
     playAudio('playClick');
     if (onToast) {

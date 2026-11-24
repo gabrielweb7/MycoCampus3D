@@ -1,0 +1,49 @@
+import { getLanguage, t } from '../core/i18n.js';
+
+let lastSignature = '';
+let bar;
+let buttons;
+let nextRender = 0;
+
+export function renderQuickInventory(ctx) {
+  if (typeof document === 'undefined') return;
+  if (!bar) {
+    bar = document.getElementById('quick-inventory');
+    if (!bar) return;
+    buttons = bar.querySelectorAll('button');
+  }
+  const inv = ctx.inventory;
+  const visible = !!(ctx.inFps && inv?.ready && !ctx.adminEditMode);
+  bar.classList.toggle('hidden', !visible);
+  if (!visible) return;
+  const now = performance.now();
+  if (now < nextRender) return;
+  nextRender = now + 100;
+  const labels = inv.slots.map((id, slot) => slot === inv.active
+    ? (ctx.heldItem?.label || '')
+    : (id && ctx.findPickable(id)?.label) || (id ? t('inventory.loading') : ''));
+  const signature = JSON.stringify([inv.active, !!inv.pending, getLanguage(), ...labels]);
+  if (signature === lastSignature) return;
+  lastSignature = signature;
+  bar.setAttribute('aria-label', t('inventory.title'));
+  bar.setAttribute('aria-busy', String(!!inv.pending));
+  buttons.forEach((button, slot) => {
+    const label = labels[slot] || t('inventory.empty');
+    const status = slot === inv.active ? t('inventory.active') : labels[slot] ? t('inventory.stored') : '';
+    button.querySelector('.inventory-item').textContent = label;
+    const description = [slot + 5, label, status].filter(Boolean).join(' · ');
+    button.title = description;
+    button.setAttribute('aria-label', description);
+    button.setAttribute('aria-pressed', String(slot === inv.active));
+    button.disabled = !!inv.pending;
+  });
+}
+
+export function bindQuickInventory(selectSlot) {
+  document.getElementById('quick-inventory')?.addEventListener('click', event => {
+    const target = event.target.closest('button[data-pocket]');
+    if (!target) return;
+    event.stopPropagation();
+    selectSlot(Number(target.dataset.pocket));
+  });
+}

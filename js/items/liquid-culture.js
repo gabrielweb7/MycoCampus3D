@@ -2,6 +2,7 @@
  * Frasco de Cultura Liquida 800ml e Bequer 1L (MycoCampus3D)
  */
 
+import { getCultureOriginLabel } from '../core/culture-origin.js';
 import { registerPickable, makeScaleTex, mergeStaticGeos } from './item-registry.js';
 import {
   createCultureLifecycleState,
@@ -117,7 +118,8 @@ export function updateCultureLiquidLabel(item) {
   const liquid = item && item.mesh && item.mesh.userData.liquidCtrl;
   const culture = item && item.cultureCtrl;
   if (!liquid || !culture) return;
-  const volumeLabel = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml)';
+  const originLabel = getCultureOriginLabel(culture.origin);
+  const volumeLabel = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml)' + (originLabel ? ' • ' + originLabel : '');
   if (liquid.volMl <= 0) {
     item.label = volumeLabel + ' • sem cultura líquida';
   } else if (culture.contaminated) {
@@ -141,7 +143,7 @@ export function updateCultureLiquidLabel(item) {
   } else if (culture.inoculated) {
     const tempVal = typeof culture.tempC === 'number' ? culture.tempC : (culture.refrigerated ? 4.0 : 24.5);
     const temperature = tempVal.toFixed(1).replace('.', ',') + '°C' + (culture.refrigerated ? ' ❄️' : '');
-    item.label = volumeLabel + ' • colonizando ' + Math.floor(culture.colonization || 0) + '% • ' + temperature;
+    item.label = volumeLabel + (culture.origin === 'monospore' ? ' • germinando e colonizando ' : ' • colonizando ') + Math.floor(culture.colonization || 0) + '% • ' + temperature;
   } else {
     const nutTag = culture.hasNutrient === false ? ' • 💧 Sem nutriente (adicione Malte 4%)' : ' • 🍯 Caldo 4%';
     const sterTag = (culture.sterilized || liquid.sterilized || item.sterilized) ? ' • estéril ✅' : ' • não esterilizada';
@@ -152,11 +154,12 @@ export function updateCultureLiquidLabel(item) {
 export function updateContainerVolume(item, newVol) {
   if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return;
   const ctrl = item.mesh.userData.liquidCtrl;
-  const clamped = Math.max(0, Math.min(ctrl.maxMl, ctrl.maxMl <= 20 ? Math.round(newVol * 10) / 10 : Math.round(newVol)));
+  const clamped = Math.max(0, Math.min(ctrl.maxMl, Math.round(newVol * 10) / 10));
   ctrl.volMl = clamped;
   if (item.cultureCtrl && clamped <= 0) {
     item.cultureCtrl.colonized = false;
     item.cultureCtrl.inoculated = false;
+    item.cultureCtrl.origin = '';
     item.cultureCtrl.colonization = 0;
     item.cultureCtrl.hasNutrient = false;
   }

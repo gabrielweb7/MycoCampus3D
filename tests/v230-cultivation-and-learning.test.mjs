@@ -101,7 +101,7 @@ globalThis.THREE = globalThis.window.THREE;
 
 const { getSyringeInjectionDoseMl } = await import('../js/items/syringe.js');
 const { canSyringeTarget } = await import('../js/items/item-registry.js');
-const { interactDehydrator } = await import('../js/items/dehydrator.js');
+const { DEHYDRATOR_META, interactDehydrator, stepDehydrators } = await import('../js/items/dehydrator.js');
 const { fillPetriWithPda } = await import('../js/items/petri-dish.js');
 const { makeWaterSprayBottle, ALCOHOL_SPRAY_META, WATER_SPRAY_META } = await import('../js/items/alcohol-spray.js');
 const { makeDistilledJug5L } = await import('../js/items/distilled-jug.js');
@@ -123,6 +123,8 @@ test('v2.3.0: seringa 10ml dosa corretamente por tipo de recipiente e canSyringe
   assert.equal(getSyringeInjectionDoseMl(pp5, 10), 1);
   assert.equal(getSyringeInjectionDoseMl(jar, 10), 2.5);
   assert.equal(getSyringeInjectionDoseMl(bag, 10), 4);
+  const nearlyFullFlask = { mesh: { userData: { liquidCtrl: { volMl: 798.5, maxMl: 800 } } } };
+  assert.equal(getSyringeInjectionDoseMl(nearlyFullFlask, 6), 1.5, 'o frasco não recebe mais que o espaço disponível');
   assert.equal(canSyringeTarget(bulk), false);
 });
 
@@ -157,6 +159,22 @@ test('v2.3.0: desidratadora bloqueia spawn fantasma, preserva espécie/gramas e 
   assert.equal(dehyd.dehydratorCtrl.grams, 17);
   assert.equal(ctx.heldItem, null);
   assert.equal(pickables.length, 0);
+
+  const toasts = [];
+  ctx.callbacks.onToast = (message) => toasts.push(message);
+  ctx.dehydrators = [dehyd];
+  stepDehydrators(ctx, 15);
+  assert.match(toasts.at(-1), /17 g/);
+
+  const otherMushroom = { wildMushroomCtrl: { grams: 8 } };
+  ctx.heldItem = otherMushroom;
+  interactDehydrator(ctx, dehyd, otherMushroom);
+  assert.equal(ctx.heldItem, otherMushroom);
+  assert.equal(dehyd.dehydratorCtrl.crisp, true);
+  assert.equal(dehyd.dehydratorCtrl.grams, 17);
+
+  DEHYDRATOR_META.applyState(dehyd, { hasMushroom: true, crisp: true, progress: 100 });
+  assert.equal(dehyd.dehydratorCtrl.grams, 10, 'lotes antigos sem peso persistido usam o padrão');
 
   const petri = {
     label: 'Petri',

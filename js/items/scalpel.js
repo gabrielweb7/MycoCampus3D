@@ -82,8 +82,8 @@ export function updateScalpelLabel(item) {
   } else if (sc.hasMycelium) {
     const spSuffix = sc.biopsySpecies ? ` • ${sc.biopsySpecies}` : '';
     item.label = sc.isSporeSample
-      ? `Bisturi Inox (Com ponto de Esporos${spSuffix})`
-      : `Bisturi Inox (Com fragmento de Micélio${spSuffix})`;
+      ? `Bisturi Inox (Com monoesporo${spSuffix})`
+      : `Bisturi Inox (${sc.origin === 'tissue_clone' ? 'Amostra para clonagem' : 'Com fragmento de micélio'}${spSuffix})`;
   } else if (sc.sterile) {
     item.label = 'Bisturi Inox (Lâmina #24 Estéril ✅)';
   } else {

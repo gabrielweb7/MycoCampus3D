@@ -19,6 +19,7 @@ import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import { formatHoverInfo, updateHover3dBadge, hideHover3dBadge } from '../entities/hover-3d-badge.js';
 import { gardenHitMeshes, gardenState } from '../world/campus-garden.js';
 import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
+import { getMonotubActionLabel } from '../items/monotub.js';
 import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 
 const THREE = window.THREE;
@@ -188,6 +189,11 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredPdaTarget = null;
   ctx.hoveredSyringeTarget = null;
   ctx.hoveredHeatSealerTarget = null;
+  ctx.hoveredHeatSealerObj = null;
+  ctx.hoveredG2GTarget = null;
+  ctx.hoveredLcNutrientTarget = null;
+  ctx.hoveredFoilTarget = null;
+  ctx.hoveredMicroporeTarget = null;
   ctx.hoveredParafilmTarget = null;
   ctx.hoveredScaleTare = null;
   ctx.hoveredBurnerSwitch = null;
@@ -216,6 +222,8 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredMonotubTarget = null;
   ctx.hoveredMonotubRackSlot = null;
   ctx.hoveredMonotubDunkSink = false;
+  ctx.hoveredGreenhouseSlot = null;
+  ctx.hoveredGreenhouseDevice = null;
   ctx.hoveredGardenTarget = null;
   ctx.hoveredAlcoholLampTarget = null;
   ctx.hoveredMicroscopeTarget = null;
@@ -245,7 +253,7 @@ export function updateHoverRay(ctx, customNdc) {
   }
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
 
-  if (ctx.rankingBtnMeshes.length && (!ctx.inFps || (Math.abs(refX) < 30 && refZ < 16))) {
+  if (!ctx.heldItem && ctx.rankingBtnMeshes.length && (!ctx.inFps || (Math.abs(refX) < 30 && refZ < 16))) {
     const rHits = ctx.raycaster.intersectObjects(ctx.rankingBtnMeshes, false);
     if (rHits.length > 0 && rHits[0].distance < 18) {
       ctx.hoverHit = rHits[0];
@@ -256,7 +264,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (ctx.cinemaScreenMesh && (!ctx.inFps || (refX > 16 && refZ > -32 && refZ < 12))) {
+  if (!ctx.heldItem && ctx.cinemaScreenMesh && (!ctx.inFps || (refX > 16 && refZ > -32 && refZ < 12))) {
     const cHits = ctx.raycaster.intersectObject(ctx.cinemaScreenMesh, false);
     if (cHits.length > 0 && cHits[0].distance < 22) {
       ctx.hoverHit = cHits[0];
@@ -279,7 +287,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (ctx.scaleTareMeshes.length) {
+  if (!ctx.heldItem && ctx.scaleTareMeshes.length) {
     let anyScaleNear = false;
     for (let si = 0; si < ctx.scaleTareMeshes.length; si++) {
       if (ctx.raycaster.ray.distanceSqToPoint(ctx.scaleTareMeshes[si].getWorldPosition(_tmpBadgeWorldPos)) < 1.5) {
@@ -304,7 +312,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (ctx.burnerSwitchMeshes.length && (!ctx.heldItem || !ctx.heldItem.mesh.userData.isBurner)) {
+  if (!ctx.heldItem && ctx.burnerSwitchMeshes.length) {
     let anyBurnerNear = false;
     for (let bi = 0; bi < ctx.burnerSwitchMeshes.length; bi++) {
       if (ctx.raycaster.ray.distanceSqToPoint(ctx.burnerSwitchMeshes[bi].getWorldPosition(_tmpBadgeWorldPos)) < 2.25) {
@@ -347,7 +355,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (ctx.stirSwitchMeshes.length && (!ctx.heldItem || !ctx.heldItem.mesh.userData.isStirrer)) {
+  if (!ctx.heldItem && ctx.stirSwitchMeshes.length) {
     let anyStirNear = false;
     for (let si = 0; si < ctx.stirSwitchMeshes.length; si++) {
       if (ctx.raycaster.ray.distanceSqToPoint(ctx.stirSwitchMeshes[si].getWorldPosition(_tmpBadgeWorldPos)) < 1.5) {
@@ -365,7 +373,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (ctx.hoodSwitchMeshes.length) {
+  if (!ctx.heldItem && ctx.hoodSwitchMeshes.length) {
     let anyHoodNear = false;
     for (let hi = 0; hi < ctx.hoodSwitchMeshes.length; hi++) {
       if (ctx.raycaster.ray.distanceSqToPoint(ctx.hoodSwitchMeshes[hi].getWorldPosition(_tmpBadgeWorldPos)) < 2.25) {
@@ -383,7 +391,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (ctx.lightSwitchMeshes.length) {
+  if (!ctx.heldItem && ctx.lightSwitchMeshes.length) {
     const swHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.lightSwitchMeshes, false), 4.0);
     if (swHit) {
       ctx.hoverHit = swHit;
@@ -394,7 +402,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (ctx.seatMeshes.length) {
+  if (!ctx.heldItem && ctx.seatMeshes.length) {
     const stHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.seatMeshes, false), 4.2);
     if (stHit) {
       ctx.hoverHit = stHit;
@@ -415,7 +423,8 @@ export function updateHoverRay(ctx, customNdc) {
     if (doorHit) {
       ctx.hoverHit = doorHit;
       ctx.hoveredDoorObj = doorHit.object.userData.doorObj;
-      prompt = '🚪 ' + (ctx.hoveredDoorObj.open ? 'Fechar ' : 'Abrir ') + ctx.hoveredDoorObj.label;
+      prompt = '🚪 ' + (ctx.hoveredDoorObj.open ? 'Fechar ' : 'Abrir ') + ctx.hoveredDoorObj.label +
+        (ctx.heldItem ? ' • use a opção numerada' : '');
     }
   }
   const maxMushSq = ctx.inFps ? 24 : 225;
@@ -443,7 +452,7 @@ export function updateHoverRay(ctx, customNdc) {
   if (!prompt && ctx.heldItem) {
     for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
       const fItem = ctx.pickableItems[fi];
-      if (!fItem || !fItem.fridgeCtrl) continue;
+      if (!fItem || fItem === ctx.heldItem || !fItem.fridgeCtrl) continue;
       const fdx = fItem.mesh.position.x - refX, fdz = fItem.mesh.position.z - refZ;
       if (fdx * fdx + fdz * fdz > maxPickSq) continue;
       const fHit = intersectPickableItem(ctx.raycaster, fItem);
@@ -454,8 +463,8 @@ export function updateHoverRay(ctx, customNdc) {
         ctx.hoveredPickable = fItem;
         ctx.hoverHit = fHit;
         prompt = fItem.fridgeCtrl.doorOpen
-          ? '🧊 Fechar Geladeira de Culturas (4°C)'
-          : '🧊 Abrir Geladeira de Culturas (4°C)';
+          ? '🧊 Use a opção numerada Fechar geladeira'
+          : '🧊 Use a opção numerada Abrir geladeira';
         break;
       }
     }
@@ -576,11 +585,14 @@ export function updateHoverRay(ctx, customNdc) {
         prompt = fridge.fridgeCtrl.doorOpen
           ? '🧊 Fechar Porta da Geladeira (4°C)'
           : '🧊 Abrir Porta da Geladeira (4°C)';
+      } else if (ctx.hoveredPickable.monotubCtrl && !ctx.adminEditMode) {
+        const move = ctx.isTouchDevice?.() ? 'Mover para carregar' : 'G/Q para carregar';
+        prompt = `📦 ${getMonotubActionLabel(ctx.hoveredPickable.monotubCtrl)} • ${move}`;
       } else if (ctx.hoveredPickable.silicaJarCtrl) {
         const jc = ctx.hoveredPickable.silicaJarCtrl;
         const cap = jc.maxGrams || jc.capacityGrams || 150;
-        prompt = jc.storedGrams >= 10
-          ? `🫙 Retirar 10g (${jc.storedGrams}/${cap}g • ${jc.speciesName || 'Crocantes'})`
+        prompt = jc.storedGrams > 0
+          ? `🫙 Retirar ${Math.min(10, jc.storedGrams)} g (${jc.storedGrams}/${cap}g • ${jc.speciesName || 'Crocantes'})`
           : `🫙 Pote Hermético c/ Sílica Gel (0/${cap}g • Vazio)`;
       } else {
         prompt = ctx.hoveredPickable.label;
@@ -588,7 +600,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   ctx.hoveredCabinetPart = null;
-  if (ctx.cabinetHitMeshes && ctx.cabinetHitMeshes.length) {
+  if (!ctx.heldItem && ctx.cabinetHitMeshes && ctx.cabinetHitMeshes.length) {
     const cabHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.cabinetHitMeshes, false), 3.8, { checkWalls: true });
     if (cabHit) {
       const smallOnCounter = bestSmall && bestSmall.mesh && bestSmall.mesh.position.y >= 0.94;
@@ -621,7 +633,7 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
-  if (!prompt && ctx.cowHitMeshes && ctx.cowHitMeshes.length && refX > 26 && refX < 78 && refZ > 4 && refZ < 56) {
+  if (!prompt && !ctx.heldItem && ctx.cowHitMeshes && ctx.cowHitMeshes.length && refX > 26 && refX < 78 && refZ > 4 && refZ < 56) {
     const cowHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.cowHitMeshes, false), 5.5, { checkWalls: true });
     if (cowHit && cowHit.object.userData.cowObj) {
       ctx.hoverHit = cowHit;
@@ -629,10 +641,8 @@ export function updateHoverRay(ctx, customNdc) {
       prompt = `🐄 ${ctx.hoveredCow.name} (Saúde ${ctx.hoveredCow.health}% • ${ctx.hoveredCow.mood}) • Clique para fazer carinho`;
     }
   }
-  ctx.hoveredGreenhouseSlot = null;
-  ctx.hoveredGreenhouseDevice = null;
   if (!prompt && refX > 11 && refX < 28 && refZ > -2 && refZ < 17) {
-    if (greenhouseControlMeshes.length > 0) {
+    if (!ctx.heldItem && greenhouseControlMeshes.length > 0) {
       const ctrlHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(greenhouseControlMeshes, true), 4.8, { checkWalls: true });
       if (ctrlHit && ctrlHit.object.userData.greenhouseDevice) {
         const dev = ctrlHit.object.userData.greenhouseDevice;
@@ -648,16 +658,13 @@ export function updateHoverRay(ctx, customNdc) {
         prompt = `${devNames[dev] || '🎛️ Estufa'} (${modeTxt} • ${Math.round(greenhouseEnv.humidity)}% UR • ${Math.round(greenhouseEnv.co2Ppm)} ppm • ${greenhouseEnv.tempC.toFixed(1)}°C) • Clique para abrir controles`;
       }
     }
-    if (!prompt && greenhouseHitMeshes.length > 0) {
+    if (!prompt && (!ctx.heldItem || isHoldingColonizedSpawn(ctx.heldItem)) && greenhouseHitMeshes.length > 0) {
       const ghHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(greenhouseHitMeshes, true), 4.8, { checkWalls: true });
       if (ghHit) {
         const hSlot = ghHit.object.userData.greenhouseSlot;
         if (hSlot) {
           ctx.hoverHit = ghHit;
           ctx.hoveredGreenhouseSlot = hSlot;
-          const isHoldingH2O2 = ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.isH2O2Spray;
-          const isHoldingWaterSpray = ctx.heldItem && !isHoldingH2O2 && ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.isWaterSpray;
-          const isHoldingAlcoholSpray = ctx.heldItem && !isHoldingH2O2 && !isHoldingWaterSpray && ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.isAlcoholSpray;
           const hasColonizedSpawn = isHoldingColonizedSpawn(ctx.heldItem);
           const loc = `${hSlot.rackName} • A${hSlot.tier}`;
           const hPct = typeof hSlot.health === 'number' ? Math.round(hSlot.health) : 100;
@@ -676,10 +683,6 @@ export function updateHoverRay(ctx, customNdc) {
             prompt = `📦 ${hSlot.name} (${loc}) • Traga Spawn colonizado ou clique para iniciar cultivo`;
           } else if (hSlot.stage === 3) {
             prompt = `🍄 Colher ${hSlot.name} (${loc} • Flush ${hSlot.flush}/4) • ${diagLabel} • (+50 XP)`;
-          } else if (isHoldingWaterSpray) {
-            prompt = `💧 Hidratar ${hSlot.name} (${loc} • ${Math.round(hSlot.humidity)}% UR) • ${diagLabel}`;
-          } else if (isHoldingAlcoholSpray) {
-            prompt = `⚠️ Não borrife Álcool 70% em micélio vivo (${hSlot.name}) — use Água Destilada 💧`;
           } else {
             const stText = hSlot.stage === 0 ? 'Micélio' : (hSlot.stage === 1 ? 'Primórdios' : 'Crescendo');
             prompt = `🌱 ${hSlot.name} (${loc} • Flush ${hSlot.flush}/4) • ${stText} (${Math.round(hSlot.humidity)}% UR) • ${diagLabel}`;
@@ -688,7 +691,7 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
-  if (!prompt && gardenHitMeshes.length > 0 && refX > 10 && refX < 28 && refZ > 12 && refZ < 24) {
+  if (!prompt && !ctx.heldItem && gardenHitMeshes.length > 0 && refX > 10 && refX < 28 && refZ > 12 && refZ < 24) {
     const gHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(gardenHitMeshes, false), 5.0, { checkWalls: true });
     if (gHit && gHit.object.userData.gardenTarget) {
       const gt = gHit.object.userData.gardenTarget;
@@ -713,7 +716,7 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
-  if (!prompt && telescopeHitMeshes.length > 0) {
+  if (!prompt && !ctx.heldItem && telescopeHitMeshes.length > 0) {
     const tHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(telescopeHitMeshes, false), 4.5);
     if (tHit && tHit.object && tHit.object.userData && tHit.object.userData.isTelescope) {
       ctx.hoverHit = tHit;
@@ -723,7 +726,7 @@ export function updateHoverRay(ctx, customNdc) {
         : '🔭 Olhar na Luneta Astronômica (Zoom no Céu & Constelações)';
     }
   }
-  if (!prompt && ctx.blindHitMeshes.length) {
+  if (!prompt && !ctx.heldItem && ctx.blindHitMeshes.length) {
     const blHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.blindHitMeshes, false), 5.5);
     if (blHit && blHit.object.userData.blindObj) {
       ctx.hoverHit = blHit;
@@ -731,7 +734,7 @@ export function updateHoverRay(ctx, customNdc) {
       prompt = ctx.hoveredBlindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana';
     }
   }
-  if (!prompt && roadSaleStandMeshes.length > 0 && refX > 2 && refX < 24 && refZ > 28 && refZ < 44) {
+  if (!prompt && !ctx.heldItem && roadSaleStandMeshes.length > 0 && refX > 2 && refX < 24 && refZ > 28 && refZ < 44) {
     const stHits = ctx.raycaster.intersectObjects(roadSaleStandMeshes, false);
     if (stHits.length > 0 && stHits[0].distance < 5.5) {
       ctx.hoverHit = stHits[0];
@@ -742,44 +745,16 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   if (!prompt && ctx.heldItem) {
-    const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
-    if (ctx.heldItem.monotubCtrl) {
-      prompt = isTouch
-        ? '📦 Toque para abrir/fechar tampa ou misturar/nivelar • Posicione na bancada ou na Estante LED'
-        : '📦 Clique para abrir/fechar tampa ou misturar/nivelar • G/Q para posicionar na bancada ou Estante LED';
-    } else if (ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.inoculated &&
-        !ctx.heldItem.spawnCtrl.colonized && !ctx.heldItem.spawnCtrl.contaminated &&
-        !ctx.heldItem.spawnCtrl.burned && !ctx.heldItem.spawnCtrl.shaken &&
-        ctx.heldItem.spawnCtrl.colonization >= 20 && ctx.heldItem.spawnCtrl.colonization < 95) {
-      prompt = isTouch
-        ? '💥 Toque para fazer Break & Shake (Chacoalhar grãos e dobrar a velocidade de colonização 2.2x!)'
-        : '💥 Clique para fazer Break & Shake (Chacoalhar grãos e dobrar a velocidade de colonização 2.2x!) • G/Q para posicionar';
-    } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
-      const petriCtrl = ctx.heldItem.mesh.userData.petriCtrl;
-      if (petriCtrl) {
-        prompt = petriCtrl.lidOpen
-          ? (isTouch ? '🧫 Toque para fechar a tampa da placa' : '🧫 Clique para fechar a tampa da placa')
-          : (isTouch ? '🧫 Toque para abrir a tampa (Fluxo Laminar ligado e higienizado)' : '🧫 Clique para abrir a tampa (Fluxo Laminar ligado e higienizado)');
-      }
-    } else if (ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
-      prompt = isTouch
-        ? (ctx.wearingGloves && !ctx.glovesExpired ? '🧤 Toque para retirar Luvas Pretas' : '🧤 Toque para calçar Luvas Pretas Estéreis (160s)')
-        : ((ctx.wearingGloves && !ctx.glovesExpired ? '🧤 Clique para retirar Luvas Pretas' : '🧤 Clique para calçar Luvas Pretas Estéreis (160s)') + ' • G/Q para posicionar');
-    } else if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer) {
-      if (ctx.thermoLaserOn) {
-        prompt = '🔴 [SCAN] ' + (ctx.thermoTargetLabel || 'Ambiente') + ': ' + ctx.thermoCurrentTemp.toFixed(1) + '°C' +
-          (isTouch ? ' (Toque: Desligar Laser)' : ' (Clique: Desligar Laser • G/Q ou clique dir.: posicionar)');
-      } else {
-        prompt = '🔫 Laser DESLIGADO • Última: ' + ctx.thermoCurrentTemp.toFixed(1) + '°C [HOLD]' +
-          (isTouch ? ' (Toque: Ligar Laser)' : ' (Clique: Ligar Laser • G/Q ou clique dir.: posicionar)');
-      }
-    } else if (ctx.heldItem.wildMushroomCtrl) {
-      prompt = isTouch
-        ? `🍄 ${ctx.heldItem.wildMushroomCtrl.speciesName} • Toque em [1 Comer Cogumelo] para comer`
-        : `🍄 ${ctx.heldItem.wildMushroomCtrl.speciesName} • Tecla [1] Comer Cogumelo • G/Clique: posicionar`;
+    const held = ctx.heldItem;
+    const isTouch = ctx.isTouchDevice?.();
+    const place = isTouch ? 'Mire e toque para posicionar' : 'Mire e clique para posicionar';
+    const options = isTouch ? 'Toque na opção numerada' : 'Use as teclas 1–4 para as opções';
+    if (held.mesh?.userData.isThermometer && ctx.thermoLaserOn) {
+      prompt = `🌡️ ${ctx.thermoTargetLabel || 'Ambiente'}: ${ctx.thermoCurrentTemp.toFixed(1)}°C • ${options}`;
     } else {
-      ctx.placementValid = false;
+      prompt = `${place} • ${options}`;
     }
+    ctx.placementValid = false;
   }
   setHoverPrompt(ctx, prompt);
 }

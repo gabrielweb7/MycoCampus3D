@@ -2,6 +2,7 @@
  * Seringa 10ml com Agulha e Embolo Animado (MycoCampus3D)
  */
 
+import { getCultureOriginLabel } from '../core/culture-origin.js';
 import { mergeStaticGeos, registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
@@ -33,7 +34,8 @@ export function getSyringeInjectionDoseMl(target, availableMl) {
     if (sp.isBag) return Math.min(4.0, avail);
     return Math.min(2.5, avail);
   }
-  return avail;
+  const liquid = target.mesh.userData?.liquidCtrl;
+  return liquid ? Math.min(avail, Math.floor(Math.max(0, liquid.maxMl - liquid.volMl) * 10 + 1e-8) / 10) : avail;
 }
 
 export function getSyringeMixParts(sc) {
@@ -65,18 +67,19 @@ export function addSyringeMix(item, kind, deltaMl) {
   }
 }
 
-export function updateSyringeVolume(item, newVol) {
+export function updateSyringeVolume(item, newVol, preview = false) {
   if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
   const sc = item.mesh.userData.syrCtrl;
   const clamped = Math.max(0, Math.min(10, Math.round((Number(newVol) || 0) * 10) / 10));
-  sc.volMl = clamped;
-  if (clamped <= 0.05 && sc.mix) {
+  if (!preview) sc.volMl = clamped;
+  if (!preview && clamped <= 0.05 && sc.mix) {
     sc.mix.waterMl = 0;
     sc.mix.distilledMl = 0;
     sc.mix.lcMl = 0;
     sc.mix.pdaMl = 0;
     sc.sourceContam = false;
     sc.speciesName = '';
+    sc.origin = '';
     sc.generation = null;
   }
   const frac = clamped / 10;
@@ -94,19 +97,22 @@ export function updateSyringeVolume(item, newVol) {
     }
   }
   sc.plunger.position.y = 0.095 + 0.09 * frac;
+  if (preview) return;
   const dispVal = Math.round(clamped * 10) / 10;
   const volTxt = dispVal % 1 === 0 ? dispVal.toFixed(0) : dispVal.toFixed(1);
   const parts = getSyringeMixParts(sc);
+  const originLabel = getCultureOriginLabel(sc.origin);
+  const originTag = originLabel ? ' • ' + originLabel : '';
   const spTag = sc.speciesName ? (' • ' + sc.speciesName.split('(')[0].trim()) : '';
   const genTag = typeof sc.generation === 'number' ? (' • G' + sc.generation) : '';
   if (clamped <= 0.1) {
     item.label = 'Seringa 10ml (Vazia)';
   } else if (parts.length > 1) {
-    item.label = 'Seringa 10ml (Mistura ' + volTxt + 'ml' + spTag + genTag + ')';
+    item.label = 'Seringa 10ml (Mistura ' + volTxt + 'ml' + spTag + genTag + originTag + ')';
   } else if (parts.length === 1) {
-    item.label = 'Seringa 10ml (' + parts[0] + spTag + genTag + ')';
+    item.label = 'Seringa 10ml (' + parts[0] + spTag + genTag + originTag + ')';
   } else {
-    item.label = 'Seringa 10ml (' + volTxt + 'ml CL' + spTag + genTag + ')';
+    item.label = 'Seringa 10ml (' + volTxt + 'ml CL' + spTag + genTag + originTag + ')';
   }
 }
 

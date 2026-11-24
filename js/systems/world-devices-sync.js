@@ -2,6 +2,7 @@
  * Sincronizacao de Dispositivos Fixos, Lousas, Portas, Luzes, Estufa e Cinema (MycoCampus3D)
  */
 
+import { normalizeCultureOrigin } from '../core/culture-origin.js';
 import {
   greenhouseSlots,
   greenhouseEnv,
@@ -272,6 +273,7 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
     const kStage = 'greenhouse_slot_' + slot.id + '_stage';
     const kHum = 'greenhouse_slot_' + slot.id + '_humidity';
     const kEmpty = 'greenhouse_slot_' + slot.id + '_empty';
+    const kOrigin = 'greenhouse_slot_' + slot.id + '_origin';
     const kSpecies = 'greenhouse_slot_' + slot.id + '_species';
     const kContam = 'greenhouse_slot_' + slot.id + '_contam';
     let slotDirty = false;
@@ -286,6 +288,7 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
           slot.name = 'Espaço Livre #' + (slot.id + 1);
           slot.sci = 'Aguardando Spawn';
           slot.speciesName = '';
+          slot.origin = '';
         }
         slotDirty = true;
       }
@@ -298,6 +301,9 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
         slot.contamKind = nextContam ? cKind : null;
         slotDirty = true;
       }
+    }
+    if (!slot.empty && stateMap[kOrigin] !== undefined && sim.pendingStateChanges[kOrigin] === undefined && !(sim.recentlyChangedState[kOrigin] > now)) {
+      slot.origin = normalizeCultureOrigin(stateMap[kOrigin]);
     }
     if (stateMap[kSpecies] !== undefined && sim.pendingStateChanges[kSpecies] === undefined && !(sim.recentlyChangedState[kSpecies] > now)) {
       const spName = String(stateMap[kSpecies] || '');

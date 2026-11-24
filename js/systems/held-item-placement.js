@@ -50,6 +50,7 @@ function setPlacementMode(ctx, active) {
 }
 
 export function beginHeldItemPlacement(ctx) {
+  if (ctx.inventory?.pending) return false;
   if (!ctx.heldItem) return false;
   if (ctx.placementMode) return true;
 

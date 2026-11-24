@@ -1,13 +1,13 @@
-# 🍄 MycoCampus3D — Universidade Virtual 3D do Cultivo de Cogumelos
+# 🍄 MycoCampus3D — Comunidade Virtual e Simulador de Cultivo de Cogumelos
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Vers%C3%A3o-v2.3.2-39ff14?style=for-the-badge&logo=github" alt="Versão v2.3.2" />
+  <img src="https://img.shields.io/badge/Vers%C3%A3o-v2.4.0-39ff14?style=for-the-badge&logo=github" alt="Versão v2.4.0" />
   <img src="https://img.shields.io/badge/Three.js-r187%20%2B%20BVH-049ef4?style=for-the-badge&logo=threedotjs" alt="Three.js r187" />
   <img src="https://img.shields.io/badge/Multiplayer-PHP%208%20%2B%20MySQL%208-777bb4?style=for-the-badge&logo=php" alt="PHP 8 + MySQL 8" />
   <img src="https://img.shields.io/badge/Plataformas-PC%20%7C%20Android%20%7C%20iPhone%20iOS-10b981?style=for-the-badge&logo=apple" alt="PC | Android | iPhone iOS" />
 </p>
 
-O **MycoCampus3D** é uma universidade virtual e simulador 3D multiplayer em tempo real executado **100% no navegador** (PC, tablets, Android e iPhone/iOS em Tela Cheia). O projeto ensina e simula **micologia aplicada e o ciclo completo da vida real de um micologista** — desde a coleta de esporos na floresta, isolamento genético (`T0 → T3 Elite`) no Fluxo Laminar, microscopia óptica em `1000x`, esterilização a `121°C / 15 PSI`, pasteurização de substratos bulk (`75–85°C`), montagem e nivelamento de **Monotubs 24L**, frutificação sob estante com **Luz LED Direcional** e na **Estufa Climatizada Automática** até **4 Flushs**, compostagem dos bolos esgotados na **Horta Orgânica Externa**, desidratação crocante (`0% UR`), embalagem selada em sacos Mylar e venda em **Caixas de Entrega no Drive-Thru da Estrada para NPCs que param de carro e pagam em 🪙 MycoCoins**!
+O **MycoCampus3D** é uma comunidade virtual e um simulador 3D multiplayer em tempo real executado **100% no navegador** (PC, tablets, Android e iPhone/iOS em Tela Cheia). O projeto ensina e simula **micologia aplicada e o ciclo completo da vida real de um micologista** — desde a coleta de esporos na floresta, germinação de monoesporos e clonagem no Fluxo Laminar, microscopia óptica em `1000x`, esterilização a `121°C / 15 PSI`, pasteurização de substratos bulk (`75–85°C`), montagem e nivelamento de **Monotubs 24L**, frutificação sob estante com **Luz LED Direcional** e na **Estufa Climatizada Automática** até **4 Flushs**, compostagem dos bolos esgotados na **Horta Orgânica Externa**, desidratação crocante (`0% UR`), embalagem selada em sacos Mylar e venda em **Caixas de Entrega no Drive-Thru da Estrada para NPCs que param de carro e pagam em 🪙 MycoCoins**!
 
 ---
 
@@ -31,7 +31,9 @@ Cada ferramenta e recipiente do laboratório segue rigorosamente a microbiologia
 
 ```mermaid
 flowchart LR
-  A["🍄 Coleta & Carimbo de Esporos (T0)"] --> B["🔪 Isolamento em Ágar PDA (T1 → T3 Elite ⭐)"]
+  A["🍄 Coleta & Carimbo de Esporos"] --> B["🌱 Germinação de Monoesporo"]
+  J["🔪 Tecido de cogumelo colhido"] --> B2["🧬 Isolado por clonagem"]
+  B2 --> C
   B --> C["🔥 Autoclave 121°C / 15 PSI (Grãos & Flocão PP5)"]
   C --> D["💥 Colonização & Break and Shake (2.2x)"]
   D --> E["🥥 Pasteurização 75-85°C (Coco + Vermiculita)"]
@@ -41,20 +43,24 @@ flowchart LR
   G --> I["🍂 4º Flush Seco → 🌱 Caixa de Substrato da Horta"]
 ```
 
-### 🧫 1.1. Coleta de Esporos, Germinação e Isolamento Genético (`T0 → T1 → T2 → T3 Elite ⭐`)
-- **Carimbo de Esporos (*Spore Print*):** Colha um cogumelo fresco (na natureza, no pasto, na Estufa ou no Monotub 24L), abra uma **Placa de Petri Vazia** e clique com o cogumelo para assistir à **animação 3D do chapéu soltando a nuvem roxa de esporos** e depositando o carimbo radial das lamelas.
+**Controles de bancada:** com um item na mão, clique no alvo (ou toque diretamente nele no celular) para usar ou apoiar o item. Para abrir uma tampa, calçar luvas ou ligar o laser do próprio item, use as teclas **1–4** ou toque no botão numerado. Com um instrumento na mão e a mira em uma Petri fechada, selecione **Abrir placa no alvo** antes de transferir. Use `G`/`Q` ou **Mover** para posicionar com precisão. No celular, mantenha **Ação** pressionado para aspirar, despejar ou mexer pela mira central.
+
+**Inventário rápido:** use **5, 6 e 7** no PC ou toque nos três espaços abaixo do HUD no celular. Selecione outro espaço para guardar o item da mão ou trocá-lo pelo item que já está lá. Feche Petri e PP5 e vede bags preenchidos antes da troca. Equipamentos grandes e recipientes sem tampa precisam ficar nas mãos ou apoiados. Os três espaços ficam vinculados à conta, com os objetos e seus estados; apoiar ou descartar libera o espaço.
+
+### 🧫 1.1. Carimbo, germinação de monoesporos e clonagem
+- **Carimbo de Esporos (*Spore Print*):** Colha um cogumelo fresco (na natureza, no pasto, na Estufa ou no Monotub 24L), abra uma **Placa de Petri Vazia** pela opção numerada **Abrir Tampa** ou **Abrir placa no alvo** e clique com o cogumelo para assistir à **animação 3D do chapéu soltando a nuvem roxa de esporos** e depositando o carimbo radial das lamelas.
   - *Regra de Assepsia Real:* Nunca deixe uma placa com Carimbo de Esporos aberta fora do Fluxo Laminar, ou esporos de mofo do ar cairão sobre a amostra!
-- **Raspagem com Bisturi #24 (`scrape_spores`):** Com o **Bisturi Cirúrgico Inox** equipado com lâmina estéril `#24` dentro do **Fluxo Laminar ligado e higienizado**, raspe um ponto microscópico de esporos do carimbo e inocule em uma **Placa de Petri Estéril (PDA/BDA)** ou em um **Potinho PP5 145ml de Flocão de Milho**.
-- **Evolução de Linhagem (`T0 → T1 → T2 → T3 Elite ⭐`):**
-  - **`[T0 Esporos]`:** Germinação multiesporos inicial.
-  - **`[T1 Setorizada]`:** 1ª transferência de micélio selecionado com o bisturi.
-  - **`[T2 Rizomórfica]`:** 2ª transferência com cordões miceliais vigorosos.
-  - **`[T3 Elite ⭐]`:** 3ª transferência clonal pura — **acelera a velocidade de colonização e frutificação em todas as etapas seguintes**!
+- **Monoesporo:** no simulador, um clique com bisturi e lâmina estéril seleciona um único esporo do carimbo aberto no Fluxo Laminar preparado. Transfira para o meio sólido estéril (Petri ou PP5 aberto) ou para o caldo nutritivo estéril. O cultivo mantém a origem **Monoesporo** durante os repiques.
+- **Isolado por clonagem:** colete tecido de um cogumelo fresco colhido e transfira a amostra para um meio estéril. Mantenha a origem **Isolado por clonagem** ao multiplicar a cultura e inocular o spawn. No jogo, bolos com essa origem rendem **+35%** no Monotub e na estufa, antes de arredondar o peso.
+- **Repiques:** T0–T3 contam transferências. Culturas de versões anteriores sem registro de origem continuam utilizáveis e não recebem o bônus clonal apenas pelo nível T3.
 - **Vedação com Parafilm M & Conservação a `4°C`:** Vede as placas fechadas com **Parafilm M** e guarde na **Geladeira de Culturas (`4°C`)**, ampliando a validade de **15 dias** (temperatura ambiente `25°C`) para **90 dias** (refrigerada).
+
+- **Seringa:** Segure a ação mirando num frasco de cultura colonizada para aspirar. Mire num frasco de caldo preparado para inocular; solte a ação quando atingir a dose desejada. Em placas de Petri e PP5 preparados, um clique aplica **1 ml** de cultura líquida com a tampa aberta.
+- **Lixeira:** Segure o resíduo e mire na lixeira. A embalagem vazia da lâmina, bags, Petri e PP5 descartados são removidos; vidros reutilizáveis ficam na mão após esvaziar.
 
 ### 🔥 1.2. Lamparina a Álcool 3D com Chama Viva & Assepsia em 3 Etapas
 - **Flambagem de Lâminas e Agulhas (`makeAlcoholLamp`):** Duas **Lamparinas a Álcool de Vidro com Chama Viva** ficam dentro da Capela de Fluxo Laminar. Ao apontar com um **Bisturi #24** ou **Seringa 10ml** usados/contaminados para a chama, o metal brilha **laranja-incandescente** e é **re-esterilizado 100% na hora**!
-- **Luvas Nitrílicas Pretas + Álcool 70% nas Mãos:** Calce as luvas da caixa (`160s` de proteção). Se o tempo estiver acabando, basta **borrifar Álcool 70% no ar (sem alvo)** enquanto usa luvas para higienizar as próprias mãos enluvadas e renovar os `160s`!
+- **Luvas Nitrílicas Pretas + Álcool 70% nas Mãos:** Calce as luvas da caixa (`160s` de proteção). Se o tempo estiver acabando, segure o **Álcool 70%** e escolha a opção numerada **Higienizar luvas** para renovar os `160s`.
 - **Higienização de Superfícies e Caixas (`3x Álcool 70% + Papel Toalha`):** Borrife Álcool 70% até umedecer e passe o **Rolo de Papel Toalha Asséptico** para secar e ativar `120s` de proteção antimicrobiana.
 
 ### 🔬 1.3. Microscópio Óptico Binocular 3D (`1000x`)
@@ -69,18 +75,18 @@ flowchart LR
   - **Modo ESTERILIZAR (`121°C / 15 PSI`):** Obrigatório para **Grãos (Milho, Trigo, Sorgo, Flocão PP5)** e **Meio Líquido/Ágar PDA**, eliminando endósporos termorresistentes. Se você apenas pasteurizar grãos a 75°C, o jogo alerta: `(Apenas Pasteurizado 75°C ⚠️ Grãos exigem Esterilizar a 121°C / 15 PSI!)`.
   - **Modo PASTEURIZAR (`75–85°C`):** Ideal para **Substrato Bulk (Vermiculita + Pó de Coco + Água)**, eliminando pragas e competidores enquanto preserva microrganismos benéficos que protegem o bolo contra *Trichoderma*.
 - **💥 *"Break and Shake"* (Chacoalhar Grãos entre `20%` e `95%`):**
-  - Quando um **Vidro 800ml** ou **Bag 1,5kg de Spawn** atingir entre `20%` e `95%` de colonização, clique nele (na bancada ou na mão) para executar o **Break & Shake**! O recipiente realiza uma animação 3D de agitação vigorosa, espalha os pontos de inoculação e **dobra a velocidade de colonização (`2.2x`)**!
+  - Quando um **Vidro 800ml** ou **Bag 1,5kg de Spawn** atingir entre `20%` e `95%` de colonização, escolha a opção numerada **Break & Shake** com o recipiente na mão ou sob a mira. O recipiente realiza uma animação 3D de agitação vigorosa, espalha os pontos de inoculação e **dobra a velocidade de colonização (`2.2x`)**!
 
 ### 📦 1.5. Caixa Monotub 24L Transparente + Estante Exclusiva com Luz LED Direcional
 Inspirada fielmente nas caixas organizadoras reais de 24 Litros com **liner preto inferior**, **presilhas pretas articuladas nas alças**, **8 furos de troca gasosa (FAE) com lã acrílica (*polyfill*)** e **tampa transparente articulada**:
-1. **Abrir a Tampa & Higienizar:** Clique para destravar as presilhas e abrir a tampa. Borrife **Álcool 70%** e seque com **Papel Toalha** (montar a caixa sem higienizar gera alto risco de **Trichoderma / mofo verde** aos 45% de colonização!).
+1. **Abrir a Tampa & Higienizar:** Clique para destravar as presilhas e abrir a tampa. Use `G`/`Q` ou o botão **Mover** no toque para carregar a caixa. Borrife **Álcool 70%** e seque com **Papel Toalha** (montar a caixa sem higienizar gera alto risco de **Trichoderma / mofo verde** aos 45% de colonização!).
 2. **Despejar Spawn Colonizado + Substrato Pasteurizado:** Adicione o grão 100% colonizado e o substrato de **Vermiculita + Pó de Coco** pasteurizado.
-3. **Misturar (`mixAnimTimer`):** Clique na caixa para assistir à animação 3D dos grãos girando e se misturando homogeneamente ao substrato.
+3. **Misturar (`mixAnimTimer`):** Clique na caixa para misturar os grãos com o substrato. Aguarde a animação antes de nivelar.
 4. **Nivelar com Espátula Inox (`levelAnimTimer`):** **Regra real:** *só é permitido nivelar o bolo depois de misturar!* Ao clicar para nivelar, uma **espátula/prensa inox 3D** percorre o interior da caixa compactando e alisando os montinhos até o bolo ficar perfeitamente plano.
 5. **Fechar a Tampa & Colonizar até 100%:** Feche a tampa (deixar aberta fora do fluxo laminar antes de 100% contamina com *Trichoderma*!). Acompanhe as **gotículas 3D de condensação** nas paredes internas quando a umidade está `>= 85% UR`.
 6. **🥥 Camada de Casing (`+40%` velocidade):** Com o bolo 100% colonizado, aplique **Vermiculita / Pó de Coco** por cima para criar a camada protetora de *Casing*.
 7. **💡 Estante Exclusiva com Luz LED Direcional:** Leve o Monotub 24L para a **Estante de 3 Andares exclusiva para Monotubes** (com barras de LED azul-frio instaladas **embaixo de cada prateleira** iluminando diretamente o topo das caixas para orientar o fototropismo dos pins!).
-8. **🍄 Até 4 Flushs + *"Cold Shock / Dunk"* (`99% UR`):** Colha o dossel denso de cogumelos maduros! Entre cada flush (`1/4` → `2/4` → `3/4` → `4/4`), borrife água ou leve o Monotub até a **Pia Inox / Galão 5L** para fazer o **Dunk (submersão/reidratação profunda a `99% UR`)**.
+8. **🍄 Até 4 Flushs + *"Cold Shock / Dunk"* (`99% UR`):** Com a caixa apoiada e a mão livre, clique para colher os cogumelos maduros. Entre cada flush (`1/4` → `2/4` → `3/4` → `4/4`), borrife água ou leve o Monotub até a **Pia Inox / Galão 5L** para fazer o **Dunk (submersão/reidratação profunda a `99% UR`)**.
 9. **🍂 Bolo Seco Esgotado após o 4º Flush:** Após colher o **4º Flush**, o bolo encolhe e assume textura seca e rachada (`Bolo Seco Esgotado`), pronto para virar adubo na **Horta Externa**!
 
 ---
@@ -99,8 +105,8 @@ sequenceDiagram
   participant N as 🤩 Cliente NPC de Carro
 
   J->>D: Coloca cogumelo fresco colhido
-  D-->>J: Retira Lote 25g Crocante (0% umidade)
-  J->>S: Coloca 25g no Saco Mylar e sela na Seladora Térmica
+  D-->>J: Retira o lote crocante com a mão livre
+  J->>S: Coloca o lote no Saco Mylar e sela na Seladora Térmica
   J->>C: Guarda até 4 Pacotes Selados na Caixa de Entrega
   J->>Q: Leva a Caixa até a Estrada Sul e abastece o Quiosque
   N->>Q: Carro chega na estrada, estaciona e NPC desce do carro
@@ -108,9 +114,9 @@ sequenceDiagram
   N->>N: Pula feliz, pega o pacote de cogumelo, entra no carro e parte!
 ```
 
-- **6 Desidratadoras Elétricas (`55°C`):** Secam cogumelos frescos até `0% de umidade (ponto crocante / cracker-dry)`. Ao retirar, você recebe o **Lote de 25g de Cogumelos Desidratados Crocantes** na mão.
-- **Potes Herméticos de Vidro com Sachê de Sílica Gel (`150g`):** Guarde lotes crocantes nos potes com sachê 3D de sílica gel laranja/branca para conservação eterna no laboratório, ou leve para a linha de embalagem.
-- **16 Sacos Mylar/Zip + 3 Seladoras Térmicas:** Coloque o lote de `25g` dentro de um **Saco Mylar com visor transparente**, leve até uma das **3 Seladoras Térmicas** da bancada central e sele a quente (`📦 Pacote Selado de Cogumelos 25g`).
+- **6 Desidratadoras Elétricas (`55°C`):** Recebem um lote fresco por vez. Quando o jogo sinalizar que está crocante, clique com a mão livre para retirar. O peso seco exibido depende da colheita.
+- **Potes Herméticos de Vidro com Sachê de Sílica Gel (`150g`):** Guarde lotes secos se houver espaço para o lote inteiro. Clique no pote com a mão livre para retirar até 10 g por vez.
+- **16 Sacos Mylar/Zip + 3 Seladoras Térmicas:** Coloque um lote seco no **Saco Mylar** e leve até uma das **3 Seladoras Térmicas** da bancada central. O pacote selado mantém o peso do lote e é vendido por unidade.
 - **6 Caixas de Entrega Comercial (`makeDeliveryCrate`):** Cada caixa comporta até **4 pacotes selados** (valor total da caixa cheia: **`🪙 480 MycoCoins`**).
 - **🚗 Quiosque Drive-Thru na Estrada Sul (`x: 11.5, z: 36.2`) & Clientes NPCs de Carro:**
   - Leve sua Caixa de Entrega (ou pacotes selados avulsos) até a beira da Avenida Sul e abasteça o **Quiosque Drive-Thru MycoCampus**.
@@ -203,7 +209,7 @@ Você pode caminhar livremente ou usar o botão **🗺️ Mapa** no topo da tela
 │   ├── engine/                       # SceneOptimizer (BVH/merge), textures, physics (OBB), cinema, environment, rainbow
 │   ├── world/                        # Praça, prédios, relógio, estufa, mata, horta (campus-garden.js), salas (lab-tools.js)
 │   ├── items/                        # Módulos dedicados por equipamento:
-│   │   ├── petri-dish.js             # Placas de Petri, Carimbo de Esporos 3D, Ágar PDA e gerações T0..T3 Elite
+│   │   ├── petri-dish.js             # Placas de Petri, Carimbo de Esporos 3D, Ágar PDA e registro de origem e repiques T0..T3
 │   │   ├── spawn-containers.js       # Vidros 800ml, Bags 1,5kg e mecânica Break & Shake (2.2x)
 │   │   ├── monotub.js                # Caixa Monotub 24L Transparente, Casing, Dunk, Condensação e Estante LED
 │   │   ├── lab-advanced-tools.js     # Lamparina a Álcool 3D, Microscópio Óptico 1000x e Potes c/ Sílica Gel

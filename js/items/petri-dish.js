@@ -2,6 +2,7 @@
  * Placa de Petri (MycoCampus3D)
  */
 
+import { getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { isAsepticWorkArea, getAsepticWorkAreaReason } from './laminar-hood.js';
 import { pickContamKind, getContamInfo } from './contaminations.js';
 import {
@@ -542,17 +543,17 @@ export function updatePetriVisual(item) {
   }
   const spSuffix = ctrl.speciesName ? (' [' + ctrl.speciesName + ']') : '';
   const gen = Math.min(3, Math.max(0, ctrl.generation || 0));
-  const genTags = ['T0 Esporos', 'T1 Setorizada', 'T2 Rizomórfica', 'T3 Elite ⭐'];
+  const originLabel = getCultureOriginLabel(ctrl.origin);
   const hybridBadge = ctrl.hybridMutant === 'gold' ? ' • 🌟 Dourada F1' : (ctrl.hybridMutant === 'albino' ? ' • ✨ Albino F1' : '');
   const genSuffix = (ctrl.mode === 'clean' || ctrl.mode === 'colonizing')
-    ? (' [' + (genTags[gen] || 'T1') + hybridBadge + ']')
+    ? (' [T' + gen + (originLabel ? ' · ' + originLabel : '') + hybridBadge + ']')
     : '';
   if (ctrl.mode === 'spore_print') {
-    item.label = 'Placa de Petri' + spSuffix + ' (Carimbo de Esporos • Colete ponto com Bisturi)';
+    item.label = 'Placa de Petri' + spSuffix + ' (Carimbo de Esporos • Colete um monoesporo com bisturi estéril)';
   } else if (ctrl.mode === 'clean') {
     item.label = 'Placa de Petri' + spSuffix + genSuffix + ' (Micélio • 100% colonizada)';
   } else if (ctrl.mode === 'colonizing') {
-    item.label = 'Placa de Petri' + spSuffix + genSuffix + (ctrl.inoculationMethod === 'spores' ? ' (Esporos germinando • ' : ' (Micélio crescendo • ') + Math.floor(ctrl.colonization) + '%)';
+    item.label = 'Placa de Petri' + spSuffix + genSuffix + (ctrl.inoculationMethod === 'spores' ? ' (Monoesporo germinando • ' : ' (Micélio crescendo • ') + Math.floor(ctrl.colonization) + '%)';
   } else if (ctrl.mode === 'contam') {
     if (!ctrl.contamKind && !ctrl.expired) ctrl.contamKind = pickContamKind('petri');
     const cName = ctrl.contamKind ? getContamInfo(ctrl.contamKind).shortLabel : 'Mofo/Bactéria';
@@ -660,16 +661,17 @@ export function depositSporePrintOnPetri(item, speciesName = '') {
   return true;
 }
 
-export function inoculatePetri(item, method, sterile, contamRisk = 0, speciesName = '', generation = null) {
+export function inoculatePetri(item, method, sterile, contamRisk = 0, speciesName = '', generation = null, origin = '') {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl || ctrl.mode !== 'empty' || !ctrl.lidOpen || !ctrl.sterilized) return false;
   ctrl.inoculated = true;
   ctrl.colonized = false;
   ctrl.contaminated = false;
   ctrl.inoculationMethod = method === 'spores' ? 'spores' : (method === 'mycelium' ? 'mycelium' : 'liquid');
+  ctrl.origin = method === 'spores' ? 'monospore' : normalizeCultureOrigin(origin);
   ctrl.generation = method === 'spores'
     ? 0
-    : Math.min(3, Math.max(1, typeof generation === 'number' ? generation : 1));
+    : Math.min(3, Math.max(0, typeof generation === 'number' ? generation : 1));
   if (speciesName) ctrl.speciesName = speciesName;
   ctrl.ageGameDays = 0;
   ctrl.shelfLifeAgeDays = 0;
