@@ -59,13 +59,15 @@ export function spawnPersistedWildMushroom(ctx, pickedId, wildState) {
   heldGroup.add(bodyGroup);
   heldGroup.scale.setScalar(0.65);
 
-  const mItem = registerPickable(ctx, pickedId, '🍄 ' + spName, heldGroup, 0, 0, 0, 0, 0.14, 0.20, {
+  const grams = Math.max(1, Math.min(200, Math.round(Number(wildState && wildState.grams) || 10)));
+  const gramsTag = grams !== 10 ? ` (${grams}g base)` : '';
+  const mItem = registerPickable(ctx, pickedId, '🍄 ' + spName + gramsTag, heldGroup, 0, 0, 0, 0, 0.14, 0.20, {
     category: 'specimen',
-    purpose: 'Comer ou levar ao Fluxo Laminar para clonar com bisturi',
-    weightGrams: 18,
+    purpose: 'Comer, levar à Desidratadora ou ao Fluxo Laminar para carimbar/clonar com bisturi',
+    weightGrams: grams !== 10 ? Math.round(grams * 1.8) : 18,
     compatibilities: { canEnterCooker: false }
   });
-  mItem.wildMushroomCtrl = { speciesName: spName, isMagic, bodyGroup, sideRestY };
+  mItem.wildMushroomCtrl = { speciesName: spName, isMagic, grams, bodyGroup, sideRestY };
   return mItem;
 }
 

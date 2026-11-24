@@ -21,6 +21,21 @@ export const SYRINGE_META = {
   connections: ['liquid_culture', 'spawn_jar', 'spawn_bag', 'petri_dish']
 };
 
+export function getSyringeInjectionDoseMl(target, availableMl) {
+  const avail = Math.max(0, Math.round((Number(availableMl) || 0) * 10) / 10);
+  if (!target || !target.mesh || avail <= 0) return 0;
+  if (target.mesh.userData && target.mesh.userData.isPetri) {
+    return avail >= 1 ? 1 : 0;
+  }
+  const sp = target.spawnCtrl;
+  if (sp) {
+    if (sp.isPP5) return avail >= 1 ? 1 : 0;
+    if (sp.isBag) return Math.min(4.0, avail);
+    return Math.min(2.5, avail);
+  }
+  return avail;
+}
+
 export function getSyringeMixParts(sc) {
   if (!sc || !sc.mix) return [];
   const parts = [];
@@ -53,7 +68,7 @@ export function addSyringeMix(item, kind, deltaMl) {
 export function updateSyringeVolume(item, newVol) {
   if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
   const sc = item.mesh.userData.syrCtrl;
-  const clamped = Math.max(0, Math.min(10, Number(newVol) || 0));
+  const clamped = Math.max(0, Math.min(10, Math.round((Number(newVol) || 0) * 10) / 10));
   sc.volMl = clamped;
   if (clamped <= 0.05 && sc.mix) {
     sc.mix.waterMl = 0;
@@ -61,6 +76,8 @@ export function updateSyringeVolume(item, newVol) {
     sc.mix.lcMl = 0;
     sc.mix.pdaMl = 0;
     sc.sourceContam = false;
+    sc.speciesName = '';
+    sc.generation = null;
   }
   const frac = clamped / 10;
   if (clamped <= 0.05) {
@@ -80,14 +97,16 @@ export function updateSyringeVolume(item, newVol) {
   const dispVal = Math.round(clamped * 10) / 10;
   const volTxt = dispVal % 1 === 0 ? dispVal.toFixed(0) : dispVal.toFixed(1);
   const parts = getSyringeMixParts(sc);
+  const spTag = sc.speciesName ? (' • ' + sc.speciesName.split('(')[0].trim()) : '';
+  const genTag = typeof sc.generation === 'number' ? (' • G' + sc.generation) : '';
   if (clamped <= 0.1) {
     item.label = 'Seringa 10ml (Vazia)';
   } else if (parts.length > 1) {
-    item.label = 'Seringa 10ml (Mistura ' + volTxt + 'ml)';
+    item.label = 'Seringa 10ml (Mistura ' + volTxt + 'ml' + spTag + genTag + ')';
   } else if (parts.length === 1) {
-    item.label = 'Seringa 10ml (' + parts[0] + ')';
+    item.label = 'Seringa 10ml (' + parts[0] + spTag + genTag + ')';
   } else {
-    item.label = 'Seringa 10ml (' + volTxt + 'ml CL)';
+    item.label = 'Seringa 10ml (' + volTxt + 'ml CL' + spTag + genTag + ')';
   }
 }
 
@@ -176,7 +195,9 @@ export function makeSyringe10ml(ctx, id, px, py, pz) {
     liqMesh,
     plunger,
     mix: { waterMl: 0, distilledMl: 0, lcMl: 0, pdaMl: 0 },
-    sourceContam: false
+    sourceContam: false,
+    speciesName: '',
+    generation: null
   };
   const item = registerPickable(ctx, id, 'Seringa 10ml (Vazia)', sg, px, py, pz, 0, 0.14, 0.06, SYRINGE_META);
   item.setVolume = function (v) { updateSyringeVolume(item, v); };

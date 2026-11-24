@@ -9,16 +9,29 @@ const THREE = window.THREE;
 
 export const ALCOHOL_SPRAY_META = {
   category: 'sanitization',
-  purpose: 'Higienizar superfícies, fluxo laminar e hidratar a estufa',
+  purpose: 'Higienizar superfícies, fluxo laminar e equipamentos (NUNCA borrifar álcool no micélio vivo)',
   weightGrams: 380,
   baseTempC: 20.2,
   compatibilities: {
     canEnterCooker: false,
     canSanitizeHood: true,
     canSanitizeItems: true,
-    canHydrateGreenhouse: true
+    canHydrateGreenhouse: false
   },
-  connections: ['laminar_hood', 'greenhouse_slot', 'table', 'petri']
+  connections: ['laminar_hood', 'paper_towel', 'table', 'petri']
+};
+
+export const WATER_SPRAY_META = {
+  category: 'hydration',
+  purpose: 'Borrifador de Água Destilada — hidratar bolos na Estufa e Monotub 24L com névoa fina sem agredir o micélio',
+  weightGrams: 390,
+  baseTempC: 21.0,
+  compatibilities: {
+    canEnterCooker: false,
+    canHydrateGreenhouse: true,
+    canHydrateMonotub: true
+  },
+  connections: ['monotub', 'greenhouse_slot', 'distilled_jug', 'lab_sink']
 };
 
 export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
@@ -88,6 +101,40 @@ export function makeH2O2SprayBottle(ctx, id, px, py, pz) {
   ag.userData.isH2O2Spray = true;
   ag.userData.sprayTrig = trig;
   return registerPickable(ctx, id, '🫧 Borrifador Água Oxigenada 3% (H₂O₂)', ag, px, py, pz, Math.PI / 2, 0.12, 0.25, H2O2_SPRAY_META);
+}
+
+export function makeWaterSprayBottle(ctx, id, px, py, pz) {
+  const wg = new THREE.Group();
+  const bottle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.062, 0.18, 16),
+    new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.72, roughness: 0.18 })
+  );
+  bottle.position.y = 0.09;
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.058, 0.058, 0.048, 16),
+    new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.35 })
+  );
+  band.position.y = 0.095;
+  const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.022, 0.036, 0.05, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 })
+  );
+  neck.position.y = 0.205;
+  const nozzle = makeBox(0.028, 0.028, 0.08, 0x38bdf8, { noShadow: true });
+  nozzle.position.set(0, 0.235, 0.025);
+  const trig = makeBox(0.012, 0.045, 0.018, 0xf8fafc, { noShadow: true });
+  trig.position.set(0, 0.212, 0.042);
+  const hitProxy = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.11, 0.28, 8),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  hitProxy.visible = false;
+  hitProxy.position.y = 0.14;
+  wg.add(bottle, band, neck, nozzle, trig, hitProxy);
+  wg.userData.isWaterSpray = true;
+  wg.userData.sprayTrig = trig;
+  wg.userData.sprayNozzle = nozzle;
+  return registerPickable(ctx, id, '💧 Borrifador Água Destilada (Névoa)', wg, px, py, pz, Math.PI / 2, 0.12, 0.26, WATER_SPRAY_META);
 }
 
 /**
@@ -253,6 +300,23 @@ export function fireH2O2Spray(ctx, sprayInfo) {
   if (sprayInfo && sprayInfo.hitPoint) {
     const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);
     spawnSprayParticles(ctx, 0xffffff, 24, bp, new THREE.Vector3(0, 1, 0), 1.4, 0.55, 0.045, 0.65);
+  }
+}
+
+export function fireWaterSpray(ctx, sprayInfo) {
+  if (typeof window !== 'undefined' && window.MycoAudio) window.MycoAudio.playSpray();
+  if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_spray');
+  if (ctx && ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData) {
+    ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
+  }
+  if (ctx && ctx.camera && ctx.scene) {
+    const spOrigin = new THREE.Vector3(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
+    const spDir = new THREE.Vector3(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
+    spawnSprayParticles(ctx, 0x7dd3fc, 28, spOrigin, spDir, 1.05, 2.1, 0.028, 0.5);
+  }
+  if (sprayInfo && sprayInfo.hitPoint && ctx && ctx.scene) {
+    const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);
+    spawnSprayParticles(ctx, 0xbae6fd, 22, bp, new THREE.Vector3(0, 1, 0), 1.5, 0.45, 0.035, 0.55);
   }
 }
 

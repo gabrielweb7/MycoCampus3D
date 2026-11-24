@@ -17,6 +17,7 @@
 import { makeBox } from '../engine/textures.js';
 import { bindPngTexture, getCachedCanvasTexture, registerPickable, updateItemBounds } from './item-registry.js';
 import { getSanitizationStatus } from './alcohol-spray.js';
+import { updateContainerVolume } from './liquid-culture.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 import { createMushroomMeshBySpeciesName, getMushroomVisualProfile } from '../world/mushroom-species.js';
@@ -720,7 +721,8 @@ export function isHoldingPasteurizedBulkSubstrate(held) {
 export function isHoldingColonizedGrainSpawn(held) {
   if (!held || !held.spawnCtrl) return false;
   const sc = held.spawnCtrl;
-  return !!(sc.filled && sc.colonized && !sc.contaminated && !sc.burned && !sc.expired);
+  const isNonGrainBulk = sc.substrateKind === 'coco_verm' || sc.substrateKind === 'sawdust' || sc.substrateKind === 'pda';
+  return !!(sc.filled && !isNonGrainBulk && sc.colonized && !sc.contaminated && !sc.burned && !sc.expired);
 }
 
 export function rehydrateMonotubCake(ctx, tubItem) {
@@ -807,7 +809,8 @@ export function interactMonotub(ctx, tubItem) {
       const prof = getMushroomVisualProfile(spName);
       const freshMush = spawnPersistedWildMushroom(ctx, 'harvest_tub_' + Date.now().toString(36), {
         speciesName: spName,
-        isMagic: !!(prof && prof.isMagic)
+        isMagic: !!(prof && prof.isMagic),
+        grams: yieldGrams
       });
       ctx.heldItem = freshMush;
       ctx.lastPickupAt = performance.now();
@@ -844,11 +847,24 @@ export function interactMonotub(ctx, tubItem) {
     (typeof held.id === 'string' && (held.id.indexOf('substrate_vermiculite') === 0 || held.id.indexOf('substrate_coco') === 0))
   );
   if (!mc.spent && !mc.contaminated && mc.colonization >= 100 && !mc.hasCasing && isHoldingCasingSource) {
+    const isRawCasing = !(held.spawnCtrl && (held.spawnCtrl.pasteurized || held.spawnCtrl.sterilized)) && !(held.bowlCtrl && held.bowlCtrl.pasteurized);
+    if (isRawCasing && Math.random() < 0.2) {
+      mc.rawCasingRisk = true;
+    }
     return applyMonotubCasing(ctx, tubItem);
   }
 
   // 1c. Se o bolo está 100% colonizado e o jogador clica segurando Galão de Água 5L -> Dunk / Reidratação profunda!
   if (!mc.spent && !mc.contaminated && mc.colonization >= 100 && held && held.mesh && held.mesh.userData && held.mesh.userData.isWaterGallon) {
+    const jLc = held.mesh.userData.liquidCtrl;
+    if (jLc) {
+      if (jLc.volMl < 200) {
+        if (onToast) onToast('💧 Garrafão com pouca água (< 200ml)! Encha na pia antes de fazer o Dunk.');
+        return true;
+      }
+      updateContainerVolume(held, Math.max(0, jLc.volMl - 250));
+      if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
+    }
     return dunkMonotubAtSink(ctx, tubItem);
   }
 
@@ -945,8 +961,12 @@ export function interactMonotub(ctx, tubItem) {
       }
       sc.updateVisual();
     } else if (held.bowlCtrl) {
+      if (!held.bowlCtrl.pasteurized) {
+        mc.rawBulkRisk = true;
+      }
       held.bowlCtrl.ingredients = {};
       held.bowlCtrl.mixed = false;
+      held.bowlCtrl.pasteurized = false;
       held.bowlCtrl.stirProgress = 0;
       if (held.bowlCtrl.mixMesh) held.bowlCtrl.mixMesh.visible = false;
       held.label = 'Pote de Mistura (Vazio)';
@@ -955,9 +975,13 @@ export function interactMonotub(ctx, tubItem) {
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
     if (onToast) {
-      onToast(mc.hasSpawn
-        ? '🥥 Substrato Pasteurizado adicionado! Agora clique no Monotub para MISTURAR o spawn e o substrato!'
-        : '🥥 Substrato Pasteurizado (Coco + Vermiculita) adicionado ao Monotub 24L! Agora adicione o Spawn Colonizado.');
+      if (mc.rawBulkRisk) {
+        onToast('⚠️ Substrato adicionado CRU direto do Pote! Sem pasteurizar (65–75°C em bag na panela), há alto risco de Trichoderma/Mofo Batom!');
+      } else {
+        onToast(mc.hasSpawn
+          ? '🥥 Substrato Pasteurizado adicionado! Agora clique no Monotub para MISTURAR o spawn e o substrato!'
+          : '🥥 Substrato Pasteurizado (Coco + Vermiculita) adicionado ao Monotub 24L! Agora adicione o Spawn Colonizado.');
+      }
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -1255,15 +1279,31 @@ export function stepMonotubs(ctx, dt) {
         const prevCol = Math.floor(mc.colonization);
         mc.colonization = Math.min(100, mc.colonization + dt * 3.8);
 
-        // Verificação de contaminação por Trichoderma se montou sem higienizar a caixa com Álcool 70%
+        // Verificação de contaminação por Trichoderma / Mofo Batom se montou sem higienizar a caixa ou usou substrato cru
         if (mc.asepticScore < 0.5 && mc.colonization >= 45 && mc.colonization - dt * 3.8 < 45) {
           mc.contaminated = true;
+          mc.contamKind = 'trichoderma';
           mc.contamReason = 'Trichoderma (caixa montada sem Álcool 70%)';
           updateMonotubVisual(item);
           if (ctx.callbacks && ctx.callbacks.onToast) {
             ctx.callbacks.onToast('🦠 O Monotub 24L contaminou com Trichoderma (mofo verde)! Sempre passe Álcool 70% e Papel Toalha na caixa antes de montar.');
           }
           continue;
+        }
+        if (mc.rawBulkRisk && mc.colonization >= 55 && mc.colonization - dt * 3.8 < 55) {
+          mc.rawBulkRisk = false;
+          if (Math.random() < 0.72) {
+            mc.contaminated = true;
+            mc.contamKind = Math.random() < 0.5 ? 'lipstick' : 'trichoderma';
+            mc.contamReason = mc.contamKind === 'lipstick'
+              ? 'Mofo Batom (substrato bulk adicionado cru sem pasteurização)'
+              : 'Trichoderma (substrato bulk adicionado cru sem pasteurização)';
+            updateMonotubVisual(item);
+            if (ctx.callbacks && ctx.callbacks.onToast) {
+              ctx.callbacks.onToast('🦠 O Monotub contaminou por causa do substrato bulk CRU! Coloque a mistura no Bag 1,5kg e pasteurize antes de usar.');
+            }
+            continue;
+          }
         }
 
         if (Math.floor(mc.colonization) !== prevCol) {
@@ -1284,6 +1324,17 @@ export function stepMonotubs(ctx, dt) {
           updateMonotubVisual(item);
         } else {
           const prevG = Math.floor(mc.growth);
+          if (mc.rawCasingRisk && mc.fruitingStage === 1 && mc.growth >= 35) {
+            mc.rawCasingRisk = false;
+            mc.contaminated = true;
+            mc.contamKind = 'trichoderma';
+            mc.contamReason = 'Trichoderma (casing aplicado cru sem pasteurização)';
+            updateMonotubVisual(item);
+            if (ctx.callbacks && ctx.callbacks.onToast) {
+              ctx.callbacks.onToast('🦠 O Casing não pasteurizado contaminou o Monotub com Trichoderma! Pasteurize coco/vermiculita em bag antes de usar como casing.');
+            }
+            continue;
+          }
           const casingMult = mc.hasCasing ? 1.4 : 1.0;
           const humMult = (mc.humidity || 90) >= 85 ? 1.15 : 0.78;
           const genMult = 1 + Math.min(3, Math.max(0, mc.generation || 0)) * 0.14;
@@ -1307,8 +1358,9 @@ export function stepMonotubs(ctx, dt) {
           }
         }
       } else if (mc.mushCanopyGroup) {
-        // Respiração suave do dossel maduro orientado pela luz LED
-        const pulse = 1.0 + Math.sin(mc.animPhase) * 0.025;
+        // Respiração suave e pulso noturno bioluminescente do dossel maduro sob luz LED
+        const isNight = typeof window !== 'undefined' && window.campusIsNight;
+        const pulse = 1.0 + Math.sin(mc.animPhase) * (isNight ? 0.036 : 0.025);
         mc.mushCanopyGroup.scale.set(1, pulse, 1);
       }
     }

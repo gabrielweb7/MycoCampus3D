@@ -587,11 +587,16 @@ export function updatePetriVisual(item) {
   item.height = ctrl.lidOpen ? PETRI_OPEN_HEIGHT : PETRI_DISH_HEIGHT;
 }
 
-export function fillPetriWithPda(item) {
+export function fillPetriWithPda(item, isSterileSource = false) {
   const ctrl = item && item.mesh && item.mesh.userData && item.mesh.userData.petriCtrl;
   if (!ctrl || ctrl.mode !== 'bare' || !ctrl.lidOpen) return false;
-  ctrl.mode = 'filled';
-  ctrl.sterilized = false;
+  if (isSterileSource) {
+    ctrl.mode = 'empty';
+    ctrl.sterilized = true;
+  } else {
+    ctrl.mode = 'filled';
+    ctrl.sterilized = false;
+  }
   ctrl.inoculated = false;
   ctrl.expired = false;
   ctrl.colonized = false;

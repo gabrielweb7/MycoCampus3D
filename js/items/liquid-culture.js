@@ -143,16 +143,23 @@ export function updateCultureLiquidLabel(item) {
     const temperature = tempVal.toFixed(1).replace('.', ',') + '°C' + (culture.refrigerated ? ' ❄️' : '');
     item.label = volumeLabel + ' • colonizando ' + Math.floor(culture.colonization || 0) + '% • ' + temperature;
   } else {
-    item.label = volumeLabel + ' • estéril (não colonizada)';
+    const nutTag = culture.hasNutrient === false ? ' • 💧 Sem nutriente (adicione Malte 4%)' : ' • 🍯 Caldo 4%';
+    const sterTag = (culture.sterilized || liquid.sterilized || item.sterilized) ? ' • estéril ✅' : ' • não esterilizada';
+    item.label = volumeLabel + nutTag + sterTag;
   }
 }
 
 export function updateContainerVolume(item, newVol) {
   if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return;
   const ctrl = item.mesh.userData.liquidCtrl;
-  const clamped = Math.max(0, Math.min(ctrl.maxMl, Math.round(newVol)));
+  const clamped = Math.max(0, Math.min(ctrl.maxMl, ctrl.maxMl <= 20 ? Math.round(newVol * 10) / 10 : Math.round(newVol)));
   ctrl.volMl = clamped;
-  if (item.cultureCtrl && clamped <= 0) item.cultureCtrl.colonized = false;
+  if (item.cultureCtrl && clamped <= 0) {
+    item.cultureCtrl.colonized = false;
+    item.cultureCtrl.inoculated = false;
+    item.cultureCtrl.colonization = 0;
+    item.cultureCtrl.hasNutrient = false;
+  }
   const frac = clamped / ctrl.maxMl;
   if (clamped <= 0) {
     ctrl.liqMesh.visible = false;
@@ -172,7 +179,9 @@ export function updateContainerVolume(item, newVol) {
       ctrl.mycCloud.position.y = ctrl.baseY + Math.min(ctrl.maxH * frac * 0.45, 0.048);
     }
   }
-  if (item.pdaMediumCtrl && item.pdaMediumCtrl.updateVisual) {
+  if (typeof ctrl.onAfterVolumeUpdate === 'function') {
+    ctrl.onAfterVolumeUpdate(item, clamped);
+  } else if (item.pdaMediumCtrl && item.pdaMediumCtrl.updateVisual) {
     item.pdaMediumCtrl.updateVisual();
   } else if (item.cultureCtrl) {
     updateCultureLiquidLabel(item);
@@ -222,7 +231,10 @@ export function makeLiquidJar800(ctx, id, px, py, pz, initMl) {
   };
   const item = registerPickable(ctx, id, 'Cultura Líquida 800ml', jg, px, py, pz, 0, 0.14, 0.30, LIQUID_JAR_META);
   item.setVolume = function (v) { updateContainerVolume(item, v); };
-  item.cultureCtrl = createCultureLifecycleState(initMl > 0);
+  item.cultureCtrl = Object.assign(createCultureLifecycleState(initMl > 0), {
+    hasNutrient: initMl > 0,
+    sterilized: initMl > 0
+  });
   jg.userData.cultureCtrl = item.cultureCtrl;
   updateContainerVolume(item, initMl);
   return item;

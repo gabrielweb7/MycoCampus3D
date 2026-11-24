@@ -99,6 +99,8 @@ const MC_COSMETIC_TOYS = [
 const MC_SHOP_SUPPLIES = [
     'sup_pp5' => ['price_coins' => 30, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_syringe' => ['price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_water_spray' => ['price_coins' => 35, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_lc_nutrient' => ['price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_petri' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_mylar' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_h2o2' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],

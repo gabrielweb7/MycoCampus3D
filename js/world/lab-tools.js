@@ -13,11 +13,11 @@ import { buildLaminarHoodAndBenches, addWallLabBench } from '../items/laminar-ho
 import { createPressureCookerPair, makeElectricBurner } from '../items/pressure-cooker.js';
 import { makePetriDish, getPetriMeta, PETRI_DISH_RADIUS, PETRI_DISH_HEIGHT, PETRI_STACK_SPACING } from '../items/petri-dish.js';
 import { makeCultureFridge } from '../items/culture-fridge.js';
-import { createPdaBottleGroup, PDA_BOTTLE_META } from '../items/pda-bottle.js';
+import { createPdaBottleGroup, makeLcNutrientBottle, PDA_BOTTLE_META } from '../items/pda-bottle.js';
 import { attachPdaMediumCtrl, attachPdaReagentCtrl, makePdaMediaBottle1L } from '../items/pda-mix.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
 import { createPrecisionScale } from '../items/precision-scale.js';
-import { makeAlcoholSprayBottle, makeH2O2SprayBottle } from '../items/alcohol-spray.js';
+import { makeAlcoholSprayBottle, makeH2O2SprayBottle, makeWaterSprayBottle } from '../items/alcohol-spray.js';
 import { makePaperTowelRoll } from '../items/paper-towel.js';
 import { buildLabTrashBin } from '../items/lab-trash.js';
 import { createHeatSealer } from '../items/heat-sealer.js';
@@ -84,9 +84,10 @@ export function buildCampusWingsAndEquipment(ctx) {
   createPressureCookerPair(ctx, 'pressure_cooker_lab', 'pressure_lid_lab', 'Lab', -18.5, 1.058, -4.6);
   makeCookerBase(ctx, 'cooker_base_lab', -18.5, 0.97, -5.5);
 
-  // Pia Inox com Torneira + Garrafao 5L Agua Destilada
+  // Pia Inox com Torneira + Garrafao 5L Agua Destilada + Borrifador Agua Destilada
   buildLabSink(ctx, -23.15, 1.02, -10.8);
   makeDistilledJug5L(ctx, 'distilled_jug_5l', -21.95, 1.02, -11.9, 5000);
+  makeWaterSprayBottle(ctx, 'water_spray_lab_01', -22.35, 1.02, -12.00);
   makeCultureFridge(ctx, 'culture_fridge_lab', -15.55, 0.12, -10.7);
 
   // Mesa de Cultura Liquida & Placas de Petri (Organizada e sem excessos!)
@@ -138,6 +139,7 @@ export function buildCampusWingsAndEquipment(ctx) {
   const lc3 = makeLiquidJar800(ctx, 'liquid_culture_03', -21.25, 0.91, -10.40, 420);
   if (lc3 && lc3.cultureCtrl) lc3.cultureCtrl.colonized = true;
   makePdaMediaBottle1L(ctx, 'pda_media_bottle_1l', -21.30, 0.91, -10.55);
+  makeLcNutrientBottle(ctx, 'lc_nutrient_bottle_01', -21.30, 0.91, -10.90);
   const beakerA = makeBeaker1L(ctx, 'beaker_1l_a', -20.42, 0.91, -10.55, 0);
   const beakerB = makeBeaker1L(ctx, 'beaker_1l_b', -20.08, 0.91, -10.55, 500);
   attachPdaMediumCtrl(beakerA, 'beaker', false);
@@ -257,6 +259,8 @@ export function buildCampusWingsAndEquipment(ctx) {
     const bulkId = si < 2 ? ('substrate_dep_vermiculite_' + pad2(si + 1)) : ('substrate_dep_coco_' + pad2(si - 1));
     makeSubstrateBag5kg(ctx, bulkId, bulkKind, -18.85 + si * 0.58, 0.438, 3.05);
   }
+  makeSubstrateBag5kg(ctx, 'substrate_sawdust_01', 'sawdust', -21.0, 0.438, 12.95);
+  makeSubstrateBag5kg(ctx, 'substrate_sawdust_02', 'sawdust', -20.3, 0.438, 12.95);
   for (let pIdx = 0; pIdx < 40; pIdx++) {
     const stackIdx = Math.floor(pIdx / 7);
     const stackLvl = pIdx % 7;
@@ -425,6 +429,7 @@ export function buildCampusWingsAndEquipment(ctx) {
     }
   });
   makeAlcoholSprayBottle(ctx, 'alcohol_spray_east_01', 19.85, 1.02, -12.0);
+  makeWaterSprayBottle(ctx, 'water_spray_east_01', 19.45, 1.02, -12.0);
   makePaperTowelRoll(ctx, 'paper_towel_east_01', 20.25, 1.02, -12.0);
 
   for (let vi = 0; vi < 4; vi++) {
@@ -478,6 +483,7 @@ export function buildCampusWingsAndEquipment(ctx) {
     hole: { cx: 19.8, cz: 2.9, w: 0.60, d: 0.50 },
     sinkPos: { x: 19.8, z: 2.9 }
   });
+  makeWaterSprayBottle(ctx, 'water_spray_greenhouse_01', 21.2, 1.02, 2.9);
 
   // Horta Orgânica Externa com Alfaces, Tomates e Caixa de Substrato / Compostagem (Sul da Estufa)
   buildCampusVegetableGarden(ctx);

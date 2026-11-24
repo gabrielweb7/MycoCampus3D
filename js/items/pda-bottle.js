@@ -2,7 +2,59 @@
  * Frasco de Agar BDA / PDA 500g (MycoCampus3D)
  */
 
+import { getCachedCanvasTexture, registerPickable } from './item-registry.js';
+
 const THREE = window.THREE;
+
+export const LC_NUTRIENT_META = {
+  category: 'reagent',
+  purpose: 'Extrato de Malte + Mel (caldo nutritivo 4%) para preparar Cultura Líquida (4g por 100ml)',
+  getWeightGrams: (item) => 55 + (item && item.lcNutrientCtrl ? item.lcNutrientCtrl.remainingGrams : 250),
+  baseTempC: 23.0,
+  compatibilities: { canEnterCooker: false, addsLcNutrient: true },
+  connections: ['liquid_culture', 'beaker_1l', 'distilled_jug']
+};
+
+export function updateLcNutrientLabel(item) {
+  if (!item || !item.lcNutrientCtrl) return;
+  item.label = '🍯 Extrato de Malte / Mel 250g (' + Math.round(item.lcNutrientCtrl.remainingGrams) + 'g restantes • CL 4%)';
+  if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
+}
+
+export function makeLcNutrientBottle(ctx, id, px, py, pz) {
+  const g = new THREE.Group();
+  const amberMat = new THREE.MeshStandardMaterial({ color: 0xb45309, transparent: true, opacity: 0.82, roughness: 0.16 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.15, 20), amberMat);
+  body.position.y = 0.075;
+  const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.068, 0.025, 20), amberMat);
+  shoulder.position.y = 0.162;
+  const cap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.052, 0.052, 0.036, 18),
+    new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35 })
+  );
+  cap.position.y = 0.19;
+  const lblTex = getCachedCanvasTexture('lc_nutrient_malt_lbl', 256, 128, (lctx) => {
+    lctx.fillStyle = '#fffbeb'; lctx.fillRect(0, 0, 256, 128);
+    lctx.fillStyle = '#d97706'; lctx.fillRect(0, 0, 256, 36);
+    lctx.fillStyle = '#ffffff'; lctx.font = 'bold 18px system-ui, sans-serif';
+    lctx.textAlign = 'center'; lctx.fillText('🍯 NUTRIENTE CL 4%', 128, 25);
+    lctx.fillStyle = '#78350f'; lctx.font = 'bold 24px system-ui, sans-serif';
+    lctx.fillText('MALTE / MEL', 128, 72);
+    lctx.fillStyle = '#92400e'; lctx.font = '16px system-ui, sans-serif';
+    lctx.fillText('4g / 100ml p/ Micélio', 128, 104);
+  });
+  const lbl = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0695, 0.0695, 0.098, 22, 1, true, -0.9, 1.8),
+    new THREE.MeshBasicMaterial({ map: lblTex, transparent: true })
+  );
+  lbl.position.y = 0.078;
+  g.add(body, shoulder, cap, lbl);
+  g.userData.isLcNutrientBottle = true;
+  const item = registerPickable(ctx, id, '🍯 Extrato de Malte / Mel 250g', g, px, py, pz, 0, 0.10, 0.21, LC_NUTRIENT_META);
+  item.lcNutrientCtrl = { remainingGrams: 250, maxGrams: 250 };
+  updateLcNutrientLabel(item);
+  return item;
+}
 
 export const PDA_BOTTLE_META = {
   category: 'reagent',

@@ -84,28 +84,28 @@ export function updateMixingBowlLabel(item) {
   }
   let totalG = 0;
   const parts = [];
+  const ING_NAMES = {
+    flocao: 'Flocão',
+    water: 'Água',
+    corn: 'Milho',
+    wheat: 'Trigo',
+    sorghum: 'Sorgo',
+    vermiculite: 'Vermiculita',
+    sawdust: 'Serragem',
+    coco: 'Pó de Coco'
+  };
   keys.forEach((k) => {
     const val = Math.round(bc.ingredients[k]);
+    const tag = ING_NAMES[k] || k;
     totalG += val;
-    const tag = k === 'flocao'
-      ? 'Flocão'
-      : (k === 'water'
-        ? 'Água'
-        : (k === 'corn'
-          ? 'Milho'
-          : (k === 'wheat'
-            ? 'Trigo'
-            : (k === 'sorghum'
-              ? 'Sorgo'
-              : (k === 'vermiculite' ? 'Vermiculita' : (k === 'coco' ? 'Pó de Coco' : k))))));
     parts.push(tag + ' ' + val + 'g');
   });
   if (bc.mixMesh) {
     const dryG = (bc.ingredients.flocao || 0) + (bc.ingredients.corn || 0) + (bc.ingredients.wheat || 0) + (bc.ingredients.sorghum || 0) + (bc.ingredients.sawdust || 0) + (bc.ingredients.vermiculite || 0) + (bc.ingredients.coco || 0);
     const waterG = bc.ingredients.water || 0;
-    const hasBulkDry = (bc.ingredients.coco || 0) > 0 || (bc.ingredients.vermiculite || 0) > 0;
-    const mixHex = (bc.ingredients.coco || 0) > 0 ? 0x5c3a21 : (hasBulkDry ? 0xb45309 : 0xf59e0b);
-    const dryHex = (bc.ingredients.coco || 0) > 0 ? 0x6b4423 : (hasBulkDry ? 0xd97706 : 0xfde047);
+    const hasBulkDry = (bc.ingredients.coco || 0) > 0 || (bc.ingredients.vermiculite || 0) > 0 || (bc.ingredients.sawdust || 0) > 0;
+    const mixHex = (bc.ingredients.coco || 0) > 0 ? 0x5c3a21 : ((bc.ingredients.sawdust || 0) > 0 ? 0xa16207 : (hasBulkDry ? 0xb45309 : 0xf59e0b));
+    const dryHex = (bc.ingredients.coco || 0) > 0 ? 0x6b4423 : ((bc.ingredients.sawdust || 0) > 0 ? 0xc2955a : (hasBulkDry ? 0xd97706 : 0xfde047));
     if (bc.mixed) {
       bc.mixMesh.visible = totalG > 0;
       const fillFrac = Math.min(1, totalG / 600);
@@ -155,9 +155,18 @@ export function getBowlBulkReadiness(bc) {
   const ing = (bc && bc.ingredients) || {};
   const hasCoco = (ing.coco || 0) > 0;
   const hasVerm = (ing.vermiculite || 0) > 0;
+  const hasSaw = (ing.sawdust || 0) > 0;
   const hasWater = (ing.water || 0) > 0;
-  if (!hasCoco && !hasVerm) return { isBulk: false, ready: true, missingText: '' };
+  if (!hasCoco && !hasVerm && !hasSaw) return { isBulk: false, ready: true, missingText: '' };
   const missing = [];
+  if (hasSaw && !hasCoco && !hasVerm) {
+    if (!hasWater) missing.push('Água');
+    return {
+      isBulk: true,
+      ready: missing.length === 0,
+      missingText: missing.length ? ('Falta ' + missing.join(' + ')) : ''
+    };
+  }
   if (!hasCoco) missing.push('Pó de Coco');
   if (!hasVerm) missing.push('Vermiculita');
   if (!hasWater) missing.push('Água');

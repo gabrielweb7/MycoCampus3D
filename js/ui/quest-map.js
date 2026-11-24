@@ -2,10 +2,12 @@
  * MycoCampus3D — Mapa Rápido (Teleporte) & Missão Prática de 5 Passos
  */
 import { appState } from '../core/state.js';
+import { t } from '../core/i18n.js';
 import { apiPost } from '../services/api-client.js';
 import { $, escapeHtml, showFloatingToast } from './dom-helpers.js';
 import { updateUserHud } from './hud-lobby.js';
 import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { CULTIVATION_TRACKS, calculateRealWorldRecipe } from '../core/cultivation-tracks.js';
 
 export const CAMPUS_SECTORS = [
   { id: 'plaza', icon: '🏛️', name: 'Praça Central', desc: 'Ponto inicial, fonte e torre do relógio', x: 0, y: 0, z: 10.5, yaw: 0 },
@@ -136,10 +138,151 @@ export function renderMapModal() {
   });
 }
 
+let activeQuestModalTab = 'quest';
+let activeTrackId = CULTIVATION_TRACKS[0].id;
+let calcRecipeKind = 'pda';
+let calcRecipeAmount = 500;
+const TRACK_STORAGE_KEY = 'myco_learning_track_steps_v1';
+
+function loadTrackChecks() {
+  try {
+    if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+      const raw = localStorage.getItem(TRACK_STORAGE_KEY);
+      const obj = raw ? JSON.parse(raw) : {};
+      return obj && typeof obj === 'object' ? obj : {};
+    }
+  } catch (_e) {}
+  return {};
+}
+
+function saveTrackChecks(map) {
+  try {
+    if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
+      localStorage.setItem(TRACK_STORAGE_KEY, JSON.stringify(map));
+    }
+  } catch (_e) {}
+}
+
 export function renderQuestModal() {
   const body = $('quest-body');
   if (!body) return;
   body.innerHTML = '';
+
+  const tabBar = document.createElement('div');
+  tabBar.className = 'flex flex-wrap gap-1.5 mb-2';
+  [
+    { id: 'quest', label: '🎯 ' + t('hud.quest') },
+    { id: 'tracks', label: t('modal.quest_tab_tracks') },
+    { id: 'calc', label: t('modal.quest_tab_calculator') }
+  ].forEach((tb) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ' +
+      (activeQuestModalTab === tb.id
+        ? 'bg-emerald-600/80 text-white border-emerald-400'
+        : 'bg-slate-900/75 text-slate-300 border-slate-700 hover:bg-slate-800');
+    btn.textContent = tb.label;
+    btn.onclick = () => {
+      activeQuestModalTab = tb.id;
+      renderQuestModal();
+    };
+    tabBar.appendChild(btn);
+  });
+  body.appendChild(tabBar);
+
+  if (activeQuestModalTab === 'tracks') {
+    const checks = loadTrackChecks();
+    const trBar = document.createElement('div');
+    trBar.className = 'flex flex-wrap gap-1.5 mb-2';
+    CULTIVATION_TRACKS.forEach((tr) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'px-2 py-1 rounded-lg text-[11px] font-semibold border transition ' +
+        (activeTrackId === tr.id
+          ? 'bg-cyan-700/80 text-white border-cyan-400'
+          : 'bg-slate-900/70 text-slate-300 border-slate-700 hover:bg-slate-800');
+      b.textContent = tr.level;
+      b.onclick = () => { activeTrackId = tr.id; renderQuestModal(); };
+      trBar.appendChild(b);
+    });
+    body.appendChild(trBar);
+
+    const track = CULTIVATION_TRACKS.find((t) => t.id === activeTrackId) || CULTIVATION_TRACKS[0];
+    const head = document.createElement('div');
+    head.className = 'p-3 rounded-xl bg-slate-900/80 border border-cyan-500/35 space-y-1.5 mb-2';
+    head.innerHTML =
+      `<div class="font-bold text-white text-xs">${escapeHtml(track.title)}</div>` +
+      `<div class="text-[11px] text-cyan-300 font-semibold">${escapeHtml(t('modal.quest_species'))}: ${escapeHtml(track.speciesHint)}</div>` +
+      `<div class="text-[11px] text-slate-300">${escapeHtml(track.summary)}</div>` +
+      `<div class="p-2 rounded-lg bg-amber-950/40 border border-amber-500/30 text-[11px] text-amber-200">${escapeHtml(track.gameVsReal)}</div>`;
+    body.appendChild(head);
+
+    track.steps.forEach((stepTxt, idx) => {
+      const cKey = track.id + ':' + idx;
+      const done = !!checks[cKey];
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'w-full text-left p-2.5 rounded-xl border flex items-start gap-2 mb-1.5 transition ' +
+        (done ? 'bg-emerald-950/35 border-emerald-500/45 text-emerald-200' : 'bg-slate-900/75 border-slate-700/70 text-slate-200 hover:bg-slate-800/80');
+      row.innerHTML = `<span class="text-base leading-none">${done ? '✅' : '⬜'}</span><span class="text-[11px] flex-1">${idx + 1}. ${escapeHtml(stepTxt)}</span>`;
+      row.onclick = () => {
+        checks[cKey] = !checks[cKey];
+        saveTrackChecks(checks);
+        renderQuestModal();
+      };
+      body.appendChild(row);
+    });
+    return;
+  }
+
+  if (activeQuestModalTab === 'calc') {
+    const controls = document.createElement('div');
+    controls.className = 'p-3 rounded-xl bg-slate-900/80 border border-emerald-500/35 space-y-2 mb-2';
+    controls.innerHTML =
+      `<div class="flex flex-wrap gap-1.5" id="calc-kind-btns"></div>` +
+      `<div class="flex items-center gap-2 pt-1">` +
+      `<label class="text-[11px] text-slate-300 font-semibold" for="calc-amt-input">${escapeHtml(t('modal.quest_amount'))}</label>` +
+      `<input id="calc-amt-input" type="number" min="50" max="10000" step="50" value="${calcRecipeAmount}" class="w-24 px-2 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs">` +
+      `</div>`;
+    body.appendChild(controls);
+
+    const kWrap = controls.querySelector('#calc-kind-btns');
+    [
+      { id: 'pda', label: '🧪 Ágar PDA 40g/L' },
+      { id: 'lc', label: '🍯 CL Malte/Mel 4%' },
+      { id: 'cvg', label: '🥥 Substrato CVG' },
+      { id: 'spawn_bulk', label: '📦 Monotub 1:2' }
+    ].forEach((opt) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'px-2 py-1 rounded-lg text-[11px] font-bold border ' +
+        (calcRecipeKind === opt.id ? 'bg-emerald-600/80 text-white border-emerald-400' : 'bg-slate-800 text-slate-300 border-slate-700');
+      b.textContent = opt.label;
+      b.onclick = () => { calcRecipeKind = opt.id; renderQuestModal(); };
+      kWrap.appendChild(b);
+    });
+
+    const resBox = document.createElement('div');
+    resBox.className = 'p-3 rounded-xl bg-slate-900/80 border border-slate-700/80 space-y-1.5';
+    const renderCalcResult = () => {
+      const r = calculateRealWorldRecipe(calcRecipeKind, calcRecipeAmount);
+      resBox.innerHTML =
+        `<div class="font-bold text-emerald-300 text-xs">${escapeHtml(r.title)}</div>` +
+        `<ul class="space-y-1 text-[11px] text-slate-200">${r.items.map((it) => `<li>• ${escapeHtml(it)}</li>`).join('')}</ul>` +
+        `<div class="text-[11px] text-amber-300 pt-1">💡 ${escapeHtml(r.note)}</div>`;
+    };
+    const inp = controls.querySelector('#calc-amt-input');
+    if (inp) {
+      inp.oninput = () => {
+        calcRecipeAmount = Math.max(50, Math.min(10000, Number(inp.value) || 500));
+        renderCalcResult();
+      };
+    }
+    renderCalcResult();
+    body.appendChild(resBox);
+    return;
+  }
+
   let doneCount = 0;
   LAB_QUEST_STEPS.forEach((st) => { if (labQuestDone[st.key]) doneCount++; });
   const pct = Math.round((doneCount / LAB_QUEST_STEPS.length) * 100);

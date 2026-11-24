@@ -120,22 +120,23 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
   const isWheat = kind === 'wheat';
   const isSorghum = kind === 'sorghum';
   const isVerm = kind === 'vermiculite';
-  const isCoco = kind === 'coco' || kind === 'sawdust';
+  const isSawdust = kind === 'sawdust';
+  const isCoco = kind === 'coco';
   const isGrain = kind === 'grain' || kind === 'corn' || isWheat || isSorghum;
-  const bagColor = isWheat ? 0xeab308 : (isSorghum ? 0x991b1b : (isGrain ? 0xd97706 : (isVerm ? 0xb45309 : 0x5c3a21)));
+  const bagColor = isWheat ? 0xeab308 : (isSorghum ? 0x991b1b : (isGrain ? 0xd97706 : (isVerm ? 0xb45309 : (isSawdust ? 0xc2955a : 0x5c3a21))));
   const bag = makeBox(0.30, 0.42, 0.22, bagColor, { roughness: 0.85 });
   bag.position.y = 0.21;
-  const variantKey = isWheat ? 'wheat' : (isSorghum ? 'sorghum' : (isGrain ? 'grain' : (isVerm ? 'vermiculite' : 'coco')));
+  const variantKey = isWheat ? 'wheat' : (isSorghum ? 'sorghum' : (isGrain ? 'grain' : (isVerm ? 'vermiculite' : (isSawdust ? 'sawdust' : 'coco'))));
   const lblTex = getCachedCanvasTexture(`substrate_bag_lbl_${variantKey}`, 256, 128, (sctx) => {
     sctx.fillStyle = '#f8fafc'; sctx.fillRect(0, 0, 256, 128);
-    sctx.fillStyle = isWheat ? '#ca8a04' : (isSorghum ? '#991b1b' : (isGrain ? '#b45309' : (isVerm ? '#d97706' : '#4a2c18')));
+    sctx.fillStyle = isWheat ? '#ca8a04' : (isSorghum ? '#991b1b' : (isGrain ? '#b45309' : (isVerm ? '#d97706' : (isSawdust ? '#a16207' : '#4a2c18'))));
     sctx.fillRect(0, 0, 256, 36);
     sctx.fillStyle = '#ffffff'; sctx.font = 'bold 20px system-ui, sans-serif';
     sctx.textAlign = 'center';
-    const titleTxt = isWheat ? 'GRÃOS • TRIGO 5KG' : (isSorghum ? 'GRÃOS • SORGO 5KG' : (isGrain ? 'GRÃOS • MILHO 5KG' : (isVerm ? 'VERMICULITA 5KG' : 'PÓ DE COCO 5KG')));
+    const titleTxt = isWheat ? 'GRÃOS • TRIGO 5KG' : (isSorghum ? 'GRÃOS • SORGO 5KG' : (isGrain ? 'GRÃOS • MILHO 5KG' : (isVerm ? 'VERMICULITA 5KG' : (isSawdust ? 'SERRAGEM • MADEIRA 5KG' : 'PÓ DE COCO 5KG'))));
     sctx.fillText(titleTxt, 128, 25);
     sctx.fillStyle = '#1e293b'; sctx.font = 'bold 17px system-ui, sans-serif';
-    sctx.fillText(isGrain ? 'Preparo de Spawn' : (isVerm ? 'Misture c/ Pó de Coco' : 'Misture c/ Vermiculita'), 128, 72);
+    sctx.fillText(isGrain ? 'Preparo de Spawn' : (isVerm ? 'Misture c/ Pó de Coco' : (isSawdust ? 'Blocos Gourmet Madeira' : 'Misture c/ Vermiculita')), 128, 72);
     sctx.fillStyle = '#64748b'; sctx.font = '15px system-ui, sans-serif';
     sctx.fillText(isGrain ? 'Uso Laboratorial • Estoque' : 'Substrato • Uso c/ Água', 128, 102);
   });
@@ -151,7 +152,7 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
       ? 'Saco de Sorgo Vermelho 5kg'
       : (isGrain
         ? 'Saco de Milho de Pipoca 5kg'
-        : (isVerm ? 'Saco de Vermiculita 5kg' : 'Saco de Pó de Coco 5kg')));
+        : (isVerm ? 'Saco de Vermiculita 5kg' : (isSawdust ? 'Saco de Serragem de Eucalipto 5kg' : 'Saco de Pó de Coco 5kg'))));
   const purpose = isWheat
     ? 'Grãos de trigo para preparo de spawn/semente'
     : (isSorghum
@@ -160,16 +161,18 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
         ? 'Milho de pipoca para preparo de spawn/semente ou cozimento na panela'
         : (isVerm
           ? 'Vermiculita expandida: misture com Pó de Coco + Água no Pote, mexa c/ Colher, leve à Bag e Pasteurize'
-          : 'Pó de Coco seco: misture com Vermiculita + Água no Pote, mexa c/ Colher, leve à Bag e Pasteurize')));
+          : (isSawdust
+            ? 'Serragem de madeira nobre para blocos gourmet (Juba de Leão, Shimeji, Reishi, Shiitake)'
+            : 'Pó de Coco seco: misture com Vermiculita + Água no Pote, mexa c/ Colher, leve à Bag e Pasteurize'))));
   return registerPickable(ctx, id, label, sg, px, py, pz, 0, 0.26, 0.42, {
     category: 'substrate',
     purpose,
     weightGrams: 5000,
     baseTempC: 22.6,
-    compatibilities: { canEnterCooker: true },
+    compatibilities: { canEnterCooker: false },
     connections: isGrain
       ? ['precision_scale', 'spawn_bag', 'spawn_jar', 'pressure_cooker']
-      : ['mixing_bowl', 'precision_scale', 'monotub_24l']
+      : ['mixing_bowl', 'precision_scale', 'spawn_bag', 'monotub_24l']
   });
 }
 
@@ -207,10 +210,12 @@ export function makeTapeRoll(ctx, id, kind, px, py, pz) {
   );
   core.position.y = outer.position.y;
   tg.add(outer, core);
+  tg.userData.isMicropore = isMicro;
+  tg.userData.isParafilm = !isMicro;
   const lbl = isMicro ? 'Rolo de Fita Micropore (Troca Gasosa)' : 'Rolo de Parafilm M (Vedação Petri)';
   return registerPickable(ctx, id, lbl, tg, px, py, pz, 0, 0.08, 0.06, {
     category: 'consumable',
-    purpose: isMicro ? 'Permitir troca gasosa estéril em frascos e bags' : 'Vedar placas de Petri contra contaminação',
+    purpose: isMicro ? 'Permitir troca gasosa estéril em frascos, PP5 e Monotubs' : 'Vedar placas de Petri contra contaminação',
     weightGrams: 65,
     baseTempC: 22.5,
     compatibilities: { canEnterCooker: false },
@@ -225,6 +230,7 @@ export function makeFoilRoll(ctx, id, px, py, pz) {
   const band = makeBox(0.322, 0.025, 0.067, 0xfef08a, { noShadow: true });
   band.position.y = 0.04;
   fg.add(box, band);
+  fg.userData.isFoilRoll = true;
   return registerPickable(ctx, id, 'Papel Alumínio (Autoclave)', fg, px, py, pz, 0, 0.18, 0.08, {
     category: 'consumable',
     purpose: 'Proteger tampas e gargalos contra umidade na autoclave',

@@ -49,7 +49,8 @@ export function getSpawnSubstrateDisplayName(kind, isPP5 = false) {
   if (kind === 'wheat') return 'Trigo em Grão';
   if (kind === 'sorghum') return 'Sorgo Vermelho';
   if (kind === 'corn' || kind === 'grain') return 'Milho de Pipoca';
-  if (kind === 'coco_verm' || kind === 'coco' || kind === 'vermiculite' || kind === 'sawdust') {
+  if (kind === 'sawdust') return 'Serragem de Eucalipto';
+  if (kind === 'coco_verm' || kind === 'coco' || kind === 'vermiculite') {
     return 'Pó de Coco + Vermiculita';
   }
   return isPP5 ? 'Flocão de Milho' : 'Milho de Pipoca';
@@ -74,9 +75,14 @@ export function fillSpawnWithSubstrate(item, kind) {
   if (!item || !item.spawnCtrl || item.spawnCtrl.filled ||
       !item.meta || !item.meta.compatibilities || !item.meta.compatibilities.receivesSubstrate) return false;
   const sc = item.spawnCtrl;
+  const subKind = kind || 'corn';
+  const isDryGrain = subKind === 'corn' || subKind === 'grain' || subKind === 'wheat' || subKind === 'sorghum';
   sc.filled = true;
   sc.fillGrams = sc.isBag ? 1500 : 460;
-  sc.substrateKind = kind || 'corn';
+  sc.substrateKind = subKind;
+  sc.hydrated = !isDryGrain;
+  sc.waterMl = isDryGrain ? 0 : (sc.waterMl || 35);
+  sc.g2gUses = 0;
   sc.sealed = false;
   sc.sterilized = false;
   sc.pasteurized = false;
@@ -96,6 +102,74 @@ export function fillSpawnWithSubstrate(item, kind) {
   }
   updateSpawnVisual(item);
   return true;
+}
+
+export function applyFoilWrap(item) {
+  if (!item || !item.mesh) return false;
+  item.foilWrapped = true;
+  if (item.spawnCtrl) item.spawnCtrl.foilWrapped = true;
+  if (item.cultureCtrl) item.cultureCtrl.foilWrapped = true;
+  if (!item.mesh.userData._foilCapMesh && THREE && THREE.CylinderGeometry && THREE.MeshStandardMaterial) {
+    const capY = item.pdaMediumCtrl && item.pdaMediumCtrl.kind === 'media_bottle' ? 0.59 : (item.cultureCtrl ? 0.295 : 0.275);
+    const capR = item.pdaMediumCtrl && item.pdaMediumCtrl.kind === 'media_bottle' ? 0.088 : 0.105;
+    const capMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(capR, capR * 1.06, 0.045, 16),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.92, roughness: 0.18 })
+    );
+    capMesh.position.y = capY;
+    item.mesh.add(capMesh);
+    item.mesh.userData._foilCapMesh = capMesh;
+  } else if (item.mesh.userData._foilCapMesh) {
+    item.mesh.userData._foilCapMesh.visible = true;
+  }
+  if (item.spawnCtrl && item.spawnCtrl.updateVisual) item.spawnCtrl.updateVisual();
+  else if (typeof item.setVolume === 'function' && item.mesh.userData.liquidCtrl) {
+    item.setVolume(item.mesh.userData.liquidCtrl.volMl);
+  }
+  return true;
+}
+
+export function applyMicroporeSeal(item) {
+  if (!item) return false;
+  item.microporeSealed = true;
+  if (item.spawnCtrl) {
+    item.spawnCtrl.microporeSealed = true;
+    if (item.spawnCtrl.updateVisual) item.spawnCtrl.updateVisual();
+  }
+  if (item.monotubCtrl) {
+    item.monotubCtrl.microporeSealed = true;
+  }
+  return true;
+}
+
+export function transferGrainToGrain(ctx, srcItem, dstItem) {
+  if (!srcItem || !dstItem || srcItem === dstItem || !srcItem.spawnCtrl || !dstItem.spawnCtrl) return { ok: false, reason: 'invalid' };
+  const s = srcItem.spawnCtrl;
+  const d = dstItem.spawnCtrl;
+  const sIsGrain = s.substrateKind !== 'coco_verm' && s.substrateKind !== 'sawdust' && s.substrateKind !== 'pda';
+  const dIsGrain = d.substrateKind !== 'coco_verm' && d.substrateKind !== 'sawdust' && d.substrateKind !== 'pda';
+  if (!s.filled || !s.colonized || s.contaminated || s.burned || s.expired || !sIsGrain) {
+    return { ok: false, reason: 'source_not_ready' };
+  }
+  if ((s.g2gUses || 0) >= 3) {
+    return { ok: false, reason: 'g2g_exhausted' };
+  }
+  if (!d.filled || d.inoculated || !d.sterilized || d.contaminated || d.burned || !dIsGrain || (d.isBag && !d.sealed)) {
+    return { ok: false, reason: 'dest_not_ready' };
+  }
+  const aseptic = !ctx || isAsepticWorkArea(ctx, dstItem);
+  s.g2gUses = (s.g2gUses || 0) + 1;
+  d.inoculated = true;
+  d.generation = Math.min(3, (typeof s.generation === 'number' ? s.generation : 1) + 1);
+  if (s.speciesName) d.speciesName = s.speciesName;
+  if (aseptic) {
+    d.colonization = 12;
+  } else {
+    d.contaminated = true;
+  }
+  s.updateVisual();
+  d.updateVisual();
+  return { ok: aseptic, remainingUses: Math.max(0, 3 - s.g2gUses) };
 }
 
 function getSpawnCultureStatus(item) {
@@ -131,7 +205,9 @@ export function updateSpawnVisual(item) {
       sc.fillMesh.material = sc.isBag ? A.bagSorghumMat : A.jarSorghumMat;
     } else if (sc.substrateKind === 'wheat') {
       sc.fillMesh.material = sc.isBag ? A.bagWheatMat : A.jarWheatMat;
-    } else if (sc.substrateKind === 'coco_verm' || sc.substrateKind === 'sawdust' || sc.substrateKind === 'coco' || sc.substrateKind === 'vermiculite') {
+    } else if (sc.substrateKind === 'sawdust') {
+      sc.fillMesh.material = A.bagSawdustMat;
+    } else if (sc.substrateKind === 'coco_verm' || sc.substrateKind === 'coco' || sc.substrateKind === 'vermiculite') {
       sc.fillMesh.material = A.bagBulkMat;
     } else {
       sc.fillMesh.material = sc.isBag ? A.bagGrainMat : A.cornMatFilled;
@@ -190,9 +266,16 @@ export function updateSpawnVisual(item) {
     item.label = sc.baseLabel + ' (Selado • Pronto para esterilizar)';
   } else if (sc.sterilizeProgress > 0) {
     item.label = sc.baseLabel + ' (Mal esterilizado ' + Math.floor(sc.sterilizeProgress) + '% ⚠️)';
+  } else if (sc.filled && sc.hydrated === false && (sc.waterMl || 0) < 30 &&
+      (sc.substrateKind === 'corn' || sc.substrateKind === 'grain' || sc.substrateKind === 'wheat' || sc.substrateKind === 'sorghum')) {
+    item.label = sc.baseLabel + ' (Grão Seco 💧 hidrate c/ água antes de esterilizar)';
   } else {
     item.label = sc.baseLabel + ' (Não Esterilizado)';
   }
+  const extraBadges = [];
+  if (sc.foilWrapped) extraBadges.push('🪙 Alumínio');
+  if (sc.microporeSealed) extraBadges.push('🩹 Micropore');
+  if (extraBadges.length) item.label += ' • ' + extraBadges.join(' • ');
 }
 
 let sharedSpawnAssets = null;
@@ -251,6 +334,14 @@ function getSpawnSharedAssets() {
   const bagWheatMat = new THREE.MeshStandardMaterial({ map: bagWheatTex, roughness: 0.85 });
   const jarWheatMat = new THREE.MeshStandardMaterial({ map: bagWheatTex, roughness: 0.78 });
   const bagBulkMat = new THREE.MeshStandardMaterial({ map: bagBulkTex, roughness: 0.90 });
+  const bagSawdustTex = getCachedCanvasTexture('spawn_bag_sawdust', 128, 128, (bctx) => {
+    bctx.fillStyle = '#c2955a'; bctx.fillRect(0, 0, 128, 128);
+    for (let g = 0; g < 260; g++) {
+      bctx.fillStyle = g % 4 === 0 ? '#fef3c7' : (g % 2 === 0 ? '#92400e' : '#d6b47a');
+      bctx.fillRect(Math.random() * 124, Math.random() * 124, 3, 2);
+    }
+  });
+  const bagSawdustMat = new THREE.MeshStandardMaterial({ map: bagSawdustTex, roughness: 0.92 });
 
   bindPngTexture('assets/textures/sorghum-grain.png', [bagSorghumMat, jarSorghumMat], { repeatX: 1.5, repeatY: 1.5 });
   bindPngTexture('assets/textures/corn-grain.png', [cornMatFilled, cornMatEmpty, bagGrainMat], { repeatX: 2, repeatY: 2 });
@@ -286,6 +377,7 @@ function getSpawnSharedAssets() {
     bagWheatMat,
     jarWheatMat,
     bagBulkMat,
+    bagSawdustMat,
     bagSorghumMat,
     jarSorghumMat
   };
@@ -324,6 +416,8 @@ export function makeSpawnJar800(ctx, id, filled, px, py, pz) {
   item.spawnCtrl = {
     isBag: false,
     filled: !!filled,
+    hydrated: !!filled,
+    g2gUses: 0,
     fillGrams: filled ? 460 : 0,
     substrateKind: filled ? 'corn' : '',
     fillMesh: corn,
@@ -379,6 +473,8 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   item.spawnCtrl = {
     isBag: true,
     filled: !!filled,
+    hydrated: !!filled,
+    g2gUses: 0,
     sealed: !!filled,
     fillGrams: filled ? 1500 : 0,
     substrateKind: filled ? 'corn' : '',
@@ -461,8 +557,11 @@ export function stepSpawnColonization(ctx, dt) {
       const spawnRate = sc.refrigerated
         ? (4.2 * 0.2)
         : (isCultureIncubationTemperatureSuitable(sgIt, ctx) ? baseRate : 0);
-      if (sc.colonization < 100 && spawnRate > 0) {
-        sc.colonization = Math.min(100, sc.colonization + dt * spawnRate);
+      const dryStall = sc.hydrated === false && (sc.waterMl || 0) < 30 &&
+        (sc.substrateKind === 'corn' || sc.substrateKind === 'grain' || sc.substrateKind === 'wheat' || sc.substrateKind === 'sorghum');
+      const maxCol = dryStall ? 15 : 100;
+      if (sc.colonization < maxCol && spawnRate > 0) {
+        sc.colonization = Math.min(maxCol, sc.colonization + dt * spawnRate);
         changed = true;
       }
       if (sc.colonization >= 100 && !sc.colonized) {

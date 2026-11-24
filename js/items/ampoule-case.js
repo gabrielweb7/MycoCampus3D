@@ -230,6 +230,7 @@ export function makeVial3ml(ctx, id, px, py, pz, opts = {}) {
   };
 
   const item = registerPickable(ctx, id, '🧪 Ampola 3ML', vg, px, py, pz, 0, 0.024, 0.044, getVialMeta(opts));
+  vg.userData.liquidCtrl.onAfterVolumeUpdate = function () { updateVial3mlVisual(item); };
   item.sterilized = sterilized;
   item.cultureCtrl = {
     inoculated: colonized,

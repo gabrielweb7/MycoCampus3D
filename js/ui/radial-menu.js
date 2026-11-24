@@ -33,6 +33,7 @@ import { breakAndShakeSpawn, getSpawnSubstrateDisplayName, updateSpawnVisual } f
 import { interactSilicaStorageJar, interactLabMicroscope } from '../items/lab-advanced-tools.js';
 import { toggleAmpouleCaseLid, openAmpouleCaseModal } from '../items/ampoule-case.js';
 import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
+import { diagnoseItemPedagogy } from '../core/cultivation-tracks.js';
 
 let barEl = null;
 let styleInjected = false;
@@ -574,7 +575,11 @@ export function showItemStatusCard(item, ctx) {
     chips.push({ icon: 'ℹ️', text: item.meta.purpose, color: 'bg-slate-800/80 text-slate-200 border-slate-600/40' });
   }
 
-  bodyEl.innerHTML = chips.map(c => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${c.color}">${c.icon} ${c.text}</span>`).join('');
+  const diag = diagnoseItemPedagogy(item);
+  const diagHtml = diag
+    ? `<div class="mt-2 w-full p-2 rounded-lg border text-[11px] leading-snug ${diag.level === 'danger' ? 'bg-rose-950/50 border-rose-500/40 text-rose-200' : (diag.level === 'warn' ? 'bg-amber-950/50 border-amber-500/40 text-amber-200' : 'bg-emerald-950/40 border-emerald-500/35 text-emerald-200')}"><b>📘 ${diag.status}:</b> ${diag.cause} <i>Dica real:</i> ${diag.realWorldTip}</div>`
+    : '';
+  bodyEl.innerHTML = chips.map(c => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${c.color}">${c.icon} ${c.text}</span>`).join('') + diagHtml;
 
   ensureStatusCardDraggable(card);
   card.classList.remove('hidden');

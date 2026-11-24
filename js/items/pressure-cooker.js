@@ -664,7 +664,8 @@ export function stepPressureCookers(ctx, dt) {
             cp.grainAlDente = true;
             updateCookerWaterVisual(cp);
             if (ctx.callbacks && ctx.callbacks.onToast) {
-              ctx.callbacks.onToast('🌽 Milho de pipoca no ponto AO DENTE (20 min)! Escorra na pia e porcione nos potes/bags!');
+              const gLbl = cp.grainKind === 'wheat' ? 'Trigo em Grão' : (cp.grainKind === 'sorghum' ? 'Sorgo Vermelho' : 'Milho de pipoca');
+              ctx.callbacks.onToast('🌾 ' + gLbl + ' no ponto AO DENTE (20 min)! Escorra na pia e porcione nos potes/bags!');
             }
           }
         }

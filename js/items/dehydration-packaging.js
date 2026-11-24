@@ -42,6 +42,7 @@ export const roadSaleDynamicObjects = [];
 export const roadStandState = {
   availablePacks: 0,
   speciesList: [],
+  gramsList: [],
   vipOrders: ['Golden Teacher', 'Juba de Leão'],
   standPacksMeshes: [],
   signCanvas: null,
@@ -539,13 +540,17 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
         const cc = it && it.deliveryCrateCtrl;
         if (!cc) return null;
         return {
-          packsCount: Math.max(0, Math.min(DELIVERY_CRATE_MAX_PACKS, Math.round(Number(cc.packsCount) || 0)))
+          packsCount: Math.max(0, Math.min(DELIVERY_CRATE_MAX_PACKS, Math.round(Number(cc.packsCount) || 0))),
+          speciesList: Array.isArray(cc.speciesList) ? cc.speciesList.slice(0, DELIVERY_CRATE_MAX_PACKS) : [],
+          gramsList: Array.isArray(cc.gramsList) ? cc.gramsList.slice(0, DELIVERY_CRATE_MAX_PACKS) : []
         };
       },
       applyState: (it, custom) => {
         const cc = it && it.deliveryCrateCtrl;
         if (!cc || !custom) return;
         cc.packsCount = Math.max(0, Math.min(DELIVERY_CRATE_MAX_PACKS, Math.round(Number(custom.packsCount) || 0)));
+        if (Array.isArray(custom.speciesList)) cc.speciesList = custom.speciesList.slice(0, DELIVERY_CRATE_MAX_PACKS);
+        if (Array.isArray(custom.gramsList)) cc.gramsList = custom.gramsList.slice(0, DELIVERY_CRATE_MAX_PACKS);
         updateDeliveryCrateVisual(it);
       }
     }
@@ -553,6 +558,8 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
 
   item.deliveryCrateCtrl = {
     packsCount: opts.packsCount || 0,
+    speciesList: Array.isArray(opts.speciesList) ? opts.speciesList.slice() : [],
+    gramsList: Array.isArray(opts.gramsList) ? opts.gramsList.slice() : [],
     packMeshes,
     updateVisual: () => updateDeliveryCrateVisual(item)
   };
@@ -582,6 +589,8 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
   cc.packsCount++;
   cc.speciesList = Array.isArray(cc.speciesList) ? cc.speciesList : [];
   cc.speciesList.push(bc.speciesName || '');
+  cc.gramsList = Array.isArray(cc.gramsList) ? cc.gramsList : [];
+  cc.gramsList.push(Math.max(10, Math.round(Number(bc.grams) || 10)));
   updateDeliveryCrateVisual(crateItem);
   if (ctx && ctx.markItemMoved) ctx.markItemMoved(crateItem);
   bagItem._removedForSync = true;
@@ -1088,7 +1097,14 @@ function consumeHeldStandItem(ctx, held, packsVal) {
   roadStandState.availablePacks += packsVal;
   const spName = (held && held.mushroomBagCtrl && held.mushroomBagCtrl.speciesName) ||
     (held && held.wildMushroomCtrl && held.wildMushroomCtrl.speciesName) || '';
-  for (let i = 0; i < packsVal; i++) roadStandState.speciesList.push(spName);
+  const packGrams = Math.max(10, Math.round(Number(
+    (held && held.mushroomBagCtrl && held.mushroomBagCtrl.grams) ||
+    (held && held.wildMushroomCtrl && held.wildMushroomCtrl.grams) || 10
+  )));
+  for (let i = 0; i < packsVal; i++) {
+    roadStandState.speciesList.push(spName);
+    roadStandState.gramsList.push(packGrams);
+  }
   roadStandState.npcSpawnCooldown = Math.min(roadStandState.npcSpawnCooldown, 1.2);
   if (ctx && ctx.queueWorldStateChange) {
     ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
@@ -1130,9 +1146,14 @@ export function interactRoadsideStand(ctx) {
   if (held && held.deliveryCrateCtrl && held.deliveryCrateCtrl.packsCount > 0) {
     const count = held.deliveryCrateCtrl.packsCount;
     const crateSpecies = Array.isArray(held.deliveryCrateCtrl.speciesList) ? held.deliveryCrateCtrl.speciesList.slice() : [];
+    const crateGrams = Array.isArray(held.deliveryCrateCtrl.gramsList) ? held.deliveryCrateCtrl.gramsList.slice() : [];
     roadStandState.availablePacks += count;
-    for (let ci = 0; ci < count; ci++) roadStandState.speciesList.push(crateSpecies[ci] || '');
+    for (let ci = 0; ci < count; ci++) {
+      roadStandState.speciesList.push(crateSpecies[ci] || '');
+      roadStandState.gramsList.push(Math.max(10, Math.round(Number(crateGrams[ci]) || 10)));
+    }
     held.deliveryCrateCtrl.speciesList = [];
+    held.deliveryCrateCtrl.gramsList = [];
     roadStandState.npcSpawnCooldown = Math.min(roadStandState.npcSpawnCooldown, 1.2);
     held.deliveryCrateCtrl.packsCount = 0;
     updateDeliveryCrateVisual(held);
@@ -1316,16 +1337,20 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       // Consome 1 pacote do balcão OU da estante da frente e paga 🪙 120 MycoCoins (ou +50% em pedido VIP)!
       let soldOne = false;
       let soldSpecies = '';
+      let soldGrams = 10;
       if (roadStandState.availablePacks > 0) {
         roadStandState.availablePacks--;
         soldSpecies = roadStandState.speciesList.length ? (roadStandState.speciesList.shift() || '') : '';
+        soldGrams = roadStandState.gramsList.length ? (Number(roadStandState.gramsList.shift()) || 10) : 10;
         soldOne = true;
       } else if (shelfItems.length > 0) {
         const entry = shelfItems[0];
         if (entry.kind === 'crate' && entry.item.deliveryCrateCtrl) {
           entry.item.deliveryCrateCtrl.packsCount = Math.max(0, entry.item.deliveryCrateCtrl.packsCount - 1);
           const cs = entry.item.deliveryCrateCtrl.speciesList;
+          const cg = entry.item.deliveryCrateCtrl.gramsList;
           if (Array.isArray(cs) && cs.length) soldSpecies = cs.shift() || '';
+          if (Array.isArray(cg) && cg.length) soldGrams = Number(cg.shift()) || 10;
           updateDeliveryCrateVisual(entry.item);
           if (ctx && ctx.markItemMoved) ctx.markItemMoved(entry.item);
           soldOne = true;
@@ -1333,6 +1358,10 @@ export function stepRoadsideMushroomSales(ctx, dt) {
           const soldIt = entry.item;
           soldSpecies = (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.speciesName) ||
             (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.speciesName) || '';
+          soldGrams = Number(
+            (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.grams) ||
+            (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.grams) || 10
+          ) || 10;
           if (soldIt && soldIt.id) {
             soldIt._removedForSync = true;
             if (ctx && ctx.pendingMovedItems) {
@@ -1358,7 +1387,9 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       if (soldOne) {
         const vipMatch = matchVipOrder(soldSpecies);
         const isVipSale = !!(vipMatch || order.isVip);
-        const earnedCoins = isVipSale ? Math.round(MYCOCOIN_PRICE_PER_PACK * 1.5) : MYCOCOIN_PRICE_PER_PACK;
+        const packGrams = Math.max(10, Math.round(Number(soldGrams) || 10));
+        const basePrice = Math.round(MYCOCOIN_PRICE_PER_PACK * (packGrams / 10));
+        const earnedCoins = isVipSale ? Math.round(basePrice * 1.5) : basePrice;
         roadStandState.totalSoldPacks++;
         roadStandState.totalCoinsEarned += earnedCoins;
         if (vipMatch) rotateVipOrder(vipMatch.index);

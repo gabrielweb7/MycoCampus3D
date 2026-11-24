@@ -118,6 +118,12 @@ export function updatePdaMediumVisual(item) {
     }
   }
 
+  if (item.cultureCtrl && (item.cultureCtrl.inoculated || item.cultureCtrl.colonized || item.cultureCtrl.contaminated) &&
+      typeof item.cultureCtrl.updateVisual === 'function') {
+    item.cultureCtrl.updateVisual();
+    return;
+  }
+
   if (ctrl.kind === 'pp5' && item.spawnCtrl &&
       (item.spawnCtrl.substrateKind === 'pda' || (ctrl.powderGrams <= 0 && liquid.volMl <= 0))) {
     item.spawnCtrl.updateVisual();

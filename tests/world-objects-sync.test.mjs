@@ -52,6 +52,33 @@ test('getReplicatedItemState e applyReplicatedItemState executam hooks meta.seri
   assert.equal(remoteItem.customCtrl.cycles, 3);
 });
 
+test('sincronização preserva a gramatura da colheita e a geração da seringa', () => {
+  const sim = { cookerPots: [] };
+  const harvest = {
+    id: 'harvest_gh_test',
+    mesh: { userData: {} },
+    wildMushroomCtrl: { speciesName: 'Teste', grams: 17 }
+  };
+  assert.equal(getReplicatedItemState(sim, harvest).wildMushroom.grams, 17);
+
+  const makeSyringe = (generation) => ({
+    id: 'syringe_10ml_a',
+    mesh: {
+      userData: {
+        syrCtrl: {
+          volMl: 2.5, mix: { lcMl: 2.5 }, generation,
+          liqMesh: { scale: {}, position: {} }, plunger: { position: {} }
+        }
+      }
+    }
+  });
+  const remote = makeSyringe(null);
+  const state = getReplicatedItemState(sim, makeSyringe(0));
+  applyReplicatedItemState(sim, remote, state);
+  assert.equal(remote.mesh.userData.syrCtrl.generation, 0);
+  assert.equal(remote.mesh.userData.syrCtrl.volMl, 2.5);
+});
+
 test('petri spore_print/generation, panela grainCook e quantização sem retrocesso de progresso funcionam corretamente', () => {
   const mkMesh = (ud = {}) => ({
     userData: ud,

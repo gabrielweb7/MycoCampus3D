@@ -176,6 +176,8 @@ export function restoreLocalWorldObjects(sim) {
         z: saved.z || 0,
         ry: saved.ry || 0
       });
+    } else if (saved.state?.wildMushroom && !saved.state.wildMushroom.removed) {
+      spawnPersistedWildMushroom(sim, itemId, saved.state.wildMushroom);
     } else if (saved.state && saved.state.custom && saved.state.custom.dynamicKind) {
       spawnDynamicItemFromCustom(sim, itemId, saved.state.custom, saved);
     }
@@ -283,6 +285,14 @@ export function getReplicatedItemState(sim, item) {
       waterMl: Math.round(spawn.waterMl || 0),
       sterilizeProgress: quantizeStep(spawn.sterilizeProgress, 25),
       sterilized: !!spawn.sterilized,
+      pasteurized: !!spawn.pasteurized,
+      pasteurizedOnly: !!spawn.pasteurizedOnly,
+      shaken: !!spawn.shaken,
+      hydrated: spawn.hydrated !== false,
+      foilWrapped: !!spawn.foilWrapped,
+      microporeSealed: !!spawn.microporeSealed,
+      lidOpen: !!spawn.lidOpen,
+      g2gUses: Math.max(0, Math.min(3, Math.round(Number(spawn.g2gUses) || 0))),
       sealed: !!spawn.sealed,
       inoculated: !!spawn.inoculated,
       colonized: !!spawn.colonized,
@@ -307,7 +317,9 @@ export function getReplicatedItemState(sim, item) {
       sterilized: !!petri.sterilized,
       inoculated: !!petri.inoculated,
       parafilmSealed: !!petri.parafilmSealed,
-      inoculationMethod: petri.inoculationMethod === 'mycelium' ? 'mycelium' : (petri.inoculationMethod === 'liquid' ? 'liquid' : ''),
+      microporeSealed: !!item.microporeSealed,
+      sporeContaminated: !!petri.sporeContaminated,
+      inoculationMethod: petri.inoculationMethod === 'mycelium' ? 'mycelium' : (petri.inoculationMethod === 'liquid' ? 'liquid' : (petri.inoculationMethod === 'spores' ? 'spores' : '')),
       speciesName: petri.speciesName || '',
       colonization: quantizeStep(petri.colonization, 25),
       ageGameDays: Math.round((petri.ageGameDays || 0) * 10) / 10,
@@ -318,7 +330,7 @@ export function getReplicatedItemState(sim, item) {
       tempC: typeof petri.tempC === 'number' ? Math.round(petri.tempC * 10) / 10 : 24.5,
       refrigerated: !!petri.refrigerated,
       hybridMutant: petri.hybridMutant === 'gold' || petri.hybridMutant === 'albino' ? petri.hybridMutant : '',
-      generation: Math.max(1, Math.min(20, Math.round(Number(petri.generation) || 1))),
+      generation: typeof petri.generation === 'number' ? Math.max(0, Math.min(5, Math.round(petri.generation))) : 1,
       contamKind: petri.contamKind || ''
     };
   }
@@ -326,6 +338,8 @@ export function getReplicatedItemState(sim, item) {
   const liquid = meshData.liquidCtrl;
   if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0), sterilized: !!liquid.sterilized };
   if (item.sterilized) state.sterilized = true;
+  if (item.foilWrapped) state.foilWrapped = true;
+  if (item.microporeSealed) state.microporeSealed = true;
   const culture = item.cultureCtrl || meshData.cultureCtrl;
   if (culture) {
     state.culture = {
@@ -333,6 +347,9 @@ export function getReplicatedItemState(sim, item) {
       colonized: !!culture.colonized,
       colonization: quantizeStep(culture.colonization, 25),
       contaminated: !!culture.contaminated,
+      hasNutrient: culture.hasNutrient !== false,
+      sterilized: !!culture.sterilized,
+      foilWrapped: !!culture.foilWrapped,
       ageGameDays: Math.round((culture.ageGameDays || 0) * 10) / 10,
       shelfLifeAgeDays: Math.round((culture.shelfLifeAgeDays || 0) * 10) / 10,
       expired: !!culture.expired,
@@ -365,6 +382,7 @@ export function getReplicatedItemState(sim, item) {
       tempC: typeof syringe.tempC === 'number' ? Math.round(syringe.tempC * 10) / 10 : 24.5,
       refrigerated: !!syringe.refrigerated,
       speciesName: syringe.speciesName || '',
+      generation: Number.isFinite(syringe.generation) ? Math.max(0, Math.min(5, Math.round(syringe.generation))) : null,
       mix: syringe.mix ? {
         waterMl: Math.round((syringe.mix.waterMl || 0) * 10) / 10,
         distilledMl: Math.round((syringe.mix.distilledMl || 0) * 10) / 10,
@@ -421,6 +439,9 @@ export function getReplicatedItemState(sim, item) {
       isMagic: !!item.wildMushroomCtrl.isMagic,
       removed: !!item.wildMushroomCtrl.removed
     };
+    if (Number.isFinite(item.wildMushroomCtrl.grams)) {
+      state.wildMushroom.grams = Math.max(1, Math.min(200, Math.round(item.wildMushroomCtrl.grams)));
+    }
   }
   if (typeof item.customTag === 'string' && item.customTag.trim()) {
     state.customTag = item.customTag.trim().slice(0, 32);
@@ -474,9 +495,14 @@ export function applyReplicatedItemState(sim, item, state) {
   const spawn = item.spawnCtrl || (item.mesh.userData && item.mesh.userData.spawnCtrl);
   if (spawn && state.spawn && typeof state.spawn === 'object') {
     const incoming = state.spawn;
-    ['filled', 'sterilized', 'sealed', 'inoculated', 'colonized', 'expired', 'contaminated', 'burned', 'refrigerated'].forEach(function (key) {
+    ['filled', 'sterilized', 'pasteurized', 'pasteurizedOnly', 'shaken', 'hydrated', 'foilWrapped', 'microporeSealed', 'lidOpen', 'sealed', 'inoculated', 'colonized', 'expired', 'contaminated', 'burned', 'refrigerated'].forEach(function (key) {
       if (typeof incoming[key] === 'boolean') spawn[key] = incoming[key];
     });
+    if (incoming.foilWrapped) item.foilWrapped = true;
+    if (incoming.microporeSealed) item.microporeSealed = true;
+    if (typeof incoming.g2gUses === 'number' && Number.isFinite(incoming.g2gUses)) {
+      spawn.g2gUses = Math.max(0, Math.min(3, Math.round(incoming.g2gUses)));
+    }
     if (typeof incoming.tempC === 'number' && Number.isFinite(incoming.tempC)) {
       spawn.tempC = Math.max(-20, Math.min(140, incoming.tempC));
       spawn.lastRenderedTempInt = Math.round(spawn.tempC);
@@ -531,9 +557,10 @@ export function applyReplicatedItemState(sim, item, state) {
     const incomingPetri = state.petri;
     const wasColonizing = petri.mode === 'colonizing';
     petri.mode = incomingPetri.mode;
-    ['sterilized', 'inoculated', 'expired', 'parafilmSealed', 'refrigerated'].forEach(function (key) {
+    ['sterilized', 'inoculated', 'expired', 'parafilmSealed', 'microporeSealed', 'sporeContaminated', 'refrigerated'].forEach(function (key) {
       if (typeof incomingPetri[key] === 'boolean') petri[key] = incomingPetri[key];
     });
+    if (typeof incomingPetri.microporeSealed === 'boolean') item.microporeSealed = incomingPetri.microporeSealed;
     if (typeof incomingPetri.cutWedges === 'number' && Number.isFinite(incomingPetri.cutWedges)) {
       petri.cutWedges = Math.max(0, Math.min(4, incomingPetri.cutWedges));
     }
@@ -547,7 +574,7 @@ export function applyReplicatedItemState(sim, item, state) {
     if (typeof incomingPetri.speciesName === 'string') petri.speciesName = incomingPetri.speciesName.slice(0, 80);
     if (typeof incomingPetri.contamKind === 'string') petri.contamKind = incomingPetri.contamKind.slice(0, 32) || null;
     if (typeof incomingPetri.generation === 'number' && Number.isFinite(incomingPetri.generation)) {
-      petri.generation = Math.max(1, Math.min(20, Math.round(incomingPetri.generation)));
+      petri.generation = Math.max(0, Math.min(5, Math.round(incomingPetri.generation)));
     }
     if (incomingPetri.hybridMutant === 'gold' || incomingPetri.hybridMutant === 'albino') {
       petri.hybridMutant = incomingPetri.hybridMutant;
@@ -569,7 +596,7 @@ export function applyReplicatedItemState(sim, item, state) {
     }
     petri.colonized = petri.mode === 'clean' || petri.colonization >= 100;
     petri.contaminated = petri.mode === 'contam' && !petri.expired;
-    if (incomingPetri.inoculationMethod === 'liquid' || incomingPetri.inoculationMethod === 'mycelium') {
+    if (incomingPetri.inoculationMethod === 'liquid' || incomingPetri.inoculationMethod === 'mycelium' || incomingPetri.inoculationMethod === 'spores') {
       petri.inoculationMethod = incomingPetri.inoculationMethod;
     } else {
       petri.inoculationMethod = '';
@@ -583,10 +610,12 @@ export function applyReplicatedItemState(sim, item, state) {
   if (item.fridgeCtrl && state.fridge && typeof state.fridge.doorOpen === 'boolean') {
     setCultureFridgeDoorOpen(item, state.fridge.doorOpen, false);
   }
+  if (typeof state.foilWrapped === 'boolean') item.foilWrapped = state.foilWrapped;
+  if (typeof state.microporeSealed === 'boolean') item.microporeSealed = state.microporeSealed;
   const culture = item.cultureCtrl || (meshData && meshData.cultureCtrl);
   if (culture && state.culture && typeof state.culture === 'object') {
     const wasInoc = !!culture.inoculated && !culture.colonized;
-    ['inoculated', 'colonized', 'contaminated', 'expired', 'refrigerated'].forEach(function (key) {
+    ['inoculated', 'colonized', 'contaminated', 'expired', 'refrigerated', 'hasNutrient', 'sterilized', 'foilWrapped'].forEach(function (key) {
       if (typeof state.culture[key] === 'boolean') culture[key] = state.culture[key];
     });
     if (typeof state.culture.colonization === 'number' && Number.isFinite(state.culture.colonization)) {
@@ -655,6 +684,9 @@ export function applyReplicatedItemState(sim, item, state) {
     }
     if (typeof state.syringe.refrigerated === 'boolean') meshData.syrCtrl.refrigerated = state.syringe.refrigerated;
     if (typeof state.syringe.speciesName === 'string') meshData.syrCtrl.speciesName = state.syringe.speciesName.slice(0, 80);
+    if (state.syringe.generation === null || Number.isFinite(state.syringe.generation)) {
+      meshData.syrCtrl.generation = state.syringe.generation === null ? null : Math.max(0, Math.min(5, Math.round(state.syringe.generation)));
+    }
     updateSyringeVolume(item, state.syringe.volMl);
   }
   if (state.liquidMix && typeof state.liquidMix === 'object') {
@@ -801,7 +833,17 @@ export function advanceOfflineItemState(item, ageSec, sim) {
         if (!cIt) return;
         if (cIt.spawnCtrl) {
           cIt.spawnCtrl.sterilizeProgress = Math.min(100, Math.max(Number(cIt.spawnCtrl.sterilizeProgress) || 0, cp.progress));
-          if (cp.progress >= 100 && cp.mode !== 'pasteurize') cIt.spawnCtrl.sterilized = true;
+          if (cp.progress >= 100) {
+            const scK = cIt.spawnCtrl.substrateKind || 'grain';
+            const isBulkS = scK === 'coco_verm' || scK === 'sawdust' || scK === 'coco' || scK === 'vermiculite';
+            if (cp.mode === 'pasteurize') {
+              if (isBulkS) { cIt.spawnCtrl.pasteurized = true; cIt.spawnCtrl.sterilized = true; }
+              else { cIt.spawnCtrl.pasteurizedOnly = true; cIt.spawnCtrl.sterilized = false; }
+            } else {
+              cIt.spawnCtrl.sterilized = true;
+              if (isBulkS) cIt.spawnCtrl.pasteurized = true;
+            }
+          }
           if (cIt.spawnCtrl.updateVisual) cIt.spawnCtrl.updateVisual();
         }
         if (cIt.pdaMediumCtrl && cp.progress >= 100 && cp.mode === 'sterilize' && !cIt.pdaMediumCtrl.burned) {
@@ -916,9 +958,20 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
       }
       return;
     }
-    if (!item && itemId.indexOf('wild_picked_') === 0 && st && st.wildMushroom && !st.wildMushroom.removed) {
+    if (!item && (itemId.indexOf('wild_picked_') === 0 || itemId.indexOf('harvest_tub_') === 0 || itemId.indexOf('harvest_gh_') === 0) &&
+        st && st.wildMushroom && !st.wildMushroom.removed) {
       item = spawnPersistedWildMushroom(sim, itemId, st.wildMushroom);
-      if (item) itemsById.set(itemId, item);
+      if (item) {
+        itemsById.set(itemId, item);
+        const savedPose = sim._lastWorldObjectsMap?.[itemId];
+        if (savedPose) {
+          item.mesh.position.set(savedPose.x || 0, savedPose.y || 0, savedPose.z || 0);
+          item.mesh.rotation.y = savedPose.ry || 0;
+          item.isMoved = true;
+          item.mesh.userData.updateBounds?.(item);
+          spawnedPlaced = true;
+        }
+      }
     }
     if (!item && st && st.custom && st.custom.dynamicKind && !st.custom.removed) {
       const savedPose = (sim._lastWorldObjectsMap && sim._lastWorldObjectsMap[itemId]) || null;

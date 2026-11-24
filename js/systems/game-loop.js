@@ -38,6 +38,7 @@ import { stepLabSinks } from '../items/lab-sink.js';
 import { stepCultureFridges } from '../items/culture-fridge.js';
 import { stepLabCabinets } from '../items/lab-cabinets.js';
 import { stepPetriCultures } from '../items/petri-dish.js';
+import { stepFalconCultures } from '../items/falcon-tubes.js';
 import { stepGreenhouse } from '../world/greenhouse.js';
 import { stepForestDistanceCulling } from '../world/mushroom-species.js';
 import { stepPastureCows } from '../entities/pasture-cows.js';
@@ -457,6 +458,7 @@ export function startAnimationLoop(ctx) {
         simSlowAccumDt = 0;
         lastSlowStepAt = now;
         stepPetriCultures(ctx, slowDt);
+        stepFalconCultures(ctx, slowDt);
         stepPrecisionScales(ctx, now);
         stepSpawnColonization(ctx, slowDt);
         stepLabSinks(ctx);

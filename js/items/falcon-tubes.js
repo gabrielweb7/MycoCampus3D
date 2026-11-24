@@ -5,6 +5,14 @@
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, makeScaleTex, mergeStaticGeos, updateItemBounds } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
+import { updatePdaMediumVisual } from './pda-mix.js';
+import {
+  createCultureLifecycleState,
+  getCultureRemainingDays,
+  isCultureIncubationTemperatureSuitable,
+  stepCultureShelfLife
+} from './culture-lifecycle.js';
+import { pickContamKind, getContamInfo } from './contaminations.js';
 
 const THREE = window.THREE;
 
@@ -64,10 +72,86 @@ export function getFalconMeta(maxMl) {
       fillsFromSink: true,
       poursWater: true,
       receivesWater: true,
-      acceptsPdaMedium: !is50
+      acceptsPdaMedium: !is50,
+      receivesMyceliumCut: !is50,
+      providesLiquidCulture: is50
     },
-    connections: ['syringe', 'liquid_culture', 'lab_sink', 'pressure_cooker', 'laminar_hood']
+    connections: ['syringe', 'liquid_culture', 'lab_sink', 'pressure_cooker', 'laminar_hood', 'scalpel']
   };
+}
+
+export function updateFalconCultureVisual(item) {
+  if (!item || !item.cultureCtrl || !item.mesh || !item.mesh.userData.liquidCtrl) return;
+  const cc = item.cultureCtrl;
+  const lc = item.mesh.userData.liquidCtrl;
+  const isSlant = !!(item.pdaMediumCtrl && item.pdaMediumCtrl.isSlant);
+  if (!cc.inoculated && !cc.colonized && !cc.contaminated) {
+    if (lc.mycCloud) lc.mycCloud.visible = false;
+    if (item.pdaMediumCtrl) {
+      updatePdaMediumVisual(item);
+    } else {
+      const sterTag = (lc.sterilized || item.sterilized || cc.sterilized) ? ' • ✅ Estéril' : '';
+      item.label = lc.baseLabel + ' (' + lc.volMl + 'ml/' + lc.maxMl + 'ml' + sterTag + ')';
+    }
+    if (item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
+    return;
+  }
+  if (lc.mycCloud) {
+    lc.mycCloud.visible = true;
+    const gFrac = cc.colonized ? 1 : Math.max(0.25, (cc.colonization || 0) / 100);
+    lc.mycCloud.scale.setScalar(0.55 + gFrac * 0.65);
+    if (cc.contaminated) {
+      if (!cc.contamKind) cc.contamKind = pickContamKind('liquid');
+      const ci = getContamInfo(cc.contamKind);
+      lc.mycCloud.material.color.setHex(ci.hex || 0x16a34a);
+    } else {
+      lc.mycCloud.material.color.setHex(0xffffff);
+    }
+  }
+  const spTag = cc.speciesName ? (' • ' + cc.speciesName.split('(')[0].trim()) : '';
+  const genTag = typeof cc.generation === 'number' ? (' • T' + cc.generation) : '';
+  const kindPrefix = isSlant ? (lc.baseLabel + ' [Slant PDA]') : lc.baseLabel;
+  if (cc.contaminated) {
+    const ci = getContamInfo(cc.contamKind || 'trichoderma');
+    item.label = kindPrefix + spTag + ' • 🦠 ' + ci.shortLabel;
+  } else if (cc.expired) {
+    item.label = kindPrefix + spTag + ' • cultura vencida ⚠️';
+  } else if (cc.colonized) {
+    const remDays = getCultureRemainingDays(cc);
+    item.label = kindPrefix + spTag + genTag + ' • 100% Colonizada ✅ • validade ' + remDays + ' dias';
+  } else {
+    item.label = kindPrefix + spTag + genTag + ' • Colonizando ' + Math.floor(cc.colonization || 0) + '%';
+  }
+  if (item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
+}
+
+export function stepFalconCultures(ctx, dt) {
+  const list = ctx && ctx.falconItems;
+  if (!list || !list.length) return;
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    const cc = item && item.cultureCtrl;
+    const lc = item && item.mesh && item.mesh.userData && item.mesh.userData.liquidCtrl;
+    if (!cc || !lc || !cc.inoculated || cc.contaminated) continue;
+    let changed = false;
+    const rate = cc.refrigerated ? 0.65 : (isCultureIncubationTemperatureSuitable(item, ctx) ? 4.8 : 0);
+    const prevPct = Math.floor(cc.colonization || 0);
+    if (cc.colonization < 100 && rate > 0) {
+      cc.colonization = Math.min(100, (cc.colonization || 0) + dt * rate);
+      if (Math.floor(cc.colonization) !== prevPct) changed = true;
+    }
+    if (cc.colonization >= 100 && !cc.colonized) {
+      cc.colonized = true;
+      cc.ageGameDays = 0;
+      cc.shelfLifeAgeDays = 0;
+      changed = true;
+    }
+    if (cc.colonized) {
+      const lifeStep = stepCultureShelfLife(cc, dt);
+      if (lifeStep > 0) changed = true;
+    }
+    if (changed) updateFalconCultureVisual(item);
+  }
 }
 
 export function makeFalconTube(ctx, id, maxMl, px, py, pz, initMl) {
@@ -89,15 +173,22 @@ export function makeFalconTube(ctx, id, maxMl, px, py, pz, initMl) {
   const cap = new THREE.Mesh(A.capGeo, A.capMat);
   cap.position.y = coneH + bodyH + 0.012;
 
+  const mycCloud = new THREE.Mesh(
+    new THREE.SphereGeometry(r * 0.72, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf8fafc, emissiveIntensity: 0.25, transparent: true, opacity: 0.78, roughness: 0.85 })
+  );
+  mycCloud.position.y = coneH + bodyH * 0.25;
+  mycCloud.visible = false;
+
   if (A.shellGeo) {
-    fg.add(liqMesh, new THREE.Mesh(A.shellGeo, A.ppMat), gradCyl, cap);
+    fg.add(liqMesh, mycCloud, new THREE.Mesh(A.shellGeo, A.ppMat), gradCyl, cap);
   } else {
     const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, bodyH, 16, 1, true), A.ppMat);
     body.position.y = coneH + bodyH / 2;
     const cone = new THREE.Mesh(new THREE.ConeGeometry(r, coneH, 16, 1, true), A.ppMat);
     cone.rotation.x = Math.PI;
     cone.position.y = coneH / 2;
-    fg.add(liqMesh, body, cone, gradCyl, cap);
+    fg.add(liqMesh, mycCloud, body, cone, gradCyl, cap);
   }
   fg.userData.liquidCtrl = {
     volMl: initMl || 0,
@@ -105,14 +196,30 @@ export function makeFalconTube(ctx, id, maxMl, px, py, pz, initMl) {
     baseY: coneH,
     maxH: bodyH * 0.9,
     liqMesh,
-    mycCloud: null,
+    mycCloud,
     stirBar: null,
     baseLabel: 'Tubo Falcon ' + maxMl + 'ml'
   };
 
   const item = registerPickable(ctx, id, 'Tubo Falcon ' + maxMl + 'ml', fg, px, py, pz, 0, 0.06, coneH + bodyH + 0.03, getFalconMeta(maxMl));
+  item.cultureCtrl = Object.assign(createCultureLifecycleState(false), {
+    inoculated: false,
+    colonized: false,
+    colonization: 0,
+    contaminated: false,
+    sterilized: false,
+    hasNutrient: false,
+    generation: 1,
+    speciesName: '',
+    updateVisual: function () { updateFalconCultureVisual(item); }
+  });
+  fg.userData.cultureCtrl = item.cultureCtrl;
   item.setVolume = function (v) { updateContainerVolume(item, v); };
   updateContainerVolume(item, initMl || 0);
+  if (ctx) {
+    ctx.falconItems = ctx.falconItems || [];
+    ctx.falconItems.push(item);
+  }
   return item;
 }
 

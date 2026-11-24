@@ -256,7 +256,7 @@ export function canItemEnterCooker(item) {
   if (meta && meta.compatibilities && meta.compatibilities.canEnterCooker !== undefined) {
     return !!meta.compatibilities.canEnterCooker;
   }
-  return !item.mesh.userData.twoHanded && !item.mesh.userData.isSyringe && !item.mesh.userData.isAlcoholSpray && !item.mesh.userData.isH2O2Spray;
+  return !item.mesh.userData.twoHanded && !item.mesh.userData.isSyringe && !item.mesh.userData.isAlcoholSpray && !item.mesh.userData.isH2O2Spray && !item.mesh.userData.isWaterSpray;
 }
 
 export function canSyringeTarget(item) {
@@ -270,6 +270,9 @@ export function canSyringeTarget(item) {
       (!spawnCtrl || spawnCtrl.substrateKind !== 'pda')) return false;
   const liquid = item.mesh.userData.liquidCtrl;
   if (liquid && !(spawnCtrl && spawnCtrl.isPP5)) {
+    if (item.cultureCtrl && !item.cultureCtrl.inoculated && !item.cultureCtrl.contaminated && !item.cultureCtrl.colonized && liquid.volMl >= 50) {
+      return true;
+    }
     return liquid.volMl < liquid.maxMl;
   }
   const pdaAgarReady = item.pdaMediumCtrl && item.pdaMediumCtrl.powderGrams > 0 &&
@@ -280,6 +283,8 @@ export function canSyringeTarget(item) {
     !spawnCtrl.sterilized ||
     spawnCtrl.burned ||
     spawnCtrl.contaminated ||
+    spawnCtrl.substrateKind === 'coco_verm' ||
+    spawnCtrl.substrateKind === 'sawdust' ||
     (spawnCtrl.isBag && !spawnCtrl.sealed) ||
     (spawnCtrl.isPP5 && (spawnCtrl.waterMl || 0) < 35 && !pdaAgarReady)
   )) {
@@ -431,7 +436,7 @@ export function getItemSupportTopOffset(item) {
     return 0;
   }
   if (ud.isPetri || (item.spawnCtrl && item.spawnCtrl.isPP5)) return 0;
-  if (ud.isSyringe || ud.isLabSpoon || ud.isThermometer || ud.isAlcoholSpray || ud.isH2O2Spray || ud.isPaperTowel ||
+  if (ud.isSyringe || ud.isLabSpoon || ud.isThermometer || ud.isAlcoholSpray || ud.isH2O2Spray || ud.isWaterSpray || ud.isPaperTowel ||
       item.scalpelCtrl || item.bladePackCtrl || item.wildMushroomCtrl || item.driedMushroomCtrl ||
       item.potItem || item.bowlCtrl) {
     return 0;

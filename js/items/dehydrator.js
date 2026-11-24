@@ -4,7 +4,7 @@
  * sincronizando estado no MySQL/multiplayer via meta.serializeState / applyState.
  */
 
-import { registerPickable } from './item-registry.js';
+import { disposeObjectResources, registerPickable } from './item-registry.js';
 import { makeDriedMushroomBatch } from './lab-advanced-tools.js';
 
 const THREE = window.THREE;
@@ -21,13 +21,17 @@ export const DEHYDRATOR_META = {
     const dc = item && item.dehydratorCtrl;
     if (!dc) return null;
     const rawProg = Math.max(0, Math.min(100, Number(dc.progress) || 0));
-    return {
+    const payload = {
       on: !!dc.on,
       hasMushroom: !!dc.hasMushroom,
       progress: dc.crisp ? 100 : (Math.floor(rawProg / 25) * 25),
       crisp: !!dc.crisp,
       speciesName: dc.speciesName ? String(dc.speciesName).slice(0, 60) : ''
     };
+    if (dc.grams && dc.grams !== 10) {
+      payload.grams = Math.max(1, Math.min(200, Math.round(Number(dc.grams) || 10)));
+    }
+    return payload;
   },
   applyState: (item, custom) => {
     const dc = item && item.dehydratorCtrl;
@@ -45,6 +49,7 @@ export const DEHYDRATOR_META = {
     dc.hasMushroom = nextHas;
     dc.crisp = nextCrisp;
     if (typeof custom.speciesName === 'string') dc.speciesName = custom.speciesName;
+    if (custom.grams !== undefined) dc.grams = Math.max(1, Math.min(200, Math.round(Number(custom.grams) || 10)));
     dc._lastVisStep = Math.floor((Number(dc.progress) || 0) / 10);
     updateDehydratorVisual(item);
   }
@@ -81,47 +86,92 @@ export function updateDehydratorVisual(item) {
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
 }
 
-export function interactDehydrator(ctx, item) {
+export function interactDehydrator(ctx, item, explicitMushroomItem = null) {
   if (!item || !item.dehydratorCtrl) return false;
   const dc = item.dehydratorCtrl;
   if (!dc.hasMushroom) {
+    const heldMush = explicitMushroomItem || (ctx && ctx.heldItem && ctx.heldItem.wildMushroomCtrl ? ctx.heldItem : null);
+    if (!heldMush || !heldMush.wildMushroomCtrl) {
+      dc.on = !dc.on;
+      updateDehydratorVisual(item);
+      if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
+      if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+        ctx.callbacks.onToast(dc.on
+          ? '🌡️ Desidratadora pré-aquecida (55°C)! Segure um cogumelo fresco colhido e clique nela para desidratar.'
+          : '⚠️ Desidratadora vazia desligada! Colha um cogumelo fresco na Estufa, Monotub ou Bosque antes de secar.');
+      }
+      return true;
+    }
+    const wm = heldMush.wildMushroomCtrl;
+    dc.speciesName = wm.speciesName || 'Golden Teacher (Psilocybe cubensis)';
+    dc.grams = Math.max(1, Math.min(200, Math.round(Number(wm.grams) || 10)));
+    wm.removed = true;
+    heldMush._removedForSync = true;
+    if (ctx && ctx.pendingMovedItems && heldMush.id) {
+      ctx.pendingMovedItems[heldMush.id] = {
+        id: heldMush.id,
+        state: {
+          custom: {
+            dynamicKind: 'wild_mushroom',
+            removed: true
+          }
+        }
+      };
+    }
+    if (heldMush.mesh && heldMush.mesh.parent) heldMush.mesh.parent.remove(heldMush.mesh);
+    if (heldMush.mesh) disposeObjectResources(heldMush.mesh);
+    if (ctx && Array.isArray(ctx.pickableItems)) {
+      const idx = ctx.pickableItems.indexOf(heldMush);
+      if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+    }
+    if (ctx && ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
+      ctx.pickableMap.delete(heldMush.id);
+    }
+    if (ctx && ctx.heldItem === heldMush) {
+      ctx.heldItem = null;
+      if (ctx.placementGhost) ctx.placementGhost.visible = false;
+      if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
+    }
     dc.hasMushroom = true;
     dc.on = true;
     dc.progress = 0;
     dc.crisp = false;
     updateDehydratorVisual(item);
-    if (ctx.markItemMoved) ctx.markItemMoved(item);
-    if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🍄 Desidratadora ligada (55°C)! Secando cogumelo...');
+    if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
+    if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(`🍄 ${dc.speciesName} (${dc.grams}g) colocado na Desidratadora (55°C)! Secando...`);
     }
     return true;
   }
   if (dc.crisp) {
     const spName = dc.speciesName || 'Golden Teacher (Psilocybe cubensis)';
+    const batchGrams = Math.max(1, Math.min(200, Math.round(Number(dc.grams) || 10)));
     dc.hasMushroom = false;
     dc.progress = 0;
     dc.crisp = false;
     dc.on = false;
+    dc.speciesName = '';
+    dc.grams = 10;
     updateDehydratorVisual(item);
-    if (ctx.markItemMoved) ctx.markItemMoved(item);
-    if (ctx.callbacks && ctx.callbacks.onDehydrateReward) ctx.callbacks.onDehydrateReward();
+    if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
+    if (ctx && ctx.callbacks && ctx.callbacks.onDehydrateReward) ctx.callbacks.onDehydrateReward();
     if (ctx && ctx.scene && !ctx.heldItem) {
       const px = item.mesh ? item.mesh.position.x : -18.5;
       const py = item.mesh ? (item.mesh.position.y + 0.30) : 1.1;
       const pz = item.mesh ? item.mesh.position.z : -10.5;
-      const driedBatch = makeDriedMushroomBatch(ctx, 'dried_batch_' + Date.now().toString(36), spName, px, py, pz);
+      const driedBatch = makeDriedMushroomBatch(ctx, 'dried_batch_' + Date.now().toString(36), spName, px, py, pz, batchGrams);
       ctx.heldItem = driedBatch;
       ctx.lastPickupAt = performance.now();
       if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(driedBatch.label);
     }
-    if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('✨ Lote de 10g (3 cogumelos crocantes • 0% umidade) na mão! Pese na Balança, guarde no Pote c/ Sílica Gel ou embale no Saco! (+15 XP)');
+    if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+      ctx.callbacks.onToast(`✨ Lote de ${batchGrams}g (${spName} crocantes • 0% umidade) na mão! Pese na Balança, guarde no Pote c/ Sílica Gel ou embale no Saco! (+15 XP)`);
     }
     return true;
   }
   dc.on = !dc.on;
   updateDehydratorVisual(item);
-  if (ctx.markItemMoved) ctx.markItemMoved(item);
+  if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
   return true;
 }
 
@@ -201,6 +251,8 @@ export function makeDehydrator(ctx, id, px, py, pz) {
     hasMushroom: false,
     progress: 0,
     crisp: false,
+    speciesName: '',
+    grams: 10,
     mushGroup,
     mushMat,
     ledMat,

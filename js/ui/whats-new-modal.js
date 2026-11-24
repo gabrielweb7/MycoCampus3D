@@ -9,6 +9,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.3.0': {
+    title: '✨ Novidades da Atualização v2.3.0',
+    subtitle: 'Todas as Etapas 100% Funcionais, Trilhas de Autonomia, Borrifador de Água, Slants & Reflexos PBR:',
+    items: [
+      { icon: '💉', text: 'Seringa 10ml, Pour Tek PDA & Desidratadora Corrigidos: injeção de Cultura Líquida agora preserva espécie/geração e dosa por recipiente (1ml Petri/PP5, 2.5ml Vidro, 4ml Bag); Desidratadora exige cogumelo real e mantém gramas extras T3/Casing até a venda VIP; Pour Tek estéril liberado no Fluxo Laminar!' },
+      { icon: '💧', text: 'Borrifador de Água Destilada, Nutriente 4% CL & Combinações Completas: água pura separada do Álcool 70%, Garrafão 5L funcionando no Dunk, Caldo Nutritivo 4% (Malte/Mel) para CL, Serragem de Eucalipto separada, hidratação de grãos secos, Papel Alumínio, Fita Micropore, G2G e Tubos Falcon Slant vivos!' },
+      { icon: '📘', text: 'Aprenda a Cultivar Sozinho + Calculadora Real: 4 Trilhas guiadas (PF-Tek Caseiro, Grãos + Monotub, Ágar T3 & Gourmet) no botão Missão, Calculadora PDA/CL 4%/CVG/1:2 e Diagnóstico Pedagógico ao inspecionar qualquer item!' },
+      { icon: '✨', text: 'Visual & FPS Otimizados: EnvMap procedural em cache para reflexos reais em vidros e aço inox nas autoclaves (zero custo por frame) + animação de inclinação ao despejar líquidos e sincronização completa em multiplayer/MySQL!' }
+    ]
+  },
   '2.2.0': {
     title: '✨ Novidades da Atualização v2.2.0',
     subtitle: '6 Patógenos Reais + H₂O₂ 3%, Microscópio 2.0, Pedidos VIP, Etiquetas, Clones T3 & Otimização:',

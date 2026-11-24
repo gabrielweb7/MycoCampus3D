@@ -5,6 +5,7 @@
  */
 
 import { getHeldBoardToolColor } from './chalkboard.js';
+import { getSyringeInjectionDoseMl } from '../items/syringe.js';
 import { updatePlacementGhostVisual } from '../entities/placement-ghost.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
 import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
@@ -177,6 +178,9 @@ function findPickableHit(ctx, maxDist, filterFn, intersectPickableItem, opts) {
 function getSyringeTargetHint(spawn, syringeVolume, pdaAgarReady, pdaMedium) {
   if (syringeVolume <= 0) return '💉 Seringa vazia • Aspire cultura líquida antes de inocular';
   if (!spawn.filled) return '🌽 Adicione substrato antes de inocular';
+  if (spawn.substrateKind === 'coco_verm' || spawn.substrateKind === 'sawdust') {
+    return '⚠️ Substrato bulk não vai na seringa — use spawn colonizado no Monotub/Estufa';
+  }
   if (spawn.burned) return '🔥 Este recipiente foi queimado e não pode ser inoculado';
   if (spawn.contaminated) return '🦠 Este recipiente está contaminado';
   if (spawn.inoculated) return '✅ Este recipiente já foi inoculado';
@@ -257,6 +261,52 @@ function handleH2O2SprayHover(ctx, intersectPickableItem, setHoverPrompt) {
   return true;
 }
 
+function handleWaterSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (!ctx.heldItem.mesh.userData.isWaterSpray || ctx.placementMode) return false;
+  let bestTarget = null;
+  let bestLabel = '';
+  let bestDist = 4.2;
+  let bestPoint = null;
+  let bestHitObj = null;
+
+  const pickHit = findPickableHit(ctx, bestDist, (c) => !!c.monotubCtrl, intersectPickableItem, { nearest: true });
+  if (pickHit) {
+    bestDist = pickHit.hit.distance;
+    bestTarget = pickHit.item;
+    bestLabel = pickHit.item.label;
+    bestPoint = pickHit.hit.point;
+    bestHitObj = pickHit.hit;
+  }
+  if (greenhouseHitMeshes.length > 0) {
+    const ghHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(greenhouseHitMeshes, true), bestDist, { checkWalls: true });
+    if (ghHit && ghHit.object.userData.greenhouseSlot) {
+      const hSlot = ghHit.object.userData.greenhouseSlot;
+      bestDist = ghHit.distance;
+      bestTarget = hSlot;
+      bestLabel = hSlot.name;
+      bestPoint = ghHit.point;
+      bestHitObj = ghHit;
+      ctx.hoveredGreenhouseSlot = hSlot;
+    }
+  }
+  hidePlacementGhost(ctx);
+  ctx.hoverHit = bestHitObj;
+  ctx.hoveredSprayTarget = { target: bestTarget, label: bestLabel, hitPoint: bestPoint };
+  if (bestTarget && bestTarget.monotubCtrl) {
+    const mc = bestTarget.monotubCtrl;
+    setHoverPrompt(ctx, mc.colonization >= 100 && !mc.spent && !mc.contaminated
+      ? `💧 Borrifar névoa de Água Destilada no Monotub (${Math.round(mc.humidity || 70)}% UR)`
+      : '💧 Aguarde o Monotub colonizar 100% para borrifar névoa de frutificação');
+  } else if (bestTarget && bestTarget.id !== undefined) {
+    setHoverPrompt(ctx, bestTarget.empty
+      ? '💧 Espaço vazio na Estufa — coloque spawn antes de borrifar névoa'
+      : `💧 Hidratar ${bestLabel} (${Math.round(bestTarget.humidity)}% UR) com Água Destilada`);
+  } else {
+    setHoverPrompt(ctx, '💧 Borrifador Água Destilada • Aponte para Monotub ou Estufa p/ hidratar');
+  }
+  return true;
+}
+
 function handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
   if (!ctx.heldItem.mesh.userData.isAlcoholSpray || ctx.placementMode) return false;
   let bestTarget = null;
@@ -308,9 +358,15 @@ function handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
   hidePlacementGhost(ctx);
   ctx.hoverHit = bestHitObj;
   ctx.hoveredSprayTarget = { target: bestTarget, label: bestLabel, hitPoint: bestPoint };
-  setHoverPrompt(ctx, bestTarget
-    ? formatSprayHoverPrompt(bestTarget, bestLabel, ctx)
-    : '🧴 Borrifador Álcool 70% • Clique para borrifar ou aponte em algo (3x higieniza)');
+  if (bestTarget && bestTarget.monotubCtrl && bestTarget.monotubCtrl.colonization >= 100 && !bestTarget.monotubCtrl.spent && !bestTarget.monotubCtrl.contaminated) {
+    setHoverPrompt(ctx, '⚠️ Não borrife Álcool 70% sobre micélio colonizado! Use o 💧 Borrifador Água Destilada');
+  } else if (ctx.hoveredGreenhouseSlot && !ctx.hoveredGreenhouseSlot.empty) {
+    setHoverPrompt(ctx, '⚠️ Álcool 70% agride bolos vivos! Use o 💧 Borrifador Água Destilada para hidratar');
+  } else {
+    setHoverPrompt(ctx, bestTarget
+      ? formatSprayHoverPrompt(bestTarget, bestLabel, ctx)
+      : '🧴 Borrifador Álcool 70% • Clique para borrifar ou aponte em algo (3x higieniza)');
+  }
   return true;
 }
 
@@ -375,22 +431,75 @@ function handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt) {
 }
 
 function handleParafilmHover(ctx, intersectPickableItem, setHoverPrompt) {
-  if (ctx.placementMode || !ctx.heldItem.id || ctx.heldItem.id.indexOf('parafilm_') !== 0) return false;
-  const res = findPickableHit(ctx, 3.5, (c) => !!(c.mesh && c.mesh.userData.isPetri), intersectPickableItem, { requireFridgeAccess: true });
-  if (!res) return false;
-  ctx.hoverHit = res.hit;
-  ctx.hoveredParafilmTarget = res.item;
-  hidePlacementGhost(ctx);
-  const pc = res.item.mesh.userData.petriCtrl;
-  const pfPrompt = pc.lidOpen
-    ? '⚠️ Feche a tampa da Placa de Petri antes de vedar com Parafilm M'
-    : (pc.parafilmSealed
-      ? '✅ Placa de Petri já vedada com Parafilm M'
-      : (pc.mode === 'bare'
-        ? '🧫 Adicione PDA/BDA e esterilize a placa antes de vedar'
-        : '🎞️ Vedar ' + res.item.label + ' com Parafilm M (Protege contra contaminação)'));
-  setHoverPrompt(ctx, pfPrompt);
-  return true;
+  if (ctx.placementMode || !ctx.heldItem.id) return false;
+  if (ctx.heldItem.id.indexOf('parafilm_') === 0) {
+    const res = findPickableHit(ctx, 3.5, (c) => !!(c.mesh && c.mesh.userData.isPetri), intersectPickableItem, { requireFridgeAccess: true });
+    if (!res) return false;
+    ctx.hoverHit = res.hit;
+    ctx.hoveredParafilmTarget = res.item;
+    hidePlacementGhost(ctx);
+    const pc = res.item.mesh.userData.petriCtrl;
+    const pfPrompt = pc.lidOpen
+      ? '⚠️ Feche a tampa da Placa de Petri antes de vedar com Parafilm M'
+      : (pc.parafilmSealed
+        ? '✅ Placa de Petri já vedada com Parafilm M'
+        : (pc.mode === 'bare'
+          ? '🧫 Adicione PDA/BDA e esterilize a placa antes de vedar'
+          : '🎞️ Vedar ' + res.item.label + ' com Parafilm M (Protege contra contaminação)'));
+    setHoverPrompt(ctx, pfPrompt);
+    return true;
+  }
+  if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.isFoilRoll) {
+    const resF = findPickableHit(
+      ctx,
+      3.5,
+      (c) => !!(c !== ctx.heldItem && ((c.spawnCtrl && !c.spawnCtrl.isBag && !c.spawnCtrl.isPP5) || c.cultureCtrl || (c.pdaMediumCtrl && !c.pdaMediumCtrl.isSlant))),
+      intersectPickableItem
+    );
+    if (!resF) return false;
+    ctx.hoverHit = resF.hit;
+    ctx.hoveredFoilTarget = resF.item;
+    hidePlacementGhost(ctx);
+    setHoverPrompt(ctx, resF.item.foilWrapped
+      ? '✅ ' + resF.item.label + ' já protegido com Papel Alumínio'
+      : '🪙 Envolver tampa de ' + resF.item.label + ' com Papel Alumínio (Autoclave)');
+    return true;
+  }
+  if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.isMicropore) {
+    const resM = findPickableHit(
+      ctx,
+      3.5,
+      (c) => !!(c !== ctx.heldItem && ((c.mesh && c.mesh.userData && c.mesh.userData.isPetri) || c.spawnCtrl || c.monotubCtrl)),
+      intersectPickableItem
+    );
+    if (!resM) return false;
+    ctx.hoverHit = resM.hit;
+    ctx.hoveredMicroporeTarget = resM.item;
+    hidePlacementGhost(ctx);
+    setHoverPrompt(ctx, resM.item.microporeSealed
+      ? '✅ ' + resM.item.label + ' já possui Fita Micropore'
+      : '🩹 Aplicar Fita Micropore (troca gasosa estéril) em ' + resM.item.label);
+    return true;
+  }
+  if (ctx.heldItem.lcNutrientCtrl) {
+    const resN = findPickableHit(
+      ctx,
+      3.5,
+      (c) => !!(c !== ctx.heldItem && c.cultureCtrl && c.mesh && c.mesh.userData && c.mesh.userData.liquidCtrl && !c.pdaMediumCtrl),
+      intersectPickableItem
+    );
+    if (!resN) return false;
+    ctx.hoverHit = resN.hit;
+    ctx.hoveredLcNutrientTarget = resN.item;
+    hidePlacementGhost(ctx);
+    const dLc = resN.item.mesh.userData.liquidCtrl;
+    const dose = Math.max(2, Math.round((dLc.volMl || 0) * 0.04));
+    setHoverPrompt(ctx, dLc.volMl < 50
+      ? '💧 Adicione pelo menos 50ml de água antes de colocar Malte/Mel (4%)'
+      : `🍯 Adicionar +${dose}g de Malte/Mel (4% para ${dLc.volMl}ml) em ${resN.item.label}`);
+    return true;
+  }
+  return false;
 }
 
 function handleTrashHover(ctx, setHoverPrompt) {
@@ -524,9 +633,11 @@ function handleSinkHover(ctx, setHoverPrompt) {
   const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !(cp.lidItem && cp.lidItem.isAttached));
   const isLiquidHeld = canFillFromSink(ctx.heldItem);
   const isBowlHeld = !!(ctx.heldItem && ctx.heldItem.bowlCtrl);
+  const isDrySpawnHeld = !!(ctx.heldItem && ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.filled &&
+    ctx.heldItem.spawnCtrl.hydrated === false && !ctx.heldItem.spawnCtrl.sterilized && !ctx.heldItem.spawnCtrl.inoculated);
   const isDunkMonotubHeld = !!(ctx.heldItem && ctx.heldItem.monotubCtrl &&
     ctx.heldItem.monotubCtrl.colonization >= 100 && !ctx.heldItem.monotubCtrl.spent && !ctx.heldItem.monotubCtrl.contaminated);
-  if (!isPotHeld && !isLiquidHeld && !isBowlHeld && !isDunkMonotubHeld) return false;
+  if (!isPotHeld && !isLiquidHeld && !isBowlHeld && !isDrySpawnHeld && !isDunkMonotubHeld) return false;
   const sHits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
   if (sHits.length === 0 || sHits[0].distance >= 3.5) return false;
   ctx.hoverHit = sHits[0];
@@ -540,6 +651,11 @@ function handleSinkHover(ctx, setHoverPrompt) {
   const sinkAction = sHits[0].object.userData.sinkAction || 'fill';
   ctx.hoveredSinkAction = sinkAction;
   hidePlacementGhost(ctx);
+  if (isDrySpawnHeld) {
+    const scDry = ctx.heldItem.spawnCtrl;
+    setHoverPrompt(ctx, `💧 SEGURE na Torneira para hidratar os grãos (${Math.round(scDry.waterMl || 0)}/60ml) antes de esterilizar`);
+    return true;
+  }
   if (isBowlHeld) {
     const bc = ctx.heldItem.bowlCtrl;
     if (bc.mixed) {
@@ -623,13 +739,15 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
         ? !pCand.spawnCtrl.filled && pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.acceptsPdaMedium
         : sourceCanPourWater && pCand.spawnCtrl.filled && (pCand.spawnCtrl.waterMl || 0) < 35 &&
           pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.receivesWater));
+    const isPourableDryGrain = !!(!sourceHasPda && sourceCanPourWater && pCand.spawnCtrl && !pCand.spawnCtrl.isPP5 &&
+      pCand.spawnCtrl.filled && pCand.spawnCtrl.hydrated === false);
     const isPourableBowl = !!(!sourceHasPda && sourceCanPourWater && pCand.bowlCtrl &&
       pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.receivesWater);
     const petriCtrl = pCand.mesh && pCand.mesh.userData.petriCtrl;
     const isPourablePetri = !!(sourceHasPda && petriCtrl && petriCtrl.mode === 'bare' &&
       pCand.meta && pCand.meta.compatibilities && pCand.meta.compatibilities.acceptsPdaMedium);
-    if (!isPourableLc && !isPourablePP5 && !isPourableBowl && !isPourablePetri) return false;
-    matchedMode = { isPourablePetri, isPourablePP5, petriCtrl };
+    if (!isPourableLc && !isPourablePP5 && !isPourableDryGrain && !isPourableBowl && !isPourablePetri) return false;
+    matchedMode = { isPourablePetri, isPourablePP5, isPourableDryGrain, petriCtrl };
     return true;
   }, intersectPickableItem, { requireFridgeAccess: true });
 
@@ -641,9 +759,11 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
     ? (matchedMode.petriCtrl.lidOpen
       ? '🧫 Despejar 20ml de PDA/BDA em ' + pourRes.item.label
       : '🧫 Abrir a placa no Fluxo Laminar para adicionar 20ml de PDA/BDA')
-    : (matchedMode.isPourablePP5 && sourceHasPda
-      ? '🧪 Transferir meio PDA/BDA para ' + pourRes.item.label
-      : '💧 Umedecer / Despejar água em ' + pourRes.item.label);
+    : (matchedMode.isPourableDryGrain
+      ? '💧 Hidratar grãos em ' + pourRes.item.label
+      : (matchedMode.isPourablePP5 && sourceHasPda
+        ? '🧪 Transferir meio PDA/BDA para ' + pourRes.item.label
+        : '💧 Umedecer / Despejar água em ' + pourRes.item.label));
   setHoverPrompt(ctx, targetPrompt);
   return true;
 }
@@ -688,13 +808,15 @@ function handleSpoonOrBowlHover(ctx, intersectPickableItem, setHoverPrompt) {
     ? Object.values(res.item.bowlCtrl.ingredients || {}).filter((v) => v > 0).length
     : 0;
   const bIng = (isSpoonTarget && res.item.bowlCtrl && res.item.bowlCtrl.ingredients) || {};
-  const bulkIncomplete = isSpoonTarget && ((bIng.coco || 0) > 0 || (bIng.vermiculite || 0) > 0) &&
-    !((bIng.coco || 0) > 0 && (bIng.vermiculite || 0) > 0 && (bIng.water || 0) > 0);
+  const bulkIncomplete = isSpoonTarget && ((bIng.coco || 0) > 0 || (bIng.vermiculite || 0) > 0 || (bIng.sawdust || 0) > 0) &&
+    !(((bIng.coco || 0) > 0 && (bIng.vermiculite || 0) > 0 && (bIng.water || 0) > 0) || ((bIng.sawdust || 0) > 0 && (bIng.coco || 0) <= 0 && (bIng.vermiculite || 0) <= 0 && (bIng.water || 0) > 0));
   setHoverPrompt(ctx, isSpoonTarget
     ? (res.item.bowlCtrl && res.item.bowlCtrl.mixed
       ? '✅ Receita já homogênea'
       : (bulkIncomplete
-        ? '⚠️ Substrato requer Vermiculita + Pó de Coco + Água antes de misturar!'
+        ? (((bIng.sawdust || 0) > 0 && (bIng.coco || 0) <= 0 && (bIng.vermiculite || 0) <= 0)
+          ? '⚠️ Adicione Água à Serragem antes de misturar!'
+          : '⚠️ Substrato requer Vermiculita + Pó de Coco + Água antes de misturar!')
         : (spoonKindCount < 2 ? '⚠️ Adicione pelo menos 2 ingredientes antes de misturar' : '🥄 Segure 3s para misturar no Pote')))
     : '🥣 Porcionar receita em ' + res.item.label);
   return true;
@@ -740,6 +862,11 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
       };
       return true;
     }
+    if (!sc.hasMycelium && sCand.pdaMediumCtrl && sCand.pdaMediumCtrl.isSlant && sCand.cultureCtrl &&
+        sCand.cultureCtrl.colonized && !sCand.cultureCtrl.contaminated && !sCand.cultureCtrl.expired) {
+      matched = { mode: 'cut', prompt: '🔪 Coletar repique do Tubo Slant (' + sCand.label + ')' };
+      return true;
+    }
     if (!sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60) {
       if (sCand.spawnCtrl.isPP5 && !sCand.spawnCtrl.lidOpen) {
         matched = { mode: 'open', prompt: '🥣 Abrir tampa do Potinho PP5 colonizado no Fluxo Laminar para cortar fragmento' };
@@ -750,6 +877,11 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
     }
     if (!sc.hasMycelium && sCand.wildMushroomCtrl) {
       matched = { mode: 'biopsy', prompt: '🔪 Cortar amostra de tecido de ' + sCand.wildMushroomCtrl.speciesName };
+      return true;
+    }
+    if (sc.hasMycelium && sCand.pdaMediumCtrl && sCand.pdaMediumCtrl.isSlant && sCand.pdaMediumCtrl.sterilized &&
+        !sCand.pdaMediumCtrl.burned && sCand.cultureCtrl && !sCand.cultureCtrl.inoculated && !sCand.cultureCtrl.contaminated) {
+      matched = { mode: 'transfer_slant', prompt: '🧪 Inocular fragmento no Tubo Slant 15ml (Cultura-Mãe)' };
       return true;
     }
     if (sc.hasMycelium && petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.sterilized) {
@@ -769,7 +901,8 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
       return true;
     }
     if (sc.hasMycelium && sCand.cultureCtrl && !sCand.cultureCtrl.inoculated && !sCand.cultureCtrl.colonized &&
-        !sCand.cultureCtrl.contaminated && sCand.mesh.userData.liquidCtrl && sCand.mesh.userData.liquidCtrl.volMl > 0) {
+        !sCand.cultureCtrl.contaminated && !(sCand.pdaMediumCtrl && sCand.pdaMediumCtrl.isSlant) &&
+        sCand.mesh.userData.liquidCtrl && sCand.mesh.userData.liquidCtrl.volMl > 0) {
       matched = { mode: 'transfer_lc', prompt: '🧪 Inocular fragmento na Cultura Líquida' };
       return true;
     }
@@ -809,7 +942,7 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
     }
   }
   if (!ctx.heldItem.id || ctx.heldItem.id.indexOf('substrate_') !== 0) return false;
-  if (ctx.heldItem.id.indexOf('substrate_grain_') === 0) {
+  if (ctx.heldItem.id.indexOf('substrate_grain_') === 0 || ctx.heldItem.id.indexOf('substrate_wheat_') === 0 || ctx.heldItem.id.indexOf('substrate_sorghum_') === 0) {
     for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
       const cp = ctx.cookerPots[ci];
       const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
@@ -819,17 +952,18 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
         ctx.hoverHit = cpHits[0];
         ctx.hoveredGrainCooker = cp;
         hidePlacementGhost(ctx);
-        setHoverPrompt(ctx, '🌽 Adicionar +500g de Milho de Pipoca na Panela (' + Math.round(cp.grainGrams || 0) + '/4000g • cozinhar 20m ao dente)');
+        setHoverPrompt(ctx, '🌾 Adicionar +500g de Grãos na Panela (' + Math.round(cp.grainGrams || 0) + '/4000g • cozinhar 20m ao dente)');
         return true;
       }
     }
   }
   const heldId = (ctx.heldItem && ctx.heldItem.id) || '';
   const isVerm = heldId.indexOf('vermiculite') !== -1;
-  const isCoco = heldId.indexOf('coco') !== -1 || heldId.indexOf('sawdust') !== -1;
+  const isSawdust = heldId.indexOf('sawdust') !== -1;
+  const isCoco = !isSawdust && heldId.indexOf('coco') !== -1;
   const isSorghum = heldId.indexOf('sorghum') !== -1;
   const isWheat = heldId.indexOf('wheat') !== -1;
-  const isRawBulkPart = isVerm || isCoco;
+  const isRawBulkPart = isVerm || isCoco || isSawdust;
   let isBowl = false;
   const res = findPickableHit(ctx, 3.5, (gCand) => {
     const recSub = !isRawBulkPart && !!(gCand.spawnCtrl && !gCand.spawnCtrl.filled &&
@@ -845,9 +979,11 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
   hidePlacementGhost(ctx);
   const subName = isVerm
     ? 'Vermiculita'
-    : (isCoco
-      ? 'Pó de Coco'
-      : (isSorghum ? 'Sorgo Vermelho' : (isWheat ? 'Trigo em Grão' : 'Milho de Pipoca')));
+    : (isSawdust
+      ? 'Serragem de Eucalipto'
+      : (isCoco
+        ? 'Pó de Coco'
+        : (isSorghum ? 'Sorgo Vermelho' : (isWheat ? 'Trigo em Grão' : 'Milho de Pipoca'))));
   setHoverPrompt(ctx, isBowl
     ? `🥣 Adicionar +100g de ${subName} no Pote de Mistura`
     : `🌾 Encher ${res.item.label} com ${subName}`);
@@ -881,7 +1017,7 @@ function handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt) {
       setHoverPrompt(ctx, '🥣 Clique para abrir a tampa do potinho no Fluxo Laminar');
       return true;
     }
-    if (sc.volMl >= 1) {
+    if (canSyringeTarget(cand) && sc.volMl >= 1) {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
       hidePlacementGhost(ctx);
       setHoverPrompt(ctx, '💉 Pingar 1ml de cultura em ' + cand.label + ' (2s)');
@@ -948,7 +1084,9 @@ function handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt) {
     if (sc.volMl > 0) {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
       hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, '💉 Inocular ' + Math.round(sc.volMl) + 'ml em ' + cand.label + ' (2s)');
+      const doseMl = getSyringeInjectionDoseMl(cand, sc.volMl);
+      const doseTxt = doseMl % 1 === 0 ? doseMl.toFixed(0) : doseMl.toFixed(1);
+      setHoverPrompt(ctx, '💉 Inocular ' + doseTxt + 'ml em ' + cand.label + ' (2s)');
     } else {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
       setHoverPrompt(ctx, '💉 Seringa vazia • Aspire cultura líquida antes de inocular');
@@ -1085,6 +1223,26 @@ function handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt)
   }
 
   return false;
+}
+
+function handleG2GHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (ctx.placementMode || !ctx.heldItem || !isHoldingColonizedGrainSpawn(ctx.heldItem)) return false;
+  const srcSc = ctx.heldItem.spawnCtrl;
+  const res = findPickableHit(ctx, 3.5, (c) => {
+    const d = c && c.spawnCtrl;
+    if (!d || c === ctx.heldItem) return false;
+    const dIsGrain = d.substrateKind !== 'coco_verm' && d.substrateKind !== 'sawdust' && d.substrateKind !== 'pda';
+    return !!(d.filled && dIsGrain && d.sterilized && !d.inoculated && !d.contaminated && !d.burned && (!d.isBag || d.sealed));
+  }, intersectPickableItem);
+  if (!res) return false;
+  ctx.hoverHit = res.hit;
+  ctx.hoveredG2GTarget = res.item;
+  hidePlacementGhost(ctx);
+  const rem = Math.max(0, 3 - (srcSc.g2gUses || 0));
+  setHoverPrompt(ctx, rem > 0
+    ? `🌾🧬 Transferência Grão-para-Grão (G2G) no Fluxo Laminar para ${res.item.label} (${rem}/3 usos)`
+    : '⚠️ Limite de 3 repiques G2G atingido neste spawn');
+  return true;
 }
 
 function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt) {
@@ -1225,6 +1383,7 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
 
   if (handleChalkboardHover(ctx, setHoverPrompt)) return true;
   if (handleH2O2SprayHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
+  if (handleWaterSprayHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleParafilmHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
@@ -1232,6 +1391,7 @@ export function resolveHeldItemHover(ctx, rayNdc, helpers) {
   if (handleSporePrintHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
+  if (handleG2GHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handlePdaReagentHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleHeatSealerHover(ctx, intersectPickableItem, setHoverPrompt)) return true;
   if (handleSinkHover(ctx, setHoverPrompt)) return true;

@@ -9,7 +9,8 @@ import { disposeObjectResources, registerPickable, updateItemBounds } from '../i
 import { markItemsFalling } from '../entities/placement-ghost.js';
 import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { makeLabTray } from '../items/lab-tray.js';
-import { makeAlcoholSprayBottle, makeH2O2SprayBottle } from '../items/alcohol-spray.js';
+import { makeAlcoholSprayBottle, makeH2O2SprayBottle, makeWaterSprayBottle } from '../items/alcohol-spray.js';
+import { makeLcNutrientBottle } from '../items/pda-bottle.js';
 import { getPetriMeta, makePetriDish } from '../items/petri-dish.js';
 import { makeBeaker1L, makeLiquidJar800 } from '../items/liquid-culture.js';
 import { makePP5Cup145ml } from '../items/pp5-cup.js';
@@ -185,6 +186,18 @@ export function ensureCoreAdminPrefabs() {
     label: 'Borrifador Água Oxigenada 3% (H₂O₂)',
     category: 'sanitization',
     factory: (ctx, opts) => makeH2O2SprayBottle(ctx, opts.id || ('dyn_h2o2_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('water_spray', {
+    label: 'Borrifador Água Destilada (Névoa)',
+    category: 'hydration',
+    factory: (ctx, opts) => makeWaterSprayBottle(ctx, opts.id || ('dyn_water_spray_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('lc_nutrient_bottle', {
+    label: 'Extrato de Malte / Mel 250g',
+    category: 'reagent',
+    factory: (ctx, opts) => makeLcNutrientBottle(ctx, opts.id || ('dyn_lc_nutrient_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
   });
 }
 

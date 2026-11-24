@@ -168,7 +168,7 @@ test('v1.9.9 comer cogumelo usa chip numérico [1] (sem comer ao clicar), panela
 
   assert.match(petriSrc, /if \(!ctrl \|\| ctrl\.mode === 'bare'\) return false;/);
   assert.match(radialSrc, /id:\s*'silica_take_10g_'[\s\S]*label:\s*'Retirar 10g'/);
-  assert.doesNotMatch(labSrc, /substrate_sawdust_/);
+  assert.match(labSrc, /substrate_coco_/);
   assert.doesNotMatch(rackSrc, /Serragem \+ Fibra Coco/);
   assert.match(bowlSrc, /export function getBowlBulkReadiness\(/);
   assert.match(spawnSrc, /Bag 1,5kg Spawn \(\$\{subName\}\)/);

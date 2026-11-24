@@ -4,6 +4,7 @@
  */
 import { getFullViewportSize, syncViewportCssVars } from '../ui/dom-helpers.js';
 import { shouldHideHeldInPlacementMode } from '../entities/placement-ghost.js';
+import { getLabEnvironmentMap } from '../engine/lab-env-map.js';
 
 const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
 
@@ -232,6 +233,7 @@ export function applyQualityTier(tier, deps) {
   qualityState._shz = 1e9;
   if (scene) {
     setSceneMaterialQuality(scene, !!cfg.lambert);
+    scene.environment = cfg.lambert ? null : getLabEnvironmentMap();
   }
   if (weatherPoints && weatherPoints.geometry) {
     weatherPoints.geometry.setDrawRange(0, cfg.weatherParticles);

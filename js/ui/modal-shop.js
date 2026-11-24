@@ -25,6 +25,8 @@ export const COSMETIC_TOYS = [
 export const SHOP_SUPPLIES = [
   { id: 'sup_pp5', prefabId: 'pp5_cup', name: 'Copo PP5 145ml', desc: 'Recipiente extra para ágar PDA ou grãos.', price_coins: 30, icon: '🥤' },
   { id: 'sup_syringe', prefabId: 'syringe_10ml', name: 'Seringa Estéril 10ml', desc: 'Nova seringa extra para inoculação rápida.', price_coins: 40, icon: '💉' },
+  { id: 'sup_water_spray', prefabId: 'water_spray', name: 'Borrifador Água Destilada', desc: 'Hidrate Monotubs 24L e bolos da Estufa com névoa fina estéril.', price_coins: 35, icon: '💧' },
+  { id: 'sup_lc_nutrient', prefabId: 'lc_nutrient_bottle', name: 'Extrato de Malte / Mel 250g', desc: 'Nutriente 4% para preparar Cultura Líquida no frasco 800ml.', price_coins: 40, icon: '🍯' },
   { id: 'sup_petri', prefabId: 'petri_empty', name: 'Placa de Petri (PDA)', desc: 'Placa de cultivo para isolar genética.', price_coins: 45, icon: '🧫' },
   { id: 'sup_mylar', prefabId: 'mylar_bag', name: 'Saco Mylar Metalizado', desc: 'Saco para embalar 10g/25g e vender no Empório.', price_coins: 45, icon: '🛍️' },
   { id: 'sup_h2o2', prefabId: 'h2o2_spray', name: 'Água Oxigenada 3% (H₂O₂)', desc: 'Borrife para curar mofo Cobweb (Teia) no Monotub e Bolos.', price_coins: 45, icon: '🫧' },

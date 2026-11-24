@@ -63,6 +63,7 @@ export function makeDistilledJug5L(ctx, id, px, py, pz, initMl) {
   labelMesh.position.y = 0.15;
 
   jg.add(liqMesh, body, bottom, shoulder, cap, labelMesh);
+  jg.userData.isWaterGallon = true;
   jg.userData.liquidCtrl = {
     volMl: initMl,
     maxMl: 5000,

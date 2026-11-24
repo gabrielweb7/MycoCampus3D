@@ -14,7 +14,7 @@ import { disposeObjectResources } from '../items/item-registry.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
 import { makeSpentCakeItem } from '../items/monotub.js';
 import { pickContamKind, getContamInfo } from '../items/contaminations.js';
-import { fireH2O2Spray } from '../items/alcohol-spray.js';
+import { fireH2O2Spray, fireWaterSpray } from '../items/alcohol-spray.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 
 const SPECIES_PRESETS = [
@@ -1121,7 +1121,8 @@ export function interactGreenhouseSlot(slot, ctx) {
   const callbacks = ctx.callbacks || {};
   const queueWorldStateChange = ctx.queueWorldStateChange;
   const isHoldingH2O2 = !!(heldItem && heldItem.mesh && heldItem.mesh.userData && heldItem.mesh.userData.isH2O2Spray);
-  const isHoldingSpray = !!(heldItem && !isHoldingH2O2 && (heldItem.id.indexOf('alcohol_spray') !== -1 || heldItem.id.indexOf('spray') !== -1));
+  const isHoldingWaterSpray = !!(heldItem && !isHoldingH2O2 && heldItem.mesh && heldItem.mesh.userData && heldItem.mesh.userData.isWaterSpray);
+  const isHoldingAlcoholSpray = !!(heldItem && !isHoldingH2O2 && !isHoldingWaterSpray && ((heldItem.mesh && heldItem.mesh.userData && heldItem.mesh.userData.isAlcoholSpray) || heldItem.id.indexOf('alcohol_spray') !== -1));
   const hasColonizedSpawn = isHoldingColonizedSpawn(heldItem);
 
   if (isHoldingH2O2) {
@@ -1294,7 +1295,8 @@ export function interactGreenhouseSlot(slot, ctx) {
       const isMagic = spName.indexOf('Psilocybe') !== -1 || spName.indexOf('Cubensis') !== -1 || spName.indexOf('Golden') !== -1 || slot.kind === 'gt';
       const freshMush = spawnPersistedWildMushroom(ctx, 'harvest_gh_' + Date.now().toString(36), {
         speciesName: spName,
-        isMagic
+        isMagic,
+        grams: 10
       });
       ctx.heldItem = freshMush;
       ctx.lastPickupAt = performance.now();
@@ -1324,15 +1326,25 @@ export function interactGreenhouseSlot(slot, ctx) {
     return;
   }
 
-  if (isHoldingSpray) {
+  if (isHoldingWaterSpray) {
     slot.humidity = Math.min(100, slot.humidity + 25);
-    if (window.MycoAudio) window.MycoAudio.playSpray();
+    fireWaterSpray(ctx, { target: slot, hitPoint: { x: slot.x, y: slot.y + 0.30, z: slot.z } });
     triggerWaterSprayFx(slot.x, slot.y + 0.30, slot.z);
     updateGreenhouseSlotMesh(slot);
     if (queueWorldStateChange) {
       queueWorldStateChange('greenhouse_slot_' + slot.id + '_humidity', Math.round(slot.humidity));
     }
     if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
+    if (callbacks.onToast) {
+      callbacks.onToast(`💧 Névoa de Água Destilada borrifada em ${slot.name} (${Math.round(slot.humidity)}% UR)!`);
+    }
+    return;
+  }
+
+  if (isHoldingAlcoholSpray) {
+    if (callbacks.onToast) {
+      callbacks.onToast('⚠️ Nunca borrife Álcool 70% diretamente em bolos/micélio vivo (resseca e causa abortos)! Use o 💧 Borrifador Água Destilada.');
+    }
     return;
   }
 

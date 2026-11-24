@@ -2,6 +2,20 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.3.0] - 2026-11-24
+### Correções Completas de Cultivo, Autonomia Solo, Borrifador de Água Destilada & Reflexos PBR
+- **Seringa 10ml, Pour Tek PDA & Desidratadora (`js/items/syringe.js`, `js/systems/interaction-system.js`, `js/systems/held-item-loop.js`, `js/items/dehydrator.js`, `js/items/dehydration-packaging.js`, `js/items/petri-dish.js`):**
+  - Corrigido o reset prematuro de `syrCtrl.mix.lcMl` na seringa 10ml; implementada dosagem realista por recipiente (`1ml` Petri/PP5, `2.5ml` Vidro, `4ml` Bag) e propagação de `speciesName`, `generation` e `sourceContam`.
+  - Removido exploit da desidratadora vazia (exige cogumelo fresco segurado), preservando espécie e gramatura (bônus T3/Casing) do lote seco até o bônus no Quiosque Drive-Thru VIP.
+  - Liberado **Pour Tek estéril** com Frasco 1L de PDA já esterilizado dentro do Fluxo Laminar para Placas de Petri, Tubos Slant 15ml e Potinhos PP5.
+- **Borrifador Água Destilada, Nutriente 4% CL, Falcon Slants, Serragem, Alumínio, Micropore & G2G (`js/items/alcohol-spray.js`, `js/items/distilled-jug.js`, `js/items/falcon-tubes.js`, `js/items/pda-bottle.js`, `js/items/liquid-culture.js`, `js/items/spawn-containers.js`, `js/items/monotub.js`, `js/world/greenhouse.js`, `js/world/mushroom-species.js`):**
+  - Separado `💧 Borrifador Água Destilada` do Álcool 70% (com alerta pedagógico ao tentar borrifar álcool em micélio vivo) e adicionada flag `isWaterGallon` no Garrafão 5L para Dunk no Monotub.
+  - Adicionados colonização real em Tubos Falcon (`stepFalconCultures`), frasco `🍯 Extrato de Malte / Mel 250g` (caldo 4% obrigatório na CL), Serragem de Eucalipto distinta do Coco, hidratação de grãos secos, `applyFoilWrap`, `applyMicroporeSeal` e `transferGrainToGrain` (G2G).
+  - Corrigida colisão de substrato `'azul'` para *Psilocybe azurescens* e encaminhamento de `shape`/`glow`/`glossy` em `createMushroomMeshBySpeciesName`.
+- **Autonomia Solo, Calculadora Real, EnvMap PBR & Persistência (`js/core/cultivation-tracks.js`, `js/ui/quest-map.js`, `js/ui/radial-menu.js`, `js/engine/lab-env-map.js`, `js/core/quality.js`, `js/systems/world-objects-sync.js`, `api/multiplayer_schema.php`, `api/auth.php`):**
+  - 4 Trilhas guiadas de cultivo passo a passo, Calculadora Real (PDA 40g/L, CL 4%, CVG, Monotub 1:2) e Diagnóstico Pedagógico no card de inspeção.
+  - EnvMap equiretangular procedural em cache (`64x32`) para reflexos reais em vidros e aço inox sem impacto de FPS, animação de inclinação ao despejar líquidos e sincronização completa de itens `dyn_*`, T0/esporos, pasteurização e colheitas.
+
 ## [v2.2.0] - 2026-11-20
 ### 6 Patógenos Reais + H₂O₂ 3%, Microscópio 2.0, Drive-Thru VIP, Etiquetas, Genética Viva & Otimização FPS
 - **6 Contaminações Reais & Tratamento H₂O₂ 3% (`js/items/contaminations.js`, `js/items/alcohol-spray.js`, `js/items/petri-dish.js`, `js/items/spawn-containers.js`, `js/items/liquid-culture.js`, `js/items/monotub.js`, `js/world/greenhouse.js`, `js/ui/modal-shop.js`, `api/auth.php`):**
