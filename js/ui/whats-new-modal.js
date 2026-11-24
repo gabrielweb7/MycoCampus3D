@@ -9,6 +9,14 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.5.0': {
+    title: '✨ Novidades da Atualização v2.5.0',
+    subtitle: 'Inventário rápido de três espaços',
+    items: [
+      { icon: '🎒', text: 'Use 5, 6 e 7 no PC ou toque nos espaços da barra no celular. Feche a tampa antes de guardar.' },
+      { icon: '💾', text: 'Os itens ficam na sua conta ao sair. Ao apoiar ou descartar, o espaço é liberado.' }
+    ]
+  },
   '2.4.0': {
     title: '✨ Novidades da Atualização v2.4.0',
     subtitle: 'Cultivo, bancada e controles no celular',

@@ -3,6 +3,7 @@
  * Cria a cena Three.js, iluminacao, construtores de mundo, entidades e inicia o game loop.
  */
 
+import { createQuickInventory } from './inventory.js';
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
 import { CAMPUS_EXPOSURE, getInitialQualityTier, getSavedQualityMode, qualityState } from '../core/quality.js';
@@ -73,6 +74,7 @@ const sim = {
   pickableItems: [],
   pickableMap: new Map(),
   remoteHeldIds: new Set(),
+  inventory: createQuickInventory(),
   _stackPhysicsDirty: true,
   wildMushrooms: [],
 
@@ -345,6 +347,7 @@ const sim = {
 
   isHeldByRemote: function (itemId) {
     if (!itemId) return false;
+    if (sim.inventory.reserved.has(itemId)) return itemId !== sim.heldItem?.id;
     if (sim.remoteHeldIds && sim.remoteHeldIds.has(itemId)) return true;
     if (sim._remoteHeldSynced) return false;
     for (const k in sim.remoteAvatars) {

@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.4.0">
+  <link rel="stylesheet" href="css/game.css?v=2.5.0">
 </head>
 
 <body>
@@ -196,7 +196,7 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.4.0</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.5.0</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -266,6 +266,11 @@
             style="display:none;"
             class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white font-extrabold border border-emerald-400/60 items-center gap-1 shadow-lg">📲 Instalar App</button>
         </div>
+      </div>
+      <div id="quick-inventory" class="hidden" role="group" aria-label="Inventário rápido">
+        <button type="button" data-pocket="0"><span class="inventory-key">5</span><span class="inventory-item">Vazio</span></button>
+        <button type="button" data-pocket="1"><span class="inventory-key">6</span><span class="inventory-item">Vazio</span></button>
+        <button type="button" data-pocket="2"><span class="inventory-key">7</span><span class="inventory-item">Vazio</span></button>
       </div>
       <div id="hud-quick-actions" style="display:none!important;visibility:hidden!important;"></div>
     </div>
@@ -854,9 +859,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.4.0';</script>
+  <script>window.MYCO_VERSION = '2.5.0';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.4.0"></script>
+  <script type="module" src="js/main.js?v=2.5.0"></script>
 </body>
 
 </html>

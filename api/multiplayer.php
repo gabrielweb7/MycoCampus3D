@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/multiplayer_schema.php';
+require_once __DIR__ . '/inventory.php';
 
 const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
@@ -58,9 +59,11 @@ if ($action === 'reset_world') {
     if (!mc_is_professor($user)) {
         mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
     }
-    $pdo->exec('DELETE FROM mc_world_objects');
-    $pdo->exec('DELETE FROM mc_world_item_states');
-    $pdo->exec('DELETE FROM mc_world_layout_edits');
+    mp_inventory_lock($pdo);
+    $protectedItems = array_fill_keys($pdo->query('SELECT item_id FROM mc_inventory_slots')->fetchAll(PDO::FETCH_COLUMN), true);
+    foreach (['mc_world_objects', 'mc_world_item_states', 'mc_world_layout_edits'] as $table) {
+        $pdo->exec("DELETE FROM $table WHERE NOT EXISTS (SELECT 1 FROM mc_inventory_slots WHERE mc_inventory_slots.item_id = $table.item_id)");
+    }
 
     // Se o Admin salvou um layout padrão, restaura tudo para a posição/configuração definida por ele
     $defaults = $pdo->query('SELECT item_id, prefab_id, label, scale, x, y, z, ry, removed FROM mc_admin_layout_defaults')->fetchAll();
@@ -69,6 +72,7 @@ if ($action === 'reset_world') {
         $insEdit = $pdo->prepare('INSERT INTO mc_world_layout_edits (item_id, prefab_id, label, scale, removed) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE prefab_id=VALUES(prefab_id), label=VALUES(label), scale=VALUES(scale), removed=VALUES(removed)');
         foreach ($defaults as $def) {
             $iid = (string)$def['item_id'];
+            if (isset($protectedItems[$iid])) continue;
             $removed = (int)$def['removed'] ? 1 : 0;
             if (!$removed) {
                 $insObj->execute([$iid, (float)$def['x'], (float)$def['y'], (float)$def['z'], (float)$def['ry']]);
@@ -78,6 +82,7 @@ if ($action === 'reset_world') {
             }
         }
     }
+    $pdo->commit();
     mc_json(['ok' => true, 'restored_from_default' => count($defaults)]);
 }
 
@@ -186,6 +191,8 @@ if ($action === 'sync') {
         $pdo->exec('DELETE FROM mc_sessions WHERE last_seen < (NOW() - INTERVAL ' . MP_SESSION_TIMEOUT_S . ' SECOND)');
     }
 
+    mp_inventory_lock($pdo);
+
     // 3. Pose persistente isolada em mc_user_poses (nunca polui mc_world_state)
     $savedPose = null;
     if ($initSync) {
@@ -207,6 +214,10 @@ if ($action === 'sync') {
     $pitch = $savedPose ? mp_num($savedPose['pitch'] ?? 0, 2.0) : mp_num($body['pitch'] ?? 0, 2.0);
     $holding = $savedPose ? (string)($savedPose['holding'] ?? '') : (string)($body['holding_item'] ?? '');
     $holding = mp_is_allowed_item_id($holding) ? $holding : '';
+    $inventory = mp_inventory_sync($pdo, $userId, $sessionKey, $holding, $initSync, $body);
+    $holding = $inventory['holding'];
+    if ($savedPose) $savedPose['holding'] = $holding;
+
     $seated = $savedPose ? !empty($savedPose['seated']) : !empty($body['seated']);
     $toyMode = (string)($body['toy_mode'] ?? '');
     $walking = ($toyMode === 'parachute') ? 5 : (($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0))));
@@ -221,7 +232,7 @@ if ($action === 'sync') {
 
     if (!$initSync) {
         $hasWorldWrites = !empty($body['moved_items']) || !empty($body['state_changes']);
-        $shouldSavePose = $hasWorldWrites;
+        $shouldSavePose = $hasWorldWrites || $inventory['_did_swap'] || $inventory['conflict'];
         if (!$shouldSavePose) {
             if ($hasApcu) {
                 $poseKey = 'mc_pose_ts_' . $userId;
@@ -305,7 +316,11 @@ if ($action === 'sync') {
             if (!is_array($item)) continue;
             $iid = (string)($item['id'] ?? '');
             if (!mp_is_allowed_item_id($iid)) continue;
-            if (array_key_exists('x', $item) && array_key_exists('y', $item) && array_key_exists('z', $item)) {
+            $reservedOwner = $inventory['_reserved_owners'][$iid] ?? null;
+            if (($reservedOwner !== null && ($reservedOwner !== $userId || !$inventory['ready'])) ||
+                isset($inventory['_other_held'][$iid])) continue;
+
+            if ($reservedOwner === null && array_key_exists('x', $item) && array_key_exists('y', $item) && array_key_exists('z', $item)) {
                 $batchPlaceholders[] = '(?, ?, ?, ?, ?)';
                 $batchParams[] = $iid;
                 $batchParams[] = mp_num($item['x'], MP_WORLD_LIMIT);
@@ -344,6 +359,8 @@ if ($action === 'sync') {
             $pdo->prepare($stateSql)->execute($stateParams);
         }
     }
+
+    $pdo->commit();
 
     $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps,
             IF(chat_at IS NOT NULL AND chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), chat_msg, NULL) AS chat_msg
@@ -560,7 +577,7 @@ if ($action === 'sync') {
             if (is_array($decodedState)) {
                 $itemStateId = (string)$savedState['item_id'];
                 $itemStates->{$itemStateId} = $decodedState;
-                if ($initSync && count($players) === 0 && isset($savedState['updated_ts'])) {
+                if ($initSync && (count($players) === 0 || in_array($itemStateId, $inventory['slots'], true)) && isset($savedState['updated_ts'])) {
                     $itemStateAges->{$itemStateId} = max(0, min(7200, $nowTs - (int)$savedState['updated_ts']));
                 }
             }
@@ -632,6 +649,8 @@ if ($action === 'sync') {
     $resp = [
         'ok' => true,
         'server_ts' => $nowTs,
+        'inventory' => array_diff_key($inventory, array_flip(['_did_swap', '_reserved_owners', '_other_held'])),
+
         'app_version' => $appVersion,
         'online_count' => count($players) + 1,
         'saved_pose' => $savedPose,
@@ -653,7 +672,7 @@ if ($action === 'sync') {
     }
     if (!$itemStatesUnchanged) {
         $resp['item_states'] = $itemStates;
-        if ($initSync && count($players) === 0 && $itemStateAges !== null) {
+        if ($initSync && $itemStateAges !== null) {
             $resp['item_state_ages'] = $itemStateAges;
         }
     }

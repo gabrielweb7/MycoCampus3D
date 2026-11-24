@@ -75,6 +75,10 @@ export function bindControls(ctx) {
       e.preventDefault();
       if (window.triggerCampusJump) window.triggerCampusJump();
     }
+    if (/^Digit[567]$/.test(e.code) && !e.repeat && ctx.inFps && !e.ctrlKey && !e.metaKey) {
+      if (window.selectCampusQuickSlot?.(Number(e.code.at(-1)) - 5)) e.preventDefault();
+    }
+    if (ctx.inventory?.pending && ['KeyX', 'KeyG', 'KeyQ', 'KeyF', 'Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) return;
     if (e.code === 'KeyX') {
       if (ctx.heldItem) {
         if (ctx.placementMode) {
@@ -232,7 +236,7 @@ export function bindControls(ctx) {
   const touchAim = ctx.pointerNdc.clone();
 
   ctx.renderer.domElement.addEventListener('mousedown', function (e) {
-    if (ctx.lobbyTourActive) return;
+    if (ctx.lobbyTourActive || ctx.inventory?.pending) return;
     if ((e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) || (performance.now() - lastTouchEndAt < 700)) {
       return;
     }

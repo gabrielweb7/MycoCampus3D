@@ -45,6 +45,8 @@ flowchart LR
 
 **Controles de bancada:** com um item na mão, clique no alvo (ou toque diretamente nele no celular) para usar ou apoiar o item. Para abrir uma tampa, calçar luvas ou ligar o laser do próprio item, use as teclas **1–4** ou toque no botão numerado. Com um instrumento na mão e a mira em uma Petri fechada, selecione **Abrir placa no alvo** antes de transferir. Use `G`/`Q` ou **Mover** para posicionar com precisão. No celular, mantenha **Ação** pressionado para aspirar, despejar ou mexer pela mira central.
 
+**Inventário rápido:** use **5, 6 e 7** no PC ou toque nos três espaços abaixo do HUD no celular. Selecione outro espaço para guardar o item da mão ou trocá-lo pelo item que já está lá. Feche Petri e PP5 e vede bags preenchidos antes da troca. Equipamentos grandes e recipientes sem tampa precisam ficar nas mãos ou apoiados. Os três espaços ficam vinculados à conta, com os objetos e seus estados; apoiar ou descartar libera o espaço.
+
 ### 🧫 1.1. Carimbo, germinação de monoesporos e clonagem
 - **Carimbo de Esporos (*Spore Print*):** Colha um cogumelo fresco (na natureza, no pasto, na Estufa ou no Monotub 24L), abra uma **Placa de Petri Vazia** pela opção numerada **Abrir Tampa** ou **Abrir placa no alvo** e clique com o cogumelo para assistir à **animação 3D do chapéu soltando a nuvem roxa de esporos** e depositando o carimbo radial das lamelas.
   - *Regra de Assepsia Real:* Nunca deixe uma placa com Carimbo de Esporos aberta fora do Fluxo Laminar, ou esporos de mofo do ar cairão sobre a amostra!

@@ -240,6 +240,7 @@ function tryPlaceHeldOnAimedSurface(ctx, aimNdc) {
 }
 
 export function dropHeldItem(ctx) {
+  if (ctx.inventory?.pending) return false;
   if (!ctx.heldItem) return;
   ctx.syringePumping = null;
   ctx.syringePunctureProgress = 0;
@@ -295,6 +296,7 @@ export function dropHeldItem(ctx) {
 }
 
 export function handlePrimaryAction(ctx, aimNdc) {
+  if (ctx.inventory?.pending) return false;
   if (ctx.heldItem) {
     if (performance.now() - ctx.lastPickupAt < 140) return;
     if (ctx.placementMode) {
@@ -1229,6 +1231,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
 }
 
 function pickUpTargetItem(ctx, targetItem, startPlacement) {
+  if (ctx.inventory?.pending) return false;
   if (!ctx || !targetItem) return false;
   if (!ctx.adminEditMode && targetItem.mesh.userData.isBlockedPickup && targetItem.mesh.userData.isBlockedPickup(targetItem)) {
     if (ctx.callbacks.onToast) {

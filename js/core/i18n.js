@@ -9,9 +9,45 @@ export const SUPPORTED_LANGS = ['pt-BR', 'en', 'es'];
 export const LANG_STORAGE_KEY = 'myco_lang';
 
 export const LANG_META = {
-  'pt-BR': { code: 'pt-BR', short: 'PT', flag: '🇧🇷', label: 'Português (Brasil)', ogLocale: 'pt_BR' },
-  en: { code: 'en', short: 'EN', flag: '🇺🇸', label: 'English (US)', ogLocale: 'en_US' },
-  es: { code: 'es', short: 'ES', flag: '🇪🇸', label: 'Español', ogLocale: 'es_ES' }
+  'pt-BR': {
+    'inventory.title': 'Inventário rápido',
+    'inventory.empty': 'Vazio',
+    'inventory.active': 'Na mão',
+    'inventory.stored': 'Guardado',
+    'inventory.loading': 'Carregando item',
+    'inventory.open': 'Feche a tampa ou vede a embalagem antes de guardar.',
+    'inventory.large': 'Este item precisa ficar nas mãos ou apoiado no mundo.',
+    'inventory.using': 'Termine a ação em andamento antes de trocar de espaço.',
+    'inventory.busy': 'Este item está sendo usado por outro jogador.',
+    'inventory.full': 'Todos os espaços estão ocupados. Apoie um item primeiro.',
+    'inventory.session': 'O inventário está ativo em outra sessão.',
+ code: 'pt-BR', short: 'PT', flag: '🇧🇷', label: 'Português (Brasil)', ogLocale: 'pt_BR' },
+  en: {
+    'inventory.title': 'Quick inventory',
+    'inventory.empty': 'Empty',
+    'inventory.active': 'In hand',
+    'inventory.stored': 'Stored',
+    'inventory.loading': 'Loading item',
+    'inventory.open': 'Close the lid or seal the package before putting it away.',
+    'inventory.large': 'Keep this item in your hands or place it in the world.',
+    'inventory.using': 'Finish the current action before switching slots.',
+    'inventory.busy': 'Another player is using this item.',
+    'inventory.full': 'All slots are full. Put an item down first.',
+    'inventory.session': 'Your inventory is active in another session.',
+ code: 'en', short: 'EN', flag: '🇺🇸', label: 'English (US)', ogLocale: 'en_US' },
+  es: {
+    'inventory.title': 'Inventario rápido',
+    'inventory.empty': 'Vacío',
+    'inventory.active': 'En la mano',
+    'inventory.stored': 'Guardado',
+    'inventory.loading': 'Cargando objeto',
+    'inventory.open': 'Cierra la tapa o sella el envase antes de guardarlo.',
+    'inventory.large': 'Mantén este objeto en las manos o déjalo en el mundo.',
+    'inventory.using': 'Termina la acción actual antes de cambiar de espacio.',
+    'inventory.busy': 'Otro jugador está usando este objeto.',
+    'inventory.full': 'Todos los espacios están ocupados. Deja primero un objeto.',
+    'inventory.session': 'Tu inventario está activo en otra sesión.',
+ code: 'es', short: 'ES', flag: '🇪🇸', label: 'Español', ogLocale: 'es_ES' }
 };
 
 export const TRANSLATIONS = {

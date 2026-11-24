@@ -1187,7 +1187,7 @@ function buildContextActions(ctx) {
 }
 
 export function syncFloatingActions(ctx) {
-  if (!ctx || !ctx.inFps || ctx.lobbyTourActive) {
+  if (!ctx || !ctx.inFps || ctx.lobbyTourActive || ctx.inventory?.pending) {
     if (barEl) barEl.classList.add('hidden');
     currentActions = [];
     lastSignature = '';

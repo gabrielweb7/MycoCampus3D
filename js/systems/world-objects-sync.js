@@ -236,7 +236,7 @@ export function consumeCampusMovedItems(sim) {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (!hasPotentiallyReplicableState(item, sim, now)) continue;
-      if (sim.isHeldByRemote(item.id)) continue;
+      if (sim.isHeldByRemote(item.id) && !sim.inventory?.slots.includes(item.id)) continue;
       const state = getReplicatedItemState(sim, item);
       if (!state) continue;
       const signature = JSON.stringify(state);
@@ -250,7 +250,7 @@ export function consumeCampusMovedItems(sim) {
         item.id.indexOf('organic_basket_') === 0 ||
         item.id.indexOf('spent_cake_') === 0 ||
         item.id.indexOf('dyn_') === 0;
-      if (queued.x === undefined && !item._removedForSync && (item.isMoved || isDynamicSpawnId)) {
+      if (!sim.inventory?.reserved.has(item.id) && queued.x === undefined && !item._removedForSync && (item.isMoved || isDynamicSpawnId)) {
         queued.x = item.mesh.position.x;
         queued.y = item.mesh.position.y;
         queued.z = item.mesh.position.z;
@@ -1157,8 +1157,10 @@ export function applyCampusWorldObjects(sim, objectsMap) {
 export function resetCampusWorldObjects(sim) {
   clearLocalMovedObjects();
   if (sim.cancelHeldItemPlacement) sim.cancelHeldItemPlacement();
-  setHeldTwoHandedGhost(sim.heldItem, false);
-  sim.heldItem = null;
+  if (!sim.inventory?.reserved.has(sim.heldItem?.id)) {
+    setHeldTwoHandedGhost(sim.heldItem, false);
+    sim.heldItem = null;
+  }
   sim.pendingMovedItems = {};
   sim.recentlyDropped = {};
   sim.itemStateSignatures = {};
@@ -1184,6 +1186,7 @@ export function resetCampusWorldObjects(sim) {
     updateCookerWaterVisual(cp);
   }
   sim.pickableItems.forEach(function (item) {
+    if (sim.inventory?.reserved.has(item.id)) return;
     item.mesh.position.copy(item.homePos);
     item.mesh.rotation.y = item.homeRy;
     if (item.potItem) item.isAttached = true;
@@ -1210,7 +1213,7 @@ export function resetCampusWorldObjects(sim) {
   });
   sim._stackPhysicsDirty = true;
   markItemsFalling(sim);
-  if (sim.callbacks.onHoldChange) sim.callbacks.onHoldChange(null);
+  if (sim.callbacks.onHoldChange) sim.callbacks.onHoldChange(sim.heldItem?.label || null);
 }
 
 

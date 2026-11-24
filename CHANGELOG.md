@@ -4,7 +4,13 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
 
 <!-- coderabbit-ai-generated:v1 -->
 
-<!-- coderabbit-ai-generated-section:v1:7337ad9b055476c07f355ccca826f165dd20c1a7ade9c1e333eee96882c19600 -->
+<!-- coderabbit-ai-generated-section:v1:d36d4f80864beea8a22bde94abefafa8bbbf5d4fa172222b849a74e58b8b9867 -->
+
+## [v2.5.0] - 2026-11-24
+
+- Barra com três espaços: um para o item em mãos e dois para guardar itens. Use 5, 6 e 7 no PC ou toque nos espaços no celular.
+- Itens compatíveis e seus estados ficam salvos na conta. Outros jogadores só podem pegá-los depois que o dono os devolver ao cenário.
+- Recipientes abertos e equipamentos grandes não podem ser guardados.
 
 ## [v2.4.0] - 2026-11-24
 

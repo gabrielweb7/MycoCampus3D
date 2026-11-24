@@ -3,6 +3,7 @@
  * Orquestra subsistemas modulares com ZERO alocacao por frame e depuracao centralizada.
  */
 
+import { renderQuickInventory } from '../ui/inventory-bar.js';
 import { logger } from '../core/logger.js';
 import * as qualityMod from '../core/quality.js';
 import { perfBegin, perfEnd } from '../core/perf-overlay.js';
@@ -501,6 +502,7 @@ export function startAnimationLoop(ctx) {
       _mpAvatarsArg.onRemoteActionFx = triggerRemoteAvatarFxInWorld;
       stepMultiplayerAvatars(_mpAvatarsArg, dt);
 
+      renderQuickInventory(ctx);
       ctx.renderer.render(ctx.scene, ctx.camera);
       perfEnd(ctx.renderer, qualityMod.qualityState);
       frameErrorLogged = false;
