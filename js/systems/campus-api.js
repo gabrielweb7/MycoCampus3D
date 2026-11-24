@@ -4,7 +4,7 @@
  */
 
 import { GAME_CONFIG } from '../core/config.js';
-import { getInitialQualityTier, qualityState, saveQualityMode } from '../core/quality.js';
+import { getAutoQualityConfig, qualityState, resetAutoQuality, saveQualityMode, setAutoQualityScale } from '../core/quality.js';
 import { getGroundHeight, clampPosAgainstWalls } from '../engine/physics.js';
 import { updateCampusAuditoriumSlide, setRankingList, cycleDayTimePreset, getFormattedCampusClock } from '../world/staircase-clock.js';
 import { triggerConfettiBurst } from '../entities/confetti.js';
@@ -23,7 +23,21 @@ const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
 export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow) {
   window.initCampus3D = initCampus3D;
 
+  window.getCampusPetBowlPosition = function () {
+    if (!sim.inFps || !sim.scene || !sim.renderer || !sim.controls) return null;
+    const p = sim.playerPos.clone();
+    p.x -= Math.sin(sim.playerYaw || 0) * 1.15;
+    p.z -= Math.cos(sim.playerYaw || 0) * 1.15;
+    clampPosAgainstWalls(sim.physCtx, p, 0.23);
+    p.y = getGroundHeight(sim.physCtx, p.x, p.z, sim.playerPos.y, null, sim.playerPos.y + 0.4);
+    return { x: p.x, y: p.y, z: p.z };
+  };
+
   window.setCampusFpsMode = function (enable) {
+    if (!sim.controls || !sim.camera) {
+      window._pendingEnterFps = !!enable;
+      return;
+    }
     sim.lobbyTourActive = false;
     sim.inFps = !!enable;
     sim.controls.enabled = !sim.inFps;
@@ -129,6 +143,9 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.spawnCampusShopItem = function (prefabId) {
     return adminEditor.spawnShopItemNearPlayer(sim, prefabId);
   };
+  window.getCampusShopDeliveryPose = function (prefabId) {
+    return adminEditor.getShopDeliveryPose(sim, prefabId);
+  };
 
   window.getCampusPlayerPose = function () {
     const gY = getGroundHeight(sim.physCtx, sim.playerPos.x, sim.playerPos.z, sim.playerPos.y);
@@ -162,13 +179,17 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       sim.qualityMode = 'auto';
       qualityState.mode = 'auto';
       saveQualityMode('auto');
-      applyQualityTier(sim, getInitialQualityTier(sim.isTouchDevice(), sim.renderer));
+      const config = getAutoQualityConfig(sim.isTouchDevice(), sim.renderer);
+      resetAutoQuality();
+      applyQualityTier(sim, config.tier);
+      setAutoQualityScale(config.scale, sim.renderer);
       return;
     }
     if (qualityTiersOrder.indexOf(mode) !== -1) {
       sim.qualityMode = mode;
       qualityState.mode = 'manual';
       saveQualityMode(mode);
+      resetAutoQuality();
       applyQualityTier(sim, mode);
     }
   };

@@ -5,6 +5,7 @@
 
 const HUD_TOGGLE_IDS = [
   'hud-top-bar',
+  'first-steps-panel',
   'chat-container',
   'mobile-actions',
   'mobile-joystick-zone',

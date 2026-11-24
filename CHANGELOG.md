@@ -2,7 +2,33 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:20213ee14b9229f017ca5ecb8eb411dfbf59663276c685e763fafbb8f8ecefc2 -->
+
+## [v2.4.0] - 2026-11-24
+
+- Tutorial opcional de primeiros passos para novas contas, com acesso ao laboratório e ao guia de cultivo.
+- Qualidade automática avalia quedas sustentadas, compara resolução e níveis e guarda a escolha por dispositivo. A seleção manual continua disponível.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:e1c3b414b436174f0ffe6f6215f6821db9ad4a85efed926a8110c82123bf1b64 -->
+
+- Entrada, HUD, menus e configurações mais claros, com correção do menu em janelas estreitas.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:47b16ba38d2ead679a7ae0dcb01b8291a0a7ae0841d7add8ee834564739fcac2 -->
+
+- Compras de insumos registram pagamento e entrega na mesma transação; reenvios após falhas não duplicam a cobrança.
+- Seis pets inspirados nas referências: três gatos e três cachorros, com modos seguir e passear, animações e sincronização entre jogadores. Potinhos de comida e água e ração de gato ficam disponíveis na loja; os cuidados são persistidos na conta.
+
+<!-- /coderabbit-ai-generated:v1 -->
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## [v2.3.5] - 2026-11-24
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 - Fonte da praça com bico de cerâmica, água turquesa e colisão circular junto à borda.
 - Trampolins com modelo próprio e tufos de vegetação baixa agrupados pelo cenário.

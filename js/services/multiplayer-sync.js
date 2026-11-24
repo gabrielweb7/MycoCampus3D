@@ -8,6 +8,7 @@ import { $, showFloatingToast } from '../ui/dom-helpers.js';
 import { applySlideTo3D } from '../ui/hud-lobby.js';
 import { markPendingAutoUpdateNotice } from '../ui/whats-new-modal.js';
 import { forceCacheBustReload } from '../core/version-updater.js';
+import { getLocalPetPose, updateRemotePets } from '../entities/pets.js';
 
 export async function syncMultiplayer() {
   if (!appState.currentUser) return;
@@ -21,14 +22,17 @@ export async function syncMultiplayer() {
   const firstSync = appState.isInitialSync;
   appState.isInitialSync = false;
 
-  const pose = window.getCampusPlayerPose();
-  const moved = firstSync ? [] : window.consumeCampusMovedItems();
-  const strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
-  const stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
+  let moved = [];
+  let strokes = [];
+  let stateChanges = {};
   const chatToSend = appState.pendingChatMsg;
   appState.pendingChatMsg = '';
 
   try {
+    const pose = window.getCampusPlayerPose();
+    moved = firstSync ? [] : window.consumeCampusMovedItems();
+    strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
+    stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
     if (firstSync) {
       appState.lastObjVer = '';
       appState.lastItemStateVer = '';
@@ -50,6 +54,7 @@ export async function syncMultiplayer() {
       seated: pose.seated,
       in_fps: pose.in_fps,
       toy_mode: pose.toy_mode || '',
+      pet_pose: getLocalPetPose(),
       current_hat: pose.current_hat || 'default',
       emote: pose.emote || '',
       chat_msg: chatToSend,
@@ -72,10 +77,6 @@ export async function syncMultiplayer() {
     }
 
     if (data.ok) {
-      if (appState.syncFailures >= 3 && !globalThis.document?.hidden) {
-        showFloatingToast('✅ Conexão com o campus restabelecida.', 3000);
-      }
-      appState.syncFailures = 0;
       if (data.force_teleport && window.teleportCampusPlayer) {
         window.teleportCampusPlayer(
           data.force_teleport.x,
@@ -106,14 +107,12 @@ export async function syncMultiplayer() {
       if (typeof data.server_ts === 'number' && window.setCampusServerTime) {
         window.setCampusServerTime(data.server_ts);
       }
-      if (typeof data.obj_ver === 'string') appState.lastObjVer = data.obj_ver;
-      if (typeof data.item_state_ver === 'string') appState.lastItemStateVer = data.item_state_ver;
-      if (typeof data.state_ver === 'string') appState.lastStateVer = data.state_ver;
-      if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;
-      if (!data.layout_unchanged && data.layout_edits && window.applyCampusLayoutEdits) {
+      if (!data.layout_unchanged && data.layout_edits) {
+        if (!window.applyCampusLayoutEdits) throw new Error('Layout do campus ainda não está pronto.');
         window.applyCampusLayoutEdits(data.layout_edits);
       }
-      if (!data.objects_unchanged && data.objects && window.applyCampusWorldObjects) {
+      if (!data.objects_unchanged && data.objects) {
+        if (!window.applyCampusWorldObjects) throw new Error('Objetos do campus ainda não estão prontos.');
         window.applyCampusWorldObjects(data.objects);
       }
       if (!data.item_states_unchanged && data.item_states && window.applyCampusItemStates) {
@@ -133,9 +132,7 @@ export async function syncMultiplayer() {
         window.applyCampusSavedPose(data.saved_pose);
       }
       if (window.updateCampusPlayers) window.updateCampusPlayers(data.players || []);
-      if (typeof data.board_last_id === 'number' && data.board_last_id > appState.boardLastId) {
-        appState.boardLastId = data.board_last_id;
-      }
+      updateRemotePets(data.players || []);
       if (data.board_strokes && data.board_strokes.length && window.applyCampusBoardStrokes) {
         window.applyCampusBoardStrokes(data.board_strokes);
       }
@@ -145,6 +142,17 @@ export async function syncMultiplayer() {
           applySlideTo3D(data.world_state.auditorium_slide, data.world_state.auditorium_presenter || '');
         }
       }
+      // Só confirma versões depois que os dados foram aplicados; uma falha na
+      // criação de um objeto precisa poder receber novamente layout e posição.
+      if (typeof data.obj_ver === 'string') appState.lastObjVer = data.obj_ver;
+      if (typeof data.item_state_ver === 'string') appState.lastItemStateVer = data.item_state_ver;
+      if (typeof data.state_ver === 'string') appState.lastStateVer = data.state_ver;
+      if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;
+      if (typeof data.board_last_id === 'number' && data.board_last_id > appState.boardLastId) appState.boardLastId = data.board_last_id;
+      if (appState.syncFailures >= 3 && !globalThis.document?.hidden) {
+        showFloatingToast('✅ Conexão com o campus restabelecida.', 3000);
+      }
+      appState.syncFailures = 0;
     } else if (data.auth !== false) {
       throw new Error(data.error || 'sync');
     }

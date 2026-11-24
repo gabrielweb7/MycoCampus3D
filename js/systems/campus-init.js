@@ -5,7 +5,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
-import { CAMPUS_EXPOSURE, getInitialQualityTier, getSavedQualityMode, qualityState } from '../core/quality.js';
+import { CAMPUS_EXPOSURE, getAutoQualityConfig, getSavedQualityMode, qualityState, resetAutoQuality, setAutoQualityScale } from '../core/quality.js';
 import { syncViewportCssVars } from '../ui/dom-helpers.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
@@ -731,12 +731,13 @@ export function initCampus3D(containerId, cbs) {
     bindControls(sim);
     const savedMode = getSavedQualityMode();
     const initialMode = savedMode || 'auto';
-    const initialTier = initialMode === 'auto'
-      ? getInitialQualityTier(touch, sim.renderer)
-      : initialMode;
+    const autoConfig = initialMode === 'auto' ? getAutoQualityConfig(touch, sim.renderer) : null;
+    const initialTier = autoConfig ? autoConfig.tier : initialMode;
     sim.qualityMode = initialMode;
     qualityState.mode = initialMode === 'auto' ? 'auto' : 'manual';
+    resetAutoQuality();
     applyQualityTier(sim, initialTier);
+    if (autoConfig) setAutoQualityScale(autoConfig.scale, sim.renderer);
     startAnimationLoop(sim);
     const lobbyEl = document.getElementById('campus-lobby');
     if ((window._pendingEnterFps || (lobbyEl && lobbyEl.classList.contains('hidden'))) && window.setCampusFpsMode) {

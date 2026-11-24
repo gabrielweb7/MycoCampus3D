@@ -140,6 +140,8 @@ const {
   getInitialQualityTier,
   applyQualityTier,
   stepAutoQuality,
+  resetAutoQuality,
+  getAutoQualityConfig,
   setSceneMaterialQuality,
   qualityState
 } = await import('../js/core/quality.js');
@@ -247,13 +249,14 @@ test('setSceneMaterialQuality converte PBR -> Lambert com alias de .color/.emiss
   assert.equal(meshMatte.material, pbrMat);
 });
 
-test('stepAutoQuality reduz DRS antes de derrubar tier e respeita modo manual', () => {
+test('stepAutoQuality aguarda queda sustentada, reduz DRS antes do nível e respeita modo manual', () => {
   const scene = makeMockScene();
   const camera = makeMockCamera();
   const renderer = makeRendererWithGpu('NVIDIA GeForce RTX 4070');
   const deps = { renderer, camera, scene, isTouchDevice: false };
 
   qualityState.mode = 'auto';
+  resetAutoQuality();
   qualityState.tierCeilingIdx = 0;
   applyQualityTier('high', deps);
   qualityState.warmupUntil = 0;
@@ -274,7 +277,7 @@ test('stepAutoQuality reduz DRS antes de derrubar tier e respeita modo manual', 
     }
   };
 
-  // Simula 2 janelas a 20 FPS -> deve baixar dynScale primeiro, ainda em 'high'
+  // Uma queda curta não deve alterar a resolução ou o nível.
   t = Math.max(t, performance.now() + 10000);
   qualityState.fpsLastSampleAt = t;
   qualityState.fpsLastFrameAt = t;
@@ -283,20 +286,19 @@ test('stepAutoQuality reduz DRS antes de derrubar tier e respeita modo manual', 
   stepWindow(20);
   stepWindow(20);
   assert.equal(qualityState.tier, 'high');
+  assert.equal(qualityState.dynScale, 1);
+
+  // Após aquecimento e uma janela prolongada, experimenta DRS antes de trocar o nível.
+  for (let round = 0; round < 25 && qualityState.dynScale === 1; round++) stepWindow(20);
   assert.ok(qualityState.dynScale < 1.0, `Esperado dynScale < 1.0, obteve ${qualityState.dynScale}`);
 
-  // Mais baixa FPS após cooldown curto de DRS até esgotar DRS -> deve cair para 'medium'
-  for (let round = 0; round < 6 && qualityState.tier === 'high'; round++) {
-    t += 3000;
-    qualityState.fpsLastSampleAt = t;
-    qualityState.fpsLastFrameAt = t;
-    stepWindow(20);
-    stepWindow(20);
-  }
+  // A comparação sustentada testa o nível seguinte quando o FPS continua ruim.
+  for (let round = 0; round < 25 && qualityState.tier === 'high'; round++) stepWindow(20);
   assert.equal(qualityState.tier, 'medium');
 
   // Modo manual jamais altera tier automaticamente
-  qualityState.mode = 'high';
+  qualityState.mode = 'manual';
+  resetAutoQuality();
   applyQualityTier('high', deps);
   t += 5000;
   qualityState.warmupUntil = t - 10;
@@ -306,6 +308,54 @@ test('stepAutoQuality reduz DRS antes de derrubar tier e respeita modo manual', 
   stepWindow(15);
   stepWindow(15);
   assert.equal(qualityState.tier, 'high');
+});
+
+test('auto guarda configuração estável e ignora dados de outro dispositivo ou inválidos', () => {
+  const storage = new Map();
+  globalThis.localStorage = { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, String(value)) };
+  const renderer = makeRendererWithGpu('NVIDIA GeForce RTX 4070');
+  const deps = { renderer, camera: makeMockCamera(), scene: makeMockScene(), isTouchDevice: false };
+  qualityState.mode = 'auto';
+  resetAutoQuality();
+  applyQualityTier('medium', deps);
+  let now = performance.now() + 10000;
+  for (let frame = 0; frame < 60 * 25; frame++) {
+    now += 1000 / 60;
+    stepAutoQuality(now, deps);
+  }
+  assert.deepEqual(getAutoQualityConfig(false, renderer), { tier: 'medium', scale: 1 });
+  assert.equal(getAutoQualityConfig(false, makeRendererWithGpu('Google SwiftShader')).tier, 'min');
+  storage.set('myco_auto_quality_v1', '{inválido');
+  assert.equal(getAutoQualityConfig(false, renderer).tier, 'high');
+  delete globalThis.localStorage;
+});
+
+test('auto persiste resolução experimentada e desfaz teste interrompido em segundo plano', () => {
+  const storage = new Map();
+  globalThis.localStorage = { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, String(value)) };
+  const renderer = makeRendererWithGpu('NVIDIA GeForce RTX 4070');
+  const deps = { renderer, camera: makeMockCamera(), scene: makeMockScene(), isTouchDevice: false };
+  qualityState.mode = 'auto';
+  resetAutoQuality();
+  applyQualityTier('high', deps);
+  let now = performance.now() + 10000;
+  const frames = (fps, seconds) => {
+    for (let i = 0; i < fps * seconds; i++) { now += 1000 / fps; stepAutoQuality(now, deps); }
+  };
+  frames(20, 25);
+  assert.equal(qualityState.dynScale, 0.85);
+  document.hidden = true;
+  stepAutoQuality(now + 100, deps);
+  assert.equal(qualityState.tier, 'high');
+  assert.equal(qualityState.dynScale, 1);
+  assert.equal(storage.has('myco_auto_quality_v1'), false);
+  document.hidden = false;
+  now += 200;
+  for (let i = 0; i < 30 && qualityState.dynScale === 1; i++) frames(20, 1);
+  assert.equal(qualityState.dynScale, 0.85);
+  frames(38, 20);
+  assert.deepEqual(getAutoQualityConfig(false, renderer), { tier: 'high', scale: 0.85 });
+  delete globalThis.localStorage;
 });
 
 test('disposeObjectResources libera recursos exclusivos e preserva userData.shared', () => {

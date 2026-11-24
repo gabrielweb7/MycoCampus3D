@@ -211,6 +211,31 @@ if ($action === 'sync') {
     $toyMode = (string)($body['toy_mode'] ?? '');
     $walking = ($toyMode === 'parachute') ? 5 : (($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0))));
     $inFps = !empty($body['in_fps']) ? 1 : 0;
+    // Only expose the selected, owned pet and bowl positions, never private progress.
+    $userProgress = json_decode((string)($user['progress_json'] ?? ''), true);
+    $petState = is_array($userProgress['pets'] ?? null) ? $userProgress['pets'] : [];
+    $selectedPet = (string)($petState['selected'] ?? '');
+    $ownedPets = is_array($petState['owned'] ?? null) ? $petState['owned'] : [];
+    $petPose = is_array($body['pet_pose'] ?? null) ? $body['pet_pose'] : [];
+    $publicPet = null;
+    if (in_array($selectedPet, MC_PETS, true) && in_array($selectedPet, $ownedPets, true) && ($petPose['id'] ?? '') === $selectedPet &&
+        isset($petPose['x'], $petPose['y'], $petPose['z']) && is_numeric($petPose['x']) && is_numeric($petPose['y']) && is_numeric($petPose['z'])) {
+        $publicPet = [
+            'id' => $selectedPet, 'x' => mp_num($petPose['x'], MP_WORLD_LIMIT),
+            'y' => mp_num($petPose['y'], 180), 'z' => mp_num($petPose['z'], MP_WORLD_LIMIT),
+            'yaw' => mp_num($petPose['yaw'] ?? 0, 1000),
+            'motion' => in_array(($petPose['motion'] ?? ''), ['idle', 'walk', 'run', 'eat', 'sleep'], true) ? $petPose['motion'] : 'idle',
+        ];
+    }
+    $publicBowls = [];
+    foreach (['food', 'water'] as $kind) {
+        $bowl = $petState['bowls'][$kind] ?? null;
+        $p = is_array($bowl) ? ($bowl['pos'] ?? null) : null;
+        if (!empty($bowl['owned']) && is_array($p) && isset($p['x'], $p['y'], $p['z']) && is_numeric($p['x']) && is_numeric($p['y']) && is_numeric($p['z'])) {
+            $publicBowls[$kind] = ['x' => mp_num($p['x'], MP_WORLD_LIMIT), 'y' => mp_num($p['y'], 180), 'z' => mp_num($p['z'], MP_WORLD_LIMIT), 'full' => !empty($bowl['full'])];
+        }
+    }
+    $petJson = json_encode(['pet' => $publicPet, 'bowls' => $publicBowls]);
     $vx = mp_num($body['vx'] ?? 0, 25.0);
     $vz = mp_num($body['vz'] ?? 0, 25.0);
     $hasApcu = function_exists('apcu_fetch') && function_exists('apcu_store');
@@ -275,21 +300,21 @@ if ($action === 'sync') {
         $sessionKey, $userId, (string)$user['display_name'], (string)$user['role'],
         mc_clean_hex($user['hat_color'], '#dc2626'), mc_clean_hex($user['body_color'], '#4f46e5'),
         $currentHat, $emote,
-        $x, $y, $z, $yaw, $pitch, $holding, $walking, $inFps,
+        $x, $y, $z, $yaw, $pitch, $holding, $walking, $inFps, $petJson,
     ];
-    $baseCols = 'session_id, user_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps';
+    $baseCols = 'session_id, user_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps, pet_json';
     $baseUpd = 'user_id=VALUES(user_id), display_name=VALUES(display_name), role=VALUES(role),
                 hat_color=VALUES(hat_color), body_color=VALUES(body_color),
                 current_hat=VALUES(current_hat), emote=VALUES(emote),
                 x=VALUES(x), y=VALUES(y), z=VALUES(z), yaw=VALUES(yaw), pitch=VALUES(pitch),
-                holding_item=VALUES(holding_item), walking=VALUES(walking), in_fps=VALUES(in_fps), last_seen=NOW()';
+                holding_item=VALUES(holding_item), walking=VALUES(walking), in_fps=VALUES(in_fps), pet_json=VALUES(pet_json), last_seen=NOW()';
 
     if ($chatMsg !== null) {
-        $sql = "INSERT INTO mc_sessions ($baseCols, chat_msg, chat_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        $sql = "INSERT INTO mc_sessions ($baseCols, chat_msg, chat_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                 ON DUPLICATE KEY UPDATE $baseUpd, chat_msg=VALUES(chat_msg), chat_at=NOW()";
         $params[] = $chatMsg;
     } else {
-        $sql = "INSERT INTO mc_sessions ($baseCols, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        $sql = "INSERT INTO mc_sessions ($baseCols, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
                 ON DUPLICATE KEY UPDATE $baseUpd";
     }
     $pdo->prepare($sql)->execute($params);
@@ -345,7 +370,7 @@ if ($action === 'sync') {
         }
     }
 
-    $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps,
+    $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps, pet_json,
             IF(chat_at IS NOT NULL AND chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), chat_msg, NULL) AS chat_msg
         FROM mc_sessions WHERE session_id != ? ORDER BY session_id ASC LIMIT 60');
     $pStmt->execute([$sessionKey]);
@@ -381,6 +406,7 @@ if ($action === 'sync') {
             'seated' => ((int)$p['walking'] === 2),
             'toy_mode' => ((int)$p['walking'] === 5) ? 'parachute' : (((int)$p['walking'] === 4) ? 'paraglider' : (((int)$p['walking'] === 3) ? 'snowboard' : '')),
             'in_fps' => (bool)$p['in_fps'],
+            'pets' => json_decode((string)($p['pet_json'] ?? ''), true) ?: null,
             'chat' => $p['chat_msg'],
         ];
     }

@@ -184,6 +184,24 @@ test('RELEASE_NOTES_CATALOG tem notas simples da v1.8.1 e modal fecha apenas pel
   assert.equal(modalNode.classList.contains('hidden'), false);
   elements.get('#btn-close-whats-new').dispatchClick();
   assert.equal(modalNode.classList.contains('hidden'), true);
+
+  const { setLanguage } = await import('../js/core/i18n.js');
+  setLanguage('en', { persist: false, apply: false });
+  showWhatsNewModal('2.3.5');
+  assert.equal(elements.get('#whats-new-title').textContent, '✨ What’s new in v2.3.5');
+  assert.match(elements.get('#whats-new-list').innerHTML, /fountain has a new model/);
+  assert.equal(elements.get('#btn-confirm-whats-new').textContent, '✅ Got it, close');
+  showWhatsNewModal('2.4.0');
+  assert.equal(elements.get('#whats-new-title').textContent, '✨ What’s new in v2.4.0');
+  assert.match(elements.get('#whats-new-list').innerHTML, /Automatic quality observes performance/);
+  setLanguage('es', { persist: false, apply: false });
+  showWhatsNewModal('2.4.0');
+  assert.match(elements.get('#whats-new-title').textContent, /Novedades/);
+  assert.match(elements.get('#whats-new-list').innerHTML, /calidad automática observa/);
+  setLanguage('pt-BR', { persist: false, apply: false });
+  showWhatsNewModal('2.4.0');
+  assert.match(elements.get('#whats-new-list').innerHTML, /qualidade automática observa/);
+  elements.get('#btn-close-whats-new').dispatchClick();
   globalThis.document = prevDoc;
 });
 

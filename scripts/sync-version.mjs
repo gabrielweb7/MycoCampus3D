@@ -10,6 +10,15 @@ const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 pkg.version = version;
 fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n', 'utf8');
 
+// Keep the root package metadata in the existing lockfile in sync, without
+// changing the resolved dependency tree.
+if (fs.existsSync('package-lock.json')) {
+  const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+  lock.version = version;
+  if (lock.packages && lock.packages['']) lock.packages[''].version = version;
+  fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n', 'utf8');
+}
+
 // 2. sw.js
 let sw = fs.readFileSync('sw.js', 'utf8');
 sw = sw

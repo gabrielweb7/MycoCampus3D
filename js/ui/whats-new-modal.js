@@ -4,11 +4,23 @@
  */
 
 import { releaseInputForModal } from './dom-helpers.js';
+import { t } from '../core/i18n.js';
 
 const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.4.0': {
+    title: '✨ Novidades da Atualização v2.4.0',
+    subtitle: 'Primeiros passos e qualidade automática',
+    items: [
+      { icon: '🍄', text: 'Um tutorial opcional apresenta os controles, o laboratório e o começo do cultivo.' },
+      { icon: '⚡', text: 'A qualidade automática observa o desempenho por mais tempo e guarda a melhor opção neste dispositivo.' },
+      { icon: '⚙️', text: 'HUD, menus e configurações ficaram mais claros em telas pequenas e no PC.' },
+      { icon: '📦', text: 'Compras de insumos agora registram a entrega junto com o pagamento e podem ser confirmadas após uma queda de conexão.' },
+      { icon: '🐾', text: 'Gatos e cachorros chegaram à loja! Escolha quem vai acompanhar você, deixe passear e cuide dos potinhos.' }
+    ]
+  },
   '2.3.5': {
     title: '✨ Novidades da Atualização v2.3.5',
     subtitle: 'Praça e laboratório renovados',
@@ -230,11 +242,35 @@ export const RELEASE_NOTES_CATALOG = {
 };
 
 function getCurrentNotes(ver) {
+  if (ver === '2.4.0') {
+    return {
+      title: t('news.240.title'),
+      subtitle: t('news.240.subtitle'),
+      items: [
+        { icon: '🍄', text: t('news.240.tutorial') },
+        { icon: '⚡', text: t('news.240.quality') },
+        { icon: '⚙️', text: t('news.240.hud') },
+        { icon: '📦', text: t('news.240.shop') },
+        { icon: '🐾', text: t('news.240.pets') }
+      ]
+    };
+  }
+  if (ver === '2.3.5') {
+    return {
+      title: t('news.235.title'),
+      subtitle: t('news.235.subtitle'),
+      items: [
+        { icon: '⛲', text: t('news.235.fountain') },
+        { icon: '🔬', text: t('news.235.lab') },
+        { icon: '🌿', text: t('news.235.grass') }
+      ]
+    };
+  }
   if (ver && RELEASE_NOTES_CATALOG[ver]) return RELEASE_NOTES_CATALOG[ver];
   if (!ver) return null;
   return {
     title: '✨ MycoCampus3D v' + ver,
-    subtitle: 'Jogo atualizado',
+    subtitle: t('news.updated'),
     items: []
   };
 }
@@ -337,9 +373,13 @@ export function showWhatsNewModal(ver) {
   const titleEl = modal.querySelector('#whats-new-title');
   const subEl = modal.querySelector('#whats-new-subtitle');
   const listEl = modal.querySelector('#whats-new-list');
+  const closeEl = modal.querySelector('#btn-close-whats-new');
+  const confirmEl = modal.querySelector('#btn-confirm-whats-new');
 
   if (titleEl) titleEl.textContent = notes.title;
   if (subEl) subEl.textContent = notes.subtitle;
+  if (closeEl) closeEl.setAttribute('aria-label', t('news.close'));
+  if (confirmEl) confirmEl.textContent = t('news.confirm');
   if (listEl) {
     listEl.innerHTML = notes.items
       .map((it) => `<li class="flex items-start gap-2 rounded-xl bg-slate-800/70 border border-slate-700/60 px-2.5 py-2"><span class="text-base leading-none shrink-0 mt-0.5">${it.icon}</span><span>${it.text}</span></li>`)

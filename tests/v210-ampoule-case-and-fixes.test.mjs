@@ -249,7 +249,8 @@ test('Persistência completa de conta: MycoCoins sem trava de authToken, buy_sup
   assert.ok(authPhp.includes("action === 'buy_supply'"));
   assert.ok(authPhp.includes("action === 'sync_progress'"));
   SHOP_SUPPLIES.forEach((sup) => {
-    assert.ok(authPhp.includes(`'${sup.id}'`), `MC_SHOP_SUPPLIES missing ${sup.id}`);
+    assert.ok(authPhp.includes(`'${sup.id}' => ['prefab_id' => '${sup.prefabId}', 'price_coins' => ${sup.price_coins},`),
+      `Catálogo do servidor não corresponde à entrega e ao preço de ${sup.id}`);
   });
 
   const dbPhp = fs.readFileSync(path.resolve('api/db.php'), 'utf8');
@@ -261,4 +262,91 @@ test('Persistência completa de conta: MycoCoins sem trava de authToken, buy_sup
   assert.equal(getLocalMycoCoins(), 1350);
   setMycoCoinsUserScope(null);
   assert.equal(getLocalMycoCoins(), 250);
+});
+
+test('compra pendente sobrevive à resposta perdida e reenvia o mesmo pedido sem cobrar duas vezes', async () => {
+  const { appState } = await import('../js/core/state.js');
+  const { orderShopSupply, retryPendingShopPurchase } = await import('../js/services/shop-purchases.js');
+  const { setMycoCoinsUserScope } = await import('../js/items/dehydration-packaging.js');
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const values = new Map();
+  globalThis.localStorage = { getItem: (k) => values.get(k) ?? null, setItem: (k, v) => values.set(k, String(v)), removeItem: (k) => values.delete(k) };
+  const buyer = { id: 91, display_name: 'Jogador', role: 'student', myco_coins: 250, completed_modules: [] };
+  appState.currentUser = buyer;
+  setMycoCoinsUserScope(buyer.id);
+  let orderId = '';
+  let balance = 250;
+  let calls = 0;
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes('shop_capabilities')) return { status: 200, text: async () => '{"ok":true,"durable_delivery":1}' };
+    const body = JSON.parse(opts.body);
+    calls++;
+    if (!orderId) { orderId = body.order_id; balance -= 30; throw new Error('resposta perdida'); }
+    assert.equal(body.order_id, orderId);
+    return { status: 200, text: async () => JSON.stringify({ ok: true, delivery_id: 'dyn_shop_test', user: { ...buyer, myco_coins: balance } }) };
+  };
+  try {
+    const result = await orderShopSupply('sup_pp5', { x: 1, y: 0, z: 2, ry: 0 });
+    assert.equal(result.pending, true);
+    assert.ok(values.has('myco_shop_order_v1_91'));
+    appState.currentUser = { id: 92 };
+    assert.equal(await retryPendingShopPurchase(true), null);
+    appState.currentUser = buyer;
+    const confirmed = await retryPendingShopPurchase(true);
+    assert.equal(confirmed.ok, true);
+    assert.equal(calls, 2);
+    assert.equal(appState.currentUser.myco_coins, 220);
+    assert.equal(values.has('myco_shop_order_v1_91'), false);
+  } finally {
+    appState.currentUser = null;
+    setMycoCoinsUserScope(null);
+    globalThis.fetch = originalFetch;
+    if (originalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = originalStorage;
+  }
+});
+
+test('sincronização só confirma versões após aplicar layout e posição da entrega', async () => {
+  const { appState } = await import('../js/core/state.js');
+  const { syncMultiplayer } = await import('../js/services/multiplayer-sync.js');
+  const originalFetch = globalThis.fetch;
+  const oldWindow = { ...globalThis.window };
+  const previous = { ...appState };
+  Object.assign(appState, { currentUser: { id: 93 }, syncInFlight: false, syncQueued: false, isInitialSync: false,
+    lastLayoutVer: 'old-layout', lastObjVer: 'old-objects', syncFailures: 0 });
+  let failLayout = true;
+  const calls = [];
+  window.getCampusPlayerPose = () => ({ x: 0, y: 0, z: 0, yaw: 0, pitch: 0 });
+  window.consumeCampusMovedItems = () => [];
+  window.applyCampusLayoutEdits = () => { calls.push('layout'); if (failLayout) throw new Error('ainda carregando'); };
+  window.applyCampusWorldObjects = () => calls.push('objects');
+  const sentVersions = [];
+  globalThis.fetch = async (_url, opts) => {
+    const body = JSON.parse(opts.body);
+    sentVersions.push([body.layout_ver, body.obj_ver]);
+    return { status: 200, text: async () => JSON.stringify({ ok: true, layout_ver: 'new-layout', obj_ver: 'new-objects',
+      layout_edits: { dyn_shop_1: { prefab_id: 'pp5_cup' } }, objects: { dyn_shop_1: { x: 1, y: 0, z: 2 } } }) };
+  };
+  try {
+    await syncMultiplayer();
+    assert.equal(appState.lastLayoutVer, 'old-layout');
+    assert.equal(appState.lastObjVer, 'old-objects');
+    assert.equal(appState.syncFailures, 1);
+    failLayout = false;
+    await syncMultiplayer();
+    assert.deepEqual(sentVersions, [['old-layout', 'old-objects'], ['old-layout', 'old-objects']]);
+    assert.deepEqual(calls, ['layout', 'layout', 'objects']);
+    assert.equal(appState.lastLayoutVer, 'new-layout');
+    assert.equal(appState.lastObjVer, 'new-objects');
+    assert.equal(appState.syncFailures, 0);
+    window.getCampusPlayerPose = () => { throw new Error('câmera indisponível'); };
+    await syncMultiplayer();
+    assert.equal(appState.syncInFlight, false, 'falha antes da requisição não deve travar a sincronização');
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.keys(window).forEach((key) => { if (!(key in oldWindow)) delete window[key]; });
+    Object.assign(window, oldWindow);
+    Object.assign(appState, previous);
+  }
 });

@@ -10,6 +10,7 @@ import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
 import { initPwaFeatures, requestScreenWakeLock, releaseScreenWakeLock } from '../engine/haptics-wakelock.js';
 import { apiPost } from '../services/api-client.js';
+import { preserveNewerPetState } from '../services/pets.js';
 import { checkForApkUpdate } from '../services/apk-updater.js';
 import { syncMultiplayer, sendLeaveBeacon } from '../services/multiplayer-sync.js';
 import { MUSHROOM_SPECIES_CATALOG } from '../world/mushroom-species.js';
@@ -36,8 +37,9 @@ import {
   updateFpsUi,
   updateUserHud
 } from './hud-lobby.js';
-import { claimLabQuestReward, completeLabStep, renderMapModal, renderQuestModal } from './quest-map.js';
+import { CAMPUS_SECTORS, claimLabQuestReward, completeLabStep, renderMapModal, renderQuestModal } from './quest-map.js';
 import { renderShopModal } from './modal-shop.js';
+import { initFirstSteps } from './first-steps.js';
 import { broadcastSlide, renderLessonsModal } from './modal-lessons.js';
 import { openGreenhouseControlModal } from './modal-greenhouse.js';
 import { renderLabGuideModal } from './modal-lab-guide.js';
@@ -51,7 +53,7 @@ import {
   showAdminNotice
 } from './modal-admin.js';
 import { setupMobileJoystick } from './mobile-controls.js';
-import { checkAndShowWhatsNewModal, showWhatsNewModal } from './whats-new-modal.js';
+import { showWhatsNewModal } from './whats-new-modal.js';
 import { initModalWindowManager } from './modal-window-manager.js';
 import { togglePhotoMode } from './photo-mode.js';
 
@@ -77,7 +79,8 @@ async function harvestMushroom(mushId) {
   try {
     const data = await apiPost('api/auth.php?action=harvest', { mushroom_id: mushId || '' }, true);
     if (data.ok && data.user) {
-      appState.currentUser = data.user;
+      if (appState.currentUser?.id !== data.user.id) return;
+      appState.currentUser = preserveNewerPetState(appState.currentUser, data.user);
       updateUserHud();
     }
   } catch (e) {}
@@ -88,7 +91,8 @@ async function harvestGreenhouseSlot(slot) {
   try {
     const data = await apiPost('api/auth.php?action=harvest_greenhouse', { slot_id: slot.id }, true);
     if (data.ok && data.user) {
-      appState.currentUser = data.user;
+      if (appState.currentUser?.id !== data.user.id) return;
+      appState.currentUser = preserveNewerPetState(appState.currentUser, data.user);
       updateUserHud();
       showFloatingToast('🍄 +50 XP e +2 Cogumelos colhidos na Estufa!');
     }
@@ -96,6 +100,30 @@ async function harvestGreenhouseSlot(slot) {
 }
 
 let mobilePlacementModeActive = false;
+
+function syncSettingsStatus() {
+  const qualityStatus = $('settings-quality-current');
+  const quality = window.getCampusQualityState?.();
+  const mode = quality?.mode === 'auto' ? 'auto' : (quality?.mode || quality?.tier);
+  if (qualityStatus) {
+    qualityStatus.textContent = ['auto', 'high', 'medium', 'low', 'min'].includes(mode)
+      ? t('settings.quality_current', { value: t('settings.quality_' + mode) }) : '';
+  }
+  if (typeof window.MycoAudio?.isMuted === 'function') {
+    const muted = window.MycoAudio.isMuted();
+    const status = t(muted ? 'settings.audio_off' : 'settings.audio_on');
+    const audioStatus = $('settings-audio-current');
+    const audioButton = $('btn-toggle-audio');
+    const settingsButton = $('btn-settings-audio');
+    if (audioStatus) audioStatus.textContent = status;
+    if (audioButton) {
+      audioButton.textContent = muted ? '🔇' : '🔊';
+      audioButton.setAttribute('aria-label', status);
+      audioButton.setAttribute('aria-pressed', String(!muted));
+    }
+    if (settingsButton) settingsButton.setAttribute('aria-pressed', String(!muted));
+  }
+}
 
 function bindModalsAndToolbar() {
   const btnQuality = $('btn-quality');
@@ -108,6 +136,7 @@ function bindModalsAndToolbar() {
       const curKey = qModes.indexOf(cur.mode) !== -1 ? cur.mode : cur.tier;
       const idx = qModes.indexOf(curKey);
       window.setCampusQualityMode(qModes[(idx + 1) % qModes.length]);
+      syncSettingsStatus();
     };
   }
 
@@ -148,7 +177,11 @@ function bindModalsAndToolbar() {
   const btnToggleFps = $('btn-toggle-fps');
   if (btnToggleFps) btnToggleFps.onclick = () => window.setCampusFpsMode(!appState.inFps);
   const btnLogout = $('btn-logout');
-  if (btnLogout) btnLogout.onclick = logoutCampus;
+  if (btnLogout) btnLogout.onclick = async () => {
+    if (btnLogout.disabled) return;
+    btnLogout.disabled = true;
+    try { await logoutCampus(); } finally { btnLogout.disabled = false; }
+  };
 
   const heldDropBtn = $('btn-held-drop');
   if (heldDropBtn) {
@@ -303,6 +336,7 @@ function bindModalsAndToolbar() {
     btnOpenSettings.onclick = () => {
       if (window.MycoAudio) window.MycoAudio.playClick();
       releaseInputForModal();
+      syncSettingsStatus();
       $('settings-modal')?.classList.remove('hidden');
     };
   }
@@ -335,7 +369,7 @@ function bindModalsAndToolbar() {
   }
   const btnSettingsQuality = $('btn-settings-quality');
   if (btnSettingsQuality && btnQuality) {
-    btnSettingsQuality.onclick = (e) => btnQuality.onclick(e);
+    btnSettingsQuality.onclick = () => btnQuality.click();
   }
   const btnSettingsAudio = $('btn-settings-audio');
   if (btnSettingsAudio) {
@@ -387,14 +421,15 @@ function bindModalsAndToolbar() {
 
   const audioBtn = $('btn-toggle-audio');
   if (audioBtn) {
-    audioBtn.textContent = (window.MycoAudio && window.MycoAudio.isMuted()) ? '🔇' : '🔊';
     audioBtn.onclick = () => {
       if (window.MycoAudio) {
-        const muted = window.MycoAudio.toggleMute();
-        audioBtn.textContent = muted ? '🔇' : '🔊';
+        window.MycoAudio.toggleMute();
+        syncSettingsStatus();
       }
     };
   }
+  syncSettingsStatus();
+  events.on('language:changed', syncSettingsStatus);
 
   if ($('btn-open-admin')) $('btn-open-admin').onclick = openAdminModal;
   if ($('btn-close-admin')) $('btn-close-admin').onclick = closeAdminModal;
@@ -779,7 +814,7 @@ export function bootApp() {
     try {
       const res = await apiPost('api/auth.php?action=sync_progress', { progress: partialProgress }, true);
       if (res && res.ok && res.user && appState.currentUser?.id === userId) {
-        appState.currentUser.progress = res.user.progress;
+        appState.currentUser.progress = preserveNewerPetState(appState.currentUser, res.user).progress;
       }
       return res;
     } catch (e) {
@@ -1032,6 +1067,7 @@ export function bootApp() {
       qBtn.textContent = `⚡ ${modePrefix}${fpsTxt}`;
       qBtn.className = 'hud-pill-btn px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 font-bold border whitespace-nowrap ' +
         (info.tier === 'min' || info.tier === 'low' ? 'text-amber-300 border-amber-500/40' : 'text-cyan-300 border-cyan-500/40');
+      syncSettingsStatus();
     },
     onHoverPrompt: (txt) => {
       currentHoverPrompt = txt || '';
@@ -1098,7 +1134,7 @@ export function bootApp() {
       }
 
       try {
-        enterCampus(data.user, data.token || '');
+        enterCampus(data.user, data.token || '', !!data.created);
       } catch (uiErr) {
         console.error('[MycoCampus3D] Erro ao iniciar o campus após login:', uiErr);
         if (errBox) {
@@ -1126,6 +1162,10 @@ export function bootApp() {
   window.addEventListener('mousedown', onFirstGameGesture, { passive: true });
 
   bindModalsAndToolbar();
+  initFirstSteps({ onGoToLab: () => {
+    const lab = CAMPUS_SECTORS.find((sector) => sector.id === 'lab');
+    if (lab && window.teleportCampusPlayer) window.teleportCampusPlayer(lab.x, lab.y, lab.z, lab.yaw);
+  } });
   initModalWindowManager(appState.currentUser);
   bindChatAndShortcuts();
 
@@ -1171,9 +1211,6 @@ export function bootApp() {
 
   tryResumeSession();
   if (window.setCampusCinemaLessons) window.setCampusCinemaLessons(LESSONS);
-  setTimeout(() => {
-    checkAndShowWhatsNewModal(window.MYCO_VERSION || getAppVersion());
-  }, 450);
   setTimeout(() => {
     checkForApkUpdate().catch(() => {});
   }, 1500);

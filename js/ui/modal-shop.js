@@ -4,6 +4,10 @@
 import { appState } from '../core/state.js';
 import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
+import { preserveNewerPetState } from '../services/pets.js';
+import { pendingCoinOperations } from '../services/coin-outbox.js';
+import { orderShopSupply } from '../services/shop-purchases.js';
+import { renderPetShop } from './pet-shop.js';
 import { $, escapeHtml } from './dom-helpers.js';
 import { updateUserHud } from './hud-lobby.js';
 import { getLocalMycoCoins, addLocalMycoCoins, setLocalMycoCoins } from '../items/dehydration-packaging.js';
@@ -44,6 +48,10 @@ export const SHOP_SUPPLIES = [
 ];
 
 let activeShopTab = 'hats';
+
+events.on('pets:changed', () => {
+  if (activeShopTab === 'pets' && !$('shop-modal')?.classList.contains('hidden')) renderShopModal();
+});
 
 function toast3D(msg) {
   if (window.showCampusToast) window.showCampusToast(msg);
@@ -102,16 +110,26 @@ export function renderShopModal() {
 
   const tabHats = $('shop-tab-hats');
   const tabToys = $('shop-tab-toys');
+  const tabPets = $('shop-tab-pets');
   const tabSupplies = $('shop-tab-supplies');
   if (tabHats && tabToys) {
     tabHats.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'hats' ? 'bg-purple-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
     tabToys.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'toys' ? 'bg-cyan-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+    if (tabPets) {
+      tabPets.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'pets' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+      tabPets.onclick = () => { activeShopTab = 'pets'; renderShopModal(); };
+    }
     if (tabSupplies) {
       tabSupplies.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'supplies' ? 'bg-emerald-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
       tabSupplies.onclick = () => { activeShopTab = 'supplies'; renderShopModal(); };
     }
     tabHats.onclick = () => { activeShopTab = 'hats'; renderShopModal(); };
     tabToys.onclick = () => { activeShopTab = 'toys'; renderShopModal(); };
+  }
+
+  if (activeShopTab === 'pets') {
+    renderPetShop(grid, renderShopModal);
+    return;
   }
 
   if (activeShopTab === 'supplies') {
@@ -149,28 +167,42 @@ export function renderShopModal() {
           btn.disabled = true;
           try {
             if (appState.currentUser) {
-              if (window.flushCampusMycoCoins) await window.flushCampusMycoCoins();
-              const buyRes = await apiPost('api/auth.php?action=buy_supply', { supply_id: sup.id }, true);
-              if (!buyRes || !buyRes.ok || !buyRes.user) {
-                toast3D('❌ ' + ((buyRes && buyRes.error) || 'Não foi possível concluir a compra no servidor.'));
+              const userId = appState.currentUser.id;
+              const delivery = window.getCampusShopDeliveryPose?.(sup.prefabId);
+              if (!delivery) {
+                toast3D('⚠️ Aguarde o campus carregar e entre no jogo para receber a entrega.');
                 btn.disabled = false;
                 return;
               }
-              appState.currentUser = buyRes.user;
-              setLocalMycoCoins(buyRes.user.myco_coins);
+              if (window.flushCampusMycoCoins) await window.flushCampusMycoCoins();
+              if (appState.currentUser?.id !== userId) return;
+              if (pendingCoinOperations(userId).length) {
+                toast3D('⌛ Aguarde a sincronização das moedas e tente novamente.');
+                btn.disabled = false;
+                return;
+              }
+              const buyRes = await orderShopSupply(sup.id, delivery);
+              if (!buyRes?.ok) {
+                toast3D((buyRes?.pending ? '⌛ ' : '❌ ') + (buyRes?.error || 'Não foi possível concluir a compra no servidor.'));
+                btn.disabled = false;
+                return;
+              }
+            } else {
+              const spawned = window.spawnCampusShopItem ? window.spawnCampusShopItem(sup.prefabId) : null;
+              if (!spawned) {
+                toast3D('⚠️ Entre no Campus 3D para receber sua entrega!');
+                btn.disabled = false;
+                return;
+              }
+              addLocalMycoCoins(-sup.price_coins);
             }
-            const spawned = window.spawnCampusShopItem ? window.spawnCampusShopItem(sup.prefabId) : null;
-            if (!spawned) {
-              toast3D('⚠️ Entre no Campus 3D para receber sua entrega!');
-              btn.disabled = false;
-              return;
-            }
-            if (!appState.currentUser) addLocalMycoCoins(-sup.price_coins);
             if (window.MycoAudio && window.MycoAudio.playCashRegister) window.MycoAudio.playCashRegister();
             updateUserHud();
             $('shop-modal')?.classList.add('hidden');
             events.emit('sync:now');
-            toast3D(`📦 ${sup.name} entregue bem à sua frente!`);
+            toast3D(appState.currentUser
+              ? `📦 ${sup.name}: compra confirmada. A entrega está sendo sincronizada no campus.`
+              : `📦 ${sup.name} entregue bem à sua frente!`);
           } catch (e) {
             toast3D('❌ ' + (e.message || 'Erro ao comprar insumo.'));
             btn.disabled = false;
@@ -245,7 +277,8 @@ export function renderShopModal() {
           try {
             const res = await apiPost('api/auth.php?action=equip_cosmetic', { hat_id: 'none' }, true);
             if (res.ok && res.user) {
-              appState.currentUser = res.user;
+              if (appState.currentUser?.id !== res.user.id) return;
+              appState.currentUser = preserveNewerPetState(appState.currentUser, res.user);
               if (window.setLocalAvatarHat) window.setLocalAvatarHat('none');
               updateUserHud();
               renderShopModal();
@@ -275,7 +308,8 @@ export function renderShopModal() {
           try {
             const res = await apiPost('api/auth.php?action=equip_cosmetic', { hat_id: item.id }, true);
             if (res.ok && res.user) {
-              appState.currentUser = res.user;
+              if (appState.currentUser?.id !== res.user.id) return;
+              appState.currentUser = preserveNewerPetState(appState.currentUser, res.user);
               if (window.setLocalAvatarHat) window.setLocalAvatarHat(item.id);
               updateUserHud();
               renderShopModal();
@@ -298,7 +332,8 @@ export function renderShopModal() {
             if (appState.currentUser) {
               const coinRes = await apiPost('api/auth.php?action=buy_cosmetic', { hat_id: item.id, by_coins: true }, true);
               if (coinRes && coinRes.ok && coinRes.user) {
-                appState.currentUser = coinRes.user;
+                if (appState.currentUser?.id !== coinRes.user.id) return;
+                appState.currentUser = preserveNewerPetState(appState.currentUser, coinRes.user);
                 setLocalMycoCoins(coinRes.user.myco_coins ?? getLocalMycoCoins());
                 syncedFromServer = true;
               } else if (coinRes && coinRes.error) {
@@ -339,7 +374,8 @@ export function renderShopModal() {
           }
           const res = await apiPost('api/auth.php?action=buy_cosmetic', { hat_id: item.id }, true);
           if (res.ok && res.user) {
-            appState.currentUser = res.user;
+            if (appState.currentUser?.id !== res.user.id) return;
+            appState.currentUser = preserveNewerPetState(appState.currentUser, res.user);
             if (isToy) {
               if (item.id === 'paraglider') {
                 if (window.setCampusSnowboard) window.setCampusSnowboard(false);

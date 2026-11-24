@@ -96,25 +96,64 @@ const MC_COSMETIC_TOYS = [
     ],
 ];
 
+/** Pet state is only changed by the authenticated pet action, never by sync_progress. */
+function mc_clean_pet_state($raw): array {
+    if (!is_array($raw)) $raw = [];
+    $owned = [];
+    foreach (is_array($raw['owned'] ?? null) ? $raw['owned'] : [] as $id) {
+        if (is_string($id) && in_array($id, MC_PETS, true) && !in_array($id, $owned, true)) $owned[] = $id;
+    }
+    $selected = is_string($raw['selected'] ?? null) && in_array($raw['selected'], $owned, true) ? $raw['selected'] : '';
+    $bowls = [];
+    foreach (['food', 'water'] as $kind) {
+        $b = is_array($raw['bowls'][$kind] ?? null) ? $raw['bowls'][$kind] : [];
+        $pos = null;
+        if (is_array($b['pos'] ?? null)) {
+            $p = $b['pos'];
+            if (isset($p['x'], $p['y'], $p['z']) && is_numeric($p['x']) && is_numeric($p['y']) && is_numeric($p['z']) &&
+                is_finite((float)$p['x']) && is_finite((float)$p['y']) && is_finite((float)$p['z']) &&
+                abs((float)$p['x']) <= 500 && abs((float)$p['y']) <= 500 && abs((float)$p['z']) <= 500) {
+                $pos = ['x' => (float)$p['x'], 'y' => (float)$p['y'], 'z' => (float)$p['z']];
+            }
+        }
+        $bowls[$kind] = ['owned' => !empty($b['owned']), 'pos' => $pos, 'full' => !empty($b['owned']) && !empty($b['full'])];
+    }
+    $nextFood = [];
+    $nextWater = [];
+    $rawFood = is_array($raw['next_food'] ?? null) ? $raw['next_food'] : [];
+    $rawWater = is_array($raw['next_water'] ?? null) ? $raw['next_water'] : [];
+    foreach ($owned as $id) {
+        $nextFood[$id] = max(0, (int)($rawFood[$id] ?? 0));
+        $nextWater[$id] = max(0, (int)($rawWater[$id] ?? 0));
+    }
+    return [
+        'owned' => $owned, 'selected' => $selected,
+        'revision' => max(0, (int)($raw['revision'] ?? 0)),
+        'mode' => ($raw['mode'] ?? '') === 'roam' ? 'roam' : 'follow',
+        'bowls' => $bowls, 'cat_food' => max(0, min(999, (int)($raw['cat_food'] ?? 0))),
+        'next_food' => $nextFood, 'next_water' => $nextWater,
+    ];
+}
+
 const MC_SHOP_SUPPLIES = [
-    'sup_pp5' => ['price_coins' => 30, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_syringe' => ['price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_water_spray' => ['price_coins' => 35, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_lc_nutrient' => ['price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_petri' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_mylar' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_h2o2' => ['price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_flocao' => ['price_coins' => 50, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_spray' => ['price_coins' => 60, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_spawn_jar' => ['price_coins' => 70, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_spawn_bag' => ['price_coins' => 85, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_lc' => ['price_coins' => 90, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_crate' => ['price_coins' => 110, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_silica' => ['price_coins' => 140, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_monotub' => ['price_coins' => 260, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_table' => ['price_coins' => 320, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_dehydrator' => ['price_coins' => 380, 'req_xp' => 0, 'req_mushrooms' => 0],
-    'sup_ampoule_case' => ['price_coins' => 1000, 'req_xp' => 1000, 'req_mushrooms' => 100],
+    'sup_pp5' => ['prefab_id' => 'pp5_cup', 'price_coins' => 30, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_syringe' => ['prefab_id' => 'syringe_10ml', 'price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_water_spray' => ['prefab_id' => 'water_spray', 'price_coins' => 35, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_lc_nutrient' => ['prefab_id' => 'lc_nutrient_bottle', 'price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_petri' => ['prefab_id' => 'petri_empty', 'price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_mylar' => ['prefab_id' => 'mylar_bag', 'price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_h2o2' => ['prefab_id' => 'h2o2_spray', 'price_coins' => 45, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_flocao' => ['prefab_id' => 'flocao_500g', 'price_coins' => 50, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_spray' => ['prefab_id' => 'alcohol_spray', 'price_coins' => 60, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_spawn_jar' => ['prefab_id' => 'spawn_jar', 'price_coins' => 70, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_spawn_bag' => ['prefab_id' => 'spawn_bag', 'price_coins' => 85, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_lc' => ['prefab_id' => 'liquid_culture', 'price_coins' => 90, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_crate' => ['prefab_id' => 'delivery_crate', 'price_coins' => 110, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_silica' => ['prefab_id' => 'silica_jar', 'price_coins' => 140, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_monotub' => ['prefab_id' => 'monotub_24l', 'price_coins' => 260, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_table' => ['prefab_id' => 'table_stainless', 'price_coins' => 320, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_dehydrator' => ['prefab_id' => 'dehydrator', 'price_coins' => 380, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_ampoule_case' => ['prefab_id' => 'ampoule_case', 'price_coins' => 1000, 'req_xp' => 1000, 'req_mushrooms' => 100],
 ];
 
 const MC_LAB_QUEST_KEYS = [
@@ -168,6 +207,7 @@ function mc_clean_progress($raw): array {
         'lab_quest_steps' => $questSteps,
         'lab_tutorial_done' => !empty($raw['lab_tutorial_done']),
         'equipped_toy' => $equippedToy,
+        'pets' => mc_clean_pet_state($raw['pets'] ?? null),
     ];
 }
 
@@ -597,30 +637,156 @@ if ($action === 'sync_coins') {
     mc_json(['ok' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
-if ($action === 'buy_supply') {
+if ($action === 'shop_capabilities') {
+    mc_json(['ok' => true, 'durable_delivery' => 1]);
+}
+
+if ($action === 'buy_supply' || $action === 'buy_supply_durable') {
     mc_require_post();
     $user = mc_require_user($pdo);
     $supId = (string)($body['supply_id'] ?? '');
     if (!isset(MC_SHOP_SUPPLIES[$supId])) {
-        mc_json(['ok' => false, 'error' => 'Insumo não encontrado na loja.'], 404);
+        mc_json(['ok' => false, 'error' => 'Insumo não encontrado na loja.', 'charged' => false], 404);
     }
     $sup = MC_SHOP_SUPPLIES[$supId];
     $price = (int)$sup['price_coins'];
     $reqXp = (int)$sup['req_xp'];
     $reqMush = (int)$sup['req_mushrooms'];
+    // New clients request an idempotent, server-persisted delivery. The legacy
+    // path remains available for clients deployed before this capability.
+    $orderId = $action === 'buy_supply_durable' ? ($body['order_id'] ?? '') : null;
+    $deliveryId = null;
+    $pose = null;
+    if ($orderId !== null) {
+        if (!is_string($orderId) || !preg_match('/\Apurchase_' . preg_quote($supId, '/') . '_[a-f0-9]{32}\z/', $orderId)) {
+            mc_json(['ok' => false, 'error' => 'Pedido inválido.', 'charged' => false], 400);
+        }
+        $pose = $body['delivery'] ?? null;
+        if (!is_array($pose)) mc_json(['ok' => false, 'error' => 'Local de entrega inválido.', 'charged' => false], 400);
+        foreach (['x' => 220, 'y' => 50, 'z' => 220, 'ry' => 1000] as $key => $limit) {
+            if (!isset($pose[$key]) || !is_numeric($pose[$key]) || !is_finite((float)$pose[$key]) || abs((float)$pose[$key]) > $limit) {
+                mc_json(['ok' => false, 'error' => 'Local de entrega inválido.', 'charged' => false], 400);
+            }
+        }
+        $deliveryId = 'dyn_shop_' . substr(hash('sha256', (string)$user['id'] . ':' . $orderId), 0, 32);
+    }
 
     $pdo->beginTransaction();
     try {
         $st = $pdo->prepare('SELECT xp, mushrooms_harvested, COALESCE(myco_coins, 250) AS myco_coins FROM mc_users WHERE id = ? FOR UPDATE');
         $st->execute([(int)$user['id']]);
         $row = $st->fetch();
-        if (!$row || (int)$row['xp'] < $reqXp || (int)$row['mushrooms_harvested'] < $reqMush || (int)$row['myco_coins'] < $price) {
-            $pdo->rollBack();
-            mc_json(['ok' => false, 'error' => 'Requisitos ou MycoCoins insuficientes para comprar este item.'], 400);
+        $alreadyPurchased = false;
+        if ($orderId !== null) {
+            $seen = $pdo->prepare('SELECT 1 FROM mc_coin_operations WHERE user_id = ? AND operation_id = ?');
+            $seen->execute([(int)$user['id'], $orderId]);
+            $alreadyPurchased = (bool)$seen->fetchColumn();
         }
-        $upd = $pdo->prepare('UPDATE mc_users SET myco_coins = GREATEST(0, COALESCE(myco_coins, 250) - ?), last_seen = NOW() WHERE id = ?');
-        $upd->execute([$price, (int)$user['id']]);
+        if (!$alreadyPurchased) {
+            if (!$row || (int)$row['xp'] < $reqXp || (int)$row['mushrooms_harvested'] < $reqMush || (int)$row['myco_coins'] < $price) {
+                $pdo->rollBack();
+                mc_json(['ok' => false, 'error' => 'Requisitos ou MycoCoins insuficientes para comprar este item.', 'charged' => false], 400);
+            }
+            $upd = $pdo->prepare('UPDATE mc_users SET myco_coins = GREATEST(0, COALESCE(myco_coins, 250) - ?), last_seen = NOW() WHERE id = ?');
+            $upd->execute([$price, (int)$user['id']]);
+            if ($orderId !== null) {
+                $pdo->prepare('INSERT INTO mc_coin_operations (user_id, operation_id) VALUES (?, ?)')->execute([(int)$user['id'], $orderId]);
+                $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?)')
+                    ->execute([$deliveryId, (float)$pose['x'], (float)$pose['y'], (float)$pose['z'], (float)$pose['ry']]);
+                $pdo->prepare('INSERT INTO mc_world_layout_edits (item_id, prefab_id, label, scale, removed) VALUES (?, ?, ?, 1.0, 0)')
+                    ->execute([$deliveryId, $sup['prefab_id'], '']);
+            }
+        }
         $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+    mc_json(['ok' => true, 'delivery_id' => $deliveryId, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
+}
+
+if ($action === 'pet_action') {
+    mc_require_post();
+    $user = mc_require_user($pdo);
+    $op = (string)($body['operation'] ?? '');
+    $petId = (string)($body['pet_id'] ?? '');
+    $pdo->beginTransaction();
+    try {
+        $st = $pdo->prepare('SELECT progress_json, COALESCE(myco_coins, 250) AS myco_coins FROM mc_users WHERE id = ? FOR UPDATE');
+        $st->execute([(int)$user['id']]);
+        $row = $st->fetch();
+        $progress = mc_clean_progress($row['progress_json'] ?? null);
+        $pets = $progress['pets'];
+        $price = 0;
+        $operationId = null;
+        if ($op === 'buy_pet') {
+            if (!in_array($petId, MC_PETS, true)) throw new InvalidArgumentException('Pet desconhecido.');
+            if (!in_array($petId, $pets['owned'], true)) {
+                $price = 200;
+                $pets['owned'][] = $petId;
+            }
+        } elseif ($op === 'select') {
+            if ($petId !== '' && !in_array($petId, $pets['owned'], true)) throw new InvalidArgumentException('Você ainda não comprou este pet.');
+            $pets['selected'] = $petId;
+        } elseif ($op === 'mode') {
+            $mode = (string)($body['mode'] ?? '');
+            if (!in_array($mode, ['follow', 'roam'], true)) throw new InvalidArgumentException('Modo de pet inválido.');
+            $pets['mode'] = $mode;
+        } elseif (in_array($op, ['buy_food_bowl', 'buy_water_bowl'], true)) {
+            $kind = $op === 'buy_food_bowl' ? 'food' : 'water';
+            if (!$pets['bowls'][$kind]['owned']) {
+                $price = 40;
+                $pets['bowls'][$kind]['owned'] = true;
+            }
+        } elseif ($op === 'buy_cat_food') {
+            $operationId = (string)($body['operation_id'] ?? '');
+            if (!preg_match('/^pet_food_[a-f0-9]{32}$/D', $operationId)) throw new InvalidArgumentException('Pedido de ração inválido.');
+            $check = $pdo->prepare('SELECT 1 FROM mc_coin_operations WHERE user_id = ? AND operation_id = ?');
+            $check->execute([(int)$user['id'], $operationId]);
+            if (!$check->fetchColumn()) {
+                if ($pets['cat_food'] > 994) throw new InvalidArgumentException('Você já tem bastante ração.');
+                $price = 25;
+                $pets['cat_food'] += 5;
+            } else {
+                $operationId = null;
+            }
+        } elseif (in_array($op, ['place_food', 'place_water'], true)) {
+            $kind = $op === 'place_food' ? 'food' : 'water';
+            if (!$pets['bowls'][$kind]['owned']) throw new InvalidArgumentException('Compre o potinho primeiro.');
+            $candidate = mc_clean_pet_state(['bowls' => [$kind => ['owned' => true, 'pos' => $body['pos'] ?? null]]]);
+            if (!$candidate['bowls'][$kind]['pos']) throw new InvalidArgumentException('Posição do potinho inválida.');
+            $pets['bowls'][$kind]['pos'] = $candidate['bowls'][$kind]['pos'];
+        } elseif (in_array($op, ['fill_food', 'fill_water'], true)) {
+            $kind = $op === 'fill_food' ? 'food' : 'water';
+            if (!$pets['bowls'][$kind]['pos']) throw new InvalidArgumentException('Coloque o potinho no chão primeiro.');
+            if ($pets['bowls'][$kind]['full']) throw new InvalidArgumentException('O potinho já está cheio.');
+            if ($kind === 'food') {
+                if ($pets['cat_food'] < 1) throw new InvalidArgumentException('Compre ração para gatos primeiro.');
+                $pets['cat_food']--;
+            }
+            $pets['bowls'][$kind]['full'] = true;
+        } elseif (in_array($op, ['consume_food', 'consume_water'], true)) {
+            $kind = $op === 'consume_food' ? 'food' : 'water';
+            $selected = $pets['selected'];
+            $nextKey = $kind === 'food' ? 'next_food' : 'next_water';
+            if (!$selected || ($kind === 'food' && strpos($selected, 'cat_') !== 0) || !$pets['bowls'][$kind]['pos'] || !$pets['bowls'][$kind]['full'] || ($pets[$nextKey][$selected] ?? 0) > time()) {
+                throw new InvalidArgumentException('O pet não precisa deste potinho agora.');
+            }
+            $pets['bowls'][$kind]['full'] = false;
+            $pets[$nextKey][$selected] = time() + ($kind === 'food' ? 300 : 180);
+        } else {
+            throw new InvalidArgumentException('Ação de pet desconhecida.');
+        }
+        if ((int)($row['myco_coins'] ?? 0) < $price) throw new InvalidArgumentException('MycoCoins insuficientes.');
+        $pets['revision']++;
+        $progress['pets'] = mc_clean_pet_state($pets);
+        $upd = $pdo->prepare('UPDATE mc_users SET progress_json = ?, myco_coins = COALESCE(myco_coins, 250) - ?, last_seen = NOW() WHERE id = ?');
+        $upd->execute([json_encode($progress, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $price, (int)$user['id']]);
+        if ($operationId !== null) $pdo->prepare('INSERT INTO mc_coin_operations (user_id, operation_id) VALUES (?, ?)')->execute([(int)$user['id'], $operationId]);
+        $pdo->commit();
+    } catch (InvalidArgumentException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        mc_json(['ok' => false, 'charged' => false, 'error' => $e->getMessage()], 400);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         throw $e;
@@ -648,6 +814,7 @@ if ($action === 'sync_progress') {
             'lab_quest_steps' => array_values(array_unique(array_merge($cur['lab_quest_steps'], $inc['lab_quest_steps']))),
             'lab_tutorial_done' => ($cur['lab_tutorial_done'] || $inc['lab_tutorial_done']),
             'equipped_toy' => $nextToy,
+            'pets' => $cur['pets'],
         ];
         sort($merged['micoteca_milestones']);
 

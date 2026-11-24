@@ -4,8 +4,9 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 13;
+const MC_SCHEMA_VERSION = 14;
 const MC_TOKEN_TTL_DAYS = 30;
+const MC_PETS = ['cat_orange', 'cat_black', 'cat_calico', 'dog_golden', 'dog_husky', 'dog_pug'];
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
@@ -78,6 +79,11 @@ function mc_migrate(PDO $pdo): void {
 
     if ($version < MC_SCHEMA_VERSION) {
         mc_run_schema_file($pdo);
+
+        if ($version < 14) {
+            $petColumn = $pdo->query("SHOW COLUMNS FROM mc_sessions LIKE 'pet_json'")->fetch();
+            if (!$petColumn) $pdo->exec('ALTER TABLE mc_sessions ADD COLUMN pet_json TEXT NULL');
+        }
 
         if ($version < 13) {
             $pdo->query('SELECT operation_id FROM mc_coin_operations LIMIT 0');
