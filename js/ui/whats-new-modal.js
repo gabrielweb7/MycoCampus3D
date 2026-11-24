@@ -1,5 +1,5 @@
 /**
- * MycoCampus3D — Modal de Novidades da Atualização (fecha apenas pelos botões)
+ * MycoCampus3D — Modal de Novidades da Atualização
  * Funciona tanto no PC quanto no Mobile (layout responsivo, touch-action: manipulation).
  */
 
@@ -10,6 +10,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.8.0': {
+    title: '✨ MycoCampus3D v2.8.0',
+    subtitleKey: 'news.280.subtitle',
+    items: [
+      { icon: '📦', key: 'news.280.placement' },
+      { icon: '🏡', key: 'news.280.modals' },
+      { icon: '🎄', key: 'news.280.christmas' },
+      { icon: '💬', key: 'news.280.discord' }
+    ]
+  },
   '2.7.0': {
     title: '✨ Novidades da Atualização v2.7.0',
     subtitle: 'A Vila do Campus está aberta',
@@ -295,7 +305,11 @@ function getCurrentNotes(ver) {
       ]
     };
   }
-  if (ver && RELEASE_NOTES_CATALOG[ver]) return RELEASE_NOTES_CATALOG[ver];
+  const notes = RELEASE_NOTES_CATALOG[ver];
+  if (notes?.subtitleKey) {
+    return { title: notes.title, subtitle: t(notes.subtitleKey), items: notes.items.map(({ icon, key }) => ({ icon, text: t(key) })) };
+  }
+  if (notes) return notes;
   if (!ver) return null;
   return {
     title: '✨ MycoCampus3D v' + ver,
@@ -314,16 +328,26 @@ export function markPendingAutoUpdateNotice(newVer) {
 }
 
 let lastOpenedNotesVersion = '';
+let afterNewsClosed = null;
+
+export function dismissWhatsNewModal() {
+  afterNewsClosed = null;
+  document.getElementById('whats-new-modal')?.classList.add('hidden');
+}
 
 export function closeWhatsNewModal() {
   const el = typeof document !== 'undefined' ? document.getElementById('whats-new-modal') : null;
-  if (el) el.classList.add('hidden');
+  if (!el || el.classList.contains('hidden')) return;
+  el.classList.add('hidden');
   try {
     if (typeof localStorage !== 'undefined' && lastOpenedNotesVersion) {
       localStorage.setItem(STORAGE_SEEN_KEY, String(lastOpenedNotesVersion));
       localStorage.removeItem(JUST_UPDATED_KEY);
     }
   } catch (e) {}
+  const next = afterNewsClosed;
+  afterNewsClosed = null;
+  next?.();
 }
 
 function bindCloseButton(btn) {
@@ -355,12 +379,13 @@ function ensureWhatsNewModalDom() {
   }
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'whats-new-title');
   modal.innerHTML = `
     <div id="whats-new-card" class="glass-panel max-w-md w-full max-h-[90dvh] flex flex-col rounded-2xl border border-emerald-400/50 bg-slate-900/95 shadow-2xl overflow-hidden text-slate-100 my-auto">
       <div class="px-4 py-3 border-b border-slate-700/70 flex items-center justify-between gap-2 bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-slate-900/90 shrink-0">
         <div class="min-w-0">
-          <h2 id="whats-new-title" class="text-sm sm:text-base font-extrabold text-emerald-300 truncate">✨ Novidades da Atualização</h2>
-          <p id="whats-new-subtitle" class="text-[11px] sm:text-xs text-slate-300 truncate">Veja o que foi melhorado no jogo:</p>
+          <h2 id="whats-new-title" class="text-sm sm:text-base font-extrabold text-emerald-300">✨ Novidades da Atualização</h2>
+          <p id="whats-new-subtitle" class="text-xs text-slate-300"></p>
         </div>
         <button id="btn-close-whats-new" type="button" aria-label="Fechar novidades"
           style="touch-action: manipulation;"
@@ -391,13 +416,14 @@ function ensureWhatsNewModalDom() {
   return modal;
 }
 
-export function showWhatsNewModal(ver) {
-  if (typeof window !== 'undefined' && window._reloadingVersion) return;
+export function showWhatsNewModal(ver, onClosed) {
+  if (typeof window !== 'undefined' && window._reloadingVersion) return false;
   const resolvedVer = String(ver || (typeof window !== 'undefined' && window.MYCO_VERSION) || Object.keys(RELEASE_NOTES_CATALOG)[0] || '').trim();
   const notes = getCurrentNotes(resolvedVer);
   const modal = ensureWhatsNewModalDom();
-  if (!notes || !modal) return;
+  if (!notes || !modal) return false;
 
+  if (typeof onClosed === 'function') afterNewsClosed = onClosed;
   lastOpenedNotesVersion = resolvedVer;
   const titleEl = modal.querySelector('#whats-new-title');
   const subEl = modal.querySelector('#whats-new-subtitle');
@@ -417,20 +443,19 @@ export function showWhatsNewModal(ver) {
 
   releaseInputForModal();
   modal.classList.remove('hidden');
+  confirmEl?.focus?.({ preventScroll: true });
+  return true;
 }
 
-export function checkAndShowWhatsNewModal(fallbackVer) {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-  if (window._reloadingVersion) return;
+export function checkAndShowWhatsNewModal(fallbackVer, onClosed) {
+  if (typeof window === 'undefined' || window._reloadingVersion) return false;
   const curVer = String(window.MYCO_VERSION || fallbackVer || '').trim();
-  if (!curVer) return;
+  if (!curVer) return false;
   let seen = '';
   let justUpdated = '';
   try {
     seen = localStorage.getItem(STORAGE_SEEN_KEY) || '';
     justUpdated = localStorage.getItem(JUST_UPDATED_KEY) || '';
   } catch (e) {}
-  if (justUpdated === curVer || seen !== curVer) {
-    showWhatsNewModal(curVer);
-  }
+  return (justUpdated === curVer || seen !== curVer) && showWhatsNewModal(curVer, onClosed);
 }

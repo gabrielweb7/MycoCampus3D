@@ -61,6 +61,7 @@ globalThis.window = {
     InstancedMesh: class extends MockObj { constructor(_geo, mat) { super(true, mat); this.instanceMatrix = { needsUpdate: false }; } setMatrixAt() {} },
     RingGeometry: class {},
     CircleGeometry: class {},
+    OctahedronGeometry: class {},
     MeshBasicMaterial: MockMat,
     MeshStandardMaterial: MockMat,
     DoubleSide: 2
@@ -75,11 +76,12 @@ const {
 } = await import('../js/entities/placement-ghost.js');
 const { RELEASE_NOTES_CATALOG, markPendingAutoUpdateNotice } = await import('../js/ui/whats-new-modal.js');
 
-test('shouldHideHeldInPlacementMode oculta qualquer item em modo [G]', () => {
+test('o item só sai da mão quando a prévia está visível', () => {
   const item = { id: 'burner_lab', mesh: { userData: {} } };
   assert.equal(shouldHideHeldInPlacementMode({ placementMode: false, heldItem: item }), false);
   assert.equal(shouldHideHeldInPlacementMode({ placementMode: true, heldItem: null }), false);
-  assert.equal(shouldHideHeldInPlacementMode({ placementMode: true, heldItem: item }), true);
+  assert.equal(shouldHideHeldInPlacementMode({ placementMode: true, heldItem: item, placementGhost: { visible: false } }), false);
+  assert.equal(shouldHideHeldInPlacementMode({ placementMode: true, heldItem: item, placementGhost: { visible: true } }), true);
 });
 
 test('updatePlacementGhostVisual funciona com userData circular (ownerItem no fogareiro) e oculta hitboxes invisíveis', () => {
@@ -105,7 +107,8 @@ test('updatePlacementGhostVisual funciona com userData circular (ownerItem no fo
 
   assert.equal(ghost.children[0].matrixAutoUpdate, true);
   assert.equal(ghost.children[1].matrixAutoUpdate, true);
-  const clonedRoot = ghost.children[2].children[0];
+  assert.ok(ghost.children[0].position.y > 0.02, 'O marcador deve ficar acima do piso da praça');
+  const clonedRoot = ghost.children.at(-1).children[0];
   assert.equal(clonedRoot.children.length, 1);
   assert.equal(clonedRoot.children[0].visible, true);
 });
@@ -505,8 +508,9 @@ test('modal-window-manager persiste posição/tamanho por jogador, sorghum-grain
   const clamped = clampModalRectToViewport({ x: 9999, y: -50, w: 120, h: 90 }, 1280, 720);
   assert.ok(clamped.w >= 280);
   assert.ok(clamped.h >= 160);
-  assert.ok(clamped.x <= 1280 - 56);
+  assert.ok(clamped.x + clamped.w <= 1280 - 8);
   assert.ok(clamped.y >= 8);
+  assert.deepEqual(clampModalRectToViewport({ x: 500, y: 500, w: 900, h: 800 }, 360, 260), { x: 8, y: 8, w: 344, h: 244 });
   assert.deepEqual(readModalLayoutMap(), {});
 
   const { applyReplicatedItemState } = await import('../js/systems/world-objects-sync.js');

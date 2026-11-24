@@ -7,7 +7,7 @@
 const STORAGE_PREFIX = 'myco_modal_layout_v1_';
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 160;
-const MIN_VISIBLE_STRIP = 56;
+const MODAL_MARGIN = 8;
 
 let activeUserKey = 'guest';
 let managerInitialized = false;
@@ -47,23 +47,18 @@ function writeModalLayoutMap(map) {
 }
 
 export function clampModalRectToViewport(rect, vw = 1280, vh = 720) {
-  const safeVw = Math.max(320, Number(vw) || 1280);
-  const safeVh = Math.max(240, Number(vh) || 720);
-  const maxW = Math.max(MIN_WIDTH, safeVw - 16);
-  const maxH = Math.max(MIN_HEIGHT, safeVh - 16);
+  const safeVw = Math.max(17, Number(vw) || 1280);
+  const safeVh = Math.max(17, Number(vh) || 720);
+  const maxW = safeVw - MODAL_MARGIN * 2;
+  const maxH = safeVh - MODAL_MARGIN * 2;
   const minW = Math.min(MIN_WIDTH, maxW);
   const minH = Math.min(MIN_HEIGHT, maxH);
 
   const width = Math.max(minW, Math.min(maxW, Math.round(Number(rect && rect.w) || minW)));
   const height = Math.max(minH, Math.min(maxH, Math.round(Number(rect && rect.h) || minH)));
 
-  const minLeft = Math.min(0, MIN_VISIBLE_STRIP - width);
-  const maxLeft = Math.max(minLeft, safeVw - MIN_VISIBLE_STRIP);
-  const minTop = 8;
-  const maxTop = Math.max(minTop, safeVh - MIN_VISIBLE_STRIP);
-
-  const left = Math.max(minLeft, Math.min(maxLeft, Math.round(Number(rect && rect.x) || 16)));
-  const top = Math.max(minTop, Math.min(maxTop, Math.round(Number(rect && rect.y) || 16)));
+  const left = Math.max(MODAL_MARGIN, Math.min(safeVw - width - MODAL_MARGIN, Math.round(Number(rect?.x) || 16)));
+  const top = Math.max(MODAL_MARGIN, Math.min(safeVh - height - MODAL_MARGIN, Math.round(Number(rect?.y) || 16)));
 
   return { x: left, y: top, w: width, h: height };
 }
@@ -79,8 +74,12 @@ function getViewportSize() {
 function isModalContainer(el) {
   if (!el || !el.id) return false;
   if (el.id === 'item-status-card') return true;
-  if (el.id === 'whats-new-modal') return true;
+  if (el.tagName === 'DIALOG' || ['map-modal', 'whats-new-modal', 'first-steps-welcome-modal', 'apk-update-modal', 'ios-fullscreen-modal'].includes(el.id)) return false;
   return /-modal$/.test(el.id);
+}
+
+function canFloatModal() {
+  return !window.matchMedia('(pointer: coarse), (max-width: 700px), (max-height: 480px)').matches;
 }
 
 function findDialogCard(container) {
@@ -110,6 +109,7 @@ function findDragHandle(card) {
 
 function setFloatingBackdropMode(container, card, active) {
   if (!container || container === card) return;
+  container.toggleAttribute('data-floating-window', active);
   if (active) {
     container.style.pointerEvents = 'none';
     container.style.backgroundColor = 'transparent';
@@ -126,7 +126,7 @@ function setFloatingBackdropMode(container, card, active) {
 
 function applySavedRectToCard(container, card) {
   if (!container || !card || !card.style) return;
-  const saved = readModalLayoutMap()[container.id];
+  const saved = canFloatModal() && readModalLayoutMap()[container.id];
   if (!saved) {
     card.style.position = '';
     card.style.left = '';
@@ -136,6 +136,7 @@ function applySavedRectToCard(container, card) {
     card.style.maxWidth = '';
     card.style.maxHeight = '';
     card.style.margin = '';
+    card.style.overflowY = '';
     setFloatingBackdropMode(container, card, false);
     return;
   }
@@ -193,7 +194,7 @@ function enhanceModalWindow(container) {
     });
 
     handle.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (!canFloatModal() || e.pointerType !== 'mouse' || e.button !== 0) return;
       if (e.target && e.target.closest && e.target.closest('button, input, select, textarea, a')) return;
       e.preventDefault();
       e.stopPropagation();
@@ -256,10 +257,9 @@ function enhanceModalWindow(container) {
     resizer.title = 'Arraste para redimensionar janela';
     resizer.textContent = '◢';
     Object.assign(resizer.style, {
-      position: 'sticky',
+      position: 'absolute',
       bottom: '2px',
-      left: '100%',
-      marginLeft: 'auto',
+      right: '2px',
       width: '18px',
       height: '18px',
       display: 'flex',
@@ -276,7 +276,7 @@ function enhanceModalWindow(container) {
       paddingBottom: '2px'
     });
     resizer.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (!canFloatModal() || e.pointerType !== 'mouse' || e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -307,6 +307,8 @@ function enhanceModalWindow(container) {
         }, vp.w, vp.h);
         card.style.width = clamped.w + 'px';
         card.style.height = clamped.h + 'px';
+        card.style.left = clamped.x + 'px';
+        card.style.top = clamped.y + 'px';
       };
 
       const onUp = () => {

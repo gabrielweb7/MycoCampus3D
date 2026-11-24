@@ -187,6 +187,11 @@ export function releaseInputForModal() {
   }
 }
 
+export function getBlockingCampusModal() {
+  return document.querySelector('dialog[open]') ||
+    [...document.querySelectorAll('div[id$="-modal"]:not(.hidden):not([data-floating-window])')].at(-1);
+}
+
 export function isIosDevice() {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';

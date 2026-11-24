@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.8.0] - 2026-11-24
+
+- Posicionamento com prévia mais visível e altura alinhada ao calçamento. O item volta a aparecer na mão quando o alvo sai do enquadramento. Atalhos de posicionar e largar respondem uma vez por tecla pressionada.
+- Mapa e aluguel da Vila em painéis responsivos. Os dez lotes ocupam toda a largura disponível, com nome do morador, tempo restante, caderno e depósito. Modais cabem na tela e pausam os atalhos do jogo enquanto estão em primeiro plano.
+- Convite para o Discord após as novidades, exibido uma vez por conta em cada navegador. Estreia da decoração de Natal na entrada e na praça entre 24 de novembro e 6 de janeiro.
+
 ## [v2.7.0] - 2026-11-24
 
 - Vila ao sul do campus com dez casas numeradas, quintais cercados, bancadas, pias e torneiras externas. Aluguel em dias corridos e acesso pelo mapa ou pela placa da casa.

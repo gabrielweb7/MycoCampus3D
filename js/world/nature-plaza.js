@@ -514,7 +514,7 @@ export function createBanner(scene, x, y, z, rotY, colorHex, emblem) {
 }
 
 export function buildPlaza(ctx) {
-  const { scene, solidColliders, seatMeshes, fountainRipples } = ctx;
+  const { scene, solidColliders, seatMeshes, fountainRipples, walkableFloors } = ctx;
   const { texPaving, texWater } = getTextures();
 
   const plazaFloor = new THREE.Mesh(
@@ -525,6 +525,7 @@ export function buildPlaza(ctx) {
   plazaFloor.position.set(0, 0.02, 1);
   plazaFloor.receiveShadow = true;
   scene.add(plazaFloor);
+  walkableFloors.push({ minX: -28, maxX: 28, minZ: -20, maxZ: 22, topY: plazaFloor.position.y });
 
   const fx = 0, fz = 2;
   const basinStoneMat = new THREE.MeshStandardMaterial({ color: 0xf4dfb7, roughness: 0.72 });

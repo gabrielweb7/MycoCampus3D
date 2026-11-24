@@ -9,6 +9,7 @@ import { events } from '../core/events.js';
 import { setLanguage, resetLanguageToAuto, t } from '../core/i18n.js';
 import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
+import { isChristmasSeason } from '../core/season.js';
 import { initPwaFeatures, requestScreenWakeLock, releaseScreenWakeLock } from '../engine/haptics-wakelock.js';
 import { apiPost } from '../services/api-client.js';
 import { preserveNewerPetState } from '../services/pets.js';
@@ -21,6 +22,7 @@ import { acknowledgeCoinOperation, enqueueCoinDelta, pendingCoinOperations } fro
 import {
   $,
   applyDeviceUi,
+  getBlockingCampusModal,
   getToastUntil,
   isTouch,
   releaseInputForModal,
@@ -729,6 +731,14 @@ function bindChatAndShortcuts() {
   }
 
   window.addEventListener('keydown', (e) => {
+    const modal = getBlockingCampusModal();
+    if (modal) {
+      if (e.key === 'Escape' && modal.tagName !== 'DIALOG') {
+        const close = modal.querySelector('button[id^="btn-close"]');
+        if (close) { e.preventDefault(); close.click(); }
+      }
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.code !== 'KeyE' && e.code !== 'KeyT' && e.code !== 'Enter') return;
     const active = document.activeElement;
@@ -749,6 +759,9 @@ function bindChatAndShortcuts() {
 }
 
 export function bootApp() {
+  const christmas = isChristmasSeason();
+  $('campus-lobby')?.classList.toggle('campus-christmas', christmas);
+  $('lobby-season')?.classList.toggle('hidden', !christmas);
   bindQuickInventory(slot => window.selectCampusQuickSlot?.(slot));
   applyDeviceUi();
   window.addEventListener('resize', applyDeviceUi);

@@ -148,17 +148,24 @@ export async function completeLabStep(stepKey) {
 export function renderMapModal() {
   const grid = $('map-sectors-grid');
   if (!grid) return;
+  grid.classList.remove('campus-map-village');
+  $('map-scroll').scrollTop = 0;
+  $('map-heading-icon').textContent = '🗺️';
+  $('map-title').dataset.i18n = 'modal.map_title';
+  $('map-subtitle').dataset.i18n = 'modal.map_subtitle';
+  $('map-title').textContent = t('modal.map_title');
+  $('map-subtitle').textContent = t('modal.map_subtitle');
   grid.innerHTML = '';
   CAMPUS_SECTORS.forEach((sec) => {
     const name = sec.nameKey ? t(sec.nameKey) : sec.name;
     const desc = sec.descKey ? t(sec.descKey) : sec.desc;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'text-left p-3 rounded-xl bg-slate-900/80 hover:bg-sky-900/50 border border-slate-700/70 hover:border-sky-400/60 transition flex items-start gap-2.5';
+    btn.className = 'campus-map-sector';
     btn.innerHTML =
       `<span class="text-2xl leading-none">${sec.icon}</span>` +
       `<div><div class="font-bold text-white">${escapeHtml(name)}</div>` +
-      `<div class="text-[11px] text-slate-400">${escapeHtml(desc)}</div></div>`;
+      `<div class="text-sm text-slate-300">${escapeHtml(desc)}</div></div>`;
     btn.onclick = () => {
       if (sec.id === 'village') {
         renderVillageRentals(grid, renderMapModal);

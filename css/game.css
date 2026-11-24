@@ -178,6 +178,69 @@ body.ios-immersive-fullscreen #hud-top-bar .glass-panel {
   font-size: 10px;
 }
 
+.lobby-season {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  border: 1px solid #c98e58;
+  border-radius: 999px;
+  background: #263b30;
+  color: #ffedc8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.campus-christmas .lobby-card {
+  border-color: rgba(241, 181, 100, 0.54);
+  background: rgba(18, 36, 36, 0.94);
+}
+
+.discord-welcome {
+  width: min(calc(100% - 28px), 408px);
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: clamp(16px, 5vw, 26px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #6e659e;
+  border-radius: 20px;
+  background: #1a2137;
+  box-shadow: 0 20px 70px #070a18b0;
+  color: #f5f3ff;
+  text-align: center;
+}
+
+.discord-welcome::backdrop { background: rgba(8, 12, 25, 0.75); }
+.discord-welcome-mark {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 64px;
+  margin: 0 auto 12px;
+  border-radius: 18px;
+  background: #e0e3ff;
+}
+.discord-welcome-community { color: #cdc9f2; font-size: 12px; font-weight: 700; }
+.discord-welcome h2 { margin: 4px 0 8px; font-size: 23px; font-weight: 800; line-height: 1.17; }
+.discord-welcome #discord-welcome-description { color: #e0def4; font-size: 14px; line-height: 1.45; }
+.discord-welcome-actions { display: grid; gap: 8px; margin-top: 18px; }
+.discord-welcome-actions > * {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid #757dbe;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+.discord-welcome-actions a { background: #4b52d4; color: #fff; }
+.discord-welcome-actions a:hover { background: #4349c1; }
+.discord-welcome-actions button:hover { background: #2d3554; }
+.discord-welcome-actions > *:focus-visible { outline: 2px solid #f3d092; outline-offset: 2px; }
+
 .first-steps-panel {
   position: absolute;
   top: max(72px, calc(env(safe-area-inset-top, 0px) + 60px));
@@ -232,18 +295,65 @@ body.ios-immersive-fullscreen #hud-top-bar .glass-panel {
 }
 
 /* Garante que TODOS os modais caibam 100% na tela mobile (retrato/paisagem) com header fixo e scroll interno */
-[id$="-modal"] {
+div[id$="-modal"] {
   padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)) !important;
   box-sizing: border-box;
 }
 
-[id$="-modal"] > div {
+div[id$="-modal"] > div {
   width: min(94vw, 760px);
   max-width: 94vw !important;
   max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
+}
+
+[id$="-modal"] > .glass-panel {
+  position: relative;
+  min-width: 0;
+  background: #121d30;
+  border: 1px solid #344761;
+  border-radius: 20px;
+  box-shadow: 0 20px 56px #02061790;
+  overflow-wrap: anywhere;
+}
+
+@media (pointer: coarse), (max-width: 700px), (max-height: 480px) {
+  .myco-modal-resizer { display: none !important; }
+}
+
+[id$="-modal"] > .glass-panel > :first-child:has(h2) {
+  gap: 10px;
+  padding: 12px clamp(12px, 3vw, 20px);
+  background: #162339;
+}
+
+[id$="-modal"] > .glass-panel > :first-child:has(h2) button[id^="btn-close"] {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: #eaf2ff;
+  background: #24344e;
+}
+
+[id$="-modal"] > .glass-panel > :first-child:has(h2) button[id^="btn-close"]:hover {
+  background: #344967;
+}
+
+[id$="-modal"] :is(button, select, textarea, a):focus-visible {
+  outline: 2px solid #7dd3fc;
+  outline-offset: 2px;
+}
+
+[id$="-modal"] > .glass-panel > [class~="overflow-y-auto"] {
+  min-height: 0;
+  min-width: 0;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: thin;
 }
 
 [id$="-modal"] > div.modal-card-md {
@@ -265,7 +375,7 @@ body.ios-immersive-fullscreen #hud-top-bar .glass-panel {
 #lesson-modal > div > #lessons-body,
 #ranking-modal > div > #ranking-body,
 #shop-modal > div > #shop-grid,
-#map-modal > div > #map-sectors-grid,
+#map-modal > div > #map-scroll,
 #quest-modal > div > #quest-body,
 #admin-modal > div > #admin-user-list,
 #greenhouse-modal > div > #greenhouse-modal-body {
@@ -274,6 +384,104 @@ body.ios-immersive-fullscreen #hud-top-bar .glass-panel {
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+}
+
+#map-modal > div {
+  width: min(100%, 780px);
+  max-height: min(90dvh, 860px) !important;
+}
+
+.campus-map-scroll {
+  padding: clamp(12px, 3vw, 22px);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #506984 transparent;
+}
+
+.campus-map-sectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 10px;
+}
+
+.campus-map-sector,
+.village-lot,
+.village-extra {
+  min-width: 0;
+  padding: 14px;
+  color: #eff6ff;
+  background: #19273d;
+  border: 1px solid #344761;
+  border-radius: 14px;
+}
+
+.campus-map-sector {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.campus-map-sector:hover { background: #203957; border-color: #6081a1; }
+.campus-map-village { display: block; }
+.village-panel, .village-tools { display: grid; gap: 12px; }
+.village-tools:empty, .village-notice:empty, .village-lots:empty { display: none; }
+.village-nav, .village-storage-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.village-heading { font-size: 1rem; font-weight: 750; color: #dceafb; }
+.village-lots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.village-lot { display: flex; flex-direction: column; gap: 10px; }
+.village-lot-focused { border-color: #75c4f0; }
+.village-lot-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 5px 8px; }
+.village-lot-heading h4 { font-size: .96rem; font-weight: 800; }
+.village-lot-status { border-radius: 8px; padding: 3px 7px; font-size: .72rem; font-weight: 700; background: #404056; color: #f0e5fa; }
+.village-lot-status[data-status="free"] { background: #183d35; color: #a5f3cc; }
+.village-lot-status[data-status="mine"] { background: #204565; color: #c4e8ff; }
+.village-notice, .village-lot-detail, .village-storage-row { color: #bacce2; font-size: .875rem; }
+.village-tenant { font-size: .875rem; font-weight: 700; }
+.village-countdown { color: #bbdbf8; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.village-lot-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; margin-top: auto; }
+.village-button, .village-lot select {
+  min-height: 42px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid #426084;
+  border-radius: 9px;
+  background: #263a55;
+  color: #eff6ff;
+  font-size: .875rem;
+}
+.village-button { font-weight: 750; }
+.village-button:hover { background: #345575; }
+.village-button-primary { background: #a0e6be; color: #0b3023; border-color: #a0e6be; }
+.village-button-primary:hover { background: #c4f3d8; }
+.village-button:disabled { opacity: .5; }
+.village-extra summary { cursor: pointer; }
+.village-extra summary, .village-storage h3 { font-size: .95rem; font-weight: 750; }
+.village-storage { display: grid; gap: 10px; }
+.village-note { display: block; width: 100%; min-height: 100px; padding: 10px; margin: 10px 0; border: 1px solid #426084; border-radius: 9px; background: #101a2a; resize: vertical; }
+
+#admin-modal > .glass-panel { overflow-y: auto !important; overscroll-behavior: contain; }
+#admin-modal > .glass-panel > :first-child { position: sticky; top: 0; z-index: 1; }
+#admin-modal > .glass-panel > #admin-user-list { flex: 0 0 auto !important; overflow-y: visible !important; }
+#admin-search-input, #admin-prefab-select { min-width: 0; max-width: 100%; }
+
+@media (max-width: 690px) {
+  .village-lots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .village-lot-controls { grid-template-columns: minmax(0, 1fr); }
+  .village-button, .village-lot select { min-height: 44px; }
+  .village-lot select, .village-note { font-size: 1rem; }
+  #settings-modal [data-lang-btn] { padding-inline: 5px; }
+}
+
+@media (max-width: 360px) {
+  .village-lot { padding: 10px; }
+  .village-button { padding-inline: 8px; }
+}
+
+@media (max-height: 480px) {
+  #map-modal > div { max-height: calc(100dvh - 16px) !important; }
+  [id$="-modal"] > .glass-panel > :first-child:has(h2) { padding-block: 6px; }
 }
 
 #apk-update-modal > div {

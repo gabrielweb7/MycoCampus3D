@@ -3,7 +3,6 @@ import {
   getPlacementBlockedReason,
   isPlacementBlocked,
   markItemsFalling,
-  shouldHideHeldInPlacementMode,
   updatePlacementGhostVisual
 } from '../entities/placement-ghost.js';
 import { hideHover3dBadge } from '../entities/hover-3d-badge.js';
@@ -12,10 +11,12 @@ import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js'
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { saveLocalMovedObject } from './world-objects-sync.js';
 import { appState } from '../core/state.js';
+import { t } from '../core/i18n.js';
 import { canPlaceVillageItem } from '../core/village-layout.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
 const _vPlaceZero2 = new window.THREE.Vector2(0, 0);
+const _projectedGhost = new window.THREE.Vector3();
 
 function syncHeldAttachedVisibility(item, visible) {
   if (!item || !item.mesh) return;
@@ -64,9 +65,6 @@ export function beginHeldItemPlacement(ctx) {
   if (ctx.thermoLaserDot) ctx.thermoLaserDot.visible = false;
   ctx.heldRotY = ctx.playerYaw || 0;
   setPlacementMode(ctx, true);
-  if (shouldHideHeldInPlacementMode(ctx)) {
-    syncHeldAttachedVisibility(ctx.heldItem, false);
-  }
   if (ctx.placementGhost && ctx.camera) {
     const initNdc = ctx.inFps ? _vPlaceZero2 : ctx.pointerNdc;
     if (ctx.raycaster && initNdc) {
@@ -76,12 +74,7 @@ export function beginHeldItemPlacement(ctx) {
     updateHeldItemPlacementPreview(ctx, initNdc);
   }
   if (ctx.callbacks.onToast) {
-    const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
-    ctx.callbacks.onToast(
-      isTouch
-        ? '📦 Mire o local e toque para posicionar.'
-        : '📦 Mire o local e clique para posicionar. Pressione Esc para cancelar.'
-    );
+    ctx.callbacks.onToast(t(ctx.isTouchDevice?.() ? 'placement.start_touch' : 'placement.start_mouse'));
   }
   return true;
 }
@@ -100,16 +93,28 @@ export function toggleHeldItemPlacement(ctx) {
 }
 
 export function updateHeldItemPlacementPreview(ctx, rayNdc) {
-  if (!ctx.heldItem || !ctx.placementMode || !ctx.placementGhost) {
+  if (!ctx.heldItem || !ctx.placementMode || !ctx.placementGhost || !ctx.camera) {
     if (ctx.placementGhost) ctx.placementGhost.visible = false;
     return false;
   }
 
   const point = findPlacementTarget(ctx.entityCtx, rayNdc);
+  _projectedGhost.copy(point);
+  _projectedGhost.y += 0.14;
+  _projectedGhost.project(ctx.camera);
+  const onScreen = Math.abs(_projectedGhost.x) <= 1 && Math.abs(_projectedGhost.y) <= 1 && Math.abs(_projectedGhost.z) <= 1;
+  if (!onScreen) {
+    ctx.placementValid = false;
+    ctx.placementGhost.visible = false;
+    syncHeldAttachedVisibility(ctx.heldItem, true);
+    ctx.callbacks.onHoverPrompt?.(t('placement.aim_lower'));
+    return false;
+  }
   ctx.placementValid = !isPlacementBlocked(ctx.entityCtx, point);
   ctx.placementGhost.position.copy(point);
   updatePlacementGhostVisual(ctx.heldItem, ctx.placementValid, ctx.heldRotY, ctx.clock.elapsedTime);
   ctx.placementGhost.visible = true;
+  syncHeldAttachedVisibility(ctx.heldItem, false);
 
   const isTouch = !!(ctx.isTouchDevice && ctx.isTouchDevice());
   const prompt = ctx.snapClosePot

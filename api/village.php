@@ -14,7 +14,9 @@ const MC_VILLAGE_MAX_DAYS = 30;
 function mc_village_status(PDO $pdo, int $userId): array {
     $now = time();
     $lots = [];
-    foreach ($pdo->query('SELECT lot_id, owner_id, expires_at FROM mc_village_lots ORDER BY lot_id') as $row) {
+    $rentalQuery = 'SELECT l.lot_id, l.owner_id, l.expires_at, u.display_name FROM mc_village_lots l' .
+        ' LEFT JOIN mc_users u ON u.id = l.owner_id WHERE l.lot_id BETWEEN 1 AND 10 ORDER BY l.lot_id';
+    foreach ($pdo->query($rentalQuery) as $row) {
         $expires = (int)$row['expires_at'];
         $occupied = $expires > $now && (int)$row['owner_id'] > 0;
         $lots[] = [
@@ -22,6 +24,7 @@ function mc_village_status(PDO $pdo, int $userId): array {
             'occupied' => $occupied,
             'mine' => $occupied && (int)$row['owner_id'] === $userId,
             'expires_at' => $occupied ? $expires : 0,
+            'tenant_name' => $occupied ? $row['display_name'] : null,
         ];
     }
     $storage = $pdo->prepare('SELECT w.item_id, w.prefab_id, w.label FROM mc_world_layout_edits w' . MC_VILLAGE_ITEM_JOINS .

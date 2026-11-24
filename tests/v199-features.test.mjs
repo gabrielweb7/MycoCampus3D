@@ -82,6 +82,8 @@ test('v1.9.9 Alt solta cursor ao segurar e retoma mira FPS ao soltar a tecla', a
   globalThis.document = {
     pointerLockElement: domEl,
     activeElement: null,
+    querySelector: () => null,
+    querySelectorAll: () => [],
     hidden: false,
     addEventListener: (ev, fn) => { docListeners[ev] = fn; },
     exitPointerLock: () => {

@@ -16,6 +16,8 @@ import { createRainPuddles } from '../engine/rain-puddles.js';
 import { createBlobShadows } from '../engine/blob-shadows.js';
 import { applyMycoCozyStyle } from '../engine/visual-style.js';
 import { buildNatureWorld, buildPlaza, nightLampGlows } from '../world/nature-plaza.js';
+import { isChristmasSeason } from '../core/season.js';
+import { buildChristmasPlaza } from '../world/christmas-plaza.js';
 import { createCozyDetails } from '../world/cozy-details.js';
 import { createStorybookLandmarks } from '../world/storybook-landmarks.js';
 import { buildPlazaTelescope } from '../world/plaza-telescope.js';
@@ -711,6 +713,7 @@ export function initCampus3D(containerId, cbs) {
     buildNatureWorld(wbCtx);
     buildExpandedForestAndMushrooms(wbCtx);
     buildPlaza(wbCtx);
+    if (isChristmasSeason()) buildChristmasPlaza(wbCtx);
     buildStaircaseAndBridge(wbCtx);
     buildClockTowerAndAuditorium(wbCtx);
     buildCampusWingsAndEquipment(wbCtx);

@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.7.0">
+  <link rel="stylesheet" href="css/game.css?v=2.8.0">
 </head>
 
 <body>
@@ -160,6 +160,7 @@
 
       <figure class="lobby-preview">
         <img src="assets/og-image.jpg" alt="" width="1200" height="630">
+        <span id="lobby-season" class="lobby-season hidden" data-i18n="season.christmas">⭐ Natal no MycoCampus</span>
         <figcaption data-i18n="lobby.preview_caption">Ilustração do campus</figcaption>
       </figure>
 
@@ -202,10 +203,21 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.7.0</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.8.0</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
+
+  <dialog id="discord-welcome-modal" aria-labelledby="discord-welcome-title" aria-describedby="discord-welcome-description" class="discord-welcome">
+    <div class="discord-welcome-mark"><img src="assets/discord-symbol.svg" alt="" width="40" height="30"></div>
+    <p class="discord-welcome-community" data-i18n="discord.welcome_community">Comunidade MycoCampus3D</p>
+    <h2 id="discord-welcome-title" data-i18n="discord.welcome_title">Bora conversar no Discord?</h2>
+    <p id="discord-welcome-description" data-i18n="discord.welcome_description">Conheça outros jogadores, troque dicas de cultivo e entre em um canal de voz para jogar junto.</p>
+    <div class="discord-welcome-actions">
+      <a id="discord-welcome-join" href="https://discord.gg/EmpEx6PxG" target="_blank" rel="noopener noreferrer" data-i18n="discord.welcome_join">Entrar no Discord</a>
+      <button id="discord-welcome-later" type="button" data-i18n="discord.welcome_later" autofocus>Agora não, quero jogar</button>
+    </div>
+  </dialog>
 
   <!-- IN-GAME HUD -->
   <div id="campus-hud" class="hidden fixed inset-0 z-20 pointer-events-none">
@@ -532,18 +544,20 @@
   <!-- QUICK MAP TELEPORT MODAL -->
   <div id="map-modal"
     class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
-    <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden max-h-[88dvh]">
+    <div class="glass-panel rounded-2xl modal-card-lg flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="map-title">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
         <div class="flex items-center gap-2">
-          <span class="text-xl">🗺️</span>
+          <span id="map-heading-icon" class="text-xl" aria-hidden="true">🗺️</span>
           <div>
-            <h2 data-i18n="modal.map_title" class="text-base font-extrabold text-white">Mapa Rápido do Campus</h2>
-            <p data-i18n="modal.map_subtitle" class="text-[11px] text-sky-300">Escolha um setor para ir direto até lá</p>
+            <h2 id="map-title" data-i18n="modal.map_title" class="text-base font-extrabold text-white">Mapa Rápido do Campus</h2>
+            <p id="map-subtitle" data-i18n="modal.map_subtitle" class="text-sm text-sky-300">Escolha um setor para ir direto até lá</p>
           </div>
         </div>
         <button id="btn-close-map" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
-      <div id="map-sectors-grid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs"></div>
+      <div id="map-scroll" class="campus-map-scroll">
+        <div id="map-sectors-grid" class="campus-map-sectors"></div>
+      </div>
     </div>
   </div>
 
@@ -900,9 +914,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.7.0';</script>
+  <script>window.MYCO_VERSION = '2.8.0';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.7.0"></script>
+  <script type="module" src="js/main.js?v=2.8.0"></script>
 </body>
 
 </html>

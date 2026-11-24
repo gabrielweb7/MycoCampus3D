@@ -3,7 +3,7 @@
  */
 
 import { getHeldBoardToolColor } from './chalkboard.js';
-import { syncViewportCssVars } from '../ui/dom-helpers.js';
+import { getBlockingCampusModal, syncViewportCssVars } from '../ui/dom-helpers.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
 import { isPhotoModeActive, setPhotoMode, togglePhotoMode } from '../ui/photo-mode.js';
 
@@ -42,6 +42,7 @@ export function bindControls(ctx) {
   }
 
   window.addEventListener('keydown', function (e) {
+    if (e.defaultPrevented || getBlockingCampusModal()) return;
     if (e.code === 'AltLeft' || e.code === 'AltRight') {
       if (ctx.inFps && !isTextInputFocused()) {
         e.preventDefault();
@@ -79,7 +80,7 @@ export function bindControls(ctx) {
       if (window.selectCampusQuickSlot?.(Number(e.code.at(-1)) - 5)) e.preventDefault();
     }
     if (ctx.inventory?.pending && ['KeyX', 'KeyG', 'KeyQ', 'KeyF', 'Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) return;
-    if (e.code === 'KeyX') {
+    if (e.code === 'KeyX' && !e.repeat) {
       if (ctx.heldItem) {
         if (ctx.placementMode) {
           ctx.cancelHeldItemPlacement();
@@ -88,7 +89,7 @@ export function bindControls(ctx) {
         }
       }
     }
-    if (e.code === 'KeyG' || e.code === 'KeyQ') {
+    if ((e.code === 'KeyG' || e.code === 'KeyQ') && !e.repeat) {
       if (ctx.heldItem) {
         ctx.toggleHeldItemPlacement();
       } else if (ctx.hoveredPickable && ctx.pickHoveredItemForMove) {
@@ -186,7 +187,7 @@ export function bindControls(ctx) {
       if (ctx.inFps) e.preventDefault();
       if (altReleasedPointerLock) {
         altReleasedPointerLock = false;
-        if (ctx.inFps && !isTextInputFocused() && document.pointerLockElement !== ctx.renderer.domElement) {
+        if (ctx.inFps && !getBlockingCampusModal() && !isTextInputFocused() && document.pointerLockElement !== ctx.renderer.domElement) {
           lastPointerLockExitAt = -2000;
           safeRequestPointerLock(true);
         }

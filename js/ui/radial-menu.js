@@ -1198,7 +1198,7 @@ function buildContextActions(ctx) {
 }
 
 export function syncFloatingActions(ctx) {
-  if (!ctx || !ctx.inFps || ctx.lobbyTourActive || ctx.inventory?.pending) {
+  if (!ctx || !ctx.inFps || ctx.lobbyTourActive || ctx.placementMode || ctx.inventory?.pending) {
     if (barEl) barEl.classList.add('hidden');
     currentActions = [];
     touchActionsOpen = false;

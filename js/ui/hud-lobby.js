@@ -11,7 +11,8 @@ import { $, isTouch, requestCampusFullscreen } from './dom-helpers.js';
 import { loadLabQuestProgress } from './quest-map.js';
 import { getLocalMycoCoins, setLocalMycoCoins, setMycoCoinsUserScope } from '../items/dehydration-packaging.js';
 import { hydrateMicotecaFromServer } from '../systems/mycoteca.js';
-import { checkAndShowWhatsNewModal } from './whats-new-modal.js';
+import { checkAndShowWhatsNewModal, dismissWhatsNewModal } from './whats-new-modal.js';
+import { dismissDiscordWelcome, showDiscordWelcome } from './discord-welcome.js';
 import { setModalManagerUserKey } from './modal-window-manager.js';
 import { rememberNewFirstStepsUser, resetFirstSteps, showFirstStepsWelcome } from './first-steps.js';
 
@@ -127,10 +128,11 @@ export function enterCampus(user, token, created = false) {
   events.emit('sync:now');
   appState.syncTimer = setInterval(() => events.emit('sync:now'), SYNC_INTERVAL_MS);
   setTimeout(() => {
-    if (entryGeneration === campusEntryGeneration && appState.currentUser && appState.currentUser.id === user.id) {
-      const showNews = () => checkAndShowWhatsNewModal((typeof window !== 'undefined' && window.MYCO_VERSION) || getAppVersion());
-      if (!showFirstStepsWelcome(user, created, showNews)) showNews();
-    }
+    const isCurrent = () => entryGeneration === campusEntryGeneration && appState.currentUser?.id === user.id;
+    if (!isCurrent()) return;
+    const showTutorial = () => { if (isCurrent()) showFirstStepsWelcome(user, created); };
+    const showDiscord = () => { if (isCurrent() && !showDiscordWelcome(user.id, showTutorial)) showTutorial(); };
+    if (!checkAndShowWhatsNewModal(getAppVersion(), showDiscord)) showDiscord();
   }, 600);
 }
 
@@ -165,6 +167,8 @@ export async function tryResumeSession() {
 
 export async function logoutCampus() {
   campusEntryGeneration++;
+  dismissWhatsNewModal();
+  dismissDiscordWelcome();
   resetFirstSteps();
   if (appState.syncTimer) clearInterval(appState.syncTimer);
   appState.syncTimer = null;
@@ -203,6 +207,8 @@ export async function logoutCampus() {
 
 export function handleSessionExpired(msg) {
   campusEntryGeneration++;
+  dismissWhatsNewModal();
+  dismissDiscordWelcome();
   resetFirstSteps();
   if (appState.syncTimer) clearInterval(appState.syncTimer);
   appState.syncTimer = null;

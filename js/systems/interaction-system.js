@@ -11,8 +11,7 @@ import {
   clampPointToSurfaceXZ,
   findPlacementTarget,
   isPlacementBlocked,
-  getPlacementBlockedReason,
-  updatePlacementGhostVisual
+  getPlacementBlockedReason
 } from '../entities/placement-ghost.js';
 import {
   beginHeldItemPlacement,
@@ -220,7 +219,7 @@ function tryPlaceHeldOnAimedSurface(ctx, aimNdc) {
   if (ctx.snapClosePot || ctx.snapPetriStack) {
     if (!isPlacementBlocked(ctx.entityCtx, aimPt)) {
       const label = ctx.heldItem.label || 'Item';
-      commitHeldItemPlacement(ctx, aimPt, !!ctx.snapClosePot);
+      if (!commitHeldItemPlacement(ctx, aimPt, !!ctx.snapClosePot)) return false;
       if (window.MycoAudio) window.MycoAudio.playClick();
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('📦 ' + label + ' colocado.');
       return true;
@@ -234,7 +233,7 @@ function tryPlaceHeldOnAimedSurface(ctx, aimNdc) {
   if (!findFreeSpotOnSurface(ctx, ss, aimPt, candPt)) return false;
 
   const label = ctx.heldItem.label || 'Item';
-  commitHeldItemPlacement(ctx, candPt, false);
+  if (!commitHeldItemPlacement(ctx, candPt, false)) return false;
   if (window.MycoAudio) window.MycoAudio.playClick();
   if (ctx.callbacks.onToast) ctx.callbacks.onToast('📦 ' + label + ' colocado na superfície.');
   return true;
@@ -242,7 +241,7 @@ function tryPlaceHeldOnAimedSurface(ctx, aimNdc) {
 
 export function dropHeldItem(ctx) {
   if (ctx.inventory?.pending) return false;
-  if (!ctx.heldItem) return;
+  if (!ctx.heldItem) return false;
   ctx.syringePumping = null;
   ctx.syringePunctureProgress = 0;
   ctx.lastSyringeTargetItem = null;
@@ -287,13 +286,14 @@ export function dropHeldItem(ctx) {
     if (ctx.callbacks.onToast) {
       ctx.callbacks.onToast(getPlacementBlockedReason() || '🚫 Sem espaço livre no chão ao redor para largar o item!');
     }
-    return;
+    return false;
   }
   const droppedLabel = ctx.heldItem ? ctx.heldItem.label : 'Item';
-  commitHeldItemPlacement(ctx, chosenPt, false);
+  if (!commitHeldItemPlacement(ctx, chosenPt, false)) return false;
   if (ctx.callbacks.onToast) {
     ctx.callbacks.onToast('⬇️ ' + droppedLabel + ' largado no chão.');
   }
+  return true;
 }
 
 export function handlePrimaryAction(ctx, aimNdc) {
@@ -302,14 +302,8 @@ export function handlePrimaryAction(ctx, aimNdc) {
     if (performance.now() - ctx.lastPickupAt < 140) return;
     if (ctx.placementMode) {
       if (!ctx.placementGhost) return;
-      updateHeldItemPlacementPreview(ctx, aimNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc));
-      if (!ctx.placementValid || isPlacementBlocked(ctx.entityCtx, ctx.placementGhost.position)) {
-        ctx.placementValid = false;
-        updatePlacementGhostVisual(ctx.heldItem, false, ctx.heldRotY, ctx.clock.elapsedTime);
-        return;
-      }
-      commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
-      return;
+      if (!updateHeldItemPlacementPreview(ctx, aimNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc)) || !ctx.placementValid) return false;
+      return commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
     }
     if (ctx.hoveredPdaTarget) {
       const target = ctx.hoveredPdaTarget;

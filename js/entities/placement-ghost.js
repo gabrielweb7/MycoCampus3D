@@ -44,6 +44,7 @@ export function getStackConfig(item) {
 var placementGhost = null;
 var placementRing = null;
 var placementDot = null;
+var placementPin = null;
 var placementHoloWrap = null;
 var placementHoloMats = [];
 var placementGhostItemId = null;
@@ -83,17 +84,22 @@ export function getPlacementBlockedReason() {
  * evitando que equipamentos e itens bloqueiem o campo de visão e o fantasma.
  */
 export function shouldHideHeldInPlacementMode(ctx) {
-  return !!(ctx && ctx.placementMode && ctx.heldItem);
+  return !!(ctx?.placementMode && ctx.heldItem && ctx.placementGhost?.visible);
 }
 
 export function createPlacementGhost(scene) {
   placementGhost = new THREE.Group();
+  placementGhost.name = 'PlacementGhost';
+  placementGhostItemId = null;
+  placementGhostHasLid = false;
+  placementGhostLastValid = null;
+  placementHoloMats = [];
   placementRing = new THREE.Mesh(
-    new THREE.RingGeometry(0.102, 0.110, 48),
-    new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.56, side: THREE.DoubleSide, depthWrite: false })
+    new THREE.RingGeometry(0.128, 0.154, 32),
+    new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
   );
   placementRing.rotation.x = -Math.PI / 2;
-  placementRing.position.y = 0.008;
+  placementRing.position.y = 0.045;
   placementGhost.add(placementRing);
 
   placementDot = new THREE.Mesh(
@@ -101,10 +107,15 @@ export function createPlacementGhost(scene) {
     new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false })
   );
   placementDot.rotation.x = -Math.PI / 2;
-  placementDot.position.y = 0.009;
+  placementDot.position.y = 0.046;
   placementGhost.add(placementDot);
 
+  placementPin = new THREE.Mesh(new THREE.OctahedronGeometry(0.045), placementRing.material);
+  placementPin.position.y = 0.19;
+  placementGhost.add(placementPin);
+
   placementHoloWrap = new THREE.Group();
+  placementHoloWrap.position.y = 0.036;
   placementGhost.add(placementHoloWrap);
 
   placementGhost.visible = false;
@@ -258,8 +269,9 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
   }
 
   placementHoloWrap.rotation.y = rotY;
-  var ringPulse = 1 + Math.sin(elapsedTime * 5.0) * 0.025;
+  var ringPulse = Math.max(1, Math.min(4.5, (item.radius || 0) / 0.154)) * (1 + Math.sin(elapsedTime * 5.0) * 0.025);
   placementRing.scale.set(ringPulse, ringPulse, 1);
+  placementPin.position.y = Math.max(0.19, (item.height || 0) + 0.08);
 }
 
 function isSurfaceOwnerHeld(ctx, surf) {
@@ -541,8 +553,8 @@ export function findPlacementTarget(ctx, customNdc) {
 
   // 3. Fallback suave
   var hLen = Math.hypot(dir.x, dir.z) || 1;
-  var fx = playerPos.x + (dir.x / hLen) * 1.8;
-  var fz = playerPos.z + (dir.z / hLen) * 1.8;
+  var fx = playerPos.x + (dir.x / hLen) * 3.2;
+  var fz = playerPos.z + (dir.z / hLen) * 3.2;
   return _tmpPlacePt.set(fx, getItemGroundHeight(physCtx, fx, fz, playerPos.y), fz);
 }
 
