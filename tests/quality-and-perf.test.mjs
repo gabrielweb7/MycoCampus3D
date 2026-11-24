@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { applyMycoCozyStyle, MYCO_PALETTE } from '../js/engine/visual-style.js';
 
 class MockColor {
   constructor(v = 0xffffff) {
@@ -360,4 +361,45 @@ test('getStackConfig retorna referências congeladas sem alocação por chamada'
   assert.equal(Object.isFrozen(c1), true);
   assert.equal(Object.isFrozen(p1), true);
   assert.equal(getStackConfig({ mesh: { userData: {} } }), null);
+});
+
+test('Myco Cozy harmoniza materiais opacos uma vez e preserva vidro', () => {
+  const opaqueColor = {
+    getHSL(out) { out.h = 0.34; out.s = 0.5; out.l = 0.4; return out; },
+    setHSL(h, s, l) { this.last = { h, s, l }; return this; }
+  };
+  const opaque = {
+    isMeshStandardMaterial: true,
+    transparent: false,
+    opacity: 1,
+    roughness: 0.2,
+    metalness: 0,
+    color: opaqueColor,
+    userData: {}
+  };
+  const glass = {
+    isMeshStandardMaterial: true,
+    transparent: true,
+    opacity: 0.45,
+    roughness: 0.1,
+    metalness: 0,
+    color: opaqueColor,
+    userData: {}
+  };
+  const nodes = [
+    { isMesh: true, material: opaque },
+    { isMesh: true, material: opaque },
+    { isMesh: true, material: glass }
+  ];
+  const scene = { userData: {}, traverse(fn) { nodes.forEach(fn); } };
+
+  const first = applyMycoCozyStyle(scene);
+  const second = applyMycoCozyStyle(scene);
+  assert.equal(first.materials, 1);
+  assert.equal(first.meshes, 3);
+  assert.equal(second.materials, 0);
+  assert.equal(opaque.roughness, 0.56);
+  assert.equal(opaque.dithering, true);
+  assert.equal(glass.roughness, 0.1);
+  assert.equal(MYCO_PALETTE.mushroomPink, 0xf05aa8);
 });

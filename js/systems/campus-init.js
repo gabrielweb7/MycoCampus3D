@@ -13,8 +13,10 @@ import { createCelestialSkyDome } from '../engine/sky-constellations.js';
 import { createSkyGradientDome } from '../engine/sky-gradient.js';
 import { createRainPuddles } from '../engine/rain-puddles.js';
 import { createBlobShadows } from '../engine/blob-shadows.js';
+import { applyMycoCozyStyle } from '../engine/visual-style.js';
 import { buildNatureWorld, buildPlaza, nightLampGlows } from '../world/nature-plaza.js';
 import { createCozyDetails } from '../world/cozy-details.js';
+import { createStorybookLandmarks } from '../world/storybook-landmarks.js';
 import { buildPlazaTelescope } from '../world/plaza-telescope.js';
 import { buildSportsScoreboard } from '../world/sports-scoreboard.js';
 import { buildExpandedForestAndMushrooms } from '../world/mushroom-species.js';
@@ -706,6 +708,7 @@ export function initCampus3D(containerId, cbs) {
     buildOuterCampus(wbCtx);
     buildPlazaTelescope(wbCtx);
     buildSportsScoreboard(sim.scene);
+    createStorybookLandmarks(sim.scene, touch);
     sim.rainPuddles = createRainPuddles(sim.scene);
     sim.blobShadows = createBlobShadows(sim.scene);
     sim.cozyDetails = createCozyDetails(sim.scene, nightLampGlows);
@@ -721,7 +724,9 @@ export function initCampus3D(containerId, cbs) {
     createThermoLaserFx(sim.entityCtx);
     sim.confettiMesh = initConfettiSystem(sim.scene);
     initGreenhouseParticlePools(sim.scene);
+    const cozyStyle = applyMycoCozyStyle(sim.scene);
     const frozenCount = freezeStaticWorld(sim);
+    logger.info('campus-init', `Myco Cozy aplicado em ${cozyStyle.materials} materiais / ${cozyStyle.meshes} meshes`);
     logger.info('campus-init', `Cenário estático otimizado: ${frozenCount} congelados, ${sim._mergedStaticCount || 0} mesclados, ${sim._virtualLightCount || 0} luzes no pool`);
     bindControls(sim);
     const savedMode = getSavedQualityMode();
