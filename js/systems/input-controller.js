@@ -115,10 +115,18 @@ export function bindControls(ctx) {
       e.preventDefault();
       window.openCampusRadialMenu();
     }
-    if ((e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') && !e.repeat && window.triggerCampusFloatingAction) {
+    if ((e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') && !e.repeat && !e.ctrlKey && !e.metaKey) {
       const idx = parseInt(e.code.charAt(5), 10) - 1;
-      if (window.triggerCampusFloatingAction(idx)) {
+      let handledAction = false;
+      if (window.triggerCampusFloatingAction) {
+        handledAction = window.triggerCampusFloatingAction(idx);
+      }
+      if (handledAction) {
         e.preventDefault();
+      } else if (idx < 3 && ctx.inFps && window.selectCampusQuickSlot) {
+        if (window.selectCampusQuickSlot(idx)) {
+          e.preventDefault();
+        }
       }
     }
     if (e.code === 'Escape') {
@@ -270,7 +278,17 @@ export function bindControls(ctx) {
   });
 
   ctx.renderer.domElement.addEventListener('wheel', function (e) {
-    if (ctx.heldItem) {
+    if (ctx.placementMode && ctx.heldItem) {
+      e.preventDefault();
+      const step = ctx.adminEditMode ? (Math.PI / 36) : 0.175;
+      ctx.heldRotY += e.deltaY > 0 ? step : -step;
+    } else if (ctx.inFps && !ctx.adminEditMode && !ctx.isPrimaryDown && ctx.inventory?.ready && !ctx.inventory?.pending) {
+      e.preventDefault();
+      const dir = e.deltaY > 0 ? 1 : -1;
+      const current = ctx.inventory.active || 0;
+      const nextSlot = (current + dir + 3) % 3;
+      window.selectCampusQuickSlot?.(nextSlot);
+    } else if (ctx.heldItem) {
       e.preventDefault();
       const step = ctx.adminEditMode ? (Math.PI / 36) : 0.175;
       ctx.heldRotY += e.deltaY > 0 ? step : -step;

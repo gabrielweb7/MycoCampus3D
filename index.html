@@ -220,7 +220,7 @@
   </dialog>
 
   <!-- IN-GAME HUD -->
-  <div id="campus-hud" class="hidden fixed inset-0 z-20 pointer-events-none">
+  <div id="campus-hud" class="hidden fixed inset-0 z-30 pointer-events-none">
     <aside id="first-steps-panel" class="hidden glass-panel first-steps-panel pointer-events-auto" aria-label="Primeiros passos" data-i18n-aria="first_steps.title">
       <div class="first-steps-heading">
         <strong data-i18n="first_steps.title">🍄 Primeiros passos</strong>
@@ -254,6 +254,10 @@
           class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-sky-900/60 hover:bg-sky-800 text-sky-200 font-bold border border-sky-500/50 flex items-center gap-1">🗺️
           <span class="hidden sm:inline" data-i18n="hud.map">Mapa</span></button>
 
+        <button id="btn-open-shop" type="button" title="Loja de Cosméticos, Chapéus & Brinquedos" data-i18n-title="hud.shop_title" data-i18n-aria="hud.shop_title"
+          class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-purple-900/70 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
+          <span class="hidden sm:inline" data-i18n="hud.shop">Loja</span></button>
+
         <!-- Mobile menu toggle (visible only on mobile) -->
         <button id="btn-mobile-menu" type="button" title="Menu de Funções" data-i18n-title="hud.menu_title" data-i18n-aria="hud.menu_title"
           aria-controls="hud-secondary-tools" aria-expanded="false"
@@ -267,9 +271,6 @@
           <button id="btn-open-quest" type="button" title="Missão Prática do Laboratório" data-i18n-title="hud.quest_title" data-i18n-aria="hud.quest_title"
             class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-500/50 flex items-center gap-1">🧪
             <span data-i18n="hud.quest">Missão</span> <span id="quest-badge" class="text-[10px] px-1 rounded bg-emerald-500/30">0/8</span></button>
-          <button id="btn-open-shop" type="button" title="Loja de Cosméticos, Chapéus & Brinquedos" data-i18n-title="hud.shop_title"
-            class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-purple-900/60 hover:bg-purple-800 text-amber-300 font-bold border border-purple-500/50 flex items-center gap-1">👑
-            <span data-i18n="hud.shop">Loja</span></button>
           <button id="btn-quality" type="button" title="Qualidade Gráfica (clique para alternar)" data-i18n-title="hud.quality_title"
             class="hud-pill-btn px-1.5 sm:px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-cyan-300 font-bold border border-cyan-500/40 whitespace-nowrap">⚡
             Alto</button>
@@ -299,14 +300,6 @@
           <button id="btn-install-pwa" type="button" title="Instalar MycoCampus3D no Celular" data-i18n="hud.install" data-i18n-title="hud.install_title"
             style="display:none;"
             class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white font-extrabold border border-emerald-400/60 items-center gap-1 shadow-lg">📲 Instalar App</button>
-        </div>
-      </div>
-      <div id="quick-inventory" class="hidden" role="group" aria-label="Inventário rápido">
-        <button type="button" id="inventory-toggle" aria-expanded="false" aria-controls="inventory-pockets" data-i18n-aria="inventory.title">🎒 <span id="inventory-count">0</span></button>
-        <div id="inventory-pockets">
-          <button type="button" data-pocket="0"><span class="inventory-key">5</span><span class="inventory-item">Vazio</span></button>
-          <button type="button" data-pocket="1"><span class="inventory-key">6</span><span class="inventory-item">Vazio</span></button>
-          <button type="button" data-pocket="2"><span class="inventory-key">7</span><span class="inventory-item">Vazio</span></button>
         </div>
       </div>
       <div id="hud-quick-actions" style="display:none!important;visibility:hidden!important;"></div>
@@ -390,6 +383,33 @@
         data-emote="meditate">🧘 Meditar</button>
       <button id="btn-close-emotes" type="button" class="text-slate-400 hover:text-white text-xs font-bold px-1.5"
         title="Fechar barra de emotes">✕</button>
+    </div>
+
+    <!-- Dedicated Minecraft-Style Hotbar (PC & Mobile) -->
+    <div id="quick-inventory" class="hidden minecraft-hotbar" role="group" aria-label="Inventário rápido">
+      <div id="hotbar-slots" class="hotbar-slots">
+        <button type="button" class="hotbar-slot" data-pocket="0" aria-label="Espaço 1 · Mão">
+          <span class="slot-number">1</span>
+          <span class="slot-badge">✋</span>
+          <span class="slot-icon">✋</span>
+          <span class="inventory-item">Mão Livre</span>
+        </button>
+        <button type="button" class="hotbar-slot" data-pocket="1" aria-label="Espaço 2 · Bolso 1">
+          <span class="slot-number">2</span>
+          <span class="slot-badge">🎒</span>
+          <span class="slot-icon">🎒</span>
+          <span class="inventory-item">Vazio</span>
+        </button>
+        <button type="button" class="hotbar-slot" data-pocket="2" aria-label="Espaço 3 · Bolso 2">
+          <span class="slot-number">3</span>
+          <span class="slot-badge">🎒</span>
+          <span class="slot-icon">🎒</span>
+          <span class="inventory-item">Vazio</span>
+        </button>
+      </div>
+      <div id="hotbar-active-label" class="hotbar-active-label"></div>
+      <button type="button" id="inventory-toggle" class="hidden" style="display:none!important;" aria-hidden="true"></button>
+      <span id="inventory-count" class="hidden" style="display:none!important;" aria-hidden="true">0</span>
     </div>
 
     <!-- Bottom Center Chat Bar & Mobile Toggle -->
