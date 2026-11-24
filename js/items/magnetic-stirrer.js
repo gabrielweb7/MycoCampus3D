@@ -19,8 +19,8 @@ export const MAGNETIC_STIRRER_META = {
 
 export function makeMagneticStirrer(ctx, id, px, py, pz) {
   const sg = new THREE.Group();
-  const baseMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.35, metalness: 0.12 });
-  const plateMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.18 });
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0xe6d4aa, roughness: 0.67, metalness: 0.08 });
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0xd9edf0, metalness: 0.28, roughness: 0.38 });
   const body = makeBox(0.30, 0.078, 0.28, baseMat, { roughness: 0.35 });
   body.position.set(0, 0.039, -0.04);
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.118, 0.018, 24), plateMat);
@@ -30,18 +30,19 @@ export function makeMagneticStirrer(ctx, id, px, py, pz) {
 
   const pCan = document.createElement('canvas'); pCan.width = 256; pCan.height = 96;
   const pCtx = pCan.getContext('2d');
-  pCtx.fillStyle = '#1d4ed8'; pCtx.fillRect(0, 0, 256, 96);
+  pCtx.fillStyle = '#215653'; pCtx.fillRect(0, 0, 256, 96);
   pCtx.fillStyle = '#ffffff'; pCtx.font = 'bold 18px system-ui, sans-serif';
   pCtx.textAlign = 'center'; pCtx.fillText('IKA • MYCO-MAG SH-2', 128, 22);
   pCtx.font = 'bold 12px system-ui, sans-serif';
-  pCtx.fillStyle = '#bfdbfe';
+  pCtx.fillStyle = '#c6ede4';
   pCtx.fillText('STIRRING', 56, 84);
   pCtx.fillText('POWER', 128, 84);
   pCtx.fillText('HEATING', 200, 84);
-  const panelMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(pCan), roughness: 0.3 });
-  const frontPanel = makeBox(0.28, 0.068, 0.075, panelMat, { noShadow: true });
-  frontPanel.position.set(0, 0.036, 0.12);
-  frontPanel.rotation.x = 0.42;
+  const panelTex = new THREE.CanvasTexture(pCan);
+  panelTex.colorSpace = THREE.SRGBColorSpace;
+  const panelMat = new THREE.MeshBasicMaterial({ map: panelTex, toneMapped: false });
+  const frontPanel = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.068), panelMat);
+  frontPanel.position.set(0, 0.038, 0.104);
 
   function makeRotaryKnob(kx) {
     const kg = new THREE.Group();

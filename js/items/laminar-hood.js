@@ -58,7 +58,7 @@ export function addWallLabBench(ctx, bx, bz, bw, bd, opts) {
     const ez1 = Math.abs(z1 - B.z1) < eps ? 0.02 : 0;
     const pw = (x1 - x0) + ex0 + ex1;
     const pd = (z1 - z0) + ez0 + ez1;
-    const piece = makeBox(pw, 0.06, pd, 0x94a3b8, { roughness: 0.35, metalness: 0.25 });
+    const piece = makeBox(pw, 0.06, pd, 0x6e8794, { roughness: 0.58, metalness: 0.28 });
     piece.position.set((x0 - ex0 + x1 + ex1) / 2, 0.14 + 0.85, (z0 - ez0 + z1 + ez1) / 2);
     scene.add(piece);
     const surf = { minX: x0, maxX: x1, minZ: z0, maxZ: z1, topY: 1.02 };

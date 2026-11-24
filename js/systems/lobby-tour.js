@@ -12,7 +12,7 @@ export function stepLobbyTour(camera, controls, tourTime, dt) {
   const cycle = nextTourTime % 36;
 
   if (cycle < 12) {
-    // Vista panoramica da praca, fonte do cogumelo e ponte da Torre do Relogio
+    // Vista panorâmica da praça, fonte e ponte da Torre do Relógio.
     const t0 = cycle / 12;
     _camPos.set(-14 + t0 * 28, 16.0 - Math.sin(t0 * Math.PI) * 3.0, 26 - t0 * 4);
     _lookAt.set(0, 3.5, -12);

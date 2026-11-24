@@ -12,29 +12,37 @@ function makeMaterial(options) {
 }
 
 function addGroundDetails(group, touch) {
-  const grassCount = touch ? 46 : 92;
+  const tuftCount = touch ? 26 : 52;
   const rockCount = touch ? 16 : 30;
-  const bladeGeo = new THREE.ConeGeometry(0.18, 0.72, 5);
+  const bladeGeo = new THREE.ConeGeometry(0.11, 0.55, 4);
   const rockGeo = new THREE.DodecahedronGeometry(0.5, 0);
-  const grassMat = makeMaterial({ color: MYCO_PALETTE.grassLight, roughness: 0.9 });
+  const grassMat = makeMaterial({ color: 0xffffff, roughness: 0.9 });
   const rockMat = makeMaterial({ color: MYCO_PALETTE.stone, roughness: 0.92 });
-  const grass = new THREE.InstancedMesh(bladeGeo, grassMat, grassCount);
+  const grass = new THREE.InstancedMesh(bladeGeo, grassMat, tuftCount * 3);
   const rocks = new THREE.InstancedMesh(rockGeo, rockMat, rockCount);
   const dummy = new THREE.Object3D();
+  const color = new THREE.Color();
+  const grassColors = [0x2d894e, 0x56aa50, 0x89be58];
 
   let g = 0;
-  for (let i = 0; g < grassCount && i < grassCount * 8; i++) {
+  for (let i = 0; g < tuftCount * 3 && i < tuftCount * 8; i++) {
     const a = i * 2.399963;
     const r = 34 + ((i * 17) % 72);
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r * 0.82;
-    if (!isNaturalSoilSpot(x, z, 1.2)) continue;
-    const sc = 0.65 + (i % 5) * 0.12;
-    dummy.position.set(x, terrainHeight(x, z) + 0.34 * sc, z);
-    dummy.rotation.set((i % 3 - 1) * 0.09, a, 0);
-    dummy.scale.set(sc, sc, sc);
-    dummy.updateMatrix();
-    grass.setMatrixAt(g++, dummy.matrix);
+    if (!isNaturalSoilSpot(x, z, 1.6)) continue;
+    for (let blade = 0; blade < 3; blade++) {
+      const turn = a + blade * Math.PI * 2 / 3;
+      const bx = x + Math.cos(turn) * 0.12;
+      const bz = z + Math.sin(turn) * 0.12;
+      const scale = 0.64 + (i % 5) * 0.08 + blade * 0.12;
+      dummy.position.set(bx, terrainHeight(bx, bz) + 0.23 * scale, bz);
+      dummy.rotation.set(0, -turn, -0.32, 'YXZ');
+      dummy.scale.setScalar(scale);
+      dummy.updateMatrix();
+      grass.setMatrixAt(g, dummy.matrix);
+      grass.setColorAt(g++, color.setHex(grassColors[blade]));
+    }
   }
   grass.count = g;
 
@@ -54,6 +62,7 @@ function addGroundDetails(group, touch) {
   }
   rocks.count = rIdx;
   grass.instanceMatrix.needsUpdate = true;
+  if (grass.instanceColor) grass.instanceColor.needsUpdate = true;
   rocks.instanceMatrix.needsUpdate = true;
   rocks.castShadow = !touch;
   rocks.receiveShadow = true;

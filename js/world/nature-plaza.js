@@ -511,9 +511,9 @@ export function buildPlaza(ctx) {
   scene.add(plazaFloor);
 
   const fx = 0, fz = 2;
-  const basinStoneMat = new THREE.MeshStandardMaterial({ color: 0xbac2c5, roughness: 0.72, metalness: 0.04 });
-  const basinInnerMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.68, side: THREE.DoubleSide });
-  const tilePoolMat = new THREE.MeshStandardMaterial({ color: 0x075985, roughness: 0.35, metalness: 0.15 });
+  const basinStoneMat = new THREE.MeshStandardMaterial({ color: 0xf4dfb7, roughness: 0.72 });
+  const basinInnerMat = new THREE.MeshStandardMaterial({ color: 0x2e7d7e, roughness: 0.68, side: THREE.DoubleSide });
+  const tilePoolMat = new THREE.MeshStandardMaterial({ color: 0x2b969b, roughness: 0.55 });
   const waterSurfMat = new THREE.MeshStandardMaterial({
     map: texWater, color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.22,
     roughness: 0.06, metalness: 0.22, transparent: true, opacity: 0.88, depthWrite: false
@@ -557,15 +557,16 @@ export function buildPlaza(ctx) {
 
   const streamMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.48, depthWrite: false, side: THREE.DoubleSide });
   const rippleMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide });
+  const streams = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.055, 0.96, 8, 1, true), streamMat, 8);
+  const dummy = new THREE.Object3D();
   for (let j = 0; j < 8; j++) {
     const jAng = (j / 8) * Math.PI * 2;
     const jx = fx + Math.cos(jAng) * 1.42;
     const jz = fz + Math.sin(jAng) * 1.42;
-    const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.055, 0.96, 8, 1, true), streamMat);
-    stream.position.set(fx + Math.cos(jAng) * 1.34, 0.89, fz + Math.sin(jAng) * 1.34);
-    stream.rotation.z = -Math.cos(jAng) * 0.16;
-    stream.rotation.x = Math.sin(jAng) * 0.16;
-    scene.add(stream);
+    dummy.position.set(fx + Math.cos(jAng) * 1.34, 0.89, fz + Math.sin(jAng) * 1.34);
+    dummy.rotation.set(Math.sin(jAng) * 0.16, 0, -Math.cos(jAng) * 0.16);
+    dummy.updateMatrix();
+    streams.setMatrixAt(j, dummy.matrix);
 
     const rip = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.15, 18), rippleMat.clone());
     rip.rotation.x = -Math.PI / 2;
@@ -573,6 +574,8 @@ export function buildPlaza(ctx) {
     scene.add(rip);
     fountainRipples.push({ mesh: rip, phase: j * 0.78 });
   }
+  streams.instanceMatrix.needsUpdate = true;
+  scene.add(streams);
 
   const dropCount = 84;
   const dropArr = new Float32Array(dropCount * 3);
@@ -590,38 +593,31 @@ export function buildPlaza(ctx) {
   scene.add(dropPoints);
   if (ctx.setFountainDropsAttr) ctx.setFountainDropsAttr(fountainDropsAttr);
 
-  const mStem = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, 1.35, 16), new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.55 }));
-  mStem.position.set(fx, 1.98, fz); mStem.castShadow = true;
-  const mCap = new THREE.Mesh(
-    new THREE.SphereGeometry(1.18, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.56),
-    new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.36, emissive: 0x7f1d1d, emissiveIntensity: 0.22, side: THREE.DoubleSide })
-  );
-  mCap.position.set(fx, 2.58, fz); mCap.castShadow = true;
-  const mGills = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.29, 1.158, 0.14, 22),
-    new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.78 })
-  );
-  mGills.position.set(fx, 2.43, fz);
-  const mRing = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.29, 0.41, 0.12, 16),
-    new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.65 })
-  );
-  mRing.position.set(fx, 2.16, fz);
-  scene.add(mStem, mCap, mGills, mRing);
-  for (let s = 0; s < 8; s++) {
-    const ang = (s / 8) * Math.PI * 2;
-    const rSpot = s % 2 === 0 ? 0.96 : 0.68;
-    const ySpot = s % 2 === 0 ? 3.12 : 3.48;
-    const spot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }));
-    spot.position.set(fx + Math.cos(ang) * rSpot, ySpot, fz + Math.sin(ang) * rSpot);
-    scene.add(spot);
+  // Um bico em forma de flor mantém a torre visível da entrada.
+  const ceramicMat = new THREE.MeshStandardMaterial({ color: 0xe79159, roughness: 0.62 });
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.37, 0.46, 12), basinStoneMat);
+  nozzle.position.set(fx, 1.58, fz);
+  const petals = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 9, 6), ceramicMat, 7);
+  for (let i = 0; i < petals.count; i++) {
+    const angle = i * Math.PI * 2 / petals.count;
+    dummy.position.set(fx + Math.sin(angle) * 0.30, 1.80, fz + Math.cos(angle) * 0.30);
+    dummy.rotation.set(-0.30, angle, 0, 'YXZ');
+    dummy.scale.set(0.19, 0.09, 0.34);
+    dummy.updateMatrix();
+    petals.setMatrixAt(i, dummy.matrix);
   }
-  // Colisão octogonal inscrita no chafariz redondo (sem cantos quadrados invisíveis!)
-  solidColliders.push(
-    { minX: fx - 2.65, maxX: fx + 2.65, minZ: fz - 1.45, maxZ: fz + 1.45, minY: 0, maxY: 4.0 },
-    { minX: fx - 1.45, maxX: fx + 1.45, minZ: fz - 2.65, maxZ: fz + 2.65, minY: 0, maxY: 4.0 },
-    { minX: fx - 2.0, maxX: fx + 2.0, minZ: fz - 2.0, maxZ: fz + 2.0, minY: 0, maxY: 4.0 }
-  );
+  petals.instanceMatrix.needsUpdate = true;
+  scene.add(nozzle, petals);
+  const basinRadius = 3.10;
+  solidColliders.push({
+    centerX: fx, centerZ: fz, radiusXZ: basinRadius, minY: 0, maxY: 0.61,
+    minX: fx - basinRadius, maxX: fx + basinRadius, minZ: fz - basinRadius, maxZ: fz + basinRadius
+  });
+  solidColliders.push({
+    centerX: fx, centerZ: fz, radiusXZ: 1.36, minY: 0, maxY: 1.45,
+    minX: fx - 1.36, maxX: fx + 1.36, minZ: fz - 1.36, maxZ: fz + 1.36
+  });
+  solidColliders.push({ minX: fx - 0.60, maxX: fx + 0.60, minZ: fz - 0.60, maxZ: fz + 0.60, minY: 1.45, maxY: 1.91 });
 
   createFlowerBed(scene, -5.8, -4.5, 3.0, 1.8, -0.35);
   createFlowerBed(scene, 5.8, -4.5, 3.0, 1.8, 0.35);

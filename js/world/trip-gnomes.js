@@ -368,24 +368,21 @@ function stepGiantTrampolines(ctx, dt, show) {
   const pz = ctx.playerPos.z;
   if (!trampolinePool) {
     trampolinePool = [];
-    const capGeo = new THREE.SphereGeometry(1.15, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
-    const stemGeo = new THREE.CylinderGeometry(0.28, 0.36, 0.95, 10);
-    const spotGeo = new THREE.SphereGeometry(0.16, 6, 6);
-    const capColors = [0xec4899, 0x8b5cf6];
+    const baseGeo = new THREE.CylinderGeometry(1.13, 0.95, 0.23, 10);
+    const padGeo = new THREE.CylinderGeometry(0.89, 1.03, 0.18, 10);
+    const markGeo = new THREE.CylinderGeometry(0.47, 0.47, 0.02, 5);
+    const padColors = [0xe98e75, 0x9591e5];
+    const baseMat = new THREE.MeshLambertMaterial({ color: 0x37505b });
+    const markMat = new THREE.MeshBasicMaterial({ color: 0xffe2a4 });
     for (let i = 0; i < 2; i++) {
       const grp = new THREE.Group();
-      const stem = new THREE.Mesh(stemGeo, new THREE.MeshLambertMaterial({ color: 0xfef3c7 }));
-      stem.position.y = 0.45;
-      const cap = new THREE.Mesh(capGeo, new THREE.MeshLambertMaterial({ color: capColors[i], emissive: capColors[i], emissiveIntensity: 0.2 }));
-      cap.position.y = 0.75;
-      cap.scale.set(1.1, 0.65, 1.1);
-      grp.add(stem, cap);
-      for (let s = 0; s < 5; s++) {
-        const a = (s / 5) * Math.PI * 2;
-        const spot = new THREE.Mesh(spotGeo, new THREE.MeshBasicMaterial({ color: 0xfef08a }));
-        spot.position.set(Math.cos(a) * 0.68, 1.15, Math.sin(a) * 0.68);
-        grp.add(spot);
-      }
+      const base = new THREE.Mesh(baseGeo, baseMat);
+      base.position.y = 0.115;
+      const pad = new THREE.Mesh(padGeo, new THREE.MeshLambertMaterial({ color: padColors[i], emissive: padColors[i], emissiveIntensity: 0.12 }));
+      pad.position.y = 0.29;
+      const mark = new THREE.Mesh(markGeo, markMat);
+      mark.position.y = 0.39;
+      grp.add(base, pad, mark);
       grp.visible = false;
       ctx.scene.add(grp);
       trampolinePool.push({ mesh: grp, bounceCooldown: 0, squish: 0 });

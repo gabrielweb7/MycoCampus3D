@@ -214,6 +214,29 @@ export function buildCampusBuildingWing(ctx, opts) {
   }
 
   addSolidWall(scene, wallSegments, backX, zS, frontX, zS, yFloor1, h1, 0.28, brickMat(2.5, 1.2));
+  if (opts.labInterior) {
+    // Revestimento interno em duas faixas. O tijolo continua visível pelo lado de fora.
+    const panels = [
+      [d, backX + dir * 0.145, cz, dir * Math.PI / 2],
+      [w, cx, zN + 0.145, 0],
+      [w, cx, zS - 0.145, Math.PI]
+    ];
+    const finish = [
+      [1.48, 0.74, 0x52958e],
+      [h1 - 1.48, (h1 + 1.48) * 0.5, 0xe6d8bd]
+    ];
+    for (const [height, centerY, color] of finish) {
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
+      mat.userData.keepExactStyle = true;
+      for (const [width, x, z, yaw] of panels) {
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat);
+        panel.position.set(x, yFloor1 + centerY, z);
+        panel.rotation.y = yaw;
+        panel.receiveShadow = true;
+        scene.add(panel);
+      }
+    }
+  }
   if (opts.connectSouth2F) {
     addSolidWall(scene, wallSegments, wallMinX, zS, cx - 1.6, zS, yFloor2, h2, 0.28, brickMat(1, 1));
     addSolidWall(scene, wallSegments, cx + 1.6, zS, wallMaxX, zS, yFloor2, h2, 0.28, brickMat(1, 1));

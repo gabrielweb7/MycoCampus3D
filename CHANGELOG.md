@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.3.5] - 2026-11-24
+
+- Fonte da praça com bico de cerâmica, água turquesa e colisão circular junto à borda.
+- Trampolins com modelo próprio e tufos de vegetação baixa agrupados pelo cenário.
+- Laboratório com revestimento interno, bancadas mais contrastadas e novos acabamentos na balança e no agitador.
+- Braços em primeira pessoa remodelados e posicionados mais abaixo quando as mãos estão livres.
+
 ## [v2.3.2] - 2026-11-24
 
 - Operações de MycoCoins ficam em fila até a confirmação do servidor, com proteção contra duplicidade.

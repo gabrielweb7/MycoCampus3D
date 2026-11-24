@@ -9,6 +9,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.3.5': {
+    title: '✨ Novidades da Atualização v2.3.5',
+    subtitle: 'Praça e laboratório renovados',
+    items: [
+      { icon: '⛲', text: 'A fonte tem um novo modelo e a colisão acompanha a borda redonda.' },
+      { icon: '🔬', text: 'Bancadas com mais contraste e novos detalhes na balança e no agitador.' },
+      { icon: '🌿', text: 'Tufos de grama agrupados e mãos mais discretas em primeira pessoa.' }
+    ]
+  },
   '2.3.2': {
     title: '✨ Novidades da Atualização v2.3.2',
     subtitle: 'Progresso, missão e multiplayer',

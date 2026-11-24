@@ -123,6 +123,16 @@ export function addSolidWall(scene, wallSegments, x1, z1, x2, z2, minY, height, 
 }
 
 function clampCircleAgainstCollider(pos, radius, c) {
+  if (c.radiusXZ > 0) {
+    const dx = pos.x - c.centerX;
+    const dz = pos.z - c.centerZ;
+    const limit = radius + c.radiusXZ;
+    const dist = Math.hypot(dx, dz);
+    if (dist >= limit) return;
+    pos.x = c.centerX + (dist > 0.0001 ? dx / dist : 1) * limit;
+    pos.z = c.centerZ + (dist > 0.0001 ? dz / dist : 0) * limit;
+    return;
+  }
   if (typeof c.halfW === 'number' && typeof c.halfD === 'number' &&
       typeof c.centerX === 'number' && typeof c.centerZ === 'number' && c.ry) {
     const dx = pos.x - c.centerX;

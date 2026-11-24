@@ -4,7 +4,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { makeBox } from '../engine/textures.js';
-import { registerPickable, updateItemBounds, isSurfaceOccupied, getItemWeightGrams } from './item-registry.js';
+import { registerPickable, updateItemBounds, isSurfaceOccupied, getItemWeightGrams, makeRoundedRectShape } from './item-registry.js';
 
 export const PRECISION_SCALE_META = {
   category: 'instrument',
@@ -17,22 +17,32 @@ export const PRECISION_SCALE_META = {
 
 const THREE = window.THREE;
 let lastScaleAt = 0;
+let scaleBodyGeometry;
 
 export function createPrecisionScale(ctx, id, sx, sy, sz) {
   const sg = new THREE.Group();
-  const body = makeBox(0.32, 0.065, 0.38, 0x1e293b, { roughness: 0.45 });
-  body.position.y = 0.0325;
-  const pan = makeBox(0.28, 0.016, 0.26, 0xe2e8f0, { metalness: 0.82, roughness: 0.22 });
+  if (!scaleBodyGeometry) {
+    scaleBodyGeometry = new THREE.ExtrudeGeometry(makeRoundedRectShape(0.31, 0.37, 0.023), {
+      depth: 0.055, bevelThickness: 0.005, bevelSize: 0.005, bevelSegments: 1, curveSegments: 3
+    });
+    scaleBodyGeometry.rotateX(-Math.PI / 2);
+    scaleBodyGeometry.translate(0, 0.005, 0);
+    scaleBodyGeometry.userData.shared = true;
+  }
+  const body = new THREE.Mesh(scaleBodyGeometry, new THREE.MeshStandardMaterial({ color: 0x256763, roughness: 0.67 }));
+  body.castShadow = true;
+  body.receiveShadow = true;
+  const pan = makeBox(0.28, 0.016, 0.26, 0xd9edf0, { metalness: 0.28, roughness: 0.38 });
   pan.position.set(0, 0.073, -0.04);
   const lcdC = document.createElement('canvas'); lcdC.width = 256; lcdC.height = 96;
   const lcdCtx = lcdC.getContext('2d');
   const lcdTex = new THREE.CanvasTexture(lcdC);
-  const lcdScreen = makeBox(0.18, 0.045, 0.01, new THREE.MeshBasicMaterial({ map: lcdTex }), { noShadow: true });
-  lcdScreen.position.set(-0.04, 0.045, 0.192);
-  lcdScreen.rotation.x = -0.35;
-  const tareBtn = makeBox(0.065, 0.028, 0.016, 0x22c55e, { noShadow: true });
-  tareBtn.position.set(0.095, 0.042, 0.194);
-  tareBtn.rotation.x = -0.35;
+  lcdTex.colorSpace = THREE.SRGBColorSpace;
+  const lcdScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.068), new THREE.MeshBasicMaterial({ map: lcdTex, toneMapped: false }));
+  lcdScreen.position.set(-0.042, 0.066, 0.132);
+  lcdScreen.rotation.x = -Math.PI / 2;
+  const tareBtn = makeBox(0.06, 0.012, 0.052, 0xf5bf69, { noShadow: true });
+  tareBtn.position.set(0.094, 0.069, 0.132);
   sg.add(body, pan, lcdScreen, tareBtn);
 
   const scSurf = { minX: sx - 0.15, maxX: sx + 0.15, minZ: sz - 0.18, maxZ: sz + 0.10, topY: sy + 0.082 };
@@ -54,14 +64,14 @@ export function createPrecisionScale(ctx, id, sx, sy, sz) {
       const txt = (isNeg ? '-' : '') + Math.abs(displayGrams).toFixed(1) + ' g';
       if (txt === this.lastText) return;
       this.lastText = txt;
-      lcdCtx.fillStyle = '#064e3b'; lcdCtx.fillRect(0, 0, 256, 96);
-      lcdCtx.fillStyle = isNeg ? '#f87171' : '#34d399';
-      lcdCtx.font = 'bold 44px monospace';
+      lcdCtx.fillStyle = '#102c33'; lcdCtx.fillRect(0, 0, 256, 96);
+      lcdCtx.fillStyle = isNeg ? '#ff9d8a' : '#c2fbe4';
+      lcdCtx.font = 'bold 56px monospace';
       lcdCtx.textAlign = 'right'; lcdCtx.textBaseline = 'middle';
       lcdCtx.fillText(txt, 240, 52);
       if (this.tare > 0) {
-        lcdCtx.fillStyle = isNeg ? '#fca5a5' : '#10b981';
-        lcdCtx.font = 'bold 18px monospace';
+        lcdCtx.fillStyle = isNeg ? '#fca5a5' : '#96dec8';
+        lcdCtx.font = 'bold 15px monospace';
         lcdCtx.textAlign = 'left';
         lcdCtx.fillText('TARE', 16, 26);
       }

@@ -270,10 +270,11 @@ export function stepPlayerMovement(ctx, dt, now) {
       const drawingNow = !!(ctx.isPrimaryDown && ctx.hoveredBoardHit && getHeldBoardToolColor(ctx.heldItem));
       ctx.armReach += ((drawingNow ? 1 : 0) - ctx.armReach) * Math.min(1, dt * 14);
       if (speedNow > 0.2) ctx.armSwingPhase += dt * 7;
+      const emptyHands = !ctx.heldItem;
       ctx.fpsArmGroup.position.set(
-        (isTwoHanded ? 0.27 : 0.32) - ctx.armReach * 0.08,
-        (isTwoHanded ? -0.34 : -0.28) + Math.sin(ctx.armSwingPhase) * 0.014 + ctx.armReach * 0.06,
-        (isTwoHanded ? -0.56 : -0.42) - ctx.armReach * 0.16
+        (isTwoHanded ? 0.27 : 0.32) + (emptyHands ? 0.025 : 0) - ctx.armReach * 0.08,
+        (isTwoHanded || emptyHands ? -0.34 : -0.28) + Math.sin(ctx.armSwingPhase) * 0.014 + ctx.armReach * 0.06,
+        (isTwoHanded ? -0.56 : -0.42) - (emptyHands ? 0.035 : 0) - ctx.armReach * 0.16
       );
       ctx.fpsArmGroup.rotation.set(0.18 + ctx.armReach * 0.35, (isTwoHanded ? 0.12 : -0.14) + ctx.armReach * 0.1, 0.05);
     }

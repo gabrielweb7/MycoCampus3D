@@ -14,6 +14,20 @@ const { getItemsSupportedBy, moveItemWithSupported, dropSupportedItemsToGround }
 const { updateItemBounds, isPointInBoundsXZ } = await import('../js/items/item-registry.js');
 const { clampPosAgainstWalls, getSupportSurfaceAt } = await import('../js/engine/physics.js');
 
+test('colisão circular protege a borda da fonte e libera diagonal e salto acima da borda', () => {
+  const collider = { centerX: 0, centerZ: 2, radiusXZ: 3.1, minY: 0, maxY: 0.61 };
+  const ctx = { wallSegments: [], campusDoors: [], solidColliders: [collider] };
+  const front = { x: 0, y: 0, z: 5 };
+  const diagonal = { x: 2.8, y: 0, z: 4.8 };
+  const above = { x: 0, y: 0.65, z: 5 };
+  clampPosAgainstWalls(ctx, front, 0.35);
+  clampPosAgainstWalls(ctx, diagonal, 0.35);
+  clampPosAgainstWalls(ctx, above, 0.35);
+  assert.ok(Math.abs(front.z - 5.45) < 1e-9);
+  assert.deepEqual(diagonal, { x: 2.8, y: 0, z: 4.8 });
+  assert.deepEqual(above, { x: 0, y: 0.65, z: 5 });
+});
+
 function makeMesh(x, y, z, ry = 0, userData = {}) {
   return {
     position: {
