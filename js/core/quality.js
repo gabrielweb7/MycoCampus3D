@@ -13,6 +13,7 @@ function getThree() {
 }
 
 export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
+export const CAMPUS_EXPOSURE = 0.92;
 
 const TIER_CONFIGS = {
   desktop: {
@@ -192,7 +193,7 @@ export function applyQualityTier(tier, deps) {
   }
   if (ThreeRef && ThreeRef.ACESFilmicToneMapping !== undefined && ThreeRef.NoToneMapping !== undefined) {
     renderer.toneMapping = cfg.toneMap ? ThreeRef.ACESFilmicToneMapping : ThreeRef.NoToneMapping;
-    renderer.toneMappingExposure = cfg.toneMap ? (isTouchDevice ? 1.06 : 1.02) : 1;
+    renderer.toneMappingExposure = cfg.toneMap ? CAMPUS_EXPOSURE : 1;
   }
   if (renderer.shadowMap) {
     renderer.shadowMap.enabled = cfg.shadows;
@@ -234,6 +235,8 @@ export function applyQualityTier(tier, deps) {
   if (scene) {
     setSceneMaterialQuality(scene, !!cfg.lambert);
     scene.environment = cfg.lambert ? null : getLabEnvironmentMap();
+    // Reflexos decorativos do laboratório, com pouca influência na luz difusa do campus.
+    scene.environmentIntensity = 0.4;
   }
   if (weatherPoints && weatherPoints.geometry) {
     weatherPoints.geometry.setDrawRange(0, cfg.weatherParticles);

@@ -34,6 +34,7 @@ export function createProceduralTextures() {
     }
   }
   texBrick = new THREE.CanvasTexture(bc);
+  texBrick.colorSpace = THREE.SRGBColorSpace;
   texBrick.wrapS = THREE.RepeatWrapping;
   texBrick.wrapT = THREE.RepeatWrapping;
 
@@ -52,6 +53,7 @@ export function createProceduralTextures() {
     }
   }
   texPaving = new THREE.CanvasTexture(pc);
+  texPaving.colorSpace = THREE.SRGBColorSpace;
   texPaving.wrapS = THREE.RepeatWrapping;
   texPaving.wrapT = THREE.RepeatWrapping;
   texPaving.repeat.set(16, 18);
@@ -68,6 +70,7 @@ export function createProceduralTextures() {
     wctx.fillRect(i * 16 + 1, 0, 14, 128);
   }
   texWood = new THREE.CanvasTexture(wc);
+  texWood.colorSpace = THREE.SRGBColorSpace;
   texWood.wrapS = THREE.RepeatWrapping;
   texWood.wrapT = THREE.RepeatWrapping;
 
@@ -102,6 +105,7 @@ export function createProceduralTextures() {
     watCtx.fill();
   }
   texWater = new THREE.CanvasTexture(watC);
+  texWater.colorSpace = THREE.SRGBColorSpace;
   texWater.wrapS = THREE.RepeatWrapping;
   texWater.wrapT = THREE.RepeatWrapping;
   texWater.repeat.set(4, 4);

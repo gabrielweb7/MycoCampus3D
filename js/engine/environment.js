@@ -20,7 +20,7 @@ const _cPartly = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
 const _cOvercast = _ColorCtor ? new _ColorCtor(0x94a3b8) : null;
 const _cRain = _ColorCtor ? new _ColorCtor(0x475569) : null;
 const _cSnow = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
-const _cSunDay = _ColorCtor ? new _ColorCtor(0xfffbeb) : null;
+const _cSunDay = _ColorCtor ? new _ColorCtor(0xfff3df) : null;
 const _cSunSet = _ColorCtor ? new _ColorCtor(0xfb923c) : null;
 const _cSunNight = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
 const _cCloudRain = _ColorCtor ? new _ColorCtor(0x64748b) : null;
@@ -163,10 +163,10 @@ export function updateDynamicEnvironment(dt, env) {
     else if (sunY > -0.15) env.envSun.color.copy(_cSunSet);
     else env.envSun.color.copy(_cSunNight);
     const cloudDim = Math.max(0.48, 1 - 0.12 * wb.partly - 0.28 * wb.overcast - 0.48 * wb.rain - 0.22 * wb.snow);
-    env.envSun.intensity = (env.isTouch ? Math.max(0.28, sunY * 0.75 + 0.35) : Math.max(0.20, sunY * 0.60 + 0.32)) * cloudDim;
+    env.envSun.intensity = Math.max(0.20, sunY * 0.56 + 0.32) * cloudDim;
   }
   if (env.envHemi) {
-    env.envHemi.intensity = env.isTouch ? Math.max(0.45, sunY * 0.28 + 0.45) : Math.max(0.36, sunY * 0.25 + 0.38);
+    env.envHemi.intensity = Math.max(0.36, sunY * 0.15 + 0.36);
     if (_cHemiSkyDay && _cHemiGndDay) {
       env.envHemi.color.copy(_cHemiSkyDay);
       env.envHemi.groundColor.copy(_cHemiGndDay);

@@ -467,7 +467,7 @@ export function buildPlaza(ctx) {
   scene.add(plazaFloor);
 
   const fx = 0, fz = 2;
-  const basinStoneMat = new THREE.MeshStandardMaterial({ color: 0xdbe4ee, roughness: 0.58, metalness: 0.08 });
+  const basinStoneMat = new THREE.MeshStandardMaterial({ color: 0xbac2c5, roughness: 0.72, metalness: 0.04 });
   const basinInnerMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.68, side: THREE.DoubleSide });
   const tilePoolMat = new THREE.MeshStandardMaterial({ color: 0x075985, roughness: 0.35, metalness: 0.15 });
   const waterSurfMat = new THREE.MeshStandardMaterial({

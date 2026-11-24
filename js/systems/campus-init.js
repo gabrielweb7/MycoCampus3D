@@ -5,7 +5,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
-import { getInitialQualityTier, getSavedQualityMode, qualityState } from '../core/quality.js';
+import { CAMPUS_EXPOSURE, getInitialQualityTier, getSavedQualityMode, qualityState } from '../core/quality.js';
 import { syncViewportCssVars } from '../ui/dom-helpers.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
@@ -640,7 +640,7 @@ export function initCampus3D(containerId, cbs) {
     sim.renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (THREE.ACESFilmicToneMapping) {
       sim.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      sim.renderer.toneMappingExposure = touch ? 1.05 : 1.02;
+      sim.renderer.toneMappingExposure = CAMPUS_EXPOSURE;
     }
     container.innerHTML = '';
     container.appendChild(sim.renderer.domElement);
@@ -652,10 +652,10 @@ export function initCampus3D(containerId, cbs) {
     sim.controls.maxDistance = 65;
     sim.controls.target.set(0, 4.5, -14);
 
-    const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x3f624d, touch ? 0.68 : 0.60);
+    const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x3f624d, 0.51);
     sim.scene.add(hemi);
     sim.envHemi = hemi;
-    const sun = new THREE.DirectionalLight(0xfffbeb, touch ? 1.02 : 0.95);
+    const sun = new THREE.DirectionalLight(0xfff3df, 0.88);
     sun.position.set(45, 65, 38);
     sun.castShadow = true;
     const shSize = touch ? 768 : camCfg.desktopShadowSize;

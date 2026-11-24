@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.3.1] - 2026-11-24
+
+- Corrigido o espaço de cor das texturas procedurais de piso, tijolo, madeira e água.
+- Suavizadas a exposição, a luz ambiente e a intensidade dos reflexos, com luz solar mais quente e contraste mais definido na praça.
+
 ## [v2.3.0] - 2026-11-24
 ### Correções Completas de Cultivo, Autonomia Solo, Borrifador de Água Destilada & Reflexos PBR
 - **Seringa 10ml, Pour Tek PDA & Desidratadora (`js/items/syringe.js`, `js/systems/interaction-system.js`, `js/systems/held-item-loop.js`, `js/items/dehydrator.js`, `js/items/dehydration-packaging.js`, `js/items/petri-dish.js`):**

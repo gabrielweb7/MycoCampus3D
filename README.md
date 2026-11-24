@@ -1,7 +1,7 @@
 # 🍄 MycoCampus3D — Universidade Virtual 3D do Cultivo de Cogumelos
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Vers%C3%A3o-v2.3.0-39ff14?style=for-the-badge&logo=github" alt="Versão v2.3.0" />
+  <img src="https://img.shields.io/badge/Vers%C3%A3o-v2.3.1-39ff14?style=for-the-badge&logo=github" alt="Versão v2.3.1" />
   <img src="https://img.shields.io/badge/Three.js-r187%20%2B%20BVH-049ef4?style=for-the-badge&logo=threedotjs" alt="Three.js r187" />
   <img src="https://img.shields.io/badge/Multiplayer-PHP%208%20%2B%20MySQL%208-777bb4?style=for-the-badge&logo=php" alt="PHP 8 + MySQL 8" />
   <img src="https://img.shields.io/badge/Plataformas-PC%20%7C%20Android%20%7C%20iPhone%20iOS-10b981?style=for-the-badge&logo=apple" alt="PC | Android | iPhone iOS" />
