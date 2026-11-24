@@ -259,7 +259,13 @@ Abra **Missão → Aprender Sozinho** para escolher uma das quatro trilhas. As e
 
 ## 🧪 Como Executar os Testes Localmente
 
-O GitHub Actions também valida a sintaxe PHP e testa a API com um MySQL 8 isolado. Para reproduzir o teste da API localmente, crie um banco descartável chamado `mycocampus_test` e rode `node scripts/check-backend.mjs` com `MYCO_TEST_DB_HOST`, `MYCO_TEST_DB_USER` e `MYCO_TEST_DB_PASS` configurados para esse banco. O teste cria contas de teste e grava progresso.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:90cef07ce8d012b0356bedd9f806154ca50766cd06a7e9112d354fbf590b5945 -->
+
+O workflow **Verificar MycoCampus3D** roda apenas quando iniciado manualmente no GitHub Actions. Ele também valida a sintaxe PHP e testa a API com um MySQL 8 isolado. Para reproduzir o teste da API localmente, crie um banco descartável chamado `mycocampus_test` e rode `node scripts/check-backend.mjs` com `MYCO_TEST_DB_HOST`, `MYCO_TEST_DB_USER` e `MYCO_TEST_DB_PASS` configurados para esse banco. O teste cria contas de teste e grava progresso.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 Antes de publicar, confira no ambiente de homologação:
 
