@@ -39,7 +39,24 @@ function harmonizeStandardMaterial(material) {
       const hsl = { h: 0, s: 0, l: 0 };
       material.color.getHSL(hsl);
       if (hsl.s > 0.08) {
-        material.color.setHSL(hsl.h, Math.min(1, hsl.s * 1.07 + 0.018), Math.min(0.88, hsl.l * 1.025));
+        // A direção anterior era deliberadamente sutil e quase invisível no
+        // jogo real. Aumentar saturação/luz aqui afeta campus e itens de forma
+        // clara, sem textura extra nem custo de shader.
+        let saturation = Math.min(1, hsl.s * 1.24 + 0.045);
+        let lightness = Math.min(0.9, hsl.l * 1.075 + 0.012);
+        // Verdes ganham o aspecto vivo das referências; marrons ficam mais
+        // quentes e cremosos em vez de escuros/cinzentos.
+        if (hsl.h > 0.22 && hsl.h < 0.47) {
+          saturation = Math.min(0.9, saturation + 0.08);
+          lightness = Math.min(0.68, lightness + 0.035);
+        } else if (hsl.h < 0.13 || hsl.h > 0.96) {
+          lightness = Math.min(0.74, lightness + 0.025);
+        }
+        material.color.setHSL(hsl.h, saturation, lightness);
+      } else if (hsl.l > 0.18 && hsl.l < 0.78) {
+        // Cinzas médios deixam o laboratório pesado; elevá-los aproxima inox,
+        // concreto e plástico do acabamento limpo e fofo desejado.
+        material.color.setHSL(hsl.h, hsl.s, Math.min(0.82, hsl.l * 1.12 + 0.025));
       }
     }
   } else {

@@ -12,7 +12,7 @@ const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThi
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
 const _Obj3DCtor = THREE && THREE.Object3D ? THREE.Object3D : null;
 
-const _cSkyDay = _ColorCtor ? new _ColorCtor(0x60a5fa) : null;
+const _cSkyDay = _ColorCtor ? new _ColorCtor(0x38bdf8) : null;
 const _cSkySunset = _ColorCtor ? new _ColorCtor(0xf97316) : null;
 const _cSkyNight = _ColorCtor ? new _ColorCtor(0x05091a) : null;
 const _cSkyWork = _ColorCtor ? new _ColorCtor() : null;
@@ -28,10 +28,10 @@ const _cCloudOvercast = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
 const _cCloudWhite = _ColorCtor ? new _ColorCtor(0xffffff) : null;
 const _cSunSunsetGlow = _ColorCtor ? new _ColorCtor(0xfdba74) : null;
 const _cSnowWhite = _ColorCtor ? new _ColorCtor(0xf1f5f9) : null;
-const _cHemiSkyDay = _ColorCtor ? new _ColorCtor(0xe0f2fe) : null;
+const _cHemiSkyDay = _ColorCtor ? new _ColorCtor(0xd9f4ff) : null;
 const _cHemiSkySet = _ColorCtor ? new _ColorCtor(0xfed7aa) : null;
 const _cHemiSkyNight = _ColorCtor ? new _ColorCtor(0x60a5fa) : null;
-const _cHemiGndDay = _ColorCtor ? new _ColorCtor(0x3f624d) : null;
+const _cHemiGndDay = _ColorCtor ? new _ColorCtor(0x548455) : null;
 const _cHemiGndSet = _ColorCtor ? new _ColorCtor(0x5b4668) : null;
 const _cHemiGndNight = _ColorCtor ? new _ColorCtor(0x1e293b) : null;
 const _cloudDummy = _Obj3DCtor ? new _Obj3DCtor() : null;

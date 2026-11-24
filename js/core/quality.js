@@ -13,7 +13,7 @@ function getThree() {
 }
 
 export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
-export const CAMPUS_EXPOSURE = 0.92;
+export const CAMPUS_EXPOSURE = 1.04;
 
 const TIER_CONFIGS = {
   desktop: {

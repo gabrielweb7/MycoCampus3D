@@ -47,10 +47,10 @@ export function buildNatureWorld(ctx) {
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colors = [];
-  const cGrass = new THREE.Color(0x2f7038);
-  const cGrassAlt = new THREE.Color(0x3c8444);
-  const cMtn = new THREE.Color(0x1e462a);
-  const cRock = new THREE.Color(0x475569);
+  const cGrass = new THREE.Color(0x4c9a43);
+  const cGrassAlt = new THREE.Color(0x63ad4e);
+  const cMtn = new THREE.Color(0x2f7140);
+  const cRock = new THREE.Color(0x68758a);
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
@@ -91,11 +91,11 @@ export function buildNatureWorld(ctx) {
 
   const count = treePositions.length;
   const trunkGeo = new THREE.CylinderGeometry(0.24, 0.38, 3.2, 7);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x81502f, roughness: 0.88 });
   const cone1Geo = new THREE.ConeGeometry(2.1, 3.2, 8);
-  const cone1Mat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 });
+  const cone1Mat = new THREE.MeshStandardMaterial({ color: 0x16814b, roughness: 0.82 });
   const cone2Geo = new THREE.ConeGeometry(1.5, 2.6, 8);
-  const cone2Mat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 });
+  const cone2Mat = new THREE.MeshStandardMaterial({ color: 0x25a95d, roughness: 0.8 });
 
   const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
   const cone1Inst = new THREE.InstancedMesh(cone1Geo, cone1Mat, count);

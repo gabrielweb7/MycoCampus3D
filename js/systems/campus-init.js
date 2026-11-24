@@ -548,8 +548,8 @@ export function initCampus3D(containerId, cbs) {
     sim.callbacks = Object.assign(sim.callbacks, cbs || {});
     const container = document.getElementById(containerId);
     sim.scene = new THREE.Scene();
-    sim.scene.background = new THREE.Color(0x60a5fa);
-    sim.scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0022);
+    sim.scene.background = new THREE.Color(0x38bdf8);
+    sim.scene.fog = new THREE.FogExp2(0xc7efff, 0.0022);
     const touch = sim.isTouchDevice();
 
     sim.rainbowMesh = createRainbowMesh();
@@ -654,10 +654,10 @@ export function initCampus3D(containerId, cbs) {
     sim.controls.maxDistance = 65;
     sim.controls.target.set(0, 4.5, -14);
 
-    const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x3f624d, 0.51);
+    const hemi = new THREE.HemisphereLight(0xd9f4ff, 0x548455, 0.58);
     sim.scene.add(hemi);
     sim.envHemi = hemi;
-    const sun = new THREE.DirectionalLight(0xfff3df, 0.88);
+    const sun = new THREE.DirectionalLight(0xfff0ce, 1.02);
     sun.position.set(45, 65, 38);
     sun.castShadow = true;
     const shSize = touch ? 768 : camCfg.desktopShadowSize;
