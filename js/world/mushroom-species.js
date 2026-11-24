@@ -508,7 +508,7 @@ export function buildExpandedForestAndMushrooms(ctx) {
   let foliageTotal = 0;
   for (let i = 0; i < treeSpecs.length; i++) {
     const k = treeSpecs[i].kind;
-    if (k === 'pine') pineConeTotal += 3;
+    if (k === 'pine') pineConeTotal += 4;
     else if (k === 'ipe_yellow' || k === 'ipe_purple') foliageTotal += 4;
     else foliageTotal += 1;
   }
@@ -526,9 +526,9 @@ export function buildExpandedForestAndMushrooms(ctx) {
 
   let pineInst = null;
   if (pineConeTotal > 0) {
-    const pGeo = new THREE.ConeGeometry(1, 1, 8);
+    const pGeo = new THREE.ConeGeometry(1, 1, 9);
     pGeo.userData.shared = true;
-    const pMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 });
+    const pMat = new THREE.MeshStandardMaterial({ color: 0x249457, roughness: 0.84 });
     pMat.userData.shared = true;
     pineInst = new THREE.InstancedMesh(pGeo, pMat, pineConeTotal);
     pineInst.frustumCulled = false;
@@ -563,11 +563,12 @@ export function buildExpandedForestAndMushrooms(ctx) {
     items.push({ inst: trunkInst, idx: i, activeMat: dummy.matrix.clone() });
 
     if (ts.kind === 'pine' && pineInst) {
-      for (let pi = 0; pi < 3; pi++) {
-        const cy = 2.6 + pi * 0.95;
-        const radC = (1.5 - pi * 0.35) * ts.scale;
-        const hC = (1.8 - pi * 0.2) * ts.scale;
+      for (let pi = 0; pi < 4; pi++) {
+        const cy = 2.55 + pi * 0.84;
+        const radC = (1.58 - pi * 0.29) * ts.scale;
+        const hC = (1.9 - pi * 0.15) * ts.scale;
         dummy.position.set(ts.x, ts.y + cy * ts.scale, ts.z);
+        dummy.rotation.set(0, ts.scale + pi * 0.41, pi % 2 ? 0.02 : -0.018);
         dummy.scale.set(radC, hC, radC);
         dummy.updateMatrix();
         pineInst.setMatrixAt(pineCursor, dummy.matrix);

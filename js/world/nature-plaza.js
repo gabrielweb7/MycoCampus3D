@@ -89,41 +89,85 @@ export function buildNatureWorld(ctx) {
     treePositions.push({ x: et[0], y: terrainHeight(et[0], et[1]), z: et[1], s: 0.95 + (k % 3) * 0.15 });
   });
 
+  // Nova floresta Myco Cozy: mistura pinheiros em camadas e árvores de copa
+  // arredondada. Cinco draw calls atendem toda a floresta, inclusive mobile.
   const count = treePositions.length;
-  const trunkGeo = new THREE.CylinderGeometry(0.24, 0.38, 3.2, 7);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x81502f, roughness: 0.88 });
-  const cone1Geo = new THREE.ConeGeometry(2.1, 3.2, 8);
-  const cone1Mat = new THREE.MeshStandardMaterial({ color: 0x16814b, roughness: 0.82 });
-  const cone2Geo = new THREE.ConeGeometry(1.5, 2.6, 8);
-  const cone2Mat = new THREE.MeshStandardMaterial({ color: 0x25a95d, roughness: 0.8 });
+  const pineCount = treePositions.filter((_, i) => i % 5 !== 0).length;
+  const broadCount = count - pineCount;
+  const trunkGeo = new THREE.CylinderGeometry(0.24, 0.42, 3.45, 8);
+  const pineGeo = new THREE.ConeGeometry(1, 1, 9);
+  const crownGeo = new THREE.DodecahedronGeometry(1, 1);
+  // `setColorAt` ativa instanceColor automaticamente. Não usar vertexColors
+  // aqui: as geometrias não possuem atributo `color` e ficariam pretas.
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  const pineDarkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86 });
+  const pineLightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82 });
+  const crownMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.84 });
 
   const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
-  const cone1Inst = new THREE.InstancedMesh(cone1Geo, cone1Mat, count);
-  const cone2Inst = new THREE.InstancedMesh(cone2Geo, cone2Mat, count);
-  trunkInst.castShadow = !LITE_FLORA;
-  cone1Inst.castShadow = !LITE_FLORA;
-  cone2Inst.castShadow = !LITE_FLORA;
-
+  const pineDark = new THREE.InstancedMesh(pineGeo, pineDarkMat, Math.max(1, pineCount * 2));
+  const pineLight = new THREE.InstancedMesh(pineGeo, pineLightMat, Math.max(1, pineCount * 2));
+  const crowns = new THREE.InstancedMesh(crownGeo, crownMat, Math.max(1, broadCount * 5));
   const dummy = new THREE.Object3D();
+  const color = new THREE.Color();
+  let darkIdx = 0, lightIdx = 0, crownIdx = 0;
+  const crownOffsets = [[0, 3.75, 0, 1.28], [-0.82, 3.35, 0.18, 0.9], [0.78, 3.42, -0.22, 0.94], [0.08, 3.32, 0.82, 0.86], [-0.12, 4.42, -0.12, 0.83]];
+
   treePositions.forEach((tp, i) => {
-    dummy.scale.setScalar(tp.s);
-    dummy.position.set(tp.x, tp.y + 1.6 * tp.s, tp.z);
+    const yaw = (i * 1.618) % (Math.PI * 2);
+    const isPine = i % 5 !== 0;
+    dummy.rotation.set(0, yaw, 0);
+    dummy.scale.set(tp.s * (isPine ? 0.9 : 1.08), tp.s, tp.s * (isPine ? 0.9 : 1.08));
+    dummy.position.set(tp.x, tp.y + 1.72 * tp.s, tp.z);
     dummy.updateMatrix();
     trunkInst.setMatrixAt(i, dummy.matrix);
+    color.setHex(i % 7 === 0 ? 0x9b6a43 : (isPine ? 0x724329 : 0x855437));
+    trunkInst.setColorAt(i, color);
 
-    dummy.position.set(tp.x, tp.y + 3.6 * tp.s, tp.z);
-    dummy.updateMatrix();
-    cone1Inst.setMatrixAt(i, dummy.matrix);
-
-    dummy.position.set(tp.x, tp.y + 5.2 * tp.s, tp.z);
-    dummy.updateMatrix();
-    cone2Inst.setMatrixAt(i, dummy.matrix);
+    if (isPine) {
+      for (let layer = 0; layer < 4; layer++) {
+        const radius = (2.05 - layer * 0.32) * tp.s;
+        const height = (2.45 - layer * 0.16) * tp.s;
+        dummy.position.set(tp.x, tp.y + (3.0 + layer * 0.92) * tp.s, tp.z);
+        dummy.rotation.set(0, yaw + layer * 0.38, (layer % 2 ? 0.025 : -0.02));
+        dummy.scale.set(radius, height, radius);
+        dummy.updateMatrix();
+        const inst = layer % 2 ? pineLight : pineDark;
+        const idx = layer % 2 ? lightIdx++ : darkIdx++;
+        inst.setMatrixAt(idx, dummy.matrix);
+        color.setHex(layer % 2 ? (i % 3 ? 0x31b867 : 0x42c977) : (i % 4 ? 0x137d4b : 0x196c43));
+        inst.setColorAt(idx, color);
+      }
+    } else {
+      for (let ci = 0; ci < crownOffsets.length; ci++) {
+        const c = crownOffsets[ci];
+        dummy.position.set(tp.x + c[0] * tp.s, tp.y + c[1] * tp.s, tp.z + c[2] * tp.s);
+        dummy.rotation.set(ci * 0.19, yaw + ci * 0.73, ci * 0.11);
+        dummy.scale.set(c[3] * tp.s, c[3] * 0.82 * tp.s, c[3] * tp.s);
+        dummy.updateMatrix();
+        crowns.setMatrixAt(crownIdx, dummy.matrix);
+        color.setHex(ci % 2 ? 0x62c55c : (i % 10 === 0 ? 0xf2b84b : 0x35a854));
+        crowns.setColorAt(crownIdx++, color);
+      }
+    }
 
     if (Math.abs(tp.x) < 90 && Math.abs(tp.z) < 70) {
-      solidColliders.push({ minX: tp.x - 0.5, maxX: tp.x + 0.5, minZ: tp.z - 0.5, maxZ: tp.z + 0.5, minY: tp.y, maxY: tp.y + 5 });
+      solidColliders.push({ minX: tp.x - 0.5, maxX: tp.x + 0.5, minZ: tp.z - 0.5, maxZ: tp.z + 0.5, minY: tp.y, maxY: tp.y + 6.3 * tp.s });
     }
   });
-  scene.add(trunkInst, cone1Inst, cone2Inst);
+  trunkInst.instanceMatrix.needsUpdate = true;
+  pineDark.instanceMatrix.needsUpdate = true;
+  pineLight.instanceMatrix.needsUpdate = true;
+  crowns.instanceMatrix.needsUpdate = true;
+  if (trunkInst.instanceColor) trunkInst.instanceColor.needsUpdate = true;
+  if (pineDark.instanceColor) pineDark.instanceColor.needsUpdate = true;
+  if (pineLight.instanceColor) pineLight.instanceColor.needsUpdate = true;
+  if (crowns.instanceColor) crowns.instanceColor.needsUpdate = true;
+  [trunkInst, pineDark, pineLight, crowns].forEach((mesh) => {
+    mesh.castShadow = !LITE_FLORA;
+    mesh.receiveShadow = true;
+  });
+  scene.add(trunkInst, pineDark, pineLight, crowns);
 
   const mushCoords = [
     [-31, 15.5], [25, 22], [-31, 8], [-31, -6], [37, 2], [37, -25],

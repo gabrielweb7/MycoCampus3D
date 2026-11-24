@@ -737,7 +737,9 @@ function createPastureBees(ctx) {
   const hiveDarkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
   const honeyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, emissive: 0x854d0e, emissiveIntensity: 0.15 });
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.85 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.8 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x36b45e, roughness: 0.82 });
+  const leafLightMat = new THREE.MeshStandardMaterial({ color: 0x74cf65, roughness: 0.8 });
+  const birchCrownGeo = new THREE.DodecahedronGeometry(1, 1);
 
   hiveSpots.forEach((hs, hIdx) => {
     const gy = terrainHeight(hs.x, hs.z);
@@ -746,10 +748,21 @@ function createPastureBees(ctx) {
     tree.position.set(hs.x, gy, hs.z);
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 3.6, 8), trunkMat);
     trunk.position.y = 1.8;
-    const crown = new THREE.Mesh(new THREE.ConeGeometry(1.55, 2.3, 8), leafMat);
-    crown.position.y = 4.1;
-    const crown2 = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.8, 8), leafMat);
-    crown2.position.y = 5.1;
+    const crownPuffs = [
+      [-0.62, 3.9, 0.08, 1.05, 0], [0.62, 3.95, -0.12, 1.08, 1],
+      [0.05, 4.18, 0.64, 0.96, 1], [-0.08, 4.25, -0.62, 0.92, 0],
+      [0, 4.88, 0, 1.02, 1]
+    ];
+    const crownMeshes = [];
+    for (let ci = 0; ci < crownPuffs.length; ci++) {
+      const cp = crownPuffs[ci];
+      const crown = new THREE.Mesh(birchCrownGeo, cp[4] ? leafLightMat : leafMat);
+      crown.position.set(cp[0], cp[1], cp[2]);
+      crown.scale.set(cp[3], cp[3] * 0.8, cp[3]);
+      crown.rotation.set(ci * 0.11, ci * 0.72, ci * 0.08);
+      crown.castShadow = true;
+      crownMeshes.push(crown);
+    }
 
     // Colmeia quadrada listrada com mel escorrendo
     const hive = new THREE.Group();
@@ -763,7 +776,7 @@ function createPastureBees(ctx) {
     honeyDrop.position.set(0.08, -0.22, 0.285);
     hive.add(hiveBox, hiveBand, hiveHole, honeyDrop);
 
-    tree.add(trunk, crown, crown2, hive);
+    tree.add(trunk, ...crownMeshes, hive);
     ctx.scene.add(tree);
 
     for (let b = 0; b < hs.bees; b++) {
