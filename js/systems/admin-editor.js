@@ -4,7 +4,7 @@
  * mover bancadas com tudo em cima em grupo e salvar o layout padrão no MySQL.
  */
 
-import { registerItemPrefab, listItemPrefabs, spawnItemFromPrefab } from '../items/item-prefabs.js';
+import { getItemPrefab, registerItemPrefab, listItemPrefabs, spawnItemFromPrefab } from '../items/item-prefabs.js';
 import { disposeObjectResources, registerPickable, updateItemBounds } from '../items/item-registry.js';
 import { markItemsFalling } from '../entities/placement-ghost.js';
 import { addMovableStainlessTable } from '../items/stainless-table.js';
@@ -171,13 +171,13 @@ export function ensureCoreAdminPrefabs() {
   });
 
   registerItemPrefab('ampoule_case', {
-    label: 'Maleta Porta-Ampolas 3ML (50 Vagas)',
+    label: 'Maleta Porta-Ampolas 5ML (50 Vagas)',
     category: 'equipment',
     factory: (ctx, opts) => makeAmpouleCase(ctx, opts.id || ('dyn_ampoule_case_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
   });
 
   registerItemPrefab('vial_3ml', {
-    label: 'Ampola 3ML',
+    label: 'Ampola 5ML',
     category: 'glassware',
     factory: (ctx, opts) => makeVial3ml(ctx, opts.id || ('dyn_vial3ml_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
   });
@@ -201,9 +201,10 @@ export function ensureCoreAdminPrefabs() {
   });
 }
 
-export function spawnShopItemNearPlayer(sim, prefabId) {
-  if (!sim) return null;
+export function getShopDeliveryPose(sim, prefabId, { requireReady = true } = {}) {
+  if (!sim || (requireReady && (!sim.scene || !sim.renderer || !sim.controls))) return null;
   ensureCoreAdminPrefabs();
+  if (!getItemPrefab(prefabId)) return null;
   const px = sim.playerPos ? sim.playerPos.x : 0;
   const pz = sim.playerPos ? sim.playerPos.z : 10;
   const yaw = sim.playerYaw || 0;
@@ -211,6 +212,13 @@ export function spawnShopItemNearPlayer(sim, prefabId) {
   const tz = pz - Math.cos(yaw) * 1.15;
   const baseY = sim.playerPos ? sim.playerPos.y : 0;
   const ty = getItemGroundHeight(sim.physCtx, tx, tz, baseY + 1.2);
+  return { x: tx, y: ty, z: tz, ry: yaw };
+}
+
+export function spawnShopItemNearPlayer(sim, prefabId) {
+  const pose = getShopDeliveryPose(sim, prefabId, { requireReady: false });
+  if (!pose) return null;
+  const { x: tx, y: ty, z: tz, ry: yaw } = pose;
   const item = spawnItemFromPrefab(sim, prefabId, { x: tx, y: ty, z: tz, ry: yaw });
   if (!item) return null;
   if (item.mesh && item.mesh.userData && item.mesh.userData.updateBounds) {

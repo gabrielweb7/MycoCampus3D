@@ -43,6 +43,7 @@ import { stepFalconCultures } from '../items/falcon-tubes.js';
 import { stepGreenhouse } from '../world/greenhouse.js';
 import { stepForestDistanceCulling } from '../world/mushroom-species.js';
 import { stepPastureCows } from '../entities/pasture-cows.js';
+import { stepPets } from '../entities/pets.js';
 import { stepDehydrators } from '../items/dehydrator.js';
 import { stepMonotubs } from '../items/monotub.js';
 import { stepCampusGarden } from '../world/campus-garden.js';
@@ -62,6 +63,7 @@ const _qualityArg = {
   envSun: null,
   weatherPoints: null,
   isTouchDevice: false,
+  autoActive: false,
   onQualityChange: null
 };
 
@@ -188,6 +190,7 @@ function syncQualityArg(ctx) {
   _qualityArg.envSun = ctx.envSun;
   _qualityArg.weatherPoints = ctx.weatherPoints;
   _qualityArg.isTouchDevice = ctx.isTouchDevice();
+  _qualityArg.autoActive = ctx.inFps;
   _qualityArg.onQualityChange = ctx.callbacks.onQualityChange;
   _qualityArg.scene = ctx.scene;
 }
@@ -450,6 +453,7 @@ export function startAnimationLoop(ctx) {
       stepPressureCookers(ctx, dt);
       stepSprayBursts(ctx, dt);
       stepPastureCows(ctx, dt);
+      stepPets(ctx, dt);
       stepTripGnomes(ctx, dt);
       stepUfoAbduction(ctx, dt);
 

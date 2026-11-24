@@ -1,5 +1,5 @@
 /**
- * Maleta Porta-Ampolas 3ML (50 Vagas) + Ampolas 3ML Transparentes c/ Cultura Líquida & Micélio
+ * Maleta Porta-Ampolas 5ML (50 Vagas) + Ampolas Transparentes c/ Cultura Líquida & Micélio
  * Suporta diversas espécies (Cubensis, Raros & Comestíveis), contaminação visual,
  * extração direta c/ Seringa 10ml e organização por modal interativo.
  */
@@ -7,12 +7,18 @@
 import { getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { registerPickable, updateItemBounds } from './item-registry.js';
 import { createCultureLifecycleState } from './culture-lifecycle.js';
-import { releaseInputForModal } from '../ui/dom-helpers.js';
+import { escapeHtml, releaseInputForModal } from '../ui/dom-helpers.js';
+import { addSyringeMix, updateSyringeVolume } from './syringe.js';
 
 const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
 
 export const AMPOULE_CASE_MAX_SLOTS = 50;
-export const AMPOULE_VIAL_MAX_ML = 3;
+export const AMPOULE_VIAL_MAX_ML = 5;
+
+function queueCaseItem(ctx, item) {
+  if (ctx?.queueItemStateSync) ctx.queueItemStateSync(item);
+  else ctx?.markItemMoved?.(item);
+}
 
 export const AMPOULE_SPECIES_CATALOG = [
   // Cubensis & Psicoativos
@@ -148,11 +154,11 @@ export function updateVial3mlVisual(item) {
   const originLabel = getCultureOriginLabel(cc?.origin);
   const spName = (cc && cc.speciesName) || vc.speciesName || 'Golden Teacher';
   if (volMl <= 0.05) {
-    item.label = `🧪 Ampola 3ML Vazia (${isSterile ? 'Estéril ✅' : 'Não Esterilizada ⚠️'})`;
+    item.label = `🧪 Ampola 5ML Vazia (${isSterile ? 'Estéril ✅' : 'Não Esterilizada ⚠️'})`;
   } else if (isContam) {
-    item.label = `🧪 Ampola 3ML (${spName} • ${volStr}/3 ml • Contaminada 🦠)`;
+    item.label = `🧪 Ampola 5ML (${spName} • ${volStr}/5 ml • Contaminada 🦠)`;
   } else {
-    item.label = `🧪 Ampola 3ML (${spName} • ${volStr}/3 ml • ${isColonized ? 'Micélio Saudável ✅' : 'Estéril'})`;
+    item.label = `🧪 Ampola 5ML (${spName} • ${volStr}/5 ml • ${isColonized ? 'Micélio Saudável ✅' : 'Estéril'})`;
   }
   if (volMl > 0.05 && originLabel) item.label += ' • ' + originLabel;
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
@@ -162,7 +168,7 @@ export function getVialMeta(opts = {}) {
   return {
     category: 'culture_liquid',
     icon: '🧪',
-    purpose: 'Ampola de vidro transparente 3ML com cultura líquida estéril; aspire com Seringa 10ml ou guarde na Maleta',
+    purpose: 'Ampola de vidro transparente de até 5 ml; aspire com a seringa ou guarde na maleta',
     weightGrams: 11,
     baseTempC: opts.contaminated ? 26.8 : 23.5,
     compatibilities: {
@@ -178,7 +184,7 @@ export function getVialMeta(opts = {}) {
         origin: normalizeCultureOrigin(cc?.origin),
         speciesName: (cc && cc.speciesName) || (item.vial3mlCtrl && item.vial3mlCtrl.speciesName) || '',
         group: (item.vial3mlCtrl && item.vial3mlCtrl.group) || 'Cubensis',
-        volMl: lc ? Number((lc.volMl || 0).toFixed(2)) : 3,
+        volMl: lc ? Number((lc.volMl || 0).toFixed(2)) : AMPOULE_VIAL_MAX_ML,
         colonized: !!(cc && cc.colonized),
         contaminated: !!(cc && cc.contaminated),
         sterilized: !!(item.sterilized || (lc && lc.sterilized))
@@ -231,10 +237,10 @@ export function makeVial3ml(ctx, id, px, py, pz, opts = {}) {
     mycCloud: built.mycCloud,
     stirBar: null,
     sterilized,
-    baseLabel: 'Ampola 3ML'
+    baseLabel: 'Ampola 5ML'
   };
 
-  const item = registerPickable(ctx, id, '🧪 Ampola 3ML', vg, px, py, pz, 0, 0.024, 0.044, getVialMeta(opts));
+  const item = registerPickable(ctx, id, '🧪 Ampola 5ML', vg, px, py, pz, 0, 0.024, 0.044, getVialMeta(opts));
   vg.userData.liquidCtrl.onAfterVolumeUpdate = function () { updateVial3mlVisual(item); };
   item.sterilized = sterilized;
   item.cultureCtrl = {
@@ -312,7 +318,7 @@ export function updateAmpouleCaseVisual(item) {
   }
   const lidStatus = cc.lidOpen ? 'Aberta' : 'Fechada';
   const contamTag = contamCount > 0 ? ` • ${contamCount} Contaminadas 🦠` : '';
-  item.label = `💼 Maleta Porta-Ampolas 3ML (${filledCount}/${AMPOULE_CASE_MAX_SLOTS} ampolas • ${lidStatus}${contamTag})`;
+  item.label = `💼 Maleta Porta-Ampolas 5ML (${filledCount}/${AMPOULE_CASE_MAX_SLOTS} ampolas • ${lidStatus}${contamTag})`;
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
 }
 
@@ -329,7 +335,7 @@ export function toggleAmpouleCaseLid(ctx, item, openState) {
   if (typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.playClick) {
     window.MycoAudio.playClick();
   }
-  if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
+  queueCaseItem(ctx, item);
   if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
   return true;
 }
@@ -342,7 +348,7 @@ export function takeVialFromAmpouleCase(ctx, caseItem, slotIndex) {
   if (!entry) return null;
   if (ctx && ctx.heldItem) {
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🤲 Esvazie suas mãos antes de retirar uma Ampola 3ML da maleta.');
+      ctx.callbacks.onToast('🤲 Esvazie suas mãos antes de retirar uma ampola da maleta.');
     }
     return null;
   }
@@ -364,10 +370,10 @@ export function takeVialFromAmpouleCase(ctx, caseItem, slotIndex) {
     }
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(vial.label);
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`🧪 Pegou Ampola 3ML: ${entry.speciesName}! Use a Seringa 10ml para inocular grãos/PDA!`);
+      ctx.callbacks.onToast(`🧪 Pegou ampola: ${entry.speciesName}! Use a seringa para aspirar a cultura.`);
     }
-    if (ctx.markItemMoved) ctx.markItemMoved(caseItem);
-    if (ctx.markItemMoved) ctx.markItemMoved(vial);
+    queueCaseItem(ctx, caseItem);
+    queueCaseItem(ctx, vial);
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
   }
   return vial;
@@ -397,7 +403,7 @@ export function storeVialInAmpouleCase(ctx, caseItem, vialItem, targetSlotIndex 
     origin: normalizeCultureOrigin(cult?.origin),
     speciesName: (cult && cult.speciesName) || vc.speciesName || 'Golden Teacher (Psilocybe cubensis)',
     group: vc.group || 'Cubensis',
-    volMl: lc ? Math.max(0, Math.min(AMPOULE_VIAL_MAX_ML, Number(lc.volMl) || 0)) : 3,
+    volMl: lc ? Math.max(0, Math.min(AMPOULE_VIAL_MAX_ML, Number(lc.volMl) || 0)) : AMPOULE_VIAL_MAX_ML,
     colonized: !!(cult && cult.colonized),
     contaminated: !!(cult && cult.contaminated),
     sterilized: !!(vialItem.sterilized || (lc && lc.sterilized))
@@ -422,7 +428,7 @@ export function storeVialInAmpouleCase(ctx, caseItem, vialItem, targetSlotIndex 
       if (ctx.placementGhost) ctx.placementGhost.visible = false;
       if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
     }
-    if (ctx.markItemMoved) ctx.markItemMoved(caseItem);
+    queueCaseItem(ctx, caseItem);
     if (typeof window !== 'undefined' && window.MycoAudio && typeof window.MycoAudio.playGlassClink === 'function') {
       window.MycoAudio.playGlassClink();
     }
@@ -432,6 +438,54 @@ export function storeVialInAmpouleCase(ctx, caseItem, vialItem, targetSlotIndex 
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
   }
   return true;
+}
+
+/** Draw the selected dose from a slot while keeping the syringe in hand. */
+export function drawFromAmpouleCase(ctx, caseItem, slotIndex, requestedMl) {
+  const cc = caseItem?.caseCtrl;
+  const syringe = ctx?.heldItem;
+  const sc = syringe?.mesh?.userData?.syrCtrl;
+  const slot = Number.isInteger(slotIndex) && cc?.slots?.[slotIndex];
+  const amount = Number(requestedMl);
+  const fail = message => { if (cc) cc.lastDrawMessage = message; ctx?.callbacks?.onToast?.(message); return 0; };
+  if (!cc?.lidOpen || caseItem._removedForSync || !slot || !sc || !syringe.mesh.userData.isSyringe || ctx.inventory?.pending || ctx.syringePumping) {
+    return fail('💉 Abra a maleta e segure uma seringa disponível.');
+  }
+  if (ctx.isHeldByRemote?.(caseItem.id)) return fail('💼 A maleta está sendo usada por outro jogador.');
+  if (ctx.playerPos && caseItem.mesh?.position && Math.hypot(
+    ctx.playerPos.x - caseItem.mesh.position.x,
+    ctx.playerPos.y - caseItem.mesh.position.y,
+    ctx.playerPos.z - caseItem.mesh.position.z
+  ) > 4.5) return fail('💼 Aproxime-se da maleta para aspirar.');
+  if (!Number.isInteger(amount) || amount < 1 || amount > AMPOULE_VIAL_MAX_ML) return fail('💉 Escolha uma dose de 1 a 5 ml.');
+  if (sc.mix?.lcMl > 0.05 && sc.speciesName && slot.speciesName && sc.speciesName !== slot.speciesName) {
+    return fail('⚠️ Esvazie a seringa antes de trocar de espécie.');
+  }
+  const available = Math.max(0, Number(slot.volMl) || 0);
+  const room = Math.max(0, 10 - (Number(sc.volMl) || 0));
+  const dose = Math.floor((Math.min(amount, available, room) + 1e-8) * 10) / 10;
+  if (dose <= 0) return fail('💉 A ampola está vazia ou não há espaço na seringa.');
+
+  const hadLc = (sc.mix?.lcMl || 0) > 0.05;
+  const sourceOrigin = normalizeCultureOrigin(slot.origin);
+  if (slot.colonized) {
+    sc.origin = hadLc && normalizeCultureOrigin(sc.origin) !== sourceOrigin ? '' : sourceOrigin;
+    sc.speciesName = slot.speciesName || '';
+    sc.generation = 2;
+  }
+  if (slot.contaminated) sc.sourceContam = true;
+  addSyringeMix(syringe, slot.colonized ? 'lc' : 'water', dose);
+  updateSyringeVolume(syringe, (Number(sc.volMl) || 0) + dose);
+  slot.volMl = Math.max(0, Math.round((available - dose) * 100) / 100);
+  updateAmpouleCaseVisual(caseItem);
+  queueCaseItem(ctx, caseItem);
+  queueCaseItem(ctx, syringe);
+  ctx.callbacks?.onHoldChange?.(syringe.label);
+  ctx.callbacks?.onLabStep?.('syringe_use');
+  cc.lastDrawMessage = `💉 ${dose.toFixed(1)} ml aspirados de ${slot.speciesName}.`;
+  ctx.callbacks?.onToast?.(cc.lastDrawMessage);
+  ctx.notifyWorldAction?.();
+  return dose;
 }
 
 export function openAmpouleCaseModal(ctx, caseItem) {
@@ -447,12 +501,14 @@ export function openAmpouleCaseModal(ctx, caseItem) {
       `<div class="glass-panel rounded-2xl w-full max-w-3xl max-h-[88vh] flex flex-col border border-orange-500/40 shadow-2xl overflow-hidden">` +
         `<div data-modal-drag-handle class="flex items-center justify-between px-4 py-3 border-b border-slate-700/60 bg-slate-900/70">` +
           `<div>` +
-            `<h3 id="ampoule-modal-title" class="text-sm sm:text-base font-extrabold text-orange-300">💼 Maleta Porta-Ampolas 3ML (50 Vagas)</h3>` +
+            `<h3 id="ampoule-modal-title" class="text-sm sm:text-base font-extrabold text-orange-300">💼 Maleta Porta-Ampolas 5ML (50 Vagas)</h3>` +
             `<p id="ampoule-modal-sub" class="text-[11px] text-slate-400">Culturas líquidas puras com micélio colonizado pronto para seringa & cultivo</p>` +
           `</div>` +
           `<button id="btn-close-ampoule-modal" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold">✕ Fechar</button>` +
         `</div>` +
         `<div id="ampoule-filter-bar" class="flex flex-wrap gap-1.5 px-4 py-2 border-b border-slate-800/70 bg-slate-900/40"></div>` +
+        `<div id="ampoule-dose-controls" class="hidden flex items-center gap-2 px-4 py-2 text-xs text-slate-200"><label for="ampoule-dose">💉 Dose:</label><select id="ampoule-dose" class="bg-slate-800 text-white rounded-lg px-2 py-1"><option value="1">1 ml</option><option value="2">2 ml</option><option value="3">3 ml</option><option value="4">4 ml</option><option value="5">5 ml</option></select><span>Escolha a ampola abaixo.</span></div>` +
+        `<div id="ampoule-feedback" role="status" aria-live="polite" class="px-4 text-xs text-amber-200"></div>` +
         `<div id="ampoule-slots-grid" class="p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-5 gap-2 overflow-y-auto"></div>` +
       `</div>`;
     document.body.appendChild(modal);
@@ -463,12 +519,14 @@ export function openAmpouleCaseModal(ctx, caseItem) {
   let activeFilter = 'Todas';
   const filterBar = document.getElementById('ampoule-filter-bar');
   const grid = document.getElementById('ampoule-slots-grid');
+  const feedback = document.getElementById('ampoule-feedback');
+  if (feedback) feedback.textContent = '';
 
   const renderGrid = () => {
     const cc = caseItem.caseCtrl;
     const occupied = cc.slots.filter(Boolean).length;
     const titleEl = document.getElementById('ampoule-modal-title');
-    if (titleEl) titleEl.textContent = `💼 Maleta Porta-Ampolas 3ML (${occupied}/${AMPOULE_CASE_MAX_SLOTS} ocupadas)`;
+    if (titleEl) titleEl.textContent = `💼 Maleta Porta-Ampolas 5ML (${occupied}/${AMPOULE_CASE_MAX_SLOTS} ocupadas)`;
 
     if (filterBar) {
       filterBar.replaceChildren();
@@ -476,7 +534,7 @@ export function openAmpouleCaseModal(ctx, caseItem) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold transition ' +
-          (activeFilter === cat ? 'bg-orange-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700');
+          (activeFilter === cat ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700');
         b.textContent = cat;
         b.onclick = () => { activeFilter = cat; renderGrid(); };
         filterBar.appendChild(b);
@@ -486,6 +544,8 @@ export function openAmpouleCaseModal(ctx, caseItem) {
     if (!grid) return;
     grid.replaceChildren();
     const holdingVial = !!(ctx && ctx.heldItem && ctx.heldItem.vial3mlCtrl);
+    const holdingSyringe = !!ctx?.heldItem?.mesh?.userData?.isSyringe;
+    document.getElementById('ampoule-dose-controls')?.classList.toggle('hidden', !holdingSyringe);
 
     for (let i = 0; i < AMPOULE_CASE_MAX_SLOTS; i++) {
       const slot = cc.slots[i];
@@ -509,24 +569,30 @@ export function openAmpouleCaseModal(ctx, caseItem) {
           `<div>` +
             `<div class="flex items-center justify-between text-[10px] font-bold">` +
               `<span class="text-slate-400">#${i + 1}</span>` +
-              `<span class="${badgeCol}">${slot.group}</span>` +
+              `<span class="${badgeCol}">${escapeHtml(slot.group)}</span>` +
             `</div>` +
-            `<div class="text-[11px] font-extrabold text-white mt-0.5 leading-tight">${slot.speciesName}</div>` +
+            `<div class="text-[11px] font-extrabold text-white mt-0.5 leading-tight">${escapeHtml(slot.speciesName)}</div>` +
             `<div class="text-[10px] mt-1 ${slot.contaminated ? 'text-rose-300' : 'text-cyan-300'}">${stTxt}</div>` +
           `</div>`;
         const takeBtn = document.createElement('button');
         takeBtn.type = 'button';
-        takeBtn.className = 'mt-2 w-full py-1 rounded-lg bg-orange-500 hover:bg-orange-400 text-slate-950 font-extrabold text-[10px] transition';
-        takeBtn.textContent = '🖐️ Pegar Ampola';
+        takeBtn.className = 'mt-2 w-full py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[10px] transition';
+        takeBtn.textContent = holdingSyringe ? '💉 Aspirar dose' : '🖐️ Pegar Ampola';
+        takeBtn.disabled = holdingSyringe && slot.volMl <= 0.05;
+        if (takeBtn.disabled) takeBtn.style.opacity = '0.45';
         takeBtn.onclick = () => {
-          takeVialFromAmpouleCase(ctx, caseItem, i);
-          modal.classList.add('hidden');
+          if (holdingSyringe) {
+            const dose = Number(document.getElementById('ampoule-dose')?.value || 1);
+            const drawn = drawFromAmpouleCase(ctx, caseItem, i, dose);
+            if (feedback) feedback.textContent = caseItem.caseCtrl.lastDrawMessage || '';
+            if (drawn) renderGrid();
+          } else if (takeVialFromAmpouleCase(ctx, caseItem, i)) modal.classList.add('hidden');
         };
         card.appendChild(takeBtn);
       } else {
         card.innerHTML =
           `<div class="text-[10px] text-slate-500 font-bold">#${i + 1} • Vaga Livre</div>` +
-          `<div class="text-[10px] text-slate-600 mt-1">Espuma 3ML</div>`;
+          `<div class="text-[10px] text-slate-600 mt-1">Espuma para ampola</div>`;
         if (holdingVial) {
           const putBtn = document.createElement('button');
           putBtn.type = 'button';
@@ -544,6 +610,7 @@ export function openAmpouleCaseModal(ctx, caseItem) {
   };
 
   renderGrid();
+  modal.style.zIndex = '10000';
   modal.classList.remove('hidden');
   releaseInputForModal();
   if (typeof window !== 'undefined' && window.setupMycoModalWindows) {
@@ -556,7 +623,7 @@ export function getAmpouleCaseMeta() {
   return {
     category: 'storage_case',
     icon: '💼',
-    purpose: 'Maleta rígida porta-ampolas 3ML (50 vagas) com coleção de culturas líquidas de cubensis, comestíveis e espécies raras',
+    purpose: 'Maleta rígida porta-ampolas de até 5 ml (50 vagas) com culturas líquidas',
     weightGrams: 1150,
     baseTempC: 21.5,
     compatibilities: {
@@ -632,9 +699,22 @@ export function makeAmpouleCase(ctx, id, px, py, pz, opts = {}) {
   // Tampa articulada preta
   const lidPivot = new THREE.Group();
   lidPivot.position.set(0, H, -D * 0.5);
-  const lidTop = new THREE.Mesh(new THREE.BoxGeometry(W, 0.024, D), A.caseBodyMat);
-  lidTop.position.set(0, 0.012, D * 0.5);
+  // A tampa é oca e alta o bastante para as ampolas, inclusive quando fechada.
+  const lidHeight = 0.047;
+  const lidTop = new THREE.Mesh(new THREE.BoxGeometry(W, 0.008, D), A.caseBodyMat);
+  lidTop.position.set(0, lidHeight + 0.004, D * 0.5);
   lidPivot.add(lidTop);
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.008, lidHeight, D), A.caseBodyMat);
+    wall.position.set(side * (W * 0.5 - 0.004), lidHeight * 0.5, D * 0.5);
+    lidPivot.add(wall);
+  }
+  const front = new THREE.Mesh(new THREE.BoxGeometry(W, lidHeight, 0.008), A.caseBodyMat);
+  front.position.set(0, lidHeight * 0.5, D - 0.004);
+  lidPivot.add(front);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(W, lidHeight, 0.008), A.caseBodyMat);
+  back.position.set(0, lidHeight * 0.5, 0.004);
+  lidPivot.add(back);
   root.add(lidPivot);
 
   const slots = Array.isArray(opts.slots) ? opts.slots.slice(0, AMPOULE_CASE_MAX_SLOTS) : buildStarterCaseSlots();
@@ -664,14 +744,14 @@ export function makeAmpouleCase(ctx, id, px, py, pz, opts = {}) {
   const item = registerPickable(
     ctx,
     id,
-    '💼 Maleta Porta-Ampolas 3ML',
+    '💼 Maleta Porta-Ampolas 5ML',
     root,
     px,
     py,
     pz,
     opts.ry || 0,
     0.20,
-    0.072,
+    0.096,
     getAmpouleCaseMeta()
   );
   item.caseCtrl = {

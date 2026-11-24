@@ -13,6 +13,9 @@ import { getLocalMycoCoins, setLocalMycoCoins, setMycoCoinsUserScope } from '../
 import { hydrateMicotecaFromServer } from '../systems/mycoteca.js';
 import { checkAndShowWhatsNewModal } from './whats-new-modal.js';
 import { setModalManagerUserKey } from './modal-window-manager.js';
+import { rememberNewFirstStepsUser, resetFirstSteps, showFirstStepsWelcome } from './first-steps.js';
+
+let campusEntryGeneration = 0;
 
 export function renderSwatches() {
   const hatWrap = $('hat-swatches');
@@ -83,8 +86,10 @@ export function updateUserHud() {
   if (btnAdmin) btnAdmin.classList.toggle('hidden', !isMaster);
 }
 
-export function enterCampus(user, token) {
+export function enterCampus(user, token, created = false) {
+  const entryGeneration = ++campusEntryGeneration;
   appState.currentUser = user;
+  rememberNewFirstStepsUser(user, created);
   setModalManagerUserKey(user);
   setMycoCoinsUserScope(user ? user.id : null);
   hydrateMicotecaFromServer(user);
@@ -122,7 +127,10 @@ export function enterCampus(user, token) {
   events.emit('sync:now');
   appState.syncTimer = setInterval(() => events.emit('sync:now'), SYNC_INTERVAL_MS);
   setTimeout(() => {
-    checkAndShowWhatsNewModal((typeof window !== 'undefined' && window.MYCO_VERSION) || getAppVersion());
+    if (entryGeneration === campusEntryGeneration && appState.currentUser && appState.currentUser.id === user.id) {
+      const showNews = () => checkAndShowWhatsNewModal((typeof window !== 'undefined' && window.MYCO_VERSION) || getAppVersion());
+      if (!showFirstStepsWelcome(user, created, showNews)) showNews();
+    }
   }, 600);
 }
 
@@ -149,13 +157,15 @@ export async function tryResumeSession() {
         body_color: appState.selectedBody
       });
       if (loginData.ok && loginData.user) {
-        enterCampus(loginData.user, loginData.token || '');
+        enterCampus(loginData.user, loginData.token || '', !!loginData.created);
       }
     } catch (e) {}
   }
 }
 
 export async function logoutCampus() {
+  campusEntryGeneration++;
+  resetFirstSteps();
   if (appState.syncTimer) clearInterval(appState.syncTimer);
   appState.syncTimer = null;
   const lastName = appState.currentUser ? appState.currentUser.display_name : '';
@@ -177,7 +187,7 @@ export async function logoutCampus() {
   if (window.setCampusParaglider) window.setCampusParaglider(false);
   if (window.updateCampusPlayers) window.updateCampusPlayers([]);
   if (window.setCampusFpsMode) window.setCampusFpsMode(false);
-  ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'emote-bar'].forEach((id) => {
+  ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'guide-modal', 'mycoteca-modal', 'settings-modal', 'whats-new-modal', 'emote-bar'].forEach((id) => {
     const el = $(id);
     if (el) el.classList.add('hidden');
   });
@@ -191,6 +201,8 @@ export async function logoutCampus() {
 }
 
 export function handleSessionExpired(msg) {
+  campusEntryGeneration++;
+  resetFirstSteps();
   if (appState.syncTimer) clearInterval(appState.syncTimer);
   appState.syncTimer = null;
   appState.currentUser = null;
@@ -198,7 +210,7 @@ export function handleSessionExpired(msg) {
   appState.authToken = '';
   if (window.updateCampusPlayers) window.updateCampusPlayers([]);
   if (window.setCampusFpsMode) window.setCampusFpsMode(false);
-  ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal'].forEach((id) => {
+  ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'guide-modal', 'mycoteca-modal', 'settings-modal', 'whats-new-modal', 'emote-bar'].forEach((id) => {
     const el = $(id);
     if (el) el.classList.add('hidden');
   });

@@ -578,8 +578,8 @@ export function updateHoverRay(ctx, customNdc) {
         const cc = ctx.hoveredPickable.caseCtrl;
         const used = cc.slots ? cc.slots.filter(Boolean).length : 0;
         prompt = cc.lidOpen
-          ? `💼 Abrir Catálogo de Ampolas 3ML (${used}/${cc.maxSlots || 50})`
-          : `💼 Abrir Maleta Porta-Ampolas 3ML (${used}/${cc.maxSlots || 50})`;
+          ? `💼 Abrir Catálogo de Ampolas 5ML (${used}/${cc.maxSlots || 50})`
+          : `💼 Abrir Maleta Porta-Ampolas 5ML (${used}/${cc.maxSlots || 50})`;
       } else if (ctx.hoveredPickable.fridgeCtrl) {
         const fridge = ctx.hoveredPickable;
         prompt = fridge.fridgeCtrl.doorOpen

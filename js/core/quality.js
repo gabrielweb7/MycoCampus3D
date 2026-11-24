@@ -5,6 +5,7 @@
 import { getFullViewportSize, syncViewportCssVars } from '../ui/dom-helpers.js';
 import { shouldHideHeldInPlacementMode } from '../entities/placement-ghost.js';
 import { getLabEnvironmentMap } from '../engine/lab-env-map.js';
+import { createAutoQualityController } from './auto-quality.js';
 
 const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
 
@@ -115,6 +116,51 @@ export function saveQualityMode(mode) {
   try {
     if (typeof localStorage !== 'undefined') localStorage.setItem('myco_quality_mode', mode);
   } catch (e) {}
+}
+
+const AUTO_QUALITY_STORAGE_KEY = 'myco_auto_quality_v1';
+const autoQualityController = createAutoQualityController();
+let autoWasActive = false;
+
+function autoQualityDeviceKey(isTouchDevice, renderer) {
+  const memory = typeof navigator !== 'undefined' ? navigator.deviceMemory || '' : '';
+  const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || '' : '';
+  return [isTouchDevice ? 'touch' : 'desktop', readWebGlRendererString(renderer), memory, cores].join('|');
+}
+
+export function getAutoQualityConfig(isTouchDevice, renderer) {
+  const fallback = { tier: getInitialQualityTier(isTouchDevice, renderer), scale: 1 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(AUTO_QUALITY_STORAGE_KEY) || 'null');
+    if (saved && saved.device === autoQualityDeviceKey(isTouchDevice, renderer) &&
+        QUALITY_TIERS_ORDER.includes(saved.tier) && (saved.scale === 1 || saved.scale === 0.85)) {
+      return { tier: saved.tier, scale: saved.scale };
+    }
+  } catch (e) {}
+  return fallback;
+}
+
+function saveAutoQualityConfig(config, deps) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const value = JSON.stringify({ device: autoQualityDeviceKey(!!deps?.isTouchDevice, deps?.renderer), tier: config.tier, scale: config.scale });
+    if (localStorage.getItem(AUTO_QUALITY_STORAGE_KEY) !== value) localStorage.setItem(AUTO_QUALITY_STORAGE_KEY, value);
+  } catch (e) {}
+}
+
+export function resetAutoQuality() {
+  autoQualityController.reset();
+  autoWasActive = false;
+  qualityState.fpsFrames = 0;
+  qualityState.fpsLastSampleAt = 0;
+  qualityState.fpsLastFrameAt = 0;
+}
+
+export function setAutoQualityScale(scale, renderer) {
+  qualityState.dynScale = scale === 0.85 ? 0.85 : 1;
+  if (renderer && typeof renderer.setPixelRatio === 'function') {
+    renderer.setPixelRatio(Math.max(0.55, (qualityState.baseRatio || 1) * qualityState.dynScale));
+  }
 }
 
 export function getInitialQualityTier(isTouchDevice, renderer) {
@@ -511,6 +557,12 @@ export function stepAutoQuality(now, deps) {
     qualityState.fpsLastFrameAt = now;
     qualityState.fpsLastSampleAt = now;
     qualityState.fpsFrames = 0;
+    const previous = autoQualityController.pause();
+    autoWasActive = false;
+    if (previous && qualityState.mode === 'auto') {
+      if (previous.tier !== qualityState.tier) applyQualityTier(previous.tier, deps);
+      setAutoQualityScale(previous.scale, deps && deps.renderer);
+    }
     return;
   }
   if (qualityState.fpsLastFrameAt > 0 && (now - qualityState.fpsLastFrameAt) < 1000) {
@@ -519,7 +571,7 @@ export function stepAutoQuality(now, deps) {
   qualityState.fpsLastFrameAt = now;
   if (!qualityState.fpsLastSampleAt) {
     qualityState.fpsLastSampleAt = now;
-    qualityState.warmupUntil = now + 3000;
+    qualityState.warmupUntil = now + 5000;
     return;
   }
   const elapsed = now - qualityState.fpsLastSampleAt;
@@ -527,6 +579,12 @@ export function stepAutoQuality(now, deps) {
   if (elapsed > 4000) {
     qualityState.fpsFrames = 0;
     qualityState.fpsLastSampleAt = now;
+    const previous = autoQualityController.pause();
+    autoWasActive = false;
+    if (previous && qualityState.mode === 'auto') {
+      if (previous.tier !== qualityState.tier) applyQualityTier(previous.tier, deps);
+      setAutoQualityScale(previous.scale, deps && deps.renderer);
+    }
     return;
   }
 
@@ -535,64 +593,32 @@ export function stepAutoQuality(now, deps) {
   qualityState.fpsLastSampleAt = now;
 
   const onQualityChange = deps && deps.onQualityChange;
-  if (qualityState.mode !== 'auto' || now < qualityState.warmupUntil) {
-    if (onQualityChange) {
-      onQualityChange({
-        mode: qualityState.mode,
-        tier: qualityState.tier,
-        fps: qualityState.currentFps,
-        dynScale: qualityState.dynScale
-      });
+  const active = qualityState.mode === 'auto' && deps?.autoActive !== false;
+  if (active && !autoWasActive) qualityState.warmupUntil = now + 5000;
+  if (!active && autoWasActive) {
+    const previous = autoQualityController.pause();
+    if (previous && qualityState.mode === 'auto') {
+      if (previous.tier !== qualityState.tier) applyQualityTier(previous.tier, deps);
+      setAutoQualityScale(previous.scale, deps && deps.renderer);
     }
-    return;
   }
-
-  const isTouch = !!(deps && deps.isTouchDevice);
-  const tierIdx = QUALITY_TIERS_ORDER.indexOf(qualityState.tier);
-  const targetLow = isTouch ? (tierIdx <= 1 ? 34 : 28) : (tierIdx <= 1 ? 44 : 35);
-  const targetHigh = isTouch ? 52 : 56;
-  const renderer = deps && deps.renderer;
-
-  if (qualityState.currentFps < targetLow) {
-    qualityState.lowFpsStreak++;
-    qualityState.highFpsStreak = 0;
-    if (qualityState.lowFpsStreak >= 2) {
-      if (qualityState.dynScale > 0.72 && renderer && typeof renderer.setPixelRatio === 'function') {
-        qualityState.dynScale = Math.max(0.70, +(qualityState.dynScale - 0.14).toFixed(2));
-        renderer.setPixelRatio(Math.max(0.55, (qualityState.baseRatio || 1) * qualityState.dynScale));
-        qualityState.lowFpsStreak = 0;
-        qualityState.lastDowngradeAt = now;
-        qualityState.warmupUntil = now + 2200;
-      } else if (tierIdx !== -1 && tierIdx < QUALITY_TIERS_ORDER.length - 1) {
-        qualityState.lowFpsStreak = 0;
-        qualityState.lastDowngradeAt = now;
-        applyQualityTier(QUALITY_TIERS_ORDER[tierIdx + 1], deps);
-        return;
+  autoWasActive = active;
+  if (active && now >= qualityState.warmupUntil) {
+    const decision = autoQualityController.observe(qualityState.currentFps, now, {
+      tier: qualityState.tier, scale: qualityState.dynScale
+    });
+    if (decision) {
+      if (decision.type !== 'save') {
+        if (decision.tier !== qualityState.tier) applyQualityTier(decision.tier, deps);
+        setAutoQualityScale(decision.scale, deps && deps.renderer);
+        qualityState.warmupUntil = now + 5000;
       }
+      if (decision.type === 'settle' || decision.type === 'save') saveAutoQualityConfig(decision, deps);
     }
-  } else if (qualityState.currentFps >= targetHigh && (now - qualityState.lastDowngradeAt) > 16000) {
-    qualityState.highFpsStreak++;
-    qualityState.lowFpsStreak = 0;
-    if (qualityState.dynScale < 0.99 && qualityState.highFpsStreak >= 4 && renderer && typeof renderer.setPixelRatio === 'function') {
-      qualityState.dynScale = Math.min(1.0, +(qualityState.dynScale + 0.10).toFixed(2));
-      renderer.setPixelRatio(Math.max(0.55, (qualityState.baseRatio || 1) * qualityState.dynScale));
-      qualityState.highFpsStreak = 0;
-    } else if (qualityState.highFpsStreak >= 8 && tierIdx > (qualityState.tierCeilingIdx || 0)) {
-      qualityState.highFpsStreak = 0;
-      applyQualityTier(QUALITY_TIERS_ORDER[tierIdx - 1], deps);
-      return;
-    }
-  } else {
-    qualityState.lowFpsStreak = 0;
-    qualityState.highFpsStreak = 0;
   }
 
   if (onQualityChange) {
-    onQualityChange({
-      mode: qualityState.mode,
-      tier: qualityState.tier,
-      fps: qualityState.currentFps,
-      dynScale: qualityState.dynScale
-    });
+    onQualityChange({ mode: qualityState.mode, tier: qualityState.tier,
+      fps: qualityState.currentFps, dynScale: qualityState.dynScale });
   }
 }

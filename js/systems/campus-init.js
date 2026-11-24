@@ -6,7 +6,7 @@
 import { createQuickInventory } from './inventory.js';
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
-import { CAMPUS_EXPOSURE, getInitialQualityTier, getSavedQualityMode, qualityState } from '../core/quality.js';
+import { CAMPUS_EXPOSURE, getAutoQualityConfig, getSavedQualityMode, qualityState, resetAutoQuality, setAutoQualityScale } from '../core/quality.js';
 import { syncViewportCssVars } from '../ui/dom-helpers.js';
 import { createProceduralTextures } from '../engine/textures.js';
 import { createRainbowMesh } from '../engine/rainbow.js';
@@ -51,7 +51,7 @@ import { bindControls } from './input-controller.js';
 import { freezeStaticWorld } from '../engine/scene-optimizer.js';
 import { applyQualityTier, getCinemaHitTarget, startAnimationLoop } from './game-loop.js';
 import { registerCampusPublicApi as bindPublicApi } from './campus-api.js';
-import { markItemRemovedForSync, restoreLocalWorldObjects } from './world-objects-sync.js';
+import { markItemRemovedForSync, queueItemStateSync, restoreLocalWorldObjects } from './world-objects-sync.js';
 
 const THREE = window.THREE;
 
@@ -321,6 +321,7 @@ const sim = {
   },
 
   markItemRemoved: function (item) { markItemRemovedForSync(sim, item); },
+  queueItemStateSync: function (item) { queueItemStateSync(sim, item); },
 
   notifyWorldAction: function () {
     if (sim.callbacks.onWorldAction) sim.callbacks.onWorldAction();
@@ -736,12 +737,13 @@ export function initCampus3D(containerId, cbs) {
     bindControls(sim);
     const savedMode = getSavedQualityMode();
     const initialMode = savedMode || 'auto';
-    const initialTier = initialMode === 'auto'
-      ? getInitialQualityTier(touch, sim.renderer)
-      : initialMode;
+    const autoConfig = initialMode === 'auto' ? getAutoQualityConfig(touch, sim.renderer) : null;
+    const initialTier = autoConfig ? autoConfig.tier : initialMode;
     sim.qualityMode = initialMode;
     qualityState.mode = initialMode === 'auto' ? 'auto' : 'manual';
+    resetAutoQuality();
     applyQualityTier(sim, initialTier);
+    if (autoConfig) setAutoQualityScale(autoConfig.scale, sim.renderer);
     startAnimationLoop(sim);
     const lobbyEl = document.getElementById('campus-lobby');
     if ((window._pendingEnterFps || (lobbyEl && lobbyEl.classList.contains('hidden'))) && window.setCampusFpsMode) {

@@ -4,6 +4,7 @@
 import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
 import { apiPost } from '../services/api-client.js';
+import { preserveNewerPetState } from '../services/pets.js';
 import { $, escapeHtml } from './dom-helpers.js';
 import { applySlideTo3D, updateUserHud } from './hud-lobby.js';
 
@@ -12,7 +13,8 @@ export async function completeModule(slug, answerText) {
   try {
     const data = await apiPost('api/auth.php?action=complete_module', { module: slug, answer: answerText || '' }, true);
     if (data.ok && data.user) {
-      appState.currentUser = data.user;
+      if (appState.currentUser?.id !== data.user.id) return;
+      appState.currentUser = preserveNewerPetState(appState.currentUser, data.user);
       updateUserHud();
     }
   } catch (e) {}

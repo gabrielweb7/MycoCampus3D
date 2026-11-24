@@ -95,6 +95,26 @@ export function saveLocalMovedObject(item, state, deferFlush = false) {
   setLocalMovedEntry(item.id, entry, deferFlush);
 }
 
+/** Queue an immediate state change without waiting for the periodic scan. */
+export function queueItemStateSync(sim, item) {
+  if (!sim || !item?.id || !item.mesh || item._removedForSync) return;
+  const state = getReplicatedItemState(sim, item);
+  if (!state) return;
+  sim.pendingMovedItems = sim.pendingMovedItems || {};
+  const queued = sim.pendingMovedItems[item.id] || (sim.pendingMovedItems[item.id] = { id: item.id });
+  queued.state = state;
+  const dynamic = item.id.startsWith('dyn_');
+  if (!sim.inventory?.reserved?.has(item.id) && (item.isMoved || dynamic)) {
+    queued.x = item.mesh.position.x;
+    queued.y = item.mesh.position.y;
+    queued.z = item.mesh.position.z;
+    queued.ry = item.mesh.rotation.y;
+  }
+  const prefabId = item.meta?.prefabId || item.mesh.userData?.prefabId;
+  if (dynamic && prefabId) { queued.prefabId = prefabId; queued.label = item.label || ''; }
+  saveLocalMovedObject(item, state);
+}
+
 export function markItemRemovedForSync(sim, item, dynamicKind) {
   if (!item || !item.id) return;
   item._removedForSync = true;

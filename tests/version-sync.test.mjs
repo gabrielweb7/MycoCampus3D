@@ -8,6 +8,9 @@ test('VERSION, package.json, sw.js e index.html estão sincronizados na mesma ve
 
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert.equal(pkg.version, version);
+  const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+  assert.equal(lock.version, version);
+  assert.equal(lock.packages[''].version, version);
 
   const sw = fs.readFileSync('sw.js', 'utf8');
   assert.ok(sw.includes(`mycocampus-v${version}`), 'sw.js CACHE_NAME desatualizado');
