@@ -16,6 +16,7 @@ globalThis.THREE = globalThis.window.THREE;
 const {
   getReplicatedItemState,
   consumeCampusMovedItems,
+  requeueCampusMovedItems,
   applyReplicatedItemState,
   applyCampusItemStates,
   applyCampusWorldObjects,
@@ -41,6 +42,14 @@ test('lotes do multiplayer preservam o excedente e mantêm o identificador ao re
   requeueCampusBoardStrokes(sim, strokes);
   assert.deepEqual(consumeCampusBoardStrokes(sim), strokes);
   assert.equal(consumeCampusBoardStrokes(sim).length, 1);
+});
+
+test('a posição de um item sobrevive à falha mesmo se seu estado mudar enquanto o pedido está em trânsito', () => {
+  const moved = { id: 'petri_clean', x: -14, y: .8, z: 2, ry: 0.4, state: { lidOpen: false, volume: 10 } };
+  const updated = { id: moved.id, state: { lidOpen: true } };
+  const sim = { pendingMovedItems: { [moved.id]: updated } };
+  requeueCampusMovedItems(sim, [moved]);
+  assert.deepEqual(consumeCampusMovedItems(sim), [{ ...moved, state: { lidOpen: true, volume: 10 } }]);
 });
 
 test('getReplicatedItemState e applyReplicatedItemState executam hooks meta.serializeState e meta.applyState', () => {

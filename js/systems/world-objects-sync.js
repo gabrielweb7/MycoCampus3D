@@ -287,14 +287,23 @@ export function consumeCampusMovedItems(sim) {
 }
 
 export function requeueCampusMovedItems(sim, list) {
+  if (!sim) return;
+  if (!sim.pendingMovedItems) sim.pendingMovedItems = {};
   (list || []).forEach(function (it) {
     if (!it || !it.id) return;
     const queued = sim.pendingMovedItems[it.id];
     if (!queued) {
       sim.pendingMovedItems[it.id] = it;
-    } else if (it.state && !queued.state) {
-      queued.state = it.state;
+      return;
     }
+    const mergedState = (it.state && queued.state)
+      ? { ...it.state, ...queued.state }
+      : (queued.state !== undefined ? queued.state : it.state);
+    sim.pendingMovedItems[it.id] = {
+      ...it,
+      ...queued,
+      ...(mergedState !== undefined ? { state: mergedState } : {})
+    };
   });
 }
 

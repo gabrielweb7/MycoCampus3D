@@ -48,6 +48,7 @@ test('recipientes abertos e equipamentos grandes não entram nos espaços guarda
   assert.equal(selectQuickSlot(ctx, 1), false);
   assert.equal(getStorageBlock({ id: 'monotub_24l_01', mesh: new THREE.Group(), monotubCtrl: {} }), 'large');
   assert.equal(getStorageBlock({ id: 'spawn_bag_empty_01', mesh: new THREE.Group(), spawnCtrl: { isBag: true, filled: true, sealed: false } }), 'open');
+  assert.equal(getStorageBlock({ id: 'dyn_vial3ml_test', meta: { prefabId: 'vial_3ml' }, mesh: new THREE.Group() }), '');
   assert.equal(ctx.heldItem, petri);
 });
 

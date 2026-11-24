@@ -168,6 +168,7 @@ if ($action === 'sync') {
     $userId = (int)$user['id'];
     $sessionKey = mp_session_key($userId, mp_client_sid($body));
     $initSync = !empty($body['init_sync']);
+    $leaving = !$initSync && !empty($body['leaving']);
 
     // 1. Processa eventos pendentes do Master Admin (kick ou teleport)
     $forceTeleport = null;
@@ -282,9 +283,9 @@ if ($action === 'sync') {
         apcu_store('mc_vel_' . $sessionKey, ['vx' => round($vx, 2), 'vz' => round($vz, 2), 'ts' => microtime(true)], 10);
     }
 
-    if (!$initSync) {
+    if (!$initSync && ($inventory['ready'] || empty($body['inventory_enabled']))) {
         $hasWorldWrites = !empty($body['moved_items']) || !empty($body['state_changes']);
-        $shouldSavePose = $hasWorldWrites || $inventory['_did_swap'] || $inventory['conflict'];
+        $shouldSavePose = $leaving || !empty($body['save_pose']) || $hasWorldWrites || $inventory['_did_swap'] || $inventory['conflict'];
         if (!$shouldSavePose) {
             if ($hasApcu) {
                 $poseKey = 'mc_pose_ts_' . $userId;
@@ -604,6 +605,11 @@ if ($action === 'sync') {
                 $delOld->execute([$oldestKept]);
             }
         }
+    }
+
+    if ($leaving) {
+        $pdo->prepare('DELETE FROM mc_sessions WHERE session_id = ?')->execute([$sessionKey]);
+        mc_json(['ok' => true]);
     }
 
     $meta = $pdo->query('SELECT

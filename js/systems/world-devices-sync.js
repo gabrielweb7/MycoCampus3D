@@ -49,8 +49,8 @@ export function consumeCampusBoardStrokes(sim) {
 }
 
 export function requeueCampusBoardStrokes(sim, strokes) {
-  if (!Array.isArray(strokes) || !strokes.length) return;
-  sim.pendingBoardStrokes = strokes.concat(sim.pendingBoardStrokes);
+  if (!sim || !Array.isArray(strokes) || !strokes.length) return;
+  sim.pendingBoardStrokes = strokes.concat(sim.pendingBoardStrokes || []);
 }
 
 export function applyCampusBoardStrokes(sim, strokes) {
@@ -60,13 +60,14 @@ export function applyCampusBoardStrokes(sim, strokes) {
 }
 
 export function consumeCampusStateChanges(sim) {
-  const out = Object.assign({}, sim.pendingStateChanges);
+  const out = Object.assign({}, sim.pendingStateChanges || {});
   sim.pendingStateChanges = {};
   return out;
 }
 
 export function requeueCampusStateChanges(sim, changes) {
-  if (!changes || typeof changes !== 'object') return;
+  if (!sim || !changes || typeof changes !== 'object') return;
+  if (!sim.pendingStateChanges) sim.pendingStateChanges = {};
   Object.keys(changes).forEach(function (k) {
     if (sim.pendingStateChanges[k] === undefined) {
       sim.pendingStateChanges[k] = changes[k];

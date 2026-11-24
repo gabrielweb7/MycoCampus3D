@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.8.1] - 2026-11-24
+
+- Persistência e encerramento limpo no multiplayer: ao sair ou fechar a aba, a posição do jogador é salva no servidor e a sessão é removida para não deixar avatares fantasmas.
+- Recuperação contra falhas de rede: itens movidos retornam à fila se o envio falhar e o logout bloqueia a perda de estado com aviso de reconexão.
+- Inventário compatível com ampolas de 3 ml e insumos duráveis comprados (borrifadores, termômetro, parafilme e fitas). Concorrência de testes no npm test e nova suíte de recuperação de conexão.
+
 ## [v2.8.0] - 2026-11-24
 
 - Posicionamento com prévia mais visível e altura alinhada ao calçamento. O item volta a aparecer na mão quando o alvo sai do enquadramento. Atalhos de posicionar e largar respondem uma vez por tecla pressionada.

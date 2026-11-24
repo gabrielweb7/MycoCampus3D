@@ -2,12 +2,13 @@
  * MycoCampus3D — HUD do Jogador, Lobby, Sessão e Controles de Vista/FPS
  */
 import { flushInventoryBeforeLogout } from '../services/multiplayer-sync.js';
-import { HAT_COLORS, BODY_COLORS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
+import { HAT_COLORS, BODY_COLORS, SYNC_INTERVAL_MS, createSessionId, getAppVersion } from '../core/constants.js';
 import { LESSONS } from '../core/lessons-data.js';
+import { t } from '../core/i18n.js';
 import { appState } from '../core/state.js';
 import { events } from '../core/events.js';
 import { apiGet, apiPost } from '../services/api-client.js';
-import { $, isTouch, requestCampusFullscreen } from './dom-helpers.js';
+import { $, isTouch, requestCampusFullscreen, showFloatingToast } from './dom-helpers.js';
 import { loadLabQuestProgress } from './quest-map.js';
 import { getLocalMycoCoins, setLocalMycoCoins, setMycoCoinsUserScope } from '../items/dehydration-packaging.js';
 import { hydrateMicotecaFromServer } from '../systems/mycoteca.js';
@@ -166,19 +167,29 @@ export async function tryResumeSession() {
 }
 
 export async function logoutCampus() {
+  if (!appState.currentUser) return false;
+  const sessionId = appState.sessionId;
+  if (appState.syncTimer) clearInterval(appState.syncTimer);
+  appState.syncTimer = null;
+  const lastName = appState.currentUser.display_name;
+  let signedOut = false;
+  try {
+    await window.flushCampusMycoCoins?.();
+    if (await flushInventoryBeforeLogout() && appState.sessionId === sessionId) {
+      await apiPost('api/multiplayer.php?action=leave', { session_id: sessionId }, true).catch(() => {});
+      if (appState.sessionId === sessionId) signedOut = (await apiPost('api/auth.php?action=logout', {}, true))?.ok === true;
+    }
+  } catch (e) {}
+  if (appState.sessionId !== sessionId || !appState.currentUser) return false;
+  if (!signedOut) {
+    appState.syncTimer = setInterval(() => events.emit('sync:now'), SYNC_INTERVAL_MS);
+    showFloatingToast(t('settings.logout_retry'));
+    return false;
+  }
   campusEntryGeneration++;
   dismissWhatsNewModal();
   dismissDiscordWelcome();
   resetFirstSteps();
-  if (appState.syncTimer) clearInterval(appState.syncTimer);
-  appState.syncTimer = null;
-  const lastName = appState.currentUser ? appState.currentUser.display_name : '';
-  try {
-    if (window.flushCampusMycoCoins) await window.flushCampusMycoCoins();
-    await flushInventoryBeforeLogout();
-    await apiPost('api/multiplayer.php?action=leave', { session_id: appState.sessionId }, true);
-    await apiPost('api/auth.php?action=logout', {}, true);
-  } catch (e) {}
   appState.currentUser = null;
   appState.villageLease = null;
   setModalManagerUserKey(null);
@@ -186,7 +197,7 @@ export async function logoutCampus() {
   hydrateMicotecaFromServer(null);
   appState.authToken = '';
   appState.pendingChatMsg = '';
-  appState.sessionId = 'mc_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+  appState.sessionId = createSessionId();
   if (window.resetCampusLocalSession) window.resetCampusLocalSession();
   if (window.setCampusSnowboard) window.setCampusSnowboard(false);
   if (window.setCampusParaglider) window.setCampusParaglider(false);
@@ -203,6 +214,7 @@ export async function logoutCampus() {
     btn.disabled = false;
     btn.textContent = '🚀 Entrar no Campus 3D';
   }
+  return true;
 }
 
 export function handleSessionExpired(msg) {
@@ -215,9 +227,18 @@ export function handleSessionExpired(msg) {
   appState.currentUser = null;
   appState.villageLease = null;
   setModalManagerUserKey(null);
+  setMycoCoinsUserScope(null);
+  hydrateMicotecaFromServer(null);
   appState.authToken = '';
+  appState.pendingChatMsg = '';
+  appState.sessionId = createSessionId();
+  window.resetCampusLocalSession?.();
+  if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+  if (window.setCampusParaglider) window.setCampusParaglider(false);
+  if (window.setCampusParachute) window.setCampusParachute(false);
   if (window.updateCampusPlayers) window.updateCampusPlayers([]);
   if (window.setCampusFpsMode) window.setCampusFpsMode(false);
+  if (window.resetCampusQuickInventory) window.resetCampusQuickInventory();
   ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'guide-modal', 'mycoteca-modal', 'settings-modal', 'whats-new-modal', 'emote-bar'].forEach((id) => {
     const el = $(id);
     if (el) el.classList.add('hidden');

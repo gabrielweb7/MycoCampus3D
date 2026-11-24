@@ -217,6 +217,7 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   assert.equal(lease.ok, true, lease.error);
   assert.equal(lease.myco_coins, 250 - lease.daily_price);
   const expiry = lease.lots.find(row => row.mine).expires_at;
+  assert.equal(post('village.php', 'status', auth).lots.find(row => row.id === lot.id).tenant_name, tenantLogin.user.display_name);
   assert.equal(expiry - lease.server_ts, 86400);
   const replayLease = post('village.php', 'rent', { ...tenant, ...rent });
   assert.equal(replayLease.myco_coins, lease.myco_coins);
@@ -259,6 +260,7 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   const expireLot = 'require $argv[1]; $q=mc_db()->prepare("UPDATE mc_village_lots SET expires_at=0 WHERE lot_id=? AND owner_id=?"); $q->execute([$argv[2],$argv[3]]);';
   execFileSync('php', ['-r', expireLot, path.join(fixture, 'api', 'db.php'), String(lot.id), String(tenant.user_id)], { cwd: fixture, timeout: 15000 });
   assert.ok(post('village.php', 'status', tenant).stored_items.some(row => row.item_id === protectedId));
+  assert.equal(post('village.php', 'status', auth).lots.find(row => row.id === lot.id).tenant_name, null);
   assert.equal(post('multiplayer.php', 'sync', visit).layout_edits[protectedId].stored, true);
   const next = available[1];
   const secondLease = post('village.php', 'rent', { ...tenant, lot_id: next.id, days: 1,
@@ -282,6 +284,27 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   const afterHarvest = post('multiplayer.php', 'sync', visit);
   assert.equal(afterHarvest.world_state[wildId], '0');
   assert.equal(afterHarvest.item_states[harvest.picked_id].wildMushroom.speciesName, harvestRequest.specimen.species);
+
+  const travelerLogin = post('auth.php', 'login', { display_name: `Caminhante ${suffix}`, pin: randomBytes(8).toString('hex') });
+  assert.equal(travelerLogin.ok, true, travelerLogin.error);
+  const traveler = { user_id: travelerLogin.user.id, token: travelerLogin.token, session_id: `walk_${suffix}`, inventory_enabled: true, in_fps: true };
+  const travel = (body, connection = traveler) => post('multiplayer.php', 'sync', { ...connection, ...body });
+  assert.equal(travel({ init_sync: 1, x: 0, y: 0, z: 12 }).ok, true);
+  assert.equal(travel({ x: 3, y: 0.02, z: 19, save_pose: true, leaving: true }).ok, true);
+  assert.equal(post('multiplayer.php', 'sync', visit).players.some(player => player.name === travelerLogin.user.display_name), false);
+  const reconnected = { ...traveler, session_id: `walk_back_${suffix}` };
+  const saved = travel({ init_sync: 1, x: 0, y: 0, z: 12 }, reconnected).saved_pose;
+  assert.deepEqual([saved.x, saved.y, saved.z], [3, 0.02, 19]);
+
+  const bottlePurchase = post('auth.php', 'buy_supply_durable', { ...reconnected, supply_id: 'sup_water_spray',
+    delivery: { x: 2, y: .2, z: 3, ry: 0 }, order_id: `purchase_sup_water_spray_${randomBytes(16).toString('hex')}` });
+  assert.equal(bottlePurchase.ok, true, bottlePurchase.error);
+  const bottle = bottlePurchase.delivery_id;
+  const picked = travel({ holding_item: bottle }, reconnected);
+  assert.equal(picked.inventory.slots[picked.inventory.active], bottle, 'o borrifador comprado deve ocupar um bolso');
+  const stashed = travel({ holding_item: bottle, inventory_op: { id: 'stash_water_spray', slot: 1, held: bottle } }, reconnected);
+  assert.equal(stashed.inventory.result, 'ok');
+  assert.equal(stashed.inventory.slots[0], bottle);
 
 
   console.log('Backend: migração, moedas e traços sem duplicidade e recompensa da missão verificados em MySQL; inventário multijogador persistente verificado.');

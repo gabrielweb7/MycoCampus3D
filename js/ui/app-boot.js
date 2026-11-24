@@ -1211,7 +1211,7 @@ export function bootApp() {
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (!appState.currentUser) return;
+    if (!appState.currentUser || !appState.syncTimer) return;
     if (document.hidden) {
       if (appState.syncTimer) clearInterval(appState.syncTimer);
       appState.syncTimer = setInterval(syncMultiplayer, SYNC_BACKGROUND_INTERVAL_MS);
@@ -1222,12 +1222,12 @@ export function bootApp() {
     }
   });
 
-  const flushAndLeave = () => {
-    if (window.flushCampusMycoCoins) window.flushCampusMycoCoins({ useBeacon: true });
+  const flushAndLeave = (event) => {
+    if (event?.persisted) return;
+    window.flushCampusMycoCoins?.({ useBeacon: true });
     sendLeaveBeacon();
   };
   window.addEventListener('pagehide', flushAndLeave);
-  window.addEventListener('beforeunload', flushAndLeave);
 
   tryResumeSession();
   if (window.setCampusCinemaLessons) window.setCampusCinemaLessons(LESSONS);

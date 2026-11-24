@@ -255,6 +255,8 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
     return { id: held.id, state: getReplicatedItemState(sim, held) };
   };
   window.isCampusInventoryPending = () => !!sim.inventory.pending;
+  window.hasCampusPendingSync = () => !!(sim.inventory.pending || sim.pendingBoardStrokes.length ||
+    Object.keys(sim.pendingMovedItems).length || Object.keys(sim.pendingStateChanges).length);
   window.getCampusInventoryOperation = () => getQuickInventoryOperation(sim, item => getReplicatedItemState(sim, item));
   window.applyCampusInventory = (snapshot, players, sentHolding, initial) => applyQuickInventory(sim, snapshot, players, sentHolding, initial);
   window.markCampusInitialItemStatesApplied = function () { return worldSync.markCampusInitialItemStatesApplied(sim); };

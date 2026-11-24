@@ -12,13 +12,16 @@ import { forceCacheBustReload } from '../core/version-updater.js';
 import { getLocalPetPose, updateRemotePets } from '../entities/pets.js';
 
 export async function syncMultiplayer(forceHeldState = false) {
-  if (!appState.currentUser) return;
+  const userId = appState.currentUser?.id;
+  if (userId == null || typeof window.getCampusPlayerPose !== 'function') return false;
   if (appState.syncInFlight) {
     appState.syncQueued = true;
-    return;
+    return false;
   }
   appState.syncInFlight = true;
   appState.syncQueued = false;
+  const sessionId = appState.sessionId;
+  const isCurrent = () => appState.currentUser?.id === userId && appState.sessionId === sessionId;
 
   const firstSync = appState.isInitialSync;
   appState.isInitialSync = false;
@@ -30,8 +33,8 @@ export async function syncMultiplayer(forceHeldState = false) {
   appState.pendingChatMsg = '';
 
   try {
-    const pose = window.getCampusPlayerPose();
-    moved = firstSync ? [] : window.consumeCampusMovedItems();
+    const pose = window.getCampusPlayerPose() || {};
+    moved = firstSync ? [] : (window.consumeCampusMovedItems ? window.consumeCampusMovedItems() : []);
     strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
     stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
     if (firstSync) {
@@ -41,8 +44,9 @@ export async function syncMultiplayer(forceHeldState = false) {
       appState.lastLayoutVer = '';
     }
     const data = await apiPost('api/multiplayer.php?action=sync', {
-      session_id: appState.sessionId,
+      session_id: sessionId,
       init_sync: firstSync ? 1 : 0,
+      save_pose: !firstSync && forceHeldState === true,
       x: pose.x,
       y: pose.y,
       z: pose.z,
@@ -72,12 +76,14 @@ export async function syncMultiplayer(forceHeldState = false) {
       board_strokes: strokes
     }, true, { timeoutMs: 6000 });
 
+    if (!isCurrent()) return false;
+
     if (data && data.kicked) {
       if (appState.syncTimer) clearInterval(appState.syncTimer);
       appState.syncTimer = null;
       alert(data.error || 'Você foi desconectado pelo Administrador.');
       window.location.reload();
-      return;
+      return false;
     }
 
     if (data.ok) {
@@ -102,7 +108,7 @@ export async function syncMultiplayer(forceHeldState = false) {
             showFloatingToast(`🔄 Nova versão v${nextVer} disponível! Limpando cache e atualizando...`);
           }
         });
-        if (reloaded) return;
+        if (reloaded || !isCurrent()) return false;
         // Se já recarregou nesta sessão dentro do cooldown, apenas alinha indicador local sem loop
         window.MYCO_VERSION = data.app_version;
         const verEl = $('app-version');
@@ -160,10 +166,12 @@ export async function syncMultiplayer(forceHeldState = false) {
         showFloatingToast('✅ Conexão com o campus restabelecida.', 3000);
       }
       appState.syncFailures = 0;
+      return true;
     } else if (data.auth !== false) {
       throw new Error(data.error || 'sync');
     }
   } catch (e) {
+    if (!isCurrent()) return false;
     appState.syncFailures++;
     if (appState.syncFailures === 3 && !globalThis.document?.hidden) {
       showFloatingToast('⚠️ Conexão instável. Tentando sincronizar novamente…', 4500);
@@ -175,33 +183,38 @@ export async function syncMultiplayer(forceHeldState = false) {
     if (stateChanges && window.requeueCampusStateChanges) window.requeueCampusStateChanges(stateChanges);
   } finally {
     appState.syncInFlight = false;
-    if (appState.syncQueued && appState.syncFailures === 0) {
+    if (appState.syncQueued && isCurrent() && appState.syncFailures === 0) {
       syncMultiplayer();
     }
   }
+  return false;
 }
 
 export async function flushInventoryBeforeLogout() {
-  // A pickup that has not reached the server yet needs one sync before a queued swap.
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Hydration and an unsent pickup can each require a sync before a queued swap.
+  const sessionId = appState.sessionId;
+  for (let attempt = 0; attempt < 4; attempt++) {
     while (appState.syncInFlight) await new Promise(resolve => setTimeout(resolve, 25));
-    if (!appState.currentUser) return;
-    await syncMultiplayer(true);
-    if (!window.isCampusInventoryPending?.() || appState.syncFailures) return;
+    if (!appState.currentUser || appState.sessionId !== sessionId) return false;
+    const initial = appState.isInitialSync;
+    if (!await syncMultiplayer(true)) return false;
+    if (!initial && !window.hasCampusPendingSync?.()) return true;
   }
+  return false;
 }
 
 export function sendLeaveBeacon() {
   if (appState.currentUser && typeof navigator !== 'undefined' && navigator.sendBeacon) {
     // Let an already dispatched request finish; never send an older hand snapshot over a swap.
-    if (appState.syncInFlight) return;
-    const moved = window.consumeCampusMovedItems ? window.consumeCampusMovedItems() : [];
-    const stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
-    const strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
+    if (appState.syncInFlight || appState.isInitialSync) return;
     const pose = window.getCampusPlayerPose?.();
-    if (pose && (pose.holding_item || moved.length || Object.keys(stateChanges).length || strokes.length)) {
+    if (pose?.in_fps) {
+      const moved = window.consumeCampusMovedItems ? window.consumeCampusMovedItems() : [];
+      const stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
+      const strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
       const syncPayload = {
         ...pose,
+        leaving: true,
         inventory_enabled: true,
         inventory_op: window.getCampusInventoryOperation?.(),
         inventory_hand: window.getCampusInventoryHandState?.(true),
@@ -217,10 +230,11 @@ export function sendLeaveBeacon() {
         window.requeueCampusStateChanges?.(stateChanges);
         window.requeueCampusBoardStrokes?.(strokes);
       }
+    } else {
+      const body = { session_id: appState.sessionId, user_id: appState.currentUser.id };
+      if (appState.authToken) body.token = appState.authToken;
+      navigator.sendBeacon('api/multiplayer.php?action=leave', JSON.stringify(body));
     }
-    const body = { session_id: appState.sessionId, user_id: appState.currentUser.id };
-    if (appState.authToken) body.token = appState.authToken;
-    navigator.sendBeacon('api/multiplayer.php?action=leave', JSON.stringify(body));
   }
 }
 

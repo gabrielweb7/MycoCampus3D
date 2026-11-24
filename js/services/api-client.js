@@ -44,8 +44,10 @@ export async function apiGet(url, opts = {}) {
 
 export async function apiPost(url, payload = {}, withAuth = false, opts = {}) {
   const data = { ...payload };
-  if (withAuth && appState.currentUser) {
-    data.user_id = appState.currentUser.id;
+  const userId = withAuth ? appState.currentUser?.id : null;
+  const sessionId = appState.sessionId;
+  if (userId != null) {
+    data.user_id = userId;
     if (appState.authToken) data.token = appState.authToken;
   }
 
@@ -67,7 +69,8 @@ export async function apiPost(url, payload = {}, withAuth = false, opts = {}) {
       json = { ok: false, error: `Erro de resposta do servidor (${res.status})` };
     }
 
-    if (res.status === 401 && json && json.auth === false && appState.currentUser) {
+    if (res.status === 401 && json?.auth === false && userId != null &&
+        appState.currentUser?.id === userId && appState.sessionId === sessionId) {
       events.emit('auth:expired', json.error);
     }
     return json || { ok: false, error: 'Resposta inválida do servidor.' };

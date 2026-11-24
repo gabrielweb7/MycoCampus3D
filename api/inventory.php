@@ -8,17 +8,17 @@ function mp_inventory_kind(PDO $pdo, string $itemId): string {
         $find = $pdo->prepare('SELECT prefab_id FROM mc_world_layout_edits WHERE item_id = ? AND removed = 0');
         $find->execute([$itemId]);
         $prefab = (string)$find->fetchColumn();
-        if (str_starts_with($itemId, 'dyn_vial3ml_') || $prefab === 'vial3ml') return 'portable';
+        if (str_starts_with($itemId, 'dyn_vial3ml_') || $prefab === 'vial3ml' || $prefab === 'vial_3ml') return 'portable';
         if (str_starts_with($prefab, 'petri')) return 'petri';
         if (str_starts_with($prefab, 'pp5')) return 'pp5';
         if (str_starts_with($prefab, 'spawn_bag')) return 'bag';
-        return preg_match('/^(?:syringe|scalpel|falcon_(?:15|50)ml|spawn_jar|liquid_culture|alcohol_spray|paper_towel|gloves)/', $prefab) ? 'portable' : '';
+        return preg_match('/^(?:syringe|scalpel|falcon_(?:15|50)ml|spawn_jar|liquid_culture|alcohol_spray|water_spray|h2o2_spray|paper_towel|gloves|infrared_thermometer|lab_spoon|parafilm|micropore|foil_roll)/', $prefab) ? 'portable' : '';
     }
     if (str_starts_with($itemId, 'petri_')) return 'petri';
     if (str_starts_with($itemId, 'pp5_cup_')) return 'pp5';
     if (str_starts_with($itemId, 'spawn_bag')) return 'bag';
     if (str_starts_with($itemId, 'mushroom_pack_bag_')) return 'package';
-    return preg_match('/^(?:syringe_10ml_|scalpel_|spawn_jar|liquid_culture|falcon_(?:15|50)ml_|alcohol_spray|water_spray|h2o2_spray|paper_towel|gloves_box|infrared_thermometer|lab_spoon|parafilm|micropore|foil_roll|wild_picked_|harvest_tub_|harvest_gh_|dried_batch_)/', $itemId)
+    return preg_match('/^(?:syringe_10ml_|scalpel_|spawn_jar|liquid_culture|falcon_(?:15|50)ml_|alcohol_spray|water_spray|h2o2_spray|paper_towel|gloves_box|infrared_thermometer|lab_spoon|parafilm|micropore|foil_roll|wild_picked_|harvest_tub_|harvest_gh_|dried_batch_|vial_?3ml_)/', $itemId)
         ? 'portable' : '';
 }
 
