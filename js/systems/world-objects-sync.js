@@ -255,8 +255,8 @@ export function consumeCampusMovedItems(sim) {
     }
   }
   flushLocalMovedObjects();
-  const list = Object.values(pending);
-  sim.pendingMovedItems = {};
+  const list = Object.values(pending).slice(0, 300);
+  for (const item of list) delete pending[item.id];
   return list;
 }
 

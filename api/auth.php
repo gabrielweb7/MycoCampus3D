@@ -538,12 +538,18 @@ if ($action === 'complete_lab_quest') {
     $user = mc_require_user($pdo);
     $pdo->beginTransaction();
     try {
-        $st = $pdo->prepare('SELECT completed_modules FROM mc_users WHERE id = ? FOR UPDATE');
+        $st = $pdo->prepare('SELECT completed_modules, progress_json FROM mc_users WHERE id = ? FOR UPDATE');
         $st->execute([(int)$user['id']]);
-        $modules = json_decode((string)($st->fetchColumn() ?: '[]'), true);
+        $row = $st->fetch();
+        $modules = json_decode((string)($row['completed_modules'] ?? '[]'), true);
         if (!is_array($modules)) $modules = [];
         $isNew = !in_array(MC_LAB_QUEST_SLUG, $modules, true);
         if ($isNew) {
+            $progress = mc_clean_progress($row['progress_json'] ?? null);
+            if (array_diff(MC_LAB_QUEST_KEYS, $progress['lab_quest_steps'])) {
+                $pdo->rollBack();
+                mc_json(['ok' => false, 'error' => 'Conclua as oito etapas antes de receber a recompensa.'], 409);
+            }
             $modules[] = MC_LAB_QUEST_SLUG;
             $upd = $pdo->prepare('UPDATE mc_users SET xp = xp + ?, completed_modules = ?, last_seen = NOW() WHERE id = ?');
             $upd->execute([MC_XP_LAB_QUEST, json_encode(array_values($modules)), (int)$user['id']]);
@@ -560,9 +566,33 @@ if ($action === 'sync_coins') {
     mc_require_post();
     $user = mc_require_user($pdo);
     $delta = max(-5000, min(5000, (int)($body['delta'] ?? 0)));
-    if ($delta !== 0) {
-        $upd = $pdo->prepare('UPDATE mc_users SET myco_coins = LEAST(999999, GREATEST(0, COALESCE(myco_coins, 250) + ?)), last_seen = NOW() WHERE id = ?');
-        $upd->execute([$delta, (int)$user['id']]);
+    $operationId = $body['operation_id'] ?? null;
+    if ($operationId !== null && (!is_string($operationId) || !preg_match('/\A[a-z0-9-]{12,64}\z/', $operationId))) {
+        mc_json(['ok' => false, 'error' => 'Operação de moedas inválida.'], 400);
+    }
+    $userId = (int)$user['id'];
+    $pdo->beginTransaction();
+    try {
+        if ($operationId !== null) {
+            $lock = $pdo->prepare('SELECT id FROM mc_users WHERE id = ? FOR UPDATE');
+            $lock->execute([$userId]);
+            $seen = $pdo->prepare('SELECT 1 FROM mc_coin_operations WHERE user_id = ? AND operation_id = ?');
+            $seen->execute([$userId, $operationId]);
+            if ($seen->fetchColumn()) {
+                $delta = 0;
+            } else {
+                $record = $pdo->prepare('INSERT INTO mc_coin_operations (user_id, operation_id) VALUES (?, ?)');
+                $record->execute([$userId, $operationId]);
+            }
+        }
+        if ($delta !== 0) {
+            $upd = $pdo->prepare('UPDATE mc_users SET myco_coins = LEAST(999999, GREATEST(0, COALESCE(myco_coins, 250) + ?)), last_seen = NOW() WHERE id = ?');
+            $upd->execute([$delta, $userId]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
     }
     mc_json(['ok' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }

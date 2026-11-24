@@ -34,6 +34,43 @@ export const LAB_QUEST_STEPS = [
 ];
 
 let labQuestDone = {};
+const LAB_QUEST_MODULE = 'lab_practica_v1';
+const LAB_QUEST_SECTORS = {
+  sanitize_hood: 'lab', hood_on: 'lab', cooker_heat: 'lab', syringe_use: 'lab',
+  greenhouse_care: 'greenhouse', monotub_harvest: 'dehydration',
+  dry_pack: 'dehydration', sell_pack: 'drivethru'
+};
+const questRequests = new Map();
+
+function hasQuestReward() {
+  return (appState.currentUser?.completed_modules || []).includes(LAB_QUEST_MODULE);
+}
+
+export function claimLabQuestReward() {
+  const userId = appState.currentUser?.id;
+  if (userId == null || hasQuestReward() || !LAB_QUEST_STEPS.every((step) => labQuestDone[step.key])) return;
+  if (questRequests.has(userId)) return questRequests.get(userId);
+  const request = (async () => {
+    const steps = LAB_QUEST_STEPS.map((step) => step.key);
+    const persisted = await window.syncCampusUserProgress?.({ lab_quest_steps: steps });
+    if (!persisted?.ok || appState.currentUser?.id !== userId) return;
+    const res = await apiPost('api/auth.php?action=complete_lab_quest', {}, true);
+    if (!res?.ok || !res.user || appState.currentUser?.id !== userId) return;
+    appState.currentUser.completed_modules = res.user.completed_modules;
+    appState.currentUser.xp = res.user.xp;
+    updateUserHud();
+    if (res.new_quest) {
+      window.MycoAudio?.playQuestComplete?.();
+      showFloatingToast(`🏆 Jornada completa! +${res.awarded_xp} XP`, 4600);
+    }
+  })().catch(() => {}).finally(() => {
+    questRequests.delete(userId);
+    const modal = $('quest-modal');
+    if (appState.currentUser?.id === userId && modal && !modal.classList.contains('hidden')) renderQuestModal();
+  });
+  questRequests.set(userId, request);
+  return request;
+}
 
 function getQuestStorageKey() {
   return 'myco_quest_' + (appState.currentUser ? appState.currentUser.id : 'guest');
@@ -61,11 +98,13 @@ export function loadLabQuestProgress() {
     : [];
   srvSteps.forEach((k) => { labQuestDone[k] = true; });
   const mods = (appState.currentUser && appState.currentUser.completed_modules) || [];
-  if (mods.indexOf('lab_practica_v1') !== -1) {
+  if (mods.includes(LAB_QUEST_MODULE)) {
     LAB_QUEST_STEPS.forEach((st) => { labQuestDone[st.key] = true; });
   }
   const doneKeys = Object.keys(labQuestDone).filter((k) => labQuestDone[k]);
-  if (doneKeys.length > srvSteps.length && typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
+  if (LAB_QUEST_STEPS.every((step) => labQuestDone[step.key])) {
+    claimLabQuestReward();
+  } else if (doneKeys.length > srvSteps.length && typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
     window.syncCampusUserProgress({ lab_quest_steps: doneKeys });
   }
   updateQuestBadge();
@@ -80,7 +119,8 @@ export async function completeLabStep(stepKey) {
   try { localStorage.setItem(getQuestStorageKey(), JSON.stringify(labQuestDone)); } catch (e) {}
   updateQuestBadge();
   const doneKeys = Object.keys(labQuestDone).filter((k) => labQuestDone[k]);
-  if (typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
+  const allDone = LAB_QUEST_STEPS.every((step) => labQuestDone[step.key]);
+  if (!allDone && typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
     window.syncCampusUserProgress({ lab_quest_steps: doneKeys });
   }
 
@@ -94,20 +134,8 @@ export async function completeLabStep(stepKey) {
     if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
     showFloatingToast(`✅ Etapa concluída (${doneCount}/${LAB_QUEST_STEPS.length}): ${stepObj.title} (+🪙 ${coinBonus} MycoCoins!)`, 3800);
   } else {
-    try {
-      const res = await apiPost('api/auth.php?action=complete_lab_quest', {}, true);
-      if (res && res.ok && res.user) {
-        appState.currentUser = res.user;
-        updateUserHud();
-        if (res.new_quest) {
-          if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
-          else if (window.MycoAudio) window.MycoAudio.playEmote('cheer');
-          showFloatingToast(`🏆 Jornada completa ${LAB_QUEST_STEPS.length}/${LAB_QUEST_STEPS.length}! +100 XP +🪙 ${coinBonus} MycoCoins!`, 4600);
-        } else {
-          showFloatingToast(`🧪 Missão Prática ${LAB_QUEST_STEPS.length}/${LAB_QUEST_STEPS.length} completa!`, 3200);
-        }
-      }
-    } catch (e) {}
+    showFloatingToast(`✅ Última etapa concluída (+🪙 ${coinBonus} MycoCoins). Confirmando a recompensa…`, 3800);
+    await claimLabQuestReward();
   }
 
   const qm = $('quest-modal');
@@ -142,12 +170,14 @@ let activeQuestModalTab = 'quest';
 let activeTrackId = CULTIVATION_TRACKS[0].id;
 let calcRecipeKind = 'pda';
 let calcRecipeAmount = 500;
-const TRACK_STORAGE_KEY = 'myco_learning_track_steps_v1';
+function trackStorageKey() {
+  return 'myco_learning_track_steps_v1:' + (appState.currentUser?.id ?? 'guest');
+}
 
 function loadTrackChecks() {
   try {
     if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
-      const raw = localStorage.getItem(TRACK_STORAGE_KEY);
+      const raw = localStorage.getItem(trackStorageKey());
       const obj = raw ? JSON.parse(raw) : {};
       return obj && typeof obj === 'object' ? obj : {};
     }
@@ -158,7 +188,7 @@ function loadTrackChecks() {
 function saveTrackChecks(map) {
   try {
     if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
-      localStorage.setItem(TRACK_STORAGE_KEY, JSON.stringify(map));
+      localStorage.setItem(trackStorageKey(), JSON.stringify(map));
     }
   } catch (_e) {}
 }
@@ -222,6 +252,7 @@ export function renderQuestModal() {
       const done = !!checks[cKey];
       const row = document.createElement('button');
       row.type = 'button';
+      row.setAttribute('aria-pressed', String(done));
       row.className = 'w-full text-left p-2.5 rounded-xl border flex items-start gap-2 mb-1.5 transition ' +
         (done ? 'bg-emerald-950/35 border-emerald-500/45 text-emerald-200' : 'bg-slate-900/75 border-slate-700/70 text-slate-200 hover:bg-slate-800/80');
       row.innerHTML = `<span class="text-base leading-none">${done ? '✅' : '⬜'}</span><span class="text-[11px] flex-1">${idx + 1}. ${escapeHtml(stepTxt)}</span>`;
@@ -295,6 +326,38 @@ export function renderQuestModal() {
     `<div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">` +
     `<div class="h-full bg-emerald-400 transition-all" style="width:${pct}%"></div></div>`;
   body.appendChild(header);
+
+  const nextStep = LAB_QUEST_STEPS.find((step) => !labQuestDone[step.key]);
+  if (nextStep) {
+    const next = document.createElement('p');
+    next.className = 'p-2 my-2 rounded-lg bg-cyan-950/60 text-sm text-cyan-100';
+    next.textContent = `${t('modal.quest_next_step')}: ${nextStep.title}`;
+    body.appendChild(next);
+    const sector = CAMPUS_SECTORS.find((entry) => entry.id === LAB_QUEST_SECTORS[nextStep.key]);
+    if (sector && typeof window.teleportCampusPlayer === 'function') {
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'px-3 py-2 rounded-lg bg-cyan-800 text-white font-semibold';
+      go.textContent = `${t('modal.quest_go_to_sector')} · ${sector.name}`;
+      go.onclick = () => {
+        window.teleportCampusPlayer(sector.x, sector.y, sector.z, sector.yaw);
+        $('quest-modal')?.classList.add('hidden');
+      };
+      body.appendChild(go);
+    }
+  } else if (appState.currentUser && !hasQuestReward()) {
+    const claim = document.createElement('button');
+    claim.type = 'button';
+    claim.className = 'p-2 my-2 rounded-lg bg-amber-900/80 text-sm text-amber-100';
+    const pending = questRequests.has(appState.currentUser.id);
+    claim.disabled = pending;
+    claim.textContent = t(pending ? 'modal.quest_reward_confirming' : 'modal.quest_reward_retry');
+    claim.onclick = () => {
+      claimLabQuestReward();
+      renderQuestModal();
+    };
+    body.appendChild(claim);
+  }
 
   LAB_QUEST_STEPS.forEach((st) => {
     const isDone = !!labQuestDone[st.key];

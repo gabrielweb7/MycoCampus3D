@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.3.2] - 2026-11-24
+
+- Operações de MycoCoins ficam em fila até a confirmação do servidor, com proteção contra duplicidade.
+- A missão indica a próxima etapa e o setor correspondente. O prêmio de conclusão pode ser solicitado novamente se a conexão falhar.
+- Itens e traços da lousa são enviados em lotes. Reenvios de traços mantêm o identificador original.
+- As trilhas ficam separadas por conta no navegador. A página de download distingue a versão web da versão do APK.
+- O deploy inclui o sitemap, e a verificação automática testa a API em MySQL isolado.
+
 ## [v2.3.1] - 2026-11-24
 
 - Corrigido o espaço de cor das texturas procedurais de piso, tijolo, madeira e água.

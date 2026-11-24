@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.3.1">
+  <link rel="stylesheet" href="css/game.css?v=2.3.2">
 </head>
 
 <body>
@@ -196,7 +196,7 @@
         Conectando ao servidor da Universidade...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.3.1</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.3.2</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -236,6 +236,7 @@
 
         <!-- Mobile menu toggle (visible only on mobile) -->
         <button id="btn-mobile-menu" type="button" title="Menu de Funções" data-i18n-title="hud.menu_title"
+          aria-controls="hud-secondary-tools" aria-expanded="false"
           class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 font-extrabold border border-emerald-500/50 flex items-center gap-1">☰
           <span class="hidden sm:inline" data-i18n="hud.menu">Menu</span></button>
 
@@ -507,13 +508,14 @@
   <!-- LAB QUEST CHECKLIST MODAL -->
   <div id="quest-modal"
     class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
-    <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden max-h-[88dvh]">
+    <div role="dialog" aria-modal="true" aria-labelledby="quest-title"
+      class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden max-h-[88dvh]">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
         <div class="flex items-center gap-2">
           <span class="text-xl">🧪</span>
           <div>
-            <h2 data-i18n="modal.quest_title" class="text-base font-extrabold text-white">Missão Prática: Cultivo Asséptico</h2>
-            <p data-i18n="modal.quest_subtitle" class="text-[11px] text-emerald-300">Complete os 5 passos reais no campus e ganhe +100 XP</p>
+            <h2 id="quest-title" data-i18n="modal.quest_title" class="text-base font-extrabold text-white">Missão Prática: Cultivo Asséptico</h2>
+            <p data-i18n="modal.quest_subtitle" class="text-[11px] text-emerald-300">Complete as 8 etapas no campus e ganhe +100 XP</p>
           </div>
         </div>
         <button id="btn-close-quest" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
@@ -852,9 +854,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.3.1';</script>
+  <script>window.MYCO_VERSION = '2.3.2';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.3.1"></script>
+  <script type="module" src="js/main.js?v=2.3.2"></script>
 </body>
 
 </html>

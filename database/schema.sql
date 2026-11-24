@@ -1,4 +1,4 @@
--- MycoCampus3D - Schema MySQL (schema_version 8)
+-- MycoCampus3D - Schema MySQL
 -- Criado/migrado automaticamente por api/db.php no primeiro acesso.
 
 CREATE TABLE IF NOT EXISTS mc_meta (
@@ -28,6 +28,12 @@ CREATE TABLE IF NOT EXISTS mc_users (
     last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_users_leaderboard (xp, mushrooms_harvested)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_coin_operations (
+    user_id INT NOT NULL,
+    operation_id VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    PRIMARY KEY (user_id, operation_id)
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS mc_auth_tokens (
     token_hash CHAR(64) PRIMARY KEY,
@@ -68,7 +74,7 @@ CREATE TABLE IF NOT EXISTS mc_world_objects (
     y DOUBLE NOT NULL,
     z DOUBLE NOT NULL,
     ry DOUBLE NOT NULL DEFAULT 0,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS mc_world_item_states (
@@ -100,8 +106,10 @@ CREATE TABLE IF NOT EXISTS mc_admin_events (
 
 CREATE TABLE IF NOT EXISTS mc_board_strokes (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    stroke_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
     stroke_json MEDIUMTEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_board_stroke_key (stroke_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS mc_world_layout_edits (

@@ -1,7 +1,7 @@
 # 🍄 MycoCampus3D — Universidade Virtual 3D do Cultivo de Cogumelos
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Vers%C3%A3o-v2.3.1-39ff14?style=for-the-badge&logo=github" alt="Versão v2.3.1" />
+  <img src="https://img.shields.io/badge/Vers%C3%A3o-v2.3.2-39ff14?style=for-the-badge&logo=github" alt="Versão v2.3.2" />
   <img src="https://img.shields.io/badge/Three.js-r187%20%2B%20BVH-049ef4?style=for-the-badge&logo=threedotjs" alt="Three.js r187" />
   <img src="https://img.shields.io/badge/Multiplayer-PHP%208%20%2B%20MySQL%208-777bb4?style=for-the-badge&logo=php" alt="PHP 8 + MySQL 8" />
   <img src="https://img.shields.io/badge/Plataformas-PC%20%7C%20Android%20%7C%20iPhone%20iOS-10b981?style=for-the-badge&logo=apple" alt="PC | Android | iPhone iOS" />
@@ -191,7 +191,7 @@ Você pode caminhar livremente ou usar o botão **🗺️ Mapa** no topo da tela
 ├── README.md                         # Documentação completa do projeto, mecânicas e easter eggs
 │
 ├── api/                              # Back-end RESTful em PHP 8 + PDO MySQL
-│   ├── db.php                        # Conexão PDO, migrações cacheadas (MC_SCHEMA_VERSION = 10) e tokens
+│   ├── db.php                        # Conexão PDO, migrações cacheadas e tokens
 │   ├── auth.php                      # Login/registro, XP, colheitas, missão prática, cosméticos, ranking e Admin
 │   ├── multiplayer.php               # Sync em tempo real (avatares, objetos em lote, estados, lousas, chat)
 │   └── multiplayer_schema.php        # Whitelist de todos os itens do campus e sanitização de estado JSON
@@ -225,7 +225,8 @@ Você pode caminhar livremente ou usar o botão **🗺️ Mapa** no topo da tela
 
 | Tabela | Finalidade |
 | :--- | :--- |
-| `mc_meta` | Armazena configurações globais e o `schema_version` atual (`10`). |
+| `mc_meta` | Armazena configurações globais e a versão aplicada do schema. |
+| `mc_coin_operations` | Registra operações de moedas já processadas para evitar crédito em duplicidade. |
 | `mc_users` | Cadastro persistente: nome, hash da senha, cargo, cores do avatar, XP, cogumelos colhidos, módulos e cosméticos. |
 | `mc_auth_tokens` | Tokens de sessão SHA-256 com validade de 30 dias. |
 | `mc_sessions` | Estado em tempo real dos jogadores online (posição $X,Y,Z$, rotação, item segurado, emote, chat em balão). |
@@ -251,6 +252,15 @@ Você pode caminhar livremente ou usar o botão **🗺️ Mapa** no topo da tela
 Abra **Missão → Aprender Sozinho** para escolher uma das quatro trilhas. As etapas são marcadas manualmente e ficam salvas no navegador. O cartão de inspeção ajuda a interpretar o estado do item durante a partida.
 
 ## 🧪 Como Executar os Testes Localmente
+
+O GitHub Actions também valida a sintaxe PHP e testa a API com um MySQL 8 isolado. Para reproduzir o teste da API localmente, crie um banco descartável chamado `mycocampus_test` e rode `node scripts/check-backend.mjs` com `MYCO_TEST_DB_HOST`, `MYCO_TEST_DB_USER` e `MYCO_TEST_DB_PASS` configurados para esse banco. O teste cria contas de teste e grava progresso.
+
+Antes de publicar, confira no ambiente de homologação:
+
+- **Primeira sessão:** criar conta, seguir a missão, concluir a primeira venda, fechar e entrar novamente. Conferir posição, saldo, inventário e recompensa da missão.
+- **Multiplayer:** usar duas contas e mover os mesmos objetos, desenhar na lousa, cair da rede e voltar. Conferir posições, estados e traços nas duas telas.
+- **Visual e toque:** passar pela praça, laboratório e estufa ao meio-dia, entardecer e noite. Comparar o perfil Médio no PC e no celular e testar pegar, inspecionar e posicionar itens em tela pequena.
+- **Atualização:** testar uma PWA já instalada recebendo nova versão e um APK Android instalado. A versão do APK e a do jogo web são mostradas separadamente na página de download.
 
 ```bash
 # Sincronizar versão entre VERSION, package.json, index.html e sw.js

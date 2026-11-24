@@ -9,6 +9,23 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.3.2': {
+    title: '✨ Novidades da Atualização v2.3.2',
+    subtitle: 'Progresso, missão e multiplayer',
+    items: [
+      { icon: '🪙', text: 'Ganhos de MycoCoins aguardam confirmação e podem ser reenviados sem duplicar o crédito.' },
+      { icon: '🎯', text: 'A missão indica a próxima etapa, leva ao setor certo e permite tentar receber o prêmio novamente.' },
+      { icon: '👥', text: 'A sincronização envia itens e traços em lotes e avisa quando a conexão volta.' }
+    ]
+  },
+  '2.3.1': {
+    title: '✨ Novidades da Atualização v2.3.1',
+    subtitle: 'Iluminação e cores do campus',
+    items: [
+      { icon: '☀️', text: 'Luz solar mais quente, reflexos mais suaves e melhor contraste na praça.' },
+      { icon: '🎨', text: 'Cores corrigidas nas texturas de piso, tijolo, madeira e água.' }
+    ]
+  },
   '2.3.0': {
     title: '✨ Novidades da Atualização v2.3.0',
     subtitle: 'Todas as Etapas 100% Funcionais, Trilhas de Autonomia, Borrifador de Água, Slants & Reflexos PBR:',
@@ -205,8 +222,12 @@ export const RELEASE_NOTES_CATALOG = {
 
 function getCurrentNotes(ver) {
   if (ver && RELEASE_NOTES_CATALOG[ver]) return RELEASE_NOTES_CATALOG[ver];
-  const latestKey = Object.keys(RELEASE_NOTES_CATALOG)[0];
-  return RELEASE_NOTES_CATALOG[latestKey] || null;
+  if (!ver) return null;
+  return {
+    title: '✨ MycoCampus3D v' + ver,
+    subtitle: 'Jogo atualizado',
+    items: []
+  };
 }
 
 export function markPendingAutoUpdateNotice(newVer) {

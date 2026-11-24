@@ -72,6 +72,9 @@ export async function syncMultiplayer() {
     }
 
     if (data.ok) {
+      if (appState.syncFailures >= 3 && !globalThis.document?.hidden) {
+        showFloatingToast('✅ Conexão com o campus restabelecida.', 3000);
+      }
       appState.syncFailures = 0;
       if (data.force_teleport && window.teleportCampusPlayer) {
         window.teleportCampusPlayer(
@@ -147,6 +150,9 @@ export async function syncMultiplayer() {
     }
   } catch (e) {
     appState.syncFailures++;
+    if (appState.syncFailures === 3 && !globalThis.document?.hidden) {
+      showFloatingToast('⚠️ Conexão instável. Tentando sincronizar novamente…', 4500);
+    }
     if (firstSync) appState.isInitialSync = true;
     if (chatToSend && !appState.pendingChatMsg) appState.pendingChatMsg = chatToSend;
     if (moved && moved.length && window.requeueCampusMovedItems) window.requeueCampusMovedItems(moved);
@@ -164,15 +170,23 @@ export function sendLeaveBeacon() {
   if (appState.currentUser && typeof navigator !== 'undefined' && navigator.sendBeacon) {
     const moved = window.consumeCampusMovedItems ? window.consumeCampusMovedItems() : [];
     const stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
-    if ((moved && moved.length) || (stateChanges && Object.keys(stateChanges).length)) {
+    const strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
+    const pose = window.getCampusPlayerPose?.();
+    if (pose && (moved.length || Object.keys(stateChanges).length || strokes.length)) {
       const syncPayload = {
+        ...pose,
         session_id: appState.sessionId,
         user_id: appState.currentUser.id,
         moved_items: moved,
-        state_changes: stateChanges
+        state_changes: stateChanges,
+        board_strokes: strokes
       };
       if (appState.authToken) syncPayload.token = appState.authToken;
-      navigator.sendBeacon('api/multiplayer.php?action=sync', JSON.stringify(syncPayload));
+      if (!navigator.sendBeacon('api/multiplayer.php?action=sync', JSON.stringify(syncPayload))) {
+        window.requeueCampusMovedItems?.(moved);
+        window.requeueCampusStateChanges?.(stateChanges);
+        window.requeueCampusBoardStrokes?.(strokes);
+      }
     }
     const body = { session_id: appState.sessionId, user_id: appState.currentUser.id };
     if (appState.authToken) body.token = appState.authToken;

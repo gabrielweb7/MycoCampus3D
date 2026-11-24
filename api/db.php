@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 12;
+const MC_SCHEMA_VERSION = 13;
 const MC_TOKEN_TTL_DAYS = 30;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -78,6 +78,14 @@ function mc_migrate(PDO $pdo): void {
 
     if ($version < MC_SCHEMA_VERSION) {
         mc_run_schema_file($pdo);
+
+        if ($version < 13) {
+            $pdo->query('SELECT operation_id FROM mc_coin_operations LIMIT 0');
+            $strokeColumn = $pdo->query("SHOW COLUMNS FROM mc_board_strokes LIKE 'stroke_key'")->fetch();
+            if (!$strokeColumn) {
+                $pdo->exec('ALTER TABLE mc_board_strokes ADD COLUMN stroke_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL, ADD UNIQUE KEY idx_board_stroke_key (stroke_key)');
+            }
+        }
 
         // v3 -> v4: Isolamento de poses em mc_user_poses e limpeza de mc_world_state
         try {

@@ -99,6 +99,7 @@ export function enterCampus(user, token) {
   if (user && typeof user.myco_coins === 'number' && Number.isFinite(user.myco_coins)) {
     setLocalMycoCoins(user.myco_coins);
   }
+  window.flushCampusMycoCoins?.();
   appState.isInitialSync = true;
   requestCampusFullscreen();
   if (window.setCampusPlayerColors) window.setCampusPlayerColors(user.hat_color, user.body_color);

@@ -11,12 +11,11 @@ header('Pragma: no-cache');
 header('Expires: 0');
 
 $manifestPath = __DIR__ . '/../assets/apk-version.json';
-$fallbackVersion = @file_get_contents(__DIR__ . '/../VERSION');
-$fallbackVersionName = is_string($fallbackVersion) && trim($fallbackVersion) !== '' ? trim($fallbackVersion) : '1.0.1';
+$webVersion = trim((string)@file_get_contents(__DIR__ . '/../VERSION'));
 
 $data = [
     'versionCode' => 1,
-    'versionName' => $fallbackVersionName,
+    'versionName' => '1.0.1',
     'apkUrl' => 'https://mycocampus3d.alquimistasmagicos.com.br/MycoCampus3D.apk',
     'notes' => '',
     'mandatory' => false,
@@ -40,6 +39,7 @@ echo json_encode([
     'ok' => true,
     'versionCode' => $data['versionCode'],
     'versionName' => $data['versionName'],
+    'webVersion' => $webVersion,
     'apkUrl' => $data['apkUrl'],
     'notes' => $data['notes'],
     'mandatory' => $data['mandatory'],

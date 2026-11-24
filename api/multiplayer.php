@@ -494,18 +494,24 @@ if ($action === 'sync') {
             }
             if (count($pts) >= 1) {
                 $boardIdx = max(0, min(3, (int)($st['b'] ?? 0)));
-                $strokePlaceholders[] = '(?)';
+                $strokeId = $st['stroke_id'] ?? '';
+                $strokeKey = is_string($strokeId) && preg_match('/\A[0-9a-f]{24}\z/', $strokeId)
+                    ? hash('sha256', $sessionKey . ':' . $strokeId)
+                    : null;
+                $strokePlaceholders[] = '(?, ?)';
+                $strokeParams[] = $strokeKey;
                 $strokeParams[] = json_encode(['b' => $boardIdx, 'c' => $col, 'pts' => $pts]);
             }
         }
         if ($strokePlaceholders) {
-            $pdo->prepare('INSERT INTO mc_board_strokes (stroke_json) VALUES ' . implode(',', $strokePlaceholders))
+            $pdo->prepare('INSERT INTO mc_board_strokes (stroke_key, stroke_json) VALUES ' . implode(',', $strokePlaceholders) .
+                ' ON DUPLICATE KEY UPDATE id = id')
                 ->execute($strokeParams);
             // Mantem ate 2500 tracos para preservar todo o desenho das 4 lousas
-            $maxId = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes')->fetchColumn();
-            if ($maxId > 2500) {
-                $delOld = $pdo->prepare('DELETE FROM mc_board_strokes WHERE id <= ?');
-                $delOld->execute([$maxId - 2500]);
+            $oldestKept = (int)$pdo->query('SELECT id FROM mc_board_strokes ORDER BY id DESC LIMIT 1 OFFSET 2499')->fetchColumn();
+            if ($oldestKept > 0) {
+                $delOld = $pdo->prepare('DELETE FROM mc_board_strokes WHERE id < ?');
+                $delOld->execute([$oldestKept]);
             }
         }
     }

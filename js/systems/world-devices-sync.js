@@ -29,8 +29,21 @@ export function consumeCampusBoardStrokes(sim) {
     });
     sim.currentStroke.pts = [lastPt];
   }
-  const out = sim.pendingBoardStrokes.slice();
-  sim.pendingBoardStrokes = [];
+  const out = [];
+  while (sim.pendingBoardStrokes.length && out.length < 20) {
+    const stroke = sim.pendingBoardStrokes[0];
+    if (stroke.pts.length > 80) {
+      out.push({ ...stroke, pts: stroke.pts.slice(0, 80) });
+      sim.pendingBoardStrokes[0] = { ...stroke, pts: stroke.pts.slice(79) };
+    } else {
+      out.push(sim.pendingBoardStrokes.shift());
+    }
+  }
+  for (const stroke of out) {
+    if (stroke.stroke_id) continue;
+    stroke.stroke_id = Array.from(crypto.getRandomValues(new Uint8Array(12)), (byte) =>
+      byte.toString(16).padStart(2, '0')).join('');
+  }
   return out;
 }
 

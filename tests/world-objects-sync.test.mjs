@@ -15,11 +15,33 @@ globalThis.THREE = globalThis.window.THREE;
 
 const {
   getReplicatedItemState,
+  consumeCampusMovedItems,
   applyReplicatedItemState,
   applyCampusItemStates,
   applyCampusWorldObjects,
   advanceOfflineItemState
 } = await import('../js/systems/world-objects-sync.js');
+const { consumeCampusBoardStrokes, requeueCampusBoardStrokes } = await import('../js/systems/world-devices-sync.js');
+
+test('lotes do multiplayer preservam o excedente e mantêm o identificador ao repetir um traço', () => {
+  const items = Array.from({ length: 305 }, (_, index) => ({ id: 'item_' + index }));
+  const sim = { pendingMovedItems: Object.fromEntries(items.map((item) => [item.id, item])) };
+  assert.deepEqual(consumeCampusMovedItems(sim), items.slice(0, 300));
+  assert.deepEqual(consumeCampusMovedItems(sim), items.slice(300));
+
+  const points = Array.from({ length: 83 }, (_, index) => [index, 0]);
+  sim.pendingBoardStrokes = [{ b: 0, c: '#f8fafc', pts: points }];
+  for (let index = 0; index < 19; index++) {
+    sim.pendingBoardStrokes.push({ b: 0, c: '#f8fafc', pts: [[0, 0], [1, 1]] });
+  }
+  const strokes = consumeCampusBoardStrokes(sim);
+  assert.equal(strokes.length, 20);
+  assert.deepEqual(strokes[0].pts, points.slice(0, 80));
+  assert.deepEqual(strokes[1].pts, points.slice(79));
+  requeueCampusBoardStrokes(sim, strokes);
+  assert.deepEqual(consumeCampusBoardStrokes(sim), strokes);
+  assert.equal(consumeCampusBoardStrokes(sim).length, 1);
+});
 
 test('getReplicatedItemState e applyReplicatedItemState executam hooks meta.serializeState e meta.applyState', () => {
   const sim = { cookerPots: [], findPickable: () => null };

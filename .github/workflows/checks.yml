@@ -19,3 +19,38 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - name: Verificar sintaxe PHP
+        run: find api -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: myco-fixture-root
+          MYSQL_DATABASE: mycocampus_test
+          MYSQL_USER: myco_fixture
+          MYSQL_PASSWORD: myco-fixture-password
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar extensões PHP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php-cli php-mysql php-mbstring
+      - name: Testar API com MySQL isolado
+        run: node scripts/check-backend.mjs
+        env:
+          MYCO_TEST_DB_HOST: 127.0.0.1;port=${{ job.services.mysql.ports[3306] }}
+          MYCO_TEST_DB_USER: myco_fixture
+          MYCO_TEST_DB_PASS: myco-fixture-password
