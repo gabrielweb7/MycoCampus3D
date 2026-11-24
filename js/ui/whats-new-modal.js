@@ -9,6 +9,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.4.0': {
+    title: '✨ Novidades da Atualização v2.4.0',
+    subtitle: 'Cultivo, bancada e controles no celular',
+    items: [
+      { icon: '🌱', text: 'Germine monoesporos em meio sólido ou líquido. Isolados obtidos por clonagem de tecido rendem mais na colheita.' },
+      { icon: '🧫', text: 'Use os botões numerados para operar o item na mão. Para apoiar ou usar no alvo, clique ou toque diretamente nele.' },
+      { icon: '💉', text: 'A seringa respeita a tampa e a dose, a lixeira guarda a remoção e os cartões de inspeção explicam o próximo passo.' },
+      { icon: '📱', text: 'No celular, toque no alvo fora do centro da tela, arraste para olhar ou segure Ação para usar a mira central.' }
+    ]
+  },
   '2.3.5': {
     title: '✨ Novidades da Atualização v2.3.5',
     subtitle: 'Praça e laboratório renovados',

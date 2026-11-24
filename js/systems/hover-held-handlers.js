@@ -12,7 +12,7 @@ import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource,
 import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge } from '../items/culture-fridge.js';
 import { PDA_POWDER_DOSE_GRAMS } from '../items/pda-mix.js';
 import { formatSprayHoverPrompt, getSanitizationStatus } from '../items/alcohol-spray.js';
-import { canDisposeItemInTrash } from '../items/lab-trash.js';
+import { canDisposeItemInTrash, getTrashActionLabel } from '../items/lab-trash.js';
 import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import {
   monotubRackHitMeshes,
@@ -302,7 +302,7 @@ function handleWaterSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
       ? '💧 Espaço vazio na Estufa — coloque spawn antes de borrifar névoa'
       : `💧 Hidratar ${bestLabel} (${Math.round(bestTarget.humidity)}% UR) com Água Destilada`);
   } else {
-    setHoverPrompt(ctx, '💧 Borrifador Água Destilada • Aponte para Monotub ou Estufa p/ hidratar');
+    setHoverPrompt(ctx, '💧 Mire no Monotub ou na Estufa para hidratar • mire numa bancada para posicionar');
   }
   return true;
 }
@@ -365,7 +365,7 @@ function handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
   } else {
     setHoverPrompt(ctx, bestTarget
       ? formatSprayHoverPrompt(bestTarget, bestLabel, ctx)
-      : '🧴 Borrifador Álcool 70% • Clique para borrifar ou aponte em algo (3x higieniza)');
+      : '🧴 Mire numa superfície para borrifar • use a opção numerada para higienizar as luvas');
   }
   return true;
 }
@@ -504,14 +504,15 @@ function handleParafilmHover(ctx, intersectPickableItem, setHoverPrompt) {
 
 function handleTrashHover(ctx, setHoverPrompt) {
   if (ctx.placementMode || !ctx.labTrashMeshes || !ctx.labTrashMeshes.length || !canDisposeItemInTrash(ctx.heldItem)) return false;
-  const trHits = ctx.raycaster.intersectObjects(ctx.labTrashMeshes, false);
-  if (trHits.length === 0 || trHits[0].distance >= 3.5) return false;
+  const hit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.labTrashMeshes, false), 3.5, {
+    checkWalls: true,
+    ignoreCollider: ctx.pickableMap?.get('lab_trash_01')?.mesh.userData.dynamicCollider
+  });
+  if (!hit) return false;
   ctx.hoveredTrash = true;
-  ctx.hoverHit = trHits[0];
+  ctx.hoverHit = hit;
   hidePlacementGhost(ctx);
-  setHoverPrompt(ctx, ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.isBag
-    ? '🗑️ Descartar Bag na Lixeira (repõe novo no estoque)'
-    : '🗑️ Esvaziar conteúdo na Lixeira (limpar recipiente)');
+  setHoverPrompt(ctx, getTrashActionLabel(ctx.heldItem));
   return true;
 }
 
@@ -612,7 +613,9 @@ function handleCookerInsertHover(ctx, setHoverPrompt) {
       } else {
         hidePlacementGhost(ctx);
       }
-      const potPrompt = isBase
+      const potPrompt = ctx.heldItem.mesh.userData.petriCtrl?.lidOpen
+        ? '🧫 Use a opção numerada Fechar Tampa antes de colocar a placa na panela'
+        : isBase
         ? (hasBase
           ? '⚠️ Esta panela já possui Base Perfurada'
           : (cp.waterMl > 4000
@@ -758,7 +761,7 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
   const targetPrompt = matchedMode.isPourablePetri
     ? (matchedMode.petriCtrl.lidOpen
       ? '🧫 Despejar 20ml de PDA/BDA em ' + pourRes.item.label
-      : '🧫 Abrir a placa no Fluxo Laminar para adicionar 20ml de PDA/BDA')
+      : '🧫 Use a opção numerada Abrir placa no alvo dentro do Fluxo Laminar')
     : (matchedMode.isPourableDryGrain
       ? '💧 Hidratar grãos em ' + pourRes.item.label
       : (matchedMode.isPourablePP5 && sourceHasPda
@@ -850,15 +853,15 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
       matched = {
         mode: petriCtrl.lidOpen ? 'scrape_spores' : 'open',
         prompt: petriCtrl.lidOpen
-          ? '🔪 Raspar ponto de esporos do Carimbo (' + (petriCtrl.speciesName || 'Cogumelo') + ')'
-          : '🧫 Abrir placa com Carimbo de Esporos no Fluxo Laminar'
+          ? '🔪 Coletar um monoesporo do carimbo (' + (petriCtrl.speciesName || 'Cogumelo') + ')'
+          : '🧫 Use a opção numerada Abrir placa no alvo antes de raspar os esporos'
       };
       return true;
     }
     if (!sc.hasMycelium && petriCtrl && petriCtrl.mode === 'clean' && petriCtrl.colonization >= 60) {
       matched = {
         mode: petriCtrl.lidOpen ? 'cut' : 'open',
-        prompt: petriCtrl.lidOpen ? '🔪 Cortar fragmento de micélio da placa colonizada' : '🧫 Abrir a placa colonizada dentro do Fluxo Laminar'
+        prompt: petriCtrl.lidOpen ? '🔪 Cortar fragmento de micélio da placa colonizada' : '🧫 Use a opção numerada Abrir placa no alvo dentro do Fluxo Laminar'
       };
       return true;
     }
@@ -869,7 +872,7 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
     }
     if (!sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.colonization >= 60) {
       if (sCand.spawnCtrl.isPP5 && !sCand.spawnCtrl.lidOpen) {
-        matched = { mode: 'open', prompt: '🥣 Abrir tampa do Potinho PP5 colonizado no Fluxo Laminar para cortar fragmento' };
+        matched = { mode: 'open', prompt: '🥣 Use a opção numerada Abrir potinho no alvo antes de cortar' };
       } else {
         matched = { mode: 'cut', prompt: '🔪 Cortar fragmento de micélio (' + sCand.label + ')' };
       }
@@ -887,29 +890,29 @@ function handleScalpelHover(ctx, intersectPickableItem, setHoverPrompt) {
     if (sc.hasMycelium && petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.sterilized) {
       matched = {
         mode: petriCtrl.lidOpen ? 'transfer' : 'open',
-        prompt: petriCtrl.lidOpen ? '🍄 Transferir o fragmento para ' + sCand.label : '🧫 Abrir a placa estéril no Fluxo Laminar'
+        prompt: petriCtrl.lidOpen ? (sc.isSporeSample ? '🌱 Germinar monoesporo em ' : '🍄 Transferir amostra para ') + sCand.label : '🧫 Use a opção numerada Abrir placa no alvo dentro do Fluxo Laminar'
       };
       return true;
     }
-    if (sc.hasMycelium && petriCtrl && petriCtrl.mode === 'clean' && !petriCtrl.contaminated && !petriCtrl.hybridMutant) {
+    if (sc.hasMycelium && !sc.isSporeSample && petriCtrl && petriCtrl.mode === 'clean' && !petriCtrl.contaminated && !petriCtrl.hybridMutant) {
       matched = {
         mode: petriCtrl.lidOpen ? 'crossbreed' : 'open',
         prompt: petriCtrl.lidOpen
           ? '🧬 Cruzar genéticas na Placa de Petri (Gerar Híbrido Albino/Dourado)'
-          : '🧫 Abrir placa colonizada no Fluxo Laminar para cruzamento genético'
+          : '🧫 Use a opção numerada Abrir placa no alvo antes do cruzamento'
       };
       return true;
     }
     if (sc.hasMycelium && sCand.cultureCtrl && !sCand.cultureCtrl.inoculated && !sCand.cultureCtrl.colonized &&
         !sCand.cultureCtrl.contaminated && !(sCand.pdaMediumCtrl && sCand.pdaMediumCtrl.isSlant) &&
         sCand.mesh.userData.liquidCtrl && sCand.mesh.userData.liquidCtrl.volMl > 0) {
-      matched = { mode: 'transfer_lc', prompt: '🧪 Inocular fragmento na Cultura Líquida' };
+      matched = { mode: 'transfer_lc', prompt: sc.isSporeSample ? '🌱 Germinar monoesporo no caldo nutritivo' : '🧪 Inocular amostra na cultura líquida' };
       return true;
     }
     if (sc.hasMycelium && sCand.spawnCtrl && sCand.spawnCtrl.filled && !sCand.spawnCtrl.inoculated &&
         sCand.meta && sCand.meta.compatibilities && sCand.meta.compatibilities.receivesMyceliumCut) {
       if (sCand.spawnCtrl.isPP5 && !sCand.spawnCtrl.lidOpen) {
-        matched = { mode: 'open', prompt: '🥣 Abrir tampa do potinho no Fluxo Laminar' };
+        matched = { mode: 'open', prompt: '🥣 Use a opção numerada Abrir potinho no alvo dentro do Fluxo Laminar' };
       } else {
         matched = { mode: 'transfer', prompt: '🍄 Transferir micélio para ' + sCand.label };
       }
@@ -1014,13 +1017,18 @@ function handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt) {
     if (!cand.spawnCtrl.lidOpen) {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'open' };
       hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, '🥣 Clique para abrir a tampa do potinho no Fluxo Laminar');
+      setHoverPrompt(ctx, '🥣 Use a opção numerada Abrir potinho no alvo dentro do Fluxo Laminar');
       return true;
     }
-    if (canSyringeTarget(cand) && sc.volMl >= 1) {
+    if (canSyringeTarget(cand) && sc.volMl >= 1 && sc.mix?.lcMl > 0.05) {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
       hidePlacementGhost(ctx);
       setHoverPrompt(ctx, '💉 Pingar 1ml de cultura em ' + cand.label + ' (2s)');
+      return true;
+    }
+    if (canSyringeTarget(cand)) {
+      ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
+      setHoverPrompt(ctx, '💉 Aspire cultura líquida até ter pelo menos 1 ml para o potinho');
       return true;
     }
   }
@@ -1034,16 +1042,26 @@ function handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt) {
       setHoverPrompt(ctx, '⏳ ' + (ctx.syringePumping.toVol > ctx.syringePumping.fromVol ? 'Aspirando líquido' : 'Injetando líquido') + ' (' + pPct + '%)...');
       return true;
     }
-    if (sc.volMl < 9.9 && lc.volMl > 0 && canSyringeSource(cand)) {
-      ctx.hoveredSyringeTarget = { item: cand, mode: 'draw' };
-      hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, '💉 SEGURE o clique para aspirar de ' + cand.label + ' (' + sc.volMl.toFixed(1) + '/10 ml)');
+    const hasCulture = (sc.mix?.lcMl || 0) > 0.05;
+    const culture = cand.cultureCtrl;
+    const prepareCulture = hasCulture && culture && !culture.inoculated && !culture.colonized && !culture.contaminated;
+    if (prepareCulture && (culture.hasNutrient === false || lc.volMl <= 0)) {
+      ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
+      setHoverPrompt(ctx, '🧪 Prepare o caldo nutritivo e esterilize o frasco antes de inocular');
       return true;
     }
-    if (sc.volMl > 0.1 && canSyringeTarget(cand)) {
+    const canDraw = sc.volMl < 10 && canSyringeSource(cand) && !culture?.expired;
+    const injectMl = canSyringeTarget(cand) ? getSyringeInjectionDoseMl(cand, sc.volMl) : 0;
+    if (injectMl > 0 && (prepareCulture || !canDraw)) {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
       hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, '💉 SEGURE o clique para injetar ' + sc.volMl.toFixed(1) + ' ml em ' + cand.label);
+      setHoverPrompt(ctx, `💉 Segure para ${prepareCulture ? 'inocular' : 'injetar'} até ${injectMl} ml em ${cand.label} • solte para parar`);
+      return true;
+    }
+    if (canDraw) {
+      ctx.hoveredSyringeTarget = { item: cand, mode: 'draw' };
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, '💉 Segure para aspirar de ' + cand.label + ' • solte para parar');
       return true;
     }
     ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
@@ -1060,8 +1078,8 @@ function handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt) {
       if (!petriCtrl.lidOpen) {
         ctx.hoveredSyringeTarget = { item: cand, mode: 'open' };
         hidePlacementGhost(ctx);
-        setHoverPrompt(ctx, '🧫 Clique para abrir a placa no Fluxo Laminar');
-      } else if (sc.volMl >= 1) {
+        setHoverPrompt(ctx, '🧫 Use a opção numerada Abrir placa no alvo dentro do Fluxo Laminar');
+      } else if (sc.volMl >= 1 && sc.mix?.lcMl > 0.05) {
         ctx.hoveredSyringeTarget = { item: cand, mode: 'inject' };
         hidePlacementGhost(ctx);
         setHoverPrompt(ctx, '💉 Inocular exatamente 1ml de cultura em ' + cand.label + ' (2s)');
@@ -1113,7 +1131,7 @@ function handleFridgeStorageHover(ctx, setHoverPrompt) {
   hidePlacementGhost(ctx);
   const cultureLabel = fridgeTarget.displayLabel;
   setHoverPrompt(ctx, !fridgeTarget.fridge.fridgeCtrl.doorOpen
-    ? '🧊 Abra a geladeira para guardar ' + cultureLabel
+    ? '🧊 Use a opção numerada Abrir geladeira para guardar ' + cultureLabel
     : (fridgeTarget.slotPosition
       ? '🧊 Guardar ' + cultureLabel + ' • conservar a 4°C'
       : '🧊 Geladeira cheia • retire um item antes'));
@@ -1135,7 +1153,7 @@ function handleSporePrintHover(ctx, intersectPickableItem, setHoverPrompt) {
     const dc = dehydRes.item.dehydratorCtrl;
     setHoverPrompt(ctx, !dc.hasMushroom
       ? `♨️ Colocar ${ctx.heldItem.wildMushroomCtrl.speciesName} na Desidratadora (55°C • Secar até 0% umidade)`
-      : (dc.crisp ? '✨ Retirar cogumelo crocante da Desidratadora' : '♨️ Desidratadora em uso'));
+      : (dc.crisp ? '✨ Lote pronto • libere a mão para retirar' : '♨️ Desidratadora ocupada • um lote por vez'));
     return true;
   }
   const res = findPickableHit(
@@ -1152,7 +1170,7 @@ function handleSporePrintHover(ctx, intersectPickableItem, setHoverPrompt) {
   const pc = res.item.mesh.userData.petriCtrl;
   setHoverPrompt(ctx, pc.lidOpen
     ? `🍄 Coletar Carimbo de Esporos de ${ctx.heldItem.wildMushroomCtrl.speciesName} na Placa de Petri`
-    : '🧫 Abrir tampa da Placa de Petri Vazia para coletar Carimbo de Esporos');
+    : '🧫 Use a opção numerada Abrir placa no alvo antes de fazer o carimbo');
   return true;
 }
 
@@ -1201,16 +1219,22 @@ function handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt)
       ctx.hoverHit = res.hit;
       ctx.hoveredMonotubTarget = res.item;
       hidePlacementGhost(ctx);
-      if (mc.colonization >= 100 && !mc.spent && !mc.contaminated && !mc.hasCasing && (canAddBulk || isCasingSack)) {
+      if (mc.mixAnimTimer > 0 || mc.levelAnimTimer > 0) {
+        setHoverPrompt(ctx, '📦 Aguarde a animação');
+      } else if (!mc.spent && !mc.contaminated && mc.fruitingStage === 3) {
+        setHoverPrompt(ctx, '🍄 Libere a mão para colher a leva');
+      } else if (mc.colonization >= 100 && !mc.spent && !mc.contaminated && !mc.hasCasing && (canAddBulk || isCasingSack)) {
         setHoverPrompt(ctx, '🥥 Aplicar Camada de Casing (Vermiculita + Fibra de Coco) sobre o Monotub 24L (+40% velocidade!)');
       } else if (mc.colonization >= 100 && !mc.spent && !mc.contaminated && isWaterJug) {
         setHoverPrompt(ctx, `💦 Cold Shock / Dunk: Reidratar Bolo do Monotub 24L com Água (99% UR p/ Flush ${mc.flush}/4)`);
       } else if (!mc.lidOpen) {
-        setHoverPrompt(ctx, '📦 Abrir tampa da Caixa Monotub 24L');
+        setHoverPrompt(ctx, '📦 Use a opção numerada Abrir Monotub no alvo');
       } else if (canAddSpawn && !mc.hasSpawn) {
         setHoverPrompt(ctx, `🌾 Despejar Spawn Colonizado (${held.label}) no Monotub 24L`);
       } else if (canAddBulk && !mc.hasBulk) {
-        setHoverPrompt(ctx, `🥥 Despejar Substrato Pasteurizado (${held.label}) no Monotub 24L`);
+        setHoverPrompt(ctx, held.bowlCtrl && !held.bowlCtrl.pasteurized
+          ? '⚠️ Adicionar substrato cru (risco de contaminação)'
+          : `🥥 Adicionar substrato tratado (${held.label}) ao Monotub 24L`);
       } else if (mc.hasSpawn && mc.hasBulk && !mc.mixed) {
         setHoverPrompt(ctx, '🤲 Misturar Spawn + Substrato Pasteurizado dentro do Monotub 24L');
       } else if (mc.mixed && !mc.leveled) {
@@ -1278,14 +1302,14 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
     }
   }
 
-  // 2. Segurando Lote de Cogumelos Desidratados Crocantes (25g) -> Guardar no Pote Hermético com Sílica Gel ou Embalar no Saco Mylar/Zip!
+  // 2. Segurando Lote de Cogumelos Desidratados Crocantes -> Guardar no Pote Hermético com Sílica Gel ou Embalar no Saco Mylar/Zip!
   if (held.driedMushroomCtrl) {
     const bagRes = findPickableHit(ctx, 3.6, (cand) => !!(cand.mushroomBagCtrl && !cand.mushroomBagCtrl.filled), intersectPickableItem);
     if (bagRes) {
       ctx.hoverHit = bagRes.hit;
       ctx.hoveredMushroomBagPackTarget = bagRes.item;
       hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, `🛍️ Colocar ${held.driedMushroomCtrl.grams || 25}g de Cogumelos Crocantes no Saco Mylar/Zip (p/ selar na Seladora)`);
+      setHoverPrompt(ctx, `🛍️ Colocar ${held.driedMushroomCtrl.grams || 10}g de Cogumelos Crocantes no Saco Mylar/Zip (p/ selar na Seladora)`);
       return true;
     }
     const jarRes = findPickableHit(ctx, 3.6, (cand) => !!cand.silicaJarCtrl, intersectPickableItem);
@@ -1294,7 +1318,7 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
       ctx.hoveredSilicaJarTarget = jarRes.item;
       hidePlacementGhost(ctx);
       const jc = jarRes.item.silicaJarCtrl;
-      setHoverPrompt(ctx, `🫙 Guardar +${held.driedMushroomCtrl.grams || 25}g de Cogumelos Crocantes no Pote Hermético c/ Sílica Gel (${jc.storedGrams}/${jc.capacityGrams}g)`);
+      setHoverPrompt(ctx, `🫙 Guardar +${held.driedMushroomCtrl.grams || 10}g de Cogumelos Crocantes no Pote Hermético c/ Sílica Gel (${jc.storedGrams}/${jc.capacityGrams}g)`);
       return true;
     }
   }
@@ -1333,7 +1357,7 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
         ctx.hoveredDeliveryCrateTarget = crateRes.item;
         hidePlacementGhost(ctx);
         const cc = crateRes.item.deliveryCrateCtrl;
-        setHoverPrompt(ctx, `📤 Colocar Pacote Selado (${bc.grams}g) na Caixa de Entrega (${cc.packsCount}/4 • +🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins)`);
+        setHoverPrompt(ctx, `📤 Colocar Pacote Selado (${bc.grams}g) na Caixa de Entrega (${cc.packsCount}/4)`);
         return true;
       }
     }

@@ -1,5 +1,5 @@
 /**
- * MycoCampus3D — Mapa Rápido (Teleporte) & Missão Prática de 5 Passos
+ * MycoCampus3D — Mapa Rápido (Teleporte) & Missão Prática do Campus
  */
 import { appState } from '../core/state.js';
 import { t } from '../core/i18n.js';
@@ -25,11 +25,11 @@ export const CAMPUS_SECTORS = [
 export const LAB_QUEST_STEPS = [
   { key: 'sanitize_hood', icon: '🧴', title: '1. Higienizar a Capela', desc: 'Pegue um Borrifador de Álcool 70% e borrife dentro da Capela de Fluxo Laminar.', coins: 30 },
   { key: 'hood_on', icon: '🌬️', title: '2. Ligar o Fluxo Laminar', desc: 'Clique no interruptor da Capela de Fluxo Laminar para ligar o filtro HEPA.', coins: 30 },
-  { key: 'cooker_heat', icon: '🔥', title: '3. Esterilizar na Autoclave', desc: 'Coloque um frasco/bag na Panela de Pressão ou ligue o Fogareiro Industrial.', coins: 40 },
+  { key: 'cooker_heat', icon: '🔥', title: '3. Preparar a autoclave', desc: 'Coloque um frasco/bag na Panela de Pressão ou ligue o Fogareiro Industrial.', coins: 40 },
   { key: 'syringe_use', icon: '💉', title: '4. Inocular com Seringa', desc: 'Use a Seringa 10ml em um frasco de Cultura Líquida ou spawn.', coins: 40 },
   { key: 'greenhouse_care', icon: '🍄', title: '5. Cuidar da Estufa', desc: 'Vá até a Estufa e borrife água ou colha um bloco maduro de cogumelos.', coins: 45 },
-  { key: 'monotub_harvest', icon: '📦', title: '6. Colher no Monotub 24L', desc: 'Misture/nivele o substrato no Monotub LED e colha um flush maduro.', coins: 60 },
-  { key: 'dry_pack', icon: '♨️', title: '7. Desidratar & Embalar', desc: 'Seque cogumelos na Desidratadora (55°C), armazene com Sílica ou empacote no Saco Mylar.', coins: 75 },
+  { key: 'monotub_harvest', icon: '📦', title: '6. Colher no Monotub 24L', desc: 'Misture o spawn com o substrato, nivele e feche a tampa. Quando colonizar, leve à estante LED e colha com a mão livre.', coins: 60 },
+  { key: 'dry_pack', icon: '♨️', title: '7. Desidratar cogumelos', desc: 'Coloque um cogumelo fresco na desidratadora e aguarde o lote ficar pronto. Para vender, embale no Mylar e passe na seladora.', coins: 75 },
   { key: 'sell_pack', icon: '🚗', title: '8. Vender no Empório Drive-Thru', desc: 'Leve pacotes selados ou a Caixa de Entrega ao Empório da Estrada Sul!', coins: 100 }
 ];
 

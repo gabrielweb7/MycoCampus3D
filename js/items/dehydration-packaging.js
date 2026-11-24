@@ -3,9 +3,9 @@
  *
  * Fluxo completo multiplayer:
  * 1. Cogumelo fresco colhido -> vai para uma das 6 Desidratadoras na Sala de Desidratação (Ala Leste-Norte).
- * 2. Quando fica Crocante (0% umidade) -> retirar gera um Lote de 25g de Cogumelos Desidratados Crocantes na mão.
- * 3. Pegar o Lote de 25g e colocar em um Saco Zip-Lock / Pouch de Cogumelos (`makeMushroomBag`) -> Saco Cheio (Aberto).
- * 4. Levar o Saco Cheio até uma das Seladoras Térmicas (`heat_sealer`) -> Sela o saco a vácuo/quente (`sealed = true`)!
+ * 2. Quando fica Crocante (0% umidade) -> retirar gera um lote de cogumelos desidratados na mão.
+ * 3. Pegar o lote seco e colocar em um Saco Zip-Lock / Pouch de Cogumelos (`makeMushroomBag`) -> Saco Cheio (Aberto).
+ * 4. Levar o Saco Cheio até uma das Seladoras Térmicas (`heat_sealer`) -> Sela o saco a quente (`sealed = true`)!
  * 5. Pegar o Saco Selado e colocar dentro de uma Caixa de Entrega (`makeDeliveryCrate`, capacidade 4 pacotes selados).
  * 6. Levar a Caixa de Entrega (com 1 a 4 pacotes selados) até o Ponto de Venda Drive-Thru na Estrada Sul (x: 11.5, z: 36.2).
  * 7. Assim que houver pacotes disponíveis no Ponto de Venda, carros com NPCs variados aparecem na estrada em intervalos diferentes:
@@ -23,7 +23,7 @@ import { buildCuteAvatar, drawAvatarFace } from '../entities/avatars.js';
 
 const THREE = window.THREE;
 
-export const MYCOCOIN_PRICE_PER_PACK = 120; // 🪙 120 MycoCoins por pacote selado de 25g (VIP = +50%!)
+export const MYCOCOIN_PRICE_PER_PACK = 120; // 🪙 120 MycoCoins por pacote selado (VIP = +50%!)
 export const DELIVERY_CRATE_MAX_PACKS = 4;
 export const VIP_SPECIES_MENU = [
   'Golden Teacher',
@@ -87,7 +87,7 @@ const NPC_PROFILES = [
   { name: 'Chef Sofia (Gastronomia)', carColor: 0xdc2626, shirtColor: 0xf43f5e, hatColor: 0xfef08a, quote: '✨ "Crocantes a 0% de umidade e selados! Toma 🪙 120 MycoCoins!"' },
   { name: 'Prof. Otávio (Botânico)', carColor: 0x16a34a, shirtColor: 0x10b981, hatColor: 0x78350f, quote: '🌿 "Linhagem rizomórfica pura! Pagamento na mão: 🪙 120 MycoCoins!"' },
   { name: 'Marina (Terapeuta)', carColor: 0x9333ea, shirtColor: 0xa855f7, hatColor: 0xf472b6, quote: '💜 "Embalagem selada perfeita! Muito obrigada, +🪙 120 MycoCoins!"' },
-  { name: 'Lucas (Colecionador)', carColor: 0xeab308, shirtColor: 0xf59e0b, hatColor: 0x111827, quote: '🤩 "Direto do laboratório da universidade! Vale cada MycoCoin!"' }
+  { name: 'Lucas (Colecionador)', carColor: 0xeab308, shirtColor: 0xf59e0b, hatColor: 0x111827, quote: '🤩 "Direto do laboratório do MycoCampus! Vale cada MycoCoin!"' }
 ];
 
 function playAudio(method) {
@@ -185,7 +185,7 @@ function createMushroomPackVisual(filled, sealed) {
     lctx.fillText('MycoCampus', 128, 122);
     lctx.fillStyle = '#fef08a';
     lctx.font = 'bold 21px system-ui, sans-serif';
-    lctx.fillText('COGUMELO • 10g', 128, 156);
+    lctx.fillText('COGUMELOS SECOS', 128, 156);
 
     // Código de barras estilizado embaixo
     lctx.fillStyle = '#0f172a';
@@ -270,7 +270,7 @@ export function updateMushroomBagVisual(item) {
   } else if (bc.filled) {
     item.label = `🛍️ Saco com Cogumelos Secos (${bc.grams}g${spTag} • Segure e aponte na Seladora Térmica!)`;
   } else {
-    item.label = '🛍️ Saco/Bandeja Vazia p/ Cogumelos Secos (Coloque 10g de Cogumelos Crocantes)';
+    item.label = '🛍️ Saco Mylar vazio • coloque um lote seco';
   }
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
 }
@@ -293,7 +293,7 @@ export function makeMushroomBag(ctx, id, px, py, pz, opts = {}) {
     0.06,
     {
       category: 'packaging',
-      purpose: 'Embalagem transparente com visor e etiqueta para embalar 10g de cogumelos desidratados e selar na Seladora Térmica',
+      purpose: 'Embalagem com visor para um lote de cogumelos secos. Feche na seladora térmica.',
       getWeightGrams: (it) => 8 + ((it && it.mushroomBagCtrl && it.mushroomBagCtrl.filled) ? (it.mushroomBagCtrl.grams || 10) : 0),
       compatibilities: {
         canEnterCooker: false,
@@ -394,7 +394,7 @@ export function sealMushroomBag(ctx, bagItem) {
   const bc = bagItem.mushroomBagCtrl;
   const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
   if (!bc.filled) {
-    if (onToast) onToast('⚠️ Coloque primeiro 10g de Cogumelos Desidratados Crocantes dentro do saco antes de selar!');
+    if (onToast) onToast('⚠️ Coloque um lote de cogumelos desidratados no saco antes de selar.');
     return true;
   }
   if (bc.sealed) {
@@ -434,6 +434,14 @@ export function sealMushroomBag(ctx, bagItem) {
 // ============================================================================
 // 2. CAIXA DE ENTREGA / EXPEDIÇÃO (Guarda até 4 Pacotes Selados para Venda)
 // ============================================================================
+
+function getDeliveryCrateWeight(crate) {
+  let weight = 240;
+  for (let i = 0; i < (crate?.packsCount || 0); i++) {
+    weight += 8 + (Number(crate.gramsList?.[i]) || 25);
+  }
+  return weight;
+}
 
 export function updateDeliveryCrateVisual(item) {
   if (!item || !item.deliveryCrateCtrl) return;
@@ -531,7 +539,7 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
     {
       category: 'packaging',
       purpose: 'Caixa de expedição para acomodar até 4 pacotes selados de cogumelos desidratados e levar ao Ponto de Venda na Estrada',
-      getWeightGrams: (it) => 240 + ((it && it.deliveryCrateCtrl) ? it.deliveryCrateCtrl.packsCount * 33 : 0),
+      getWeightGrams: (it) => getDeliveryCrateWeight(it?.deliveryCrateCtrl),
       compatibilities: {
         canEnterCooker: false,
         isDeliveryCrate: true
@@ -574,7 +582,7 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
   const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
 
   if (!bc.filled) {
-    if (onToast) onToast('⚠️ Este saco está vazio! Coloque 10g de cogumelos desidratados e sele antes de pôr na caixa.');
+    if (onToast) onToast('⚠️ Este saco está vazio! Coloque um lote de cogumelos desidratados e sele antes de pôr na caixa.');
     return true;
   }
   if (!bc.sealed) {
@@ -590,7 +598,7 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
   cc.speciesList = Array.isArray(cc.speciesList) ? cc.speciesList : [];
   cc.speciesList.push(bc.speciesName || '');
   cc.gramsList = Array.isArray(cc.gramsList) ? cc.gramsList : [];
-  cc.gramsList.push(Math.max(10, Math.round(Number(bc.grams) || 10)));
+  cc.gramsList.push(Math.max(1, Math.round(Number(bc.grams) || 10)));
   updateDeliveryCrateVisual(crateItem);
   if (ctx && ctx.markItemMoved) ctx.markItemMoved(crateItem);
   bagItem._removedForSync = true;
@@ -655,8 +663,8 @@ function drawRoadStandSign() {
   sctx.font = 'bold 23px system-ui, sans-serif';
   sctx.fillText(
     roadStandState.availablePacks > 0
-      ? `📦 ${roadStandState.availablePacks} Pacote(s) 10g Prontos p/ Venda`
-      : '📦 Estoque Vazio — Traga Caixas de 10g!',
+      ? `📦 ${roadStandState.availablePacks} pacote(s) à venda`
+      : '📦 Estoque vazio • traga pacotes selados ou uma caixa de entrega',
     w / 2,
     94
   );
@@ -1097,7 +1105,7 @@ function consumeHeldStandItem(ctx, held, packsVal) {
   roadStandState.availablePacks += packsVal;
   const spName = (held && held.mushroomBagCtrl && held.mushroomBagCtrl.speciesName) ||
     (held && held.wildMushroomCtrl && held.wildMushroomCtrl.speciesName) || '';
-  const packGrams = Math.max(10, Math.round(Number(
+  const packGrams = Math.max(1, Math.round(Number(
     (held && held.mushroomBagCtrl && held.mushroomBagCtrl.grams) ||
     (held && held.wildMushroomCtrl && held.wildMushroomCtrl.grams) || 10
   )));
@@ -1150,7 +1158,7 @@ export function interactRoadsideStand(ctx) {
     roadStandState.availablePacks += count;
     for (let ci = 0; ci < count; ci++) {
       roadStandState.speciesList.push(crateSpecies[ci] || '');
-      roadStandState.gramsList.push(Math.max(10, Math.round(Number(crateGrams[ci]) || 10)));
+      roadStandState.gramsList.push(Math.max(1, Math.round(Number(crateGrams[ci]) || 10)));
     }
     held.deliveryCrateCtrl.speciesList = [];
     held.deliveryCrateCtrl.gramsList = [];
@@ -1387,7 +1395,7 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       if (soldOne) {
         const vipMatch = matchVipOrder(soldSpecies);
         const isVipSale = !!(vipMatch || order.isVip);
-        const packGrams = Math.max(10, Math.round(Number(soldGrams) || 10));
+        const packGrams = Math.max(1, Math.round(Number(soldGrams) || 10));
         const basePrice = Math.round(MYCOCOIN_PRICE_PER_PACK * (packGrams / 10));
         const earnedCoins = isVipSale ? Math.round(basePrice * 1.5) : basePrice;
         roadStandState.totalSoldPacks++;

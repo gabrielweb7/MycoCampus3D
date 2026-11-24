@@ -35,16 +35,16 @@ export const CULTIVATION_TRACKS = [
   },
   {
     id: 'agar_clone_slant',
-    title: 'Trilha 3 • Ágar PDA, Clonagem T3 & Slant Master',
+    title: 'Trilha 3 • Monoesporos, Clonagem e Banco de Culturas',
     level: 'Avançado',
     speciesHint: 'Qualquer espécie / Híbridos F1 Albino ou Dourado',
-    summary: 'Domine carimbos de esporos (T0), isolamento rizomórfico até T3 (+35% biomassa), clonagem de tecido fresco e banco genético a 4°C.',
-    gameVsReal: 'No jogo: misture 40g/L de PDA no Béquer, verta no Frasco 1L e esterilize (Pour Tek no Fluxo Laminar!), raspe esporos [T0] ou corte tecido fresco de cogumelo e setorize até T3 e Tubo Slant 15ml na Geladeira 4°C. Na vida real: flambar o bisturi até ficar rubro e resfriar no canto limpo do ágar antes de tocar o tecido interno (nunca a casca externa!) evita contaminação bacteriana.',
+    summary: 'Germine um monoesporo sem bônus de colheita, ou clone tecido de um cogumelo colhido para obter um isolado com +35% no jogo.',
+    gameVsReal: 'T0–T3 indicam repiques no jogo. A origem da cultura é registrada à parte; repicar um monoesporo até T3 não o transforma em clone.',
     steps: [
       'Prepare PDA/BDA na proporção 40g/L no Béquer com Água Destilada e agite na Placa Magnética.',
       'Esterilize o Frasco 1L de PDA a 15 PSI (121°C) e verta 20ml em Petris ou Tubos Falcon 15ml (Pour Tek) dentro do Fluxo Laminar.',
-      'Com Bisturi flambado e frio, transfira esporos [T0] ou biópsia do cogumelo fresco para gerar micélio T1 → T2 → T3 ⭐.',
-      'Guarde a cultura pura T3 em Tubo Slant 15ml na Geladeira (4°C) por meses ou faça cruzamentos híbridos em Petri.'
+      'Com o bisturi estéril, colete um monoesporo do carimbo para germinar, ou colete tecido de um cogumelo fresco para clonar. Transfira para meio estéril.',
+      'Repique as culturas sem perder o registro de origem. Guarde uma cultura viável no Slant ou amplie o clone até o bolo para comparar a colheita.'
     ]
   },
   {
@@ -129,12 +129,11 @@ export function diagnoseItemPedagogy(item) {
   const cc = item.cultureCtrl || (item.mesh && item.mesh.userData && item.mesh.userData.cultureCtrl);
   const mc = item.monotubCtrl;
 
-  const contamKind = (sp && sp.contaminated && sp.contamKind) ||
-    (pc && (pc.contaminated || pc.mode === 'contam') && pc.contamKind) ||
-    (cc && cc.contaminated && cc.contamKind) ||
-    (mc && mc.contaminated && mc.contamKind) || '';
+  const contaminated = [sp, pc, cc, mc].find((ctrl) => ctrl?.contaminated) ||
+    (pc?.mode === 'contam' ? pc : null);
+  const contamKind = contaminated?.contamKind;
 
-  if (contamKind) {
+  if (contaminated) {
     const guides = {
       trichoderma: ['Mofo Verde (Trichoderma)', 'Esporos aéreos ou caixa/substrato sem assepsia', 'Higienize a caixa 3x com Álcool 70% + Papel Toalha e trabalhe dentro do Fluxo/SAB fechado.'],
       cobweb: ['Mofo Teia (Cobweb)', 'Ar parado + umidade excessiva na superfície', 'Aplique Água Oxigenada 3% (H₂O₂) para dissolver rápido e melhore a troca gasosa (FAE).'],
@@ -188,10 +187,5 @@ export function diagnoseItemPedagogy(item) {
       realWorldTip: 'Culturas puras (Petri, Slant 15ml, CL, Ampola) duram até 6x mais na Geladeira a 4°C!'
     };
   }
-  return {
-    level: 'ok',
-    status: 'Parâmetros Assépticos Saudáveis',
-    cause: 'Condições adequadas de cultivo.',
-    realWorldTip: 'Respeite sempre: 15 PSI para grãos/ágar, 75–85°C para bulk e Água Destilada (não álcool) no micélio vivo.'
-  };
+  return null;
 }

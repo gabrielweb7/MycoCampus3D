@@ -2,12 +2,13 @@
  * Item Segurado em 1a Pessoa, Termometro Laser Infravermelho e Seringa (MycoCampus3D)
  */
 
+import { normalizeCultureOrigin } from '../core/culture-origin.js';
 import { GAME_CONFIG } from '../core/config.js';
 import { getGroundHeight } from '../engine/physics.js';
 import { getVirtualDayFrac } from '../world/staircase-clock.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { addSyringeMix, updateSyringeVolume } from '../items/syringe.js';
-import { getItemBaseTempC } from '../items/item-registry.js';
+import { canSyringeTarget, getItemBaseTempC } from '../items/item-registry.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { inoculatePetri } from '../items/petri-dish.js';
 import { greenhouseSlots, greenhouseHitMeshes, greenhouseEnv } from '../world/greenhouse.js';
@@ -325,13 +326,18 @@ function applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, fin
   const hadLc = syrSnap ? syrSnap.hadLiveLc : !!(scMix && scMix.lcMl > 0.05);
   const srcContam = syrSnap ? syrSnap.sourceContam : !!(syrCtrl && syrCtrl.sourceContam);
   const srcSpecies = (syrSnap && syrSnap.speciesName) || (syrCtrl && syrCtrl.speciesName) || '';
+  const srcOrigin = normalizeCultureOrigin(syrSnap?.origin ?? syrCtrl?.origin);
   const srcGen = (syrSnap && typeof syrSnap.generation === 'number')
     ? syrSnap.generation
     : (syrCtrl && typeof syrCtrl.generation === 'number' ? syrCtrl.generation : null);
   if (finalD > 0.01 && syringeTarget) {
     let drawKind = 'water';
     if (syringeTarget.id && syringeTarget.id.indexOf('distilled_jug') === 0) drawKind = 'distilled';
-    else if (syringeTarget.cultureCtrl && syringeTarget.cultureCtrl.colonized) drawKind = 'lc';
+    else if (syringeTarget.cultureCtrl && syringeTarget.cultureCtrl.colonized) {
+      drawKind = 'lc';
+      const sourceOrigin = normalizeCultureOrigin(syringeTarget.cultureCtrl.origin);
+      syrCtrl.origin = hadLc && srcOrigin !== sourceOrigin ? '' : sourceOrigin;
+    }
     else if (syringeTarget.pdaMediumCtrl && syringeTarget.pdaMediumCtrl.powderGrams > 0) drawKind = 'pda';
     if (syringeTarget.cultureCtrl && syringeTarget.cultureCtrl.contaminated && syrCtrl) {
       syrCtrl.sourceContam = true;
@@ -367,12 +373,13 @@ function applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, fin
       }
       const lcSterile = !!(syringeTarget.cultureCtrl.sterilized || syringeTarget.sterilized || (targetLiquid && targetLiquid.sterilized));
       const aseptic = lcSterile && isAsepticWorkArea(ctx, syringeTarget) && !srcContam;
+      syringeTarget.cultureCtrl.origin = srcOrigin;
       syringeTarget.cultureCtrl.inoculated = true;
       if (srcSpecies) {
         syringeTarget.cultureCtrl.speciesName = srcSpecies;
       }
       if (typeof srcGen === 'number') {
-        syringeTarget.cultureCtrl.generation = Math.min(3, Math.max(1, srcGen));
+        syringeTarget.cultureCtrl.generation = Math.min(3, Math.max(0, srcGen));
       }
       if (aseptic) {
         syringeTarget.cultureCtrl.colonization = 2;
@@ -558,9 +565,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     }
 
     if (ctx.heldItem.mesh.userData.isSyringe) {
-      const activeSyrItem = (ctx.hoveredSyringeTarget && ctx.hoveredSyringeTarget.item && ctx.hoveredSyringeTarget.item.mesh.userData.liquidCtrl)
-        ? ctx.hoveredSyringeTarget.item
-        : ((ctx.syringePumping && ctx.syringePumping.target && ctx.syringePumping.target.item && ctx.syringePumping.target.item.mesh.userData.liquidCtrl) ? ctx.syringePumping.target.item : null);
+      const pumpTarget = ctx.syringePumping?.target.item;
+      const activeSyrItem = pumpTarget?.mesh.userData.liquidCtrl ? pumpTarget : null;
       const isPuncturing = !!activeSyrItem;
       if (isPuncturing && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_syringe');
       if (activeSyrItem) ctx.lastSyringeTargetItem = activeSyrItem;
@@ -687,13 +693,13 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
   }
 
   if (ctx.isPrimaryDown && !ctx.placementMode && ctx.heldItem && ctx.heldItem.mesh) {
-    if (ctx.heldItem.mesh.userData.isAlcoholSpray && now - (ctx._lastSprayLoopAt || 0) >= 260) {
+    if (ctx.heldItem.mesh.userData.isAlcoholSpray && ctx.hoveredSprayTarget?.target && now - (ctx._lastSprayLoopAt || 0) >= 260) {
       if (!(ctx.hoveredSprayTarget && ctx.hoveredSprayTarget.target && ctx.hoveredSprayTarget.target.monotubCtrl && ctx.hoveredSprayTarget.target.monotubCtrl.colonization >= 100) &&
           !(ctx.hoveredGreenhouseSlot && !ctx.hoveredGreenhouseSlot.empty)) {
         ctx._lastSprayLoopAt = now;
         fireAlcoholSpray(ctx, ctx.hoveredSprayTarget);
       }
-    } else if (ctx.heldItem.mesh.userData.isWaterSpray && now - (ctx._lastSprayLoopAt || 0) >= 260) {
+    } else if (ctx.heldItem.mesh.userData.isWaterSpray && ctx.hoveredSprayTarget?.target && now - (ctx._lastSprayLoopAt || 0) >= 260) {
       ctx._lastSprayLoopAt = now;
       fireWaterSpray(ctx, ctx.hoveredSprayTarget);
       if (ctx.hoveredGreenhouseSlot) ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
@@ -873,116 +879,131 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Bombeamento cancelado: você se afastou do recipiente.');
     }
   }
-  if (ctx.syringePumping && ctx.heldItem && ctx.heldItem.mesh.userData.isSyringe) {
-    if (ctx.syringePumping.holdMode && !ctx.isPrimaryDown) {
-      const syrCtrl = ctx.heldItem.mesh.userData.syrCtrl;
-      const finalVol = Math.round((syrCtrl ? syrCtrl.volMl : 0) * 10) / 10;
-      const earlyDelta = finalVol - ctx.syringePumping.fromVol;
-      const syringeTarget = ctx.syringePumping.target.item;
-      const targetLiquid = syringeTarget && syringeTarget.mesh.userData.liquidCtrl;
-      const targetSpawn = syringeTarget && syringeTarget.spawnCtrl;
-      const syrSnap = {
-        hadLiveLc: !!(syrCtrl && syrCtrl.mix && syrCtrl.mix.lcMl > 0.05),
-        speciesName: (syrCtrl && syrCtrl.speciesName) || '',
-        generation: syrCtrl && typeof syrCtrl.generation === 'number' ? syrCtrl.generation : null,
-        sourceContam: !!(syrCtrl && syrCtrl.sourceContam)
-      };
-      applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, earlyDelta, syrSnap);
-      updateSyringeVolume(ctx.heldItem, finalVol <= 0.05 ? 0 : finalVol);
+  stepSyringePumping(ctx, dt);
+}
+
+export function stepSyringePumping(ctx, dt) {
+  const pump = ctx.syringePumping;
+  const syringe = ctx.heldItem;
+  if (!pump || !syringe?.mesh.userData.isSyringe) return;
+  const target = pump.target.item;
+  if (!target || target._removedForSync || (!pump.holdMode && !canSyringeTarget(target))) {
+    updateSyringeVolume(syringe, pump.fromVol);
+    ctx.syringePumping = null;
+    ctx.callbacks.onToast?.('💉 Aplicação cancelada: o alvo não está mais pronto. Nenhuma dose foi usada.');
+    return;
+  }
+  if (pump.holdMode && (!ctx.isPrimaryDown || ctx.hoveredSyringeTarget?.item !== target)) {
+    const syrCtrl = ctx.heldItem.mesh.userData.syrCtrl;
+    const finalVol = pump.previewVol ?? pump.fromVol;
+    const earlyDelta = finalVol - ctx.syringePumping.fromVol;
+    const syringeTarget = ctx.syringePumping.target.item;
+    const targetLiquid = syringeTarget && syringeTarget.mesh.userData.liquidCtrl;
+    const targetSpawn = syringeTarget && syringeTarget.spawnCtrl;
+    const syrSnap = {
+      hadLiveLc: !!(syrCtrl && syrCtrl.mix && syrCtrl.mix.lcMl > 0.05),
+      speciesName: (syrCtrl && syrCtrl.speciesName) || '',
+      origin: syrCtrl?.origin,
+      generation: syrCtrl && typeof syrCtrl.generation === 'number' ? syrCtrl.generation : null,
+      sourceContam: !!(syrCtrl && syrCtrl.sourceContam)
+    };
+    applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, earlyDelta, syrSnap);
+    updateSyringeVolume(syringe, finalVol);
+    if (targetLiquid && earlyDelta !== 0) {
+      updateContainerVolume(syringeTarget, pump.startJarVol - earlyDelta);
+      ctx.callbacks.onLabStep?.('syringe_use');
+    }
+    if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Seringa com ' + finalVol.toFixed(1) + ' ml');
+    ctx.notifyWorldAction();
+    ctx.syringePumping = null;
+  } else {
+    ctx.syringePumping.elapsed += dt;
+    const pRatio = Math.min(1, ctx.syringePumping.elapsed / ctx.syringePumping.duration);
+    const pSmooth = ctx.syringePumping.holdMode ? pRatio : (pRatio * pRatio * (3 - 2 * pRatio));
+    const curVol = THREE.MathUtils.lerp(ctx.syringePumping.fromVol, ctx.syringePumping.toVol, pSmooth);
+    const syringeTarget = ctx.syringePumping.target.item;
+    const targetLiquid = syringeTarget && syringeTarget.mesh.userData.liquidCtrl;
+    const targetSpawn = syringeTarget && syringeTarget.spawnCtrl;
+    const scDuring = ctx.heldItem.mesh.userData.syrCtrl;
+    const syrSnap = {
+      hadLiveLc: !!(scDuring && scDuring.mix && scDuring.mix.lcMl > 0.05),
+      speciesName: (scDuring && scDuring.speciesName) || '',
+      origin: scDuring?.origin,
+      generation: scDuring && typeof scDuring.generation === 'number' ? scDuring.generation : null,
+      sourceContam: !!(scDuring && scDuring.sourceContam)
+    };
+    pump.previewVol = Math.round(curVol * 10) / 10;
+    updateSyringeVolume(syringe, curVol, true);
+    if (ctx.syringePumping.holdMode && ctx.callbacks.onHoverPrompt) {
+      const isDraw = ctx.syringePumping.toVol > ctx.syringePumping.fromVol;
+      ctx.callbacks.onHoverPrompt('💉 ' + (isDraw ? 'Aspirando' : 'Injetando') + ': ' + curVol.toFixed(1) + ' / 10.0 ml (solte para parar)');
+    }
+    if (pRatio >= 1.0) {
+      const finalD = ctx.syringePumping.toVol - ctx.syringePumping.fromVol;
+      applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, finalD, syrSnap);
+      updateSyringeVolume(ctx.heldItem, ctx.syringePumping.toVol);
+      if (targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
+        updateContainerVolume(syringeTarget, Math.max(0, ctx.syringePumping.startJarVol - finalD));
+      } else if (targetSpawn) {
+        const spTarget = syringeTarget;
+        const spCtrl = targetSpawn;
+        const syrSp = syrSnap.speciesName;
+        const hadLiveLc = syrSnap.hadLiveLc;
+        if (!hadLiveLc) {
+          spCtrl.waterMl = (spCtrl.waterMl || 0) + Math.round((ctx.syringePumping.amountMl || Math.abs(finalD) || 1) * 10) / 10;
+          spCtrl.updateVisual();
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 Água aplicada em ' + spCtrl.baseLabel + ' (sem cultura líquida na seringa).');
+        } else {
+          const isAseptic = isAsepticWorkArea(ctx, spTarget) && !syrSnap.sourceContam;
+          spCtrl.inoculated = true;
+          spCtrl.origin = normalizeCultureOrigin(syrSnap.origin);
+          spCtrl.generation = typeof syrSnap.generation === 'number' ? Math.min(3, Math.max(0, syrSnap.generation)) : 1;
+          if (syrSp) spCtrl.speciesName = syrSp;
+          if (syrSnap.sourceContam) {
+            spCtrl.contaminated = true;
+            if (ctx.callbacks.onToast) {
+              ctx.callbacks.onToast('🦠 A seringa continha cultura contaminada e infectou o ' + spCtrl.baseLabel + '!');
+            }
+          } else if (!spCtrl.sterilized && Math.random() < 0.85) {
+            spCtrl.contaminated = true;
+            if (ctx.callbacks.onToast) {
+              ctx.callbacks.onToast('🦠 Contaminação! O substrato não completou o tempo mínimo de esterilização (' + (spCtrl.minSterilizeMin || 80) + ' min)!');
+            }
+          } else if (!isAseptic && Math.random() < 0.45) {
+            spCtrl.contaminated = true;
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Contaminação! Lembre de ligar e higienizar o Fluxo Laminar com Álcool 70% antes de inocular!');
+          } else {
+            const doseDone = Math.round((ctx.syringePumping.amountMl || Math.abs(finalD) || 1) * 10) / 10;
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 ' + doseDone + 'ml inoculados em ' + spCtrl.baseLabel + '! Micélio em colonização.');
+          }
+          spCtrl.updateVisual();
+        }
+      } else if (syringeTarget && syringeTarget.mesh.userData.isPetri) {
+        const petriTarget = syringeTarget;
+        const petriCtrl = petriTarget.mesh.userData.petriCtrl;
+        const doseMl = ctx.syringePumping.amountMl || 1;
+        const hadLiveLc = syrSnap.hadLiveLc;
+        if (!hadLiveLc) {
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A seringa não contém cultura líquida (apenas água/meio); aspire cultura líquida para inocular.');
+        } else if (petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.lidOpen && petriCtrl.sterilized) {
+          const aseptic = isAsepticWorkArea(ctx, petriTarget) && !syrSnap.sourceContam;
+          inoculatePetri(petriTarget, 'liquid', aseptic, 0, syrSnap.speciesName || '', syrSnap.generation, syrSnap.origin);
+          if (ctx.callbacks.onToast) {
+            ctx.callbacks.onToast(syrSnap.sourceContam
+              ? '🦠 A seringa continha cultura contaminada e infectou a placa!'
+              : (aseptic
+                ? '💉 ' + doseMl + 'ml inoculado. O micélio branco começará a crescer na placa.'
+                : '🦠 ' + doseMl + 'ml aplicado fora da área asséptica; a placa foi contaminada.'));
+          }
+        } else if (ctx.callbacks.onToast) {
+          ctx.callbacks.onToast('⚠️ Esta placa não está mais vazia e estéril para inoculação.');
+        }
+      }
       if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Seringa com ' + finalVol.toFixed(1) + ' ml');
+      if (ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('syringe_use');
       ctx.notifyWorldAction();
       ctx.syringePumping = null;
-    } else {
-      ctx.syringePumping.elapsed += dt;
-      const pRatio = Math.min(1, ctx.syringePumping.elapsed / ctx.syringePumping.duration);
-      const pSmooth = ctx.syringePumping.holdMode ? pRatio : (pRatio * pRatio * (3 - 2 * pRatio));
-      const curVol = THREE.MathUtils.lerp(ctx.syringePumping.fromVol, ctx.syringePumping.toVol, pSmooth);
-      const syringeTarget = ctx.syringePumping.target.item;
-      const targetLiquid = syringeTarget && syringeTarget.mesh.userData.liquidCtrl;
-      const targetSpawn = syringeTarget && syringeTarget.spawnCtrl;
-      const scDuring = ctx.heldItem.mesh.userData.syrCtrl;
-      const syrSnap = {
-        hadLiveLc: !!(scDuring && scDuring.mix && scDuring.mix.lcMl > 0.05),
-        speciesName: (scDuring && scDuring.speciesName) || '',
-        generation: scDuring && typeof scDuring.generation === 'number' ? scDuring.generation : null,
-        sourceContam: !!(scDuring && scDuring.sourceContam)
-      };
-      updateSyringeVolume(ctx.heldItem, curVol);
-      if (targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
-        const dHeld = curVol - ctx.syringePumping.fromVol;
-        const newJVol = Math.max(0, ctx.syringePumping.startJarVol - dHeld);
-        updateContainerVolume(syringeTarget, newJVol);
-      }
-      if (ctx.syringePumping.holdMode && ctx.callbacks.onHoverPrompt) {
-        const isDraw = ctx.syringePumping.toVol > ctx.syringePumping.fromVol;
-        ctx.callbacks.onHoverPrompt('💉 ' + (isDraw ? 'Aspirando' : 'Injetando') + ': ' + curVol.toFixed(1) + ' / 10.0 ml (solte para parar)');
-      }
-      if (pRatio >= 1.0) {
-        const finalD = ctx.syringePumping.toVol - ctx.syringePumping.fromVol;
-        applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, finalD, syrSnap);
-        updateSyringeVolume(ctx.heldItem, ctx.syringePumping.toVol);
-        if (targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
-          updateContainerVolume(syringeTarget, Math.max(0, ctx.syringePumping.startJarVol - finalD));
-        } else if (targetSpawn) {
-          const spTarget = syringeTarget;
-          const spCtrl = targetSpawn;
-          const syrSp = syrSnap.speciesName;
-          const hadLiveLc = syrSnap.hadLiveLc;
-          if (!hadLiveLc) {
-            spCtrl.waterMl = (spCtrl.waterMl || 0) + Math.round((ctx.syringePumping.amountMl || Math.abs(finalD) || 1) * 10) / 10;
-            spCtrl.updateVisual();
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 Água aplicada em ' + spCtrl.baseLabel + ' (sem cultura líquida na seringa).');
-          } else {
-            const isAseptic = isAsepticWorkArea(ctx, spTarget) && !syrSnap.sourceContam;
-            spCtrl.inoculated = true;
-            spCtrl.generation = typeof syrSnap.generation === 'number' ? Math.min(3, Math.max(1, syrSnap.generation)) : 1;
-            if (syrSp) spCtrl.speciesName = syrSp;
-            if (syrSnap.sourceContam) {
-              spCtrl.contaminated = true;
-              if (ctx.callbacks.onToast) {
-                ctx.callbacks.onToast('🦠 A seringa continha cultura contaminada e infectou o ' + spCtrl.baseLabel + '!');
-              }
-            } else if (!spCtrl.sterilized && Math.random() < 0.85) {
-              spCtrl.contaminated = true;
-              if (ctx.callbacks.onToast) {
-                ctx.callbacks.onToast('🦠 Contaminação! O substrato não completou o tempo mínimo de esterilização (' + (spCtrl.minSterilizeMin || 80) + ' min)!');
-              }
-            } else if (!isAseptic && Math.random() < 0.45) {
-              spCtrl.contaminated = true;
-              if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Contaminação! Lembre de ligar e higienizar o Fluxo Laminar com Álcool 70% antes de inocular!');
-            } else {
-              const doseDone = Math.round((ctx.syringePumping.amountMl || Math.abs(finalD) || 1) * 10) / 10;
-              if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 ' + doseDone + 'ml inoculados em ' + spCtrl.baseLabel + '! Micélio em colonização.');
-            }
-            spCtrl.updateVisual();
-          }
-        } else if (syringeTarget && syringeTarget.mesh.userData.isPetri) {
-          const petriTarget = syringeTarget;
-          const petriCtrl = petriTarget.mesh.userData.petriCtrl;
-          const doseMl = ctx.syringePumping.amountMl || 1;
-          const hadLiveLc = syrSnap.hadLiveLc;
-          if (!hadLiveLc) {
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A seringa não contém cultura líquida (apenas água/meio); aspire cultura líquida para inocular.');
-          } else if (petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.lidOpen && petriCtrl.sterilized) {
-            const aseptic = isAsepticWorkArea(ctx, petriTarget) && !syrSnap.sourceContam;
-            inoculatePetri(petriTarget, 'liquid', aseptic, 0, syrSnap.speciesName || '', syrSnap.generation);
-            if (ctx.callbacks.onToast) {
-              ctx.callbacks.onToast(syrSnap.sourceContam
-                ? '🦠 A seringa continha cultura contaminada e infectou a placa!'
-                : (aseptic
-                  ? '💉 ' + doseMl + 'ml inoculado. O micélio branco começará a crescer na placa.'
-                  : '🦠 ' + doseMl + 'ml aplicado fora da área asséptica; a placa foi contaminada.'));
-            }
-          } else if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('⚠️ Esta placa não está mais vazia e estéril para inoculação.');
-          }
-        }
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        if (ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('syringe_use');
-        ctx.notifyWorldAction();
-        ctx.syringePumping = null;
-      }
     }
   }
 }

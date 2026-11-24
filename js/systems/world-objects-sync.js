@@ -2,6 +2,7 @@
  * Sincronizacao de Objetos Fisicos, Estados de Culturas e Pose Salva (MycoCampus3D)
  */
 
+import { normalizeCultureOrigin } from '../core/culture-origin.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
 import { markItemsFalling } from '../entities/placement-ghost.js';
@@ -143,6 +144,9 @@ function removeItemInstanceLocally(sim, item) {
     const idx = sim.pickableItems.indexOf(item);
     if (idx !== -1) sim.pickableItems.splice(idx, 1);
   }
+  const growthIndex = sim?.spawnGrowItems?.indexOf(item) ?? -1;
+  if (growthIndex >= 0) sim.spawnGrowItems.splice(growthIndex, 1);
+  sim?.removeFromCookerContents?.(item);
   if (sim && sim.pickableMap && typeof sim.pickableMap.delete === 'function') {
     sim.pickableMap.delete(item.id);
   }
@@ -279,6 +283,7 @@ export function getReplicatedItemState(sim, item) {
   const spawn = item.spawnCtrl || meshData.spawnCtrl;
   if (spawn) {
     state.spawn = {
+      origin: normalizeCultureOrigin(spawn.origin),
       filled: !!spawn.filled,
       fillGrams: Math.round(spawn.fillGrams || 0),
       substrateKind: spawn.substrateKind || '',
@@ -312,6 +317,7 @@ export function getReplicatedItemState(sim, item) {
   const petri = meshData.petriCtrl;
   if (petri && ['bare', 'filled', 'empty', 'colonizing', 'clean', 'contam', 'spore_print'].indexOf(petri.mode) !== -1) {
     state.petri = {
+      origin: normalizeCultureOrigin(petri.origin),
       mode: petri.mode,
       lidOpen: !!petri.lidOpen,
       sterilized: !!petri.sterilized,
@@ -336,13 +342,14 @@ export function getReplicatedItemState(sim, item) {
   }
   if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
   const liquid = meshData.liquidCtrl;
-  if (liquid) state.liquid = { volMl: Math.round(liquid.volMl || 0), sterilized: !!liquid.sterilized };
+  if (liquid) state.liquid = { volMl: Math.round((liquid.volMl || 0) * 10) / 10, sterilized: !!liquid.sterilized };
   if (item.sterilized) state.sterilized = true;
   if (item.foilWrapped) state.foilWrapped = true;
   if (item.microporeSealed) state.microporeSealed = true;
   const culture = item.cultureCtrl || meshData.cultureCtrl;
   if (culture) {
     state.culture = {
+      origin: normalizeCultureOrigin(culture.origin),
       inoculated: !!culture.inoculated,
       colonized: !!culture.colonized,
       colonization: quantizeStep(culture.colonization, 25),
@@ -377,6 +384,7 @@ export function getReplicatedItemState(sim, item) {
   const syringe = meshData.syrCtrl;
   if (syringe) {
     state.syringe = {
+      origin: normalizeCultureOrigin(syringe.origin),
       volMl: Math.round((syringe.volMl || 0) * 10) / 10,
       sourceContam: !!syringe.sourceContam,
       tempC: typeof syringe.tempC === 'number' ? Math.round(syringe.tempC * 10) / 10 : 24.5,
@@ -425,6 +433,11 @@ export function getReplicatedItemState(sim, item) {
       hasBlade: !!item.scalpelCtrl.hasBlade,
       sterile: !!item.scalpelCtrl.sterile,
       hasMycelium: !!item.scalpelCtrl.hasMycelium,
+      origin: item.scalpelCtrl.hasMycelium ? normalizeCultureOrigin(item.scalpelCtrl.origin) : '',
+      isSporeSample: !!(item.scalpelCtrl.hasMycelium && item.scalpelCtrl.isSporeSample),
+      biopsyAseptic: item.scalpelCtrl.biopsyAseptic === true,
+      cutGeneration: Math.max(0, Math.min(3, Number(item.scalpelCtrl.cutGeneration) || 0)),
+      biopsySpecies: item.scalpelCtrl.biopsySpecies || '',
       bladeContaminated: !!item.scalpelCtrl.bladeContaminated,
       cutContaminated: !!item.scalpelCtrl.cutContaminated,
       bladeRemainingMs: bladeRemMs
@@ -509,6 +522,7 @@ export function applyReplicatedItemState(sim, item, state) {
     }
     if (typeof incoming.speciesName === 'string') spawn.speciesName = incoming.speciesName.slice(0, 80);
     if (typeof incoming.contamKind === 'string') spawn.contamKind = incoming.contamKind.slice(0, 32) || null;
+    spawn.origin = normalizeCultureOrigin(incoming.origin);
     if (typeof incoming.generation === 'number' && Number.isFinite(incoming.generation)) {
       spawn.generation = Math.max(0, Math.min(3, Math.round(incoming.generation)));
     }
@@ -573,6 +587,7 @@ export function applyReplicatedItemState(sim, item, state) {
     }
     if (typeof incomingPetri.speciesName === 'string') petri.speciesName = incomingPetri.speciesName.slice(0, 80);
     if (typeof incomingPetri.contamKind === 'string') petri.contamKind = incomingPetri.contamKind.slice(0, 32) || null;
+    petri.origin = normalizeCultureOrigin(incomingPetri.origin);
     if (typeof incomingPetri.generation === 'number' && Number.isFinite(incomingPetri.generation)) {
       petri.generation = Math.max(0, Math.min(5, Math.round(incomingPetri.generation)));
     }
@@ -630,6 +645,7 @@ export function applyReplicatedItemState(sim, item, state) {
     }
     if (typeof state.culture.speciesName === 'string') culture.speciesName = state.culture.speciesName.slice(0, 80);
     if (typeof state.culture.contamKind === 'string') culture.contamKind = state.culture.contamKind.slice(0, 32) || null;
+    culture.origin = normalizeCultureOrigin(state.culture.origin);
     if (typeof state.culture.generation === 'number' && Number.isFinite(state.culture.generation)) {
       culture.generation = Math.max(0, Math.min(3, Math.round(state.culture.generation)));
     }
@@ -684,6 +700,7 @@ export function applyReplicatedItemState(sim, item, state) {
     }
     if (typeof state.syringe.refrigerated === 'boolean') meshData.syrCtrl.refrigerated = state.syringe.refrigerated;
     if (typeof state.syringe.speciesName === 'string') meshData.syrCtrl.speciesName = state.syringe.speciesName.slice(0, 80);
+    meshData.syrCtrl.origin = normalizeCultureOrigin(state.syringe.origin);
     if (state.syringe.generation === null || Number.isFinite(state.syringe.generation)) {
       meshData.syrCtrl.generation = state.syringe.generation === null ? null : Math.max(0, Math.min(5, Math.round(state.syringe.generation)));
     }
@@ -719,6 +736,11 @@ export function applyReplicatedItemState(sim, item, state) {
     if (typeof state.scalpel.bladeRemainingMs === 'number' && state.scalpel.bladeRemainingMs > 0) {
       item.scalpelCtrl.bladeAttachedAt = performance.now() - (160000 - state.scalpel.bladeRemainingMs);
     }
+    item.scalpelCtrl.origin = item.scalpelCtrl.hasMycelium ? normalizeCultureOrigin(state.scalpel.origin) : '';
+    item.scalpelCtrl.isSporeSample = item.scalpelCtrl.origin === 'monospore' && state.scalpel.isSporeSample === true;
+    item.scalpelCtrl.biopsyAseptic = state.scalpel.biopsyAseptic === true;
+    item.scalpelCtrl.cutGeneration = Math.max(0, Math.min(3, Number(state.scalpel.cutGeneration) || 0));
+    item.scalpelCtrl.biopsySpecies = typeof state.scalpel.biopsySpecies === 'string' ? state.scalpel.biopsySpecies : '';
     if (item.scalpelCtrl.bladeMesh) item.scalpelCtrl.bladeMesh.visible = item.scalpelCtrl.hasBlade;
     updateScalpelLabel(item);
   }

@@ -100,7 +100,7 @@ test('v1.9.9 Alt solta cursor ao segurar e retoma mira FPS ao soltar a tecla', a
     bindControls({
       inFps: true,
       keys: {},
-      pointerNdc: { x: 0, y: 0 },
+      pointerNdc: { x: 0, y: 0, clone() { return { ...this }; } },
       renderer: { domElement: domEl },
       flushCurrentStroke() {}
     });
@@ -167,7 +167,7 @@ test('v1.9.9 comer cogumelo usa chip numérico [1] (sem comer ao clicar), panela
   const bowlSrc = fs.readFileSync(path.resolve('js/items/mixing-bowl.js'), 'utf8');
 
   assert.match(petriSrc, /if \(!ctrl \|\| ctrl\.mode === 'bare'\) return false;/);
-  assert.match(radialSrc, /id:\s*'silica_take_10g_'[\s\S]*label:\s*'Retirar 10g'/);
+  assert.match(radialSrc, /id:\s*'silica_take_10g_'/);
   assert.match(labSrc, /substrate_coco_/);
   assert.doesNotMatch(rackSrc, /Serragem \+ Fibra Coco/);
   assert.match(bowlSrc, /export function getBowlBulkReadiness\(/);

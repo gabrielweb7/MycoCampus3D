@@ -14,6 +14,7 @@
  * 10. Após o 4º Flush, o bolo fica com aparência seca/esgotada para ser levado à Caixa de Substrato da Horta!
  */
 
+import { calculateHarvestYieldGrams, getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
 import { bindPngTexture, getCachedCanvasTexture, registerPickable, updateItemBounds } from './item-registry.js';
 import { getSanitizationStatus } from './alcohol-spray.js';
@@ -134,12 +135,7 @@ function getSharedMonotubAssets() {
   return sharedMonotubAssets;
 }
 
-export function calculateHarvestYieldGrams(baseGrams = 10, generation = 1, hasCasing = false) {
-  let mult = 1.0;
-  if (Number(generation) >= 3) mult *= 1.35;
-  if (hasCasing) mult *= 1.25;
-  return Math.max(1, Math.round((Number(baseGrams) || 10) * mult));
-}
+export { calculateHarvestYieldGrams };
 
 export function getMonotubMeta() {
   return {
@@ -182,7 +178,8 @@ export function getMonotubMeta() {
         growth: gr >= 100 ? 100 : (Math.floor(gr / 25) * 25),
         flush: Math.max(1, Math.min(4, Math.round(Number(mc.flush) || 1))),
         humidity: Math.round(Math.max(0, Math.min(100, Number(mc.humidity ?? 92))) / 10) * 10,
-        generation: Math.max(1, Math.min(20, Math.round(Number(mc.generation ?? 2)))),
+        generation: Math.max(0, Math.min(20, Math.round(Number(mc.generation ?? 2)))),
+        origin: normalizeCultureOrigin(mc.origin),
         onLedRack: !!mc.onLedRack,
         rackSlotId: typeof mc.rackSlotId === 'number' ? mc.rackSlotId : -1,
         contaminated: !!mc.contaminated,
@@ -217,6 +214,7 @@ export function getMonotubMeta() {
       mc.fruitingStage = nextStage;
       mc.flush = Math.max(1, Math.min(4, Math.round(Number(custom.flush) || 1)));
       if (typeof custom.humidity === 'number') mc.humidity = custom.humidity;
+      mc.origin = normalizeCultureOrigin(custom.origin);
       if (typeof custom.generation === 'number') mc.generation = custom.generation;
       mc.onLedRack = !!custom.onLedRack;
       if (typeof custom.rackSlotId === 'number') mc.rackSlotId = custom.rackSlotId;
@@ -353,8 +351,9 @@ export function updateMonotubVisual(item) {
 
   // Atualiza label detalhado de cada etapa
   const spTag = mc.speciesName ? ` • ${mc.speciesName}` : '';
+  const originLabel = getCultureOriginLabel(mc.origin);
   const genTag = typeof mc.generation === 'number'
-    ? ` • [${(['T0', 'T1', 'T2 Rizomórfica', 'T3 Elite ⭐'][Math.min(3, Math.max(0, mc.generation))] || 'T1')}]`
+    ? ` • [T${Math.min(3, Math.max(0, mc.generation))}${originLabel ? ' · ' + originLabel : ''}]`
     : '';
   const casingTag = mc.hasCasing ? ' • 🥥 Casing +40%' : '';
   const humTag = (mc.colonization >= 100 && !mc.spent && !mc.contaminated) ? ` • ${Math.round(mc.humidity || 90)}% UR` : '';
@@ -414,6 +413,7 @@ export function resetMonotubToCleanEmpty(item) {
   mc.contamReason = '';
   mc.spent = false;
   mc.speciesName = '';
+  mc.origin = '';
   mc.boxSanitized = false;
   updateMonotubVisual(item);
   return true;
@@ -642,6 +642,7 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
     spent: Boolean(opts.spent),
     speciesName: opts.speciesName || '',
     generation: opts.generation !== undefined ? opts.generation : 2,
+    origin: normalizeCultureOrigin(opts.origin),
     hasCasing: Boolean(opts.hasCasing),
     asepticScore: opts.asepticScore !== undefined ? opts.asepticScore : 1,
     lidPivot,
@@ -735,6 +736,7 @@ export function rehydrateMonotubCake(ctx, tubItem) {
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
     ctx.callbacks.onToast(`💦 Bolo do Monotub 24L reidratado (${Math.round(mc.humidity)}% UR)! O Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES} vai frutificar com força máxima!`);
   }
+  ctx?.notifyWorldAction?.();
   return true;
 }
 
@@ -775,11 +777,24 @@ export function dunkMonotubAtSink(ctx, tubItem) {
 /**
  * Interação contextual com uma Caixa Monotub 24L
  */
+export function getMonotubActionLabel(mc) {
+  if (mc.mixAnimTimer > 0 || mc.levelAnimTimer > 0) return 'Aguarde a animação';
+  if (!mc.spent && !mc.contaminated && mc.fruitingStage === 3) return 'Colher leva';
+  if (!mc.lidOpen) return 'Abrir tampa';
+  if (mc.hasSpawn && mc.hasBulk && !mc.mixed) return 'Misturar grãos e substrato';
+  if (mc.mixed && !mc.leveled) return 'Nivelar substrato';
+  if (!mc.mixed && mc.hasSpawn) return 'Falta adicionar substrato tratado';
+  if (!mc.mixed && mc.hasBulk) return 'Falta adicionar spawn colonizado';
+  return 'Fechar tampa';
+}
+
 export function interactMonotub(ctx, tubItem) {
   if (!tubItem || !tubItem.monotubCtrl) return false;
   const mc = tubItem.monotubCtrl;
   const held = ctx.heldItem;
   const onToast = ctx.callbacks && ctx.callbacks.onToast;
+
+  if (mc.mixAnimTimer > 0 || mc.levelAnimTimer > 0) return true;
 
   // Se o jogador acabou de higienizar a caixa aberta com Álcool 70% + Papel Toalha, marca boxSanitized
   const san = getSanitizationStatus(tubItem, ctx);
@@ -789,10 +804,14 @@ export function interactMonotub(ctx, tubItem) {
 
   // 1. Se o bolo está MADURO (fruitingStage === 3): colher o flush!
   if (!mc.spent && !mc.contaminated && mc.fruitingStage === 3) {
+    if (held) {
+      if (onToast) onToast('🍄 Libere a mão antes de colher a leva.');
+      return true;
+    }
     playAudio('playMushroomPop');
     if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
-    const yieldGrams = calculateHarvestYieldGrams(10, mc.generation, mc.hasCasing);
-    const cloneBonusTxt = (mc.generation || 1) >= 3 ? ` • 🌟 Clone T3 (+35% Biomassa: ${yieldGrams}g!)` : '';
+    const yieldGrams = calculateHarvestYieldGrams(10, mc.origin, mc.hasCasing);
+    const cloneBonusTxt = mc.origin === 'tissue_clone' ? ` • Clone: +35% de rendimento (${yieldGrams} g)` : '';
     if (ctx.callbacks && ctx.callbacks.onHarvestGreenhouse) {
       ctx.callbacks.onHarvestGreenhouse({
         id: 'monotub_' + tubItem.id,
@@ -858,8 +877,8 @@ export function interactMonotub(ctx, tubItem) {
   if (!mc.spent && !mc.contaminated && mc.colonization >= 100 && held && held.mesh && held.mesh.userData && held.mesh.userData.isWaterGallon) {
     const jLc = held.mesh.userData.liquidCtrl;
     if (jLc) {
-      if (jLc.volMl < 200) {
-        if (onToast) onToast('💧 Garrafão com pouca água (< 200ml)! Encha na pia antes de fazer o Dunk.');
+      if (jLc.volMl < 250) {
+        if (onToast) onToast('💧 Garrafão com pouca água (menos de 250 ml)! Encha na pia antes de fazer o Dunk.');
         return true;
       }
       updateContainerVolume(held, Math.max(0, jLc.volMl - 250));
@@ -895,6 +914,7 @@ export function interactMonotub(ctx, tubItem) {
     const sc = held.spawnCtrl;
     mc.hasSpawn = true;
     mc.speciesName = sc.speciesName || 'Psilocybe cubensis';
+    mc.origin = normalizeCultureOrigin(sc.origin);
     mc.generation = typeof sc.generation === 'number' ? sc.generation : 2;
     if (!mc.boxSanitized && !(san && san.isSanitized)) {
       mc.asepticScore = 0.35; // Risco maior de Trichoderma por não ter passado álcool + papel toalha na caixa!
@@ -911,6 +931,7 @@ export function interactMonotub(ctx, tubItem) {
     sc.sterilizeProgress = 0;
     sc.sealed = false;
     sc.inoculated = false;
+    sc.origin = '';
     sc.colonized = false;
     sc.colonization = 0;
     if (sc.fillMesh) sc.fillMesh.visible = false;
@@ -976,7 +997,7 @@ export function interactMonotub(ctx, tubItem) {
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
     if (onToast) {
       if (mc.rawBulkRisk) {
-        onToast('⚠️ Substrato adicionado CRU direto do Pote! Sem pasteurizar (65–75°C em bag na panela), há alto risco de Trichoderma/Mofo Batom!');
+        onToast('⚠️ Substrato adicionado CRU direto do Pote! Sem pasteurizar (75–85°C em bag na panela), há alto risco de Trichoderma/Mofo Batom!');
       } else {
         onToast(mc.hasSpawn
           ? '🥥 Substrato Pasteurizado adicionado! Agora clique no Monotub para MISTURAR o spawn e o substrato!'
@@ -1002,11 +1023,9 @@ export function interactMonotub(ctx, tubItem) {
     return true;
   }
 
-  // 6. Nivelar o bolo (SÓ pode nivelar depois de misturar!)
-  if (mc.lidOpen && (mc.hasSpawn || mc.hasBulk) && !mc.mixed) {
-    if (onToast) {
-      onToast('⚠️ Só é possível nivelar o bolo depois de adicionar o Spawn + Substrato Pasteurizado e MISTURAR tudo!');
-    }
+  // 6. Nivelar o bolo só depois de misturar.
+  if (mc.lidOpen && !mc.mixed && (mc.hasSpawn || mc.hasBulk)) {
+    if (onToast) onToast(`📦 ${getMonotubActionLabel(mc)} antes de misturar e nivelar.`);
     return true;
   }
 
@@ -1267,6 +1286,7 @@ export function stepMonotubs(ctx, dt) {
         mc.openAirExposureSec = (mc.openAirExposureSec || 0) + dt;
         if (mc.openAirExposureSec >= 25) {
           mc.contaminated = true;
+          mc.contamKind = 'trichoderma';
           mc.contamReason = 'Trichoderma (tampa deixada aberta antes de 100% colonizado)';
           updateMonotubVisual(item);
           if (ctx.callbacks && ctx.callbacks.onToast) {
@@ -1316,7 +1336,7 @@ export function stepMonotubs(ctx, dt) {
     }
 
     // 2. Fase de Frutificação com Animação Contínua de Brotamento e Fototropismo sob a Luz LED
-    if (mc.colonization >= 100 && mc.onLedRack) {
+    if (mc.colonization >= 100 && mc.onLedRack && item !== ctx.heldItem) {
       if (mc.fruitingStage < 3) {
         if (mc.fruitingStage === 0) {
           mc.fruitingStage = 1;

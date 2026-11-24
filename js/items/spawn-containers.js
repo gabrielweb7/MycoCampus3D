@@ -2,6 +2,7 @@
  * Recipientes de Spawn: Vidro 800ml (Milho) e Bag 1,5kg + Colonizacao (MycoCampus3D)
  */
 
+import { getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
 import { bindPngTexture, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
@@ -86,6 +87,7 @@ export function fillSpawnWithSubstrate(item, kind) {
   sc.sealed = false;
   sc.sterilized = false;
   sc.pasteurized = false;
+  sc.origin = '';
   sc.sterilizeProgress = 0;
   sc.inoculated = false;
   sc.colonization = 0;
@@ -160,6 +162,7 @@ export function transferGrainToGrain(ctx, srcItem, dstItem) {
   const aseptic = !ctx || isAsepticWorkArea(ctx, dstItem);
   s.g2gUses = (s.g2gUses || 0) + 1;
   d.inoculated = true;
+  d.origin = normalizeCultureOrigin(s.origin);
   d.generation = Math.min(3, (typeof s.generation === 'number' ? s.generation : 1) + 1);
   if (s.speciesName) d.speciesName = s.speciesName;
   if (aseptic) {
@@ -181,8 +184,9 @@ function getSpawnCultureStatus(item) {
       : (item.meta && item.meta.baseTempC) || 23.3);
   const temperatureC = Number.isFinite(measuredTemperatureC) ? measuredTemperatureC : 23.3;
   const temperatureLabel = temperatureC.toFixed(1).replace('.', ',') + '°C';
+  const originLabel = getCultureOriginLabel(sc.origin);
   const genTag = typeof sc.generation === 'number'
-    ? (' • [' + (['T0', 'T1', 'T2 Rizomórfica', 'T3 Elite ⭐'][Math.min(3, Math.max(0, sc.generation))] || 'T1') + ']')
+    ? (' • [T' + Math.min(3, Math.max(0, sc.generation)) + (originLabel ? ' · ' + originLabel : '') + ']')
     : '';
   const shakeTag = sc.shaken ? ' • Break & Shake 2x ⚡' : '';
   if (sc.expired) return ' • Cultura vencida ⚠️';

@@ -204,7 +204,7 @@ export function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, s
 /**
  * Dispara o jato de alcool 70% da ponta do borrifador e avanca a higienizacao (3 cliques = 100%).
  */
-export function fireAlcoholSpray(ctx, sprayInfo) {
+export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}) {
   if (window.MycoAudio) window.MycoAudio.playSpray();
   if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_spray');
   if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData) {
@@ -216,8 +216,8 @@ export function fireAlcoholSpray(ctx, sprayInfo) {
   spawnSprayParticles(ctx, 0xe0f2fe, 30, spOrigin, spDir, 0.95, 2.5, 0.032, 0.45);
 
   if (!sprayInfo || !sprayInfo.target) {
-    if (!ctx.hoveredGreenhouseSlot) {
-      if (ctx.wearingGloves) {
+    if (sanitizeGloves || !ctx.hoveredGreenhouseSlot) {
+      if (sanitizeGloves && ctx.wearingGloves) {
         ctx.glovesExpired = false;
         ctx.glovesUntil = performance.now() + 160000;
         if (ctx.callbacks && ctx.callbacks.onToast) {

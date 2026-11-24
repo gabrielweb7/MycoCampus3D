@@ -9,6 +9,7 @@
  * - Modo Automático (padrão) ou Manual para Umidade, CO2 (FAE), Temperatura e LED Grow
  * - Aceita qualquer Spawn Bag, Vidro ou Potinho PP5 colonizado da bancada + múltiplos flushes
  */
+import { calculateHarvestYieldGrams, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { makeBox, makeTextSprite, updateTextSprite } from '../engine/textures.js';
 import { disposeObjectResources } from '../items/item-registry.js';
 import { updateSpawnVisual } from '../items/spawn-containers.js';
@@ -1139,6 +1140,8 @@ export function interactGreenhouseSlot(slot, ctx) {
     if (slot.empty || slot.stage <= 0) {
       const sp = heldItem.spawnCtrl;
       const customSpecies = sp.speciesName || '';
+      slot.origin = normalizeCultureOrigin(sp.origin);
+      sp.origin = '';
       sp.filled = false;
       sp.fillGrams = 0;
       sp.waterMl = 0;
@@ -1197,6 +1200,7 @@ export function interactGreenhouseSlot(slot, ctx) {
         queueWorldStateChange('greenhouse_slot_' + slot.id + '_stage', 1);
         queueWorldStateChange('greenhouse_slot_' + slot.id + '_humidity', Math.round(slot.humidity));
         queueWorldStateChange('greenhouse_slot_' + slot.id + '_empty', 0);
+        queueWorldStateChange('greenhouse_slot_' + slot.id + '_origin', slot.origin);
         if (slot.speciesName) queueWorldStateChange('greenhouse_slot_' + slot.id + '_species', slot.speciesName);
       }
       if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
@@ -1233,6 +1237,7 @@ export function interactGreenhouseSlot(slot, ctx) {
       queueWorldStateChange('greenhouse_slot_' + slot.id + '_stage', 0);
       queueWorldStateChange('greenhouse_slot_' + slot.id + '_humidity', Math.round(slot.humidity));
       queueWorldStateChange('greenhouse_slot_' + slot.id + '_species', slot.speciesName);
+      queueWorldStateChange('greenhouse_slot_' + slot.id + '_origin', '');
     }
     if (callbacks.onToast) {
       callbacks.onToast(`🧱 Novo bloco de ${slot.name} iniciado na ${slot.rackName} (Andar ${slot.tier})! (Dica: você também pode trazer Spawn colonizado do Lab!)`);
@@ -1262,6 +1267,7 @@ export function interactGreenhouseSlot(slot, ctx) {
     slot.name = 'Espaço Livre #' + (slot.id + 1);
     slot.sci = 'Aguardando Spawn';
     slot.speciesName = '';
+    slot.origin = '';
     updateGreenhouseSlotMesh(slot);
     updateGreenhousePanelDisplay();
     if (queueWorldStateChange) {
@@ -1296,7 +1302,7 @@ export function interactGreenhouseSlot(slot, ctx) {
       const freshMush = spawnPersistedWildMushroom(ctx, 'harvest_gh_' + Date.now().toString(36), {
         speciesName: spName,
         isMagic,
-        grams: 10
+        grams: calculateHarvestYieldGrams(10, slot.origin)
       });
       ctx.heldItem = freshMush;
       ctx.lastPickupAt = performance.now();

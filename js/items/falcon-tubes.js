@@ -2,6 +2,7 @@
  * Tubos Falcon Conicos (15ml e 50ml) + Estante Azul (MycoCampus3D)
  */
 
+import { getCultureOriginLabel } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, makeScaleTex, mergeStaticGeos, updateItemBounds } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
@@ -109,7 +110,8 @@ export function updateFalconCultureVisual(item) {
     }
   }
   const spTag = cc.speciesName ? (' • ' + cc.speciesName.split('(')[0].trim()) : '';
-  const genTag = typeof cc.generation === 'number' ? (' • T' + cc.generation) : '';
+  const originLabel = getCultureOriginLabel(cc.origin);
+  const genTag = (typeof cc.generation === 'number' ? (' • T' + cc.generation) : '') + (originLabel ? ' • ' + originLabel : '');
   const kindPrefix = isSlant ? (lc.baseLabel + ' [Slant PDA]') : lc.baseLabel;
   if (cc.contaminated) {
     const ci = getContamInfo(cc.contamKind || 'trichoderma');

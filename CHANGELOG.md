@@ -2,7 +2,19 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:7337ad9b055476c07f355ccca826f165dd20c1a7ade9c1e333eee96882c19600 -->
+
+## [v2.4.0] - 2026-11-24
+
+- Germinação de monoesporos e clonagem de tecido têm origens separadas. Apenas clones de tecido ganham +35% na colheita.
+- O toque na cena usa a posição do dedo; ações sobre o próprio item ficam no menu numerado.
+- Seringa, descarte persistente e cartões de inspeção receberam correções. Monotub, secagem, embalagem e pesos foram alinhados com as instruções.
+
 ## [v2.3.5] - 2026-11-24
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 - Fonte da praça com bico de cerâmica, água turquesa e colisão circular junto à borda.
 - Trampolins com modelo próprio e tufos de vegetação baixa agrupados pelo cenário.

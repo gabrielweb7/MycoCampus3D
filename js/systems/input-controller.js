@@ -7,6 +7,13 @@ import { syncViewportCssVars } from '../ui/dom-helpers.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
 import { isPhotoModeActive, setPhotoMode, togglePhotoMode } from '../ui/photo-mode.js';
 
+export function setPointerFromClient(out, rect, clientX, clientY) {
+  if (rect.width <= 0 || rect.height <= 0 || clientX < rect.left || clientY < rect.top ||
+      clientX > rect.left + rect.width || clientY > rect.top + rect.height) return false;
+  out.set(((clientX - rect.left) / rect.width) * 2 - 1, 1 - ((clientY - rect.top) / rect.height) * 2);
+  return true;
+}
+
 export function bindControls(ctx) {
   // Previne fechamento acidental da aba do navegador durante a sessão de jogo
   window.addEventListener('beforeunload', function (e) {
@@ -103,7 +110,7 @@ export function bindControls(ctx) {
       e.preventDefault();
       window.openCampusRadialMenu();
     }
-    if ((e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') && window.triggerCampusFloatingAction) {
+    if ((e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') && !e.repeat && window.triggerCampusFloatingAction) {
       const idx = parseInt(e.code.charAt(5), 10) - 1;
       if (window.triggerCampusFloatingAction(idx)) {
         e.preventDefault();
@@ -222,7 +229,7 @@ export function bindControls(ctx) {
   });
 
   let lastTouchEndAt = 0;
-  let lastTouchActionAt = 0;
+  const touchAim = ctx.pointerNdc.clone();
 
   ctx.renderer.domElement.addEventListener('mousedown', function (e) {
     if (ctx.lobbyTourActive) return;
@@ -244,7 +251,7 @@ export function bindControls(ctx) {
       return;
     }
     ctx.isPrimaryDown = true;
-    if (ctx.heldItem && ctx.placementMode && ctx.updateHoverRay) {
+    if (ctx.heldItem && ctx.updateHoverRay) {
       ctx.updateHoverRay(ctx.inFps ? null : ctx.pointerNdc);
     }
     ctx.handlePrimaryAction();
@@ -331,7 +338,7 @@ export function bindControls(ctx) {
       if (t.identifier === touchLookId) {
         const dx = t.clientX - lastTX, dy = t.clientY - lastTY;
         if (Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) > 10) touchMoved = true;
-        if (ctx.inFps) {
+        if (ctx.inFps && touchMoved) {
           ctx.playerYaw -= dx * 0.0080;
           ctx.playerPitch = Math.max(-1.35, Math.min(1.35, ctx.playerPitch - dy * 0.0080));
         }
@@ -340,19 +347,16 @@ export function bindControls(ctx) {
     }
   }, { passive: true });
 
-  function resetTouchLook(e) {
+  function resetTouchLook(e, cancelled = false) {
     lastTouchEndAt = performance.now();
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === touchLookId) {
-        if (!touchMoved && !ctx.lobbyTourActive) {
-          const nowT = performance.now();
-          if (nowT - lastTouchActionAt > 180) {
-            lastTouchActionAt = nowT;
-            // O toque na tela aciona exatamente onde a mira central está apontando (crosshair em 0, 0)
-            ctx.pointerNdc.set(0, 0);
-            ctx.updateHoverRay(ctx.pointerNdc);
-            ctx.handlePrimaryAction();
+        if (!cancelled && !touchMoved && !ctx.lobbyTourActive) {
+          const rect = ctx.renderer.domElement.getBoundingClientRect();
+          if (setPointerFromClient(touchAim, rect, t.clientX, t.clientY)) {
+            ctx.updateHoverRay(touchAim);
+            ctx.handlePrimaryAction(touchAim);
           }
         }
         touchLookId = null;
@@ -364,7 +368,7 @@ export function bindControls(ctx) {
     if (e.touches.length === 0) touchLookId = null;
   }, { passive: true });
   window.addEventListener('touchcancel', function (e) {
-    resetTouchLook(e);
+    resetTouchLook(e, true);
     if (e.touches.length === 0) touchLookId = null;
   }, { passive: true });
   window.addEventListener('blur', function () { touchLookId = null; });

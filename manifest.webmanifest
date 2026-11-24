@@ -1,7 +1,7 @@
 {
-  "name": "MycoCampus3D — Universidade 3D do Cultivo de Cogumelos",
+  "name": "MycoCampus3D — Comunidade Virtual e Simulador 3D de Cultivo de Cogumelos",
   "short_name": "MycoCampus3D",
-  "description": "Universidade virtual 3D multiplayer para aprender cultivo de cogumelos na prática.",
+  "description": "Comunidade virtual e simulador 3D multiplayer de cultivo de cogumelos.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",

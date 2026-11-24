@@ -37,11 +37,11 @@ import { getSyringeInjectionDoseMl } from '../items/syringe.js';
 import { updateCookerWaterVisual, COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { interactDehydrator } from '../items/dehydrator.js';
 import { getItemsSupportedBy } from './surface-group-move.js';
-import { depositSporePrintOnPetri, fillPetriWithPda, togglePetriLid, setPetriLidOpen, sealPetriWithParafilm } from '../items/petri-dish.js';
-import { togglePP5Lid } from '../items/pp5-cup.js';
+import { depositSporePrintOnPetri, fillPetriWithPda, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { interactMonotub, placeMonotubInLedRackSlot, rehydrateMonotubCake, dunkMonotubAtSink, treatMonotubWithH2O2 } from '../items/monotub.js';
-import { interactGardenTarget } from '../world/campus-garden.js';
-import { applyFoilWrap, applyMicroporeSeal, breakAndShakeSpawn, getSpawnContainerBaseLabel, transferGrainToGrain, updateSpawnVisual } from '../items/spawn-containers.js';
+import { isHoldingColonizedSpawn } from '../world/greenhouse.js';
+import { isHoldingSpentCakeForCompost, interactGardenTarget } from '../world/campus-garden.js';
+import { applyFoilWrap, applyMicroporeSeal, getSpawnContainerBaseLabel, transferGrainToGrain, updateSpawnVisual } from '../items/spawn-containers.js';
 import { updateLcNutrientLabel } from '../items/pda-bottle.js';
 import {
   interactAlcoholLamp,
@@ -208,9 +208,9 @@ function findFreeSpotOnSurface(ctx, surf, anchorPt, outPt) {
   return false;
 }
 
-function tryPlaceHeldOnAimedSurface(ctx) {
+function tryPlaceHeldOnAimedSurface(ctx, aimNdc) {
   if (!ctx.heldItem) return false;
-  const aimNdc = ctx.inFps ? _vZero2 : ctx.pointerNdc;
+  aimNdc ||= ctx.inFps ? _vZero2 : ctx.pointerNdc;
   if (!aimNdc) return false;
   const aimPt = findPlacementTarget(ctx.entityCtx, aimNdc);
   const dAim = Math.hypot(aimPt.x - ctx.playerPos.x, aimPt.z - ctx.playerPos.z);
@@ -294,9 +294,20 @@ export function dropHeldItem(ctx) {
   }
 }
 
-export function handlePrimaryAction(ctx) {
+export function handlePrimaryAction(ctx, aimNdc) {
   if (ctx.heldItem) {
     if (performance.now() - ctx.lastPickupAt < 140) return;
+    if (ctx.placementMode) {
+      if (!ctx.placementGhost) return;
+      updateHeldItemPlacementPreview(ctx, aimNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc));
+      if (!ctx.placementValid || isPlacementBlocked(ctx.entityCtx, ctx.placementGhost.position)) {
+        ctx.placementValid = false;
+        updatePlacementGhostVisual(ctx.heldItem, false, ctx.heldRotY, ctx.clock.elapsedTime);
+        return;
+      }
+      commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
+      return;
+    }
     if (ctx.hoveredPdaTarget) {
       const target = ctx.hoveredPdaTarget;
       if (ctx.heldItem.pdaReagentCtrl) {
@@ -397,8 +408,9 @@ export function handlePrimaryAction(ctx) {
         }
         return;
       }
-      if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isPetri) {
-        setPetriLidOpen(ctx.heldItem, false, true);
+      if (ctx.heldItem.mesh.userData.petriCtrl?.lidOpen) {
+        ctx.callbacks.onToast?.('🧫 Use a opção numerada Fechar Tampa antes de colocar a placa na panela.');
+        return;
       }
       const potP = cp.potItem.mesh.position;
       if (isBase) {
@@ -428,7 +440,7 @@ export function handlePrimaryAction(ctx) {
       ctx.notifyWorldAction();
       return;
     }
-    if (ctx.heldItem.mesh.userData.isH2O2Spray && !ctx.placementMode) {
+    if (ctx.heldItem.mesh.userData.isH2O2Spray && !ctx.placementMode && ctx.hoveredH2O2Target?.target) {
       const hTarget = ctx.hoveredH2O2Target;
       fireH2O2Spray(ctx, hTarget);
       if (ctx.hoveredGreenhouseSlot) {
@@ -461,7 +473,7 @@ export function handlePrimaryAction(ctx) {
       }
       return;
     }
-    if (ctx.heldItem.mesh.userData.isWaterSpray && !ctx.placementMode) {
+    if (ctx.heldItem.mesh.userData.isWaterSpray && !ctx.placementMode && ctx.hoveredSprayTarget?.target) {
       fireWaterSpray(ctx, ctx.hoveredSprayTarget);
       if (ctx.hoveredSprayTarget && ctx.hoveredSprayTarget.target && ctx.hoveredSprayTarget.target.monotubCtrl &&
           ctx.hoveredSprayTarget.target.monotubCtrl.colonization >= 100) {
@@ -479,7 +491,7 @@ export function handlePrimaryAction(ctx) {
       }
       return;
     }
-    if (ctx.heldItem.mesh.userData.isAlcoholSpray && !ctx.placementMode) {
+    if (ctx.heldItem.mesh.userData.isAlcoholSpray && !ctx.placementMode && ctx.hoveredSprayTarget?.target) {
       if (ctx.hoveredSprayTarget && ctx.hoveredSprayTarget.target && ctx.hoveredSprayTarget.target.monotubCtrl) {
         const mc = ctx.hoveredSprayTarget.target.monotubCtrl;
         if (mc.colonization >= 100 && !mc.spent && !mc.contaminated) {
@@ -496,7 +508,7 @@ export function handlePrimaryAction(ctx) {
       fireAlcoholSpray(ctx, ctx.hoveredSprayTarget);
       return;
     }
-    if (ctx.heldItem.mesh.userData.isPaperTowel && !ctx.placementMode) {
+    if (ctx.heldItem.mesh.userData.isPaperTowel && !ctx.placementMode && ctx.hoveredWipeTarget?.target) {
       wipeWithPaperTowel(ctx, ctx.hoveredWipeTarget);
       return;
     }
@@ -613,9 +625,8 @@ export function handlePrimaryAction(ctx) {
       const targetPetri = ctx.hoveredSporePrintPetri;
       const pc = targetPetri.mesh && targetPetri.mesh.userData && targetPetri.mesh.userData.petriCtrl;
       if (pc && !pc.lidOpen) {
-        togglePetriLid(ctx, targetPetri);
         if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🧫 Tampa da Placa de Petri aberta! Clique novamente com o cogumelo para depositar o Carimbo de Esporos.');
+          ctx.callbacks.onToast('🧫 Use a opção numerada Abrir placa no alvo antes de fazer o carimbo.');
         }
         return;
       }
@@ -673,11 +684,16 @@ export function handlePrimaryAction(ctx) {
       interactRoadsideStand(ctx);
       return;
     }
-    if (ctx.hoveredGardenTarget && !ctx.placementMode) {
+    if (ctx.hoveredGardenTarget?.type === 'compost_box' && !ctx.placementMode && isHoldingSpentCakeForCompost(ctx.heldItem)) {
       if (interactGardenTarget(ctx, ctx.hoveredGardenTarget)) return;
     }
     if (ctx.hoveredMonotubTarget && !ctx.placementMode) {
-      interactMonotub(ctx, ctx.hoveredMonotubTarget);
+      const tub = ctx.hoveredMonotubTarget;
+      if (tub.monotubCtrl.colonization < 100 && !tub.monotubCtrl.lidOpen) {
+        ctx.callbacks.onToast?.('📦 Use a opção numerada Abrir Monotub no alvo antes de adicionar o material.');
+        return;
+      }
+      interactMonotub(ctx, tub);
       return;
     }
     if (ctx.hoveredHeatSealerTarget && (
@@ -723,14 +739,11 @@ export function handlePrimaryAction(ctx) {
       const syrCtrl = ctx.heldItem.mesh.userData.syrCtrl;
       const tgt = ctx.hoveredSyringeTarget;
       if (ctx.syringePumping) return;
-      if (tgt.mode === 'open' && tgt.item && tgt.item.mesh.userData.isPetri) {
-        togglePetriLid(ctx, tgt.item);
+      if (tgt.mode === 'open') {
+        ctx.callbacks.onToast?.('🧫 Use a opção numerada para abrir a tampa no alvo.');
         return;
       }
-      if (tgt.mode === 'open' && tgt.item && tgt.item.spawnCtrl && tgt.item.spawnCtrl.isPP5) {
-        togglePP5Lid(ctx, tgt.item);
-        return;
-      }
+      if (tgt.mode !== 'draw' && tgt.mode !== 'inject') return;
       if (tgt.mode === 'draw' && !canSyringeSource(tgt.item)) {
         if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Só é possível aspirar um líquido ou cultura líquida com volume disponível.');
         return;
@@ -746,8 +759,16 @@ export function handlePrimaryAction(ctx) {
       const fromVol = syrCtrl.volMl;
       const isPetriInjection = tgt.mode === 'inject' && tgt.item && tgt.item.mesh.userData.isPetri;
       const isPP5Injection = tgt.mode === 'inject' && tgt.item && tgt.item.spawnCtrl && tgt.item.spawnCtrl.isPP5;
-      if ((isPetriInjection || isPP5Injection) && fromVol < 1) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A seringa precisa conter pelo menos 1ml para inocular.');
+      if ((isPetriInjection || isPP5Injection) && (fromVol < 1 || !(syrCtrl.mix?.lcMl > 0.05))) {
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ Aspire cultura líquida até ter pelo menos 1 ml para inocular.');
+        return;
+      }
+      const dstCulture = tgt.item.cultureCtrl;
+      const dstLiquid = tgt.item.mesh.userData.liquidCtrl;
+      if (tgt.mode === 'inject' && syrCtrl.mix?.lcMl > 0.05 && dstCulture &&
+          !dstCulture.inoculated && !dstCulture.colonized && !dstCulture.contaminated &&
+          (dstCulture.hasNutrient === false || dstLiquid?.volMl <= 0)) {
+        ctx.callbacks.onToast?.('🧪 Prepare o caldo nutritivo e esterilize o frasco antes de inocular.');
         return;
       }
       const doseMl = tgt.mode === 'inject' ? getSyringeInjectionDoseMl(tgt.item, fromVol) : 0;
@@ -756,9 +777,7 @@ export function handlePrimaryAction(ctx) {
         : 0;
       const toVol = tgt.mode === 'draw'
         ? Math.min(10, Math.round((fromVol + sourceVol) * 10) / 10)
-        : (tgt.item && tgt.item.mesh && tgt.item.mesh.userData.liquidCtrl && !tgt.item.spawnCtrl
-          ? 0
-          : Math.max(0, Math.round((fromVol - doseMl) * 10) / 10));
+        : Math.max(0, Math.round((fromVol - doseMl) * 10) / 10);
       if (Math.abs(toVol - fromVol) < 0.01) return;
 
       const isHoldLiquidPump = !!(tgt.mode === 'draw' || (tgt.item && tgt.item.mesh && tgt.item.mesh.userData.liquidCtrl && !tgt.item.spawnCtrl));
@@ -923,7 +942,7 @@ export function handlePrimaryAction(ctx) {
         dstItem.meta.compatibilities.acceptsPdaMedium);
       if (sourceHasPda && petriAcceptsPda && dstPetri && dstPetri.mode === 'bare') {
         if (!dstPetri.lidOpen) {
-          togglePetriLid(ctx, dstItem);
+          ctx.callbacks.onToast?.('🧫 Use a opção numerada Abrir placa no alvo antes de despejar PDA.');
           return;
         }
         if (!isAsepticWorkArea(ctx, dstItem)) {
@@ -1137,9 +1156,7 @@ export function handlePrimaryAction(ctx) {
     if (ctx.hoveredFridgeTarget && ctx.heldItem) {
       const fridgeTarget = ctx.hoveredFridgeTarget;
       if (!fridgeTarget.fridge.fridgeCtrl.doorOpen) {
-        toggleCultureFridgeDoor(fridgeTarget.fridge);
-        ctx.queueWorldStateChange(fridgeTarget.fridge.id, fridgeTarget.fridge.fridgeCtrl.doorOpen ? 1 : 0);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🧊 Geladeira aberta. Clique novamente para guardar o item.');
+        ctx.callbacks.onToast?.('🧊 Use a opção numerada Abrir geladeira antes de guardar o item.');
         return;
       }
       if (!fridgeTarget.slotPosition) {
@@ -1154,55 +1171,11 @@ export function handlePrimaryAction(ctx) {
       ctx.queueWorldStateChange(fridgeTarget.fridge.id, fridgeTarget.fridge.fridgeCtrl.doorOpen ? 1 : 0);
       return;
     }
-    if (ctx.placementMode && ctx.placementGhost) {
-      updateHeldItemPlacementPreview(ctx, ctx.inFps ? _vZero2 : ctx.pointerNdc);
-      if (!ctx.placementValid || isPlacementBlocked(ctx.entityCtx, ctx.placementGhost.position)) {
-        ctx.placementValid = false;
-        updatePlacementGhostVisual(ctx.heldItem, false, ctx.heldRotY, ctx.clock.elapsedTime);
-        return;
-      }
-      commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
+    if (!ctx.adminEditMode && !ctx.placementMode && ctx.hoveredGreenhouseSlot && isHoldingColonizedSpawn(ctx.heldItem)) {
+      ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
       return;
     }
-    if (!ctx.placementMode) {
-      if (handleWorldInteraction(ctx)) return;
-      if (ctx.hoveredPickable && ctx.hoveredPickable.fridgeCtrl) {
-        toggleCultureFridgeDoor(ctx.hoveredPickable);
-        ctx.queueWorldStateChange(ctx.hoveredPickable.id, ctx.hoveredPickable.fridgeCtrl.doorOpen ? 1 : 0);
-        if (window.MycoAudio) window.MycoAudio.playDoor(ctx.hoveredPickable.fridgeCtrl.doorOpen);
-        return;
-      }
-      if (toggleHeldThermometer(ctx)) return;
-      if (ctx.heldItem && ctx.heldItem.monotubCtrl) {
-        interactMonotub(ctx, ctx.heldItem);
-        return;
-      }
-      if (ctx.heldItem && ctx.heldItem.spawnCtrl && breakAndShakeSpawn(ctx, ctx.heldItem)) {
-        return;
-      }
-      if (ctx.heldItem && ctx.heldItem.mesh.userData.isPetri) {
-        togglePetriLid(ctx, ctx.heldItem);
-        return;
-      }
-      if (ctx.heldItem && ctx.heldItem.id && ctx.heldItem.id.indexOf('gloves_box_') === 0) {
-        toggleHeldGloves(ctx);
-        return;
-      }
-    }
-    if (!ctx.adminEditMode && !ctx.placementMode) {
-      if (ctx.hoveredGreenhouseDevice) {
-        if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks && ctx.callbacks.onOpenGreenhouseModal) {
-          ctx.callbacks.onOpenGreenhouseModal(ctx.hoveredGreenhouseDevice);
-        }
-        return;
-      }
-      if (ctx.hoveredGreenhouseSlot) {
-        ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
-        return;
-      }
-    }
-    if (!ctx.placementMode && tryPlaceHeldOnAimedSurface(ctx)) {
+    if (!ctx.placementMode && tryPlaceHeldOnAimedSurface(ctx, aimNdc)) {
       return;
     }
     return;
@@ -1217,17 +1190,17 @@ export function handlePrimaryAction(ctx) {
       interactDehydrator(ctx, ctx.hoveredPickable);
       return;
     }
+    if (!ctx.adminEditMode && ctx.hoveredPickable.silicaJarCtrl && ctx.hoveredPickable.silicaJarCtrl.storedGrams > 0) {
+      interactSilicaStorageJar(ctx, ctx.hoveredPickable);
+      return;
+    }
     if (!ctx.adminEditMode && ctx.hoveredPickable.microscopeCtrl) {
       interactLabMicroscope(ctx, ctx.hoveredPickable);
       return;
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable.monotubCtrl) {
-      const mc = ctx.hoveredPickable.monotubCtrl;
-      if ((!mc.spent && !mc.contaminated && mc.fruitingStage === 3) ||
-          (mc.lidOpen && mc.hasSpawn && mc.hasBulk && (!mc.mixed || !mc.leveled))) {
-        interactMonotub(ctx, ctx.hoveredPickable);
-        return;
-      }
+      interactMonotub(ctx, ctx.hoveredPickable);
+      return;
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable.caseCtrl) {
       const cItem = ctx.hoveredPickable;

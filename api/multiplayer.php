@@ -413,6 +413,8 @@ if ($action === 'sync') {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             } elseif (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_species$/', $sKey)) {
                 $cleanVal = mb_substr(trim(strip_tags((string)$sVal)), 0, 80);
+            } elseif (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_origin$/', $sKey)) {
+                $cleanVal = mp_clean_culture_origin($sVal);
             } elseif ($sKey === 'greenhouse_hum') {
                 $cleanVal = (string)max(20, min(100, (int)round((float)$sVal)));
             } elseif ($sKey === 'greenhouse_target_hum') {

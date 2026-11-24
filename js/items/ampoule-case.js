@@ -4,6 +4,7 @@
  * extração direta c/ Seringa 10ml e organização por modal interativo.
  */
 
+import { getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { registerPickable, updateItemBounds } from './item-registry.js';
 import { createCultureLifecycleState } from './culture-lifecycle.js';
 import { releaseInputForModal } from '../ui/dom-helpers.js';
@@ -144,6 +145,7 @@ export function updateVial3mlVisual(item) {
   }
 
   const volStr = (Math.round(volMl * 10) / 10).toFixed(volMl % 1 === 0 ? 0 : 1);
+  const originLabel = getCultureOriginLabel(cc?.origin);
   const spName = (cc && cc.speciesName) || vc.speciesName || 'Golden Teacher';
   if (volMl <= 0.05) {
     item.label = `🧪 Ampola 3ML Vazia (${isSterile ? 'Estéril ✅' : 'Não Esterilizada ⚠️'})`;
@@ -152,6 +154,7 @@ export function updateVial3mlVisual(item) {
   } else {
     item.label = `🧪 Ampola 3ML (${spName} • ${volStr}/3 ml • ${isColonized ? 'Micélio Saudável ✅' : 'Estéril'})`;
   }
+  if (volMl > 0.05 && originLabel) item.label += ' • ' + originLabel;
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
 }
 
@@ -172,6 +175,7 @@ export function getVialMeta(opts = {}) {
       const cc = item.cultureCtrl;
       const lc = item.mesh && item.mesh.userData && item.mesh.userData.liquidCtrl;
       return {
+        origin: normalizeCultureOrigin(cc?.origin),
         speciesName: (cc && cc.speciesName) || (item.vial3mlCtrl && item.vial3mlCtrl.speciesName) || '',
         group: (item.vial3mlCtrl && item.vial3mlCtrl.group) || 'Cubensis',
         volMl: lc ? Number((lc.volMl || 0).toFixed(2)) : 3,
@@ -182,6 +186,7 @@ export function getVialMeta(opts = {}) {
     },
     applyState: (item, custom, _sim) => {
       if (!custom || !item || !item.vial3mlCtrl) return;
+      if (item.cultureCtrl) item.cultureCtrl.origin = normalizeCultureOrigin(custom.origin);
       if (typeof custom.speciesName === 'string' && custom.speciesName) {
         item.vial3mlCtrl.speciesName = custom.speciesName;
         if (item.cultureCtrl) item.cultureCtrl.speciesName = custom.speciesName;
@@ -239,6 +244,7 @@ export function makeVial3ml(ctx, id, px, py, pz, opts = {}) {
     contaminated,
     sterilized,
     generation: 2,
+    origin: normalizeCultureOrigin(opts.origin),
     speciesName,
     ...createCultureLifecycleState(colonized)
   };
@@ -388,6 +394,7 @@ export function storeVialInAmpouleCase(ctx, caseItem, vialItem, targetSlotIndex 
   const cult = vialItem.cultureCtrl;
   const vc = vialItem.vial3mlCtrl;
   cc.slots[slotIdx] = {
+    origin: normalizeCultureOrigin(cult?.origin),
     speciesName: (cult && cult.speciesName) || vc.speciesName || 'Golden Teacher (Psilocybe cubensis)',
     group: vc.group || 'Cubensis',
     volMl: lc ? Math.max(0, Math.min(AMPOULE_VIAL_MAX_ML, Number(lc.volMl) || 0)) : 3,
@@ -564,6 +571,7 @@ export function getAmpouleCaseMeta() {
         lidOpen: !!cc.lidOpen,
         slots: cc.slots.map((s) => (s ? {
           speciesName: s.speciesName,
+          origin: normalizeCultureOrigin(s.origin),
           group: s.group,
           volMl: Number((s.volMl || 0).toFixed(2)),
           colonized: !!s.colonized,
@@ -580,6 +588,7 @@ export function getAmpouleCaseMeta() {
         for (let i = 0; i < AMPOULE_CASE_MAX_SLOTS; i++) {
           const inc = custom.slots[i];
           cc.slots[i] = inc && typeof inc === 'object' ? {
+            origin: normalizeCultureOrigin(inc.origin),
             speciesName: String(inc.speciesName || 'Golden Teacher (Psilocybe cubensis)').slice(0, 90),
             group: String(inc.group || 'Cubensis').slice(0, 32),
             volMl: Math.max(0, Math.min(AMPOULE_VIAL_MAX_ML, Number(inc.volMl) || 0)),

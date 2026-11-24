@@ -137,6 +137,10 @@ function mp_is_allowed_item_id(string $itemId): bool {
 /**
  * Sanitiza o JSON de estado interno de cada objeto interativo antes de salvar no MySQL.
  */
+function mp_clean_culture_origin($origin): string {
+    return in_array($origin, ['monospore', 'tissue_clone', 'hybrid'], true) ? $origin : '';
+}
+
 function mp_clean_item_state(string $itemId, $raw): ?string {
     if (!is_array($raw)) return null;
     $clean = [];
@@ -184,6 +188,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (isset($src['speciesName']) && is_string($src['speciesName'])) {
             $spawn['speciesName'] = substr($src['speciesName'], 0, 80);
         }
+        if (isset($raw['spawn']['origin'])) $spawn['origin'] = mp_clean_culture_origin($raw['spawn']['origin']);
         if ($spawn) $clean['spawn'] = $spawn;
     }
 
@@ -221,6 +226,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (isset($p['tempC']) && is_numeric($p['tempC']) && is_finite((float)$p['tempC'])) {
             $cleanPetri['tempC'] = max(-20, min(140, round((float)$p['tempC'], 1)));
         }
+        if (isset($raw['petri']['origin'])) $cleanPetri['origin'] = mp_clean_culture_origin($raw['petri']['origin']);
         if ($cleanPetri) $clean['petri'] = $cleanPetri;
     }
 
@@ -271,6 +277,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (isset($src['generation']) && is_numeric($src['generation'])) {
             $culture['generation'] = max(0, min(3, (int)$src['generation']));
         }
+        if (isset($raw['culture']['origin'])) $culture['origin'] = mp_clean_culture_origin($raw['culture']['origin']);
         if ($culture) $clean['culture'] = $culture;
     }
 
@@ -334,6 +341,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
             }
             $syr['mix'] = $mix;
         }
+        if (isset($raw['syringe']['origin'])) $syr['origin'] = mp_clean_culture_origin($raw['syringe']['origin']);
         $clean['syringe'] = $syr;
     }
 
@@ -375,6 +383,16 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         }
         if (isset($raw['scalpel']['bladeRemainingMs']) && is_numeric($raw['scalpel']['bladeRemainingMs']) && is_finite((float)$raw['scalpel']['bladeRemainingMs'])) {
             $scalpel['bladeRemainingMs'] = max(0, min(160000, (int)round((float)$raw['scalpel']['bladeRemainingMs'])));
+        }
+        if (isset($raw['scalpel']['origin'])) $scalpel['origin'] = mp_clean_culture_origin($raw['scalpel']['origin']);
+        foreach (['isSporeSample', 'biopsyAseptic'] as $key) {
+            if (isset($raw['scalpel'][$key]) && is_bool($raw['scalpel'][$key])) $scalpel[$key] = $raw['scalpel'][$key];
+        }
+        if (isset($raw['scalpel']['cutGeneration']) && is_numeric($raw['scalpel']['cutGeneration'])) {
+            $scalpel['cutGeneration'] = max(0, min(3, (int)$raw['scalpel']['cutGeneration']));
+        }
+        if (isset($raw['scalpel']['biopsySpecies']) && is_string($raw['scalpel']['biopsySpecies'])) {
+            $scalpel['biopsySpecies'] = mb_substr($raw['scalpel']['biopsySpecies'], 0, 80);
         }
         if ($scalpel) $clean['scalpel'] = $scalpel;
     }
@@ -480,6 +498,6 @@ function mp_is_valid_state_key(string $k): bool {
     if (preg_match('/^blind_([0-9]|1[0-5])$/', $k)) return true;
     if (preg_match('/^cab_[a-z0-9_]+$/', $k)) return true;
     if (preg_match('/^wild_([0-9]|[12][0-9]|3[01])$/', $k)) return true;
-    if (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_(humidity|stage|empty|species|contam)$/', $k)) return true;
+    if (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_(humidity|stage|empty|species|contam|origin)$/', $k)) return true;
     return false;
 }
