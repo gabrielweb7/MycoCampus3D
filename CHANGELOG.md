@@ -6,9 +6,15 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
 
 <!-- coderabbit-ai-generated-section:v1:20213ee14b9229f017ca5ecb8eb411dfbf59663276c685e763fafbb8f8ecefc2 -->
 
-## [v2.4.0] - 2026-11-24
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:a9201a6ebf3115df60e76bf47816abe49c29ce1e8381ce0bc2716671bbd129a4 -->
+
+## [v2.6.0] - 2026-11-24
 
 - Tutorial opcional de primeiros passos para novas contas, com acesso ao laboratório e ao guia de cultivo.
+
+<!-- /coderabbit-ai-generated:v1 -->
 - Qualidade automática avalia quedas sustentadas, compara resolução e níveis e guarda a escolha por dispositivo. A seleção manual continua disponível.
 <!-- coderabbit-ai-generated:v1 -->
 
@@ -25,6 +31,19 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
 <!-- /coderabbit-ai-generated:v1 -->
 
 <!-- /coderabbit-ai-generated:v1 -->
+<!-- coderabbit-ai-generated-section:v1:d36d4f80864beea8a22bde94abefafa8bbbf5d4fa172222b849a74e58b8b9867 -->
+
+## [v2.5.0] - 2026-11-24
+
+- Barra com três espaços: um para o item em mãos e dois para guardar itens. Use 5, 6 e 7 no PC ou toque nos espaços no celular.
+- Itens compatíveis e seus estados ficam salvos na conta. Outros jogadores só podem pegá-los depois que o dono os devolver ao cenário.
+- Recipientes abertos e equipamentos grandes não podem ser guardados.
+
+## [v2.4.0] - 2026-11-24
+
+- Germinação de monoesporos e clonagem de tecido têm origens separadas. Apenas clones de tecido ganham +35% na colheita.
+- O toque na cena usa a posição do dedo; ações sobre o próprio item ficam no menu numerado.
+- Seringa, descarte persistente e cartões de inspeção receberam correções. Monotub, secagem, embalagem e pesos foram alinhados com as instruções.
 
 ## [v2.3.5] - 2026-11-24
 

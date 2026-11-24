@@ -134,3 +134,23 @@ CREATE TABLE IF NOT EXISTS mc_admin_layout_defaults (
     removed TINYINT(1) NOT NULL DEFAULT 0,
     saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Inventário rápido: cada objeto continua sendo uma única entidade do mundo.
+CREATE TABLE IF NOT EXISTS mc_inventory_slots (
+    item_id VARCHAR(64) NOT NULL PRIMARY KEY,
+    user_id INT NOT NULL,
+    slot TINYINT UNSIGNED NOT NULL,
+    UNIQUE KEY uq_inventory_user_slot (user_id, slot),
+    CONSTRAINT fk_inventory_slots_user FOREIGN KEY (user_id) REFERENCES mc_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_inventory_control (
+    user_id INT NOT NULL PRIMARY KEY,
+    session_id VARCHAR(40) NOT NULL,
+    active_slot TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    operation_id VARCHAR(40) NOT NULL DEFAULT '',
+    operation_result VARCHAR(100) NOT NULL DEFAULT '',
+    CONSTRAINT fk_inventory_control_user FOREIGN KEY (user_id) REFERENCES mc_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO mc_meta (meta_key, meta_val) VALUES ('inventory_lock', '1');

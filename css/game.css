@@ -964,3 +964,53 @@ body.device-tablet #btn-mobile-chat-close {
   height: 0 !important;
   overflow: hidden !important;
 }
+
+#quick-inventory {
+  position: fixed;
+  z-index: 27;
+  left: calc(8px + env(safe-area-inset-left, 0px));
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 4px;
+  max-width: calc(100vw - 24px);
+  pointer-events: auto;
+}
+#quick-inventory.hidden,
+body.chat-typing #quick-inventory { display: none; }
+#quick-inventory button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  width: 94px;
+  height: 44px;
+  padding: 4px 6px;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  background: #111827;
+  color: #f8fafc;
+  touch-action: manipulation;
+}
+#quick-inventory button[aria-pressed="true"] {
+  outline: 2px solid #34d399;
+  outline-offset: -2px;
+  background: #064e3b;
+}
+#quick-inventory button:disabled { opacity: 0.65; }
+#quick-inventory .inventory-key { font-weight: 800; color: #6ee7b7; }
+#quick-inventory .inventory-item {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+body.device-touch #quick-inventory {
+  position: static;
+  margin-top: 6px;
+}
+body.device-touch #quick-inventory button { width: min(28vw, 94px); }
+body.device-touch #quick-inventory .inventory-key { display: none; }
+@media (max-width: 820px) {
+  #quick-inventory { position: static; margin-top: 6px; }
+  #quick-inventory button { width: min(28vw, 82px); }
+}

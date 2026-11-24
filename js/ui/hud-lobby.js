@@ -1,6 +1,7 @@
 /**
  * MycoCampus3D — HUD do Jogador, Lobby, Sessão e Controles de Vista/FPS
  */
+import { flushInventoryBeforeLogout } from '../services/multiplayer-sync.js';
 import { HAT_COLORS, BODY_COLORS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
 import { LESSONS } from '../core/lessons-data.js';
 import { appState } from '../core/state.js';
@@ -170,6 +171,7 @@ export async function logoutCampus() {
   const lastName = appState.currentUser ? appState.currentUser.display_name : '';
   try {
     if (window.flushCampusMycoCoins) await window.flushCampusMycoCoins();
+    await flushInventoryBeforeLogout();
     await apiPost('api/multiplayer.php?action=leave', { session_id: appState.sessionId }, true);
     await apiPost('api/auth.php?action=logout', {}, true);
   } catch (e) {}

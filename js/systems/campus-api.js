@@ -3,6 +3,8 @@
  * Mantem compatibilidade com UI, controles mobile, multiplayer e console.
  */
 
+import { applyQuickInventory, getQuickInventoryOperation, resetQuickInventory, selectQuickSlot } from './inventory.js';
+import { getReplicatedItemState } from './world-objects-sync.js';
 import { GAME_CONFIG } from '../core/config.js';
 import { getAutoQualityConfig, qualityState, resetAutoQuality, saveQualityMode, setAutoQualityScale } from '../core/quality.js';
 import { getGroundHeight, clampPosAgainstWalls } from '../engine/physics.js';
@@ -246,6 +248,15 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
     }
   };
 
+  window.selectCampusQuickSlot = (slot) => selectQuickSlot(sim, slot);
+  window.getCampusInventoryHandState = (force = false) => {
+    const held = sim.heldItem;
+    if (!held || (!force && held.id === sim.inventory.ackHolding)) return null;
+    return { id: held.id, state: getReplicatedItemState(sim, held) };
+  };
+  window.isCampusInventoryPending = () => !!sim.inventory.pending;
+  window.getCampusInventoryOperation = () => getQuickInventoryOperation(sim, item => getReplicatedItemState(sim, item));
+  window.applyCampusInventory = (snapshot, players, sentHolding, initial) => applyQuickInventory(sim, snapshot, players, sentHolding, initial);
   window.markCampusInitialItemStatesApplied = function () { return worldSync.markCampusInitialItemStatesApplied(sim); };
   window.consumeCampusMovedItems = function () { return worldSync.consumeCampusMovedItems(sim); };
   window.requeueCampusMovedItems = function (list) { return worldSync.requeueCampusMovedItems(sim, list); };
@@ -279,6 +290,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.resetCampusLocalSession = function () {
+    resetQuickInventory(sim);
     sim.syringePumping = null;
     sim.sinkFilling = null;
     sim.pourHold = null;

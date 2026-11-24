@@ -89,13 +89,20 @@ test('canSyringeTarget valida PP5 hidratado, bag selado e placa petri estéril a
     meta: { compatibilities: { receivesSyringe: true } },
     spawnCtrl: { isPP5: true, filled: true, waterMl: 10, sterilized: true, inoculated: false }
   });
+  dryPP5.spawnCtrl.lidOpen = true;
   assert.equal(canSyringeTarget(dryPP5), false);
+  dryPP5.spawnCtrl.waterMl = 35;
+  assert.equal(canSyringeTarget(dryPP5), true);
+  dryPP5.spawnCtrl.lidOpen = false;
+  assert.equal(canSyringeTarget(dryPP5), false, 'não inocula potinho fechado');
 
   const openSterilePetri = makeItem({
     id: 'petri_1',
     userData: { isPetri: true, petriCtrl: { mode: 'empty', lidOpen: true, sterilized: true } }
   });
   assert.equal(canSyringeTarget(openSterilePetri), true);
+  openSterilePetri.mesh.userData.petriCtrl.lidOpen = false;
+  assert.equal(canSyringeTarget(openSterilePetri), false);
 });
 
 test('canSyringeSource e canFillFromSink respeitam conteúdo e compatibilidade', () => {

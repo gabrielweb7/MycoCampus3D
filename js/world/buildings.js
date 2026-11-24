@@ -437,7 +437,7 @@ export function buildCampusBuildingWing(ctx, opts) {
     stick.rotation.x = Math.PI / 2;
     stick.position.y = 0.03;
     cg.add(stick);
-    registerPickable(cd.id, cd.label, cg, trayX, trayY + 0.04, cz + cd.dz, 0, 0.15, 0.12);
+    registerPickable(cd.id, cd.label, cg, trayX, trayY + 0.04, cz + cd.dz, 0, 0.15, 0.12, { purpose: 'Segure o giz, mire na lousa e arraste para escrever ou desenhar.' });
   });
 
   const eraser = new THREE.Group();
@@ -446,7 +446,7 @@ export function buildCampusBuildingWing(ctx, opts) {
   const eFelt = makeBox(0.12, 0.03, 0.28, 0x1e293b, { roughness: 0.95 });
   eFelt.position.y = 0.015;
   eraser.add(eWood, eFelt);
-  registerPickable('board_eraser' + bSuffix, 'Apagador da Lousa', eraser, trayX, trayY + 0.04, cz + 0.95, 0, 0.2, 0.14);
+  registerPickable('board_eraser' + bSuffix, 'Apagador da Lousa', eraser, trayX, trayY + 0.04, cz + 0.95, 0, 0.2, 0.14, { purpose: 'Segure o apagador, mire na lousa e arraste sobre os traços para apagá-los.' });
 
   const doorHalfW = 0.96;
   const doorH = 2.75;

@@ -1,6 +1,7 @@
 /**
  * MycoCampus3D — Bootstrap da Aplicação, Bindings de HUD, Chat & Eventos
  */
+import { bindQuickInventory } from './inventory-bar.js';
 import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
 import { forceCacheBustReload, isValidSemver } from '../core/version-updater.js';
 import { markPendingAutoUpdateNotice } from './whats-new-modal.js';
@@ -744,6 +745,7 @@ function bindChatAndShortcuts() {
 }
 
 export function bootApp() {
+  bindQuickInventory(slot => window.selectCampusQuickSlot?.(slot));
   applyDeviceUi();
   window.addEventListener('resize', applyDeviceUi);
   window.addEventListener('orientationchange', applyDeviceUi);

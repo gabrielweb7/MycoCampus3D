@@ -19,7 +19,8 @@
       var isApk = /MycoCampusAPK\/\d+/i.test(ua) || Boolean(window.Capacitor);
       if (isApk || isStandalone) return;
 
-      if (/Android/i.test(ua)) {
+      var playParam = /[?&]play=1\b/.test(window.location.search || '');
+      if (/Android/i.test(ua) && !playParam) {
         window.location.replace('android.html' + (window.location.search || ''));
         return;
       }
@@ -28,7 +29,6 @@
       if (isIos) {
         var isRealSafari = /Safari/i.test(ua) && /Version\//i.test(ua) &&
           !/CriOS|FxiOS|EdgiOS|OPiOS|GSA|FBAN|FBAV|Instagram|WhatsApp|Line/i.test(ua);
-        var playParam = /[?&]play=1\b/.test(window.location.search || '');
         var safariAllowed = false;
         if (playParam) {
           try { sessionStorage.setItem('myco_ios_safari_ok', '1'); } catch (e) {}
@@ -46,7 +46,7 @@
       }
     })();
   </script>
-  <title>MycoCampus3D — Universidade 3D do Cultivo de Cogumelos | Mushroom Cultivation 3D Game</title>
+  <title>MycoCampus3D — Comunidade Virtual e Simulador 3D de Cultivo de Cogumelos | Mushroom Cultivation 3D Game</title>
   <meta name="description"
     content="Entre no campus 3D multiplayer e aprenda cultivo de cogumelos na prática: fluxo laminar, esterilização, spawn, contaminações e frutificação. Free 3D mushroom growing browser game (PT/EN/ES).">
   <meta name="keywords"
@@ -68,7 +68,7 @@
   <meta property="og:locale:alternate" content="es_ES">
   <meta property="og:locale:alternate" content="es_MX">
   <meta property="og:site_name" content="MycoCampus3D">
-  <meta property="og:title" content="🍄 MycoCampus3D — 3D Mushroom Cultivation Game & Virtual University">
+  <meta property="og:title" content="🍄 MycoCampus3D — Virtual Community & 3D Mushroom Cultivation Simulator">
   <meta property="og:description"
     content="Campus 3D multiplayer no navegador para aprender cultivo de cogumelos na prática. Free 3D mushroom growing simulator in your browser (PT/EN/ES).">
   <meta property="og:url" content="https://mycocampus3d.alquimistasmagicos.com.br/">
@@ -82,7 +82,7 @@
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="🍄 MycoCampus3D — Universidade 3D do Cultivo de Cogumelos">
+  <meta name="twitter:title" content="🍄 MycoCampus3D — Comunidade Virtual e Simulador 3D de Cultivo de Cogumelos">
   <meta name="twitter:description"
     content="Campus 3D multiplayer no navegador para aprender cultivo de cogumelos na prática.">
   <meta name="twitter:image" content="https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg">
@@ -106,8 +106,8 @@
     "@context": "https://schema.org",
     "@type": "VideoGame",
     "name": "MycoCampus3D",
-    "alternateName": ["MycoCampus 3D", "Universidade 3D do Cultivo de Cogumelos", "3D Mushroom Cultivation Simulator"],
-    "description": "Universidade virtual 3D multiplayer para aprender cultivo de cogumelos na prática. Free 3D mushroom cultivation browser game in Portuguese, English and Spanish.",
+    "alternateName": ["MycoCampus 3D", "Comunidade Virtual e Simulador 3D de Cultivo de Cogumelos", "3D Mushroom Cultivation Simulator"],
+    "description": "Comunidade virtual e simulador 3D multiplayer de cultivo de cogumelos. Free 3D mushroom cultivation browser game in Portuguese, English and Spanish.",
     "url": "https://mycocampus3d.alquimistasmagicos.com.br/",
     "image": "https://mycocampus3d.alquimistasmagicos.com.br/assets/og-image.jpg",
     "inLanguage": ["pt-BR", "en", "es"],
@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.4.0">
+  <link rel="stylesheet" href="css/game.css?v=2.6.0">
 </head>
 
 <body>
@@ -155,7 +155,7 @@
           🍄 Campus Virtual Multiplayer 3D
         </div>
         <h1 class="text-2xl font-extrabold tracking-tight text-white">MycoCampus3D</h1>
-        <p data-i18n="lobby.subtitle" class="text-xs text-slate-300">Universidade do Cultivo de Cogumelos</p>
+        <p data-i18n="lobby.subtitle" class="text-xs text-slate-300">Comunidade virtual e simulador 3D de cultivo de cogumelos</p>
       </div>
 
       <figure class="lobby-preview">
@@ -199,10 +199,10 @@
       </form>
 
       <div id="lobby-stats" data-i18n="lobby.connecting" class="text-center text-[11px] text-slate-400 border-t border-slate-700/60 pt-3">
-        Conectando ao servidor da Universidade...
+        Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.4.0</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.6.0</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -288,6 +288,11 @@
             style="display:none;"
             class="hud-pill-btn px-2 py-0.5 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white font-extrabold border border-emerald-400/60 items-center gap-1 shadow-lg">📲 Instalar App</button>
         </div>
+      </div>
+      <div id="quick-inventory" class="hidden" role="group" aria-label="Inventário rápido">
+        <button type="button" data-pocket="0"><span class="inventory-key">5</span><span class="inventory-item">Vazio</span></button>
+        <button type="button" data-pocket="1"><span class="inventory-key">6</span><span class="inventory-item">Vazio</span></button>
+        <button type="button" data-pocket="2"><span class="inventory-key">7</span><span class="inventory-item">Vazio</span></button>
       </div>
       <div id="hud-quick-actions" style="display:none!important;visibility:hidden!important;"></div>
     </div>
@@ -391,10 +396,10 @@
   </div>
   <div id="mobile-actions">
     <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular">⬆️</button>
-    <button id="btn-mobile-action" type="button" class="touch-btn" title="Ação" style="display:none">✋</button>
+    <button id="btn-mobile-action" type="button" class="touch-btn" title="Ação pela mira central (segure para ações contínuas)" aria-label="Ação pela mira central" style="display:none">✋</button>
     <button id="btn-mobile-sprint" type="button" class="touch-btn" title="Correr">🏃</button>
     <button id="btn-mobile-drop" type="button" class="touch-btn" title="Largar item no chão" style="display:none">⬇️</button>
-    <button id="btn-mobile-place" type="button" class="touch-btn" title="Posicionar item" style="display:none">📦</button>
+    <button id="btn-mobile-place" type="button" class="touch-btn" title="Mover ou posicionar item" aria-label="Mover ou posicionar item" style="display:none">📦</button>
     <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
   </div>
 
@@ -464,7 +469,7 @@
   <div id="lesson-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75">
     <div class="glass-panel rounded-2xl modal-card-lg flex flex-col overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
-        <h2 data-i18n="modal.lessons_title" class="text-base font-extrabold text-white">📚 Universidade MycoCampus — Módulos Práticos</h2>
+        <h2 data-i18n="modal.lessons_title" class="text-base font-extrabold text-white">📚 MycoCampus — Módulos Práticos</h2>
         <button id="btn-close-lessons" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
       <div id="lessons-body" class="p-5 overflow-y-auto space-y-4 text-sm text-slate-200"></div>
@@ -475,7 +480,7 @@
   <div id="ranking-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75">
     <div class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
-        <h2 data-i18n="modal.ranking_title" class="text-base font-extrabold text-white">🏆 Ranking da Universidade</h2>
+        <h2 data-i18n="modal.ranking_title" class="text-base font-extrabold text-white">🏆 Ranking da Comunidade</h2>
         <button id="btn-close-ranking" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
       <div id="ranking-body" class="p-5 overflow-y-auto space-y-2 text-xs"></div>
@@ -893,9 +898,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.4.0';</script>
+  <script>window.MYCO_VERSION = '2.6.0';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.4.0"></script>
+  <script type="module" src="js/main.js?v=2.6.0"></script>
 </body>
 
 </html>

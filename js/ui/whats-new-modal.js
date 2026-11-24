@@ -10,8 +10,8 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
-  '2.4.0': {
-    title: '✨ Novidades da Atualização v2.4.0',
+  '2.6.0': {
+    title: '✨ Novidades da Atualização v2.6.0',
     subtitle: 'Primeiros passos e qualidade automática',
     items: [
       { icon: '🍄', text: 'Um tutorial opcional apresenta os controles, o laboratório e o começo do cultivo.' },
@@ -19,6 +19,24 @@ export const RELEASE_NOTES_CATALOG = {
       { icon: '⚙️', text: 'HUD, menus e configurações ficaram mais claros em telas pequenas e no PC.' },
       { icon: '📦', text: 'Compras de insumos agora registram a entrega junto com o pagamento e podem ser confirmadas após uma queda de conexão.' },
       { icon: '🐾', text: 'Gatos e cachorros chegaram à loja! Escolha quem vai acompanhar você, deixe passear e cuide dos potinhos.' }
+    ]
+  },
+  '2.5.0': {
+    title: '✨ Novidades da Atualização v2.5.0',
+    subtitle: 'Inventário rápido de três espaços',
+    items: [
+      { icon: '🎒', text: 'Use 5, 6 e 7 no PC ou toque nos espaços da barra no celular. Feche a tampa antes de guardar.' },
+      { icon: '💾', text: 'Os itens ficam na sua conta ao sair. Ao apoiar ou descartar, o espaço é liberado.' }
+    ]
+  },
+  '2.4.0': {
+    title: '✨ Novidades da Atualização v2.4.0',
+    subtitle: 'Cultivo, bancada e controles no celular',
+    items: [
+      { icon: '🌱', text: 'Germine monoesporos em meio sólido ou líquido. Isolados obtidos por clonagem de tecido rendem mais na colheita.' },
+      { icon: '🧫', text: 'Use os botões numerados para operar o item na mão. Para apoiar ou usar no alvo, clique ou toque diretamente nele.' },
+      { icon: '💉', text: 'A seringa respeita a tampa e a dose, a lixeira guarda a remoção e os cartões de inspeção explicam o próximo passo.' },
+      { icon: '📱', text: 'No celular, toque no alvo fora do centro da tela, arraste para olhar ou segure Ação para usar a mira central.' }
     ]
   },
   '2.3.5': {
@@ -242,16 +260,16 @@ export const RELEASE_NOTES_CATALOG = {
 };
 
 function getCurrentNotes(ver) {
-  if (ver === '2.4.0') {
+  if (ver === '2.6.0') {
     return {
-      title: t('news.240.title'),
-      subtitle: t('news.240.subtitle'),
+      title: t('news.260.title'),
+      subtitle: t('news.260.subtitle'),
       items: [
-        { icon: '🍄', text: t('news.240.tutorial') },
-        { icon: '⚡', text: t('news.240.quality') },
-        { icon: '⚙️', text: t('news.240.hud') },
-        { icon: '📦', text: t('news.240.shop') },
-        { icon: '🐾', text: t('news.240.pets') }
+        { icon: '🍄', text: t('news.260.tutorial') },
+        { icon: '⚡', text: t('news.260.quality') },
+        { icon: '⚙️', text: t('news.260.hud') },
+        { icon: '📦', text: t('news.260.shop') },
+        { icon: '🐾', text: t('news.260.pets') }
       ]
     };
   }

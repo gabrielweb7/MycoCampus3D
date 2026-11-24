@@ -174,11 +174,14 @@ test('v2.2.0: H2O2 3% spray bottle treats cobweb monotub and rejects trichoderma
   assert.equal(trichTub.monotubCtrl.contaminated, true);
 });
 
-test('v2.2.0: tissue cloning F1/T3 generation increases harvest yield by +35%', () => {
-  assert.equal(calculateHarvestYieldGrams(10, 1, false), 10);
-  assert.equal(calculateHarvestYieldGrams(10, 3, false), 14);
-  assert.equal(calculateHarvestYieldGrams(10, 3, true), 17);
+test('rendimento distingue clone de tecido, repiques e origem desconhecida', () => {
+  assert.equal(calculateHarvestYieldGrams(10, 'monospore', false), 10);
+  assert.equal(calculateHarvestYieldGrams(10, 'hybrid', false), 10);
+  assert.equal(calculateHarvestYieldGrams(10, '', false), 10);
+  assert.equal(calculateHarvestYieldGrams(10, 'tissue_clone', false), 14);
+  assert.equal(calculateHarvestYieldGrams(10, 'tissue_clone', true), 17);
 });
+
 
 test('v2.2.0: drive-thru VIP orders expose 2 active species and match orders cleanly', () => {
   const vips = getActiveVipOrders();

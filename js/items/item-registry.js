@@ -270,9 +270,6 @@ export function canSyringeTarget(item) {
       (!spawnCtrl || spawnCtrl.substrateKind !== 'pda')) return false;
   const liquid = item.mesh.userData.liquidCtrl;
   if (liquid && !(spawnCtrl && spawnCtrl.isPP5)) {
-    if (item.cultureCtrl && !item.cultureCtrl.inoculated && !item.cultureCtrl.contaminated && !item.cultureCtrl.colonized && liquid.volMl >= 50) {
-      return true;
-    }
     return liquid.volMl < liquid.maxMl;
   }
   const pdaAgarReady = item.pdaMediumCtrl && item.pdaMediumCtrl.powderGrams > 0 &&
@@ -286,7 +283,7 @@ export function canSyringeTarget(item) {
     spawnCtrl.substrateKind === 'coco_verm' ||
     spawnCtrl.substrateKind === 'sawdust' ||
     (spawnCtrl.isBag && !spawnCtrl.sealed) ||
-    (spawnCtrl.isPP5 && (spawnCtrl.waterMl || 0) < 35 && !pdaAgarReady)
+    (spawnCtrl.isPP5 && (!spawnCtrl.lidOpen || ((spawnCtrl.waterMl || 0) < 35 && !pdaAgarReady)))
   )) {
     return false;
   }

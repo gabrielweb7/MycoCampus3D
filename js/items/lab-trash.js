@@ -1,7 +1,7 @@
 /**
  * Lixeira Asséptica do Laboratório (MycoCampus3D)
  * Item movível com a palavra LIXO. Esvazia recipientes reutilizáveis (vidros, PP5, petri, béquer, pote)
- * ou descarta bags descartáveis repondo um novo bag limpo no estoque.
+ * ou descarta recipientes de uso único e embalagens vazias.
  */
 
 import { disposeObjectResources, registerPickable, updateItemBounds } from './item-registry.js';
@@ -17,7 +17,7 @@ const THREE = window.THREE;
 
 export const LAB_TRASH_META = {
   category: 'furniture',
-  purpose: 'Descartar conteúdo de recipientes e bags do laboratório',
+  purpose: 'Descarte embalagens vazias, recipientes de uso único e conteúdo de vidros reutilizáveis',
   weightGrams: 3200,
   baseTempC: 22.0,
   compatibilities: { canEnterCooker: false, acceptsDisposal: true },
@@ -129,13 +129,14 @@ export function buildLabTrashBin(ctx, px, py, pz) {
 export function canDisposeItemInTrash(item) {
   if (!item || !item.mesh) return false;
   if (item.mesh.userData.isTrash) return false;
+  if (item.spawnCtrl?.isBag || item.spawnCtrl?.isPP5) return true;
   if (item.spawnCtrl) return !!item.spawnCtrl.filled || !!item.spawnCtrl.burned || !!item.spawnCtrl.contaminated || !!item.spawnCtrl.expired;
   if (item.mesh.userData.isPetri) {
     return true;
   }
   if (item.bowlCtrl) {
     const ing = item.bowlCtrl.ingredients || {};
-    return !!(item.bowlCtrl.mixed || (ing.flocao || 0) + (ing.water || 0) + (ing.corn || 0) + (ing.sawdust || 0) > 0);
+    return item.bowlCtrl.mixed || Object.values(ing).some((amount) => amount > 0);
   }
   if (item.scalpelCtrl) {
     return !!(item.scalpelCtrl.hasBlade && !item.scalpelCtrl.sterile);
@@ -157,6 +158,16 @@ export function canDisposeItemInTrash(item) {
     return hasPda || hasCulture;
   }
   return false;
+}
+
+export function getTrashActionLabel(item) {
+  if (item.bladePackCtrl) return '🗑️ Descartar embalagem vazia da lâmina';
+  if (item.scalpelCtrl) return '🗑️ Descartar lâmina usada e manter o cabo';
+  if (item.spawnCtrl?.isBag) return '🗑️ Descartar Bag na Lixeira';
+  if (item.spawnCtrl?.isPP5) return '🗑️ Descartar potinho PP5';
+  if (item.mesh?.userData.isPetri) return '🗑️ Descartar placa de Petri';
+  if (item.spentCakeCtrl) return '🗑️ Descartar bolo esgotado';
+  return '🗑️ Esvaziar o conteúdo e manter o recipiente';
 }
 
 export function isContaminatedOrBurned(item) {
@@ -257,6 +268,7 @@ export function resetDisposableContainer(item) {
 }
 
 function disposeAndRemoveItem(ctx, item, toastMsg) {
+  ctx.markItemRemoved?.(item);
   if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
   disposeObjectResources(item.mesh);
   const pIdx = ctx.pickableItems ? ctx.pickableItems.indexOf(item) : -1;
@@ -277,7 +289,7 @@ function disposeAndRemoveItem(ctx, item, toastMsg) {
 }
 
 export function handleTrashDisposal(ctx, item) {
-  if (!item || !item.mesh) return false;
+  if (!canDisposeItemInTrash(item)) return false;
 
   // Descartáveis de uso único (Bags, Potinhos PP5, Placas de Petri e Embalagens): somem por completo na lixeira
   if (item.spawnCtrl && item.spawnCtrl.isBag) {

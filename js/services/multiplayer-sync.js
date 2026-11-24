@@ -10,7 +10,7 @@ import { markPendingAutoUpdateNotice } from '../ui/whats-new-modal.js';
 import { forceCacheBustReload } from '../core/version-updater.js';
 import { getLocalPetPose, updateRemotePets } from '../entities/pets.js';
 
-export async function syncMultiplayer() {
+export async function syncMultiplayer(forceHeldState = false) {
   if (!appState.currentUser) return;
   if (appState.syncInFlight) {
     appState.syncQueued = true;
@@ -50,6 +50,9 @@ export async function syncMultiplayer() {
       yaw: pose.yaw,
       pitch: pose.pitch,
       holding_item: pose.holding_item,
+      inventory_enabled: true,
+      inventory_hand: firstSync ? null : window.getCampusInventoryHandState?.(forceHeldState === true),
+      inventory_op: firstSync ? null : window.getCampusInventoryOperation?.(),
       walking: pose.walking,
       seated: pose.seated,
       in_fps: pose.in_fps,
@@ -118,7 +121,7 @@ export async function syncMultiplayer() {
       if (!data.item_states_unchanged && data.item_states && window.applyCampusItemStates) {
         window.applyCampusItemStates(
           data.item_states,
-          (firstSync && (data.online_count || 1) === 1) ? data.item_state_ages : null
+          firstSync ? data.item_state_ages : null
         );
       }
       if (firstSync && window.markCampusInitialItemStatesApplied) {
@@ -128,6 +131,7 @@ export async function syncMultiplayer() {
         if (typeof data.server_ts === 'number') data.world_state._serverTs = data.server_ts;
         window.applyCampusWorldState(data.world_state, firstSync);
       }
+      window.applyCampusInventory?.(data.inventory, data.players || [], pose.holding_item, firstSync);
       if (firstSync && data.saved_pose && window.applyCampusSavedPose) {
         window.applyCampusSavedPose(data.saved_pose);
       }
@@ -174,15 +178,30 @@ export async function syncMultiplayer() {
   }
 }
 
+export async function flushInventoryBeforeLogout() {
+  // A pickup that has not reached the server yet needs one sync before a queued swap.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    while (appState.syncInFlight) await new Promise(resolve => setTimeout(resolve, 25));
+    if (!appState.currentUser) return;
+    await syncMultiplayer(true);
+    if (!window.isCampusInventoryPending?.() || appState.syncFailures) return;
+  }
+}
+
 export function sendLeaveBeacon() {
   if (appState.currentUser && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+    // Let an already dispatched request finish; never send an older hand snapshot over a swap.
+    if (appState.syncInFlight) return;
     const moved = window.consumeCampusMovedItems ? window.consumeCampusMovedItems() : [];
     const stateChanges = window.consumeCampusStateChanges ? window.consumeCampusStateChanges() : {};
     const strokes = window.consumeCampusBoardStrokes ? window.consumeCampusBoardStrokes() : [];
     const pose = window.getCampusPlayerPose?.();
-    if (pose && (moved.length || Object.keys(stateChanges).length || strokes.length)) {
+    if (pose && (pose.holding_item || moved.length || Object.keys(stateChanges).length || strokes.length)) {
       const syncPayload = {
         ...pose,
+        inventory_enabled: true,
+        inventory_op: window.getCampusInventoryOperation?.(),
+        inventory_hand: window.getCampusInventoryHandState?.(true),
         session_id: appState.sessionId,
         user_id: appState.currentUser.id,
         moved_items: moved,

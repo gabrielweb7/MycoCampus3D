@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 14;
+const MC_SCHEMA_VERSION = 15;
 const MC_TOKEN_TTL_DAYS = 30;
 const MC_PETS = ['cat_orange', 'cat_black', 'cat_calico', 'dog_golden', 'dog_husky', 'dog_pug'];
 
@@ -80,9 +80,13 @@ function mc_migrate(PDO $pdo): void {
     if ($version < MC_SCHEMA_VERSION) {
         mc_run_schema_file($pdo);
 
-        if ($version < 14) {
+        if ($version < 15) {
             $petColumn = $pdo->query("SHOW COLUMNS FROM mc_sessions LIKE 'pet_json'")->fetch();
             if (!$petColumn) $pdo->exec('ALTER TABLE mc_sessions ADD COLUMN pet_json TEXT NULL');
+            // Do not advance the migration marker if either inventory table is missing.
+            $pdo->query('SELECT item_id FROM mc_inventory_slots LIMIT 0');
+            $pdo->query('SELECT user_id FROM mc_inventory_control LIMIT 0');
+            $pdo->query("SELECT meta_key FROM mc_meta WHERE meta_key = 'inventory_lock'");
         }
 
         if ($version < 13) {

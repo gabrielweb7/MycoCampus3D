@@ -344,11 +344,19 @@ test('Monotub 24L exige misturar antes de nivelar, frutifica até 4 flushs sob L
   assert.equal(tub.monotubCtrl.mixed, true);
   assert.equal(tub.monotubCtrl.leveled, false);
 
+  // Cliques repetidos não podem pular a animação.
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.leveled, false);
+  stepMonotubs(ctx, 1);
+
   // 6. Nivelar o bolo (agora permitido pois já misturou!)
   interactMonotub(ctx, tub);
   assert.equal(tub.monotubCtrl.leveled, true);
 
   // 7. Fechar a tampa e colonizar até 100%
+  interactMonotub(ctx, tub);
+  assert.equal(tub.monotubCtrl.lidOpen, true);
+  stepMonotubs(ctx, 1);
   interactMonotub(ctx, tub);
   assert.equal(tub.monotubCtrl.lidOpen, false);
   for (let i = 0; i < 30; i++) stepMonotubs(ctx, 1.0);
@@ -361,6 +369,10 @@ test('Monotub 24L exige misturar antes de nivelar, frutifica até 4 flushs sob L
     assert.equal(tub.monotubCtrl.onLedRack, true);
     assert.equal(tub.monotubCtrl.fruitingStage, 3, `deve amadurecer no Flush ${f}/4 sob a luz LED`);
     assert.equal(tub.monotubCtrl.flush, f);
+    ctx.heldItem = tub;
+    interactMonotub(ctx, tub);
+    assert.equal(tub.monotubCtrl.fruitingStage, 3, 'mão ocupada não consome a colheita');
+    ctx.heldItem = null;
     interactMonotub(ctx, tub); // Colhe o flush f
   }
 
@@ -512,6 +524,12 @@ test('10 Novas Mecânicas de Imersão: Break & Shake, Flambagem na Lamparina, Mi
   assert.equal(interactSilicaStorageJar(ctx, silicaJar), true);
   assert.equal(silicaJar.silicaJarCtrl.storedGrams, 50);
   assert.equal(ctx.heldItem, null, 'lote desidratado deve entrar no pote hermético');
+
+  silicaJar.silicaJarCtrl.storedGrams = 145;
+  ctx.heldItem = driedBatch;
+  assert.equal(interactSilicaStorageJar(ctx, silicaJar), true);
+  assert.equal(silicaJar.silicaJarCtrl.storedGrams, 145);
+  assert.equal(ctx.heldItem, driedBatch, 'lote inteiro permanece disponível se não couber');
 
   // 6. Sala de Desidratação -> Saco Mylar -> Seladora Térmica -> Caixa de Entrega -> Drive-Thru de Venda na Estrada c/ Carro e NPC!
   const packBag = {

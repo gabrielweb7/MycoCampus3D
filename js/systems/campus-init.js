@@ -3,6 +3,7 @@
  * Cria a cena Three.js, iluminacao, construtores de mundo, entidades e inicia o game loop.
  */
 
+import { createQuickInventory } from './inventory.js';
 import { GAME_CONFIG } from '../core/config.js';
 import { logger } from '../core/logger.js';
 import { CAMPUS_EXPOSURE, getAutoQualityConfig, getSavedQualityMode, qualityState, resetAutoQuality, setAutoQualityScale } from '../core/quality.js';
@@ -50,7 +51,7 @@ import { bindControls } from './input-controller.js';
 import { freezeStaticWorld } from '../engine/scene-optimizer.js';
 import { applyQualityTier, getCinemaHitTarget, startAnimationLoop } from './game-loop.js';
 import { registerCampusPublicApi as bindPublicApi } from './campus-api.js';
-import { restoreLocalWorldObjects } from './world-objects-sync.js';
+import { markItemRemovedForSync, restoreLocalWorldObjects } from './world-objects-sync.js';
 
 const THREE = window.THREE;
 
@@ -73,6 +74,7 @@ const sim = {
   pickableItems: [],
   pickableMap: new Map(),
   remoteHeldIds: new Set(),
+  inventory: createQuickInventory(),
   _stackPhysicsDirty: true,
   wildMushrooms: [],
 
@@ -318,6 +320,8 @@ const sim = {
     return sim._cachedIsTouch;
   },
 
+  markItemRemoved: function (item) { markItemRemovedForSync(sim, item); },
+
   notifyWorldAction: function () {
     if (sim.callbacks.onWorldAction) sim.callbacks.onWorldAction();
   },
@@ -343,6 +347,7 @@ const sim = {
 
   isHeldByRemote: function (itemId) {
     if (!itemId) return false;
+    if (sim.inventory.reserved.has(itemId)) return itemId !== sim.heldItem?.id;
     if (sim.remoteHeldIds && sim.remoteHeldIds.has(itemId)) return true;
     if (sim._remoteHeldSynced) return false;
     for (const k in sim.remoteAvatars) {
@@ -406,7 +411,7 @@ const sim = {
   pickHoveredItemForMove: function (explicitItem) { return pickHoveredItemForMove(sim, explicitItem); },
   toggleHeldItemPlacement: function () { return toggleHeldItemPlacement(sim); },
   cancelHeldItemPlacement: function () { return cancelHeldItemPlacement(sim); },
-  handlePrimaryAction: function () { return handlePrimaryAction(sim); },
+  handlePrimaryAction: function (aimNdc) { return handlePrimaryAction(sim, aimNdc); },
   updateHoverRay: function (customNdc) { return updateHoverRay(sim, customNdc); }
 };
 
@@ -515,8 +520,8 @@ function getWorldBuilderCtx() {
     isTouchDevice: sim.isTouchDevice,
     getHeldItem: function () { return sim.heldItem; },
     isHeldByRemote: sim.isHeldByRemote,
-    registerPickable: function (id, label, mesh, x, y, z, ry, radius, height) {
-      return registerPickable(wbCtx, id, label, mesh, x, y, z, ry, radius, height);
+    registerPickable: function (id, label, mesh, x, y, z, ry, radius, height, meta) {
+      return registerPickable(wbCtx, id, label, mesh, x, y, z, ry, radius, height, meta);
     },
     setHoodAirData: function (h) { sim.hoodAirData = h; },
     ensureThermoTex: function () {

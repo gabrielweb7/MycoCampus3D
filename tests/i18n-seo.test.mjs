@@ -34,14 +34,17 @@ test('i18n: normalizeLang e setLanguage alternam corretamente entre pt-BR, en e 
   setLanguage('en', { persist: false, apply: false });
   assert.equal(getLanguage(), 'en');
   assert.ok(t('lobby.enter_btn').includes('Enter 3D Campus'));
+  assert.equal(t('inventory.title'), 'Quick inventory');
 
   setLanguage('es', { persist: false, apply: false });
   assert.equal(getLanguage(), 'es');
   assert.ok(t('lobby.enter_btn').includes('Entrar al Campus 3D'));
+  assert.equal(t('inventory.title'), 'Inventario rápido');
 
   setLanguage('pt-BR', { persist: false, apply: false });
   assert.equal(getLanguage(), 'pt-BR');
   assert.ok(t('lobby.enter_btn').includes('Entrar no Campus 3D'));
+  assert.equal(t('inventory.title'), 'Inventário rápido');
 });
 
 test('SEO: robots.txt, sitemap.xml e index.html possuem configuração multi-idioma completa', () => {
