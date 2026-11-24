@@ -26,7 +26,14 @@ Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic
 <!-- coderabbit-ai-generated-section:v1:47b16ba38d2ead679a7ae0dcb01b8291a0a7ae0841d7add8ee834564739fcac2 -->
 
 - Compras de insumos registram pagamento e entrega na mesma transação; reenvios após falhas não duplicam a cobrança.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:1cd4e5789d591de14ec95327962a70503167dddf8c9e6c35b33f8c6130ab45d3 -->
+
 - Seis pets inspirados nas referências: três gatos e três cachorros, com modos seguir e passear, animações e sincronização entre jogadores. Potinhos de comida e água e ração de gato ficam disponíveis na loja; os cuidados são persistidos na conta.
+- Maleta comporta ampolas de até 5 ml, com aspiração selecionável usando a seringa e tampa que cobre os frascos; os volumes antigos são preservados.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 <!-- /coderabbit-ai-generated:v1 -->
 

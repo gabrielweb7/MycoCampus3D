@@ -666,6 +666,10 @@ export function handlePrimaryAction(ctx, aimNdc) {
       storeVialInAmpouleCase(ctx, ctx.hoveredAmpouleCaseTarget, ctx.heldItem);
       return;
     }
+    if (ctx.hoveredAmpouleCaseTarget && !ctx.placementMode && ctx.heldItem.mesh?.userData?.isSyringe) {
+      openAmpouleCaseModal(ctx, ctx.hoveredAmpouleCaseTarget);
+      return;
+    }
     if (ctx.hoveredMushroomBagPackTarget && !ctx.placementMode && ctx.heldItem.driedMushroomCtrl) {
       packDriedMushroomsIntoBag(ctx, ctx.hoveredMushroomBagPackTarget, ctx.heldItem);
       return;
@@ -1209,7 +1213,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       if (!cItem.caseCtrl.lidOpen) {
         toggleAmpouleCaseLid(ctx, cItem, true);
         if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('💼 Maleta Porta-Ampolas 3ML aberta! Clique novamente ou aperte [2] para ver as 50 vagas.');
+          ctx.callbacks.onToast('💼 Maleta aberta! Clique novamente ou aperte [2] para ver as 50 vagas.');
         }
       } else {
         openAmpouleCaseModal(ctx, cItem);

@@ -1288,8 +1288,8 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
     }
   }
 
-  // 1b. Segurando Ampola 3ML -> Guardar dentro da Maleta Porta-Ampolas 3ML!
-  if (held.vial3mlCtrl) {
+  // A seringa também pode acessar o catálogo enquanto está na mão.
+  if (held.vial3mlCtrl || held.mesh?.userData?.isSyringe) {
     const caseRes = findPickableHit(ctx, 3.6, (cand) => !!cand.caseCtrl, intersectPickableItem);
     if (caseRes) {
       const cc = caseRes.item.caseCtrl;
@@ -1297,7 +1297,9 @@ function handleAdvancedLabToolsHover(ctx, intersectPickableItem, setHoverPrompt)
       ctx.hoverHit = caseRes.hit;
       ctx.hoveredAmpouleCaseTarget = caseRes.item;
       hidePlacementGhost(ctx);
-      setHoverPrompt(ctx, `💼 Guardar ${held.label} na Maleta Porta-Ampolas (${used}/${cc.maxSlots || 50} vagas)`);
+      setHoverPrompt(ctx, held.vial3mlCtrl
+        ? `💼 Guardar ${held.label} na Maleta Porta-Ampolas (${used}/${cc.maxSlots || 50} vagas)`
+        : '💉 Abrir a maleta e escolher uma ampola para aspirar');
       return true;
     }
   }

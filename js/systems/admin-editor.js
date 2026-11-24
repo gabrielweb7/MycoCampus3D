@@ -171,13 +171,13 @@ export function ensureCoreAdminPrefabs() {
   });
 
   registerItemPrefab('ampoule_case', {
-    label: 'Maleta Porta-Ampolas 3ML (50 Vagas)',
+    label: 'Maleta Porta-Ampolas 5ML (50 Vagas)',
     category: 'equipment',
     factory: (ctx, opts) => makeAmpouleCase(ctx, opts.id || ('dyn_ampoule_case_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
   });
 
   registerItemPrefab('vial_3ml', {
-    label: 'Ampola 3ML',
+    label: 'Ampola 5ML',
     category: 'glassware',
     factory: (ctx, opts) => makeVial3ml(ctx, opts.id || ('dyn_vial3ml_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
   });

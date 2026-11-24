@@ -44,7 +44,7 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_monotub', prefabId: 'monotub_24l', name: 'Caixa Monotub 24L', desc: 'Expanda sua produção com frutificação em massa.', price_coins: 260, icon: '📦' },
   { id: 'sup_dehydrator', prefabId: 'dehydrator', name: 'Desidratadora de Cogumelos', desc: 'Seque mais lotes simultâneos até 0% umidade.', price_coins: 380, icon: '♨️' },
   { id: 'sup_table', prefabId: 'table_stainless', name: 'Bancada Inox (1.6m)', desc: 'Mesa móvel adicional para ampliar seu laboratório.', price_coins: 320, icon: '🛠️' },
-  { id: 'sup_ampoule_case', prefabId: 'ampoule_case', name: 'Maleta Porta-Ampolas 3ML (50 Vagas)', desc: '24 espécies (Cubensis, Comestíveis e Raras) já colonizadas em cultura líquida + 26 vagas extras (máx. 50).', price_coins: 1000, req_xp: 1000, req_mushrooms: 100, icon: '💼' }
+  { id: 'sup_ampoule_case', prefabId: 'ampoule_case', name: 'Maleta Porta-Ampolas 5ML (50 Vagas)', desc: '24 espécies (Cubensis, Comestíveis e Raras) já colonizadas em cultura líquida + 26 vagas extras (máx. 50).', price_coins: 1000, req_xp: 1000, req_mushrooms: 100, icon: '💼' }
 ];
 
 let activeShopTab = 'hats';

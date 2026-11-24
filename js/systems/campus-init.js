@@ -51,7 +51,7 @@ import { bindControls } from './input-controller.js';
 import { freezeStaticWorld } from '../engine/scene-optimizer.js';
 import { applyQualityTier, getCinemaHitTarget, startAnimationLoop } from './game-loop.js';
 import { registerCampusPublicApi as bindPublicApi } from './campus-api.js';
-import { markItemRemovedForSync, restoreLocalWorldObjects } from './world-objects-sync.js';
+import { markItemRemovedForSync, queueItemStateSync, restoreLocalWorldObjects } from './world-objects-sync.js';
 
 const THREE = window.THREE;
 
@@ -321,6 +321,7 @@ const sim = {
   },
 
   markItemRemoved: function (item) { markItemRemovedForSync(sim, item); },
+  queueItemStateSync: function (item) { queueItemStateSync(sim, item); },
 
   notifyWorldAction: function () {
     if (sim.callbacks.onWorldAction) sim.callbacks.onWorldAction();

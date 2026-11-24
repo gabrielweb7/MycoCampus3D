@@ -97,7 +97,7 @@ globalThis.document = {
   getElementById: () => null
 };
 
-test('Maleta Porta-Ampolas 3ML (50 vagas) traz 24 espécies iniciais, respeita 50 vagas e persiste estado', async () => {
+test('Maleta de 5 ml mantém 50 vagas e restaura o volume salvo', async () => {
   const {
     AMPOULE_CASE_MAX_SLOTS,
     AMPOULE_VIAL_MAX_ML,
@@ -108,7 +108,7 @@ test('Maleta Porta-Ampolas 3ML (50 vagas) traz 24 espécies iniciais, respeita 5
   } = await import('../js/items/ampoule-case.js');
 
   assert.equal(AMPOULE_CASE_MAX_SLOTS, 50);
-  assert.equal(AMPOULE_VIAL_MAX_ML, 3);
+  assert.equal(AMPOULE_VIAL_MAX_ML, 5);
   assert.ok(AMPOULE_SPECIES_CATALOG.length >= 24);
   const groups = new Set(AMPOULE_SPECIES_CATALOG.map((s) => s.group));
   assert.ok(groups.has('Cubensis') && groups.has('Comestível') && groups.has('Raro'));
@@ -130,7 +130,7 @@ test('Maleta Porta-Ampolas 3ML (50 vagas) traz 24 espécies iniciais, respeita 5
   assert.ok(vial);
   assert.equal(ctx.heldItem, vial);
   assert.equal(vial.cultureCtrl.colonized, true);
-  assert.equal(vial.mesh.userData.liquidCtrl.maxMl, 3);
+  assert.equal(vial.mesh.userData.liquidCtrl.maxMl, 5);
   assert.equal(caseItem.caseCtrl.slots[0], null);
 
   vial.cultureCtrl.contaminated = true;
@@ -151,9 +151,12 @@ test('Maleta Porta-Ampolas 3ML (50 vagas) traz 24 espécies iniciais, respeita 5
   caseItem.meta.applyState(caseItem, serialized, ctx);
   assert.equal(caseItem.caseCtrl.slots[25].speciesName, 'Cordyceps Militaris');
   assert.equal(caseItem.caseCtrl.slots[49].contaminated, true);
+  serialized.slots[25].volMl = 3;
+  caseItem.meta.applyState(caseItem, serialized, ctx);
+  assert.equal(caseItem.caseCtrl.slots[25].volMl, 3, 'ampolas antigas mantêm seu volume salvo');
 });
 
-test('SHOP_SUPPLIES inclui Maleta Porta-Ampolas 3ML por 1000 Moedas, 1000 XP e 100 Cogumelos', async () => {
+test('SHOP_SUPPLIES inclui maleta por 1000 Moedas, 1000 XP e 100 Cogumelos', async () => {
   const { SHOP_SUPPLIES } = await import('../js/ui/modal-shop.js');
   const sup = SHOP_SUPPLIES.find((s) => s.id === 'sup_ampoule_case');
   assert.ok(sup);

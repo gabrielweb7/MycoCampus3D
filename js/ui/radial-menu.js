@@ -533,7 +533,7 @@ export function showItemStatusCard(item, ctx) {
   }
 
   if (item.vial3mlCtrl) {
-    chips.push({ icon: '🧪', text: `Ampola 3ML (${item.vial3mlCtrl.group || 'Cubensis'})`, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    chips.push({ icon: '🧪', text: `Ampola 5ML (${item.vial3mlCtrl.group || 'Cubensis'})`, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
   }
 
   const med = item.pdaMediumCtrl;

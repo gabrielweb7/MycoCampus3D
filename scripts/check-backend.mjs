@@ -106,6 +106,16 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   assert.equal(initial.ok, true, initial.error);
   assert.equal(initial.objects[purchased.delivery_id].x, 2);
   assert.equal(initial.layout_edits[purchased.delivery_id].prefab_id, 'pp5_cup');
+  const caseId = `dyn_ampoule_case_${suffix}`;
+  const syringeId = `dyn_syringe_${suffix}`;
+  const ampouleSync = post('multiplayer.php', 'sync', { ...session, moved_items: [
+    { id: caseId, prefabId: 'ampoule_case', x: 1, y: 0, z: 1, ry: 0, state: { custom: { lidOpen: true, slots: [{ speciesName: 'QA', group: 'Cubensis', volMl: 1, colonized: true }] } } },
+    { id: syringeId, prefabId: 'syringe_10ml', x: 1, y: 0, z: 2, ry: 0, state: { syringe: { volMl: 4, speciesName: 'QA', mix: { lcMl: 4 } } } }
+  ] });
+  assert.equal(ampouleSync.ok, true, ampouleSync.error);
+  const ampouleRestored = post('multiplayer.php', 'sync', { ...session, init_sync: 1 });
+  assert.equal(ampouleRestored.item_states[caseId].custom.slots[0].volMl, 1);
+  assert.equal(ampouleRestored.item_states[syringeId].syringe.volMl, 4);
   const petSession = { ...petAuth, session_id: `pet_${suffix}` };
   const petSync = post('multiplayer.php', 'sync', { ...petSession, in_fps: true, pet_pose: { id: 'cat_black', x: 3, y: 0, z: 4, yaw: 1, motion: 'walk' } });
   assert.equal(petSync.ok, true, petSync.error);
