@@ -18,7 +18,7 @@ function mp_inventory_kind(PDO $pdo, string $itemId): string {
     if (str_starts_with($itemId, 'pp5_cup_')) return 'pp5';
     if (str_starts_with($itemId, 'spawn_bag')) return 'bag';
     if (str_starts_with($itemId, 'mushroom_pack_bag_')) return 'package';
-    return preg_match('/^(?:syringe_10ml_|scalpel_|spawn_jar|liquid_culture|falcon_(?:15|50)ml_|alcohol_spray|water_spray|h2o2_spray|paper_towel|gloves_box|infrared_thermometer|lab_spoon|parafilm|micropore|foil_roll|wild_picked_|harvest_tub_|harvest_gh_|dried_batch_|vial_?[35]ml_)/', $itemId)
+    return preg_match('/^(?:syringe|scalpel_|spawn_jar|liquid_culture|falcon_(?:15|50)ml_|alcohol_spray|water_spray|h2o2_spray|paper_towel|gloves|infrared_thermometer|lab_spoon|parafilm|micropore|foil_roll|wild_picked_|harvest_tub_|harvest_gh_|dried_batch_|vial_?[35]ml_)/', $itemId)
         ? 'portable' : '';
 }
 
@@ -87,10 +87,10 @@ function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $ho
         $state = $kind !== '' && $result === '' ? mp_clean_item_state($holding, $op['state'] ?? null) : null;
         $decoded = $state !== null ? json_decode($state, true) : [];
         if ($result === '' && $holding !== '') {
-            if ($kind === 'petri' && ($decoded['petri']['lidOpen'] ?? true)) $result = 'open';
-            if ($kind === 'pp5' && ($decoded['spawn']['lidOpen'] ?? true)) $result = 'open';
-            if ($kind === 'package' && (!isset($decoded['custom']) || (!empty($decoded['custom']['filled']) && empty($decoded['custom']['sealed'])))) $result = 'open';
-            if ($kind === 'bag' && (!isset($decoded['spawn']) || (!empty($decoded['spawn']['filled']) && empty($decoded['spawn']['sealed'])))) $result = 'open';
+            if ($kind === 'petri' && !empty($decoded['petri']['lidOpen'])) $result = 'open';
+            if ($kind === 'pp5' && !empty($decoded['spawn']['lidOpen'])) $result = 'open';
+            if ($kind === 'package' && (!empty($decoded['custom']['filled']) && empty($decoded['custom']['sealed']))) $result = 'open';
+            if ($kind === 'bag' && (!empty($decoded['spawn']['filled']) && empty($decoded['spawn']['sealed']))) $result = 'open';
         }
         if ($result === '') {
             if ($holding !== '') {

@@ -79,7 +79,13 @@ export function bindControls(ctx) {
     if (/^Digit[567]$/.test(e.code) && !e.repeat && ctx.inFps && !e.ctrlKey && !e.metaKey) {
       if (window.selectCampusQuickSlot?.(Number(e.code.at(-1)) - 5)) e.preventDefault();
     }
-    if (ctx.inventory?.pending && ['KeyX', 'KeyG', 'KeyQ', 'KeyF', 'Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) return;
+    if (ctx.inventory?.pending) {
+      if (ctx.inventory.pending.createdAt && (performance.now() - ctx.inventory.pending.createdAt > 2500)) {
+        ctx.inventory.pending = null;
+      } else if (['KeyX', 'KeyG', 'KeyQ', 'KeyF', 'KeyZ', 'KeyV', 'Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) {
+        return;
+      }
+    }
     if (e.code === 'KeyX' && !e.repeat) {
       if (ctx.heldItem) {
         if (ctx.placementMode) {
@@ -111,21 +117,36 @@ export function bindControls(ctx) {
         window.inspectCampusHeldItem();
       }
     }
-    if (e.code === 'KeyF' && window.openCampusRadialMenu) {
-      e.preventDefault();
-      window.openCampusRadialMenu();
-    }
-    if ((e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') && !e.repeat && !e.ctrlKey && !e.metaKey) {
-      const idx = parseInt(e.code.charAt(5), 10) - 1;
-      let handledAction = false;
-      if (window.triggerCampusFloatingAction) {
-        handledAction = window.triggerCampusFloatingAction(idx);
-      }
-      if (handledAction) {
+    // Hotbar selection (Minecraft: Digit1, Digit2, Digit3)
+    if ((e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') && !e.repeat && !e.ctrlKey && !e.metaKey) {
+      const slot = parseInt(e.code.charAt(5), 10) - 1;
+      if (ctx.inFps && window.selectCampusQuickSlot) {
         e.preventDefault();
-      } else if (idx < 3 && ctx.inFps && window.selectCampusQuickSlot) {
-        if (window.selectCampusQuickSlot(idx)) {
+        window.selectCampusQuickSlot(slot);
+      }
+    }
+    // Context actions on held item:
+    // KeyF = Action 0 (Open/Close lid, eat, toggle laser, wear gloves, drain)
+    // KeyZ = Action 1
+    // KeyV = Action 2
+    // Digit4 = Action 3
+    if (!e.repeat && !e.ctrlKey && !e.metaKey) {
+      let actIdx = -1;
+      if (e.code === 'KeyF') actIdx = 0;
+      else if (e.code === 'KeyZ') actIdx = 1;
+      else if (e.code === 'KeyV') actIdx = 2;
+      else if (e.code === 'Digit4') actIdx = 3;
+
+      if (actIdx !== -1) {
+        let handledAction = false;
+        if (window.triggerCampusFloatingAction) {
+          handledAction = window.triggerCampusFloatingAction(actIdx);
+        }
+        if (handledAction) {
           e.preventDefault();
+        } else if (e.code === 'KeyF' && window.openCampusRadialMenu) {
+          e.preventDefault();
+          window.openCampusRadialMenu();
         }
       }
     }

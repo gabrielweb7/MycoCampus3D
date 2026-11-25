@@ -26,14 +26,21 @@ function isUsingItem(ctx) {
 export function selectQuickSlot(ctx, slot) {
   const inv = ctx.inventory;
   if (!inv?.ready || !ctx.inFps || ctx.adminEditMode || !Number.isInteger(slot) || slot < 0 || slot > 2) return false;
-  if (inv.pending || slot === inv.active) return false;
+  if (inv.pending) {
+    if (inv.pending.createdAt && (performance.now() - inv.pending.createdAt > 2500)) {
+      inv.pending = null;
+    } else {
+      return false;
+    }
+  }
+  if (slot === inv.active) return false;
   const block = isUsingItem(ctx) ? 'using' : getStorageBlock(ctx.heldItem);
   if (block) {
     ctx.callbacks?.onToast?.(t('inventory.' + block));
     return false;
   }
   const id = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join('');
-  inv.pending = { id, slot, held: ctx.heldItem?.id || '' };
+  inv.pending = { id, slot, held: ctx.heldItem?.id || '', createdAt: performance.now() };
   ctx.notifyWorldAction?.();
   return true;
 }
@@ -89,6 +96,9 @@ export function applyQuickInventory(ctx, snapshot, players, sentHolding, initial
   } else if (!initial && inv.pending && sentHolding === inv.pending.held && sentHolding !== inv.ackHolding) {
     inv.pending = null;
     if (!snapshot.conflict) ctx.callbacks?.onToast?.(t('inventory.large'));
+  }
+  if (inv.pending?.createdAt && (performance.now() - inv.pending.createdAt > 3000)) {
+    inv.pending = null;
   }
   if (snapshot.conflict && sentHolding && ctx.heldItem?.id === sentHolding) {
     changeHand(ctx, null);

@@ -1258,11 +1258,13 @@ export function syncFloatingActions(ctx) {
     container.id = 'myco-item-actions-list';
     barEl.appendChild(container);
   }
+  const ACTION_KEYS = ['F', 'Z', 'V', '4'];
   actions.forEach(function (act, idx) {
+    const keyHint = ACTION_KEYS[idx] || String(idx + 1);
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'myco-float-chip';
-    chip.innerHTML = `<span class="myco-float-key">${idx + 1}</span><span>${act.icon} ${act.label}</span>`;
+    chip.innerHTML = `<span class="myco-float-key">${keyHint}</span><span>${act.icon} ${act.label}</span>`;
     chip.addEventListener('click', function (ev) {
       ev.stopPropagation();
       act.run();
@@ -1295,5 +1297,5 @@ export function openRadialMenu(ctx) {
     return;
   }
   syncFloatingActions(ctx);
-  ctx?.callbacks?.onToast?.('🎯 Pressione o número mostrado na ação que deseja usar (1–4).');
+  ctx?.callbacks?.onToast?.('🎯 Pressione F ou clique na ação desejada.');
 }
