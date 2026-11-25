@@ -62,9 +62,12 @@ if ($action === 'reset_world') {
     }
     mp_inventory_lock($pdo);
     $protectedItems = array_fill_keys($pdo->query('SELECT item_id FROM mc_inventory_slots UNION SELECT item_id FROM mc_village_items')->fetchAll(PDO::FETCH_COLUMN), true);
+    $rentedItems = mc_village_rented_world_item_ids($pdo, time());
+    $protectedItems += array_fill_keys($rentedItems, true);
+    $keepRented = $rentedItems ? ' AND item_id NOT IN (' . implode(',', array_fill(0, count($rentedItems), '?')) . ')' : '';
     foreach (['mc_world_objects', 'mc_world_item_states', 'mc_world_layout_edits'] as $table) {
-        $pdo->exec("DELETE FROM $table WHERE NOT EXISTS (SELECT 1 FROM mc_inventory_slots WHERE mc_inventory_slots.item_id = $table.item_id)
-            AND NOT EXISTS (SELECT 1 FROM mc_village_items WHERE mc_village_items.item_id = $table.item_id)");
+        $pdo->prepare("DELETE FROM $table WHERE NOT EXISTS (SELECT 1 FROM mc_inventory_slots WHERE mc_inventory_slots.item_id = $table.item_id)
+            AND NOT EXISTS (SELECT 1 FROM mc_village_items WHERE mc_village_items.item_id = $table.item_id)" . $keepRented)->execute($rentedItems);
     }
 
     // Se o Admin salvou um layout padrão, restaura tudo para a posição/configuração definida por ele
@@ -94,7 +97,9 @@ if ($action === 'save_world_default') {
         mc_json(['ok' => false, 'error' => 'Acesso restrito a professores e administradores.'], 403);
     }
     $snapshot = is_array($body['items'] ?? null) ? $body['items'] : [];
+    mp_inventory_lock($pdo);
     $protectedItems = array_fill_keys($pdo->query('SELECT item_id FROM mc_village_items')->fetchAll(PDO::FETCH_COLUMN), true);
+    $protectedItems += array_fill_keys(mc_village_rented_world_item_ids($pdo, time()), true);
     $pdo->exec('DELETE FROM mc_admin_layout_defaults');
     $insDef = $pdo->prepare('INSERT INTO mc_admin_layout_defaults (item_id, prefab_id, label, scale, x, y, z, ry, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $insObj = $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)');
@@ -110,6 +115,7 @@ if ($action === 'save_world_default') {
         $x = mp_num($row['x'] ?? 0, MP_WORLD_LIMIT);
         $y = mp_num($row['y'] ?? 0, 50.0);
         $z = mp_num($row['z'] ?? 0, MP_WORLD_LIMIT);
+        if (mc_village_lot_at($x, $z) !== null) continue;
         $ry = mp_num($row['ry'] ?? 0, 1000.0);
         $insDef->execute([$iid, $prefabId, $label, $scale, $x, $y, $z, $ry, $removed]);
         if (!$removed) {
@@ -117,6 +123,7 @@ if ($action === 'save_world_default') {
         }
         $count++;
     }
+    $pdo->commit();
     mc_json(['ok' => true, 'saved_count' => $count]);
 }
 
@@ -129,13 +136,25 @@ if ($action === 'admin_layout_edit') {
     if (!mp_is_allowed_item_id($iid)) {
         mc_json(['ok' => false, 'error' => 'ID de item inválido.'], 400);
     }
-    if (mc_village_item_rows($pdo, [$iid])) {
+    mp_inventory_lock($pdo);
+    $itemLots = mc_village_world_item_lots($pdo, [$iid], (int)$user['id']);
+    $lot = isset($itemLots[$iid]) ? mc_village_read_lot($pdo, $itemLots[$iid]) : null;
+    $now = time();
+    if (mc_village_item_rows($pdo, [$iid]) || ($lot && (int)$lot['expires_at'] > $now && (int)$lot['owner_id'] !== (int)$user['id'])) {
+        $pdo->rollBack();
         mc_json(['ok' => false, 'error' => 'O item pertence a um jogador.'], 403);
     }
     $prefabId = substr(preg_replace('/[^a-zA-Z0-9_]/', '', (string)($body['prefab_id'] ?? '')), 0, 64);
     $label = mb_substr(trim((string)($body['label'] ?? '')), 0, 96);
     $scale = max(0.25, min(4.0, (float)($body['scale'] ?? 1.0)));
     $removed = !empty($body['removed']) ? 1 : 0;
+    $newX = mp_num($body['x'] ?? 0, MP_WORLD_LIMIT);
+    $newZ = mp_num($body['z'] ?? 0, MP_WORLD_LIMIT);
+    $newLotId = mc_village_lot_at($newX, $newZ);
+    if (!$removed && $newLotId !== null && !mc_village_has_lease(mc_village_read_lot($pdo, $newLotId), (int)$user['id'], $now)) {
+        $pdo->rollBack();
+        mc_json(['ok' => false, 'error' => 'Use o modo de posicionamento para colocar itens em um lote alugado.'], 403);
+    }
 
     $pdo->prepare('INSERT INTO mc_world_layout_edits (item_id, prefab_id, label, scale, removed) VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE prefab_id=IF(VALUES(prefab_id)<>"", VALUES(prefab_id), prefab_id), label=VALUES(label), scale=VALUES(scale), removed=VALUES(removed)')
@@ -144,10 +163,11 @@ if ($action === 'admin_layout_edit') {
     if (!$removed && array_key_exists('x', $body) && array_key_exists('y', $body) && array_key_exists('z', $body)) {
         $pdo->prepare('INSERT INTO mc_world_objects (item_id, x, y, z, ry) VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y), z=VALUES(z), ry=VALUES(ry)')
-            ->execute([$iid, mp_num($body['x'], MP_WORLD_LIMIT), mp_num($body['y'], 50.0), mp_num($body['z'], MP_WORLD_LIMIT), mp_num($body['ry'] ?? 0, 1000.0)]);
+            ->execute([$iid, $newX, mp_num($body['y'], 50.0), $newZ, mp_num($body['ry'] ?? 0, 1000.0)]);
     } elseif ($removed) {
         $pdo->prepare('DELETE FROM mc_world_objects WHERE item_id = ?')->execute([$iid]);
     }
+    $pdo->commit();
     mc_json(['ok' => true, 'item_id' => $iid]);
 }
 
@@ -225,18 +245,21 @@ if ($action === 'sync') {
     $candidateIds = [$holding];
     foreach ($incomingItems as $item) if (is_array($item)) $candidateIds[] = $item['id'] ?? null;
     $villageItems = mc_village_item_rows($pdo, $candidateIds);
+    $worldItemLots = mc_village_world_item_lots($pdo, $candidateIds, $userId);
     $villageLots = [];
     $villageNow = time();
     $getLot = static function (int $id) use ($pdo, &$villageLots): ?array {
         if (!array_key_exists($id, $villageLots)) $villageLots[$id] = mc_village_read_lot($pdo, $id);
         return $villageLots[$id];
     };
-    $canAccessItem = static function (string $id) use ($pdo, $villageItems, $getLot, $userId, $villageNow): bool {
-        if (!str_starts_with($id, 'dyn_shop_')) return true;
-        $item = $villageItems[$id] ?? (mc_village_item_rows($pdo, [$id])[$id] ?? null);
-        if (!$item) return true;
-        if ((int)$item['owner_id'] !== $userId || !empty($item['on_sale'])) return false;
-        return mc_village_item_active($item, $item['lot_id'] !== null ? $getLot((int)$item['lot_id']) : null, $villageNow);
+    $canAccessItem = static function (string $id) use ($pdo, $villageItems, $worldItemLots, $getLot, $userId, $villageNow): bool {
+        $item = $villageItems[$id] ?? (str_starts_with($id, 'dyn_shop_') ? (mc_village_item_rows($pdo, [$id])[$id] ?? null) : null);
+        if ($item) {
+            if ((int)$item['owner_id'] !== $userId || !empty($item['on_sale'])) return false;
+            return mc_village_item_active($item, $item['lot_id'] !== null ? $getLot((int)$item['lot_id']) : null, $villageNow);
+        }
+        $lot = isset($worldItemLots[$id]) ? $getLot($worldItemLots[$id]) : null;
+        return !$lot || (int)$lot['expires_at'] <= $villageNow || (int)$lot['owner_id'] === $userId;
     };
     $inventory = mp_inventory_sync($pdo, $userId, $sessionKey, $holding, $initSync, $body, $canAccessItem);
     $holding = $inventory['holding'];
@@ -382,7 +405,7 @@ if ($action === 'sync') {
                 $itemZ = mp_num($item['z'], MP_WORLD_LIMIT);
                 $lotId = mc_village_lot_at($itemX, $itemZ);
                 $targetLot = $lotId !== null ? $getLot($lotId) : null;
-                if ($lotId !== null && (!$villageItem || !mc_village_has_lease($targetLot, $userId, $villageNow))) continue;
+                if ($lotId !== null && !mc_village_has_lease($targetLot, $userId, $villageNow)) continue;
                 if ($villageItem && ($villageItem['lot_id'] === null ? null : (int)$villageItem['lot_id']) !== $lotId) {
                     $moveVillageItem->execute([$lotId, (int)($targetLot['lease_epoch'] ?? 0), $iid, $userId]);
                 }
@@ -642,6 +665,11 @@ if ($action === 'sync') {
                 'z' => (float)$obj['z'],
                 'ry' => (float)$obj['ry'],
             ];
+            $lotId = mc_village_lot_at((float)$obj['x'], (float)$obj['z']);
+            $lot = $lotId !== null ? $getLot($lotId) : null;
+            if ($lot && (int)$lot['expires_at'] > $villageNow && (int)$lot['owner_id'] !== $userId) {
+                $objects->{$itemId}['lot_locked'] = true;
+            }
         }
     }
 

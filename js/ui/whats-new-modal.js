@@ -10,6 +10,11 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.8.3': {
+    title: '✨ MycoCampus3D v2.8.3',
+    subtitleKey: 'news.283.subtitle',
+    items: [{ icon: '📦', key: 'news.283.village' }]
+  },
   '2.8.0': {
     title: '✨ MycoCampus3D v2.8.0',
     subtitleKey: 'news.280.subtitle',

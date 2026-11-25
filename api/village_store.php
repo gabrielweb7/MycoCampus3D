@@ -20,6 +20,35 @@ function mc_village_has_lease(?array $lot, int $userId, int $now): bool {
     return $lot && (int)$lot['owner_id'] === $userId && (int)$lot['expires_at'] > $now;
 }
 
+function mc_village_world_item_lots(PDO $pdo, array $itemIds, int $userId): array {
+    $ids = array_values(array_unique(array_filter($itemIds, static fn($id) => is_string($id) && $id !== '')));
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $bounds = 'w.z BETWEEN 44 AND 94 AND w.x BETWEEN -63 AND 63';
+    $candidates = $ids ? "SELECT w.item_id, w.x, w.z FROM mc_world_objects w WHERE w.item_id IN ($placeholders) AND $bounds UNION ALL " : '';
+    $query = $pdo->prepare($candidates . 'SELECT w.item_id, w.x, w.z FROM mc_inventory_slots s' .
+        " JOIN mc_world_objects w ON w.item_id = s.item_id WHERE s.user_id = ? AND $bounds");
+    $query->execute([...$ids, $userId]);
+    $lots = [];
+    foreach ($query as $item) {
+        $lotId = mc_village_lot_at((float)$item['x'], (float)$item['z']);
+        if ($lotId !== null) $lots[$item['item_id']] = $lotId;
+    }
+    return $lots;
+}
+
+function mc_village_rented_world_item_ids(PDO $pdo, int $now): array {
+    $active = $pdo->prepare('SELECT lot_id FROM mc_village_lots WHERE expires_at > ? AND owner_id IS NOT NULL');
+    $active->execute([$now]);
+    $lotIds = array_fill_keys($active->fetchAll(PDO::FETCH_COLUMN), true);
+    if (!$lotIds) return [];
+    $items = [];
+    foreach ($pdo->query('SELECT item_id, x, z FROM mc_world_objects WHERE z BETWEEN 44 AND 94 AND x BETWEEN -63 AND 63') as $row) {
+        $lotId = mc_village_lot_at((float)$row['x'], (float)$row['z']);
+        if ($lotId !== null && isset($lotIds[$lotId])) $items[] = $row['item_id'];
+    }
+    return $items;
+}
+
 function mc_village_item_rows(PDO $pdo, array $itemIds): array {
     $itemIds = array_values(array_unique(array_filter($itemIds, static fn($id) => is_string($id) && str_starts_with($id, 'dyn_shop_'))));
     if (!$itemIds) return [];

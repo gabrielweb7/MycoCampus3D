@@ -238,6 +238,16 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   const ownerScene = post('multiplayer.php', 'sync', { ...tenant, session_id: `village_owner_${suffix}`, init_sync: 1 });
   assert.equal(ownerScene.layout_edits[protectedId].read_only, false);
   assert.equal(ownerScene.village_lease.id, lot.id);
+  const crate = 'delivery_crate_05';
+  const tenantSession = { ...tenant, session_id: `village_owner_${suffix}` };
+  const cratePlacement = { id: crate, ...delivery, x: delivery.x + 2 };
+  const placedCrate = post('multiplayer.php', 'sync', { ...tenantSession, moved_items: [cratePlacement] });
+  assert.equal(placedCrate.objects[crate]?.x, cratePlacement.x, 'caixa do campus precisa ficar no lote do inquilino');
+  const protectedCrate = post('multiplayer.php', 'sync', { ...visit, inventory_enabled: true, holding_item: crate,
+    moved_items: [{ id: crate, x: 2, y: 0, z: 2, ry: 0 }] });
+  assert.equal(protectedCrate.inventory.conflict, true);
+  assert.equal(protectedCrate.objects[crate].lot_locked, true);
+  assert.equal(protectedCrate.objects[crate].x, cratePlacement.x);
   assert.equal(post('village.php', 'save_note', { ...tenant, note: 'Experimento da vila' }).ok, true);
   assert.equal(post('village.php', 'status', tenant).notebook, 'Experimento da vila');
   assert.notEqual(post('village.php', 'status', auth).notebook, 'Experimento da vila');
@@ -261,6 +271,10 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   execFileSync('php', ['-r', expireLot, path.join(fixture, 'api', 'db.php'), String(lot.id), String(tenant.user_id)], { cwd: fixture, timeout: 15000 });
   assert.ok(post('village.php', 'status', tenant).stored_items.some(row => row.item_id === protectedId));
   assert.equal(post('village.php', 'status', auth).lots.find(row => row.id === lot.id).tenant_name, null);
+  const releasedCrate = post('multiplayer.php', 'sync', { ...visit, inventory_enabled: true, holding_item: crate });
+  assert.equal(releasedCrate.inventory.conflict, false);
+  assert.equal(releasedCrate.objects[crate].lot_locked, undefined);
+  assert.equal(releasedCrate.objects[crate].x, cratePlacement.x);
   assert.equal(post('multiplayer.php', 'sync', visit).layout_edits[protectedId].stored, true);
   const next = available[1];
   const secondLease = post('village.php', 'rent', { ...tenant, lot_id: next.id, days: 1,

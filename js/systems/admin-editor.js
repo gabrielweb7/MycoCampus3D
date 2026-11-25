@@ -311,7 +311,8 @@ export function applyCampusLayoutEdits(sim, layoutEdits) {
 
     if (item) {
       item.isPersonal = !!edit.personal;
-      item.isReadOnly = !!edit.read_only;
+      item._layoutReadOnly = !!edit.read_only;
+      item.isReadOnly = item._layoutReadOnly || !!sim._lastWorldObjectsMap?.[itemId]?.lot_locked;
       const hasDynamicLabel = !!(
         item.spawnCtrl ||
         item.monotubCtrl ||

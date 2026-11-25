@@ -1041,6 +1041,7 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
       }
     }
     if (!item) return;
+    if (!item.isPersonal) item.isReadOnly = !!item._layoutReadOnly || !!sim._lastWorldObjectsMap?.[itemId]?.lot_locked;
     applyReplicatedItemState(sim, item, st);
     const ageSec = itemStateAges && typeof itemStateAges[itemId] === 'number' ? itemStateAges[itemId] : 0;
     if (ageSec > 1 && advanceOfflineItemState(item, ageSec, sim) && sim.markItemMoved) {
@@ -1063,15 +1064,21 @@ export function applyCampusWorldObjects(sim, objectsMap) {
   let anyPositionChanged = false;
 
   sim.pickableItems.forEach(function (item) {
+    const saved = objectsMap[item.id];
+    const lockedByLot = !!saved?.lot_locked;
+    if (!item.isPersonal) item.isReadOnly = !!item._layoutReadOnly || lockedByLot;
     if (!item.mesh.userData.updateBounds || item._removedForSync) return;
     const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
     const isInHeldTray = !!(sim.heldItem && sim.heldItem.trayContents && sim.heldItem.trayContents.some((tc) => tc && tc.item === item));
     const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
-    if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id)) return;
-    if (sim.pendingMovedItems[item.id]) return;
+    if (lockedByLot) {
+      delete sim.pendingMovedItems[item.id];
+      delete sim.recentlyDropped[item.id];
+    } else if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id) || sim.pendingMovedItems[item.id]) {
+      return;
+    }
     if (sim.recentlyDropped[item.id] > now) {
-      const svCheck = objectsMap[item.id];
-      if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.08 && Math.abs(svCheck.y - item.mesh.position.y) < 0.08) {
+      if (saved && Math.hypot(saved.x - item.mesh.position.x, saved.z - item.mesh.position.z) < 0.08 && Math.abs(saved.y - item.mesh.position.y) < 0.08) {
         delete sim.recentlyDropped[item.id];
       } else if (sim.recentlyDropped[item.id] - now < 23500) {
         sim.pendingMovedItems[item.id] = {
@@ -1080,7 +1087,6 @@ export function applyCampusWorldObjects(sim, objectsMap) {
       }
       return;
     }
-    const saved = objectsMap[item.id];
     if (saved) {
       const nextRy = saved.ry || 0;
       const changed = !item.isMoved ||
@@ -1107,14 +1113,18 @@ export function applyCampusWorldObjects(sim, objectsMap) {
 
   sim.pickableItems.forEach(function (item) {
     if (item.mesh.userData.updateBounds || item._removedForSync) return;
+    const saved = objectsMap[item.id];
     const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
     const isInHeldTray = !!(sim.heldItem && sim.heldItem.trayContents && sim.heldItem.trayContents.some((tc) => tc && tc.item === item));
     const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
-    if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id)) return;
-    if (sim.pendingMovedItems[item.id]) return;
+    if (saved?.lot_locked) {
+      delete sim.pendingMovedItems[item.id];
+      delete sim.recentlyDropped[item.id];
+    } else if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id) || sim.pendingMovedItems[item.id]) {
+      return;
+    }
     if (sim.recentlyDropped[item.id] > now) {
-      const svCheck = objectsMap[item.id];
-      if (svCheck && Math.hypot(svCheck.x - item.mesh.position.x, svCheck.z - item.mesh.position.z) < 0.08 && Math.abs(svCheck.y - item.mesh.position.y) < 0.08) {
+      if (saved && Math.hypot(saved.x - item.mesh.position.x, saved.z - item.mesh.position.z) < 0.08 && Math.abs(saved.y - item.mesh.position.y) < 0.08) {
         delete sim.recentlyDropped[item.id];
       } else if (sim.recentlyDropped[item.id] - now < 23500) {
         sim.pendingMovedItems[item.id] = {
@@ -1129,7 +1139,6 @@ export function applyCampusWorldObjects(sim, objectsMap) {
         return;
       }
     }
-    const saved = objectsMap[item.id];
     if (saved) {
       if (item.potItem) {
         const pot = item.potItem;

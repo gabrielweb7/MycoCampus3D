@@ -2,6 +2,10 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.8.3] - 2026-11-25
+
+- Caixas e outros objetos compartilhados do campus podem ser posicionados no próprio lote alugado. Enquanto durar o aluguel, visitantes veem esses objetos e só o inquilino consegue movê-los. Ao vencer o contrato, eles continuam no local e voltam a ficar disponíveis. Compras pessoais continuam protegidas e podem ser recuperadas no depósito.
+
 ## [v2.8.1] - 2026-11-24
 
 - Persistência e encerramento limpo no multiplayer: ao sair ou fechar a aba, a posição do jogador é salva no servidor e a sessão é removida para não deixar avatares fantasmas.

@@ -18,7 +18,8 @@ test('ten walkable village lots face the street and accept placements only from 
     assert.equal(canPlaceVillageItem(lot.x, lot.z, { isPersonal: true }, { id: lot.id }), true);
     assert.equal(canPlaceVillageItem(lot.x, lot.z, { isPersonal: true, isReadOnly: true }, { id: lot.id }), false);
     assert.equal(canPlaceVillageItem(lot.x, lot.z, { isPersonal: true }, { id: 99 }), false);
-    assert.equal(canPlaceVillageItem(lot.x, lot.z, {}, { id: lot.id }), false);
+    assert.equal(canPlaceVillageItem(lot.x, lot.z, { id: 'delivery_crate_05' }, { id: lot.id }), true);
+    assert.equal(canPlaceVillageItem(lot.x, lot.z, { id: 'delivery_crate_05' }, null), false);
   }
   assert.equal(villageLotAt(-13, 54), null);
   assert.equal(villageLotAt(0, 69), null);
