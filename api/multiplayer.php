@@ -243,7 +243,12 @@ if ($action === 'sync') {
     $holding = mp_is_allowed_item_id($holding) ? $holding : '';
     $incomingItems = array_slice(is_array($body['moved_items'] ?? null) ? $body['moved_items'] : [], 0, 300);
     $candidateIds = [$holding];
-    foreach ($incomingItems as $item) if (is_array($item)) $candidateIds[] = $item['id'] ?? null;
+    foreach ($incomingItems as $item) {
+        if (!is_array($item)) continue;
+        $candidateIds[] = $item['id'] ?? null;
+        $crateId = $item['state']['crateCargo']['id'] ?? null;
+        if (is_string($crateId) && mp_is_allowed_item_id($crateId)) $candidateIds[] = $crateId;
+    }
     $villageItems = mc_village_item_rows($pdo, $candidateIds);
     $worldItemLots = mc_village_world_item_lots($pdo, $candidateIds, $userId);
     $villageLots = [];
@@ -389,6 +394,8 @@ if ($action === 'sync') {
         $layoutPlaceholders = [];
         $layoutParams = [];
         $moveVillageItem = $pdo->prepare('UPDATE mc_village_items SET lot_id = ?, lease_epoch = ? WHERE item_id = ? AND owner_id = ?');
+        $cratePrefabs = [];
+        $readCratePrefab = null;
         foreach ($incomingItems as $item) {
             if (!is_array($item)) continue;
             $iid = (string)($item['id'] ?? '');
@@ -399,6 +406,18 @@ if ($action === 'sync') {
             $reservedOwner = $inventory['_reserved_owners'][$iid] ?? null;
             if (($reservedOwner !== null && ($reservedOwner !== $userId || !$inventory['ready'])) ||
                 isset($inventory['_other_held'][$iid])) continue;
+            $crateId = json_decode($itemState ?? '{}', true)['crateCargo']['id'] ?? null;
+            if ($crateId !== null) {
+                if (!$canAccessItem($crateId) || isset($inventory['_other_held'][$crateId])) continue;
+                if (str_starts_with($crateId, 'dyn_')) {
+                    if (!array_key_exists($crateId, $cratePrefabs)) {
+                        $readCratePrefab ??= $pdo->prepare('SELECT prefab_id FROM mc_world_layout_edits WHERE item_id = ? AND removed = 0');
+                        $readCratePrefab->execute([$crateId]);
+                        $cratePrefabs[$crateId] = $readCratePrefab->fetchColumn();
+                    }
+                    if ($cratePrefabs[$crateId] !== 'delivery_crate') continue;
+                }
+            }
 
             if ($reservedOwner === null && array_key_exists('x', $item) && array_key_exists('y', $item) && array_key_exists('z', $item)) {
                 $itemX = mp_num($item['x'], MP_WORLD_LIMIT);

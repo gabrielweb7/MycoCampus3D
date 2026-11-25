@@ -3,7 +3,6 @@ import { getLanguage, t } from '../core/i18n.js';
 let lastSignature = '';
 let bar;
 let buttons;
-let activeLabelEl;
 let nextRender = 0;
 
 export function getItemIcon(item, id) {
@@ -36,7 +35,6 @@ export function renderQuickInventory(ctx) {
     bar = document.getElementById('quick-inventory');
     if (!bar) return;
     buttons = bar.querySelectorAll('button[data-pocket]');
-    activeLabelEl = bar.querySelector('#hotbar-active-label');
   }
   const inv = ctx.inventory;
   const visible = !!(ctx.inFps && inv?.ready && !ctx.adminEditMode);
@@ -58,20 +56,6 @@ export function renderQuickInventory(ctx) {
   bar.setAttribute('aria-busy', String(!!inv.pending));
   const count = bar.querySelector('#inventory-count');
   if (count) count.textContent = String(inv.slots.filter((id, slot) => id && slot !== inv.active).length);
-
-  // Tooltip flutuante do item em mãos (estilo Minecraft)
-  const heldName = ctx.heldItem?.label || '';
-  if (activeLabelEl) {
-    if (heldName) {
-      activeLabelEl.textContent = heldName;
-      activeLabelEl.classList.remove('hidden');
-      activeLabelEl.classList.add('show');
-    } else {
-      activeLabelEl.textContent = '';
-      activeLabelEl.classList.remove('show');
-      activeLabelEl.classList.add('hidden');
-    }
-  }
 
   buttons.forEach((button, slot) => {
     const rawLabel = labels[slot];

@@ -16,6 +16,7 @@ import { setTelescopeZoom } from '../world/plaza-telescope.js';
 import { createMushroomMeshBySpeciesName } from '../world/mushroom-species.js';
 import { terrainHeight } from '../engine/physics.js';
 import { t } from '../core/i18n.js';
+import { freeCrateSlot, loadCrateCargo } from './crate-cargo.js';
 
 function createPersistedMushroomMesh(speciesName, isMagic) {
   const THREE = window.THREE;
@@ -73,7 +74,7 @@ export function spawnPersistedWildMushroom(ctx, pickedId, wildState) {
   return mItem;
 }
 
-async function claimWildMushroom(ctx, mushroom) {
+async function claimWildMushroom(ctx, mushroom, crate) {
   if (mushroom.claimPending || !ctx.callbacks?.onHarvestMushroom) return;
   const species = mushroom.capMesh?.userData.speciesName || 'Cogumelo Selvagem';
   const sourcePos = mushroom.group.getWorldPosition(new window.THREE.Vector3());
@@ -87,6 +88,7 @@ async function claimWildMushroom(ctx, mushroom) {
     mushroom.claimOperationId = 'harvest_' + mushroom.id + '_' + suffix;
   }
   mushroom.claimPending = true;
+  if (crate) crate.deliveryCrateCtrl.harvestPending = true;
   try {
     const reply = await ctx.callbacks.onHarvestMushroom(mushroom.id, { species, pos }, mushroom.claimOperationId);
     if (!reply?.ok) {
@@ -102,23 +104,50 @@ async function claimWildMushroom(ctx, mushroom) {
     mushroom.group.visible = false;
     mushroom.respawnAt = performance.now() + 20000;
     const disc = registerDiscoveredSpecies(species);
-    if (!reply.replayed && !ctx.heldItem && Math.hypot(x - ctx.playerPos.x, z - ctx.playerPos.z) < 5) {
+    const nearby = Math.hypot(x - ctx.playerPos.x, z - ctx.playerPos.z) < 5;
+    const slot = crate && ctx.heldItem === crate && !ctx.placementMode ? freeCrateSlot(crate) : -1;
+    let storedInCrate = false;
+    if (!reply.replayed && nearby && (slot >= 0 || !ctx.heldItem)) {
       const isMagic = mushroom.id.startsWith('wild_poop_') || /Psilocybe|Panaeolus/i.test(species);
       const item = ctx.findPickable?.(reply.picked_id) || spawnPersistedWildMushroom(ctx, reply.picked_id, { speciesName: species, isMagic, grams: 10 });
       item.mesh.position.set(pos.x, pos.y, pos.z);
-      item.wildMushroomCtrl.bodyGroup.rotation.z = 0;
-      item.wildMushroomCtrl.bodyGroup.position.y = 0;
-      ctx.heldItem = item;
-      ctx.lastPickupAt = performance.now();
-      ctx.callbacks.onHoldChange?.(item.label);
+      if (slot >= 0) {
+        loadCrateCargo(ctx, crate, item, slot);
+        ctx.callbacks.onHoldChange?.(crate.label);
+        storedInCrate = true;
+      } else {
+        item.wildMushroomCtrl.bodyGroup.rotation.z = 0;
+        item.wildMushroomCtrl.bodyGroup.position.y = 0;
+        ctx.heldItem = item;
+        ctx.lastPickupAt = performance.now();
+        ctx.callbacks.onHoldChange?.(item.label);
+      }
     }
     window.MycoAudio?.playHarvest?.();
     const summary = disc.isNew ? ' (' + disc.list.length + '/100)' : '';
-    ctx.callbacks.onToast?.('🍄 ' + species + summary);
+    ctx.callbacks.onToast?.(storedInCrate ? t('crate.harvested', { species }) : '🍄 ' + species + summary);
     ctx.notifyWorldAction?.();
   } finally {
     mushroom.claimPending = false;
+    if (crate) crate.deliveryCrateCtrl.harvestPending = false;
   }
+}
+
+export function handleWildHarvest(ctx) {
+  const mushroom = ctx.hoveredMushroom;
+  if (!mushroom?.active) return false;
+  const crate = ctx.heldItem?.deliveryCrateCtrl ? ctx.heldItem : null;
+  if (crate && (mushroom.claimPending || crate.deliveryCrateCtrl.harvestPending)) return true;
+  if (crate && freeCrateSlot(crate) < 0) {
+    ctx.callbacks.onToast?.(t('crate.full'));
+    return true;
+  }
+  if (ctx.heldItem && !crate) {
+    ctx.callbacks.onToast?.('⚠️ Solte ou guarde o item atual antes de colher o cogumelo.');
+    return true;
+  }
+  claimWildMushroom(ctx, mushroom, crate).catch(() => ctx.callbacks.onToast?.(t('harvest.pending')));
+  return true;
 }
 
 export function isSeatOccupied(remoteAvatars, seat) {
@@ -163,16 +192,7 @@ export function handleWorldInteraction(ctx) {
   if (ctx.hoveredGardenTarget) {
     return interactGardenTarget(ctx, ctx.hoveredGardenTarget);
   }
-  if (ctx.hoveredMushroom && ctx.hoveredMushroom.active) {
-    if (ctx.heldItem) {
-      if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('⚠️ Solte ou guarde o item atual antes de colher o cogumelo.');
-      }
-      return true;
-    }
-    claimWildMushroom(ctx, ctx.hoveredMushroom).catch(() => ctx.callbacks.onToast?.(t('harvest.pending')));
-    return true;
-  }
+  if (handleWildHarvest(ctx)) return true;
   if (ctx.hoveredDoorObj) {
     ctx.hoveredDoorObj.open = !ctx.hoveredDoorObj.open;
     ctx.queueWorldStateChange(ctx.hoveredDoorObj.id, ctx.hoveredDoorObj.open ? 1 : 0);

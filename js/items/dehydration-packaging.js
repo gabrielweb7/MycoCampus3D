@@ -16,7 +16,9 @@
  */
 
 import { makeBox, brickMat, woodMat, updateTextSprite } from '../engine/textures.js';
-import { getCachedCanvasTexture, registerPickable, disposeObjectResources, updateItemBounds } from './item-registry.js';
+import { getCachedCanvasTexture, registerPickable, disposeObjectResources, updateItemBounds, getItemWeightGrams } from './item-registry.js';
+import { CRATE_WIDTH, CRATE_HEIGHT, CRATE_DEPTH, cratePackMask, freeCrateSlot } from '../systems/crate-cargo.js';
+import { t } from '../core/i18n.js';
 import { addWallLabBench } from './laminar-hood.js';
 import { addMovableStainlessTable } from './stainless-table.js';
 import { buildCuteAvatar, drawAvatarFace } from '../entities/avatars.js';
@@ -447,18 +449,21 @@ export function updateDeliveryCrateVisual(item) {
   if (!item || !item.deliveryCrateCtrl) return;
   const cc = item.deliveryCrateCtrl;
   if (cc.packMeshes) {
+    const mask = cratePackMask(item);
     for (let i = 0; i < cc.packMeshes.length; i++) {
-      cc.packMeshes[i].visible = i < cc.packsCount;
+      const pack = cc.packMeshes[i];
+      const visible = !!(mask & (1 << i));
+      pack.visible = visible;
+      pack.traverse(part => { part.userData.hiddenCratePack = !visible; });
     }
   }
-  const valueCoins = cc.packsCount * MYCOCOIN_PRICE_PER_PACK;
-  if (cc.packsCount === 0) {
-    item.label = `📤 Caixa de Entrega Comercial (Vazia • 0/${DELIVERY_CRATE_MAX_PACKS} pacotes selados)`;
-  } else if (cc.packsCount >= DELIVERY_CRATE_MAX_PACKS) {
-    item.label = `📤 Caixa de Entrega CHEIA (${cc.packsCount}/${DELIVERY_CRATE_MAX_PACKS} pacotes • Valor: 🪙 ${valueCoins} MycoCoins — Leve à Estrada!)`;
-  } else {
-    item.label = `📤 Caixa de Entrega (${cc.packsCount}/${DELIVERY_CRATE_MAX_PACKS} pacotes • Valor: 🪙 ${valueCoins} MycoCoins — Leve à Estrada ou adicione mais)`;
-  }
+  const cargo = item.trayContents || [];
+  const fresh = cargo.filter(({ item: content }) => content.wildMushroomCtrl).length;
+  const details = [];
+  if (cc.packsCount) details.push(t('crate.packs', { count: cc.packsCount }));
+  if (fresh) details.push(t('crate.fresh', { count: fresh }));
+  if (cargo.length > fresh) details.push(t('crate.items', { count: cargo.length - fresh }));
+  item.label = `📦 ${t('crate.name')} • ${details.join(' · ') || t('crate.empty')}`;
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
 }
 
@@ -480,9 +485,9 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
   const pineMat = new THREE.MeshStandardMaterial({ map: pineWoodTex, roughness: 0.78 });
   const postMat = new THREE.MeshStandardMaterial({ color: 0xc8a46e, roughness: 0.85 });
 
-  const W = 0.42;
-  const H = 0.165;
-  const D = 0.36;
+  const W = CRATE_WIDTH;
+  const H = CRATE_HEIGHT;
+  const D = CRATE_DEPTH;
 
   // Fundo ripado (3 ripas de madeira no fundo)
   for (let b = 0; b < 3; b++) {
@@ -538,8 +543,9 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
     0.18,
     {
       category: 'packaging',
-      purpose: 'Caixa de expedição para acomodar até 4 pacotes selados de cogumelos desidratados e levar ao Ponto de Venda na Estrada',
-      getWeightGrams: (it) => getDeliveryCrateWeight(it?.deliveryCrateCtrl),
+      purpose: t('crate.purpose'),
+      getWeightGrams: (it) => getDeliveryCrateWeight(it?.deliveryCrateCtrl) +
+        (it?.trayContents || []).reduce((weight, cargo) => weight + getItemWeightGrams(cargo.item), 0),
       compatibilities: {
         canEnterCooker: false,
         isDeliveryCrate: true
@@ -555,10 +561,10 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
       },
       applyState: (it, custom) => {
         const cc = it && it.deliveryCrateCtrl;
-        if (!cc || !custom) return;
+        if (!cc || !custom || !Object.hasOwn(custom, 'packsCount')) return;
         cc.packsCount = Math.max(0, Math.min(DELIVERY_CRATE_MAX_PACKS, Math.round(Number(custom.packsCount) || 0)));
-        if (Array.isArray(custom.speciesList)) cc.speciesList = custom.speciesList.slice(0, DELIVERY_CRATE_MAX_PACKS);
-        if (Array.isArray(custom.gramsList)) cc.gramsList = custom.gramsList.slice(0, DELIVERY_CRATE_MAX_PACKS);
+        cc.speciesList = Array.isArray(custom.speciesList) ? custom.speciesList.slice(0, cc.packsCount) : [];
+        cc.gramsList = Array.isArray(custom.gramsList) ? custom.gramsList.slice(0, cc.packsCount) : [];
         updateDeliveryCrateVisual(it);
       }
     }
@@ -589,18 +595,18 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
     if (onToast) onToast('⚠️ Sele primeiro o saco na Seladora Térmica antes de colocar na Caixa de Entrega!');
     return true;
   }
-  if (cc.packsCount >= DELIVERY_CRATE_MAX_PACKS) {
-    if (onToast) onToast(`📦 Esta Caixa de Entrega já está cheia (${DELIVERY_CRATE_MAX_PACKS}/${DELIVERY_CRATE_MAX_PACKS})! Leve-a para o Ponto de Venda na Estrada lá fora!`);
+  if (freeCrateSlot(crateItem) < 0) {
+    if (onToast) onToast(t('crate.full'));
     return true;
   }
 
-  cc.packsCount++;
   cc.speciesList = Array.isArray(cc.speciesList) ? cc.speciesList : [];
-  cc.speciesList.push(bc.speciesName || '');
   cc.gramsList = Array.isArray(cc.gramsList) ? cc.gramsList : [];
-  cc.gramsList.push(Math.max(1, Math.round(Number(bc.grams) || 10)));
+  cc.speciesList[cc.packsCount] = bc.speciesName || '';
+  cc.gramsList[cc.packsCount] = Math.max(1, Math.round(Number(bc.grams) || 10));
+  cc.packsCount++;
   updateDeliveryCrateVisual(crateItem);
-  if (ctx && ctx.markItemMoved) ctx.markItemMoved(crateItem);
+  ctx?.queueItemStateSync?.(crateItem);
   bagItem._removedForSync = true;
   if (ctx && ctx.pendingMovedItems && bagItem.id) {
     ctx.pendingMovedItems[bagItem.id] = {
@@ -1166,7 +1172,7 @@ export function interactRoadsideStand(ctx) {
     held.deliveryCrateCtrl.packsCount = 0;
     updateDeliveryCrateVisual(held);
     syncRoadStandVisual();
-    if (ctx && ctx.markItemMoved) ctx.markItemMoved(held);
+    ctx?.queueItemStateSync?.(held);
     if (ctx && ctx.queueWorldStateChange) {
       ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
     }
@@ -1360,7 +1366,7 @@ export function stepRoadsideMushroomSales(ctx, dt) {
           if (Array.isArray(cs) && cs.length) soldSpecies = cs.shift() || '';
           if (Array.isArray(cg) && cg.length) soldGrams = Number(cg.shift()) || 10;
           updateDeliveryCrateVisual(entry.item);
-          if (ctx && ctx.markItemMoved) ctx.markItemMoved(entry.item);
+          ctx?.queueItemStateSync?.(entry.item);
           soldOne = true;
         } else {
           const soldIt = entry.item;

@@ -51,21 +51,12 @@ function ensureFloatingStyles() {
   const st = document.createElement('style');
   st.textContent = `
     #myco-floating-actions {
-      position: fixed;
-      left: 50%;
-      bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-      transform: translateX(-50%);
-      z-index: 26;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 6px;
-      max-width: 92vw;
+      max-width: 100%;
       pointer-events: auto;
-      transition: bottom 0.18s ease;
-    }
-    #myco-floating-actions.with-held-item {
-      bottom: calc(118px + env(safe-area-inset-bottom, 0px));
     }
     #myco-floating-actions.hidden { display: none; }
     .myco-float-chip {
@@ -103,13 +94,6 @@ function ensureFloatingStyles() {
     body.device-touch .myco-float-chip {
       min-height: 44px;
       padding: 5px 8px;
-    }
-    body.device-touch #myco-floating-actions {
-      width: max-content;
-      max-width: min(58vw, 360px);
-    }
-    body.device-touch.device-phone #myco-floating-actions.with-held-item {
-      bottom: calc(138px + env(safe-area-inset-bottom, 0px));
     }
     .myco-float-key {
       display: inline-flex;
@@ -1217,9 +1201,6 @@ export function syncFloatingActions(ctx) {
     return;
   }
 
-  if (barEl) {
-    barEl.classList.toggle('with-held-item', !!ctx.heldItem);
-  }
   const touch = !!ctx.isTouchDevice?.();
   const sig = `${touch ? 'touch:' : ''}${actions.map((action) => action.id).join('|')}`;
   currentActions = actions;
@@ -1230,9 +1211,8 @@ export function syncFloatingActions(ctx) {
   if (!barEl) {
     barEl = document.createElement('div');
     barEl.id = 'myco-floating-actions';
-    document.body.appendChild(barEl);
+    document.getElementById('bottom-hud-controls').prepend(barEl);
   }
-  barEl.classList.toggle('with-held-item', !!ctx.heldItem);
   barEl.classList.remove('hidden');
   barEl.replaceChildren();
 

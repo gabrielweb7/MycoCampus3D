@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.8.3">
+  <link rel="stylesheet" href="css/game.css?v=2.8.4">
 </head>
 
 <body>
@@ -203,7 +203,7 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.8.3</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.8.4</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -340,15 +340,18 @@
       <button id="btn-exit-admin-edit" type="button"
         class="px-2 py-0.5 rounded-full bg-amber-500/20 hover:bg-amber-500/40 text-amber-100 border border-amber-400/50">Sair</button>
     </div>
+    <div id="bottom-hud">
+    <div id="bottom-hud-controls">
     <div id="held-item-bar"
-      class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 glass-panel rounded-2xl px-3.5 py-1.5 z-28 max-w-[94vw] flex items-center gap-2.5 border border-emerald-500/50 shadow-2xl backdrop-blur-md">
-      <div class="flex items-center gap-1.5 pr-2 border-r border-slate-700/80 min-w-0">
+      class="hidden glass-panel rounded-2xl px-3.5 py-1.5 flex items-center gap-2.5 border border-emerald-500/50 shadow-2xl backdrop-blur-md">
+      <div class="held-item-description flex items-center gap-1.5 min-w-0">
         <span class="text-base sm:text-lg shrink-0">📦</span>
         <div class="text-left leading-tight min-w-0">
           <div class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Em Mãos</div>
-          <div id="held-item-bar-name" class="text-xs sm:text-sm font-extrabold text-emerald-300 whitespace-normal break-words max-w-[220px] sm:max-w-[300px]">Item</div>
+          <div id="held-item-bar-name" class="text-xs sm:text-sm font-extrabold text-emerald-300">Item</div>
         </div>
       </div>
+      <div class="held-item-buttons">
       <button id="btn-held-drop" type="button" title="Largar item no chão (X)"
         class="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 flex items-center gap-1 active:scale-95 transition-all">
         <span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[X]</span>
@@ -364,11 +367,12 @@
         <span class="hidden sm:inline bg-slate-900/80 text-sky-300 px-1 py-0.2 rounded text-[10px] font-mono border border-sky-500/30">[R]</span>
         🔄 Girar
       </button>
+      </div>
     </div>
 
     <!-- Emotes Quick Bar -->
     <div id="emote-bar"
-      class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 glass-panel rounded-full px-3 py-1.5 z-30 shadow-2xl border border-purple-500/40">
+      class="hidden pointer-events-auto flex flex-wrap justify-center items-center gap-1.5 glass-panel rounded-2xl px-3 py-1.5 shadow-2xl border border-purple-500/40">
       <button type="button" data-i18n="hud.emote_wave"
         class="emote-btn px-2.5 py-1 rounded-full bg-slate-800/80 hover:bg-purple-600/80 text-white text-xs font-bold transition flex items-center gap-1"
         data-emote="wave">👋 Acenar</button>
@@ -385,6 +389,7 @@
         title="Fechar barra de emotes">✕</button>
     </div>
 
+    </div>
     <!-- Dedicated Minecraft-Style Hotbar (PC & Mobile) -->
     <div id="quick-inventory" class="hidden minecraft-hotbar" role="group" aria-label="Inventário rápido">
       <div id="hotbar-slots" class="hotbar-slots">
@@ -407,9 +412,9 @@
           <span class="inventory-item">Vazio</span>
         </button>
       </div>
-      <div id="hotbar-active-label" class="hotbar-active-label"></div>
       <button type="button" id="inventory-toggle" class="hidden" style="display:none!important;" aria-hidden="true"></button>
       <span id="inventory-count" class="hidden" style="display:none!important;" aria-hidden="true">0</span>
+    </div>
     </div>
 
     <!-- Bottom Center Chat Bar & Mobile Toggle -->
@@ -934,9 +939,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.8.3';</script>
+  <script>window.MYCO_VERSION = '2.8.4';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.8.3"></script>
+  <script type="module" src="js/main.js?v=2.8.4"></script>
 </body>
 
 </html>

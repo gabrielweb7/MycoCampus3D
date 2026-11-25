@@ -17,11 +17,13 @@ import {
   beginHeldItemPlacement,
   cancelHeldItemPlacement,
   commitHeldItemPlacement,
+  placeHeldInCrate,
   setHeldTwoHandedGhost,
   updateHeldItemPlacementPreview
 } from './held-item-placement.js';
 import { triggerMagicCubensisEffect } from './mycoteca.js';
-import { handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
+import { handleWildHarvest, handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
+import { removeCrateCargo } from './crate-cargo.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
 import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
 import { discardHeldLiquid } from './liquid-disposal.js';
@@ -56,7 +58,6 @@ import {
 import {
   packDriedMushroomsIntoBag,
   sealMushroomBag,
-  addSealedBagToDeliveryCrate,
   interactRoadsideStand
 } from '../items/dehydration-packaging.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
@@ -303,6 +304,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
     if (ctx.placementMode) {
       if (!ctx.placementGhost) return;
       if (!updateHeldItemPlacementPreview(ctx, aimNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc)) || !ctx.placementValid) return false;
+      if (ctx.cratePlacementTarget) return placeHeldInCrate(ctx, ctx.cratePlacementTarget);
       return commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
     }
     if (ctx.hoveredPdaTarget) {
@@ -678,7 +680,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       return;
     }
     if (ctx.hoveredDeliveryCrateTarget && !ctx.placementMode && ctx.heldItem.mushroomBagCtrl) {
-      addSealedBagToDeliveryCrate(ctx, ctx.hoveredDeliveryCrateTarget, ctx.heldItem);
+      placeHeldInCrate(ctx, ctx.hoveredDeliveryCrateTarget);
       return;
     }
     if (ctx.hoveredRoadSaleStand && !ctx.placementMode) {
@@ -1180,6 +1182,8 @@ export function handlePrimaryAction(ctx, aimNdc) {
       ctx.interactGreenhouseSlot(ctx.hoveredGreenhouseSlot);
       return;
     }
+    if (!ctx.adminEditMode && ctx.heldItem.deliveryCrateCtrl && handleWildHarvest(ctx)) return true;
+    if (ctx.hoveredCratePlacement) return placeHeldInCrate(ctx, ctx.hoveredCratePlacement);
     if (!ctx.placementMode && tryPlaceHeldOnAimedSurface(ctx, aimNdc)) {
       return;
     }
@@ -1236,6 +1240,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
 function pickUpTargetItem(ctx, targetItem, startPlacement) {
   if (ctx.inventory?.pending) return false;
   if (!ctx || !targetItem || targetItem.isReadOnly) return false;
+  if (targetItem.crateParent && (targetItem.crateParent.isReadOnly || ctx.isHeldByRemote(targetItem.crateParent.id))) return false;
   if (!ctx.adminEditMode && targetItem.mesh.userData.isBlockedPickup && targetItem.mesh.userData.isBlockedPickup(targetItem)) {
     if (ctx.callbacks.onToast) {
       ctx.callbacks.onToast(targetItem.mesh.userData.isBurner
@@ -1287,7 +1292,8 @@ function pickUpTargetItem(ctx, targetItem, startPlacement) {
       }
     }
   }
-  targetItem.trayContents = null;
+  removeCrateCargo(ctx, targetItem, true);
+  if (!targetItem.deliveryCrateCtrl) targetItem.trayContents = null;
   if (ctx.adminEditMode && targetItem.mesh &&
       (targetItem.mesh.userData.dynamicSurface || targetItem.mesh.userData.dynamicSurfaces)) {
     const hostMesh = targetItem.mesh;

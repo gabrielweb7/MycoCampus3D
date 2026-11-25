@@ -4,7 +4,8 @@
  */
 
 import { cancelHeldItemPlacement, updateHeldItemPlacementPreview } from './held-item-placement.js';
-import { resolveHeldItemHover, isRayOccludedByStructure, firstUnoccludedRayHit } from './hover-held-handlers.js';
+import { resolveHeldItemHover } from './hover-held-handlers.js';
+import { isRayOccludedByStructure, firstUnoccludedRayHit } from './ray-occlusion.js';
 import { isSeatOccupied } from './world-interactions.js';
 import {
   greenhouseHitMeshes,
@@ -22,6 +23,7 @@ import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '..
 import { getMonotubActionLabel } from '../items/monotub.js';
 import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 import { t } from '../core/i18n.js';
+import { cratePlacementError, findAimedCrate, freeCrateSlot } from './crate-cargo.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
@@ -51,6 +53,7 @@ function resolveHoverTargetObj(ctx) {
     ctx.hoveredDriedBatchForBag ||
     ctx.hoveredMushroomBagSealTarget ||
     ctx.hoveredDeliveryCrateTarget ||
+    ctx.hoveredCratePlacement ||
     (ctx.hoveredRoadSaleStand ? { label: '🚗 Quiosque Drive-Thru MycoCampus (Estrada Sul)' } : null) ||
     ctx.hoveredMonotubTarget ||
     ctx.hoveredDehydratorTarget ||
@@ -155,7 +158,8 @@ function setHoverPrompt(ctx, prompt) {
 
 export function firstValidRayHit(hits) {
   for (let hi = 0; hi < hits.length; hi++) {
-    if (!hits[hi].object.userData.ignoreRay) return hits[hi];
+    const data = hits[hi].object.userData;
+    if (!data.ignoreRay && !data.hiddenCratePack) return hits[hi];
   }
   return null;
 }
@@ -235,6 +239,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredDriedBatchForBag = null;
   ctx.hoveredMushroomBagSealTarget = null;
   ctx.hoveredDeliveryCrateTarget = null;
+  ctx.hoveredCratePlacement = null;
   ctx.hoveredRoadSaleStand = false;
   ctx.hoveredTelescope = false;
   let prompt = '';
@@ -254,6 +259,15 @@ export function updateHoverRay(ctx, customNdc) {
     return;
   }
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
+  if (ctx.heldItem && !ctx.adminEditMode) {
+    const crate = findAimedCrate(ctx, rayNdc);
+    if (crate) {
+      ctx.hoveredCratePlacement = crate;
+      const slot = freeCrateSlot(crate, ctx.heldItem);
+      setHoverPrompt(ctx, cratePlacementError(crate, ctx.heldItem, slot) || t('crate.place'));
+      return;
+    }
+  }
 
   if (!ctx.heldItem && ctx.rankingBtnMeshes.length && (!ctx.inFps || (Math.abs(refX) < 30 && refZ < 16))) {
     const rHits = ctx.raycaster.intersectObjects(ctx.rankingBtnMeshes, false);
@@ -430,7 +444,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
   const maxMushSq = ctx.inFps ? 24 : 225;
-  if (!prompt && !ctx.heldItem) {
+  if (!prompt && (!ctx.heldItem || (ctx.heldItem.deliveryCrateCtrl && !ctx.adminEditMode))) {
     for (let m = 0; m < ctx.wildMushrooms.length; m++) {
       const wm = ctx.wildMushrooms[m];
       if (!wm.active) continue;
@@ -444,9 +458,14 @@ export function updateHoverRay(ctx, customNdc) {
         ctx.hoveredMushroom = wm;
         const isPoop = wm.id && wm.id.indexOf('wild_poop_') === 0;
         const spLabel = (wm.capMesh && wm.capMesh.userData && wm.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
-        prompt = isPoop
-          ? `🍄 Comer / Colher ${spLabel} (+40 XP • +1 Cogu)`
-          : `🍄 Colher ${spLabel} (+25 XP • +1 Cogu)`;
+        const crate = ctx.heldItem;
+        if (crate) {
+          prompt = freeCrateSlot(crate) < 0 ? t('crate.full') : t('crate.harvest', { species: spLabel });
+        } else {
+          prompt = isPoop
+            ? `🍄 Comer / Colher ${spLabel} (+40 XP • +1 Cogu)`
+            : `🍄 Colher ${spLabel} (+25 XP • +1 Cogu)`;
+        }
         break;
       }
     }
@@ -484,6 +503,7 @@ export function updateHoverRay(ctx, customNdc) {
       if (item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem) ||
         !isCultureAccessibleFromFridge(ctx, item) || isItemInClosedCabinet(ctx, item)) continue;
       if (ctx.isHeldByRemote(item.id)) continue;
+      if (item.crateParent && (item.crateParent.isReadOnly || ctx.isHeldByRemote(item.crateParent.id))) continue;
       const idx = item.mesh.position.x - refX, idz = item.mesh.position.z - refZ;
       const dSq = idx * idx + idz * idz;
       if (dSq > maxPickSq) continue;

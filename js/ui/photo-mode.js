@@ -9,11 +9,10 @@ const HUD_TOGGLE_IDS = [
   'chat-container',
   'mobile-actions',
   'mobile-joystick-zone',
-  'held-item-bar',
+  'bottom-hud',
   'crosshair',
   'floating-interact-btn',
-  'interact-pill',
-  'myco-floating-actions'
+  'interact-pill'
 ];
 
 let photoModeActive = false;

@@ -147,6 +147,18 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     $clean = [];
     $isDyn = strpos($itemId, 'dyn_') === 0;
 
+    if (array_key_exists('crateCargo', $raw)) {
+        $cargo = $raw['crateCargo'];
+        if ($cargo === null) {
+            $clean['crateCargo'] = null;
+        } elseif (is_array($cargo) && isset($cargo['id'], $cargo['slot']) &&
+            is_string($cargo['id']) && $cargo['id'] !== $itemId && mp_is_allowed_item_id($cargo['id']) &&
+            (strpos($cargo['id'], 'delivery_crate_') === 0 || strpos($cargo['id'], 'dyn_') === 0) &&
+            is_int($cargo['slot']) && $cargo['slot'] >= 0 && $cargo['slot'] <= 8) {
+            $clean['crateCargo'] = ['id' => $cargo['id'], 'slot' => $cargo['slot']];
+        }
+    }
+
     $hasItemState = $isDyn || strpos($itemId, 'spawn_') === 0 || strpos($itemId, 'pp5_cup_') === 0 ||
         strpos($itemId, 'petri_') === 0 ||
         strpos($itemId, 'pda_bottle') === 0 || strpos($itemId, 'pda_media_bottle_') === 0 ||

@@ -23,6 +23,7 @@ import { makeDriedMushroomBatch } from '../items/lab-advanced-tools.js';
 import { makeSpentCakeItem, updateMonotubVisual } from '../items/monotub.js';
 import { updateDehydratorVisual, DEHYDRATOR_DRY_SECONDS } from '../items/dehydrator.js';
 import { makeOrganicGardenBasket } from '../world/campus-garden.js';
+import { rebuildCrateCargo, removeCrateCargo } from './crate-cargo.js';
 
 const LOCAL_MOVED_STORAGE_KEY = 'myco_local_world_objects_v1';
 let localMovedCache = null;
@@ -159,6 +160,7 @@ function spawnDynamicItemFromCustom(sim, itemId, custom, pose) {
 
 function removeItemInstanceLocally(sim, item) {
   if (!item) return;
+  removeCrateCargo(sim, item);
   item._removedForSync = true;
   if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
   disposeObjectResources(item.mesh);
@@ -215,6 +217,7 @@ export function restoreLocalWorldObjects(sim) {
     const item = sim.findPickable ? sim.findPickable(itemId) : null;
     if (item) applyReplicatedItemState(sim, item, saved.state);
   });
+  rebuildCrateCargo(sim);
 }
 
 export function markCampusInitialItemStatesApplied(sim) {
@@ -231,6 +234,7 @@ export function markCampusInitialItemStatesApplied(sim) {
 
 function hasPotentiallyReplicableState(item, sim, now) {
   if (!item || !item.mesh) return false;
+  if (item.crateCargo !== undefined) return true;
   if ((item.sanitizedUntil || 0) > now) return true;
   if (sim.itemStateSignatures && sim.itemStateSignatures[item.id]) return true;
   if (item._hasStaticStateCtrl !== undefined) return item._hasStaticStateCtrl;
@@ -310,6 +314,7 @@ export function requeueCampusMovedItems(sim, list) {
 export function getReplicatedItemState(sim, item) {
   if (!item || !item.mesh) return null;
   const state = {};
+  if (item.crateCargo !== undefined) state.crateCargo = item.crateCargo;
   const meshData = item.mesh.userData || {};
   const spawn = item.spawnCtrl || meshData.spawnCtrl;
   if (spawn) {
@@ -533,6 +538,11 @@ export function getReplicatedItemState(sim, item) {
 
 export function applyReplicatedItemState(sim, item, state) {
   if (!item || !state || typeof state !== 'object') return;
+  if (Object.hasOwn(state, 'crateCargo') && !sim.pendingMovedItems?.[item.id]) {
+    const ref = state.crateCargo;
+    item.crateCargo = ref && typeof ref.id === 'string' && ref.id !== item.id &&
+      Number.isInteger(ref.slot) && ref.slot >= 0 && ref.slot <= 8 ? ref : null;
+  }
   if (typeof state.customTag === 'string') {
     item.customTag = state.customTag.trim().slice(0, 32);
   }
@@ -1051,6 +1061,7 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
     const currentState = getReplicatedItemState(sim, item);
     if (currentState) sim.itemStateSignatures[itemId] = JSON.stringify(currentState);
   });
+  rebuildCrateCargo(sim);
   if (spawnedPlaced) {
     sim._stackPhysicsDirty = true;
     markItemsFalling(sim);
@@ -1187,6 +1198,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
       anyPositionChanged = true;
     }
   });
+  rebuildCrateCargo(sim);
   flushLocalMovedObjects();
   if (anyPositionChanged) {
     sim._stackPhysicsDirty = true;
@@ -1226,6 +1238,7 @@ export function resetCampusWorldObjects(sim) {
     updateCookerWaterVisual(cp);
   }
   sim.pickableItems.forEach(function (item) {
+    removeCrateCargo(sim, item);
     if (sim.inventory?.reserved.has(item.id)) return;
     item.mesh.position.copy(item.homePos);
     item.mesh.rotation.y = item.homeRy;

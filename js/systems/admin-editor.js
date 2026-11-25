@@ -22,6 +22,7 @@ import { makeMonotub24L } from '../items/monotub.js';
 import { makeSilicaStorageJar } from '../items/lab-advanced-tools.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
 import { makeMushroomBag, makeDeliveryCrate } from '../items/dehydration-packaging.js';
+import { rebuildCrateCargo, removeCrateCargo } from './crate-cargo.js';
 import { makeSyringe10ml } from '../items/syringe.js';
 import { makeFlocao500g } from '../items/flocao-corn.js';
 import { makeAmpouleCase, makeVial3ml } from '../items/ampoule-case.js';
@@ -251,6 +252,10 @@ function removeFromArray(arr, val) {
 
 function removeItemLocally(sim, item) {
   if (!item || item._adminRemoved) return;
+  removeCrateCargo(sim, item);
+  for (const cargo of item.deliveryCrateCtrl ? [...(item.trayContents || [])] : []) {
+    removeCrateCargo(sim, cargo.item);
+  }
   item._adminRemoved = true;
   if (sim.heldItem === item) sim.heldItem = null;
   if (item.mesh) {
@@ -315,6 +320,7 @@ export function applyCampusLayoutEdits(sim, layoutEdits) {
       item.isReadOnly = item._layoutReadOnly || !!sim._lastWorldObjectsMap?.[itemId]?.lot_locked;
       const hasDynamicLabel = !!(
         item.spawnCtrl ||
+        item.deliveryCrateCtrl ||
         item.monotubCtrl ||
         item.bowlCtrl ||
         (item.mesh && item.mesh.userData && (
@@ -333,6 +339,7 @@ export function applyCampusLayoutEdits(sim, layoutEdits) {
       }
     }
   });
+  rebuildCrateCargo(sim);
   sim._stackPhysicsDirty = true;
   markItemsFalling(sim);
 }

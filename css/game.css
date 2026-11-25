@@ -648,6 +648,8 @@ body.device-touch #item-status-card {
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(52, 211, 153, 0.45);
   white-space: normal;
+  max-height: 60px;
+  overflow-y: auto;
 }
 
 body.device-phone #crosshair {
@@ -877,16 +879,65 @@ body.device-desktop #btn-mobile-chat-toggle {
   border-color: rgba(148, 163, 184, 0.75);
 }
 
+#bottom-hud {
+  --hud-bottom: 12px;
+  --hud-safe-bottom: env(safe-area-inset-bottom, 0px);
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--hud-bottom) + var(--hud-safe-bottom));
+  transform: translateX(-50%);
+  width: min(92vw, 680px);
+  max-height: max(66px, calc(100dvh - var(--hud-bottom) - var(--hud-safe-bottom) - 176px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 30;
+  pointer-events: none;
+}
+
+#bottom-hud-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+#bottom-hud-controls > * {
+  flex-shrink: 0;
+}
+
+#bottom-hud.hidden {
+  display: none;
+}
+
 #held-item-bar {
-  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
-  top: auto;
-  z-index: 28;
-  animation: slideUpHeldBar 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 100%;
+  pointer-events: auto;
   touch-action: manipulation;
 }
 
+#held-item-bar-name {
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.held-item-buttons {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 #emote-bar {
-  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  max-width: 100%;
 }
 
 body.device-touch #hud-top-bar > .glass-panel {
@@ -894,26 +945,30 @@ body.device-touch #hud-top-bar > .glass-panel {
   white-space: nowrap;
 }
 
-body.device-touch #held-item-bar,
-body.device-phone #held-item-bar,
-body.device-tablet #held-item-bar {
+body.device-touch .held-item-buttons,
+body.device-phone .held-item-buttons,
+body.device-tablet .held-item-buttons,
+body.chat-typing #bottom-hud {
   display: none !important;
 }
 
-body.device-touch #held-item-bar #btn-held-drop,
-body.device-touch #held-item-bar #btn-held-place,
-body.device-touch #held-item-bar #btn-held-rotate {
-  display: none;
+body.device-touch #bottom-hud {
+  width: min(88vw, 420px);
+  --hud-bottom: 198px;
 }
 
-@keyframes slideUpHeldBar {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 14px) scale(0.96);
+@media (orientation: landscape) and (min-width: 620px) {
+  body.device-touch #bottom-hud {
+    width: clamp(178px, calc(100vw - 440px), 480px);
+    margin-left: -16px;
+    --hud-bottom: 12px;
   }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
+}
+
+@media (max-width: 560px) {
+  body:not(.device-touch) #held-item-bar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -1060,6 +1115,16 @@ body.device-tablet .hud-secondary-tools .hud-pill-btn {
   z-index: 45;
 }
 
+@media (min-width: 769px) {
+  body:not(.device-touch) #chat-form {
+    width: min(380px, calc(50vw - 140px));
+  }
+
+  #chat-input {
+    min-width: 0;
+  }
+}
+
 #btn-mobile-chat-toggle {
   display: none;
   touch-action: manipulation;
@@ -1136,13 +1201,6 @@ body.device-tablet #btn-mobile-chat-toggle {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
 }
 
-body.device-phone #chat-container,
-body.device-tablet #chat-container {
-  left: 50% !important;
-  bottom: calc(var(--chat-kb-offset, 76px) + env(safe-area-inset-bottom, 0px)) !important;
-  transform: translateX(-50%) !important;
-}
-
 body.device-phone #chat-container:not(.chat-expanded) #chat-form,
 body.device-tablet #chat-container:not(.chat-expanded) #chat-form {
   display: none !important;
@@ -1189,11 +1247,8 @@ body.device-tablet #btn-mobile-chat-close {
    Inventário Rápido Estilo Minecraft (Hotbar Central Inferior)
    ========================================================================== */
 #quick-inventory {
-  position: fixed;
-  left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
   display: flex;
+  flex-shrink: 0;
   flex-direction: column;
   align-items: center;
   z-index: 30;
@@ -1319,36 +1374,7 @@ body.chat-typing #quick-inventory {
   font-weight: 700;
 }
 
-/* Tooltip flutuante com nome do item selecionado (estilo Minecraft) */
-.hotbar-active-label {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(52, 211, 153, 0.45);
-  color: #f0fdf4;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 9999px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.hotbar-active-label.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(-2px);
-}
-
 @media (max-width: 768px) {
-  #quick-inventory {
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-  }
-
   .hotbar-slots {
     gap: 4px;
     padding: 4px;
@@ -1371,23 +1397,25 @@ body.chat-typing #quick-inventory {
     max-width: 49px;
   }
 
-  #chat-container {
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    bottom: calc(var(--chat-kb-offset, 76px) + env(safe-area-inset-bottom, 0px)) !important;
-  }
+}
+
+body.device-touch #chat-container {
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  bottom: calc(var(--chat-kb-offset, 154px) + env(safe-area-inset-bottom, 0px));
+  transform: none;
+}
+
+#campus-hud:has(#chat-container.chat-expanded) #bottom-hud {
+  display: none;
 }
 
 #myco-item-actions-list {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  flex-basis: 100%;
   display: grid;
   gap: 4px;
   width: max-content;
-  max-width: min(75vw, 300px);
-  max-height: 45dvh;
+  max-width: min(100%, 300px);
+  max-height: min(33dvh, 220px);
   overflow-y: auto;
   padding: 6px;
   background: #111827;

@@ -13,6 +13,8 @@ import { saveLocalMovedObject } from './world-objects-sync.js';
 import { appState } from '../core/state.js';
 import { t } from '../core/i18n.js';
 import { canPlaceVillageItem } from '../core/village-layout.js';
+import { cratePlacementError, crateSlotPosition, findAimedCrate, freeCrateSlot, loadCrateCargo } from './crate-cargo.js';
+import { addSealedBagToDeliveryCrate } from '../items/dehydration-packaging.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
 const _vPlaceZero2 = new window.THREE.Vector2(0, 0);
@@ -93,9 +95,27 @@ export function toggleHeldItemPlacement(ctx) {
 }
 
 export function updateHeldItemPlacementPreview(ctx, rayNdc) {
+  ctx.cratePlacementTarget = null;
   if (!ctx.heldItem || !ctx.placementMode || !ctx.placementGhost || !ctx.camera) {
     if (ctx.placementGhost) ctx.placementGhost.visible = false;
     return false;
+  }
+
+  const crate = findAimedCrate(ctx, rayNdc);
+  if (crate) {
+    const slot = freeCrateSlot(crate, ctx.heldItem.mushroomBagCtrl?.sealed ? null : ctx.heldItem);
+    const error = cratePlacementError(crate, ctx.heldItem, slot);
+    ctx.cratePlacementTarget = crate;
+    ctx.placementValid = !error;
+    ctx.placementGhost.visible = !error;
+    if (!error) {
+      crateSlotPosition(crate, slot, ctx.placementGhost.position);
+      updatePlacementGhostVisual(ctx.heldItem, true, crate.mesh.rotation.y, ctx.clock.elapsedTime);
+    }
+    syncHeldAttachedVisibility(ctx.heldItem, !!error);
+    if (ctx.hover3dBadge) hideHover3dBadge(ctx.hover3dBadge);
+    ctx.callbacks.onHoverPrompt?.(error || t('crate.place'));
+    return true;
   }
 
   const point = findPlacementTarget(ctx.entityCtx, rayNdc);
@@ -124,6 +144,26 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
       : (getPlacementBlockedReason() || '🚫 Local bloqueado (espaço ocupado)'));
   if (ctx.hover3dBadge) hideHover3dBadge(ctx.hover3dBadge);
   if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
+  return true;
+}
+
+export function placeHeldInCrate(ctx, crate) {
+  const item = ctx.heldItem;
+  if (!item || crate === item || ctx.isHeldByRemote(crate.id)) return false;
+  const slot = freeCrateSlot(crate, item.mushroomBagCtrl?.sealed ? null : item);
+  const error = cratePlacementError(crate, item, slot);
+  if (error) {
+    ctx.callbacks.onToast?.(error);
+    return true;
+  }
+  cancelHeldItemPlacement(ctx);
+  if (item.mushroomBagCtrl?.sealed) return addSealedBagToDeliveryCrate(ctx, crate, item);
+  ctx.heldItem = null;
+  loadCrateCargo(ctx, crate, item, slot);
+  ctx.callbacks.onHoldChange?.(null);
+  ctx.callbacks.onToast?.(t('crate.stored'));
+  window.MycoAudio?.playClick?.();
+  ctx.notifyWorldAction();
   return true;
 }
 
@@ -187,6 +227,7 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
 
   const dropTs = performance.now() + 25000;
   ctx.pendingMovedItems[held.id] = {
+    ...ctx.pendingMovedItems[held.id],
     id: held.id, x: held.mesh.position.x, y: held.mesh.position.y, z: held.mesh.position.z, ry: held.mesh.rotation.y
   };
   ctx.recentlyDropped[held.id] = dropTs;
@@ -254,12 +295,13 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
       item.movedAt = performance.now();
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
       ctx.pendingMovedItems[item.id] = {
+        ...ctx.pendingMovedItems[item.id],
         id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
       };
       ctx.recentlyDropped[item.id] = dropTs;
       saveLocalMovedObject(item);
     });
-    held.trayContents = null;
+    if (!held.deliveryCrateCtrl) held.trayContents = null;
   }
 
   setHeldTwoHandedGhost(held, false);

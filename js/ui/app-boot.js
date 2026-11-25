@@ -1014,8 +1014,9 @@ export function bootApp() {
       const heldBar = $('held-item-bar');
       const heldName = $('held-item-bar-name');
       if (heldBar && heldName) {
-        if (label && appState.currentUser && !isTouch()) {
+        if (label && appState.currentUser) {
           heldName.textContent = label;
+          heldName.title = label;
           heldBar.classList.remove('hidden');
         } else {
           heldBar.classList.add('hidden');

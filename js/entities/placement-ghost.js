@@ -2,6 +2,7 @@ import { getItemGroundHeight } from '../engine/physics.js';
 import { appState } from '../core/state.js';
 import { canPlaceVillageItem } from '../core/village-layout.js';
 import { t } from '../core/i18n.js';
+import { positionCrateCargo } from '../systems/crate-cargo.js';
 import { isPointInBoundsXZ } from '../items/item-registry.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import {
@@ -624,7 +625,7 @@ export function isPlacementBlocked(ctx, pt) {
   for (var k = 0; k < pickableItems.length; k++) {
     var other = pickableItems[k];
     if (!other || !other.mesh) continue;
-    if (other === heldItem) continue;
+    if (other === heldItem || other.crateParent) continue;
     if (heldItem.lidItem && other === heldItem.lidItem) continue;
     if (heldItem.potItem && other === heldItem.potItem) continue;
     if (other.isAttached && other.potItem) continue;
@@ -787,7 +788,7 @@ export function dropUnsupportedItems(ctx) {
   for (var sIdx = 0; sIdx < _sortedGravityIndices.length; sIdx++) {
     var idx = _sortedGravityIndices[sIdx];
     var item = pickableItems[idx];
-    if (!item || !item.mesh || item.isReadOnly) continue;
+    if (!item || !item.mesh || item.isReadOnly || item.crateParent) continue;
     if (item.potItem && item.isAttached) {
       var pot = item.potItem;
       item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);
@@ -919,6 +920,11 @@ export function dropUnsupportedItems(ctx) {
           };
         }
       }
+    }
+  }
+  for (const item of pickableItems) {
+    if (item.deliveryCrateCtrl && item.trayContents?.length && item !== heldItem && !ctx.isHeldByRemote(item.id)) {
+      positionCrateCargo(item);
     }
   }
   hasFallingItems = anyFalling;
