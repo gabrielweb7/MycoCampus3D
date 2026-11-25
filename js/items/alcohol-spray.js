@@ -181,6 +181,11 @@ export function formatSprayHoverPrompt(target, label, ctx) {
   return '🧴 Não higienizado (' + label + ') • Clique ou segure para borrifar Álcool 70%';
 }
 
+// Vetores reutilizados (spawnSprayParticles apenas le x/y/z, nao guarda referencia).
+const _spOrigin = new THREE.Vector3();
+const _spDir = new THREE.Vector3();
+const _UP = new THREE.Vector3(0, 1, 0);
+
 export function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, speed, size, life) {
   const spArr = new Float32Array(count * 3);
   const spVel = new Float32Array(count * 3);
@@ -211,8 +216,8 @@ export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}
     ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
   }
 
-  const spOrigin = new THREE.Vector3(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
-  const spDir = new THREE.Vector3(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
+  const spOrigin = _spOrigin.set(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
+  const spDir = _spDir.set(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
   spawnSprayParticles(ctx, 0xe0f2fe, 30, spOrigin, spDir, 0.95, 2.5, 0.032, 0.45);
 
   if (!sprayInfo || !sprayInfo.target) {
@@ -277,7 +282,7 @@ export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}
   const burstPos = sprayInfo.hitPoint
     ? sprayInfo.hitPoint.clone()
     : spOrigin.clone().addScaledVector(spDir, 1.4);
-  spawnSprayParticles(ctx, 0x38bdf8, 22, burstPos, new THREE.Vector3(0, 1, 0), 1.6, 0.6, 0.04, 0.55);
+  spawnSprayParticles(ctx, 0x38bdf8, 22, burstPos, _UP, 1.6, 0.6, 0.04, 0.55);
   if (window.MycoAudio) window.MycoAudio.playClick();
   if (ctx.callbacks && ctx.callbacks.onToast && (!st.alcoholWet || extraWet > 0)) {
     const extraTxt = extraWet > 0 ? ` (+${extraWet} ao redor)` : '';
@@ -294,12 +299,12 @@ export function fireH2O2Spray(ctx, sprayInfo) {
   if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData) {
     ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
   }
-  const spOrigin = new THREE.Vector3(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
-  const spDir = new THREE.Vector3(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
+  const spOrigin = _spOrigin.set(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
+  const spDir = _spDir.set(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
   spawnSprayParticles(ctx, 0xf8fafc, 28, spOrigin, spDir, 0.9, 2.4, 0.035, 0.5);
   if (sprayInfo && sprayInfo.hitPoint) {
     const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);
-    spawnSprayParticles(ctx, 0xffffff, 24, bp, new THREE.Vector3(0, 1, 0), 1.4, 0.55, 0.045, 0.65);
+    spawnSprayParticles(ctx, 0xffffff, 24, bp, _UP, 1.4, 0.55, 0.045, 0.65);
   }
 }
 
@@ -310,13 +315,13 @@ export function fireWaterSpray(ctx, sprayInfo) {
     ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
   }
   if (ctx && ctx.camera && ctx.scene) {
-    const spOrigin = new THREE.Vector3(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
-    const spDir = new THREE.Vector3(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
+    const spOrigin = _spOrigin.set(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
+    const spDir = _spDir.set(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
     spawnSprayParticles(ctx, 0x7dd3fc, 28, spOrigin, spDir, 1.05, 2.1, 0.028, 0.5);
   }
   if (sprayInfo && sprayInfo.hitPoint && ctx && ctx.scene) {
     const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);
-    spawnSprayParticles(ctx, 0xbae6fd, 22, bp, new THREE.Vector3(0, 1, 0), 1.5, 0.45, 0.035, 0.55);
+    spawnSprayParticles(ctx, 0xbae6fd, 22, bp, _UP, 1.5, 0.45, 0.035, 0.55);
   }
 }
 
