@@ -606,6 +606,8 @@ function bindModalsAndToolbar() {
   if (btnMobileMenu && hudSecTools) {
     const setMobileMenuOpen = (open) => {
       hudSecTools.classList.toggle('open', open);
+      $('hud-top-bar')?.classList.toggle('menu-open', open);
+      document.body.classList.toggle('hud-menu-open', open);
       btnMobileMenu.setAttribute('aria-expanded', String(open));
     };
     btnMobileMenu.onclick = (e) => {
@@ -614,11 +616,11 @@ function bindModalsAndToolbar() {
       setMobileMenuOpen(!hudSecTools.classList.contains('open'));
     };
     document.addEventListener('click', (e) => {
-      if (hudSecTools.classList.contains('open') && !hudSecTools.contains(e.target) && e.target !== btnMobileMenu) {
+      if (hudSecTools.classList.contains('open') && !hudSecTools.contains(e.target) && !btnMobileMenu.contains(e.target)) {
         setMobileMenuOpen(false);
       }
     });
-    hudSecTools.querySelectorAll('button').forEach((btn) => {
+    hudSecTools.querySelectorAll('button, a').forEach((btn) => {
       btn.addEventListener('click', () => {
         setMobileMenuOpen(false);
       });

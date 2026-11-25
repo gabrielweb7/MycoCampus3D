@@ -878,11 +878,15 @@ body.device-desktop #btn-mobile-chat-toggle {
 }
 
 #held-item-bar {
-  bottom: 66px;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   top: auto;
   z-index: 28;
   animation: slideUpHeldBar 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   touch-action: manipulation;
+}
+
+#emote-bar {
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
 }
 
 body.device-touch #hud-top-bar > .glass-panel {
@@ -930,6 +934,11 @@ body.device-touch #held-item-bar #btn-held-rotate {
 #hud-top-bar.menu-open,
 body.hud-menu-open #hud-top-bar {
   z-index: 60 !important;
+}
+
+body.hud-menu-open #mobile-joystick-zone,
+body.hud-menu-open #mobile-actions {
+  pointer-events: none !important;
 }
 
 body.device-touch #hud-top-bar > .glass-panel,
@@ -1043,9 +1052,9 @@ body.device-tablet .hud-secondary-tools .hud-pill-btn {
    ========================================================================== */
 #chat-container {
   position: fixed;
-  left: 50%;
+  left: calc(16px + env(safe-area-inset-left, 0px));
   bottom: calc(var(--chat-kb-offset, 14px) + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
+  transform: none;
   pointer-events: auto;
   touch-action: manipulation;
   z-index: 45;
@@ -1125,6 +1134,13 @@ body.device-tablet #btn-mobile-chat-toggle {
   font-size: 12px;
   font-weight: 700;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+body.device-phone #chat-container,
+body.device-tablet #chat-container {
+  left: 50% !important;
+  bottom: calc(var(--chat-kb-offset, 76px) + env(safe-area-inset-bottom, 0px)) !important;
+  transform: translateX(-50%) !important;
 }
 
 body.device-phone #chat-container:not(.chat-expanded) #chat-form,
@@ -1356,6 +1372,8 @@ body.chat-typing #quick-inventory {
   }
 
   #chat-container {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
     bottom: calc(var(--chat-kb-offset, 76px) + env(safe-area-inset-bottom, 0px)) !important;
   }
 }

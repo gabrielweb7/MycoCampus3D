@@ -117,7 +117,7 @@ export function bindQuickInventory(selectSlot) {
     toggle?.setAttribute('aria-expanded', String(open));
   }
 
-  inventory.addEventListener('click', event => {
+  const handleSlotSelect = (event) => {
     if (event.target.closest('#inventory-toggle')) {
       event.stopPropagation();
       setOpen(!inventory.classList.contains('open'));
@@ -126,8 +126,17 @@ export function bindQuickInventory(selectSlot) {
     const target = event.target.closest('button[data-pocket]');
     if (!target) return;
     event.stopPropagation();
+    if (event.type === 'touchstart') {
+      event.preventDefault();
+    }
     selectSlot(Number(target.dataset.pocket));
     setOpen(false);
+  };
+
+  inventory.addEventListener('click', handleSlotSelect);
+  inventory.addEventListener('touchstart', handleSlotSelect, { passive: false });
+  inventory.addEventListener('pointerdown', event => {
+    event.stopPropagation();
   });
 
   document.addEventListener('click', event => {

@@ -131,6 +131,7 @@ function mp_is_allowed_item_id(string $itemId): bool {
     if (in_array($itemId, MP_ITEMS, true)) return true;
     if (preg_match('/^wild_picked_[a-z0-9_]{2,40}$/', $itemId)) return true;
     if (preg_match('/^(?:harvest_tub_|harvest_gh_|dried_batch_|spent_cake_|organic_basket_)[a-z0-9_]{2,40}$/', $itemId)) return true;
+    if (preg_match('/^vial_?[35]ml_[a-z0-9_]{2,40}$/', $itemId)) return true;
     return (bool)preg_match('/^dyn_[a-z0-9_]{2,56}$/', $itemId);
 }
 

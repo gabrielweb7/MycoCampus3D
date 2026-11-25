@@ -8,7 +8,7 @@ function mp_inventory_kind(PDO $pdo, string $itemId): string {
         $find = $pdo->prepare('SELECT prefab_id FROM mc_world_layout_edits WHERE item_id = ? AND removed = 0');
         $find->execute([$itemId]);
         $prefab = (string)$find->fetchColumn();
-        if (str_starts_with($itemId, 'dyn_vial3ml_') || $prefab === 'vial3ml' || $prefab === 'vial_3ml') return 'portable';
+        if (str_starts_with($itemId, 'dyn_vial3ml_') || str_starts_with($itemId, 'dyn_vial') || $prefab === 'vial3ml' || $prefab === 'vial_3ml' || $prefab === 'vial_5ml') return 'portable';
         if (str_starts_with($prefab, 'petri')) return 'petri';
         if (str_starts_with($prefab, 'pp5')) return 'pp5';
         if (str_starts_with($prefab, 'spawn_bag')) return 'bag';
@@ -18,7 +18,7 @@ function mp_inventory_kind(PDO $pdo, string $itemId): string {
     if (str_starts_with($itemId, 'pp5_cup_')) return 'pp5';
     if (str_starts_with($itemId, 'spawn_bag')) return 'bag';
     if (str_starts_with($itemId, 'mushroom_pack_bag_')) return 'package';
-    return preg_match('/^(?:syringe_10ml_|scalpel_|spawn_jar|liquid_culture|falcon_(?:15|50)ml_|alcohol_spray|water_spray|h2o2_spray|paper_towel|gloves_box|infrared_thermometer|lab_spoon|parafilm|micropore|foil_roll|wild_picked_|harvest_tub_|harvest_gh_|dried_batch_|vial_?3ml_)/', $itemId)
+    return preg_match('/^(?:syringe_10ml_|scalpel_|spawn_jar|liquid_culture|falcon_(?:15|50)ml_|alcohol_spray|water_spray|h2o2_spray|paper_towel|gloves_box|infrared_thermometer|lab_spoon|parafilm|micropore|foil_roll|wild_picked_|harvest_tub_|harvest_gh_|dried_batch_|vial_?[35]ml_)/', $itemId)
         ? 'portable' : '';
 }
 
@@ -65,7 +65,7 @@ function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $ho
     if ($owner && ($initial || $replay) && $slots[$active] !== null) $holding = $slots[$active];
     if ($replay && $control['operation_result'] === 'ok') $holding = $slots[$active] ?? '';
     $conflict = $holding !== '' && (
-        !$canAccessItem($holding) || (isset($reservations[$holding]) && (!$owner || $slots[$active] !== $holding)) || isset($otherHeld[$holding])
+        !$canAccessItem($holding) || (isset($reservations[$holding]) && $reservations[$holding] !== $userId) || isset($otherHeld[$holding])
     );
     if ($conflict) $holding = '';
 
@@ -79,9 +79,9 @@ function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $ho
     } elseif ($opId !== '') {
         $target = $op['slot'] ?? null;
         $result = !is_int($target) || $target < 0 || $target > 2 || $target === $active ? 'slot' : '';
-        if ($conflict || ($op['held'] ?? null) !== $holding || $previousHolding !== $holding) $result = 'busy';
+        if ($conflict || ($op['held'] ?? null) !== $holding) $result = 'busy';
         $kind = $holding !== '' && $result === '' ? mp_inventory_kind($pdo, $holding) : '';
-        if ($holding !== '' && $result === '' && ($kind === '' || $slots[$active] !== $holding)) $result = 'large';
+        if ($holding !== '' && $result === '' && $kind === '') $result = 'large';
 
         // Check against a sanitized snapshot of the item being put away.
         $state = $kind !== '' && $result === '' ? mp_clean_item_state($holding, $op['state'] ?? null) : null;
@@ -93,9 +93,19 @@ function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $ho
             if ($kind === 'bag' && (!isset($decoded['spawn']) || (!empty($decoded['spawn']['filled']) && empty($decoded['spawn']['sealed'])))) $result = 'open';
         }
         if ($result === '') {
-            if ($state !== null) {
-                $pdo->prepare('INSERT INTO mc_world_item_states (item_id,state_json) VALUES (?,?) ON DUPLICATE KEY UPDATE state_json=VALUES(state_json)')
-                    ->execute([$holding, $state]);
+            if ($holding !== '') {
+                if ($state !== null) {
+                    $pdo->prepare('INSERT INTO mc_world_item_states (item_id,state_json) VALUES (?,?) ON DUPLICATE KEY UPDATE state_json=VALUES(state_json)')
+                        ->execute([$holding, $state]);
+                }
+                $pdo->prepare('DELETE FROM mc_inventory_slots WHERE item_id=? OR (user_id=? AND slot=?)')->execute([$holding, $userId, $active]);
+                $pdo->prepare('INSERT INTO mc_inventory_slots (item_id,user_id,slot) VALUES (?,?,?)')->execute([$holding, $userId, $active]);
+                $slots[$active] = $holding;
+                $reservations[$holding] = $userId;
+            } else {
+                $pdo->prepare('DELETE FROM mc_inventory_slots WHERE user_id=? AND slot=?')->execute([$userId, $active]);
+                if ($slots[$active] !== null) unset($reservations[$slots[$active]]);
+                $slots[$active] = null;
             }
             $active = $target;
             $holding = $slots[$target] ?? '';
@@ -112,6 +122,7 @@ function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $ho
             $slots[$active] = null;
         }
         if ($holding !== '' && mp_inventory_kind($pdo, $holding) !== '') {
+            $pdo->prepare('DELETE FROM mc_inventory_slots WHERE item_id=?')->execute([$holding]);
             $pdo->prepare('INSERT INTO mc_inventory_slots (item_id,user_id,slot) VALUES (?,?,?)')->execute([$holding, $userId, $active]);
             $slots[$active] = $holding;
             $reservations[$holding] = $userId;

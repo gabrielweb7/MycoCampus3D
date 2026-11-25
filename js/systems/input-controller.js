@@ -295,6 +295,18 @@ export function bindControls(ctx) {
     }
   }, { passive: false });
 
+  window.addEventListener('wheel', function (e) {
+    if (e.target?.closest && (e.target.closest('[id$="-modal"]') || e.target.closest('textarea') || e.target.closest('#myco-item-actions-list'))) {
+      return;
+    }
+    if (ctx.inFps && !ctx.adminEditMode && !ctx.isPrimaryDown && ctx.inventory?.ready && !ctx.inventory?.pending && !ctx.placementMode) {
+      const dir = e.deltaY > 0 ? 1 : -1;
+      const current = ctx.inventory.active || 0;
+      const nextSlot = (current + dir + 3) % 3;
+      window.selectCampusQuickSlot?.(nextSlot);
+    }
+  }, { passive: true });
+
   let touchLookId = null, lastTX = 0, lastTY = 0, touchStartX = 0, touchStartY = 0, touchMoved = false;
   ctx.touchDrawingBoard = false;
   function setNdcFromTouch(t) {
@@ -307,6 +319,8 @@ export function bindControls(ctx) {
     if (!el || !el.closest) return false;
     return !!(
       el.closest('[id$="-modal"]') ||
+      el.closest('#quick-inventory') ||
+      el.closest('#campus-hud') ||
       el.closest('#mobile-joystick-zone') ||
       el.closest('#mobile-actions') ||
       el.closest('#held-item-bar') ||
