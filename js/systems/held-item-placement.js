@@ -14,7 +14,7 @@ import { appState } from '../core/state.js';
 import { t } from '../core/i18n.js';
 import { canPlaceVillageItem } from '../core/village-layout.js';
 import { cratePlacementError, crateSlotPosition, findAimedCrate, freeCrateSlot, loadCrateCargo } from './crate-cargo.js';
-import { addSealedBagToDeliveryCrate } from '../items/dehydration-packaging.js';
+import { addSealedBagToDeliveryCrate } from '../items/mushroom-packaging.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
 const _vPlaceZero2 = new window.THREE.Vector2(0, 0);

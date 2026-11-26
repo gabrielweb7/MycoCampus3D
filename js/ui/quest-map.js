@@ -27,6 +27,7 @@ export const CAMPUS_SECTORS = [
   { id: 'lake', icon: '🌉', nameKey: 'map.route_lake', descKey: 'map.route_lake_desc', x: 0, y: 0.02, z: 18.6, yaw: Math.PI },
   { id: 'garden', icon: '🥬', nameKey: 'map.route_garden', descKey: 'map.route_garden_desc', x: 20, y: 0.02, z: 20.35, yaw: 0 },
   { id: 'ecology', icon: '🌿', nameKey: 'map.route_ecology', descKey: 'map.route_ecology_desc', x: 46, y: 0, z: 34.7, yaw: 0 },
+  { id: 'pasture', icon: '🐄', nameKey: 'map.route_pasture', descKey: 'map.route_pasture_desc', x: 72.3, y: 0, z: 4.6, yaw: -Math.PI / 5 },
   { id: 'mountain', icon: '🏔️', nameKey: 'misc.quest.sector_mountain_name', descKey: 'misc.quest.sector_mountain_desc', ...MOUNTAIN_ENTRY }
 ];
 

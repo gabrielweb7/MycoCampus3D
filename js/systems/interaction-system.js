@@ -5,7 +5,8 @@
  */
 
 import { t } from '../core/i18n.js';
-import { interactBeehive, interactFlower, plantFlowerSeedAtSpot } from '../entities/pasture-cows.js';
+import { interactBeehive } from '../entities/bee-ecology.js';
+import { interactFlower, plantFlowerSeedAtSpot } from '../world/campus-flowers.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
@@ -58,11 +59,8 @@ import {
   storeVialInAmpouleCase,
   openAmpouleCaseModal
 } from '../items/ampoule-case.js';
-import {
-  packDriedMushroomsIntoBag,
-  sealMushroomBag,
-  interactRoadsideStand
-} from '../items/dehydration-packaging.js';
+import { packDriedMushroomsIntoBag, sealMushroomBag } from '../items/mushroom-packaging.js';
+import { interactRoadsideStand } from '../world/roadside-stand.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
 import { addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';

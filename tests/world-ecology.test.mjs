@@ -46,6 +46,7 @@ const {
   makeBeeBaitItem,
   getBeeEcologySummary
 } = await import('../js/entities/pasture-cows.js');
+const { separateHiveBees } = await import('../js/entities/bee-navigation.js');
 const { updateCelestialSkyDome } = await import('../js/engine/sky-constellations.js');
 const {
   triggerRareBlackGnomeAppearance,
@@ -121,9 +122,10 @@ test('abelhas protegem objetos dinâmicos, respeitam oclusão de migração e de
   assert.match(optSrc, /markTreeList\(sim\.beehives/);
   assert.match(optSrc, /markTreeList\(sim\.campusFlowers/);
 
-  const beeSrc = fs.readFileSync(path.resolve('js/entities/pasture-cows.js'), 'utf8');
-  assert.match(beeSrc, /depthTest:\s*true/);
-  assert.match(beeSrc, /migrationSprite\.visible\s*=\s*dist\s*<=\s*18/);
+  const modelSrc = fs.readFileSync(path.resolve('js/entities/bee-models.js'), 'utf8');
+  const navigationSrc = fs.readFileSync(path.resolve('js/entities/bee-navigation.js'), 'utf8');
+  assert.match(modelSrc, /depthTest:\s*true/);
+  assert.match(navigationSrc, /migrationSprite\.visible\s*=\s*dist\s*<=\s*18/);
 
   const wallCtx = {
     solidColliders: [{ minX: 4, maxX: 6, minZ: -5, maxZ: 5, minY: 0, maxY: 3.5 }],
@@ -150,10 +152,35 @@ test('abelhas protegem objetos dinâmicos, respeitam oclusão de migração e de
   }
 });
 
+test('abelhas não atravessam obstáculos ao se separar nem ao tentar subir em um corredor fechado', () => {
+  const { Vector3 } = globalThis.window.THREE;
+  const hive = {};
+  const nearWall = { hive, group: { visible: true, position: new Vector3(3.80, 2, 0), rotation: {} } };
+  const neighbor = { hive, group: { visible: true, position: new Vector3(3.60, 2, 0), rotation: {} } };
+  const ctx = {
+    pastureBees: [nearWall, neighbor],
+    solidColliders: [{ minX: 4, maxX: 6, minZ: -5, maxZ: 5, minY: 0, maxY: 3.5 }]
+  };
+  separateHiveBees(ctx);
+  assert.equal(nearWall.group.position.x, 3.80);
+  assert.ok(neighbor.group.position.x < 3.60);
+
+  ctx.solidColliders.push(
+    { minX: 2, maxX: 3.6, minZ: -5, maxZ: 5, minY: 0, maxY: 3.5 },
+    { minX: 2, maxX: 6, minZ: -5, maxZ: -0.2, minY: 0, maxY: 3.5 },
+    { minX: 2, maxX: 6, minZ: 0.2, maxZ: 5, minY: 0, maxY: 3.5 },
+    { minX: 2, maxX: 6, minZ: -5, maxZ: 5, minY: 2.26, maxY: 3.5 }
+  );
+  moveBeeSafely(ctx, nearWall, 5, 2, 0, 3, 0.1);
+  const { x, y, z } = nearWall.group.position;
+  assert.equal(isBeeBlockedAt3D(ctx, x, y, z, 0.15), false);
+});
+
 test('ciclo de pólen (10% por visita), dispersão de sementes, colheita e plantio funcionam', () => {
   assert.equal(FLOWER_POLLEN_PER_VISIT, 0.10);
 
   // 1. Flor com 0% de pólen entra em fase de semente e dispersa um broto no solo natural antes de murchar
+  const flowerUpdates = [];
   const simCtx = {
     campusFlowers: [],
     flowerHitMeshes: [],
@@ -161,6 +188,9 @@ test('ciclo de pólen (10% por visita), dispersão de sementes, colheita e plant
     pastureBees: [],
     pickableItems: [],
     heldItem: null,
+    queueWorldStateChange(key, value) {
+      if (key === 'campus_flowers') flowerUpdates.push(value);
+    },
     callbacks: { onToast() {}, onHoldChange() {} }
   };
   const f1 = createCampusFlower(simCtx, 25.0, 26.5, 0, {
@@ -184,6 +214,13 @@ test('ciclo de pólen (10% por visita), dispersão de sementes, colheita e plant
   assert.equal(f1.stage, 'wilting');
   const sprout = simCtx.campusFlowers.find((f) => f !== f1 && f.stage === 'sprouting');
   assert.ok(sprout, 'deve brotar uma nova flor ao redor após a fase de semente sem colheita');
+  assert.equal(flowerUpdates.length, 1);
+  assert.deepEqual(JSON.parse(flowerUpdates[0]).map((flower) => flower.st), ['wilting', 'sprouting']);
+
+  const restored = { campusFlowers: [] };
+  assert.equal(applyBeeEcologyWorldState(restored, { campus_flowers: flowerUpdates[0] }), true);
+  stepCampusFlowers(restored, 30, 42);
+  assert.equal(restored.campusFlowers.length, 1, 'a flor mãe restaurada não deve dispersar outra semente');
 
   stepCampusFlowers(simCtx, 2.5, 15);
   assert.equal(f1.removed, true);
@@ -439,6 +476,14 @@ test('colmeia comprável no chão e isca migram rápido para árvore/beiral e Es
   assert.equal(ctx.beehives.length, 1);
   assert.equal(ctx.beehives[0].mountType, 'eaves', 'deve migrar rapidamente para o beiral de casa mais próximo');
   assert.ok(ctx.pastureBees.length >= 4);
+  assert.equal(ctx.beehives[0].migrating, true);
+
+  ctx.playerPos = { x: -120, z: -120 };
+  for (let i = 0; i < 120; i++) stepPastureBees(ctx, 0.1);
+  assert.equal(ctx.beehives[0].migrating, false, 'a rainha deve chegar ao beiral mesmo longe do jogador');
+  assert.equal(ctx.beehives[0].buildProgress, 1);
+  assert.ok(ctx.pastureBees.every((bee) => !bee.group.visible));
+  ctx.playerPos = null;
 
   // Isca colocada fora atrai novo enxame após tempo de espera
   const bait = makeBeeBaitItem(ctx, 'dyn_bee_bait_1', 24.5, 0, 26.5);

@@ -16,9 +16,9 @@ import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { setBurnerLevel, applySyncedBurnerTimer } from '../items/pressure-cooker.js';
 import { applyCabinetStates } from '../items/lab-cabinets.js';
 import { applySportBallStates } from './sports-physics.js';
-import { applyRoadStandWorldState } from '../items/dehydration-packaging.js';
+import { applyRoadStandWorldState } from '../world/roadside-stand.js';
 import { applyGardenWorldState } from '../world/campus-garden.js';
-import { applyBeeEcologyWorldState } from '../entities/pasture-cows.js';
+import { applyBeeEcologyWorldState } from '../entities/bee-ecology.js';
 import { applySportsWorldState } from '../world/sports-scoreboard.js';
 
 export function consumeCampusBoardStrokes(sim) {

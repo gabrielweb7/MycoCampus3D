@@ -11,7 +11,7 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { getBeeEcologySummary } from '../entities/pasture-cows.js';
+import { getBeeEcologySummary } from '../entities/bee-ecology.js';
 import { getRareBlackGnomeTelemetry } from './trip-gnomes.js';
 import { getVirtualDayFrac } from './staircase-clock.js';
 

@@ -1,5 +1,6 @@
 import { CAMPUS_SECTORS } from './quest-map.js';
-import { getActiveVipOrders, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
+import { getActiveVipOrders } from '../world/roadside-stand-state.js';
+import { MYCOCOIN_PRICE_PER_PACK } from '../core/myco-coins.js';
 import { t } from '../core/i18n.js';
 import { releaseInputForModal, showFloatingToast } from './dom-helpers.js';
 

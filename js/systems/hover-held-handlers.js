@@ -26,11 +26,9 @@ import {
   isHoldingPasteurizedBulkSubstrate
 } from '../items/monotub.js';
 import { gardenHitMeshes, isHoldingSpentCakeForCompost } from '../world/campus-garden.js';
-import {
-  roadSaleStandMeshes,
-  isHoldingPackOrCrateForStand,
-  MYCOCOIN_PRICE_PER_PACK
-} from '../items/dehydration-packaging.js';
+import { roadSaleStandMeshes } from '../world/roadside-stand-state.js';
+import { isHoldingPackOrCrateForStand } from '../world/roadside-stand.js';
+import { MYCOCOIN_PRICE_PER_PACK } from '../core/myco-coins.js';
 
 function getRefXZ(ctx) {
   return {

@@ -7,7 +7,9 @@
 import { scrollRanking } from '../world/staircase-clock.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, cycleBurnerTimer, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
-import { petCow, interactBeehive, interactFlower } from '../entities/pasture-cows.js';
+import { petCow } from '../entities/pasture-cows.js';
+import { interactBeehive } from '../entities/bee-ecology.js';
+import { interactFlower } from '../world/campus-flowers.js';
 import { petLocalCompanion } from '../entities/pets.js';
 import { triggerPettingAnimation } from '../entities/petting-hand.js';
 import { grabSportBall, throwHeldSportBall } from './sports-physics.js';

@@ -51,11 +51,8 @@ import {
   makeSilicaStorageJar,
   makeDriedMushroomBatch
 } from '../items/lab-advanced-tools.js';
-import {
-  makeMushroomBag,
-  makeDeliveryCrate,
-  buildRoadsideMushroomStand
-} from '../items/dehydration-packaging.js';
+import { makeMushroomBag, makeDeliveryCrate } from '../items/mushroom-packaging.js';
+import { buildRoadsideMushroomStand } from './roadside-stand.js';
 
 const THREE = window.THREE;
 

@@ -19,7 +19,7 @@ import { updateCultureLiquidLabel } from '../items/liquid-culture.js';
 import { updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { getDehydratorActionLabel, interactDehydrator, updateDehydratorVisual } from '../items/dehydrator.js';
-import { updateMushroomBagVisual } from '../items/dehydration-packaging.js';
+import { updateMushroomBagVisual } from '../items/mushroom-packaging.js';
 import {
   handlePrimaryAction,
   pickHoveredItemForMove,
@@ -41,7 +41,8 @@ import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposa
 import { canPruneGardenPlant } from '../world/campus-garden.js';
 import { growDoorActionLabel, growHeldFeedback, growSlotActionLabel, openPortableGrowPanel, toggleGrowDoor } from '../items/portable-grow.js';
 import { cleanItemTitle } from '../entities/hover-3d-badge.js';
-import { getBeehiveInspectInfo, getFlowerInspectInfo, interactFlower } from '../entities/pasture-cows.js';
+import { getBeehiveInspectInfo } from '../entities/bee-ecology.js';
+import { getFlowerInspectInfo, interactFlower } from '../world/campus-flowers.js';
 import { canDisposeItemInTrash, getTrashActionLabel, handleTrashDisposal, isContaminatedOrBurned } from '../items/lab-trash.js';
 import { t } from '../core/i18n.js';
 

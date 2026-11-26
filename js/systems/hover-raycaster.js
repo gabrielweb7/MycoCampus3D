@@ -20,17 +20,17 @@ import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import { formatHoverInfo, updateHover3dBadge, hideHover3dBadge } from '../entities/hover-3d-badge.js';
 import { countReadyGrowSlots, growHeldFeedback, growSlotActionLabel } from '../items/portable-grow.js';
 import { canPruneGardenPlant, gardenHitMeshes, gardenState } from '../world/campus-garden.js';
-import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
+import { roadSaleStandMeshes, roadStandState } from '../world/roadside-stand-state.js';
+import { MYCOCOIN_PRICE_PER_PACK } from '../core/myco-coins.js';
 import { getMonotubActionLabel } from '../items/monotub.js';
 import { getLocalCompanionPet } from '../entities/pets.js';
+import { findHoveredBeehive, getBeehiveHoverPrompt } from '../entities/bee-ecology.js';
 import {
-  findHoveredBeehive,
-  getBeehiveHoverPrompt,
   findHoveredFlower,
   getFlowerHoverPrompt,
   findFlowerPlantSpot,
   getFlowerPlantHoverPrompt
-} from '../entities/pasture-cows.js';
+} from '../world/campus-flowers.js';
 import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 import { t } from '../core/i18n.js';
 import { cratePlacementError, findAimedCrate, freeCrateSlot } from './crate-cargo.js';

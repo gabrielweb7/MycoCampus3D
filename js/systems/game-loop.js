@@ -53,7 +53,7 @@ import { stepDehydrators } from '../items/dehydrator.js';
 import { stepMonotubs } from '../items/monotub.js';
 import { stepCampusGarden } from '../world/campus-garden.js';
 import { stepAlcoholLamps } from '../items/lab-advanced-tools.js';
-import { stepRoadsideMushroomSales } from '../items/dehydration-packaging.js';
+import { stepRoadsideMushroomSales } from '../world/roadside-npc-actor.js';
 import { stepAmpouleCases } from '../items/ampoule-case.js';
 import { syncHudMiniTimers } from '../ui/hud-timers.js';
 let lastMiniTimersAt = 0;
