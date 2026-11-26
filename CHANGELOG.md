@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.10.1] - 2026-11-26
+
+- Vaquinhas corrigidas: cocho realocado para o pasto livre `(74, 2)`, rota contínua de migração de 9 pontos ao redor do campus, desvio inteligente com lookahead, destravamento automático e raycast por distância real.
+- Atalhos padronizados em todos os itens e menus contextuais: `[F]` ação principal, `[V]` secundária, `[Z]` Etiqueta, `[G/Q]` Pegar/Posicionar, `[I]` Inspecionar e `[1–3]` exclusivo da mochila.
+- Ação **Mover** renomeada para **Pegar** (PT-BR, EN e ES), colocando o item diretamente no slot selecionado da mochila.
+
 ## [v2.8.3] - 2026-11-25
 
 - Caixas e outros objetos compartilhados do campus podem ser posicionados no próprio lote alugado. Enquanto durar o aluguel, visitantes veem esses objetos e só o inquilino consegue movê-los. Ao vencer o contrato, eles continuam no local e voltam a ficar disponíveis. Compras pessoais continuam protegidas e podem ser recuperadas no depósito.

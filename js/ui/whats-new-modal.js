@@ -10,6 +10,16 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.10.1': {
+    get title() { return t('misc.whats_new.version_title', { ver: '2.10.1' }); },
+    get subtitle() { return t('misc.whats_new.2101.subtitle'); },
+    items: [
+      { icon: '🐄', get text() { return t('misc.whats_new.2101.i1'); } },
+      { icon: '⌨️', get text() { return t('misc.whats_new.2101.i2'); } },
+      { icon: '📦', get text() { return t('misc.whats_new.2101.i3'); } },
+      { icon: '🌸', get text() { return t('misc.whats_new.2101.i4'); } }
+    ]
+  },
   '2.9.0': {
     get title() { return t('misc.whats_new.version_title', { ver: '2.9.0' }); },
     get subtitle() { return t('misc.whats_new.290.subtitle'); },
