@@ -1,5 +1,6 @@
 import { appState } from '../core/state.js';
 import { apiPost } from './api-client.js';
+import { t } from '../core/i18n.js';
 import { events } from '../core/events.js';
 
 let queue = Promise.resolve();
@@ -38,7 +39,7 @@ function foodKey(userId) { return `myco_pending_cat_food_u${userId}`; }
 // Reuse the same id after an interrupted request, including after a reload.
 export async function buyCatFood() {
   const userId = appState.currentUser?.id;
-  if (!userId) return { ok: false, error: 'Entre na sua conta para comprar ração.' };
+  if (!userId) return { ok: false, error: t('misc.pets.login') };
   let id;
   try {
     const key = foodKey(userId);
@@ -51,7 +52,7 @@ export async function buyCatFood() {
     }
     if (localStorage.getItem(key) !== id) throw new Error('storage');
   } catch (_) {
-    return { ok: false, error: 'Não foi possível salvar o pedido de ração neste dispositivo.' };
+    return { ok: false, error: t('misc.pets.saveFail') };
   }
   try {
     const result = await petAction('buy_cat_food', { operation_id: id });
@@ -60,6 +61,6 @@ export async function buyCatFood() {
     }
     return result;
   } catch (_) {
-    return { ok: false, error: 'Conexão interrompida. Toque em comprar novamente para confirmar o pedido.' };
+    return { ok: false, error: t('misc.pets.connLost') };
   }
 }

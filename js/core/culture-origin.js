@@ -1,12 +1,13 @@
+import { t } from './i18n.js';
 // Origin and number of transfers are independent. Older saves have unknown origin.
 export function normalizeCultureOrigin(origin) {
   return origin === 'monospore' || origin === 'tissue_clone' || origin === 'hybrid' ? origin : '';
 }
 
 export function getCultureOriginLabel(origin) {
-  if (origin === 'monospore') return 'Monoesporo';
-  if (origin === 'tissue_clone') return 'Isolado por clonagem';
-  if (origin === 'hybrid') return 'Híbrido';
+  if (origin === 'monospore') return t('misc.origin.monospore');
+  if (origin === 'tissue_clone') return t('misc.origin.tissue');
+  if (origin === 'hybrid') return t('misc.origin.hybrid');
   return '';
 }
 

@@ -4,6 +4,7 @@
 
 import { makeBox } from '../engine/textures.js';
 import { getCachedCanvasTexture, registerPickable } from './item-registry.js';
+import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 
@@ -96,7 +97,7 @@ export function stepScalpels(ctx, now) {
   if (ctx.wearingGloves && !ctx.glovesExpired && ctx.glovesUntil && now >= ctx.glovesUntil) {
     ctx.glovesExpired = true;
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('⚠️ Suas luvas pretas perderam a esterilidade após 160s! Troque na caixa de luvas.');
+      ctx.callbacks.onToast(t('items.scalpel.m1'));
     }
   }
   if (!ctx.pickableItems) return;
@@ -112,7 +113,7 @@ export function stepScalpels(ctx, now) {
         ctx.callbacks.onHoldChange(it.label);
       }
       if (ctx.callbacks && ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('⚠️ Lâmina do bisturi contaminou após 160s! Descarte no lixo e encaixe uma nova.');
+        ctx.callbacks.onToast(t('items.scalpel.m2'));
       }
     }
   }

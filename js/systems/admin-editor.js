@@ -325,6 +325,7 @@ export function applyCampusLayoutEdits(sim, layoutEdits) {
       const hasDynamicLabel = !!(
         item.spawnCtrl ||
         item.deliveryCrateCtrl ||
+        item.dehydratorCtrl ||
         item.monotubCtrl ||
         item.bowlCtrl ||
         (item.mesh && item.mesh.userData && (

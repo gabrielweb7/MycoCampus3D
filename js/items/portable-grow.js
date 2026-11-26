@@ -13,6 +13,7 @@ export const GROW_PREFABS = {
 
 const CAPACITY = 9;
 const FLUSH_MS = 90000;
+const DOOR_HEIGHT = 2.08;
 const shelfLevels = [0.37, 1.04, 1.71];
 const positiveNumber = (value, max) => Math.min(max, Math.max(0, Number(value) || 0));
 
@@ -188,11 +189,19 @@ function buildTent() {
     stitches.setMatrixAt(i, stitch.matrix);
   }
   group.add(stitches);
-  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.059, 0.059, 1.00, 14), lining);
+  const doorFlap = new THREE.Group();
+  doorFlap.position.set(0, 2.22, 0.399);
+  box(doorFlap, cloth, 1.017, DOOR_HEIGHT, 0.018, 0, -DOOR_HEIGHT / 2, 0);
+  for (const x of [-0.486, 0.486]) box(doorFlap, piping, 0.015, DOOR_HEIGHT, 0.006, x, -DOOR_HEIGHT / 2, 0.01);
+  box(doorFlap, piping, 1.016, 0.025, 0.006, 0, -DOOR_HEIGHT + 0.016, 0.01);
+  group.add(doorFlap);
+  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.059, 0.059, 1.00, 14), cloth);
   roll.rotation.z = Math.PI / 2;
   roll.position.set(0, 2.146, 0.365);
   group.add(roll);
-  for (const x of [-0.335, 0.335]) box(group, cloth, 0.045, 0.13, 0.126, x, 2.15, 0.363);
+  const doorStraps = new THREE.Group();
+  for (const x of [-0.335, 0.335]) box(doorStraps, cloth, 0.045, 0.13, 0.126, x, 2.15, 0.363);
+  group.add(doorStraps);
   box(group, steel, 0.85, 0.025, 0.106, 0, 2.152, 0.16);
   box(group, led, 0.80, 0.013, 0.055, 0, 2.133, 0.16);
   box(group, piping, 0.174, 0.113, 0.037, 0.493, 1.955, 0.412);
@@ -220,7 +229,9 @@ function buildTent() {
     for (const x of [-0.498, 0, 0.498]) box(group, steel, 0.032, 0.033, 0.69, x, y, 0);
     box(group, steel, 1.032, 0.041, 0.029, 0, y, 0.325);
     for (const x of [-0.34, 0, 0.34]) {
+      const slotIndex = slotVisuals.length;
       const cake = new THREE.Mesh(cakeGeo, cakeMat);
+      cake.userData.growSlotIndex = slotIndex;
       cake.position.set(x, y + 0.017, 0.03);
       group.add(cake);
       const mushrooms = new THREE.Group();
@@ -237,6 +248,7 @@ function buildTent() {
         fruit.add(stem, cap);
         mushrooms.add(fruit);
       }
+      mushrooms.traverse(part => { part.userData.growSlotIndex = slotIndex; });
       group.add(mushrooms);
       slotVisuals.push({ cake, mushrooms });
     }
@@ -255,7 +267,8 @@ function buildTent() {
   const mistGeo = new THREE.IcosahedronGeometry(0.04, 0);
   for (let i = 0; i < 14; i++) mist.add(new THREE.Mesh(mistGeo, mistMat));
   group.add(mist);
-  return { group: itemRoot, deployed: group, carry, slotVisuals, led, lining, humidifier, exhaust, mist };
+  return { group: itemRoot, deployed: group, carry, slotVisuals, led, lining, humidifier, exhaust, mist,
+    doorFlap, doorRoll: roll, doorStraps, doorProgress: 0 };
 }
 
 export function makeGrowShopItem(ctx, opts, kind) {
@@ -270,7 +283,7 @@ export function makeGrowShopItem(ctx, opts, kind) {
   view.group.userData.twoHanded = true;
   view.group.userData.isRack = true;
   const grow = {
-    auto: true, led: true, humidity: 64, air: 70,
+    auto: true, led: true, doorClosed: false, humidity: 64, air: 70,
     humidifier: false, exhaust: false, mistOn: false, fanOn: false,
     slots: Array(CAPACITY).fill(null), view
   };
@@ -279,7 +292,7 @@ export function makeGrowShopItem(ctx, opts, kind) {
     weightGrams: 9500,
     serializeState: () => ({
       grow: {
-        auto: grow.auto, led: grow.led, humidifier: grow.humidifier, exhaust: grow.exhaust,
+        auto: grow.auto, led: grow.led, doorClosed: grow.doorClosed, humidifier: grow.humidifier, exhaust: grow.exhaust,
         mistOn: grow.mistOn, fanOn: grow.fanOn, slots: grow.slots.map(slot => slot && { ...slot })
       }
     }),
@@ -288,6 +301,10 @@ export function makeGrowShopItem(ctx, opts, kind) {
       if (!saved) return;
       for (const key of ['auto', 'led', 'humidifier', 'exhaust', 'mistOn', 'fanOn']) {
         if (typeof saved[key] === 'boolean') grow[key] = saved[key];
+      }
+      if (typeof saved.doorClosed === 'boolean' && grow.doorClosed !== saved.doorClosed) {
+        grow.doorClosed = saved.doorClosed;
+        grow.view.doorProgress = Number(saved.doorClosed);
       }
       if (Array.isArray(saved.slots)) {
         for (let i = 0; i < CAPACITY; i++) {
@@ -313,8 +330,20 @@ function updateGrow(grow, dt, now) {
   const { view } = grow;
   const vapor = grow.humidifier && (grow.auto || grow.mistOn);
   const fan = grow.exhaust && (grow.auto || grow.fanOn);
-  grow.humidity += ((vapor ? 88 : 64) - grow.humidity) * Math.min(1, dt * 0.3);
-  grow.air += ((fan ? 94 : 70) - grow.air) * Math.min(1, dt * 0.25);
+  const sealed = grow.doorClosed && !fan;
+  const humidityTarget = vapor ? (sealed ? 93 : 88) : 64;
+  const humidityRate = sealed && grow.humidity > humidityTarget ? 0.08 : 0.3;
+  grow.humidity += (humidityTarget - grow.humidity) * Math.min(1, dt * humidityRate);
+  grow.air += ((fan ? 94 : grow.doorClosed ? 50 : 70) - grow.air) * Math.min(1, dt * 0.25);
+  const door = view.doorProgress = grow.doorClosed
+    ? Math.min(1, view.doorProgress + dt * 2.4)
+    : Math.max(0, view.doorProgress - dt * 2.4);
+  view.doorFlap.visible = door > 0;
+  view.doorFlap.scale.y = door;
+  view.doorRoll.visible = door < 1;
+  view.doorRoll.position.y = 2.146 - door * (DOOR_HEIGHT - 0.1);
+  view.doorRoll.scale.x = view.doorRoll.scale.z = 1 - door * 0.7;
+  view.doorStraps.visible = door === 0;
   view.led.emissiveIntensity = grow.led ? 1.35 : 0;
   view.lining.emissiveIntensity = grow.led ? 0.16 : 0.015;
   view.led.color.setHex(grow.led ? 0xf6efd3 : 0x5d605b);
@@ -374,11 +403,19 @@ export function countReadyGrowSlots(grow, now = Date.now()) {
   return grow.slots.reduce((count, slot) => count + Number(isReady(slot, now)), 0);
 }
 
+export function growSlotActionLabel(grow, index) {
+  const slot = grow.slots[index];
+  if (grow.doorClosed || !slot) return '';
+  if (slot.spent) return t('grow.spent', { species: slot.species });
+  return isReady(slot, Date.now()) ? t('grow.harvest', { species: slot.species, flush: slot.flush }) : '';
+}
+
 export function growHeldFeedback(item, grow) {
   const sc = item?.spawnCtrl;
   if (item?.growModule) return t('grow.connect');
   if (!sc?.isBag || !sc.filled) return '';
   if (sc.contaminated || sc.burned || sc.expired) return t('grow.bag_unusable');
+  if (grow?.doorClosed) return t('grow.open_to_access');
   if (isFruitingBagReady(item)) return grow && !grow.slots.includes(null) ? t('grow.full') : t('grow.bag_place');
   if (!sc.pasteurized || !isBulkSubstrate(sc.substrateKind)) return t('grow.bag_needs_bulk');
   if (!sc.inoculated) return t('grow.bag_needs_spawn');
@@ -395,6 +432,20 @@ function growHeldAction(item) {
 function sync(ctx, item) {
   ctx.queueItemStateSync?.(item);
   ctx.notifyWorldAction?.();
+}
+
+export function growDoorActionLabel(grow) {
+  return t(grow.doorClosed ? 'grow.open_door' : 'grow.close_door');
+}
+
+export function toggleGrowDoor(ctx, item) {
+  const grow = item?.growCtrl;
+  if (!grow || item.isReadOnly || item._removedForSync || ctx.isHeldByRemote?.(item.id) ||
+      ctx.heldItem === item || ctx.inventory?.pending) return false;
+  grow.doorClosed = !grow.doorClosed;
+  window.MycoAudio?.playClick?.();
+  sync(ctx, item);
+  return true;
 }
 
 function flushDuration(grow) {
@@ -422,6 +473,10 @@ export function installInGrow(ctx, item) {
   const held = ctx.heldItem;
   const grow = item.growCtrl;
   if (!grow || !held || item.isReadOnly || held.isReadOnly) return false;
+  if (grow.doorClosed && held.spawnCtrl?.isBag && held.spawnCtrl.filled) {
+    ctx.callbacks?.onToast?.(t('grow.open_to_access'));
+    return true;
+  }
   if (!growHeldAction(held)) {
     const feedback = growHeldFeedback(held, grow);
     if (!feedback) return false;
@@ -467,27 +522,33 @@ export function installInGrow(ctx, item) {
   return true;
 }
 
-function takeFromSlot(ctx, item, index) {
+export function takeFromGrowSlot(ctx, item, index) {
   const grow = item.growCtrl;
   const slot = grow.slots[index];
-  if (!slot || ctx.heldItem || item.isReadOnly || item._removedForSync || ctx.isHeldByRemote?.(item.id)) return false;
+  if (!slot || grow.doorClosed || ctx.heldItem || ctx.inventory?.pending ||
+      item.isReadOnly || item._removedForSync || ctx.isHeldByRemote?.(item.id)) return false;
   if (!slot.spent && Date.now() < slot.started + slot.duration) return false;
-  const stamp = Date.now().toString(36);
+  const stamp = Date.now().toString(36) + '_' + crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+  const { x, y, z } = item.mesh.position;
   let held;
   if (slot.spent) {
-    const { x, y, z } = item.mesh.position;
     held = makeSpentCakeItem(ctx, 'spent_cake_' + stamp, slot.species, x, y + 0.4, z);
     if (!held) return false;
     grow.slots[index] = null;
-    ctx.queueItemStateSync?.(held);
   } else {
     const isMagic = /psilocybe|cubensis|golden teacher/i.test(slot.species);
     held = spawnPersistedWildMushroom(ctx, 'harvest_gh_' + stamp, { speciesName: slot.species, isMagic, grams: 10 });
     if (!held) return false;
+    held.mesh.position.set(x, y + 0.4, z);
+    held.wildMushroomCtrl.bodyGroup.rotation.z = 0;
+    held.wildMushroomCtrl.bodyGroup.position.y = 0;
     grow.slots[index] = slot.flush >= 4 ? { ...slot, spent: true } : beginFlush(grow, slot.species, slot.flush + 1);
     ctx.callbacks?.onHarvestMushroom?.('portable_' + item.id + '_' + index + '_' + slot.started);
     window.MycoAudio?.playHarvest?.();
   }
+  held.isMoved = true;
+  held.movedAt = performance.now();
+  ctx.queueItemStateSync?.(held);
   ctx.heldItem = held;
   ctx.lastPickupAt = performance.now();
   ctx.callbacks?.onHoldChange?.(held.label);
@@ -560,6 +621,7 @@ export function openPortableGrowPanel(ctx, item) {
   auto.textContent = '🤖 ' + t('grow.auto');
   manual.textContent = '🎛 ' + t('grow.manual');
   const led = button(controls, () => toggle('led'));
+  const door = button(controls, () => { if (toggleGrowDoor(ctx, item)) refresh(); });
   const notice = button(controls, () => {
     grow.notifyHarvest = !grow.notifyHarvest;
     grow.readyMask = null;
@@ -576,7 +638,7 @@ export function openPortableGrowPanel(ctx, item) {
     for (let col = 0; col < 3; col++) {
       const index = tier * 3 + col;
       slotButtons[index] = button(row, () => {
-        if (takeFromSlot(ctx, item, index)) dialog.close();
+        if (takeFromGrowSlot(ctx, item, index)) dialog.close();
       });
     }
     slots.append(row);
@@ -590,7 +652,8 @@ export function openPortableGrowPanel(ctx, item) {
     const onOff = (value) => t(value ? 'grow.on' : 'grow.off');
     const moduleState = (installed, enabled) => t(!installed ? 'grow.absent' : grow.auto ? 'grow.auto' : enabled ? 'grow.on' : 'grow.off');
     humidity.value.textContent = Math.round(grow.humidity) + '%';
-    humidity.note.textContent = t('grow.humidifier') + ' · ' + moduleState(grow.humidifier, grow.mistOn);
+    humidity.note.textContent = t(grow.doorClosed ? 'grow.door_closed' : 'grow.door_open') + ' · ' +
+      t('grow.humidifier') + ' ' + moduleState(grow.humidifier, grow.mistOn);
     air.value.textContent = Math.round(grow.air) + '%';
     air.note.textContent = t('grow.exhaust') + ' · ' + moduleState(grow.exhaust, grow.fanOn);
     light.value.textContent = onOff(grow.led);
@@ -600,10 +663,13 @@ export function openPortableGrowPanel(ctx, item) {
     auto.setAttribute('aria-pressed', String(grow.auto));
     manual.setAttribute('aria-pressed', String(!grow.auto));
     led.textContent = 'LED · ' + onOff(grow.led);
+    door.textContent = growDoorActionLabel(grow);
+    door.setAttribute('aria-pressed', String(grow.doorClosed));
     notice.textContent = '🔔 ' + t(grow.notifyHarvest ? 'grow.notice_on' : 'grow.notice_off');
     notice.setAttribute('aria-pressed', String(!!grow.notifyHarvest));
     const ready = countReadyGrowSlots(grow);
-    if (ready) capacity.note.textContent = t('grow.ready_count', { count: ready });
+    if (grow.doorClosed) capacity.note.textContent = t('grow.open_to_access');
+    else if (ready) capacity.note.textContent = t('grow.ready_count', { count: ready });
     mist.textContent = t('grow.humidifier') + ' · ' + moduleState(grow.humidifier, grow.mistOn);
     fan.textContent = t('grow.exhaust') + ' · ' + moduleState(grow.exhaust, grow.fanOn);
     mist.disabled = !grow.humidifier || grow.auto;
@@ -614,7 +680,7 @@ export function openPortableGrowPanel(ctx, item) {
       const progress = slot ? Math.min(100, Math.max(0, Math.floor((now - slot.started) * 100 / slot.duration))) : 0;
       const action = !slot ? 'grow.empty' : slot.spent ? 'grow.spent' : progress === 100 ? 'grow.harvest' : 'grow.progress';
       slotButtons[i].textContent = t(action, { progress, species: slot?.species, flush: slot?.flush });
-      slotButtons[i].disabled = !slot || (!slot.spent && progress < 100);
+      slotButtons[i].disabled = grow.doorClosed || !slot || (!slot.spent && progress < 100);
       slotButtons[i].dataset.state = !slot ? 'empty' : slot.spent || progress === 100 ? 'ready' : 'growing';
     }
   }

@@ -145,7 +145,7 @@ test('v1.9.9 comer cogumelo usa chip numérico [1] (sem comer ao clicar), panela
   // Cogumelo em mãos não é comido no clique primário; ação [1] Comer Cogumelo via radial-menu
   assert.match(interSrc, /export function eatHeldMushroom\(/);
   assert.doesNotMatch(interSrc, /if\s*\(\s*ctx\.heldItem\s*&&\s*ctx\.heldItem\.wildMushroomCtrl\s*\)/);
-  assert.match(radialSrc, /held\.wildMushroomCtrl[\s\S]*label:\s*'Comer Cogumelo'/);
+  assert.match(radialSrc, /held\.wildMushroomCtrl[\s\S]*label:\s*(?:'Comer Cogumelo'|t\('actions\.radial\.eat_mushroom'\))/);
   assert.match(radialSrc, /eatHeldMushroom\(ctx\)/);
 
   // Sprite gigante atrás do balão da panela removido

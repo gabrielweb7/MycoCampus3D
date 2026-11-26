@@ -18,7 +18,7 @@ import { isCultureAccessibleFromFridge, isPartOfFridgeDoor, isCultureFridgeOccup
 import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
 import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import { formatHoverInfo, updateHover3dBadge, hideHover3dBadge } from '../entities/hover-3d-badge.js';
-import { countReadyGrowSlots, growHeldFeedback } from '../items/portable-grow.js';
+import { countReadyGrowSlots, growHeldFeedback, growSlotActionLabel } from '../items/portable-grow.js';
 import { canPruneGardenPlant, gardenHitMeshes, gardenState } from '../world/campus-garden.js';
 import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
 import { getMonotubActionLabel } from '../items/monotub.js';
@@ -29,6 +29,12 @@ import { cratePlacementError, findAimedCrate, freeCrateSlot } from './crate-carg
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
 const _tmpBadgeWorldPos = new THREE.Vector3();
+const GREENHOUSE_DEV_KEYS = {
+  panel: 'actions.hover.gh_dev_panel',
+  humidifier: 'actions.hover.gh_dev_humidifier',
+  exhaust: 'actions.hover.gh_dev_exhaust',
+  cooler: 'actions.hover.gh_dev_cooler'
+};
 
 function resolveHoverTargetObj(ctx) {
   return ctx.hoveredPickable ||
@@ -55,32 +61,32 @@ function resolveHoverTargetObj(ctx) {
     ctx.hoveredMushroomBagSealTarget ||
     ctx.hoveredDeliveryCrateTarget ||
     ctx.hoveredCratePlacement ||
-    (ctx.hoveredRoadSaleStand ? { label: '🚗 Quiosque Drive-Thru MycoCampus (Estrada Sul)' } : null) ||
+    (ctx.hoveredRoadSaleStand ? { label: t('actions.hover.road_stand_badge') } : null) ||
     ctx.hoveredMonotubTarget ||
     ctx.hoveredDehydratorTarget ||
     ctx.hoveredSporePrintPetri ||
-    (ctx.hoveredMonotubRackSlot ? { label: `Estante LED Monotub (Andar ${ctx.hoveredMonotubRackSlot.tier})` } : null) ||
-    (ctx.hoveredGardenTarget ? { label: ctx.hoveredGardenTarget.label || (ctx.hoveredGardenTarget.plant && ctx.hoveredGardenTarget.plant.name) || 'Horta Orgânica' } : null) ||
-    (ctx.hoveredMonotubDunkSink ? { label: 'Pia Inox do Laboratório' } : null) ||
+    (ctx.hoveredMonotubRackSlot ? { label: t('actions.hover.monotub_rack_badge', { tier: ctx.hoveredMonotubRackSlot.tier }) } : null) ||
+    (ctx.hoveredGardenTarget ? { label: ctx.hoveredGardenTarget.label || (ctx.hoveredGardenTarget.plant && ctx.hoveredGardenTarget.plant.name) || t('actions.hover.garden_badge') } : null) ||
+    (ctx.hoveredMonotubDunkSink ? { label: t('actions.hover.sink_badge') } : null) ||
     ctx.hoveredDoorObj ||
     ctx.hoveredCabinetPart ||
     ctx.hoveredGreenhouseSlot ||
-    (ctx.hoveredMushroom ? { label: (ctx.hoveredMushroom.capMesh && ctx.hoveredMushroom.capMesh.userData.speciesName) || 'Cogumelo Selvagem' } : null) ||
+    (ctx.hoveredMushroom ? { label: (ctx.hoveredMushroom.capMesh && ctx.hoveredMushroom.capMesh.userData.speciesName) || t('actions.hover.wild_mushroom') } : null) ||
     ctx.hoveredBlindObj ||
-    (ctx.hoveredSink ? { label: 'Pia Inox do Laboratório' } : null) ||
-    (ctx.hoveredTrash ? { label: 'Lixeira do Laboratório' } : null) ||
-    (ctx.hoveredSeat ? { label: 'Assento' } : null) ||
-    (ctx.hoveredBoardHit ? { label: 'Lousa Interativa' } : null) ||
-    (ctx.hoveredRankBtn ? { label: 'Ranking do Campus' } : null) ||
-    (ctx.hoveredCinema ? { label: 'Telão do Auditório' } : null) ||
-    (ctx.hoveredScaleTare ? { label: 'Balança de Precisão' } : null) ||
-    (ctx.hoveredBurnerSwitch ? { label: ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'Tripé Fogareiro a Gás' : 'Fogareiro Elétrico' } : null) ||
-    (ctx.hoveredStirSwitch ? { label: 'Agitador Magnético' } : null) ||
-    (ctx.hoveredHoodSwitch ? { label: 'Capela de Fluxo Laminar' } : null) ||
+    (ctx.hoveredSink ? { label: t('actions.hover.sink_badge') } : null) ||
+    (ctx.hoveredTrash ? { label: t('actions.hover.trash_badge') } : null) ||
+    (ctx.hoveredSeat ? { label: t('actions.hover.seat_badge') } : null) ||
+    (ctx.hoveredBoardHit ? { label: t('actions.hover.board_badge') } : null) ||
+    (ctx.hoveredRankBtn ? { label: t('actions.hover.rank_badge') } : null) ||
+    (ctx.hoveredCinema ? { label: t('actions.hover.cinema_badge') } : null) ||
+    (ctx.hoveredScaleTare ? { label: t('actions.hover.scale_badge') } : null) ||
+    (ctx.hoveredBurnerSwitch ? { label: t(ctx.hoveredBurnerSwitch.kind === 'gas_tripod' ? 'actions.hover.burner_gas' : 'actions.hover.burner_electric') } : null) ||
+    (ctx.hoveredStirSwitch ? { label: t('actions.hover.stirrer_badge') } : null) ||
+    (ctx.hoveredHoodSwitch ? { label: t('actions.hover.hood_badge') } : null) ||
     (ctx.hoveredCow ? { label: `🐄 ${ctx.hoveredCow.name}`, mesh: ctx.hoveredCow.mesh } : null) ||
-    (ctx.hoveredSwitch ? { label: 'Interruptor de Luz' } : null) ||
+    (ctx.hoveredSwitch ? { label: t('actions.hover.light_switch_badge') } : null) ||
     (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer && ctx.thermoLaserOn
-      ? { label: ctx.thermoTargetLabel || 'Termômetro Infravermelho' }
+      ? { label: ctx.thermoTargetLabel || t('actions.hover.thermometer_badge') }
       : null);
 }
 
@@ -150,16 +156,22 @@ export function syncHover3dBadge(ctx, prompt) {
   }
 }
 
-function setHoverPrompt(ctx, prompt) {
+function setHoverPrompt(ctx, prompt, contextual = true) {
+  ctx.mobileAimPrompt = contextual ? prompt : '';
   if (ctx.callbacks && ctx.callbacks.onHoverPrompt) {
-    ctx.callbacks.onHoverPrompt(prompt);
+    ctx.callbacks.onHoverPrompt(prompt, contextual);
   }
   syncHover3dBadge(ctx, prompt);
 }
 
 export function firstValidRayHit(hits) {
   for (let hi = 0; hi < hits.length; hi++) {
-    const data = hits[hi].object.userData;
+    let part = hits[hi].object;
+    const data = part.userData;
+    if (data.growSlotIndex !== undefined) {
+      while (part?.visible) part = part.parent;
+      if (part) continue;
+    }
     if (!data.ignoreRay && !data.hiddenCratePack) return hits[hi];
   }
   return null;
@@ -179,8 +191,10 @@ function intersectPickableItem(raycaster, item) {
 
 export function updateHoverRay(ctx, customNdc) {
   if (!ctx.heldItem && ctx.placementMode) cancelHeldItemPlacement(ctx);
+  ctx.mobileAimPrompt = '';
   ctx.hoverHit = null;
   ctx.hoveredPickable = null;
+  ctx.hoveredGrowSlot = null;
   ctx.hoveredMushroom = null;
   ctx.hoveredVillageLot = null;
   ctx.hoveredDoorObj = null;
@@ -275,7 +289,7 @@ export function updateHoverRay(ctx, customNdc) {
     if (rHits.length > 0 && rHits[0].distance < 18) {
       ctx.hoverHit = rHits[0];
       ctx.hoveredRankBtn = rHits[0].object.userData.rankAction;
-      prompt = ctx.hoveredRankBtn === 'up' ? '▲ Subir Ranking' : '▼ Descer Ranking';
+      prompt = t(ctx.hoveredRankBtn === 'up' ? 'actions.hover.rank_up' : 'actions.hover.rank_down');
       setHoverPrompt(ctx, prompt);
       return;
     }
@@ -293,12 +307,12 @@ export function updateHoverRay(ctx, customNdc) {
         ctx.lastCinemaHoverIdx = cTarget.idx !== undefined ? cTarget.idx : -1;
         ctx.cinemaDirty = true;
       }
-      if (cTarget.type === 'power_on') prompt = '⏻ Clique na tela para ligar o Auditório';
-      else if (cTarget.type === 'power_off') prompt = '⏻ Desligar tela do Auditório';
-      else if (cTarget.type === 'menu') prompt = '📋 Voltar ao menu de módulos';
-      else if (cTarget.type === 'lesson') prompt = '▶️ Assistir: ' + ((ctx.cinemaLessons[cTarget.idx] && ctx.cinemaLessons[cTarget.idx].title) || 'Aula');
-      else if (cTarget.type === 'toggle_play') prompt = ctx.cinemaPlaying ? '⏸️ Clique na aula para pausar' : '▶️ Clique na aula para continuar';
-      else prompt = '🎬 Escolha um módulo na tela para assistir';
+      if (cTarget.type === 'power_on') prompt = t('actions.hover.cinema_power_on');
+      else if (cTarget.type === 'power_off') prompt = t('actions.hover.cinema_power_off');
+      else if (cTarget.type === 'menu') prompt = t('actions.hover.cinema_menu');
+      else if (cTarget.type === 'lesson') prompt = t('actions.hover.cinema_watch', { title: (ctx.cinemaLessons[cTarget.idx] && ctx.cinemaLessons[cTarget.idx].title) || t('actions.hover.cinema_lesson_default') });
+      else if (cTarget.type === 'toggle_play') prompt = t(ctx.cinemaPlaying ? 'actions.hover.cinema_pause' : 'actions.hover.cinema_resume');
+      else prompt = t('actions.hover.cinema_choose');
       setHoverPrompt(ctx, prompt);
       return;
     }
@@ -318,11 +332,11 @@ export function updateHoverRay(ctx, customNdc) {
       const sc = tHits[0].object.userData.scaleObj;
       ctx.hoveredScaleTare = sc;
       if (sc.lastGross <= 0.05 && sc.tare > 0) {
-        prompt = '⚖️ Cancelar TARA (Voltar para 0.0 g)';
+        prompt = t('actions.hover.scale_tare_cancel');
       } else if (sc.lastGross > 0) {
-        prompt = '⚖️ Aplicar TARA (Descontar ' + sc.lastGross.toFixed(1) + 'g)';
+        prompt = t('actions.hover.scale_tare_apply', { grams: sc.lastGross.toFixed(1) });
       } else {
-        prompt = '⚖️ Zerar Balança (TARE)';
+        prompt = t('actions.hover.scale_tare_zero');
       }
       setHoverPrompt(ctx, prompt);
       return;
@@ -359,14 +373,14 @@ export function updateHoverRay(ctx, customNdc) {
       if (bHit.object.userData.burnerTimerIdx !== undefined) {
         ctx.hoveredBurnerTimer = ctx.burnerDevices[bHit.object.userData.burnerTimerIdx];
         const curLbl = formatBurnerTimerLabel(ctx.hoveredBurnerTimer.timerPresetMin || 0);
-        prompt = '⏱️ Timer Digital (' + curLbl + ') • Clique para alternar (20m / 1h / 1h30 / 2h / Livre)';
+        prompt = t('actions.hover.burner_timer', { label: curLbl });
         setHoverPrompt(ctx, prompt);
         return;
       }
       ctx.hoveredBurnerSwitch = ctx.burnerDevices[bHit.object.userData.burnerSwitchIdx];
       const curL = ctx.hoveredBurnerSwitch.level || (ctx.hoveredBurnerSwitch.on ? 3 : 0);
       const nxtL = (curL + 1) % 4;
-      prompt = '🔥 ' + BURNER_LEVEL_NAMES[curL] + ' → Mudar para ' + BURNER_LEVEL_NAMES[nxtL];
+      prompt = t('actions.hover.burner_switch', { current: BURNER_LEVEL_NAMES[curL], next: BURNER_LEVEL_NAMES[nxtL] });
       setHoverPrompt(ctx, prompt);
       return;
     }
@@ -384,7 +398,7 @@ export function updateHoverRay(ctx, customNdc) {
     if (stSwHits.length > 0 && stSwHits[0].distance < 4.0) {
       ctx.hoverHit = stSwHits[0];
       ctx.hoveredStirSwitch = stSwHits[0].object.userData.stirSwitch;
-      prompt = ctx.hoveredStirSwitch.on ? '🌀 Desligar Agitador Magnético' : '🌀 Ligar Agitador Magnético';
+      prompt = t(ctx.hoveredStirSwitch.on ? 'actions.hover.stirrer_off' : 'actions.hover.stirrer_on');
       setHoverPrompt(ctx, prompt);
       return;
     }
@@ -402,7 +416,7 @@ export function updateHoverRay(ctx, customNdc) {
     if (hsHits.length > 0 && hsHits[0].distance < 4.0) {
       ctx.hoverHit = hsHits[0];
       ctx.hoveredHoodSwitch = hsHits[0].object.userData.hoodSwitch;
-      prompt = ctx.hoveredHoodSwitch.on ? '💨 Desligar Fluxo Laminar' : '💨 Ligar Fluxo Laminar';
+      prompt = t(ctx.hoveredHoodSwitch.on ? 'actions.hover.hood_off' : 'actions.hover.hood_on');
       setHoverPrompt(ctx, prompt);
       return;
     }
@@ -413,7 +427,7 @@ export function updateHoverRay(ctx, customNdc) {
     if (swHit) {
       ctx.hoverHit = swHit;
       ctx.hoveredSwitch = swHit.object.userData.lightSwitch;
-      prompt = ctx.hoveredSwitch.on ? '💡 Clique para desligar a luz' : '💡 Clique para ligar a luz';
+      prompt = t(ctx.hoveredSwitch.on ? 'actions.hover.light_off' : 'actions.hover.light_on');
       setHoverPrompt(ctx, prompt);
       return;
     }
@@ -425,10 +439,10 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoverHit = stHit;
       const candSeat = stHit.object.userData.seatInfo;
       if (isSeatOccupied(ctx.remoteAvatars, candSeat)) {
-        prompt = '🚫 Assento ocupado (sente ao lado!)';
+        prompt = t('actions.hover.seat_occupied');
       } else {
         ctx.hoveredSeat = candSeat;
-        prompt = '🪑 Clique para sentar';
+        prompt = t('actions.hover.seat_sit');
       }
       setHoverPrompt(ctx, prompt);
       return;
@@ -440,8 +454,12 @@ export function updateHoverRay(ctx, customNdc) {
     if (doorHit) {
       ctx.hoverHit = doorHit;
       ctx.hoveredDoorObj = doorHit.object.userData.doorObj;
-      prompt = '🚪 ' + (ctx.hoveredDoorObj.open ? 'Fechar ' : 'Abrir ') + ctx.hoveredDoorObj.label +
-        (ctx.heldItem ? ' • use a opção numerada' : '');
+      prompt = t(
+        ctx.hoveredDoorObj.open
+          ? (ctx.heldItem ? 'actions.hover.door_close_numbered' : 'actions.hover.door_close')
+          : (ctx.heldItem ? 'actions.hover.door_open_numbered' : 'actions.hover.door_open'),
+        { label: ctx.hoveredDoorObj.label }
+      );
     }
   }
   const maxMushSq = ctx.inFps ? 24 : 225;
@@ -458,19 +476,18 @@ export function updateHoverRay(ctx, customNdc) {
         ctx.hoverHit = mHit;
         ctx.hoveredMushroom = wm;
         const isPoop = wm.id && wm.id.indexOf('wild_poop_') === 0;
-        const spLabel = (wm.capMesh && wm.capMesh.userData && wm.capMesh.userData.speciesName) || 'Cogumelo Selvagem';
+        const spLabel = (wm.capMesh && wm.capMesh.userData && wm.capMesh.userData.speciesName) || t('actions.hover.wild_mushroom');
         const crate = ctx.heldItem;
         if (crate) {
           prompt = freeCrateSlot(crate) < 0 ? t('crate.full') : t('crate.harvest', { species: spLabel });
         } else {
-          prompt = isPoop
-            ? `🍄 Comer / Colher ${spLabel} (+40 XP • +1 Cogu)`
-            : `🍄 Colher ${spLabel} (+25 XP • +1 Cogu)`;
+          prompt = t(isPoop ? 'actions.hover.wild_harvest_poop' : 'actions.hover.wild_harvest', { species: spLabel });
         }
         break;
       }
     }
   }
+  const hasAimTarget = !!prompt;
   if (!prompt && ctx.heldItem) {
     for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
       const fItem = ctx.pickableItems[fi];
@@ -484,9 +501,7 @@ export function updateHoverRay(ctx, customNdc) {
       })) {
         ctx.hoveredPickable = fItem;
         ctx.hoverHit = fHit;
-        prompt = fItem.fridgeCtrl.doorOpen
-          ? '🧊 Use a opção numerada Fechar geladeira'
-          : '🧊 Use a opção numerada Abrir geladeira';
+        prompt = t(fItem.fridgeCtrl.doorOpen ? 'actions.hover.fridge_close_numbered' : 'actions.hover.fridge_open_numbered');
         break;
       }
     }
@@ -559,16 +574,24 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoverHit = bestBlockedHit;
       if (ctx.adminEditMode) {
         if (bestBlocked.mesh.userData.isBurner) {
-          prompt = '🚫 Retire a panela de cima antes de mover o Fogareiro';
+          prompt = t('actions.hover.blocked_burner');
         } else {
-          prompt = '🚫 Retire os objetos de cima antes de mover ' + bestBlocked.label;
+          prompt = t('actions.hover.blocked_item', { label: bestBlocked.label });
         }
       } else {
         prompt = bestBlocked.label;
       }
     } else if (ctx.hoveredPickable?.growCtrl && !ctx.adminEditMode) {
-      const ready = countReadyGrowSlots(ctx.hoveredPickable.growCtrl);
-      prompt = ready ? t('grow.ready_count', { count: ready }) + ' · ' + t('grow.panel') : t('grow.panel');
+      const grow = ctx.hoveredPickable.growCtrl;
+      const index = ctx.hoverHit?.object.userData.growSlotIndex;
+      const harvest = growSlotActionLabel(grow, index);
+      if (harvest) {
+        ctx.hoveredGrowSlot = index;
+        prompt = harvest;
+      } else {
+        const ready = countReadyGrowSlots(grow);
+        prompt = ready ? t('grow.ready_count', { count: ready }) + ' · ' + t('grow.panel') : t('grow.panel');
+      }
     } else if (ctx.hoveredPickable) {
       let potStatus = null;
       for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
@@ -579,59 +602,60 @@ export function updateHoverRay(ctx, customNdc) {
       if (ctx.hoveredPickable.potItem && ctx.hoveredPickable.isAttached) {
         const wLit = potStatus ? ((potStatus.waterMl / 1000).toFixed(1) + 'L') : '';
         if (potStatus && potStatus.burned) {
-          prompt = '🔥 Tudo queimado :( • Retirar Tampa e descartar';
+          prompt = t('actions.hover.pot_lid_burned');
         } else if (potStatus && potStatus.psi >= 1.5) {
           const pctP = Math.min(100, Math.round((potStatus.psi / 15) * 100));
           if (potStatus.progress >= 100) {
-            prompt = `🔒 Tampa Travada (${potStatus.psi.toFixed(1)} PSI • ✅ 100% • ${Math.round(potStatus.temp)}°C • ${wLit}) — Desligue e aguarde`;
+            prompt = t('actions.hover.pot_lid_locked_done', { psi: potStatus.psi.toFixed(1), temp: Math.round(potStatus.temp), water: wLit });
           } else if (potStatus.psi >= 14) {
-            prompt = `🔒 Esterilizando: ${Math.floor(potStatus.progress)}% (${potStatus.psi.toFixed(1)}/15 PSI • ${Math.round(potStatus.temp)}°C • ${wLit})`;
+            prompt = t('actions.hover.pot_lid_sterilizing', { pct: Math.floor(potStatus.progress), psi: potStatus.psi.toFixed(1), temp: Math.round(potStatus.temp), water: wLit });
           } else {
-            prompt = `🔒 Pressurizada: ${potStatus.psi.toFixed(1)}/15 PSI (${pctP}% • ${Math.round(potStatus.temp)}°C • ${wLit}) — Aguarde < 1.5 PSI`;
+            prompt = t('actions.hover.pot_lid_pressurized', { psi: potStatus.psi.toFixed(1), pct: pctP, temp: Math.round(potStatus.temp), water: wLit });
           }
         } else if (potStatus && potStatus.progress >= 100) {
-          const coolTag = potStatus.temp > 30 ? `❄️ ${Math.round(potStatus.temp)}°C` : '🔓 Despressurizada';
-          prompt = `🍲 Retirar Tampa (${coolTag} • ✅ Esterilizado 100% • Água ${wLit})`;
+          const coolTag = potStatus.temp > 30
+            ? t('actions.hover.pot_cool_temp', { temp: Math.round(potStatus.temp) })
+            : t('actions.hover.pot_depressurized');
+          prompt = t('actions.hover.pot_lid_remove_done', { coolTag, water: wLit });
         } else if (potStatus && potStatus.temp > 30) {
-          prompt = `🍲 Retirar Tampa (🌡️ ${Math.round(potStatus.temp)}°C • Água ${wLit})`;
+          prompt = t('actions.hover.pot_lid_remove_hot', { temp: Math.round(potStatus.temp), water: wLit });
         } else {
-          prompt = '🍲 Retirar Tampa da Panela de Pressão';
+          prompt = t('actions.hover.pot_lid_remove');
         }
       } else if (potStatus && ctx.hoveredPickable === potStatus.potItem) {
         const wLit = (potStatus.waterMl / 1000).toFixed(1) + 'L';
         if (potStatus.burned) {
-          prompt = `${ctx.hoveredPickable.label} • 🔥 Queimada :( • Esvazie`;
+          prompt = t('actions.hover.pot_burned', { label: ctx.hoveredPickable.label });
         } else if ((potStatus.grainGrams || 0) > 0) {
           const gPct = potStatus.grainAlDente ? 100 : Math.min(100, Math.round(((potStatus.grainCookSec || 0) / 60) * 100));
-          prompt = `${ctx.hoveredPickable.label} • ${potStatus.grainAlDente ? '✅ Milho AO DENTE' : `🌽 Cozinhando ${gPct}%`} • ${Math.round(potStatus.temp)}°C • Água ${wLit}`;
+          const grainState = potStatus.grainAlDente
+            ? t('actions.hover.pot_grain_al_dente')
+            : t('actions.hover.pot_grain_cooking', { pct: gPct });
+          prompt = t('actions.hover.pot_grain_status', { label: ctx.hoveredPickable.label, state: grainState, temp: Math.round(potStatus.temp), water: wLit });
         } else if (potStatus.temp > 30 || potStatus.progress > 0 || potStatus.psi >= 1.5) {
           const stPart = potStatus.psi >= 1.5
             ? `🔒 ${potStatus.psi.toFixed(1)} PSI`
-            : (potStatus.progress >= 100 ? '✅ Esterilizado 100%' : `${Math.round(potStatus.temp)}°C`);
-          prompt = `${ctx.hoveredPickable.label} • ${stPart} • Água ${wLit}`;
+            : (potStatus.progress >= 100 ? t('actions.hover.pot_sterilized_done') : `${Math.round(potStatus.temp)}°C`);
+          prompt = t('actions.hover.pot_status_water', { label: ctx.hoveredPickable.label, state: stPart, water: wLit });
         } else {
-          prompt = `${ctx.hoveredPickable.label} • Água ${wLit}`;
+          prompt = t('actions.hover.pot_water', { label: ctx.hoveredPickable.label, water: wLit });
         }
       } else if (ctx.hoveredPickable.caseCtrl) {
         const cc = ctx.hoveredPickable.caseCtrl;
         const used = cc.slots ? cc.slots.filter(Boolean).length : 0;
-        prompt = cc.lidOpen
-          ? `💼 Abrir Catálogo de Ampolas 5ML (${used}/${cc.maxSlots || 50})`
-          : `💼 Abrir Maleta Porta-Ampolas 5ML (${used}/${cc.maxSlots || 50})`;
+        prompt = t(cc.lidOpen ? 'actions.hover.case_open_catalog' : 'actions.hover.case_open', { used, max: cc.maxSlots || 50 });
       } else if (ctx.hoveredPickable.fridgeCtrl) {
         const fridge = ctx.hoveredPickable;
-        prompt = fridge.fridgeCtrl.doorOpen
-          ? '🧊 Fechar Porta da Geladeira (4°C)'
-          : '🧊 Abrir Porta da Geladeira (4°C)';
+        prompt = t(fridge.fridgeCtrl.doorOpen ? 'actions.hover.fridge_close' : 'actions.hover.fridge_open');
       } else if (ctx.hoveredPickable.monotubCtrl && !ctx.adminEditMode) {
-        const move = ctx.isTouchDevice?.() ? 'Mover para carregar' : 'G/Q para carregar';
+        const move = t(ctx.isTouchDevice?.() ? 'actions.hover.monotub_move_touch' : 'actions.hover.monotub_move_key');
         prompt = `📦 ${getMonotubActionLabel(ctx.hoveredPickable.monotubCtrl)} • ${move}`;
       } else if (ctx.hoveredPickable.silicaJarCtrl) {
         const jc = ctx.hoveredPickable.silicaJarCtrl;
         const cap = jc.maxGrams || jc.capacityGrams || 150;
         prompt = jc.storedGrams > 0
-          ? `🫙 Retirar ${Math.min(10, jc.storedGrams)} g (${jc.storedGrams}/${cap}g • ${jc.speciesName || 'Crocantes'})`
-          : `🫙 Pote Hermético c/ Sílica Gel (0/${cap}g • Vazio)`;
+          ? t('actions.hover.silica_take', { grams: Math.min(10, jc.storedGrams), stored: jc.storedGrams, cap, species: jc.speciesName || t('actions.hover.silica_crisp_default') })
+          : t('actions.hover.silica_empty', { cap });
       } else {
         prompt = ctx.hoveredPickable.label;
       }
@@ -649,13 +673,13 @@ export function updateHoverRay(ctx, customNdc) {
           ctx.hoverHit = cabHit;
           ctx.hoveredCabinetPart = cPart;
           ctx.hoveredPickable = null;
-          prompt = (cPart.open ? '🗄️ Fechar ' : '🗄️ Abrir ') + (cPart.label || 'Armário');
+          prompt = t(cPart.open ? 'actions.hover.cabinet_close' : 'actions.hover.cabinet_open', { label: cPart.label || t('actions.hover.cabinet_default') });
         }
       }
     }
   }
   if (ctx.heldSportBall) {
-    setHoverPrompt(ctx, '🏀 Mire acima da cesta e clique para arremessar!');
+    setHoverPrompt(ctx, t('actions.hover.basketball_aim'));
     return;
   }
   if (!prompt && !ctx.heldItem && ctx.sportBalls && ctx.sportBalls.length) {
@@ -666,7 +690,7 @@ export function updateHoverRay(ctx, customNdc) {
       if (bHit) {
         ctx.hoverHit = bHit;
         ctx.hoveredSportBall = sb;
-        prompt = '🏀 Pegar Bola de Basquete (p/ arremessar na cesta)';
+        prompt = t('actions.hover.basketball_pick');
         break;
       }
     }
@@ -676,7 +700,7 @@ export function updateHoverRay(ctx, customNdc) {
     if (cowHit && cowHit.object.userData.cowObj) {
       ctx.hoverHit = cowHit;
       ctx.hoveredCow = cowHit.object.userData.cowObj;
-      prompt = `🐄 ${ctx.hoveredCow.name} (Saúde ${ctx.hoveredCow.health}% • ${ctx.hoveredCow.mood}) • Clique para fazer carinho`;
+      prompt = t('actions.hover.cow_pet', { name: ctx.hoveredCow.name, health: ctx.hoveredCow.health, mood: ctx.hoveredCow.mood });
     }
   }
   if (!prompt && !ctx.heldItem && refZ >= 43 && refZ <= 97 && ctx.villageHitMeshes?.length) {
@@ -694,14 +718,15 @@ export function updateHoverRay(ctx, customNdc) {
         const dev = ctrlHit.object.userData.greenhouseDevice;
         ctx.hoverHit = ctrlHit;
         ctx.hoveredGreenhouseDevice = dev;
-        const devNames = {
-          panel: '🎛️ Painel de Automação da Estufa',
-          humidifier: '💧 Umidificador Ultrassônico',
-          exhaust: '🌬️ Exaustor de CO₂ (Troca de Ar)',
-          cooler: '❄️ Climatizador 3 Ventoinhas'
-        };
-        const modeTxt = greenhouseEnv.autoMode ? 'AUTO' : 'MANUAL';
-        prompt = `${devNames[dev] || '🎛️ Estufa'} (${modeTxt} • ${Math.round(greenhouseEnv.humidity)}% UR • ${Math.round(greenhouseEnv.co2Ppm)} ppm • ${greenhouseEnv.tempC.toFixed(1)}°C) • Clique para abrir controles`;
+        const devName = t(GREENHOUSE_DEV_KEYS[dev] || 'actions.hover.gh_dev_default');
+        const modeTxt = t(greenhouseEnv.autoMode ? 'actions.hover.gh_mode_auto' : 'actions.hover.gh_mode_manual');
+        prompt = t('actions.hover.gh_device_prompt', {
+          device: devName,
+          mode: modeTxt,
+          humidity: Math.round(greenhouseEnv.humidity),
+          co2: Math.round(greenhouseEnv.co2Ppm),
+          temp: greenhouseEnv.tempC.toFixed(1)
+        });
       }
     }
     if (!prompt && (!ctx.heldItem || isHoldingColonizedSpawn(ctx.heldItem)) && greenhouseHitMeshes.length > 0) {
@@ -715,23 +740,23 @@ export function updateHoverRay(ctx, customNdc) {
           const loc = `${hSlot.rackName} • A${hSlot.tier}`;
           const hPct = typeof hSlot.health === 'number' ? Math.round(hSlot.health) : 100;
           const diagLabel = (hSlot.stressReasons && hSlot.stressReasons.length > 0)
-            ? `⚠️ Estressado (${hPct}%): ${hSlot.stressReasons.join(' + ')}`
-            : `❤️ Saudável (${hPct}%)`;
+            ? t('actions.hover.gh_stressed', { pct: hPct, reasons: hSlot.stressReasons.join(' + ') })
+            : t('actions.hover.gh_healthy', { pct: hPct });
           if (hasColonizedSpawn) {
             prompt = (hSlot.empty || hSlot.stage <= 0)
-              ? `🍄 Colocar Spawn (${ctx.heldItem.label}) em ${loc} (+50 XP na colheita)`
-              : `🌱 ${hSlot.name} (${loc}) já está em frutificação`;
+              ? t('actions.hover.gh_place_spawn', { label: ctx.heldItem.label, loc })
+              : t('actions.hover.gh_already_fruiting', { name: hSlot.name, loc });
           } else if (hSlot.spent || hSlot.contaminated) {
             prompt = hSlot.contaminated
-              ? `🦠 ${hSlot.name} (${loc}) Contaminado (Trichoderma) • Clique p/ retirar e descartar`
-              : `🍂 ${hSlot.name} (${loc} • 4/4 Flushs • Bolo Seco Esgotado) • Clique p/ retirar e levar à Horta!`;
+              ? t('actions.hover.gh_contam', { name: hSlot.name, loc })
+              : t('actions.hover.gh_spent', { name: hSlot.name, loc });
           } else if (hSlot.empty || hSlot.stage < 0) {
-            prompt = `📦 ${hSlot.name} (${loc}) • Traga Spawn colonizado ou clique para iniciar cultivo`;
+            prompt = t('actions.hover.gh_empty', { name: hSlot.name, loc });
           } else if (hSlot.stage === 3) {
-            prompt = `🍄 Colher ${hSlot.name} (${loc} • Flush ${hSlot.flush}/4) • ${diagLabel} • (+50 XP)`;
+            prompt = t('actions.hover.gh_harvest', { name: hSlot.name, loc, flush: hSlot.flush, diag: diagLabel });
           } else {
-            const stText = hSlot.stage === 0 ? 'Micélio' : (hSlot.stage === 1 ? 'Primórdios' : 'Crescendo');
-            prompt = `🌱 ${hSlot.name} (${loc} • Flush ${hSlot.flush}/4) • ${stText} (${Math.round(hSlot.humidity)}% UR) • ${diagLabel}`;
+            const stText = t(hSlot.stage === 0 ? 'actions.hover.gh_stage_mycelium' : (hSlot.stage === 1 ? 'actions.hover.gh_stage_pins' : 'actions.hover.gh_stage_growing'));
+            prompt = t('actions.hover.gh_growing', { name: hSlot.name, loc, flush: hSlot.flush, stage: stText, humidity: Math.round(hSlot.humidity), diag: diagLabel });
           }
         }
       }
@@ -744,22 +769,20 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoverHit = gHit;
       ctx.hoveredGardenTarget = gt;
       if (gt.type === 'compost_box') {
-        prompt = `🌱 Caixa de Substrato da Horta (${gardenState.compostCakes} bolos • Fertilidade ${Math.round(gardenState.soilRichness)}%) • Traga Bolos Secos após 4 Flushs!`;
+        prompt = t('actions.hover.garden_compost', { cakes: gardenState.compostCakes, richness: Math.round(gardenState.soilRichness) });
       } else if (gt.type === 'harvest_basket') {
         prompt = gardenState.readyBaskets > 0
-          ? `🧺 Pegar Cesta Orgânica PRONTA (${gardenState.readyBaskets} disponível • Entregar no Empório +🪙 240)`
-          : `🧺 Cesta da Horta (${gardenState.totalHarvested} colheitas • Colha 3 plantas p/ montar Cesta vendável!)`;
+          ? t('actions.hover.garden_basket_ready', { count: gardenState.readyBaskets })
+          : t('actions.hover.garden_basket_progress', { count: gardenState.totalHarvested });
       } else if (gt.type === 'plant' && gt.plant) {
         const pl = gt.plant;
         if (pl.stage === 2) {
-          prompt = pl.kind === 'tomato'
-            ? `🍅 Colher Tomates Vermelhos Orgânicos (${pl.name})`
-            : `🥬 Colher Alface Crespa Orgânica (${pl.name})`;
+          prompt = t(pl.kind === 'tomato' ? 'actions.hover.garden_harvest_tomato' : 'actions.hover.garden_harvest_lettuce', { name: pl.name });
         } else if (canPruneGardenPlant(pl)) {
           prompt = `✂️ ${t('garden.prune')} • ${Math.floor(pl.growth)}%`;
         } else {
-          const stTxt = pl.stage === 0 ? 'Muda crescendo' : (pl.kind === 'tomato' ? 'Tomates verdes amadurecendo' : 'Folhas crescendo');
-          prompt = `🌿 ${pl.name} • ${stTxt} (${Math.floor(pl.growth)}%) • Adube na Caixa de Substrato ao lado!`;
+          const stTxt = t(pl.stage === 0 ? 'actions.hover.garden_stage_seedling' : (pl.kind === 'tomato' ? 'actions.hover.garden_stage_tomato' : 'actions.hover.garden_stage_lettuce'));
+          prompt = t('actions.hover.garden_plant_growing', { name: pl.name, stage: stTxt, growth: Math.floor(pl.growth) });
         }
       }
     }
@@ -769,9 +792,7 @@ export function updateHoverRay(ctx, customNdc) {
     if (tHit && tHit.object && tHit.object.userData && tHit.object.userData.isTelescope) {
       ctx.hoverHit = tHit;
       ctx.hoveredTelescope = true;
-      prompt = ctx.telescopeZoomActive
-        ? '🔭 Sair do Zoom da Luneta Astronômica'
-        : '🔭 Olhar na Luneta Astronômica (Zoom no Céu & Constelações)';
+      prompt = t(ctx.telescopeZoomActive ? 'actions.hover.telescope_exit' : 'actions.hover.telescope_look');
     }
   }
   if (!prompt && !ctx.heldItem && ctx.blindHitMeshes.length) {
@@ -779,7 +800,7 @@ export function updateHoverRay(ctx, customNdc) {
     if (blHit && blHit.object.userData.blindObj) {
       ctx.hoverHit = blHit;
       ctx.hoveredBlindObj = blHit.object.userData.blindObj;
-      prompt = ctx.hoveredBlindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana';
+      prompt = t(ctx.hoveredBlindObj.open ? 'actions.hover.blind_close' : 'actions.hover.blind_open');
     }
   }
   if (!prompt && !ctx.heldItem && roadSaleStandMeshes.length > 0 && refX > 2 && refX < 24 && refZ > 28 && refZ < 44) {
@@ -788,21 +809,21 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoverHit = stHits[0];
       ctx.hoveredRoadSaleStand = true;
       prompt = roadStandState.availablePacks > 0
-        ? `🚗 Quiosque Drive-Thru (${roadStandState.availablePacks} pacotes no balcão • 🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins cada • Clientes a caminho!)`
-        : '🚗 Quiosque Drive-Thru da Estrada • Traga Caixas de Entrega ou Pacotes Selados da Sala de Desidratação!';
+        ? t('actions.hover.road_stand_packs', { packs: roadStandState.availablePacks, price: MYCOCOIN_PRICE_PER_PACK })
+        : t('actions.hover.road_stand_empty');
     }
   }
   if (!prompt && ctx.heldItem) {
     const held = ctx.heldItem;
     const isTouch = ctx.isTouchDevice?.();
-    const place = isTouch ? 'Mire e toque para posicionar' : 'Mire e clique para posicionar';
-    const options = isTouch ? 'Toque na opção numerada' : 'Use as teclas 1–4 para as opções';
+    const options = t('actions.hover.held_options_hint');
     if (held.mesh?.userData.isThermometer && ctx.thermoLaserOn) {
-      prompt = `🌡️ ${ctx.thermoTargetLabel || 'Ambiente'}: ${ctx.thermoCurrentTemp.toFixed(1)}°C • ${options}`;
-    } else {
-      prompt = `${place} • ${options}`;
+      prompt = `🌡️ ${ctx.thermoTargetLabel || t('actions.hover.thermo_ambient')}: ${ctx.thermoCurrentTemp.toFixed(1)}°C`;
+      if (!isTouch) prompt += ' • ' + options;
+    } else if (!isTouch) {
+      prompt = t('actions.hover.held_place_hint', { options });
     }
     ctx.placementValid = false;
   }
-  setHoverPrompt(ctx, prompt);
+  setHoverPrompt(ctx, prompt, hasAimTarget);
 }

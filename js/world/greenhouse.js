@@ -17,6 +17,7 @@ import { makeSpentCakeItem } from '../items/monotub.js';
 import { pickContamKind, getContamInfo } from '../items/contaminations.js';
 import { fireH2O2Spray, fireWaterSpray } from '../items/alcohol-spray.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
+import { t as tr } from '../core/i18n.js';
 
 const SPECIES_PRESETS = [
   { name: 'Shimeji Dourado', sci: 'Pleurotus citrinopileatus', color: 0xfacc15, kind: 'shimeji' },
@@ -1096,7 +1097,7 @@ export function treatGreenhouseSlotWithH2O2(ctx, slot) {
   const info = getContamInfo(slot.contamKind || 'trichoderma');
   if (!info.curableWithH2O2) {
     if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`⚠️ H₂O₂ 3% não cura ${info.name}! Só trata Cobweb (Teia). Retire o bolo contaminado!`);
+      ctx.callbacks.onToast(tr('items.greenhouse.m1', { name: info.name }));
     }
     return false;
   }
@@ -1112,7 +1113,7 @@ export function treatGreenhouseSlotWithH2O2(ctx, slot) {
     ctx.queueWorldStateChange('greenhouse_slot_' + slot.id + '_contam', '');
   }
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-    ctx.callbacks.onToast(`🫧 Efervescência H₂O₂ 3%! Cobweb dissolvido no bolo de ${slot.name}!`);
+    ctx.callbacks.onToast(tr('items.greenhouse.m2', { name: slot.name }));
   }
   return true;
 }
@@ -1131,7 +1132,7 @@ export function interactGreenhouseSlot(slot, ctx) {
     if (slot.contaminated) {
       treatGreenhouseSlotWithH2O2(ctx, slot);
     } else if (!slot.empty && callbacks.onToast) {
-      callbacks.onToast(`🫧 H₂O₂ 3% borrifado preventivamente sobre ${slot.name}.`);
+      callbacks.onToast(tr('items.greenhouse.m3', { name: slot.name }));
     }
     return;
   }
@@ -1205,13 +1206,13 @@ export function interactGreenhouseSlot(slot, ctx) {
       }
       if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
       if (callbacks.onToast) {
-        callbacks.onToast(`🍄 Bolo de ${slot.name} posicionado na ${slot.rackName} (Andar ${slot.tier})! Primórdios iniciados!`);
+        callbacks.onToast(tr('items.greenhouse.m4', { name: slot.name, rackName: slot.rackName, tier: slot.tier }));
       }
       if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     } else {
       if (window.MycoAudio) window.MycoAudio.playClick();
       if (callbacks.onToast) {
-        callbacks.onToast(`🌱 ${slot.name} (${slot.rackName} • Andar ${slot.tier}) já está frutificando! Use um espaço livre.`);
+        callbacks.onToast(tr('items.greenhouse.m5', { name: slot.name, rackName: slot.rackName, tier: slot.tier }));
       }
     }
     return;
@@ -1240,7 +1241,7 @@ export function interactGreenhouseSlot(slot, ctx) {
       queueWorldStateChange('greenhouse_slot_' + slot.id + '_origin', '');
     }
     if (callbacks.onToast) {
-      callbacks.onToast(`🧱 Novo bloco de ${slot.name} iniciado na ${slot.rackName} (Andar ${slot.tier})! (Dica: você também pode trazer Spawn colonizado do Lab!)`);
+      callbacks.onToast(tr('items.greenhouse.m6', { name: slot.name, rackName: slot.rackName, tier: slot.tier }));
     }
     return;
   }
@@ -1249,7 +1250,7 @@ export function interactGreenhouseSlot(slot, ctx) {
   if (!slot.empty && (slot.spent || slot.contaminated)) {
     if (heldItem) {
       if (callbacks.onToast) {
-        callbacks.onToast('⚠️ Esvazie as mãos para retirar o bolo seco esgotado e levá-lo à Caixa de Substrato da Horta!');
+        callbacks.onToast(tr('items.greenhouse.m7'));
       }
       return;
     }
@@ -1281,7 +1282,7 @@ export function interactGreenhouseSlot(slot, ctx) {
     if (callbacks.onHoldChange) callbacks.onHoldChange(spentItem.label);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (callbacks.onToast) {
-      callbacks.onToast(`🍂 Você retirou o Bolo Seco Esgotado de ${oldSpecies} (4/4 Flushs)! Leve-o para a Caixa de Substrato na Horta ao sul da Estufa!`);
+      callbacks.onToast(tr('items.greenhouse.m8', { oldSpecies }));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return;
@@ -1315,7 +1316,7 @@ export function interactGreenhouseSlot(slot, ctx) {
       slot.growth = 0;
       slot.flush = 4;
       if (callbacks.onToast) {
-        callbacks.onToast(`🍂 4º e último Flush de ${slot.name} colhido! O bolo ficou seco/esgotado — clique nele para retirar e levar à Caixa de Substrato da Horta!`);
+        callbacks.onToast(tr('items.greenhouse.m9', { name: slot.name }));
       }
     } else {
       slot.stage = 0;
@@ -1342,14 +1343,14 @@ export function interactGreenhouseSlot(slot, ctx) {
     }
     if (callbacks.onLabStep) callbacks.onLabStep('greenhouse_care');
     if (callbacks.onToast) {
-      callbacks.onToast(`💧 Névoa de Água Destilada borrifada em ${slot.name} (${Math.round(slot.humidity)}% UR)!`);
+      callbacks.onToast(tr('items.greenhouse.m10', { name: slot.name, v2: Math.round(slot.humidity) }));
     }
     return;
   }
 
   if (isHoldingAlcoholSpray) {
     if (callbacks.onToast) {
-      callbacks.onToast('⚠️ Nunca borrife Álcool 70% diretamente em bolos/micélio vivo (resseca e causa abortos)! Use o 💧 Borrifador Água Destilada.');
+      callbacks.onToast(tr('items.greenhouse.m11'));
     }
     return;
   }
@@ -1363,7 +1364,7 @@ export function interactGreenhouseSlot(slot, ctx) {
     const diagText = (slot.stressReasons && slot.stressReasons.length > 0)
       ? `⚠️ Estressado (${slotHealth}%) • Diagnóstico: ${slot.stressReasons.join(' + ')}`
       : `❤️ Saudável (${slotHealth}%)`;
-    callbacks.onToast(`🍄 ${slot.name} (${slot.rackName} • A${slot.tier} • Flush ${slot.flush}/4) — ${stLabel} (${hum}% UR) • ${diagText}`);
+    callbacks.onToast(tr('items.greenhouse.m12', { name: slot.name, rackName: slot.rackName, tier: slot.tier, flush: slot.flush, stLabel, hum, diagText }));
   }
 }
 
@@ -1466,7 +1467,7 @@ export function stepGreenhouse(ctx, dt) {
         greenhouseEnv.doorAlarmActive = true;
         doorAlarmBeepAccum = DOOR_ALARM_BEEP_INTERVAL;
         if (onToast) {
-          onToast('🚨 ALARME ESTUFA: Porta aberta há muito tempo! Umidade caindo — feche a porta.');
+          onToast(tr('items.greenhouse.m13'));
         }
       }
       doorAlarmBeepAccum += dt;
@@ -1481,7 +1482,7 @@ export function stepGreenhouse(ctx, dt) {
     }
   } else {
     if (wasDoorAlarm && onToast) {
-      onToast('✅ Porta da Estufa fechada! Alarme silenciado e microclima normalizando.');
+      onToast(tr('items.greenhouse.m14'));
     }
     greenhouseEnv.doorOpenSec = 0;
     greenhouseEnv.doorAlarmActive = false;

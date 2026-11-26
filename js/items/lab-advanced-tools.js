@@ -14,6 +14,7 @@ import { makeBox } from '../engine/textures.js';
 import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { updateScalpelLabel } from './scalpel.js';
 import { getContamInfo } from './contaminations.js';
+import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 
@@ -141,7 +142,7 @@ export function interactAlcoholLamp(ctx, lampItem) {
     }
     const sc = held.scalpelCtrl;
     if (!sc.hasBlade) {
-      if (onToast) onToast('⚠️ Encaixe uma lâmina #24 no bisturi antes de flambar na lamparina.');
+      if (onToast) onToast(t('items.labAdvancedTools.m1'));
       return true;
     }
     sc.sterile = true;
@@ -164,7 +165,7 @@ export function interactAlcoholLamp(ctx, lampItem) {
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
     if (onToast) {
-      onToast('🔥 Lâmina #24 flambada ao rubro na Lamparina a Álcool! 100% Re-esterilizada para novos cortes!');
+      onToast(t('items.labAdvancedTools.m2'));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -181,7 +182,7 @@ export function interactAlcoholLamp(ctx, lampItem) {
     held.sanitizedUntil = (typeof performance !== 'undefined' ? performance.now() : Date.now()) + 160000;
     playAudio('playSpray');
     if (onToast) {
-      onToast('🔥 Agulha da seringa flambada na Lamparina a Álcool! Esterilizada por 160s.');
+      onToast(t('items.labAdvancedTools.m3'));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -947,7 +948,7 @@ export function interactSilicaStorageJar(ctx, jarItem) {
   if (held && held.driedMushroomCtrl) {
     const addG = held.driedMushroomCtrl.grams || 10;
     if (jc.storedGrams + addG > cap) {
-      if (onToast) onToast(`⚠️ O lote de ${addG} g não cabe. Restam ${Math.max(0, cap - jc.storedGrams)} g de espaço; use outro pote.`);
+      if (onToast) onToast(t('items.labAdvancedTools.m4', { addG, v2: Math.max(0, cap - jc.storedGrams) }));
       return true;
     }
     jc.storedGrams += addG;
@@ -978,7 +979,7 @@ export function interactSilicaStorageJar(ctx, jarItem) {
     if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_jar');
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (onToast) {
-      onToast(`🫙 Tampa aberta e +${addG}g guardados no Pote c/ Sílica Gel (${jc.storedGrams}/${cap}g • 0% UR)!`);
+      onToast(t('items.labAdvancedTools.m5', { addG, storedGrams: jc.storedGrams, cap }));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -1004,7 +1005,7 @@ export function interactSilicaStorageJar(ctx, jarItem) {
 
     playAudio('playClick');
     if (onToast) {
-      onToast(`🍄 Retirou ${takeG}g de Cogumelos Crocantes do pote (${jc.storedGrams}/${cap}g restantes). Embale no Saco ou pese na Balança!`);
+      onToast(t('items.labAdvancedTools.m6', { takeG, storedGrams: jc.storedGrams, cap }));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -1012,7 +1013,7 @@ export function interactSilicaStorageJar(ctx, jarItem) {
 
   playAudio('playClick');
   if (onToast) {
-    onToast(`🫙 ${jarItem.label} • Pese na Balança (${240 + jc.storedGrams}g bruto) ou traga cogumelos secos da Desidratadora.`);
+    onToast(t('items.labAdvancedTools.m7', { label: jarItem.label, v2: 240 + jc.storedGrams }));
   }
   return true;
 }

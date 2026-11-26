@@ -1053,10 +1053,12 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
     }
     if (!item) return;
     if (!item.isPersonal) item.isReadOnly = !!item._layoutReadOnly || !!sim._lastWorldObjectsMap?.[itemId]?.lot_locked;
+    if (!item.isReadOnly && (item.dehydratorCtrl || item.growCtrl) && sim.pendingMovedItems?.[itemId]?.state?.custom) return;
     applyReplicatedItemState(sim, item, st);
     const ageSec = itemStateAges && typeof itemStateAges[itemId] === 'number' ? itemStateAges[itemId] : 0;
-    if (ageSec > 1 && advanceOfflineItemState(item, ageSec, sim) && sim.markItemMoved) {
-      sim.markItemMoved(item);
+    if (ageSec > 1 && advanceOfflineItemState(item, ageSec, sim)) {
+      if (item.dehydratorCtrl && sim.queueItemStateSync) sim.queueItemStateSync(item);
+      else sim.markItemMoved?.(item);
     }
     sim.itemStateSignatures = sim.itemStateSignatures || {};
     const currentState = getReplicatedItemState(sim, item);

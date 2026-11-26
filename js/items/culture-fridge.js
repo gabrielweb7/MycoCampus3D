@@ -2,6 +2,7 @@ import { registerPickable, updateItemBounds, isSurfaceOccupied, attachSurfaceOwn
 import { PETRI_DISH_RADIUS } from './petri-dish.js';
 import { updateCultureLiquidLabel } from './liquid-culture.js';
 import { stepCultureShelfLife, stepCultureTemperature } from './culture-lifecycle.js';
+import { t as tr } from '../core/i18n.js';
 
 const THREE = window.THREE;
 const FRIDGE_WIDTH = 0.88;
@@ -375,7 +376,7 @@ export function stepCultureFridges(ctx, dt) {
         lcProgressed = true;
         if (item.setVolume) item.setVolume(item.mesh.userData.liquidCtrl.volMl);
         if (ctx.callbacks && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🍄 Cultura Líquida atingiu 100% de colonização! Guarde na geladeira para durar até 90 dias.');
+          ctx.callbacks.onToast(tr('items.cultureFridge.m1'));
         }
       } else if (Math.floor(culture.colonization) !== prevPct) {
         lcProgressed = true;
@@ -384,7 +385,7 @@ export function stepCultureFridges(ctx, dt) {
     }
     if (changed || tempChanged || lifeStep > 0 || lcProgressed) updateCultureLiquidLabel(item);
     if (lifeStep === 2 && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🕒 A cultura líquida venceu; prepare uma nova cultura.');
+      ctx.callbacks.onToast(tr('items.cultureFridge.m2'));
     }
     culture.lastRenderedRefrigerated = culture.refrigerated;
     culture.lastRenderedAgeDay = Math.floor(culture.ageGameDays || 0);

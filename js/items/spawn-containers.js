@@ -573,7 +573,7 @@ export function breakAndShakeSpawn(ctx, item) {
     ctx.callbacks.onHoldChange(item.label);
   }
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-    ctx.callbacks.onToast(`💥 Break & Shake realizado em ${sc.baseLabel}! Os grãos colonizados foram espalhados — velocidade de colonização dobrada (2.2x)!`);
+    ctx.callbacks.onToast(t('items.spawnContainers.m1', { baseLabel: sc.baseLabel }));
   }
   ctx?.queueItemStateSync?.(item);
   if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
@@ -601,7 +601,7 @@ export function stepSpawnColonization(ctx, dt) {
         sc.contaminated = true;
         sc.updateVisual();
         if (ctx.callbacks && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🦠 O potinho aberto fora do Fluxo Laminar foi contaminado!');
+          ctx.callbacks.onToast(t('items.spawnContainers.m2'));
         }
         ctx.notifyWorldAction();
       }
@@ -632,7 +632,7 @@ export function stepSpawnColonization(ctx, dt) {
         const lifeStep = stepCultureShelfLife(sc, dt);
         if (lifeStep > 0) changed = true;
         if (lifeStep === 2 && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🕒 Uma cultura de spawn venceu; prepare uma nova transferência.');
+          ctx.callbacks.onToast(t('items.spawnContainers.m3'));
         }
       }
       if (sc.refrigerated !== sc.lastRenderedRefrigerated) changed = true;

@@ -62,23 +62,6 @@ import { showWhatsNewModal } from './whats-new-modal.js';
 import { initModalWindowManager } from './modal-window-manager.js';
 import { togglePhotoMode } from './photo-mode.js';
 
-function getMobileActionIcon(prompt) {
-  const text = String(prompt || '').toLocaleLowerCase('pt-BR');
-  if (text.indexOf('selar') !== -1 || text.indexOf('seladora') !== -1) return '♨️';
-  if (text.indexOf('seringa') !== -1 || text.indexOf('inocular') !== -1) return '💉';
-  if (text.indexOf('bisturi') !== -1 || text.indexOf('micélio') !== -1) return '🔪';
-  if (text.indexOf('papel') !== -1 || text.indexOf('secar') !== -1) return '🧻';
-  if (text.indexOf('borrifar') !== -1 || text.indexOf('álcool') !== -1) return '💦';
-  if (text.indexOf('água') !== -1 || text.indexOf('despejar') !== -1 || text.indexOf('umedecer') !== -1) return '💧';
-  if (text.indexOf('misturar') !== -1 || text.indexOf('mistura') !== -1) return '🥄';
-  if (text.indexOf('colher') !== -1) return '🍄';
-  if (text.indexOf('sentar') !== -1) return '🪑';
-  if (text.indexOf('panela') !== -1 || text.indexOf('esteril') !== -1 || text.indexOf('fogo') !== -1) return '♨️';
-  if (text.indexOf('abrir') !== -1 || text.indexOf('fechar') !== -1) return '↔️';
-  if (text.indexOf('pegar') !== -1) return '✋';
-  return '✅';
-}
-
 async function harvestMushroom(mushId, specimen, operationId) {
   if (!appState.currentUser) return;
   try {
@@ -177,7 +160,7 @@ function bindModalsAndToolbar() {
       if (window.MycoAudio) window.MycoAudio.playClick();
       const currently = document.body.classList.contains('ios-immersive-fullscreen');
       const next = setIosImmersiveFullscreen(!currently);
-      showFloatingToast(next ? '🍎 HUD Imersivo Compacto ativado!' : '🍎 HUD padrão restaurado.', 2800);
+      showFloatingToast(next ? '🍎 ' + t('misc.hud.immersiveOn') : '🍎 ' + t('misc.hud.standard'), 2800);
       if (iosFsModal) iosFsModal.classList.add('hidden');
     };
   }
@@ -317,9 +300,9 @@ function bindModalsAndToolbar() {
       const nextMs = MICOTECA_MILESTONES.find((m) => found.length < m.count);
       const earnedBadges = MICOTECA_MILESTONES.filter((m) => found.length >= m.count).map((m) => m.badge);
       if (summary) {
-        summary.textContent = `Descobertas: ${found.length} / ${MUSHROOM_SPECIES_CATALOG.length} espécies` +
+        summary.textContent = t('misc.mycoteca.summary', {found:found.length,total:MUSHROOM_SPECIES_CATALOG.length}) +
           (earnedBadges.length ? ` • ${earnedBadges[earnedBadges.length - 1]}` : '') +
-          (nextMs ? ` • Próximo marco: ${nextMs.count} (+🪙 ${nextMs.coins})` : ' • 🏆 Álbum 100%!');
+          (nextMs ? ' • ' + t('misc.mycoteca.nextMilestone', {count:nextMs.count,coins:nextMs.coins}) : ' • 🏆 ' + t('misc.mycoteca.complete'));
       }
       if (grid) {
         grid.innerHTML = MUSHROOM_SPECIES_CATALOG.map((sp) => {
@@ -455,16 +438,16 @@ function bindModalsAndToolbar() {
           if (rw.restored_from_default > 0) {
             appState.isInitialSync = true;
             events.emit('sync:now');
-            showAdminNotice(`♻️ Mundo restaurado para o padrão salvo pelo Admin (${rw.restored_from_default} itens)!`);
+            showAdminNotice('♻️ ' + t('misc.admin.worldRestored', {n:rw.restored_from_default}));
           } else {
             if (window.resetCampusWorldObjects) window.resetCampusWorldObjects();
-            showAdminNotice('♻️ Todos os itens do laboratório e estantes foram restaurados para as posições originais!');
+            showAdminNotice('♻️ ' + t('misc.admin.labRestored'));
           }
         } else {
-          showAdminNotice((rw && rw.error) || 'Não foi possível resetar os itens.', true);
+          showAdminNotice((rw && rw.error) || t('misc.admin.resetFail'), true);
         }
       } catch (e) {
-        showAdminNotice('Erro de conexão ao resetar itens.', true);
+        showAdminNotice(t('misc.admin.resetConn'), true);
       }
     };
   }
@@ -477,12 +460,12 @@ function bindModalsAndToolbar() {
       try {
         const res = await ed.saveWorldDefault();
         if (res && res.ok) {
-          showAdminNotice(`💾 Padrão do Admin salvo no MySQL (${res.saved_count} itens)! Futuros resets voltarão exatamente para este layout.`);
+          showAdminNotice('💾 ' + t('misc.admin.defaultSaved', {n:res.saved_count}));
         } else {
-          showAdminNotice((res && res.error) || 'Falha ao salvar padrão.', true);
+          showAdminNotice((res && res.error) || t('misc.admin.saveFail'), true);
         }
       } catch (e) {
-        showAdminNotice('Erro de conexão ao salvar padrão.', true);
+        showAdminNotice(t('misc.admin.saveConn'), true);
       }
     };
   }
@@ -491,7 +474,7 @@ function bindModalsAndToolbar() {
   const adminEditBanner = $('admin-edit-banner');
   function syncAdminEditModeUi(active) {
     if (btnAdminEditMode) {
-      btnAdminEditMode.textContent = active ? '🛠️ Modo Edição: ON' : '🛠️ Modo Edição: OFF';
+      btnAdminEditMode.textContent = active ? '🛠️ ' + t('misc.admin.editOn') : '🛠️ ' + t('misc.admin.editOff');
       btnAdminEditMode.classList.toggle('bg-amber-600', active);
       btnAdminEditMode.classList.toggle('text-white', active);
     }
@@ -504,8 +487,8 @@ function bindModalsAndToolbar() {
       const next = ed.setEditMode(!ed.isEditMode());
       syncAdminEditModeUi(next);
       showAdminNotice(next
-        ? '🛠️ Modo Edição ATIVADO! Agora você pode pegar e mover bancadas com tudo em cima e editar/deletar itens.'
-        : '🛠️ Modo Edição desativado.');
+        ? '🛠️ ' + t('misc.admin.editEnabledMsg')
+        : '🛠️ ' + t('misc.admin.editDisabledMsg'));
     };
   }
   const btnExitAdminEdit = $('btn-exit-admin-edit');
@@ -526,7 +509,7 @@ function bindModalsAndToolbar() {
       if (!ed || !sel) return;
       try {
         const created = await ed.addPrefab(sel.value);
-        showAdminNotice(created ? `➕ Adicionado: ${created.label} (sincronizado!)` : 'Prefab não encontrado.', !created);
+        showAdminNotice(created ? '➕ ' + t('misc.admin.added', {label:created.label}) : t('misc.admin.prefabMissing'), !created);
       } catch (e) {
         showAdminNotice('Erro ao adicionar prefab.', true);
       }
@@ -556,7 +539,7 @@ function bindModalsAndToolbar() {
         showAdminNotice('Segure ou mire em um item para editar.', true);
         return;
       }
-      const newLabel = window.prompt('Novo nome/rótulo do item:', target.label || '');
+      const newLabel = window.prompt(t('misc.admin.newLabel'), target.label || '');
       if (newLabel === null) return;
       const curScale = target.mesh ? target.mesh.scale.x : 1;
       const scaleStr = window.prompt('Escala (0.25 a 4.0):', String(curScale));
@@ -859,7 +842,7 @@ export function bootApp() {
   const verEl = $('app-version');
   if (verEl) {
     verEl.textContent = 'v' + getAppVersion();
-    verEl.title = 'Clique para ver as novidades desta atualização';
+    verEl.title = t('misc.boot.verTitle');
     verEl.classList.add('cursor-pointer', 'hover:text-emerald-300');
     verEl.addEventListener('click', () => {
       releaseInputForModal();
@@ -891,7 +874,7 @@ export function bootApp() {
         delayMs: 900,
         onBeforeReload: (nextVer) => {
           markPendingAutoUpdateNotice(nextVer);
-          showFloatingToast(`🔄 Nova versão v${nextVer} encontrada! Atualizando jogo...`, 2800);
+          showFloatingToast('🔄 ' + t('misc.boot.newVersionFound', {ver:nextVer}), 2800);
         }
       });
     }
@@ -902,76 +885,9 @@ export function bootApp() {
   });
   mobilePlacementModeActive = false;
   let currentHoldLabel = '';
-  let currentHoverPrompt = '';
-
   function refreshMobileAction() {
-    const actBtn = $('btn-mobile-action');
-    if (!actBtn) return;
-    if (!isTouch() || !appState.currentUser || !appState.inFps) {
-      actBtn.style.display = 'none';
-      return;
-    }
-
-    const isHolding = !!(window.getCampusPlayerPose && window.getCampusPlayerPose().holding_item);
-
-    if (isHolding && currentHoldLabel) {
-      actBtn.style.display = 'flex';
-      actBtn.dataset.action = 'use';
-      if (mobilePlacementModeActive) {
-        actBtn.textContent = '✅';
-        actBtn.title = 'Confirmar Posição do Item';
-      } else if (currentHoldLabel.indexOf('Giz') !== -1 || currentHoldLabel.indexOf('chalk') !== -1) {
-        actBtn.textContent = '✏️';
-        actBtn.title = 'Desenhar na Lousa (segure e arraste o dedo)';
-      } else if (currentHoldLabel.indexOf('Apagador') !== -1 || currentHoldLabel.indexOf('eraser') !== -1) {
-        actBtn.textContent = '🧽';
-        actBtn.title = 'Apagar Lousa (segure e arraste o dedo)';
-      } else if (currentHoldLabel.indexOf('Borrifador') !== -1 || currentHoldLabel.indexOf('Álcool') !== -1) {
-        actBtn.textContent = '💦';
-        actBtn.title = 'Borrifar Álcool 70%';
-      } else if (currentHoldLabel.indexOf('Papel Toalha') !== -1) {
-        actBtn.textContent = '🧻';
-        actBtn.title = 'Secar Álcool 70% (120s)';
-      } else if (currentHoldLabel.indexOf('Termômetro') !== -1) {
-        actBtn.textContent = '🌡️';
-        actBtn.title = 'Medir Temperatura';
-      } else if (currentHoldLabel.indexOf('Seringa') !== -1) {
-        actBtn.textContent = '💉';
-        actBtn.title = 'Usar Seringa (segure para aspirar/injetar)';
-      } else if (currentHoldLabel.indexOf('Seladora') !== -1) {
-        actBtn.textContent = '♨️';
-        actBtn.title = 'Selar Bag Preenchido';
-      } else if (currentHoldLabel.indexOf('Luva') !== -1) {
-        actBtn.textContent = '🧤';
-        actBtn.title = currentHoverPrompt || 'Luvas de Nitrilo';
-      } else if (currentHoverPrompt) {
-        actBtn.textContent = getMobileActionIcon(currentHoverPrompt);
-        actBtn.title = currentHoverPrompt;
-      } else {
-        actBtn.style.display = 'none';
-        actBtn.dataset.action = '';
-        return;
-      }
-      if (currentHoverPrompt) {
-        actBtn.title = currentHoverPrompt;
-        actBtn.setAttribute('aria-label', currentHoverPrompt);
-      }
-      const placeBtnHeld = $('btn-mobile-place');
-      if (placeBtnHeld) placeBtnHeld.style.display = 'flex';
-    } else if (currentHoverPrompt) {
-      actBtn.style.display = 'flex';
-      actBtn.dataset.action = 'interact';
-      actBtn.textContent = getMobileActionIcon(currentHoverPrompt);
-      actBtn.title = currentHoverPrompt;
-      actBtn.setAttribute('aria-label', currentHoverPrompt);
-      const placeBtnEmpty = $('btn-mobile-place');
-      if (placeBtnEmpty) placeBtnEmpty.style.display = 'none';
-    } else {
-      actBtn.style.display = 'none';
-      actBtn.dataset.action = '';
-      const placeBtnIdle = $('btn-mobile-place');
-      if (placeBtnIdle) placeBtnIdle.style.display = 'none';
-    }
+    const button = $('btn-mobile-action');
+    if (button) button.style.display = isTouch() && appState.currentUser && appState.inFps ? 'flex' : 'none';
   }
 
   if (window.location.search.indexOf('preview=1') !== -1) {
@@ -1041,7 +957,6 @@ export function bootApp() {
           : 'Posicionar item';
         placeBtn.classList.toggle('placement-active', mobilePlacementModeActive);
       }
-      refreshMobileAction();
     },
     onPlacementModeChange: (active) => {
       mobilePlacementModeActive = active;
@@ -1071,7 +986,6 @@ export function bootApp() {
           ? '<span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[Esc]</span> ✕ Cancelar'
           : '<span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[X]</span> ⬇️ Largar';
       }
-      refreshMobileAction();
     },
     onFpsChange: (fps) => {
       updateFpsUi(fps);
@@ -1087,7 +1001,7 @@ export function bootApp() {
     onQualityChange: (info) => {
       const qBtn = $('btn-quality');
       if (!qBtn || !info) return;
-      const labels = { high: 'Alto', medium: 'Méd', low: 'Desemp', min: 'Mín' };
+      const labels = { high: t('misc.quality.high'), medium: t('misc.quality.medium'), low: t('misc.quality.low'), min: t('misc.quality.min') };
       const tierTxt = labels[info.tier] || info.tier;
       const modePrefix = info.mode === 'auto' ? `Auto (${tierTxt})` : tierTxt;
       const fpsTxt = info.fps > 0 ? ` • ${info.fps}fps` : '';
@@ -1096,13 +1010,12 @@ export function bootApp() {
         (info.tier === 'min' || info.tier === 'low' ? 'text-amber-300 border-amber-500/40' : 'text-cyan-300 border-cyan-500/40');
       syncSettingsStatus();
     },
-    onHoverPrompt: (txt) => {
-      currentHoverPrompt = txt || '';
+    onHoverPrompt: (txt, shownInMobileActions = false) => {
       const pill = $('interact-pill');
       const hint = $('fps-hint');
       if (pill && Date.now() >= getToastUntil()) {
-        if ((isTouch() || mobilePlacementModeActive) && currentHoverPrompt) {
-          pill.textContent = currentHoverPrompt;
+        if (txt && (isTouch() ? !shownInMobileActions : mobilePlacementModeActive)) {
+          pill.textContent = txt;
           pill.classList.remove('hidden');
           if (hint) hint.style.opacity = '0';
         } else {
@@ -1110,7 +1023,6 @@ export function bootApp() {
           pill.classList.add('hidden');
         }
       }
-      refreshMobileAction();
     }
   });
 
@@ -1203,7 +1115,7 @@ export function bootApp() {
     if (info && info.text) hudClockBtn.textContent = info.text;
     if (info && info.tempText) {
       const humStr = typeof info.outsideHumidity === 'number' ? ` • 💧 ${info.outsideHumidity}% UR` : '';
-      hudClockBtn.title = `Horário & Temperatura Externa ao Vivo (${info.tempText}${humStr}) — Clique para alternar horário`;
+      hudClockBtn.title = t('misc.boot.clockTitle', {temp:info.tempText,hum:humStr});
     }
   };
   if (hudClockBtn) {

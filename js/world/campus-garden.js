@@ -511,7 +511,7 @@ export function interactGardenTarget(ctx, target) {
 
       if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
       if (onToast) {
-        onToast(`🌱 Bolo esgotado de ${cakeName} despejado na Caixa de Substrato da Horta! Fertilidade do solo: ${gardenState.soilRichness}% (Alfaces e Tomates acelerados!)`);
+        onToast(t('items.campusGarden.m1', { cakeName, soilRichness: gardenState.soilRichness }));
       }
       if (ctx.notifyWorldAction) ctx.notifyWorldAction();
       return true;
@@ -519,7 +519,7 @@ export function interactGardenTarget(ctx, target) {
 
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (onToast) {
-      onToast(`🌱 Caixa de Substrato da Horta • ${gardenState.compostCakes} bolo(s) compostado(s) • Fertilidade: ${Math.round(gardenState.soilRichness)}%. Traga bolos secos após 4 flushs para adubar!`);
+      onToast(t('items.campusGarden.m2', { compostCakes: gardenState.compostCakes, v2: Math.round(gardenState.soilRichness) }));
     }
     return true;
   }
@@ -538,7 +538,7 @@ export function interactGardenTarget(ctx, target) {
       if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(basketItem.label);
       if (window.MycoAudio && window.MycoAudio.playHarvest) window.MycoAudio.playHarvest();
       if (onToast) {
-        onToast('🧺 Cesta Orgânica na mão! Leve ao Empório Drive-Thru na Estrada Sul para vender (+2 lotes = 🪙 240 MycoCoins)!');
+        onToast(t('items.campusGarden.m3'));
       }
       return true;
     }
@@ -582,7 +582,7 @@ export function interactGardenTarget(ctx, target) {
       if (onToast) {
         const icon = pl.kind === 'tomato' ? '🍅' : '🥬';
         const harvestLabel = pl.kind === 'tomato' ? 'Tomates Vermelhos Orgânicos colhidos' : 'Alface Crespa Orgânica colhida';
-        onToast(`${icon} ${harvestLabel} (cultivados no substrato de cogumelos)! Total colhido na Horta: ${gardenState.totalHarvested}`);
+        onToast(t('items.campusGarden.m4', { icon, harvestLabel, totalHarvested: gardenState.totalHarvested }));
       }
       if (ctx.notifyWorldAction) ctx.notifyWorldAction();
       return true;
@@ -603,7 +603,7 @@ export function interactGardenTarget(ctx, target) {
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (onToast) {
       const stLbl = pl.stage === 0 ? 'Muda crescendo' : (pl.kind === 'tomato' ? 'Tomates verdes amadurecendo' : 'Folhas crescendo');
-      onToast(`🌿 ${pl.name} — ${stLbl} (${Math.floor(pl.growth)}%) • Fertilidade do Substrato: ${Math.round(gardenState.soilRichness)}%`);
+      onToast(t('items.campusGarden.m5', { name: pl.name, stLbl, v3: Math.floor(pl.growth), v4: Math.round(gardenState.soilRichness) }));
     }
     return true;
   }

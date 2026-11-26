@@ -389,7 +389,7 @@ function ensureWhatsNewModalDom() {
     <div id="whats-new-card" class="glass-panel max-w-md w-full max-h-[90dvh] flex flex-col rounded-2xl border border-emerald-400/50 bg-slate-900/95 shadow-2xl overflow-hidden text-slate-100 my-auto">
       <div class="px-4 py-3 border-b border-slate-700/70 flex items-center justify-between gap-2 bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-slate-900/90 shrink-0">
         <div class="min-w-0">
-          <h2 id="whats-new-title" class="text-sm sm:text-base font-extrabold text-emerald-300">✨ Novidades da Atualização</h2>
+          <h2 id="whats-new-title" class="text-sm sm:text-base font-extrabold text-emerald-300" data-i18n="news.title">✨ Novidades da Atualização</h2>
           <p id="whats-new-subtitle" class="text-xs text-slate-300"></p>
         </div>
         <button id="btn-close-whats-new" type="button" aria-label="Fechar novidades"

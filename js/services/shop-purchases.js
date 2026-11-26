@@ -5,6 +5,7 @@ import { apiGet, apiPost } from './api-client.js';
 import { preserveNewerPetState } from './pets.js';
 import { pendingCoinOperations } from './coin-outbox.js';
 import { setLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { t } from '../core/i18n.js';
 import { updateUserHud } from '../ui/hud-lobby.js';
 
 const STORAGE_PREFIX = 'myco_shop_order_v1_';
@@ -47,7 +48,7 @@ export async function retryPendingShopPurchase(force = false) {
     try {
       const capability = await apiGet('api/auth.php?action=shop_capabilities');
       if (!capability?.ok || capability.durable_delivery !== 1 || appState.currentUser?.id !== userId) {
-        return { ok: false, pending: true, error: 'A entrega segura ainda não está disponível. Tente novamente.' };
+        return { ok: false, pending: true, error: t('misc.shop.deliveryUnavailable') };
       }
       const res = await apiPost('api/auth.php?action=buy_supply_durable', order, true);
       if (appState.currentUser?.id !== userId) return { ok: false, pending: true };
@@ -59,7 +60,7 @@ export async function retryPendingShopPurchase(force = false) {
         updateUserHud();
         events.emit('sync:now');
         if (!force && typeof window !== 'undefined' && window.showCampusToast) {
-          window.showCampusToast('📦 Compra confirmada! A entrega está sendo sincronizada no campus.');
+          window.showCampusToast('📦 ' + t('misc.shop.confirmed'));
         }
         return res;
       }
@@ -67,9 +68,9 @@ export async function retryPendingShopPurchase(force = false) {
         clearPending(userId, order.order_id);
         return res;
       }
-      return { ok: false, pending: true, error: res?.error || 'Aguardando confirmação da entrega.' };
+      return { ok: false, pending: true, error: res?.error || t('misc.shop.awaitConfirm') };
     } catch (e) {
-      return { ok: false, pending: true, error: 'Aguardando conexão para confirmar a entrega.' };
+      return { ok: false, pending: true, error: t('misc.shop.awaitConn') };
     }
   })();
   inFlight = { userId, promise };
@@ -82,12 +83,12 @@ export async function orderShopSupply(supplyId, delivery) {
   if (readPending(userId)) {
     const previous = await retryPendingShopPurchase(true);
     return { ok: false, pending: true, error: previous?.ok
-      ? 'Entrega anterior confirmada. Você já pode fazer uma nova compra.'
-      : 'Há uma entrega aguardando confirmação. Tente novamente em instantes.' };
+      ? t('misc.shop.prevConfirmed')
+      : t('misc.shop.pendingDelivery') };
   }
   const orderId = newOrderId(supplyId);
   if (!orderId || !delivery || !['x', 'y', 'z', 'ry'].every((key) => Number.isFinite(delivery[key]))) {
-    return { ok: false, error: 'Não foi possível preparar a entrega segura.' };
+    return { ok: false, error: t('misc.shop.prepareFail') };
   }
   const order = { supply_id: supplyId, order_id: orderId, delivery };
   try {
@@ -96,7 +97,7 @@ export async function orderShopSupply(supplyId, delivery) {
   } catch (e) {
     return { ok: false, error: 'Ative o armazenamento do navegador para garantir a entrega.' };
   }
-  return (await retryPendingShopPurchase(true)) || { ok: false, pending: true, error: 'Aguardando confirmação da entrega.' };
+  return (await retryPendingShopPurchase(true)) || { ok: false, pending: true, error: t('misc.shop.awaitConfirm') };
 }
 
 events.on('sync:now', () => { retryPendingShopPurchase().catch(() => {}); });

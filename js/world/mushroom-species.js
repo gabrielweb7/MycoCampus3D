@@ -3,6 +3,7 @@
  * Inclui espécies lignícolas (madeira/troncos), de mata (solo) e de pasto,
  * além de 5 tipos de árvores e culling por distância para manter 60 FPS.
  */
+import { t } from '../core/i18n.js';
 import { qualityState } from '../core/quality.js';
 
 import { terrainHeight } from '../engine/physics.js';
@@ -119,10 +120,23 @@ const PASTURE_SPECIES = [
   ['Vascellum pratense', 'Bufa-do-Prado', 0xf5f5f4, 0xe7e5e4, 0.06]
 ];
 
+function speciesCommonKey(scientific) {
+  return 'content.species.' + scientific.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+const mapSpeciesEntry = (habitat) => (s) => ({
+  scientific: s[0],
+  get common() { return t(speciesCommonKey(s[0])); },
+  capColor: s[2],
+  stemColor: s[3],
+  scale: s[4],
+  habitat
+});
+
 export const MUSHROOM_SPECIES_CATALOG = [
-  ...WOOD_SPECIES.map((s) => ({ scientific: s[0], common: s[1], capColor: s[2], stemColor: s[3], scale: s[4], habitat: 'wood' })),
-  ...FOREST_SPECIES.map((s) => ({ scientific: s[0], common: s[1], capColor: s[2], stemColor: s[3], scale: s[4], habitat: 'forest' })),
-  ...PASTURE_SPECIES.map((s) => ({ scientific: s[0], common: s[1], capColor: s[2], stemColor: s[3], scale: s[4], habitat: 'pasture' }))
+  ...WOOD_SPECIES.map(mapSpeciesEntry('wood')),
+  ...FOREST_SPECIES.map(mapSpeciesEntry('forest')),
+  ...PASTURE_SPECIES.map(mapSpeciesEntry('pasture'))
 ];
 
 function seededRand(seed) {

@@ -6,10 +6,21 @@
 
 import { disposeObjectResources, registerPickable } from './item-registry.js';
 import { makeDriedMushroomBatch } from './lab-advanced-tools.js';
+import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 
 export const DEHYDRATOR_DRY_SECONDS = 15;
+
+function queueDehydratorState(ctx, item) {
+  if (ctx.queueItemStateSync) ctx.queueItemStateSync(item);
+  else ctx.markItemMoved?.(item);
+}
+
+function createBatchId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return 'dried_batch_' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
 
 export const DEHYDRATOR_META = {
   category: 'equipment',
@@ -24,13 +35,14 @@ export const DEHYDRATOR_META = {
     const payload = {
       on: !!dc.on,
       hasMushroom: !!dc.hasMushroom,
-      progress: dc.crisp ? 100 : (Math.floor(rawProg / 25) * 25),
+      progress: dc.crisp ? 100 : dc.on ? Math.floor(rawProg / 25) * 25 : Math.round(rawProg),
       crisp: !!dc.crisp,
       speciesName: dc.speciesName ? String(dc.speciesName).slice(0, 60) : ''
     };
     if (dc.grams && dc.grams !== 10) {
       payload.grams = Math.max(1, Math.min(200, Math.round(Number(dc.grams) || 10)));
     }
+    if (dc.hasMushroom && dc.batchId) payload.batchId = dc.batchId;
     return payload;
   },
   applyState: (item, custom) => {
@@ -38,17 +50,17 @@ export const DEHYDRATOR_META = {
     if (!dc || !custom) return;
     const nextOn = !!custom.on;
     const nextHas = !!custom.hasMushroom;
-    const nextCrisp = !!custom.crisp;
-    const nextProg = Math.max(0, Math.min(100, Number(custom.progress) || 0));
-    if (dc.on && dc.hasMushroom && !dc.crisp && nextOn && nextHas && !nextCrisp) {
-      dc.progress = Math.max(Number(dc.progress) || 0, nextProg);
-    } else {
-      dc.progress = nextProg;
-    }
+    const nextBatchId = nextHas && /^dried_batch_[a-z0-9_]{2,40}$/.test(custom.batchId) ? custom.batchId : '';
+    const sameBatch = dc.hasMushroom && nextHas && (dc.batchId || '') === nextBatchId &&
+      (nextBatchId || dc.speciesName === custom.speciesName);
+    const nextProg = nextHas ? Math.max(0, Math.min(100, Number(custom.progress) || 0)) : 0;
+    dc.progress = sameBatch && dc.on && nextOn ? Math.max(Number(dc.progress) || 0, nextProg) : nextProg;
     dc.on = nextOn;
     dc.hasMushroom = nextHas;
-    dc.crisp = nextCrisp;
-    if (typeof custom.speciesName === 'string') dc.speciesName = custom.speciesName;
+    dc.crisp = nextHas && (!!custom.crisp || dc.progress >= 100 || (sameBatch && dc.crisp));
+    if (dc.crisp) dc.progress = 100;
+    dc.batchId = nextBatchId;
+    dc.speciesName = nextHas && typeof custom.speciesName === 'string' ? custom.speciesName : '';
     dc.grams = Math.max(1, Math.min(200, Math.round(Number(custom.grams) || 10)));
     dc._lastVisStep = Math.floor((Number(dc.progress) || 0) / 10);
     updateDehydratorVisual(item);
@@ -87,37 +99,44 @@ export function updateDehydratorVisual(item) {
 }
 
 export function interactDehydrator(ctx, item, explicitMushroomItem = null) {
-  if (!item || !item.dehydratorCtrl) return false;
+  if (!ctx || !item?.dehydratorCtrl || item.isReadOnly || item._removedForSync ||
+      ctx.isHeldByRemote?.(item.id)) return false;
   const dc = item.dehydratorCtrl;
   if (!dc.hasMushroom) {
     const heldMush = explicitMushroomItem || (ctx && ctx.heldItem && ctx.heldItem.wildMushroomCtrl ? ctx.heldItem : null);
     if (!heldMush || !heldMush.wildMushroomCtrl) {
       dc.on = !dc.on;
       updateDehydratorVisual(item);
-      if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
+      queueDehydratorState(ctx, item);
       if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
         ctx.callbacks.onToast(dc.on
           ? '🌡️ Desidratadora pré-aquecida (55°C)! Segure um cogumelo fresco colhido e clique nela para desidratar.'
           : '⚠️ Desidratadora vazia desligada! Colha um cogumelo fresco na Estufa, Monotub ou Bosque antes de secar.');
       }
+      ctx.notifyWorldAction?.();
       return true;
     }
     const wm = heldMush.wildMushroomCtrl;
+    if (wm.removed || heldMush._removedForSync || heldMush.isReadOnly || ctx.isHeldByRemote?.(heldMush.id)) return false;
+    dc.batchId = createBatchId();
     dc.speciesName = wm.speciesName || 'Golden Teacher (Psilocybe cubensis)';
     dc.grams = Math.max(1, Math.min(200, Math.round(Number(wm.grams) || 10)));
+    dc.hasMushroom = true;
+    dc.on = true;
+    dc.progress = 0;
+    dc.crisp = false;
+    dc._lastVisStep = 0;
+    updateDehydratorVisual(item);
+    queueDehydratorState(ctx, item);
     wm.removed = true;
-    heldMush._removedForSync = true;
-    if (ctx && ctx.pendingMovedItems && heldMush.id) {
+    if (ctx.markItemRemoved) ctx.markItemRemoved(heldMush);
+    else if (ctx.pendingMovedItems && heldMush.id) {
       ctx.pendingMovedItems[heldMush.id] = {
         id: heldMush.id,
-        state: {
-          custom: {
-            dynamicKind: 'wild_mushroom',
-            removed: true
-          }
-        }
+        state: { custom: { removed: true } }
       };
     }
+    heldMush._removedForSync = true;
     if (heldMush.mesh && heldMush.mesh.parent) heldMush.mesh.parent.remove(heldMush.mesh);
     if (heldMush.mesh) disposeObjectResources(heldMush.mesh);
     if (ctx && Array.isArray(ctx.pickableItems)) {
@@ -132,15 +151,10 @@ export function interactDehydrator(ctx, item, explicitMushroomItem = null) {
       if (ctx.placementGhost) ctx.placementGhost.visible = false;
       if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(null);
     }
-    dc.hasMushroom = true;
-    dc.on = true;
-    dc.progress = 0;
-    dc.crisp = false;
-    updateDehydratorVisual(item);
-    if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
     if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`🍄 ${dc.speciesName} (${dc.grams}g) colocado na Desidratadora (55°C)! Secando...`);
+      ctx.callbacks.onToast(t('items.dehydrator.m1', { speciesName: dc.speciesName, grams: dc.grams }));
     }
+    ctx.notifyWorldAction?.();
     return true;
   }
   if (ctx.heldItem) {
@@ -153,33 +167,44 @@ export function interactDehydrator(ctx, item, explicitMushroomItem = null) {
     if (!ctx.scene) return false;
     const spName = dc.speciesName || 'Golden Teacher (Psilocybe cubensis)';
     const batchGrams = Math.max(1, Math.min(200, Math.round(Number(dc.grams) || 10)));
+    const batchId = dc.batchId || createBatchId();
+    if (ctx.isHeldByRemote?.(batchId)) return false;
+    const { x, y, z } = item.mesh.position;
+    const driedBatch = ctx.findPickable?.(batchId) || makeDriedMushroomBatch(ctx, batchId, spName, x, y + 0.30, z, batchGrams);
+    driedBatch.isMoved = true;
+    driedBatch.movedAt = performance.now();
+    queueDehydratorState(ctx, driedBatch);
     dc.hasMushroom = false;
     dc.progress = 0;
     dc.crisp = false;
     dc.on = false;
     dc.speciesName = '';
+    dc.batchId = '';
     dc.grams = 10;
     updateDehydratorVisual(item);
-    if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
+    queueDehydratorState(ctx, item);
+    ctx.heldItem = driedBatch;
+    ctx.lastPickupAt = performance.now();
+    ctx.callbacks?.onHoldChange?.(driedBatch.label);
     if (ctx && ctx.callbacks && ctx.callbacks.onDehydrateReward) ctx.callbacks.onDehydrateReward();
-    if (ctx && ctx.scene && !ctx.heldItem) {
-      const px = item.mesh ? item.mesh.position.x : -18.5;
-      const py = item.mesh ? (item.mesh.position.y + 0.30) : 1.1;
-      const pz = item.mesh ? item.mesh.position.z : -10.5;
-      const driedBatch = makeDriedMushroomBatch(ctx, 'dried_batch_' + Date.now().toString(36), spName, px, py, pz, batchGrams);
-      ctx.heldItem = driedBatch;
-      ctx.lastPickupAt = performance.now();
-      if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(driedBatch.label);
-    }
     if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`✨ Lote de ${batchGrams}g (${spName} crocantes • 0% umidade) na mão! Pese na Balança, guarde no Pote c/ Sílica Gel ou embale no Saco! (+15 XP)`);
+      ctx.callbacks.onToast(t('items.dehydrator.m2', { batchGrams, spName }));
     }
+    ctx.notifyWorldAction?.();
     return true;
   }
   dc.on = !dc.on;
   updateDehydratorVisual(item);
-  if (ctx && ctx.markItemMoved) ctx.markItemMoved(item);
+  queueDehydratorState(ctx, item);
+  ctx.notifyWorldAction?.();
   return true;
+}
+
+export function getDehydratorActionLabel(item) {
+  const dc = item.dehydratorCtrl;
+  if (dc.crisp) return `Retirar ${dc.grams} g`;
+  if (!dc.hasMushroom) return dc.on ? 'Desligar' : 'Pré-aquecer';
+  return dc.on ? 'Pausar secagem' : 'Retomar secagem';
 }
 
 export function makeDehydrator(ctx, id, px, py, pz) {
@@ -258,6 +283,7 @@ export function makeDehydrator(ctx, id, px, py, pz) {
     hasMushroom: false,
     progress: 0,
     crisp: false,
+    batchId: '',
     speciesName: '',
     grams: 10,
     mushGroup,
@@ -277,7 +303,7 @@ export function stepDehydrators(ctx, dt) {
   for (let i = 0; i < list.length; i++) {
     const item = list[i];
     const dc = item && item.dehydratorCtrl;
-    if (!dc || !dc.on) continue;
+    if (!dc || item._removedForSync || item._adminRemoved || !dc.on) continue;
     if (dc.fanGroup) dc.fanGroup.rotation.y += dt * 11.5;
     if (!dc.hasMushroom || dc.crisp) continue;
     dc.progress = Math.min(100, dc.progress + (dt / DEHYDRATOR_DRY_SECONDS) * 100);
@@ -287,9 +313,11 @@ export function stepDehydrators(ctx, dt) {
       if (typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.playTimerDone) {
         window.MycoAudio.playTimerDone();
       }
-      if (ctx.markItemMoved) ctx.markItemMoved(item);
+      if (item.isReadOnly) continue;
+      queueDehydratorState(ctx, item);
+      ctx.notifyWorldAction?.();
       if (ctx.callbacks && ctx.callbacks.onToast) {
-        ctx.callbacks.onToast(`✅ Lote crocante de ${dc.grams} g pronto! Clique na desidratadora com a mão livre para retirar.`);
+        ctx.callbacks.onToast(t('items.dehydrator.m3', { grams: dc.grams }));
       }
       if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('dry_pack');
     } else {

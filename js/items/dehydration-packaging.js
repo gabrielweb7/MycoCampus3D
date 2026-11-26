@@ -333,7 +333,7 @@ export function packDriedMushroomsIntoBag(ctx, bagItem, driedBatchItem) {
   const bc = bagItem.mushroomBagCtrl;
   const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
   if (bc.filled) {
-    if (onToast) onToast('⚠️ Este saco já está cheio com cogumelos secos! Segure e aponte na Seladora Térmica.');
+    if (onToast) onToast(t('items.dehydrationPackaging.m1'));
     return true;
   }
   const dc = driedBatchItem.driedMushroomCtrl;
@@ -374,7 +374,7 @@ export function packDriedMushroomsIntoBag(ctx, bagItem, driedBatchItem) {
   playAudio('playClick');
   if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
   if (onToast) {
-    onToast(`🛍️ ${bc.grams}g de ${bc.speciesName} colocados dentro do Saco Mylar! Agora sele-o na Seladora Térmica!`);
+    onToast(t('items.dehydrationPackaging.m2', { grams: bc.grams, speciesName: bc.speciesName }));
   }
   if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
   return true;
@@ -385,11 +385,11 @@ export function sealMushroomBag(ctx, bagItem) {
   const bc = bagItem.mushroomBagCtrl;
   const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
   if (!bc.filled) {
-    if (onToast) onToast('⚠️ Coloque um lote de cogumelos desidratados no saco antes de selar.');
+    if (onToast) onToast(t('items.dehydrationPackaging.m3'));
     return true;
   }
   if (bc.sealed) {
-    if (onToast) onToast('✅ Este pacote de cogumelos já está selado hermeticamente!');
+    if (onToast) onToast(t('items.dehydrationPackaging.m4'));
     return true;
   }
   bc.sealed = true;
@@ -416,7 +416,7 @@ export function sealMushroomBag(ctx, bagItem) {
     ctx.callbacks.onHoldChange(bagItem.label);
   }
   if (onToast) {
-    onToast(`♨️📦 Pacote de ${bc.grams}g (${bc.speciesName}) SELADO a quente! Coloque-o na Caixa de Entrega para vender na estrada!`);
+    onToast(t('items.dehydrationPackaging.m5', { grams: bc.grams, speciesName: bc.speciesName }));
   }
   if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
   return true;
@@ -577,11 +577,11 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
   const onToast = ctx && ctx.callbacks && ctx.callbacks.onToast;
 
   if (!bc.filled) {
-    if (onToast) onToast('⚠️ Este saco está vazio! Coloque um lote de cogumelos desidratados e sele antes de pôr na caixa.');
+    if (onToast) onToast(t('items.dehydrationPackaging.m6'));
     return true;
   }
   if (!bc.sealed) {
-    if (onToast) onToast('⚠️ Sele primeiro o saco na Seladora Térmica antes de colocar na Caixa de Entrega!');
+    if (onToast) onToast(t('items.dehydrationPackaging.m7'));
     return true;
   }
   if (freeCrateSlot(crateItem) < 0) {
@@ -626,7 +626,7 @@ export function addSealedBagToDeliveryCrate(ctx, crateItem, bagItem) {
   if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
   if (onToast) {
     const val = cc.packsCount * MYCOCOIN_PRICE_PER_PACK;
-    onToast(`📤 Pacote selado guardado na Caixa de Entrega (${cc.packsCount}/${DELIVERY_CRATE_MAX_PACKS} • Valor: 🪙 ${val} MycoCoins)! Leve a caixa para o Ponto de Venda na Estrada!`);
+    onToast(t('items.dehydrationPackaging.m8', { packsCount: cc.packsCount, DELIVERY_CRATE_MAX_PACKS, val }));
   }
   if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
   return true;
@@ -1175,7 +1175,7 @@ export function interactRoadsideStand(ctx) {
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
     if (onToast) {
-      onToast(`🚗📦 ${count} pacote(s) selado(s) colocados no Quiosque Drive-Thru da Estrada! Aguarde: um carro de cliente já está vindo comprar!`);
+      onToast(t('items.dehydrationPackaging.m9', { count }));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -1185,7 +1185,7 @@ export function interactRoadsideStand(ctx) {
     const packsVal = held.organicBasketCtrl.packsValue;
     consumeHeldStandItem(ctx, held, packsVal);
     if (onToast) {
-      onToast(`🚗🧺 Cesta Orgânica da Horta (+${packsVal} lotes) colocada no Empório! Carros já estão vindo comprar!`);
+      onToast(t('items.dehydrationPackaging.m10', { packsVal }));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -1194,7 +1194,7 @@ export function interactRoadsideStand(ctx) {
   if (held && held.mushroomBagCtrl && held.mushroomBagCtrl.filled && held.mushroomBagCtrl.sealed) {
     consumeHeldStandItem(ctx, held, 1);
     if (onToast) {
-      onToast('🚗📦 1 pacote selado colocado no Quiosque Drive-Thru! Um cliente de carro já está a caminho!');
+      onToast(t('items.dehydrationPackaging.m11'));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -1203,9 +1203,9 @@ export function interactRoadsideStand(ctx) {
   playAudio('playClick');
   if (onToast) {
     if (roadStandState.availablePacks > 0) {
-      onToast(`🚗 Quiosque Drive-Thru: ${roadStandState.availablePacks} pacote(s) aguardando o próximo cliente na estrada (🪙 ${MYCOCOIN_PRICE_PER_PACK} MycoCoins cada)!`);
+      onToast(t('items.dehydrationPackaging.m12', { availablePacks: roadStandState.availablePacks, MYCOCOIN_PRICE_PER_PACK }));
     } else {
-      onToast('🚗 Quiosque Drive-Thru da Estrada: Traga Caixas de Entrega ou Pacotes Selados da Sala de Desidratação para atrair clientes de carro!');
+      onToast(t('items.dehydrationPackaging.m13'));
     }
   }
   return true;
@@ -1452,7 +1452,7 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         const vipPrefix = vipMatch
           ? `⭐ VIP ATENDIDO (${vipMatch.species}: +🪙 ${earnedCoins}!) `
           : (isVipSale ? `⭐ PEDIDO VIP (+🪙 ${earnedCoins})! ` : '');
-        ctx.callbacks.onToast(`🚗💵 ${vipPrefix}${order.profile.name}: ${order.profile.quote} (Saldo: 🪙 ${newBalance} MycoCoins)`);
+        ctx.callbacks.onToast(t('items.dehydrationPackaging.m14', { vipPrefix, name: order.profile.name, quote: order.profile.quote, newBalance }));
       }
     } else {
       order.phase = 'turning';
