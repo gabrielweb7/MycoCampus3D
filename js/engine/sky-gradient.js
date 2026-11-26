@@ -21,6 +21,22 @@ const _cSnowTint = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
 const _topWork = _ColorCtor ? new _ColorCtor() : null;
 const _horWork = _ColorCtor ? new _ColorCtor() : null;
 
+function smoothstep(start, end, value) {
+  const t = Math.max(0, Math.min(1, (value - start) / (end - start)));
+  return t * t * (3 - 2 * t);
+}
+
+export function getAuroraStrength(sunY, weatherMode, weatherPhase, weatherBlend) {
+  // The weather cycle starts with the clear spell after snowfall.
+  if (weatherMode !== 'clear' || weatherPhase <= 12 || weatherPhase >= 105 || sunY >= -0.22) return 0;
+
+  const darkness = smoothstep(0.22, 0.58, -sunY);
+  const fadeIn = smoothstep(12, 32, weatherPhase);
+  const fadeOut = 1 - smoothstep(78, 105, weatherPhase);
+  const obscured = Math.max(weatherBlend.partly, weatherBlend.overcast, weatherBlend.rain, weatherBlend.snow);
+  return darkness * fadeIn * fadeOut * (1 - smoothstep(0.05, 0.5, obscured));
+}
+
 export function createSkyGradientDome(scene) {
   if (!THREE || !scene || !THREE.ShaderMaterial || !THREE.SphereGeometry) return null;
 
@@ -36,6 +52,7 @@ export function createSkyGradientDome(scene) {
       uSunDir: { value: new THREE.Vector3(0.4, 0.7, -0.3) },
       uSunWarmth: { value: 0.25 },
       uNightAmt: { value: 0.0 },
+      uAuroraStrength: { value: 0.0 },
       uTime: { value: 0.0 }
     },
     vertexShader: `
@@ -51,8 +68,20 @@ export function createSkyGradientDome(scene) {
       uniform vec3 uSunDir;
       uniform float uSunWarmth;
       uniform float uNightAmt;
+      uniform float uAuroraStrength;
       uniform float uTime;
       varying vec3 vWorldDir;
+
+      vec3 auroraRibbon(float angle, float height, float time, vec3 base, vec3 tip) {
+        float folds = 0.69 + 0.19 * sin(angle * 29.0 + sin(angle * 7.0 + time) * 1.6)
+                           + 0.12 * sin(angle * 54.0 - time * 1.3);
+        float curtain = smoothstep(-0.036, 0.009, height)
+                      * (1.0 - smoothstep(0.012, 0.29, height));
+        float hem = 1.0 - smoothstep(0.0, 0.070, abs(height));
+        vec3 tint = mix(base, tip, smoothstep(0.015, 0.20, height));
+        return tint * (curtain * folds * 0.53 + hem * 0.22);
+      }
+
       void main() {
         vec3 dir = normalize(vWorldDir);
         float h = clamp(dir.y, 0.0, 1.0);
@@ -64,8 +93,19 @@ export function createSkyGradientDome(scene) {
           float bandCoord = dir.x * 0.65 + dir.y * 0.45 - dir.z * 0.60;
           float nebula = exp(-bandCoord * bandCoord * 7.5) * smoothstep(0.04, 0.45, h);
           float swirl = 0.5 + 0.5 * sin(dir.x * 5.0 + dir.z * 4.2 + uTime * 0.14);
-          vec3 auroraCol = mix(vec3(0.24, 0.14, 0.48), vec3(0.14, 0.42, 0.58), swirl);
-          col += auroraCol * nebula * uNightAmt * 0.34;
+          vec3 nebulaCol = mix(vec3(0.24, 0.14, 0.48), vec3(0.14, 0.42, 0.58), swirl);
+          col += nebulaCol * nebula * uNightAmt * 0.34;
+        }
+        if (uAuroraStrength > 0.003 && dir.y > 0.06 && dir.y < 0.82 && dir.z < 0.0) {
+          float angle = atan(dir.x, -dir.z);
+          float facing = 1.0 - smoothstep(0.68, 1.42, abs(angle + 0.13));
+          float time = uTime * 0.14;
+          float front = 0.29 + 0.058 * sin(angle * 4.8 + time)
+                             + 0.031 * sin(angle * 9.0 - time * 0.7) + angle * 0.038;
+          float back = 0.45 + 0.047 * sin(angle * 5.3 - time * 0.75 + 1.8) - angle * 0.060;
+          vec3 glow = auroraRibbon(angle, dir.y - front, time, vec3(0.22, 0.88, 0.61), vec3(0.70, 0.35, 0.76));
+          glow += auroraRibbon(angle + 0.5, dir.y - back, -time, vec3(0.26, 0.67, 0.79), vec3(0.78, 0.42, 0.76)) * 0.54;
+          col += glow * facing * uAuroraStrength;
         }
         float dither = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
         gl_FragColor = vec4(col + dither, 1.0);
@@ -85,7 +125,7 @@ export function createSkyGradientDome(scene) {
   return { mesh, mat, lastSunY: -99, lastMode: '' };
 }
 
-export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode, weatherBlend, envTime = 0) {
+export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode, weatherBlend, envTime = 0, auroraStrength = 0) {
   if (!ctrl || !ctrl.mesh || !ctrl.mat || !_topWork || !_horWork) return;
   if (camPos) {
     ctrl.mesh.position.set(camPos.x, camPos.y, camPos.z);
@@ -140,5 +180,6 @@ export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode, weath
   ctrl.mat.uniforms.uSunDir.value.set(sunX || 0.4, sY, -0.35).normalize();
   ctrl.mat.uniforms.uSunWarmth.value = sunWarmth;
   if (ctrl.mat.uniforms.uNightAmt) ctrl.mat.uniforms.uNightAmt.value = nightAmt;
+  if (ctrl.mat.uniforms.uAuroraStrength) ctrl.mat.uniforms.uAuroraStrength.value = auroraStrength;
   if (ctrl.mat.uniforms.uTime) ctrl.mat.uniforms.uTime.value = envTime || 0;
 }

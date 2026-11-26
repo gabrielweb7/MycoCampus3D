@@ -5,7 +5,7 @@ import { snowableEntries, getTextures } from './textures.js';
 import { stepRainbow } from './rainbow.js';
 import { updateCelestialSkyDome } from './sky-constellations.js';
 import { stepRainPuddles } from './rain-puddles.js';
-import { stepSkyGradientDome } from './sky-gradient.js';
+import { getAuroraStrength, stepSkyGradientDome } from './sky-gradient.js';
 import { stepCozyDetails } from '../world/cozy-details.js';
 
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
@@ -130,7 +130,8 @@ export function updateDynamicEnvironment(dt, env) {
   const oz = skyOrigin ? (skyOrigin.z || 0) : 0;
 
   if (env.skyGradient) {
-    stepSkyGradientDome(env.skyGradient, skyOrigin, sunX, sunY, weatherMode, wb, env.envTime);
+    const auroraStrength = getAuroraStrength(sunY, weatherMode, wCycle, wb);
+    stepSkyGradientDome(env.skyGradient, skyOrigin, sunX, sunY, weatherMode, wb, env.envTime, auroraStrength);
   }
 
   if (env.sunDisc && env.sunHalo) {
