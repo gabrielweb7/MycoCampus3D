@@ -211,10 +211,8 @@ function buildTent() {
   const cakeMat = material(0xd7bd95, { flatShading: true });
   const trunkMat = material(0xf4dfbf);
   const capMat = material(0xb97c3c, { flatShading: true });
-  const trayGeo = new THREE.CylinderGeometry(0.132, 0.116, 0.035, 15);
-  const trayRim = new THREE.TorusGeometry(0.119, 0.010, 6, 20);
-  trayRim.rotateX(-Math.PI / 2);
   const cakeGeo = new THREE.CylinderGeometry(0.096, 0.101, 0.13, 10);
+  cakeGeo.translate(0, 0.065, 0);
   const stemGeo = new THREE.CylinderGeometry(0.014, 0.021, 0.11, 7);
   const capGeo = new THREE.SphereGeometry(0.055, 9, 5, 0, Math.PI * 2, 0, Math.PI * 0.53);
   for (const y of shelfLevels) {
@@ -222,16 +220,11 @@ function buildTent() {
     for (const x of [-0.498, 0, 0.498]) box(group, steel, 0.032, 0.033, 0.69, x, y, 0);
     box(group, steel, 1.032, 0.041, 0.029, 0, y, 0.325);
     for (const x of [-0.34, 0, 0.34]) {
-      const tray = new THREE.Mesh(trayGeo, steel);
-      tray.position.set(x, y + 0.027, 0.03);
-      const rim = new THREE.Mesh(trayRim, floor);
-      rim.position.set(x, y + 0.045, 0.03);
-      group.add(tray, rim);
       const cake = new THREE.Mesh(cakeGeo, cakeMat);
-      cake.position.set(x, y + 0.11, 0.03);
+      cake.position.set(x, y + 0.017, 0.03);
       group.add(cake);
       const mushrooms = new THREE.Group();
-      mushrooms.position.set(x, y + 0.17, 0.03);
+      mushrooms.position.set(x, y + 0.147, 0.03);
       for (let m = 0; m < 4; m++) {
         const fruit = new THREE.Group();
         fruit.position.set(Math.sin(m * 2.4) * 0.064, 0, Math.cos(m * 2.4) * 0.064);
