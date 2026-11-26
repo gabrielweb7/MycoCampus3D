@@ -2,42 +2,43 @@
  * Guia de controles, tutorial opcional e compatibilidade de itens.
  */
 import { $, escapeHtml } from './dom-helpers.js';
+import { t } from '../core/i18n.js';
 
-const categoryLabels = {
-  tool: 'Ferramentas',
-  equipment: 'Equipamentos',
-  spawn_container: 'Recipientes de spawn',
-  solid_culture: 'Culturas sólidas',
-  liquid_culture: 'Culturas líquidas',
-  glassware: 'Vidraçaria',
-  inoculation: 'Inoculação',
-  mixing: 'Mistura',
-  sterilization: 'Esterilização',
-  heating: 'Aquecimento',
-  culture_plate: 'Placas de cultura',
-  consumable: 'Consumíveis'
+const categoryLabelKeys = {
+  tool: 'misc.guide.cat_tool',
+  equipment: 'misc.guide.cat_equipment',
+  spawn_container: 'misc.guide.cat_spawn_container',
+  solid_culture: 'misc.guide.cat_solid_culture',
+  liquid_culture: 'misc.guide.cat_liquid_culture',
+  glassware: 'misc.guide.cat_glassware',
+  inoculation: 'misc.guide.cat_inoculation',
+  mixing: 'misc.guide.cat_mixing',
+  sterilization: 'misc.guide.cat_sterilization',
+  heating: 'misc.guide.cat_heating',
+  culture_plate: 'misc.guide.cat_culture_plate',
+  consumable: 'misc.guide.cat_consumable'
 };
 
 const tutorialSteps = [
   {
-    title: '1. Aprenda os controles',
-    text: 'No PC, use WASD para andar, mouse para olhar e clique para agir; R ou a roda giram um item. Para posicionar, pressione G/Q ou clique direito, mire e clique para confirmar; Esc cancela. No celular, use o joystick, arraste a tela para olhar, toque em 📦 para escolher o local e toque no mundo para confirmar.'
+    get title() { return t('misc.guide.step1_title'); },
+    get text() { return t('misc.guide.step1_text'); }
   },
   {
-    title: '2. Siga as dicas ao mirar',
-    text: 'Aproxime-se de um objeto e mire nele. A mensagem na tela mostra o que a ferramenta atual pode fazer. No celular, o botão de ação acompanha o alvo; se nada for compatível, a dica explica o próximo passo.'
+    get title() { return t('misc.guide.step2_title'); },
+    get text() { return t('misc.guide.step2_text'); }
   },
   {
-    title: '3. Prepare o recipiente',
-    text: 'Use substrato para preencher um bag ou prepare o PP5 com flocão e água. Cada recipiente indica o que falta. Evite tentar inocular um recipiente vazio ou ainda sem hidratação.'
+    get title() { return t('misc.guide.step3_title'); },
+    get text() { return t('misc.guide.step3_text'); }
   },
   {
-    title: '4. Feche e esterilize',
-    text: 'Antes da esterilização, use a Seladora Térmica em um bag preenchido. Coloque o recipiente na panela, feche a tampa e use o modo e aquecimento adequados. Espere o estado indicar que está estéril.'
+    get title() { return t('misc.guide.step4_title'); },
+    get text() { return t('misc.guide.step4_text'); }
   },
   {
-    title: '5. Inocule com cuidado',
-    text: 'Higienize a área, ligue o fluxo laminar e use a seringa ou o bisturi compatível em um recipiente esterilizado. Acompanhe o rótulo do item para ver se está colonizando, contaminado ou pronto.'
+    get title() { return t('misc.guide.step5_title'); },
+    get text() { return t('misc.guide.step5_text'); }
   }
 ];
 
@@ -46,12 +47,12 @@ function renderItemCards() {
     ? window.MycoCampus.getLabItemGuide()
     : [];
   if (!items.length) {
-    return '<p class="text-sm text-slate-300">A lista de itens aparece quando o laboratório termina de carregar.</p>';
+    return `<p class="text-sm text-slate-300">${escapeHtml(t('misc.guide.empty_items'))}</p>`;
   }
 
   const groups = new Map();
   items.forEach(function (item) {
-    const category = categoryLabels[item.category] || 'Outros itens';
+    const category = t(categoryLabelKeys[item.category] || 'misc.guide.cat_other');
     if (!groups.has(category)) groups.set(category, []);
     groups.get(category).push(item);
   });
@@ -60,13 +61,13 @@ function renderItemCards() {
     const cards = group[1].map(function (item) {
       const actions = item.compatibilities.length
         ? item.compatibilities.map((action) => `<li>${escapeHtml(action)}</li>`).join('')
-        : '<li>Não possui ação direta cadastrada.</li>';
+        : `<li>${escapeHtml(t('misc.guide.no_direct_action'))}</li>`;
       const connections = item.connections.length
-        ? `<p class="mt-2 text-xs text-sky-200"><strong>Combina com:</strong> ${item.connections.map(escapeHtml).join(', ')}</p>`
+        ? `<p class="mt-2 text-xs text-sky-200"><strong>${escapeHtml(t('misc.guide.combines_with'))}</strong> ${item.connections.map(escapeHtml).join(', ')}</p>`
         : '';
       return `<article class="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
         <h4 class="font-bold text-white">${escapeHtml(item.name)}</h4>
-        <p class="mt-1 text-xs text-slate-300">${escapeHtml(item.purpose || 'Ferramenta de laboratório.')}</p>
+        <p class="mt-1 text-xs text-slate-300">${escapeHtml(item.purpose || t('misc.guide.default_purpose'))}</p>
         <ul class="mt-2 list-disc space-y-1 pl-5 text-xs text-emerald-200">${actions}</ul>
         ${connections}
       </article>`;
@@ -102,9 +103,9 @@ function renderTutorialStep(index) {
   if (!step || !title || !text || !progress || !back || !next || !start) return;
   title.textContent = step.title;
   text.textContent = step.text;
-  progress.textContent = `Etapa ${index + 1} de ${tutorialSteps.length}`;
+  progress.textContent = t('misc.guide.step_progress', { current: index + 1, total: tutorialSteps.length });
   back.disabled = index === 0;
-  next.textContent = index === tutorialSteps.length - 1 ? 'Concluir' : 'Próximo';
+  next.textContent = index === tutorialSteps.length - 1 ? t('misc.guide.btn_finish') : t('misc.guide.btn_next');
   start.classList.add('hidden');
   back.classList.remove('hidden');
   next.classList.remove('hidden');
@@ -138,9 +139,9 @@ export function renderLabGuideModal() {
         const title = $('guide-tutorial-title');
         const text = $('guide-tutorial-text');
         const progress = $('guide-tutorial-progress');
-        if (title) title.textContent = 'Tutorial concluído!';
-        if (text) text.textContent = 'Pronto. Você pode rever estas etapas quando quiser ou consultar a compatibilidade de qualquer item.';
-        if (progress) progress.textContent = 'Concluído';
+        if (title) title.textContent = t('misc.guide.done_title');
+        if (text) text.textContent = t('misc.guide.done_text');
+        if (progress) progress.textContent = t('misc.guide.done_badge');
         try { localStorage.setItem('myco_lab_tutorial_done', '1'); } catch (e) {}
         if (typeof window !== 'undefined' && typeof window.syncCampusUserProgress === 'function') {
           window.syncCampusUserProgress({ lab_tutorial_done: true });

@@ -62,6 +62,7 @@ export const SHOP_SUPPLY_CATEGORIES = [
 ];
 
 let activeSupplyCat = 'all';
+let supplySearchQuery = '';
 
 let activeShopTab = 'hats';
 
@@ -156,8 +157,40 @@ export function renderShopModal() {
   }
 
   if (activeShopTab === 'supplies') {
+    const stickyWrap = document.createElement('div');
+    stickyWrap.className = 'col-span-full flex flex-col gap-2 sticky top-0 z-10 py-2 -mt-2 sm:-mt-3 -mx-3 sm:-mx-5 px-3 sm:px-5 bg-slate-900/95 border-b border-slate-800/80 shadow-sm';
+
+    const searchRow = document.createElement('div');
+    searchRow.className = 'relative flex items-center';
+    const searchInput = document.createElement('input');
+    searchInput.id = 'shop-supply-search';
+    searchInput.type = 'search';
+    searchInput.value = supplySearchQuery;
+    searchInput.placeholder = t('ui.shop.search_placeholder');
+    searchInput.className = 'w-full px-3 py-1.5 pr-8 rounded-lg bg-slate-950/90 border border-slate-700/80 text-white text-xs placeholder-slate-400 focus:outline-none focus:border-emerald-400';
+    searchInput.oninput = (ev) => {
+      const pos = ev.target.selectionStart ?? ev.target.value.length;
+      supplySearchQuery = ev.target.value;
+      renderShopModal();
+      const restored = $('shop-supply-search');
+      if (restored) {
+        restored.focus();
+        try { restored.setSelectionRange(pos, pos); } catch (e) {}
+      }
+    };
+    searchRow.appendChild(searchInput);
+    if (supplySearchQuery) {
+      const clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.className = 'absolute right-2 text-slate-400 hover:text-white text-xs font-bold px-1';
+      clearBtn.textContent = '✕';
+      clearBtn.onclick = () => { supplySearchQuery = ''; renderShopModal(); $('shop-supply-search')?.focus(); };
+      searchRow.appendChild(clearBtn);
+    }
+    stickyWrap.appendChild(searchRow);
+
     const chipBar = document.createElement('div');
-    chipBar.className = 'col-span-full flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar sticky top-0 z-10 py-2 -mt-2 sm:-mt-3 -mx-3 sm:-mx-5 px-3 sm:px-5 bg-slate-900/95 border-b border-slate-800/80 shadow-sm';
+    chipBar.className = 'flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar';
     [{ id: 'all', icon: '🛒' }].concat(SHOP_SUPPLY_CATEGORIES).forEach((c) => {
       const chip = document.createElement('button');
       chip.type = 'button';
@@ -167,12 +200,24 @@ export function renderShopModal() {
       chip.onclick = () => { activeSupplyCat = c.id; renderShopModal(); };
       chipBar.appendChild(chip);
     });
-    grid.appendChild(chipBar);
+    stickyWrap.appendChild(chipBar);
+    grid.appendChild(stickyWrap);
+
+    const normQuery = supplySearchQuery.trim().toLowerCase();
     const supplyById = new Map(SHOP_SUPPLIES.map((s) => [s.id, s]));
     const supplyEntries = [];
     SHOP_SUPPLY_CATEGORIES.forEach((c) => {
       if (activeSupplyCat !== 'all' && activeSupplyCat !== c.id) return;
-      const items = c.ids.map((id) => supplyById.get(id)).filter(Boolean).sort((a, b) => a.price_coins - b.price_coins);
+      const items = c.ids
+        .map((id) => supplyById.get(id))
+        .filter((s) => {
+          if (!s) return false;
+          if (!normQuery) return true;
+          const label = nm('sup', s, 'name').toLowerCase();
+          const desc = nm('sup', s, 'desc').toLowerCase();
+          return label.includes(normQuery) || desc.includes(normQuery);
+        })
+        .sort((a, b) => a.price_coins - b.price_coins);
       if (!items.length) return;
       const head = document.createElement('div');
       head.className = 'col-span-full flex items-center justify-between text-[11px] sm:text-xs font-extrabold text-emerald-300 uppercase tracking-wider pt-2 pb-1.5 border-b border-emerald-500/20';
@@ -181,6 +226,12 @@ export function renderShopModal() {
       items.forEach((s) => supplyEntries.push(s));
       items.forEach((sup) => renderSupplyCard(sup));
     });
+    if (!supplyEntries.length) {
+      const empty = document.createElement('div');
+      empty.className = 'col-span-full text-center py-8 text-xs text-slate-400 font-semibold';
+      empty.textContent = t('ui.shop.search_empty');
+      grid.appendChild(empty);
+    }
     function renderSupplyCard(sup) {
       const reqXp = sup.req_xp || 0;
       const reqMush = sup.req_mushrooms || 0;

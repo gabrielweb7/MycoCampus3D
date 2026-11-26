@@ -461,7 +461,7 @@
         <button id="btn-close-guide" type="button" aria-label="Fechar guia"
           class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
       </div>
-      <nav class="flex gap-2 overflow-x-auto border-b border-slate-700/60 px-3 py-2" aria-label="Seções do guia">
+      <nav class="flex gap-2 overflow-x-auto no-scrollbar border-b border-slate-700/60 px-3 py-2" aria-label="Seções do guia">
         <button type="button" data-guide-tab="controls" data-i18n="modal.guide_tab_controls"
           class="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-950">Controles</button>
         <button type="button" data-guide-tab="tutorial" data-i18n="modal.guide_tab_tutorial"
@@ -591,17 +591,17 @@
     class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
     <div role="dialog" aria-modal="true" aria-labelledby="quest-title"
       class="glass-panel rounded-2xl modal-card-md flex flex-col overflow-hidden max-h-[88dvh]">
-      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
-        <div class="flex items-center gap-2">
-          <span class="text-xl">🧪</span>
-          <div>
-            <h2 id="quest-title" data-i18n="modal.quest_title" class="text-base font-extrabold text-white">Missão Prática: Cultivo Asséptico</h2>
-            <p data-i18n="modal.quest_subtitle" class="text-[11px] text-emerald-300">Complete as 8 etapas no campus e ganhe +100 XP</p>
+      <div class="flex items-center justify-between px-3.5 sm:px-5 py-2.5 sm:py-3.5 border-b border-slate-700/60 bg-slate-900/40">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-xl shrink-0">🧪</span>
+          <div class="min-w-0">
+            <h2 id="quest-title" data-i18n="modal.quest_title" class="text-sm sm:text-base font-extrabold text-white truncate">Missão Prática: Cultivo Asséptico</h2>
+            <p data-i18n="modal.quest_subtitle" class="text-[11px] text-emerald-300 truncate">Complete as 8 etapas no campus e ganhe +100 XP</p>
           </div>
         </div>
-        <button id="btn-close-quest" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
+        <button id="btn-close-quest" class="text-slate-300 hover:text-white text-lg font-bold px-2 shrink-0">✕</button>
       </div>
-      <div id="quest-body" class="p-4 overflow-y-auto space-y-2.5 text-xs"></div>
+      <div id="quest-body" class="p-3 sm:p-4 overflow-y-auto space-y-2.5 text-xs"></div>
     </div>
   </div>
 
@@ -677,16 +677,16 @@
   <!-- Micoteca (Coleção de Espécies) Modal -->
   <div id="mycoteca-modal"
     class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
-    <div class="glass-panel rounded-2xl w-full max-w-4xl max-h-[88vh] flex flex-col border border-teal-500/40 overflow-hidden shadow-2xl">
-      <div class="p-4 border-b border-slate-700/60 flex items-center justify-between bg-slate-900/40">
-        <div>
-          <h2 class="text-base sm:text-lg font-extrabold text-teal-300">🍄 Micoteca — Coleção de Espécies</h2>
-          <p id="mycoteca-summary" class="text-xs text-slate-400">Explore os bosques, troncos e o pasto para catalogar todas as espécies.</p>
+    <div class="glass-panel rounded-2xl w-full max-w-4xl max-h-[90dvh] flex flex-col border border-teal-500/40 overflow-hidden shadow-2xl">
+      <div class="p-3 sm:p-4 border-b border-slate-700/60 flex items-center justify-between gap-2 bg-slate-900/40">
+        <div class="min-w-0">
+          <h2 class="text-sm sm:text-lg font-extrabold text-teal-300 truncate">🍄 Micoteca — Coleção de Espécies</h2>
+          <p id="mycoteca-summary" class="text-[11px] sm:text-xs text-slate-400 truncate">Explore os bosques, troncos e o pasto para catalogar todas as espécies.</p>
         </div>
         <button id="btn-close-mycoteca"
-          class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">✕ Fechar</button>
+          class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold shrink-0">✕ Fechar</button>
       </div>
-      <div id="mycoteca-grid" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs"></div>
+      <div id="mycoteca-grid" class="p-3 sm:p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs"></div>
     </div>
   </div>
 

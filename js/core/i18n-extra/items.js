@@ -33,6 +33,8 @@ export default {
     'items.dehydrationPackaging.m12': '🚗 Quiosque Drive-Thru: {availablePacks} pacote(s) aguardando o próximo cliente na estrada (🪙 {MYCOCOIN_PRICE_PER_PACK} MycoCoins cada)!',
     'items.dehydrationPackaging.m13': '🚗 Quiosque Drive-Thru da Estrada: Traga Caixas de Entrega ou Pacotes Selados da Sala de Desidratação para atrair clientes de carro!',
     'items.dehydrationPackaging.m14': '🚗💵 {vipPrefix}{name}: {quote} (Saldo: 🪙 {newBalance} MycoCoins)',
+    'items.dehydrationPackaging.npc_thanks': '😍🍄 +🪙 {earnedCoins}! Obrigado!',
+    'items.dehydrationPackaging.npc_soldout': '🛍️ Acabou! Volto já!',
 
     'items.dehydrator.m1': '🍄 {speciesName} ({grams}g) colocado na Desidratadora (55°C)! Secando...',
     'items.dehydrator.m2': '✨ Lote de {batchGrams}g ({spName} crocantes • 0% umidade) na mão! Pese na Balança, guarde no Pote c/ Sílica Gel ou embale no Saco! (+15 XP)',
@@ -148,6 +150,8 @@ export default {
     'items.dehydrationPackaging.m12': '🚗 Drive-Thru Kiosk: {availablePacks} pack(s) waiting for the next customer on the road (🪙 {MYCOCOIN_PRICE_PER_PACK} MycoCoins each)!',
     'items.dehydrationPackaging.m13': '🚗 Roadside Drive-Thru Kiosk: Bring Delivery Crates or Sealed Packs from the Dehydration Room to attract drive-thru customers!',
     'items.dehydrationPackaging.m14': '🚗💵 {vipPrefix}{name}: {quote} (Balance: 🪙 {newBalance} MycoCoins)',
+    'items.dehydrationPackaging.npc_thanks': '😍🍄 +🪙 {earnedCoins}! Thank you!',
+    'items.dehydrationPackaging.npc_soldout': '🛍️ Sold out! Be right back!',
 
     'items.dehydrator.m1': '🍄 {speciesName} ({grams}g) placed in the Dehydrator (55°C)! Drying...',
     'items.dehydrator.m2': '✨ {batchGrams}g batch ({spName} cracker-dry • 0% moisture) in hand! Weigh on the Scale, store in the Silica Gel Jar, or pack in a Mylar Bag! (+15 XP)',
@@ -263,6 +267,8 @@ export default {
     'items.dehydrationPackaging.m12': '🚗 Quiosco Drive-Thru: ¡{availablePacks} paquete(s) esperando al próximo cliente en la carretera (🪙 {MYCOCOIN_PRICE_PER_PACK} MycoCoins cada uno)!',
     'items.dehydrationPackaging.m13': '🚗 Quiosco Drive-Thru de la Carretera: ¡Trae Cajas de Entrega o Paquetes Sellados de la Sala de Deshidratación para atraer clientes en auto!',
     'items.dehydrationPackaging.m14': '🚗💵 {vipPrefix}{name}: {quote} (Saldo: 🪙 {newBalance} MycoCoins)',
+    'items.dehydrationPackaging.npc_thanks': '😍🍄 +🪙 {earnedCoins}! ¡Gracias!',
+    'items.dehydrationPackaging.npc_soldout': '🛍️ ¡Se acabó! ¡Vuelvo pronto!',
 
     'items.dehydrator.m1': '🍄 ¡{speciesName} ({grams}g) colocado en la Deshidratadora (55°C)! Secando...',
     'items.dehydrator.m2': '✨ ¡Lote de {batchGrams}g ({spName} crujientes • 0% humedad) en la mano! Pésalo en la Balanza, guárdalo en el Frasco c/ Sílica Gel o empácalo en la Bolsa! (+15 XP)',

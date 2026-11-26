@@ -1291,9 +1291,12 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     }
 
     const isVip = (roadStandState.totalSoldPacks % 3 === 2) || Math.random() < 0.28;
+    const activeVips = isVip ? getActiveVipOrders() : [];
+    const vipTargetSpecies = activeVips.length ? activeVips[roadStandState.totalSoldPacks % activeVips.length] : '';
     roadStandState.activeNpcOrder = {
       profile,
       isVip,
+      vipTargetSpecies,
       phase: 'driving_in',
       timer: 0,
       mood: 'happy',
@@ -1355,6 +1358,13 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       actor.npcGroup.position.set(standX, 0.04, doorZ);
       actor.npcGroup.rotation.y = 0;
       actor.npcGroup.visible = true;
+      if (order.isVip && avatar.chatSprite) {
+        const vipText = order.vipTargetSpecies
+          ? `⭐ VIP: ${order.vipTargetSpecies} (+50%)`
+          : '⭐ VIP (+50% 🪙)';
+        updateTextSprite(avatar.chatSprite, vipText, '#fde047');
+        avatar.chatSprite.visible = true;
+      }
       order.phase = 'walking_to_stand';
       order.timer = 0;
     }
@@ -1455,7 +1465,7 @@ export function stepRoadsideMushroomSales(ctx, dt) {
             actor.avatar.chatSprite,
             vipMatch
               ? `⭐😍 VIP ${vipMatch.species}! +🪙 ${earnedCoins}!`
-              : (isVipSale ? `⭐😍 VIP +🪙 ${earnedCoins}!` : `😍🍄 +🪙 ${earnedCoins}! Obrigado!`),
+              : (isVipSale ? `⭐😍 VIP +🪙 ${earnedCoins}!` : t('items.dehydrationPackaging.npc_thanks', { earnedCoins })),
             isVipSale ? '#fde047' : '#34d399'
           );
           actor.avatar.chatSprite.visible = true;
@@ -1479,7 +1489,7 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       actor.cashGroup.visible = false;
       setNpcMood('sad');
       if (actor.avatar && actor.avatar.chatSprite) {
-        updateTextSprite(actor.avatar.chatSprite, '🛍️ Acabou! Volto já!', '#94a3b8');
+        updateTextSprite(actor.avatar.chatSprite, t('items.dehydrationPackaging.npc_soldout'), '#94a3b8');
         actor.avatar.chatSprite.visible = true;
       }
     }

@@ -3,6 +3,7 @@
  */
 
 import { normalizeCultureOrigin } from '../core/culture-origin.js';
+import { t } from '../core/i18n.js';
 import { GAME_CONFIG } from '../core/config.js';
 import { getGroundHeight } from '../engine/physics.js';
 import { getVirtualDayFrac } from '../world/staircase-clock.js';
@@ -246,7 +247,7 @@ function updateThermometerLaser(ctx, dt, now) {
           lHit.point.z >= bd.surface.minZ && lHit.point.z <= bd.surface.maxZ &&
           Math.abs(lHit.point.y - bd.surface.topY) < 0.15)) {
         sTemp = 24.0 + (bd.heat || 0) * 215.0;
-        sLbl = (bd.heat > 0.15) ? 'Fogareiro Incandescente' : 'Fogareiro Elétrico';
+        sLbl = t((bd.heat > 0.15) ? 'misc.held_loop.burner_hot' : 'misc.held_loop.burner_electric');
         break;
       }
     }
@@ -257,7 +258,9 @@ function updateThermometerLaser(ctx, dt, now) {
           hObj.parent === cp.potItem.mesh || hObj.parent === cp.lidItem.mesh ||
           cp.contents.some(function (it) { return it.mesh === hObj || it.mesh.children.includes(hObj); })) {
           sTemp = cp.temp || 24.5;
-          sLbl = cp.psi >= 14 ? 'Panela Esterilizando (' + Math.round(cp.psi) + ' PSI)' : (cp.temp > 35 ? 'Panela Aquecendo' : 'Panela de Pressão');
+          sLbl = cp.psi >= 14
+            ? t('misc.held_loop.cooker_sterilizing', { psi: Math.round(cp.psi) })
+            : t(cp.temp > 35 ? 'misc.held_loop.cooker_heating' : 'misc.held_loop.cooker_idle');
           break;
         }
       }
@@ -265,19 +268,19 @@ function updateThermometerLaser(ctx, dt, now) {
     if (!sLbl) {
       if (hObj.userData.stirSwitch || (hObj.parent && hObj.parent.userData.stirSwitch)) {
         sTemp = (ctx.stirrerDevices[0] && ctx.stirrerDevices[0].on) ? 34.5 : 23.8;
-        sLbl = 'Agitador Magnético';
+        sLbl = t('misc.held_loop.stirrer');
       } else if (hObj.userData.remotePlayer || (hObj.parent && hObj.parent.userData.remotePlayer)) {
         sTemp = 36.7 + Math.sin(ctx.clock.elapsedTime * 1.3) * 0.2;
-        sLbl = 'Jogador (Corporal)';
+        sLbl = t('misc.held_loop.player_body');
       } else if (hObj.userData.doorObj) {
         sTemp = 22.8;
-        sLbl = hObj.userData.doorObj.label || 'Porta';
+        sLbl = hObj.userData.doorObj.label || t('misc.held_loop.door');
       } else if (hObj.userData.cabinetPart || (hObj.parent && hObj.parent.userData && hObj.parent.userData.cabinetPart)) {
         sTemp = 22.5;
-        sLbl = 'Bancada / Armário do Laboratório';
+        sLbl = t('misc.held_loop.lab_cabinet');
       } else if (hObj.userData.scaleCtrl || (hObj.parent && hObj.parent.userData && hObj.parent.userData.scaleCtrl)) {
         sTemp = 22.8;
-        sLbl = 'Balança Digital de Precisão';
+        sLbl = t('misc.held_loop.scale');
       } else {
         let pWalk = hObj;
         let pNode = null;
@@ -292,10 +295,10 @@ function updateThermometerLaser(ctx, dt, now) {
           sTemp = pItem ? getItemBaseTempC(pItem, ctx) : 23.3;
         } else if (lHit.point.x > 14 && lHit.point.x < 24 && lHit.point.z > 2 && lHit.point.z < 14) {
           sTemp = greenhouseEnv.tempC || 23.0;
-          sLbl = 'Estufa Climatizada (' + Math.round(greenhouseEnv.humidity) + '% UR • ' + Math.round(greenhouseEnv.co2Ppm) + ' ppm)';
+          sLbl = t('misc.held_loop.greenhouse_env', { hum: Math.round(greenhouseEnv.humidity), co2: Math.round(greenhouseEnv.co2Ppm) });
         } else {
           sTemp = 23.2 + Math.sin(lHit.point.x * 0.5 + lHit.point.z * 0.3) * 0.4;
-          sLbl = lHit.point.y > 0.6 ? 'Bancada / Estrutura' : 'Piso do Laboratório';
+          sLbl = t(lHit.point.y > 0.6 ? 'misc.held_loop.bench_structure' : 'misc.held_loop.lab_floor');
         }
       }
     }
@@ -314,7 +317,7 @@ function updateThermometerLaser(ctx, dt, now) {
     ctx.thermoTargetTemp = typeof ctx.outsideTempC === 'number'
       ? ctx.outsideTempC
       : (ctx.weatherMode === 'snow' ? -2.0 : (ctx.weatherMode === 'rain' ? 17.4 : 25.0));
-    ctx.thermoTargetLabel = 'Ambiente Externo';
+    ctx.thermoTargetLabel = t('misc.held_loop.outside');
   }
   ctx.thermoCurrentTemp += (ctx.thermoTargetTemp - ctx.thermoCurrentTemp) * Math.min(1, dt * 14);
   drawThermoScreen(ctx.thermoCurrentTemp, 'SCAN');
@@ -367,7 +370,7 @@ function applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, fin
     if (hadLc && syringeTarget.cultureCtrl && !syringeTarget.cultureCtrl.inoculated && !syringeTarget.cultureCtrl.contaminated) {
       if (syringeTarget.cultureCtrl.hasNutrient === false) {
         if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('⚠️ Este frasco tem apenas água pura! Adicione 🍯 Extrato de Malte / Mel (4%) e esterilize na panela antes de inocular!');
+          ctx.callbacks.onToast(t('misc.held_loop.lc_no_nutrient'));
         }
         return;
       }
@@ -383,14 +386,12 @@ function applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, fin
       }
       if (aseptic) {
         syringeTarget.cultureCtrl.colonization = 2;
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Cultura Líquida inoculada pela seringa! Aguarde colonizar até 100%.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.lc_inoculated'));
       } else {
         syringeTarget.cultureCtrl.contaminated = true;
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast(!lcSterile
-          ? '🦠 O caldo nutritivo não estava esterilizado na autoclave!'
-          : (srcContam
-            ? '🦠 A seringa carregava cultura contaminada e infectou o frasco!'
-            : '🦠 Injeção fora do fluxo laminar contaminou a Cultura Líquida!'));
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast(t(!lcSterile
+          ? 'misc.held_loop.lc_not_sterile'
+          : (srcContam ? 'misc.held_loop.lc_syringe_contam' : 'misc.held_loop.lc_non_aseptic')));
       }
     }
   } else if (finalD < -0.01) {
@@ -744,7 +745,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ctx.bladeAttachHold = null;
         if (ring) ring.classList.add('hidden');
         if (window.MycoAudio) window.MycoAudio.playClick();
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🔪 Lâmina estéril #24 encaixada! Jogue a embalagem vazia no lixo.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.blade_attached'));
         ctx.notifyWorldAction();
       }
     }
@@ -770,7 +771,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ctx.stirHold = null;
         if (ring) ring.classList.add('hidden');
         if (ctx.callbacks && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('✅ Receita homogênea pronta para porcionar!');
+          ctx.callbacks.onToast(t('misc.held_loop.bowl_mixed'));
         }
         ctx.notifyWorldAction();
       }
@@ -841,7 +842,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
             sf.addedAny = true;
             if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(sf.item.label);
             if (!prevHyd && sc.hydrated && ctx.callbacks && ctx.callbacks.onToast) {
-              ctx.callbacks.onToast('💧 Grãos hidratados! Agora sele/tampe e leve para esterilizar a 121°C.');
+              ctx.callbacks.onToast(t('misc.held_loop.grains_hydrated'));
             }
           }
         }
@@ -876,7 +877,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.syringePumping.target.item.mesh &&
       ctx.syringePumping.target.item.mesh.position.distanceTo(ctx.playerPos) > 4.5) {
       ctx.syringePumping = null;
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Bombeamento cancelado: você se afastou do recipiente.');
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.pump_too_far'));
     }
   }
   stepSyringePumping(ctx, dt);
@@ -890,7 +891,7 @@ export function stepSyringePumping(ctx, dt) {
   if (!target || target._removedForSync || (!pump.holdMode && !canSyringeTarget(target))) {
     updateSyringeVolume(syringe, pump.fromVol);
     ctx.syringePumping = null;
-    ctx.callbacks.onToast?.('💉 Aplicação cancelada: o alvo não está mais pronto. Nenhuma dose foi usada.');
+    ctx.callbacks.onToast?.(t('misc.held_loop.pump_not_ready'));
     return;
   }
   if (pump.holdMode && (!ctx.isPrimaryDown || ctx.hoveredSyringeTarget?.item !== target)) {
@@ -914,7 +915,7 @@ export function stepSyringePumping(ctx, dt) {
       ctx.callbacks.onLabStep?.('syringe_use');
     }
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-    if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 Seringa com ' + finalVol.toFixed(1) + ' ml');
+    if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.syringe_vol', { vol: finalVol.toFixed(1) }));
     ctx.notifyWorldAction();
     ctx.syringePumping = null;
   } else {
@@ -937,7 +938,7 @@ export function stepSyringePumping(ctx, dt) {
     updateSyringeVolume(syringe, curVol, true);
     if (ctx.syringePumping.holdMode && ctx.callbacks.onHoverPrompt) {
       const isDraw = ctx.syringePumping.toVol > ctx.syringePumping.fromVol;
-      ctx.callbacks.onHoverPrompt('💉 ' + (isDraw ? 'Aspirando' : 'Injetando') + ': ' + curVol.toFixed(1) + ' / 10.0 ml (solte para parar)');
+      ctx.callbacks.onHoverPrompt(t(isDraw ? 'misc.held_loop.syringe_drawing' : 'misc.held_loop.syringe_injecting', { vol: curVol.toFixed(1) }));
     }
     if (pRatio >= 1.0) {
       const finalD = ctx.syringePumping.toVol - ctx.syringePumping.fromVol;
@@ -953,7 +954,7 @@ export function stepSyringePumping(ctx, dt) {
         if (!hadLiveLc) {
           spCtrl.waterMl = (spCtrl.waterMl || 0) + Math.round((ctx.syringePumping.amountMl || Math.abs(finalD) || 1) * 10) / 10;
           spCtrl.updateVisual();
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('💧 Água aplicada em ' + spCtrl.baseLabel + ' (sem cultura líquida na seringa).');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.spawn_water_only', { label: spCtrl.baseLabel }));
         } else {
           const isAseptic = isAsepticWorkArea(ctx, spTarget) && !syrSnap.sourceContam;
           spCtrl.inoculated = true;
@@ -963,19 +964,19 @@ export function stepSyringePumping(ctx, dt) {
           if (syrSnap.sourceContam) {
             spCtrl.contaminated = true;
             if (ctx.callbacks.onToast) {
-              ctx.callbacks.onToast('🦠 A seringa continha cultura contaminada e infectou o ' + spCtrl.baseLabel + '!');
+              ctx.callbacks.onToast(t('misc.held_loop.spawn_syringe_contam', { label: spCtrl.baseLabel }));
             }
           } else if (!spCtrl.sterilized && Math.random() < 0.85) {
             spCtrl.contaminated = true;
             if (ctx.callbacks.onToast) {
-              ctx.callbacks.onToast('🦠 Contaminação! O substrato não completou o tempo mínimo de esterilização (' + (spCtrl.minSterilizeMin || 80) + ' min)!');
+              ctx.callbacks.onToast(t('misc.held_loop.spawn_not_sterile', { min: spCtrl.minSterilizeMin || 80 }));
             }
           } else if (!isAseptic && Math.random() < 0.45) {
             spCtrl.contaminated = true;
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 Contaminação! Lembre de ligar e higienizar o Fluxo Laminar com Álcool 70% antes de inocular!');
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.spawn_non_aseptic'));
           } else {
             const doseDone = Math.round((ctx.syringePumping.amountMl || Math.abs(finalD) || 1) * 10) / 10;
-            if (ctx.callbacks.onToast) ctx.callbacks.onToast('💉 ' + doseDone + 'ml inoculados em ' + spCtrl.baseLabel + '! Micélio em colonização.');
+            if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.spawn_inoculated', { dose: doseDone, label: spCtrl.baseLabel }));
           }
           spCtrl.updateVisual();
         }
@@ -985,19 +986,17 @@ export function stepSyringePumping(ctx, dt) {
         const doseMl = ctx.syringePumping.amountMl || 1;
         const hadLiveLc = syrSnap.hadLiveLc;
         if (!hadLiveLc) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast('⚠️ A seringa não contém cultura líquida (apenas água/meio); aspire cultura líquida para inocular.');
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.petri_no_lc'));
         } else if (petriCtrl && petriCtrl.mode === 'empty' && petriCtrl.lidOpen && petriCtrl.sterilized) {
           const aseptic = isAsepticWorkArea(ctx, petriTarget) && !syrSnap.sourceContam;
           inoculatePetri(petriTarget, 'liquid', aseptic, 0, syrSnap.speciesName || '', syrSnap.generation, syrSnap.origin);
           if (ctx.callbacks.onToast) {
             ctx.callbacks.onToast(syrSnap.sourceContam
-              ? '🦠 A seringa continha cultura contaminada e infectou a placa!'
-              : (aseptic
-                ? '💉 ' + doseMl + 'ml inoculado. O micélio branco começará a crescer na placa.'
-                : '🦠 ' + doseMl + 'ml aplicado fora da área asséptica; a placa foi contaminada.'));
+              ? t('misc.held_loop.petri_syringe_contam')
+              : t(aseptic ? 'misc.held_loop.petri_inoculated' : 'misc.held_loop.petri_non_aseptic', { dose: doseMl }));
           }
         } else if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('⚠️ Esta placa não está mais vazia e estéril para inoculação.');
+          ctx.callbacks.onToast(t('misc.held_loop.petri_not_ready'));
         }
       }
       if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);

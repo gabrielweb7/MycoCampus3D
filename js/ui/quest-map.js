@@ -12,28 +12,28 @@ import { VILLAGE_ENTRY } from '../core/village-layout.js';
 import { renderVillageRentals } from './village-rentals.js';
 
 export const CAMPUS_SECTORS = [
-  { id: 'plaza', icon: '🏛️', name: 'Praça Central', desc: 'Ponto inicial, fonte e torre do relógio', x: 0, y: 0, z: 10.5, yaw: 0 },
-  { id: 'lab', icon: '🧪', name: 'Laboratório Asséptico', desc: 'Fluxo laminar, lamparina, microscópio 1000x e seringas', x: -16.2, y: 0.14, z: -7.0, yaw: Math.PI / 2 },
-  { id: 'storage', icon: '📦', name: 'Depósito de Insumos', desc: 'Bags, vidros, grãos, placas e borrifadores', x: -16.2, y: 0.14, z: 7.5, yaw: Math.PI / 2 },
-  { id: 'dehydration', icon: '♨️', name: 'Sala de Desidratação & Embalagem', desc: '6 Desidratadoras, sacos Mylar, 3 seladoras, caixas e Monotubs LED', x: 17.0, y: 0.14, z: -7.0, yaw: -Math.PI / 2 },
-  { id: 'greenhouse', icon: '🍄', name: 'Estufa Climatizada & Horta', desc: '24 bolos, umidificador, exaustor, alfaces e tomates orgânicos', x: 16.5, y: 0.14, z: 7.5, yaw: -Math.PI / 2 },
-  { id: 'drivethru', icon: '🚗', name: 'Empório & Drive-Thru (Estrada)', desc: 'Venda caixas de cogumelos desidratados para carros de NPCs por 🪙 MycoCoins!', x: 17.5, y: 0.04, z: 37.5, yaw: Math.PI },
+  { id: 'plaza', icon: '🏛️', get name() { return t('misc.quest.sector_plaza_name'); }, get desc() { return t('misc.quest.sector_plaza_desc'); }, x: 0, y: 0, z: 10.5, yaw: 0 },
+  { id: 'lab', icon: '🧪', get name() { return t('misc.quest.sector_lab_name'); }, get desc() { return t('misc.quest.sector_lab_desc'); }, x: -16.2, y: 0.14, z: -7.0, yaw: Math.PI / 2 },
+  { id: 'storage', icon: '📦', get name() { return t('misc.quest.sector_storage_name'); }, get desc() { return t('misc.quest.sector_storage_desc'); }, x: -16.2, y: 0.14, z: 7.5, yaw: Math.PI / 2 },
+  { id: 'dehydration', icon: '♨️', get name() { return t('misc.quest.sector_dehydration_name'); }, get desc() { return t('misc.quest.sector_dehydration_desc'); }, x: 17.0, y: 0.14, z: -7.0, yaw: -Math.PI / 2 },
+  { id: 'greenhouse', icon: '🍄', get name() { return t('misc.quest.sector_greenhouse_name'); }, get desc() { return t('misc.quest.sector_greenhouse_desc'); }, x: 16.5, y: 0.14, z: 7.5, yaw: -Math.PI / 2 },
+  { id: 'drivethru', icon: '🚗', get name() { return t('misc.quest.sector_drivethru_name'); }, get desc() { return t('misc.quest.sector_drivethru_desc'); }, x: 17.5, y: 0.04, z: 37.5, yaw: Math.PI },
   { id: 'village', icon: '🏡', nameKey: 'map.village', descKey: 'map.village_desc', ...VILLAGE_ENTRY },
-  { id: 'cinema', icon: '🎬', name: 'Cinema & Auditório', desc: 'Telão interativo com aulas e poltronas', x: 48, y: 0.14, z: -6.5, yaw: 0 },
-  { id: 'sports', icon: '⚽', name: 'Complexo Esportivo', desc: 'Futebol, basquete com bolas reais e tênis', x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
-  { id: 'forest', icon: '🌲', name: 'Bosque & Lago', desc: 'Colha cogumelos silvestres pela floresta', x: 0, y: 0, z: -24, yaw: 0 },
-  { id: 'mountain', icon: '🏔️', name: 'Montanhas (Snowboard)', desc: 'Pico panorâmico para descer de snowboard', x: 0, y: 28.5, z: -158, yaw: Math.PI }
+  { id: 'cinema', icon: '🎬', get name() { return t('misc.quest.sector_cinema_name'); }, get desc() { return t('misc.quest.sector_cinema_desc'); }, x: 48, y: 0.14, z: -6.5, yaw: 0 },
+  { id: 'sports', icon: '⚽', get name() { return t('misc.quest.sector_sports_name'); }, get desc() { return t('misc.quest.sector_sports_desc'); }, x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
+  { id: 'forest', icon: '🌲', get name() { return t('misc.quest.sector_forest_name'); }, get desc() { return t('misc.quest.sector_forest_desc'); }, x: 0, y: 0, z: -24, yaw: 0 },
+  { id: 'mountain', icon: '🏔️', get name() { return t('misc.quest.sector_mountain_name'); }, get desc() { return t('misc.quest.sector_mountain_desc'); }, x: 0, y: 28.5, z: -158, yaw: Math.PI }
 ];
 
 export const LAB_QUEST_STEPS = [
-  { key: 'sanitize_hood', icon: '🧴', title: '1. Higienizar a Capela', desc: 'Pegue um Borrifador de Álcool 70% e borrife dentro da Capela de Fluxo Laminar.', coins: 30 },
-  { key: 'hood_on', icon: '🌬️', title: '2. Ligar o Fluxo Laminar', desc: 'Clique no interruptor da Capela de Fluxo Laminar para ligar o filtro HEPA.', coins: 30 },
-  { key: 'cooker_heat', icon: '🔥', title: '3. Preparar a autoclave', desc: 'Coloque um frasco/bag na Panela de Pressão ou ligue o Fogareiro Industrial.', coins: 40 },
-  { key: 'syringe_use', icon: '💉', title: '4. Inocular com Seringa', desc: 'Use a Seringa 10ml em um frasco de Cultura Líquida ou spawn.', coins: 40 },
-  { key: 'greenhouse_care', icon: '🍄', title: '5. Cuidar da Estufa', desc: 'Vá até a Estufa e borrife água ou colha um bloco maduro de cogumelos.', coins: 45 },
-  { key: 'monotub_harvest', icon: '📦', title: '6. Colher no Monotub 24L', desc: 'Misture o spawn com o substrato, nivele e feche a tampa. Quando colonizar, leve à estante LED e colha com a mão livre.', coins: 60 },
-  { key: 'dry_pack', icon: '♨️', title: '7. Desidratar cogumelos', desc: 'Coloque um cogumelo fresco na desidratadora e aguarde o lote ficar pronto. Para vender, embale no Mylar e passe na seladora.', coins: 75 },
-  { key: 'sell_pack', icon: '🚗', title: '8. Vender no Empório Drive-Thru', desc: 'Leve pacotes selados ou a Caixa de Entrega ao Empório da Estrada Sul!', coins: 100 }
+  { key: 'sanitize_hood', icon: '🧴', get title() { return t('misc.quest.step_sanitize_hood_title'); }, get desc() { return t('misc.quest.step_sanitize_hood_desc'); }, coins: 30 },
+  { key: 'hood_on', icon: '🌬️', get title() { return t('misc.quest.step_hood_on_title'); }, get desc() { return t('misc.quest.step_hood_on_desc'); }, coins: 30 },
+  { key: 'cooker_heat', icon: '🔥', get title() { return t('misc.quest.step_cooker_heat_title'); }, get desc() { return t('misc.quest.step_cooker_heat_desc'); }, coins: 40 },
+  { key: 'syringe_use', icon: '💉', get title() { return t('misc.quest.step_syringe_use_title'); }, get desc() { return t('misc.quest.step_syringe_use_desc'); }, coins: 40 },
+  { key: 'greenhouse_care', icon: '🍄', get title() { return t('misc.quest.step_greenhouse_care_title'); }, get desc() { return t('misc.quest.step_greenhouse_care_desc'); }, coins: 45 },
+  { key: 'monotub_harvest', icon: '📦', get title() { return t('misc.quest.step_monotub_harvest_title'); }, get desc() { return t('misc.quest.step_monotub_harvest_desc'); }, coins: 60 },
+  { key: 'dry_pack', icon: '♨️', get title() { return t('misc.quest.step_dry_pack_title'); }, get desc() { return t('misc.quest.step_dry_pack_desc'); }, coins: 75 },
+  { key: 'sell_pack', icon: '🚗', get title() { return t('misc.quest.step_sell_pack_title'); }, get desc() { return t('misc.quest.step_sell_pack_desc'); }, coins: 100 }
 ];
 
 let labQuestDone = {};
@@ -64,7 +64,7 @@ export function claimLabQuestReward() {
     updateUserHud();
     if (res.new_quest) {
       window.MycoAudio?.playQuestComplete?.();
-      showFloatingToast(`🏆 Jornada completa! +${res.awarded_xp} XP`, 4600);
+      showFloatingToast(t('misc.quest.journey_complete', { xp: res.awarded_xp }), 4600);
     }
   })().catch(() => {}).finally(() => {
     questRequests.delete(userId);
@@ -83,8 +83,18 @@ export function updateQuestBadge() {
   const badge = $('quest-badge');
   if (!badge) return;
   let count = 0;
-  LAB_QUEST_STEPS.forEach((st) => { if (labQuestDone[st.key]) count++; });
+  let nextStep = null;
+  LAB_QUEST_STEPS.forEach((st) => {
+    if (labQuestDone[st.key]) count++;
+    else if (!nextStep) nextStep = st;
+  });
   badge.textContent = `${count}/${LAB_QUEST_STEPS.length}`;
+  const btn = $('btn-quest');
+  if (btn) {
+    btn.title = nextStep
+      ? `${t('modal.quest_next_step')}: ${nextStep.title}`
+      : t('modal.quest_title');
+  }
 }
 
 export function loadLabQuestProgress() {
@@ -135,9 +145,9 @@ export async function completeLabStep(stepKey) {
 
   if (doneCount < LAB_QUEST_STEPS.length) {
     if (window.MycoAudio && window.MycoAudio.playQuestComplete) window.MycoAudio.playQuestComplete();
-    showFloatingToast(`✅ Etapa concluída (${doneCount}/${LAB_QUEST_STEPS.length}): ${stepObj.title} (+🪙 ${coinBonus} MycoCoins!)`, 3800);
+    showFloatingToast(t('misc.quest.step_complete', { done: doneCount, total: LAB_QUEST_STEPS.length, title: stepObj.title, coins: coinBonus }), 3800);
   } else {
-    showFloatingToast(`✅ Última etapa concluída (+🪙 ${coinBonus} MycoCoins). Confirmando a recompensa…`, 3800);
+    showFloatingToast(t('misc.quest.last_step_complete', { coins: coinBonus }), 3800);
     await claimLabQuestReward();
   }
 
@@ -295,10 +305,10 @@ export function renderQuestModal() {
 
     const kWrap = controls.querySelector('#calc-kind-btns');
     [
-      { id: 'pda', label: '🧪 Ágar PDA 40g/L' },
-      { id: 'lc', label: '🍯 CL Malte/Mel 4%' },
-      { id: 'cvg', label: '🥥 Substrato CVG' },
-      { id: 'spawn_bulk', label: '📦 Monotub 1:2' }
+      { id: 'pda', label: t('misc.quest.calc_pda') },
+      { id: 'lc', label: t('misc.quest.calc_lc') },
+      { id: 'cvg', label: t('misc.quest.calc_cvg') },
+      { id: 'spawn_bulk', label: t('misc.quest.calc_spawn_bulk') }
     ].forEach((opt) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -338,7 +348,7 @@ export function renderQuestModal() {
   header.className = 'p-3 rounded-xl bg-slate-900/80 border border-emerald-500/30 space-y-1.5';
   header.innerHTML =
     `<div class="flex items-center justify-between font-bold text-white">` +
-    `<span>Progresso da Jornada</span><span class="text-emerald-300">${doneCount}/${LAB_QUEST_STEPS.length} (${pct}%)</span></div>` +
+    `<span>${escapeHtml(t('misc.quest.progress_title'))}</span><span class="text-emerald-300">${doneCount}/${LAB_QUEST_STEPS.length} (${pct}%)</span></div>` +
     `<div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">` +
     `<div class="h-full bg-emerald-400 transition-all" style="width:${pct}%"></div></div>`;
   body.appendChild(header);
