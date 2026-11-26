@@ -406,7 +406,7 @@ div[id$="-modal"] > div {
 
 .campus-map-sector,
 .village-lot,
-.village-extra {
+.village-storage {
   min-width: 0;
   padding: 14px;
   color: #eff6ff;
@@ -456,10 +456,8 @@ div[id$="-modal"] > div {
 .village-button-primary { background: #a0e6be; color: #0b3023; border-color: #a0e6be; }
 .village-button-primary:hover { background: #c4f3d8; }
 .village-button:disabled { opacity: .5; }
-.village-extra summary { cursor: pointer; }
-.village-extra summary, .village-storage h3 { font-size: .95rem; font-weight: 750; }
+.village-storage h3 { font-size: .95rem; font-weight: 750; }
 .village-storage { display: grid; gap: 10px; }
-.village-note { display: block; width: 100%; min-height: 100px; padding: 10px; margin: 10px 0; border: 1px solid #426084; border-radius: 9px; background: #101a2a; resize: vertical; }
 
 #admin-modal > .glass-panel { overflow-y: auto !important; overscroll-behavior: contain; }
 #admin-modal > .glass-panel > :first-child { position: sticky; top: 0; z-index: 1; }
@@ -470,7 +468,7 @@ div[id$="-modal"] > div {
   .village-lots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .village-lot-controls { grid-template-columns: minmax(0, 1fr); }
   .village-button, .village-lot select { min-height: 44px; }
-  .village-lot select, .village-note { font-size: 1rem; }
+  .village-lot select { font-size: 1rem; }
   #settings-modal [data-lang-btn] { padding-inline: 5px; }
 }
 

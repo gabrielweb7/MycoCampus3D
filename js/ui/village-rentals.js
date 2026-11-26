@@ -21,7 +21,6 @@ const COPY = {
     option: (days, cost) => `${days} ${days === 1 ? 'dia' : 'dias'} · ${cost} 🪙`,
     renew: 'Renovar', rent: 'Alugar', realTime: 'O aluguel é contado em dias corridos.',
     storage: 'Depósito pessoal', withdraw: 'Entregar no quintal', delivered: 'Item entregue no quintal.',
-    notebook: 'Caderno de experimentos', save: 'Salvar anotações', saved: 'Anotações salvas.',
     market: 'Deixe um Mylar selado de 10 g ou 25 g na bancada do quintal para o comprador retirar.'
   },
   en: {
@@ -36,7 +35,6 @@ const COPY = {
     option: (days, cost) => `${days} ${days === 1 ? 'day' : 'days'} · ${cost} 🪙`,
     renew: 'Renew', rent: 'Rent', realTime: 'Rent is counted in real-world days.',
     storage: 'Personal storage', withdraw: 'Deliver to yard', delivered: 'Item delivered to your yard.',
-    notebook: 'Experiment notebook', save: 'Save notes', saved: 'Notes saved.',
     market: 'Place a sealed 10 g or 25 g Mylar bag on the yard counter for pickup.'
   },
   es: {
@@ -51,7 +49,6 @@ const COPY = {
     option: (days, cost) => `${days} ${days === 1 ? 'día' : 'días'} · ${cost} 🪙`,
     renew: 'Renovar', rent: 'Alquilar', realTime: 'El alquiler se cuenta en días reales.',
     storage: 'Depósito personal', withdraw: 'Entregar en el patio', delivered: 'Artículo entregado en tu patio.',
-    notebook: 'Cuaderno de experimentos', save: 'Guardar notas', saved: 'Notas guardadas.',
     market: 'Deja una bolsa Mylar sellada de 10 g o 25 g en el mostrador del patio para la recogida.'
   }
 };
@@ -126,8 +123,6 @@ export function renderVillageRentals(grid, back, focusLot = null) {
   panel.append(heading, list, tools);
   let busy = false;
   let countdownTimer;
-  let noteDraft;
-  let notebookOpen = false;
   const durations = new Map();
 
   function updateCountdowns(entries, responseTime) {
@@ -196,36 +191,9 @@ export function renderVillageRentals(grid, back, focusLot = null) {
       const pending = readPendingRental(userId);
       if (pending) addButton(info, copy.pending, event => rent(pending, event.currentTarget), true);
       const ownsLot = result.lots.some(row => row.mine);
-      const notebook = document.createElement('details');
-      notebook.className = 'village-extra';
-      notebook.open = notebookOpen;
-      notebook.ontoggle = () => { notebookOpen = notebook.open; };
-      const summary = document.createElement('summary');
-      summary.className = 'font-bold text-white';
-      summary.textContent = `📓 ${copy.notebook}`;
-      const note = document.createElement('textarea');
-      note.className = 'village-note';
-      note.rows = 4;
-      note.maxLength = 4000;
-      note.value = noteDraft ?? result.notebook ?? '';
-      note.oninput = () => { noteDraft = note.value; };
-      note.setAttribute('aria-label', copy.notebook);
-      notebook.append(summary, note);
-      addButton(notebook, copy.save, async event => {
-        const button = event.currentTarget;
-        button.disabled = true;
-        try {
-          const submitted = note.value;
-          const response = await apiPost('api/village.php?action=save_note', { note: submitted }, true);
-          if (response?.ok && noteDraft === submitted) noteDraft = undefined;
-          if (appState.currentUser?.id === userId) showFloatingToast(response?.ok ? copy.saved : (response?.error || copy.failed));
-        } catch { showFloatingToast(copy.failed); }
-        finally { button.disabled = false; }
-      });
-      tools.appendChild(notebook);
       if (result.stored_items?.length) {
         const storage = document.createElement('section');
-        storage.className = 'village-extra village-storage';
+        storage.className = 'village-storage';
         const heading = document.createElement('h3');
         heading.className = 'text-white font-bold';
         heading.textContent = `${copy.storage} (${result.stored_items.length})`;
