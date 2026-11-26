@@ -30,6 +30,7 @@ import { rebuildCrateCargo, removeCrateCargo } from './crate-cargo.js';
 const LOCAL_MOVED_STORAGE_KEY = 'myco_local_world_objects_v1';
 let localMovedCache = null;
 let localMovedDirty = false;
+const receivedItemSignatures = new WeakMap();
 
 function quantizeStep(val, step = 25) {
   const n = Math.max(0, Math.min(100, Number(val) || 0));
@@ -1039,11 +1040,13 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
   if (!itemStates || typeof itemStates !== 'object') return;
   const itemsById = new Map(sim.pickableItems.map((item) => [item.id, item]));
   let spawnedPlaced = false;
+  let cargoChanged = false;
   Object.keys(itemStates).forEach(function (itemId) {
     let item = itemsById.get(itemId);
     const st = itemStates[itemId];
     if (st && st.custom && st.custom.removed === true) {
       if (item) {
+        cargoChanged ||= !!(item.deliveryCrateCtrl || item.crateCargo);
         removeItemInstanceLocally(sim, item);
         itemsById.delete(itemId);
       }
@@ -1078,10 +1081,17 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
         }
       }
     }
-    if (!item) return;
+    if (!item || !st) return;
     if (!item.isPersonal) item.isReadOnly = !!item._layoutReadOnly || !!sim._lastWorldObjectsMap?.[itemId]?.lot_locked;
     if (!item.isReadOnly && (item.dehydratorCtrl || item.growCtrl) && sim.pendingMovedItems?.[itemId]?.state?.custom) return;
+    const pendingState = sim.pendingMovedItems?.[itemId]?.state;
+    const incomingSignature = JSON.stringify(st);
+    if (!itemStateAges && !pendingState && receivedItemSignatures.get(item) === incomingSignature) return;
+    const previousCargo = item.crateCargo;
+    const previousPacks = item.deliveryCrateCtrl?.packsCount;
     applyReplicatedItemState(sim, item, st);
+    cargoChanged ||= previousCargo?.id !== item.crateCargo?.id || previousCargo?.slot !== item.crateCargo?.slot ||
+      previousPacks !== item.deliveryCrateCtrl?.packsCount;
     const ageSec = itemStateAges && typeof itemStateAges[itemId] === 'number' ? itemStateAges[itemId] : 0;
     if (ageSec > 1 && advanceOfflineItemState(item, ageSec, sim)) {
       if (item.dehydratorCtrl && sim.queueItemStateSync) sim.queueItemStateSync(item);
@@ -1090,8 +1100,10 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
     sim.itemStateSignatures = sim.itemStateSignatures || {};
     const currentState = getReplicatedItemState(sim, item);
     if (currentState) sim.itemStateSignatures[itemId] = JSON.stringify(currentState);
+    if (pendingState) receivedItemSignatures.delete(item);
+    else receivedItemSignatures.set(item, incomingSignature);
   });
-  rebuildCrateCargo(sim);
+  if (cargoChanged || spawnedPlaced) rebuildCrateCargo(sim);
   if (spawnedPlaced) {
     sim._stackPhysicsDirty = true;
     markItemsFalling(sim);

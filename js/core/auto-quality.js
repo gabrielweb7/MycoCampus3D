@@ -1,11 +1,14 @@
 /** Decisions are made from one-second FPS samples, never from a single frame. */
 export const AUTO_BAD_FPS = 30;
+export const AUTO_SEVERE_FPS = 15;
+export const AUTO_SEVERE_SAMPLES = 3;
 export const AUTO_GOOD_FPS = 52;
 export const AUTO_BAD_SAMPLES = 12;
 export const AUTO_GOOD_SAMPLES = 90;
 export const AUTO_PROBE_SAMPLES = 12;
 export const AUTO_PROBE_SCALE = 0.85;
 const RETRY_DELAY_MS = 180000;
+const SEVERE_RETRY_MS = 4000;
 const TIERS = ['high', 'medium', 'low', 'min'];
 
 export function createAutoQualityController() {
@@ -20,13 +23,16 @@ export function createAutoQualityController() {
   let results = [];
   let upgradeFrom = null;
   let retryAfter = 0;
+  let severeCount = 0;
+  let severeRetryAfter = 0;
 
   function clearSamples() {
     lowCount = 0; lowSum = 0; highCount = 0; highSum = 0; stableCount = 0;
     samples = 0; sum = 0;
+    severeCount = 0;
   }
   function reset() {
-    phase = 'stable'; results = []; upgradeFrom = null; retryAfter = 0;
+    phase = 'stable'; results = []; upgradeFrom = null; retryAfter = 0; severeRetryAfter = 0;
     clearSamples();
   }
   function pause() {
@@ -36,7 +42,7 @@ export function createAutoQualityController() {
     return previous;
   }
   function change(config) {
-    samples = 0; sum = 0; lowCount = 0; lowSum = 0; highCount = 0; highSum = 0; stableCount = 0;
+    clearSamples();
     return { type: 'change', tier: config.tier, scale: config.scale };
   }
   function settle(config, now) {
@@ -61,8 +67,23 @@ export function createAutoQualityController() {
   return {
     reset,
     pause,
-    observe(fps, now, config) {
+    observe(fps, now, config, { warmingUp = false, ceilingIdx = 0 } = {}) {
       if (!Number.isFinite(fps) || fps <= 0 || !TIERS.includes(config.tier)) return null;
+      severeCount = fps <= AUTO_SEVERE_FPS ? severeCount + 1 : 0;
+      if (severeCount >= AUTO_SEVERE_SAMPLES && now >= severeRetryAfter) {
+        const index = TIERS.indexOf(config.tier);
+        // Skip the resolution probes at single-digit FPS so shadows and heavy materials are reduced first.
+        const fallback = phase === 'up' ? upgradeFrom : (index < 2
+          ? { tier: 'low', scale: 1 }
+          : (index === 2 ? { tier: 'min', scale: 1 } : nextLower(config)));
+        if (fallback) {
+          phase = 'stable'; results = []; upgradeFrom = null;
+          severeRetryAfter = now + SEVERE_RETRY_MS;
+          clearSamples();
+          return { type: 'emergency', tier: fallback.tier, scale: fallback.scale };
+        }
+      }
+      if (warmingUp) return null;
       if (phase === 'down' || phase === 'up') {
         samples++; sum += fps;
         if (samples < AUTO_PROBE_SAMPLES) return null;
@@ -93,7 +114,7 @@ export function createAutoQualityController() {
           if (highCount >= AUTO_GOOD_SAMPLES) {
             const index = TIERS.indexOf(config.tier);
             const next = config.scale < 0.99 ? { tier: config.tier, scale: 1 }
-              : (index > 0 ? { tier: TIERS[index - 1], scale: 1 } : null);
+              : (index > ceilingIdx ? { tier: TIERS[index - 1], scale: 1 } : null);
             if (next) {
               upgradeFrom = { tier: config.tier, scale: config.scale, fps: highSum / highCount };
               phase = 'up';

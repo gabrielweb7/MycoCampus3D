@@ -71,19 +71,16 @@ function readWebGlRendererString(renderer) {
     const gl = renderer.getContext();
     if (!gl) return '';
     let value = '';
-    const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
-    const isFirefox = /firefox/i.test(ua);
-    if (isFirefox && gl.getParameter && gl.RENDERER) {
-      value = String(gl.getParameter(gl.RENDERER) || '').toLowerCase();
-    }
-    if (!value) {
+    try {
       const dbg = gl.getExtension && gl.getExtension('WEBGL_debug_renderer_info');
       if (dbg && gl.getParameter) {
         value = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
-      } else if (gl.getParameter && gl.RENDERER) {
-        value = String(gl.getParameter(gl.RENDERER) || '').toLowerCase();
       }
+    } catch (_) {}
+    if (!value && gl.getParameter && gl.RENDERER) {
+      value = String(gl.getParameter(gl.RENDERER) || '').toLowerCase();
     }
+    if (/^(mozilla|webkit webgl|webgl|angle)$/.test(value.trim())) value = '';
     if (_rendererStringCache) _rendererStringCache.set(renderer, value);
     return value;
   } catch (e) {}
@@ -147,7 +144,8 @@ export function getAutoQualityConfig(isTouchDevice, renderer) {
   try {
     const saved = JSON.parse(localStorage.getItem(AUTO_QUALITY_STORAGE_KEY) || 'null');
     if (saved && saved.device === autoQualityDeviceKey(isTouchDevice, renderer) &&
-        QUALITY_TIERS_ORDER.includes(saved.tier) && (saved.scale === 1 || saved.scale === 0.85)) {
+        QUALITY_TIERS_ORDER.indexOf(saved.tier) >= qualityState.tierCeilingIdx &&
+        (saved.scale === 1 || saved.scale === 0.85)) {
       return { tier: saved.tier, scale: saved.scale };
     }
   } catch (e) {}
@@ -173,7 +171,8 @@ export function resetAutoQuality() {
 export function setAutoQualityScale(scale, renderer) {
   qualityState.dynScale = scale === 0.85 ? 0.85 : 1;
   if (renderer && typeof renderer.setPixelRatio === 'function') {
-    renderer.setPixelRatio(Math.max(0.55, (qualityState.baseRatio || 1) * qualityState.dynScale));
+    const ratio = Math.max(0.55, (qualityState.baseRatio || 1) * qualityState.dynScale);
+    if (renderer.getPixelRatio?.() !== ratio) renderer.setPixelRatio(ratio);
   }
 }
 
@@ -189,7 +188,7 @@ export function getInitialQualityTier(isTouchDevice, renderer) {
 
   if (!isTouchDevice) {
     qualityState.tierCeilingIdx = 0;
-    if (gpuClass === 'weak' || (typeof memory === 'number' && memory <= 2) || (typeof cores === 'number' && cores > 0 && cores <= 2)) {
+    if (gpuClass === 'weak' || gpuClass === 'unknown' || (typeof memory === 'number' && memory <= 2) || (typeof cores === 'number' && cores > 0 && cores <= 2)) {
       return 'medium';
     }
     return 'high';
@@ -299,8 +298,7 @@ export function applyQualityTier(tier, deps) {
     scene.environmentIntensity = 0.4;
   }
   if (weatherPoints && weatherPoints.geometry) {
-    weatherPoints.geometry.setDrawRange(0, cfg.weatherParticles);
-    weatherPoints.visible = cfg.weatherParticles > 0;
+    weatherPoints.geometry.userData.weatherParticleLimit = cfg.weatherParticles;
   }
   if (camera.far !== cfg.far) {
     camera.far = cfg.far;
@@ -339,6 +337,16 @@ let cachedPointLights = null;
 let lastLightBudgetAt = 0;
 const _tmpVLightPos = THREE ? new THREE.Vector3() : null;
 
+function getVirtualLightParentStatus(entry, scene) {
+  let parent = entry.parent;
+  let visible = true;
+  while (parent && parent !== scene) {
+    if (!parent.visible) visible = false;
+    parent = parent.parent;
+  }
+  return !parent ? 'detached' : visible ? 'visible' : 'hidden';
+}
+
 export function stepPointLightBudget(scene, playerPos, force = false) {
   if (!scene) return;
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -352,6 +360,11 @@ export function stepPointLightBudget(scene, playerPos, force = false) {
   const vLights = scene.userData && scene.userData._virtualPointLights;
   const pool = scene.userData && scene.userData._pointLightPool;
   if (vLights && pool) {
+    // Equipment removed by the world sync must stop contributing light.
+    for (let i = vLights.length - 1; i >= 0; i--) {
+      const entry = vLights[i];
+      if (entry.isDynamic && getVirtualLightParentStatus(entry, scene) === 'detached') vLights.splice(i, 1);
+    }
     const vn = vLights.length;
     if (_lightOrder.length !== vn) {
       _lightOrder = new Array(vn);
@@ -360,7 +373,8 @@ export function stepPointLightBudget(scene, playerPos, force = false) {
     for (let i = 0; i < vn; i++) {
       const entry = vLights[i];
       const l = entry.light;
-      if (!l.visible || l.intensity <= 0.001) {
+      if (!l.visible || l.intensity <= 0.001 ||
+          (entry.isDynamic && getVirtualLightParentStatus(entry, scene) !== 'visible')) {
         _lightD2[i] = 1e12;
       } else {
         let wx = entry.worldPos.x;
@@ -617,9 +631,12 @@ export function stepAutoQuality(now, deps) {
     }
   }
   autoWasActive = active;
-  if (active && now >= qualityState.warmupUntil) {
+  if (active) {
     const decision = autoQualityController.observe(qualityState.currentFps, now, {
       tier: qualityState.tier, scale: qualityState.dynScale
+    }, {
+      warmingUp: now < qualityState.warmupUntil,
+      ceilingIdx: qualityState.tierCeilingIdx
     });
     if (decision) {
       if (decision.type !== 'save') {

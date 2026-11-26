@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyMycoCozyStyle, MYCO_PALETTE } from '../js/engine/visual-style.js';
+import { Group, PointLight, Scene, Vector3 } from '../js/vendor/three.bundle.min.js';
 
 class MockColor {
   constructor(v = 0xffffff) {
@@ -23,25 +24,6 @@ class MockVector2 {
   constructor(x = 0, y = 0) {
     this.x = x;
     this.y = y;
-  }
-}
-
-class MockVector3 {
-  constructor(x = 0, y = 0, z = 0) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-  }
-  set(x, y, z) {
-    this.x = x; this.y = y; this.z = z;
-    return this;
-  }
-  copy(v) {
-    if (v) { this.x = v.x; this.y = v.y; this.z = v.z; }
-    return this;
-  }
-  applyMatrix4() {
-    return this;
   }
 }
 
@@ -97,7 +79,7 @@ globalThis.window = {
   THREE: {
     Color: MockColor,
     Vector2: MockVector2,
-    Vector3: MockVector3,
+    Vector3,
     Box3: class {},
     Quaternion: class {},
     Matrix4: MockMatrix4,
@@ -143,12 +125,14 @@ const {
   resetAutoQuality,
   getAutoQualityConfig,
   setSceneMaterialQuality,
+  stepPointLightBudget,
   qualityState
 } = await import('../js/core/quality.js');
 
 const {
   disposeObjectResources,
-  getCachedCanvasTexture
+  getCachedCanvasTexture,
+  registerPickable
 } = await import('../js/items/item-registry.js');
 
 const { getStackConfig } = await import('../js/entities/placement-ghost.js');
@@ -205,6 +189,72 @@ test('classifyGpu e getInitialQualityTier detectam mobile antigo, mobile topo, G
   assert.equal(getInitialQualityTier(false, makeRendererWithGpu('Google SwiftShader')), 'min');
   assert.equal(getInitialQualityTier(false, makeRendererWithGpu('NVIDIA GeForce RTX 4070')), 'high');
   assert.equal(getInitialQualityTier(true, makeRendererWithGpu('Adreno (TM) 506')), 'low');
+});
+
+test('Firefox usa o adaptador WebGL quando disponível e trata Mozilla como nome genérico', () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { userAgent: 'Mozilla/5.0 Firefox/142.0', hardwareConcurrency: 8 }
+  });
+  let extensionReads = 0;
+  const gl = {
+    RENDERER: 0x1f01,
+    getExtension() {
+      extensionReads++;
+      return { UNMASKED_RENDERER_WEBGL: 0x9246 };
+    },
+    getParameter(key) {
+      return key === this.RENDERER ? 'Mozilla' : 'llvmpipe (LLVM)';
+    }
+  };
+  try {
+    const renderer = { getContext: () => gl };
+    assert.equal(classifyGpu(renderer, false), 'software');
+    assert.equal(getInitialQualityTier(false, renderer), 'min');
+    assert.equal(extensionReads, 1);
+
+    const masked = { getContext: () => ({ ...gl, getExtension() { return null; } }) };
+    assert.equal(classifyGpu(masked, false), 'unknown');
+    assert.equal(getInitialQualityTier(false, masked), 'medium');
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'navigator', previous);
+    else delete globalThis.navigator;
+  }
+});
+
+test('luz de equipamento novo usa o pool e acompanha o item até a remoção', () => {
+  const scene = new Scene();
+  const slot = new PointLight(0xffffff, 0);
+  scene.add(slot);
+  scene.userData._pointLightPool = [slot];
+  scene.userData._virtualPointLights = [];
+  const equipment = new Group();
+  const light = new PointLight(0xe0f2fe, 0);
+  light.position.y = 0.8;
+  equipment.add(light);
+  registerPickable({ scene, pickableItems: [] }, 'test-hood', 'Coifa', equipment, 10, 1, 2);
+
+  const previousBudget = qualityState.maxPointLights;
+  qualityState.maxPointLights = 1;
+  try {
+    assert.equal(light.parent, null);
+    light.intensity = 1;
+    equipment.position.set(12, 2, 5);
+    stepPointLightBudget(scene, null, true);
+    assert.equal(slot.intensity, 1);
+    assert.deepEqual(slot.position.toArray(), [12, 2.8, 5]);
+
+    equipment.visible = false;
+    stepPointLightBudget(scene, null, true);
+    assert.equal(slot.intensity, 0);
+
+    scene.remove(equipment);
+    stepPointLightBudget(scene, null, true);
+    assert.equal(scene.userData._virtualPointLights.length, 0);
+  } finally {
+    qualityState.maxPointLights = previousBudget;
+  }
 });
 
 test('applyQualityTier ajusta FogExp2.density proporcionalmente sem lançar erro', () => {

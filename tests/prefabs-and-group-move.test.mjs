@@ -133,7 +133,6 @@ test('dropSupportedItemsToGround faz itens em cima e dentro da panela caírem ao
 test('updateItemBounds e clampPosAgainstWalls usam OBB preciso sem parede invisível ao redor de mesas rotacionadas', () => {
   const surf = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, topY: 0 };
   const col = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, minY: 0, maxY: 0.9, surfaceTopY: 0.9 };
-  const hoodLight = { position: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } } };
   const tableItem = {
     id: 'table_hood_lab',
     mesh: {
@@ -144,15 +143,12 @@ test('updateItemBounds e clampPosAgainstWalls usam OBB preciso sem parede invis�
         tableDims: { w: 1.5, h: 0.9, d: 2.4 },
         dynamicSurface: surf,
         dynamicCollider: col,
-        hoodLight,
         updateBounds: updateItemBounds
       }
     }
   };
 
   updateItemBounds(tableItem);
-  assert.equal(hoodLight.position.x, -15.0);
-  assert.equal(hoodLight.position.z, -8.0);
 
   // Ponto próximo à lateral da mesa rotacionada (localX = 1.15m > halfW 0.80m + raio 0.30m, localZ = 0):
   // No antigo AABB inflado (~1.43m de meia-largura), esse ponto ficava bloqueado por uma parede invisível!

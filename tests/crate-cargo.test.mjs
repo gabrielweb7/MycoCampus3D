@@ -115,7 +115,8 @@ test('placement ghost refreshes the same crate from sealed packs to its real fre
   const ghost = createPlacementGhost(ctx.scene);
   updatePlacementGhostVisual(crate, true, 0, 0);
   const wrap = ghost.children.at(-1);
-  assert.ok(wrap.children[0].children.length > 19);
+  const trayGeometry = crate.deliveryCrateCtrl.packMeshes[0].children[0].geometry;
+  assert.ok(wrap.children[0].children.some((part) => part.children.some((child) => child.geometry === trayGeometry)));
 
   crate.deliveryCrateCtrl.packsCount = 0;
   const mushroom = makeTool(ctx);
@@ -125,7 +126,7 @@ test('placement ghost refreshes the same crate from sealed packs to its real fre
   updatePlacementGhostVisual(crate, true, Math.PI / 2, 0);
 
   assert.equal(wrap.children.length, 2);
-  assert.equal(wrap.children[0].children.length, 19, 'all four sealed pack meshes are hidden');
+  assert.ok(wrap.children[0].children.every((part) => part.isMesh), 'all four sealed pack groups are hidden');
   assert.equal(wrap.children[1].geometry, mushroom.mesh.geometry);
   assert.notEqual(wrap.children[1].material, mushroom.mesh.material);
   assert.ok(wrap.children[1].position.distanceTo(crate.trayContents[0].localOffset) < 0.001);

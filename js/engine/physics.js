@@ -52,17 +52,17 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
 
   for (let u = 0; u < supportSurfaces.length; u++) {
     const ss = supportSurfaces[u];
+    if (ss.topY <= h || curY < ss.topY - 0.40) continue;
+    if (typeof maxSurfTopY === 'number' && ss.topY > maxSurfTopY) continue;
+    if (!isPointInBoundsXZ(x, z, ss, 0.08)) continue;
     if (ignoreSurf && ss === ignoreSurf) continue;
     if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
     if (ss.ownerItem && ((heldItem && ss.ownerItem === heldItem) || (ctx.isHeldByRemote && ctx.isHeldByRemote(ss.ownerItem.id)))) continue;
-    if (typeof maxSurfTopY === 'number' && ss.topY > maxSurfTopY) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
     const sW = typeof ss.halfW === 'number' ? ss.halfW * 2 : (ss.maxX - ss.minX);
     const sD = typeof ss.halfD === 'number' ? ss.halfD * 2 : (ss.maxZ - ss.minZ);
     if (sW < 0.35 || sD < 0.35) continue;
-    if (isPointInBoundsXZ(x, z, ss, 0.08)) {
-      if (curY >= ss.topY - 0.40) h = Math.max(h, ss.topY);
-    }
+    h = ss.topY;
   }
 
   return h;
@@ -74,14 +74,14 @@ export function getSupportSurfaceAt(ctx, x, z, margin, ignoreSurf, maxTopY) {
   const { supportSurfaces, heldItem } = ctx;
   for (let u = 0; u < supportSurfaces.length; u++) {
     const ss = supportSurfaces[u];
+    if (best && ss.topY <= best.topY) continue;
+    if (typeof maxTopY === 'number' && ss.topY > maxTopY) continue;
+    if (!isPointInBoundsXZ(x, z, ss, m)) continue;
     if (ignoreSurf && ss === ignoreSurf) continue;
     if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
     if (ss.ownerItem && ((heldItem && ss.ownerItem === heldItem) || (ctx.isHeldByRemote && ctx.isHeldByRemote(ss.ownerItem.id)))) continue;
-    if (typeof maxTopY === 'number' && ss.topY > maxTopY) continue;
     if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
-    if (isPointInBoundsXZ(x, z, ss, m)) {
-      if (!best || ss.topY > best.topY) best = ss;
-    }
+    best = ss;
   }
   return best;
 }

@@ -3,7 +3,7 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { getCachedCanvasTexture, registerPickable, disposeObjectResources, getItemWeightGrams } from './item-registry.js';
+import { getCachedCanvasTexture, registerPickable, disposeObjectResources, getItemWeightGrams, mergeStaticGeos } from './item-registry.js';
 import { CRATE_WIDTH, CRATE_HEIGHT, CRATE_DEPTH, cratePackMask, freeCrateSlot } from '../systems/crate-cargo.js';
 import { t } from '../core/i18n.js';
 import {
@@ -13,6 +13,22 @@ import {
 } from '../core/myco-coins.js';
 
 const THREE = window.THREE;
+
+function mergePackagingParts(group, material) {
+  const parts = group.children.filter((part) => part.material === material);
+  const geometry = mergeStaticGeos(parts.map((part) => ({
+    geo: part.geometry,
+    x: part.position.x, y: part.position.y, z: part.position.z,
+    rx: part.rotation.x, ry: part.rotation.y, rz: part.rotation.z
+  })), { keepUv: !!material.map, shared: false });
+  if (!geometry) return;
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = parts[0].castShadow;
+  mesh.receiveShadow = parts[0].receiveShadow;
+  group.remove(...parts);
+  group.add(mesh);
+  for (const original of new Set(parts.map((part) => part.geometry))) original.dispose();
+}
 
 export function createMushroomPackVisual(filled, sealed) {
   const wrap = new THREE.Group();
@@ -77,6 +93,8 @@ export function createMushroomPackVisual(filled, sealed) {
     cp.position.set(ox, 0.026, oz - 0.012);
     contentsGroup.add(st, cp);
   }
+  mergePackagingParts(contentsGroup, stemMat);
+  mergePackagingParts(contentsGroup, capMat);
   contentsGroup.visible = Boolean(filled);
   wrap.add(contentsGroup);
 
@@ -359,6 +377,8 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
     rSlat.position.set(W * 0.5 - 0.006, sy, 0);
     g.add(fSlat, bSlat, lSlat, rSlat);
   }
+  mergePackagingParts(g, pineMat);
+  mergePackagingParts(g, postMat);
 
   const packMeshes = [];
   for (let i = 0; i < DELIVERY_CRATE_MAX_PACKS; i++) {

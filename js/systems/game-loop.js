@@ -247,7 +247,7 @@ export function drawCinemaVideoFrame(ctx, dt) {
   ctx.cinemaDirty = _cinemaFrameArg.dirty;
 }
 
-export function updateDynamicEnvironment(ctx, dt) {
+export function updateDynamicEnvironment(ctx, dt, precipitationDt = dt) {
   _envRainbow.active = ctx.rainbowActive;
   _envRainbow.timer = ctx.rainbowTimer;
   _envRainbow.duration = ctx.rainbowDuration;
@@ -287,7 +287,7 @@ export function updateDynamicEnvironment(ctx, dt) {
   _envArg.fountainRipples = ctx.fountainRipples;
   _envArg.fountainDropsAttr = ctx.fountainDropsAttr;
 
-  envUpdate(dt, _envArg);
+  envUpdate(dt, _envArg, precipitationDt);
   qualityMod.stepSunShadow(ctx.renderer, ctx.envSun, ctx.playerPos);
   if (ctx.blobShadows) stepBlobShadows(ctx.blobShadows, ctx, qualityMod.qualityState.shadowsActive);
   ctx.envTime = _envArg.envTime;
@@ -432,7 +432,8 @@ export function startAnimationLoop(ctx) {
     }
     try {
       perfBegin();
-      const dt = Math.min(0.05, ctx.clock.getDelta());
+      const elapsed = ctx.clock.getDelta();
+      const dt = Math.min(0.05, elapsed);
       const now = performance.now();
       stepAutoQuality(ctx, now);
       updateClockTexture();
@@ -495,7 +496,7 @@ export function startAnimationLoop(ctx) {
       stepThermalGuides(ctx);
       qualityMod.stepMobileItemCulling(ctx, now);
       drawCinemaVideoFrame(ctx, dt);
-      updateDynamicEnvironment(ctx, dt);
+      updateDynamicEnvironment(ctx, dt, Math.min(0.2, elapsed));
       stepConfetti(dt);
       stepFxBursts(dt);
       if (typeof window !== 'undefined' && ctx.playerPos) {

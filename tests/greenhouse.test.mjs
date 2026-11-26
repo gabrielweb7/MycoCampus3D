@@ -27,7 +27,7 @@ const {
   triggerGreenhouseVentPulse,
   isHoldingColonizedSpawn
 } = await import('../js/world/greenhouse.js');
-const { computeOutsideWeatherConditions } = await import('../js/engine/environment.js');
+const { computeOutsideWeatherConditions, stepPrecipitation } = await import('../js/engine/environment.js');
 const {
   interactMonotub,
   stepMonotubs,
@@ -735,4 +735,43 @@ test('Horta garden_plants serializa/restaura estágios e applySyncedBurnerTimer 
   applySyncedBurnerTimer(mockBurner, 60, 1000 + 125, 1000);
   assert.equal(mockBurner.timerPresetMin, 60);
   assert.equal(mockBurner.timerRemainingSec, 125);
+});
+test('a precipitação renderiza apenas partículas que foram animadas', () => {
+  const geometry = {
+    userData: { weatherParticleLimit: 80 },
+    drawRange: { count: 100 },
+    setDrawRange(start, count) { this.drawRange = { start, count }; }
+  };
+  const positions = new Float32Array(300);
+  for (let i = 1; i < positions.length; i += 3) positions[i] = 10;
+  const points = { geometry, material: { color: { setHex() {} } } };
+  const env = {
+    weatherPoints: points,
+    weatherPosAttr: { array: positions },
+    envTime: 0,
+    inFps: true,
+    playerPos: { x: 0, y: 0, z: 0 },
+    roofZones: []
+  };
+  stepPrecipitation(env, 0.1, { rain: 0.25, snow: 0 });
+  assert.equal(geometry.drawRange.count, 22);
+  assert.ok(positions[1] < 10);
+  assert.equal(positions[22 * 3 + 1], 10);
+  const rainY = positions[1];
+
+  positions[1] = 10;
+  stepPrecipitation(env, 0.1, { rain: 0, snow: 1 });
+  assert.equal(geometry.drawRange.count, 80);
+  assert.ok(positions[1] > rainY && positions[1] < 10);
+  assert.equal(positions[80 * 3 + 1], 10);
+
+  env.playerPos = { x: -100, y: 32, z: 100 };
+  stepPrecipitation(env, 0.1, { rain: 1, snow: 0 });
+  assert.ok(Math.abs(positions[0] + 100) <= 27.5);
+  assert.ok(Math.abs(positions[2] - 100) <= 27.5);
+  assert.ok(positions[1] >= 22);
+
+  stepPrecipitation(env, 0.1, { rain: 0, snow: 0 });
+  assert.equal(geometry.drawRange.count, 0);
+  assert.equal(points.visible, false);
 });

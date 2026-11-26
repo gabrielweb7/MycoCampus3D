@@ -363,6 +363,9 @@ var _tmpItemSurf = {
 };
 var _sortedGravityIndices = [];
 var _cookerContentSet = new Set();
+const gravityFridges = [];
+const gravitySupports = [];
+const gravityStacks = { petri: [], pp5: [], crate: [] };
 
 function buildItemTopSurface(item, outSurf) {
   var topOff = getItemSupportTopOffset(item);
@@ -862,6 +865,27 @@ export function dropUnsupportedItems(ctx) {
     }
   }
 
+  // Classify support candidates once. Most loose items cannot support another item.
+  gravityFridges.length = 0;
+  gravitySupports.length = 0;
+  gravityStacks.petri.length = 0;
+  gravityStacks.pp5.length = 0;
+  gravityStacks.crate.length = 0;
+  for (let i = 0; i < pickableItems.length; i++) {
+    const base = pickableItems[i];
+    if (!base?.mesh || base === heldItem || ctx.isHeldByRemote(base.id)) continue;
+    if (base.fridgeCtrl?.shelfSurfaces?.length) gravityFridges.push(base);
+    if (!base.mesh.visible || base.crateParent) continue;
+    const stack = getStackConfig(base);
+    if (stack) gravityStacks[stack.kind].push(i);
+    if (_cookerContentSet.has(base) || (base.isAttached && base.potItem)) continue;
+    const height = getItemSupportTopOffset(base);
+    if (height <= 0) continue;
+    gravitySupports.push({
+      item: base, height, extents: getItemSupportHalfExtents(base), yaw: base.mesh.rotation.y
+    });
+  }
+
   for (var sIdx = 0; sIdx < _sortedGravityIndices.length; sIdx++) {
     var idx = _sortedGravityIndices[sIdx];
     var item = pickableItems[idx];
@@ -918,24 +942,19 @@ export function dropUnsupportedItems(ctx) {
       var ownSurfs = Array.isArray(item.mesh.userData.dynamicSurfaces) ? item.mesh.userData.dynamicSurfaces : null;
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
+        if (s.topY <= supportedY || item.mesh.position.y < s.topY - (s.isCultureFridgeShelf ? 0.15 : 0.08)) continue;
+        if (!isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.12)) continue;
         if (s === item.mesh.userData.dynamicSurface) continue;
         if (ownSurfs && ownSurfs.indexOf(s) !== -1) continue;
         if (isSurfaceOwnerHeld(ctx, s)) continue;
         if (item.fridgeCtrl && s.isCultureFridgeShelf) continue;
         if (item.mesh.userData.isHood && s.isHood) continue;
-        if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.12) &&
-          item.mesh.position.y >= s.topY - (s.isCultureFridgeShelf ? 0.15 : 0.08)) {
-          supportedY = Math.max(supportedY, s.topY);
-        }
+        supportedY = s.topY;
       }
       // Salvaguarda adicional: item dentro de uma geladeira nunca afunda para o piso abaixo da prateleira inferior
       if (!item.fridgeCtrl && !item.mesh.userData.twoHanded) {
-        for (var fi = 0; fi < pickableItems.length; fi++) {
-          var fr = pickableItems[fi];
-          if (!fr || !fr.fridgeCtrl || fr === heldItem || ctx.isHeldByRemote(fr.id)) continue;
-          var shelves = fr.fridgeCtrl.shelfSurfaces;
-          if (!shelves || !shelves.length) continue;
-          var s0 = shelves[0];
+        for (const fr of gravityFridges) {
+          const s0 = fr.fridgeCtrl.shelfSurfaces[0];
           if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s0, 0.10) &&
               item.mesh.position.y >= fr.mesh.position.y - 0.05 &&
               item.mesh.position.y < s0.topY) {
@@ -944,16 +963,16 @@ export function dropUnsupportedItems(ctx) {
         }
       }
       // Suporte por outros itens (ex: itens colocados em cima de caixas, monotubs, bandejas, etc.)
-      for (var sj = 0; sj < pickableItems.length; sj++) {
-        if (sj === idx) continue;
-        var sBase = pickableItems[sj];
-        if (!sBase || sBase === heldItem || !sBase.mesh?.visible || sBase.crateParent || ctx.isHeldByRemote(sBase.id)) continue;
-        if (_cookerContentSet.has(sBase) || (sBase.isAttached && sBase.potItem)) continue;
-        var sTopOff = getItemSupportTopOffset(sBase);
-        if (sTopOff <= 0) continue;
-        var sTopY = sBase.mesh.position.y + sTopOff;
+      for (const support of gravitySupports) {
+        const sBase = support.item;
+        if (sBase === item) continue;
+        const sTopY = sBase.mesh.position.y + support.height;
         if (item.mesh.position.y < sTopY - 0.04) continue;
-        var sExt = getItemSupportHalfExtents(sBase);
+        if (support.yaw !== sBase.mesh.rotation.y) {
+          support.yaw = sBase.mesh.rotation.y;
+          support.extents = getItemSupportHalfExtents(sBase);
+        }
+        const sExt = support.extents;
         var sHalfW = Math.max(0.05, sExt.w * 0.5) + 0.08;
         var sHalfD = Math.max(0.05, sExt.d * 0.5) + 0.08;
         if (Math.abs(item.mesh.position.x - sBase.mesh.position.x) <= sHalfW &&
@@ -964,12 +983,9 @@ export function dropUnsupportedItems(ctx) {
       var itemStackCfg = getStackConfig(item);
       if (itemStackCfg) {
         var alignR = itemStackCfg.alignRadius;
-        for (var pj = 0; pj < pickableItems.length; pj++) {
+        for (const pj of gravityStacks[itemStackCfg.kind]) {
           if (pj === idx) continue;
-          var pBase = pickableItems[pj];
-          if (!pBase || pBase === heldItem || !pBase.mesh?.visible || pBase.crateParent || ctx.isHeldByRemote(pBase.id)) continue;
-          var baseStackCfg = getStackConfig(pBase);
-          if (!baseStackCfg || baseStackCfg.kind !== itemStackCfg.kind) continue;
+          const pBase = pickableItems[pj];
           var dxS = pBase.mesh.position.x - item.mesh.position.x;
           var dzS = pBase.mesh.position.z - item.mesh.position.z;
           if (dxS * dxS + dzS * dzS < alignR * alignR) {

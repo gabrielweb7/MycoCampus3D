@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.10.8] - 2026-11-26
+
+- Equipamentos adicionados durante a partida respeitam o limite de luzes da cena. Caixas comerciais e pacotes exigem menos chamadas de desenho.
+- A qualidade automática identifica melhor o renderizador no Firefox e reage a quedas persistentes de FPS. Chuva e neve continuam se movendo quando a taxa de quadros cai.
+- A física de itens soltos e a sincronização de estados repetidos do multiplayer fazem menos trabalho durante a partida.
+
 ## [v2.10.1] - 2026-11-26
 
 - Vaquinhas corrigidas: cocho realocado para o pasto livre `(74, 2)`, rota contínua de migração de 9 pontos ao redor do campus, desvio inteligente com lookahead, destravamento automático e raycast por distância real.

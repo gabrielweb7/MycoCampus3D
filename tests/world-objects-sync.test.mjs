@@ -52,6 +52,21 @@ test('a posição de um item sobrevive à falha mesmo se seu estado mudar enquan
   assert.deepEqual(consumeCampusMovedItems(sim), [{ ...moved, state: { lidOpen: true, volume: 10 } }]);
 });
 
+test('snapshots de multiplayer só reaplicam itens alterados', () => {
+  const updates = [];
+  const items = ['first', 'second'].map((id) => ({
+    id,
+    mesh: { userData: {} },
+    meta: { applyState(item, state) { updates.push([item.id, state.value]); } }
+  }));
+  const sim = { pickableItems: items, cookerPots: [] };
+  const snapshot = { first: { custom: { value: 1 } }, second: { custom: { value: 1 } } };
+  applyCampusItemStates(sim, snapshot);
+  applyCampusItemStates(sim, structuredClone(snapshot));
+  applyCampusItemStates(sim, { ...snapshot, second: { custom: { value: 2 } } });
+  assert.deepEqual(updates, [['first', 1], ['second', 1], ['second', 2]]);
+});
+
 test('getReplicatedItemState e applyReplicatedItemState executam hooks meta.serializeState e meta.applyState', () => {
   const sim = { cookerPots: [], findPickable: () => null };
   const item = {

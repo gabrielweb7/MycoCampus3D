@@ -10,10 +10,10 @@ function simulate(initial = { tier: 'high', scale: 1 }) {
   return {
     controller, decisions,
     get current() { return current; },
-    sample(fps, count) {
+    sample(fps, count, options) {
       for (let i = 0; i < count; i++) {
         now += 1000;
-        const result = controller.observe(fps, now, current);
+        const result = controller.observe(fps, now, current, options);
         if (result) {
           decisions.push(result);
           if (result.type !== 'save') current = { tier: result.tier, scale: result.scale };
@@ -40,6 +40,27 @@ test('quedas breves não mudam qualidade; quedas persistentes testam resolução
   sim.sample(35, AUTO_PROBE_SAMPLES);
   assert.equal(sim.decisions.at(-1).type, 'settle');
   assert.deepEqual(sim.current, { tier: 'low', scale: 1 });
+});
+
+test('7 FPS sustentados saltam para Baixo mesmo durante o aquecimento do Auto', () => {
+  const sim = simulate();
+  sim.sample(7, 2, { warmingUp: true });
+  sim.sample(55, 1, { warmingUp: true });
+  sim.sample(7, 2, { warmingUp: true });
+  assert.deepEqual(sim.current, { tier: 'high', scale: 1 });
+  sim.sample(7, 1, { warmingUp: true });
+  assert.deepEqual(sim.current, { tier: 'low', scale: 1 });
+  assert.equal(sim.decisions.at(-1).type, 'emergency');
+  sim.sample(8, 3);
+  assert.equal(sim.current.tier, 'low');
+  sim.sample(8, 1);
+  assert.equal(sim.current.tier, 'min');
+});
+
+test('o Auto não sobe a qualidade acima do limite detectado para a GPU', () => {
+  const sim = simulate({ tier: 'min', scale: 1 });
+  sim.sample(60, AUTO_GOOD_SAMPLES * 2, { ceilingIdx: 3 });
+  assert.equal(sim.current.tier, 'min');
 });
 
 test('se nenhum nível atingir o alvo, prefere a qualidade mais alta perto do melhor FPS e evita oscilar', () => {

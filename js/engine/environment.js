@@ -61,7 +61,56 @@ export function computeOutsideWeatherConditions(sunY, weatherMode) {
   };
 }
 
-export function updateDynamicEnvironment(dt, env) {
+export function stepPrecipitation(env, dt, wb) {
+  const points = env.weatherPoints;
+  const attribute = env.weatherPosAttr;
+  if (!points || !attribute) return;
+
+  const geometry = points.geometry;
+  const arr = attribute.array;
+  const budget = Math.min(arr.length / 3, geometry.userData.weatherParticleLimit ?? arr.length / 3);
+  const intensity = Math.max(wb.rain, wb.snow);
+  const active = Math.floor(budget * Math.min(1, intensity * 1.1));
+  if (geometry.drawRange.count !== active) geometry.setDrawRange(0, active);
+  points.visible = active > 4 && intensity > 0.025;
+  if (!points.visible) return;
+
+  const snow = wb.snow >= wb.rain;
+  points.material.color.setHex(snow ? 0xffffff : 0x93c5fd);
+  points.material.size = snow ? 0.24 : 0.16;
+  points.material.opacity = Math.min(0.78, intensity * 0.82);
+  const fall = (snow ? 2.2 + wb.snow * 1.1 : 16 + wb.rain * 8.5) * dt;
+  const drift = (snow ? Math.sin(env.envTime * 1.5) * 1.2 : 1.6 + wb.rain) * dt;
+  const origin = env.inFps ? env.playerPos : env.camera.position;
+  const bottom = Math.max(0, origin.y - 12);
+  for (let p = 0; p < active * 3; p += 3) {
+    arr[p] += drift;
+    arr[p + 1] -= fall;
+    const outOfRange = Math.abs(arr[p] - origin.x) > 32 || Math.abs(arr[p + 2] - origin.z) > 32 ||
+      arr[p + 1] > bottom + 36;
+    let hitRoof = false;
+    if (!outOfRange) {
+      for (let r = 0; r < env.roofZones.length; r++) {
+        const roof = env.roofZones[r];
+        if (arr[p] >= roof.minX && arr[p] <= roof.maxX && arr[p + 2] >= roof.minZ && arr[p + 2] <= roof.maxZ &&
+            arr[p + 1] <= roof.roofY + 0.25) {
+          hitRoof = true;
+          break;
+        }
+      }
+    }
+    if (outOfRange || hitRoof || arr[p + 1] < bottom) {
+      arr[p] = origin.x + (Math.random() - 0.5) * 55;
+      arr[p + 1] = bottom + (outOfRange ? 2 + Math.random() * 30 : 24 + Math.random() * 8);
+      arr[p + 2] = origin.z + (Math.random() - 0.5) * 55;
+    }
+  }
+  attribute.clearUpdateRanges?.();
+  attribute.addUpdateRange?.(0, active * 3);
+  attribute.needsUpdate = true;
+}
+
+export function updateDynamicEnvironment(dt, env, precipitationDt = dt) {
   env.envTime += dt;
   const dayFrac = env.getVirtualDayFrac();
   const sunAngle = (dayFrac - 0.25) * Math.PI * 2;
@@ -250,41 +299,7 @@ export function updateDynamicEnvironment(dt, env) {
     }
   }
 
-  if (env.weatherPoints && env.weatherPosAttr) {
-    const maxParticles = env.weatherPoints.geometry.drawRange.count;
-    const precipSnow = wb.snow >= wb.rain;
-    const precipIntensity = Math.max(wb.rain, wb.snow);
-    const activeParticles = Math.floor(maxParticles * Math.min(1, precipIntensity * 1.1));
-    env.weatherPoints.visible = activeParticles > 4 && precipIntensity > 0.025;
-    if (env.weatherPoints.visible) {
-      env.weatherPoints.material.color.setHex(precipSnow ? 0xffffff : 0x93c5fd);
-      env.weatherPoints.material.size = precipSnow ? 0.24 : 0.16;
-      env.weatherPoints.material.opacity = Math.min(0.78, precipIntensity * 0.82);
-      const arr = env.weatherPosAttr.array;
-      const fallSpeed = precipSnow ? (2.2 + wb.snow * 1.1) : (16.0 + wb.rain * 8.5);
-      const drift = precipSnow ? (Math.sin(env.envTime * 1.5) * 1.2) : (1.6 + wb.rain * 1.0);
-      const cx = env.inFps ? env.playerPos.x : env.camera.position.x;
-      const cz = env.inFps ? env.playerPos.z : env.camera.position.z;
-      for (let p = 0; p < activeParticles * 3; p += 3) {
-        arr[p] += drift * dt;
-        arr[p + 1] -= fallSpeed * dt;
-        let hitRoof = false;
-        for (let rz = 0; rz < env.roofZones.length; rz++) {
-          const zBox = env.roofZones[rz];
-          if (arr[p] >= zBox.minX && arr[p] <= zBox.maxX && arr[p + 2] >= zBox.minZ && arr[p + 2] <= zBox.maxZ && arr[p + 1] <= zBox.roofY + 0.25) {
-            hitRoof = true;
-            break;
-          }
-        }
-        if (hitRoof || arr[p + 1] < 0) {
-          arr[p] = cx + (Math.random() - 0.5) * 55;
-          arr[p + 1] = 24 + Math.random() * 8;
-          arr[p + 2] = cz + (Math.random() - 0.5) * 55;
-        }
-      }
-      env.weatherPosAttr.needsUpdate = true;
-    }
-  }
+  stepPrecipitation(env, precipitationDt, wb);
 
   stepRainbow(env.rainbowMesh, env.rainbow, dt, weatherMode, env.envTime);
 

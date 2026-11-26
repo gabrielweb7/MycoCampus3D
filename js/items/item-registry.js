@@ -181,6 +181,21 @@ export function attachSurfaceOwner(surf, entry) {
   }
 }
 
+function registerPickableLights(scene, mesh) {
+  const sources = scene.userData?._virtualPointLights;
+  if (!sources || !mesh.traverse) return;
+  const lights = [];
+  mesh.traverse((object) => {
+    if (object.isPointLight) lights.push(object);
+  });
+  for (const light of lights) {
+    const parent = light.parent;
+    const worldPos = light.getWorldPosition(light.position.clone());
+    light.removeFromParent();
+    sources.push({ light, parent, worldPos, isDynamic: true });
+  }
+}
+
 export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, height, meta) {
   mesh.position.set(x, y, z);
   mesh.rotation.y = ry || 0;
@@ -188,6 +203,7 @@ export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, heig
     mesh.traverse(function (ch) { if (ch.isMesh) ch.castShadow = false; });
   }
   ctx.scene.add(mesh);
+  registerPickableLights(ctx.scene, mesh);
   const resolvedMeta = Object.assign({
     category: 'tool',
     purpose: '',
@@ -587,9 +603,6 @@ export function updateItemBounds(item) {
       col.halfD = d * 0.5 + 0.05;
       col.ry = ry;
     }
-  }
-  if (item.mesh.userData.hoodLight) {
-    item.mesh.userData.hoodLight.position.set(px, py + 0.80 * sy, pz);
   }
 }
 

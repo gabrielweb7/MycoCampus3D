@@ -645,8 +645,9 @@ export function initCampus3D(containerId, cbs) {
     }
     const wGeo = new THREE.BufferGeometry();
     sim.weatherPosAttr = new THREE.BufferAttribute(wPositions, 3);
+    sim.weatherPosAttr.setUsage(THREE.DynamicDrawUsage);
     wGeo.setAttribute('position', sim.weatherPosAttr);
-    sim.weatherPoints = new THREE.Points(wGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0.78 }));
+    sim.weatherPoints = new THREE.Points(wGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0.78, depthWrite: false }));
     sim.weatherPoints.visible = false;
     sim.weatherPoints.frustumCulled = false;
     sim.scene.add(sim.weatherPoints);
