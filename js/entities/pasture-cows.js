@@ -1400,6 +1400,26 @@ function createAbandonedHiveCompostItem(ctx, hive) {
   return item;
 }
 
+export function getBeehiveInspectInfo(hive) {
+  if (!hive) return null;
+  const totalFlowers = Array.isArray(hive.flowersNearby) ? hive.flowersNearby.length : 0;
+  let activeFlowers = 0;
+  if (totalFlowers) {
+    for (let i = 0; i < totalFlowers; i++) {
+      if (hive.flowersNearby[i].pollen > 0.15) activeFlowers++;
+    }
+  }
+  const honeyPct = Math.round(hive.honeyLevel || 0);
+  const buildPct = Math.round((hive.buildProgress || 0) * 100);
+  let status = 'healthy';
+  if (hive.abandoned) status = 'abandoned';
+  else if (hive.migrating) status = 'migrating';
+  else if (hive.buildProgress < 1.0) status = 'building';
+  else if (activeFlowers === 0) status = 'starving';
+  else if (activeFlowers < 3) status = 'surviving';
+  return { honeyPct, activeFlowers, totalFlowers, status, buildPct };
+}
+
 export function interactBeehive(ctx, hive) {
   if (!ctx || !hive || hive.collected) return false;
   const onToast = ctx.callbacks && ctx.callbacks.onToast;

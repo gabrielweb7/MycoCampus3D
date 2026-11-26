@@ -41,6 +41,7 @@ import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposa
 import { canPruneGardenPlant } from '../world/campus-garden.js';
 import { growDoorActionLabel, growHeldFeedback, growSlotActionLabel, openPortableGrowPanel, toggleGrowDoor } from '../items/portable-grow.js';
 import { cleanItemTitle } from '../entities/hover-3d-badge.js';
+import { getBeehiveInspectInfo } from '../entities/pasture-cows.js';
 import { canDisposeItemInTrash, getTrashActionLabel, handleTrashDisposal, isContaminatedOrBurned } from '../items/lab-trash.js';
 import { t } from '../core/i18n.js';
 
@@ -698,6 +699,46 @@ function promptCustomItemTag(ctx, item) {
   }
 }
 
+export function inspectBeehiveCard(ctx, hive) {
+  const info = getBeehiveInspectInfo(hive);
+  if (!info) return;
+  const card = document.getElementById('item-status-card');
+  const titleEl = document.getElementById('item-status-title');
+  const iconEl = document.getElementById('item-status-icon');
+  const bodyEl = document.getElementById('item-status-body');
+  if (!card || !bodyEl) return;
+
+  if (iconEl) iconEl.textContent = info.status === 'abandoned' ? '🪹' : '🐝';
+  if (titleEl) titleEl.textContent = t(info.status === 'abandoned' ? 'actions.hive.title_abandoned' : 'actions.hive.title');
+
+  const statusMeta = {
+    healthy: { icon: '💚', key: 'actions.hive.status_healthy', cls: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40' },
+    surviving: { icon: '💛', key: 'actions.hive.status_surviving', cls: 'bg-amber-500/20 text-amber-200 border-amber-400/40' },
+    starving: { icon: '⚠️', key: 'actions.hive.status_starving', cls: 'bg-rose-500/20 text-rose-200 border-rose-400/40' },
+    migrating: { icon: '👑', key: 'actions.hive.status_migrating', cls: 'bg-yellow-500/20 text-yellow-200 border-yellow-400/40' },
+    building: { icon: '🛠️', key: 'actions.hive.status_building', cls: 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40' },
+    abandoned: { icon: '🍂', key: 'actions.hive.status_abandoned', cls: 'bg-slate-700/70 text-slate-300 border-slate-500/40' }
+  }[info.status];
+
+  const chips = [
+    { icon: statusMeta.icon, text: t(statusMeta.key, { pct: info.buildPct }), color: statusMeta.cls },
+    { icon: '🍯', text: t('actions.hive.honey', { pct: info.honeyPct }), color: 'bg-amber-500/20 text-amber-200 border-amber-400/40' },
+    { icon: '🌸', text: t('actions.hive.flowers', { active: info.activeFlowers, total: info.totalFlowers }), color: info.activeFlowers >= 3 ? 'bg-pink-500/20 text-pink-200 border-pink-400/40' : 'bg-slate-800/80 text-slate-300 border-slate-600/40' }
+  ];
+
+  const tipKey = info.status === 'abandoned'
+    ? 'actions.hive.tip_abandoned'
+    : (info.honeyPct >= 35 ? 'actions.hive.tip_harvest' : 'actions.hive.tip_wait');
+  const tipHtml = `<p class="w-full text-cyan-200 text-[11px] leading-snug pt-1">💡 ${escapeHtml(t(tipKey))}</p>`;
+
+  bodyEl.innerHTML = chips.map(c => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${c.color}">${c.icon} ${escapeHtml(c.text)}</span>`).join('') + tipHtml;
+
+  ensureStatusCardDraggable(card);
+  card.classList.remove('hidden');
+  applySavedStatusCardPos(card);
+  scheduleStatusCardDismiss(card);
+}
+
 export function inspectItemToast(ctx, item) {
   if (!item) return;
   showItemStatusCard(item, ctx);
@@ -1047,6 +1088,16 @@ function buildContextActions(ctx) {
       label: t(ctx.hoveredSwitch.on ? 'actions.radial.light_off' : 'actions.radial.light_on'),
       primary: true,
       run: () => handlePrimaryAction(ctx)
+    });
+    return actions;
+  }
+
+  if (ctx.hoveredBeehive) {
+    actions.push({
+      id: 'inspect_hive_' + (ctx.hoveredBeehive.id || '0'),
+      icon: '🔍',
+      label: t('actions.radial.inspect'),
+      run: () => inspectBeehiveCard(ctx, ctx.hoveredBeehive)
     });
     return actions;
   }
