@@ -46,7 +46,9 @@ export const roadStandState = {
   availablePacks: 0,
   speciesList: [],
   gramsList: [],
+  itemKinds: [],
   standPacksMeshes: [],
+  standVeggieMeshes: [],
   signCanvas: null,
   signCtx: null,
   signTex: null,
@@ -677,9 +679,91 @@ function drawRoadStandSign() {
   if (roadStandState.signTex) roadStandState.signTex.needsUpdate = true;
 }
 
+let sharedVeggieStandAssets = null;
+function getVeggieStandAssets() {
+  if (sharedVeggieStandAssets) return sharedVeggieStandAssets;
+  const torusGeo = new THREE.TorusGeometry(0.088, 0.011, 6, 14);
+  const handleGeo = new THREE.TorusGeometry(0.082, 0.0085, 6, 14, Math.PI);
+  const lettuceGeo = new THREE.DodecahedronGeometry(0.036, 0);
+  const tomatoGeo = new THREE.SphereGeometry(0.025, 10, 8);
+  const assets = {
+    baseGeo: new THREE.CylinderGeometry(0.086, 0.072, 0.062, 12),
+    rimGeo: torusGeo,
+    handleGeo,
+    lettuceGeo,
+    tomatoGeo,
+    calyxGeo: new THREE.ConeGeometry(0.009, 0.008, 5),
+    wickerMat: new THREE.MeshStandardMaterial({ color: 0xc58b48, roughness: 0.82 }),
+    wickerTrimMat: new THREE.MeshStandardMaterial({ color: 0xd6a45f, roughness: 0.78 }),
+    lettuceMat: new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.62, flatShading: true }),
+    lettuceInnerMat: new THREE.MeshStandardMaterial({ color: 0xa3e635, roughness: 0.58, flatShading: true }),
+    tomatoMat: new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.34 }),
+    calyxMat: new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.72 })
+  };
+  Object.keys(assets).forEach((k) => {
+    if (assets[k] && assets[k].userData) assets[k].userData.shared = true;
+  });
+  sharedVeggieStandAssets = assets;
+  return assets;
+}
+
+function createOrganicVeggieStandVisual() {
+  const a = getVeggieStandAssets();
+  const wrap = new THREE.Group();
+
+  const basketBody = new THREE.Mesh(a.baseGeo, a.wickerMat);
+  basketBody.scale.set(1.12, 1, 0.82);
+  basketBody.position.y = 0.031;
+
+  const rim = new THREE.Mesh(a.rimGeo, a.wickerTrimMat);
+  rim.rotation.x = -Math.PI / 2;
+  rim.scale.set(1.14, 0.84, 1);
+  rim.position.y = 0.062;
+
+  const handle = new THREE.Mesh(a.handleGeo, a.wickerMat);
+  handle.position.y = 0.056;
+  handle.scale.set(1.1, 1.0, 1.0);
+
+  wrap.add(basketBody, rim, handle);
+
+  for (let i = 0; i < 2; i++) {
+    const ox = -0.042 + i * 0.084;
+    const lOuter = new THREE.Mesh(a.lettuceGeo, a.lettuceMat);
+    lOuter.scale.set(1.0, 0.78, 0.96);
+    lOuter.position.set(ox, 0.068, 0.022);
+    const lInner = new THREE.Mesh(a.lettuceGeo, a.lettuceInnerMat);
+    lInner.scale.set(0.7, 0.65, 0.7);
+    lInner.position.set(ox, 0.084, 0.022);
+
+    const tom = new THREE.Mesh(a.tomatoGeo, a.tomatoMat);
+    tom.scale.set(1, 0.88, 1);
+    tom.position.set(ox, 0.072, -0.024);
+    const calyx = new THREE.Mesh(a.calyxGeo, a.calyxMat);
+    calyx.position.set(ox, 0.095, -0.024);
+
+    wrap.add(lOuter, lInner, tom, calyx);
+  }
+
+  return wrap;
+}
+
 function syncRoadStandVisual() {
-  for (let i = 0; i < roadStandState.standPacksMeshes.length; i++) {
-    roadStandState.standPacksMeshes[i].visible = i < roadStandState.availablePacks;
+  while (roadStandState.itemKinds.length < roadStandState.availablePacks) {
+    roadStandState.itemKinds.push('mushroom');
+  }
+  if (roadStandState.itemKinds.length > roadStandState.availablePacks) {
+    roadStandState.itemKinds.length = Math.max(0, roadStandState.availablePacks);
+  }
+  const count = Math.max(roadStandState.standPacksMeshes.length, roadStandState.standVeggieMeshes.length);
+  for (let i = 0; i < count; i++) {
+    const active = i < roadStandState.availablePacks;
+    const isVeggie = active && roadStandState.itemKinds[i] === 'veggie';
+    if (roadStandState.standPacksMeshes[i]) {
+      roadStandState.standPacksMeshes[i].visible = active && !isVeggie;
+    }
+    if (roadStandState.standVeggieMeshes[i]) {
+      roadStandState.standVeggieMeshes[i].visible = isVeggie;
+    }
   }
   drawRoadStandSign();
 }
@@ -689,6 +773,7 @@ export function buildRoadsideMushroomStand(ctx) {
   roadSaleStandMeshes.length = 0;
   roadSaleDynamicObjects.length = 0;
   roadStandState.standPacksMeshes.length = 0;
+  roadStandState.standVeggieMeshes.length = 0;
 
   // Sincroniza saldo inicial de MycoCoins no HUD
   addLocalMycoCoins(0);
@@ -936,7 +1021,7 @@ export function buildRoadsideMushroomStand(ctx) {
     roadSaleStandMeshes.push(standHit);
   }
 
-  // Pacotes reais com cogumelos visíveis e etiqueta empilhados sobre as 2 estantes da frente (até 12 visíveis)
+  // Pacotes reais com cogumelos visíveis + Cestas orgânicas da horta sobre as 2 estantes da frente (até 12 visíveis)
   for (let i = 0; i < 12; i++) {
     const pv = createMushroomPackVisual(true, true);
     const pm = pv.wrap;
@@ -951,6 +1036,14 @@ export function buildRoadsideMushroomStand(ctx) {
     standGroup.add(pm);
     roadStandState.standPacksMeshes.push(pm);
     roadSaleDynamicObjects.push(pm);
+
+    const vm = createOrganicVeggieStandVisual();
+    vm.position.set(baseShelfX - 0.42 + col * 0.42, 0.885 + row * 0.052, shelfZ);
+    vm.scale.set(1.18, 1.18, 1.18);
+    vm.visible = false;
+    standGroup.add(vm);
+    roadStandState.standVeggieMeshes.push(vm);
+    roadSaleDynamicObjects.push(vm);
   }
 
   scene.add(standGroup);
@@ -1041,13 +1134,19 @@ function buildNpcCarActor(scene) {
   npcGroup.visible = false;
   roadSaleDynamicObjects.push(npcGroup);
 
-  // Pacote real de cogumelos nas mãos do NPC (mostrando os cogumelos e etiqueta!)
+  // Pacote real de cogumelos ou Cesta Orgânica da Horta nas mãos do NPC
   const heldPackVis = createMushroomPackVisual(true, true);
   const heldPack = heldPackVis.wrap;
   heldPack.position.set(0, 0.62, -0.26);
   heldPack.scale.set(1.35, 1.35, 1.35);
   heldPack.visible = false;
   npcGroup.add(heldPack);
+
+  const heldVeggie = createOrganicVeggieStandVisual();
+  heldVeggie.position.set(0, 0.62, -0.26);
+  heldVeggie.scale.set(0.88, 0.88, 0.88);
+  heldVeggie.visible = false;
+  npcGroup.add(heldVeggie);
 
   // Cédulas de dinheiro verde e moedas douradas flutuando durante o pagamento
   const cashGroup = new THREE.Group();
@@ -1071,6 +1170,8 @@ function buildNpcCarActor(scene) {
     shirtMat: avatar.bodyMat,
     hatMat: avatar.hatMat,
     heldPack,
+    heldVeggie,
+    carriedKind: 'mushroom',
     cashGroup
   };
 }
@@ -1105,6 +1206,7 @@ export function applyRoadStandWorldState(stateMap) {
 
 function consumeHeldStandItem(ctx, held, packsVal) {
   roadStandState.availablePacks += packsVal;
+  const isVeggie = Boolean(held && held.organicBasketCtrl);
   const spName = (held && held.mushroomBagCtrl && held.mushroomBagCtrl.speciesName) ||
     (held && held.wildMushroomCtrl && held.wildMushroomCtrl.speciesName) || '';
   const packGrams = Math.max(1, Math.round(Number(
@@ -1114,6 +1216,7 @@ function consumeHeldStandItem(ctx, held, packsVal) {
   for (let i = 0; i < packsVal; i++) {
     roadStandState.speciesList.push(spName);
     roadStandState.gramsList.push(packGrams);
+    roadStandState.itemKinds.push(isVeggie ? 'veggie' : 'mushroom');
   }
   roadStandState.npcSpawnCooldown = Math.min(roadStandState.npcSpawnCooldown, 1.2);
   if (ctx && ctx.queueWorldStateChange) {
@@ -1161,6 +1264,7 @@ export function interactRoadsideStand(ctx) {
     for (let ci = 0; ci < count; ci++) {
       roadStandState.speciesList.push(crateSpecies[ci] || '');
       roadStandState.gramsList.push(Math.max(1, Math.round(Number(crateGrams[ci]) || 10)));
+      roadStandState.itemKinds.push('mushroom');
     }
     held.deliveryCrateCtrl.speciesList = [];
     held.deliveryCrateCtrl.gramsList = [];
@@ -1222,6 +1326,8 @@ function getFrontShelfSaleItems(ctx) {
     if (p.x < 14.4 || p.x > 20.6 || p.z < 34.8 || p.z > 36.8 || p.y < 0.4) continue;
     if (it.deliveryCrateCtrl && it.deliveryCrateCtrl.packsCount > 0) {
       found.push({ item: it, kind: 'crate', count: it.deliveryCrateCtrl.packsCount });
+    } else if (it.organicBasketCtrl && it.organicBasketCtrl.packsValue > 0) {
+      found.push({ item: it, kind: 'veggie', count: it.organicBasketCtrl.packsValue });
     } else if (it.mushroomBagCtrl && it.mushroomBagCtrl.filled && it.mushroomBagCtrl.sealed) {
       found.push({ item: it, kind: 'bag', count: 1 });
     } else if (it.wildMushroomCtrl && !it.wildMushroomCtrl.removed) {
@@ -1236,12 +1342,26 @@ function walkRoadBuyer(actor, fromZ, toZ, elapsed, duration) {
   const soften = Math.min(1, progress * 6, (1 - progress) * 6);
   const stride = Math.sin(progress * Math.PI * 5.6) * 0.36 * soften;
   const avatar = actor.avatar;
+  const isCarrying = Boolean(actor.heldPack?.visible || actor.heldVeggie?.visible);
   actor.npcGroup.position.z = THREE.MathUtils.lerp(fromZ, toZ, THREE.MathUtils.smoothstep(progress, 0, 1));
   actor.npcGroup.position.y = 0.04 + Math.abs(stride) * 0.075;
   avatar.leftLeg.rotation.x = stride;
   avatar.rightLeg.rotation.x = -stride;
-  avatar.leftArm.rotation.x = actor.heldPack.visible ? -0.56 : -stride * 0.65;
-  avatar.rightArm.rotation.x = actor.heldPack.visible ? -0.56 : stride * 0.65;
+  // Avatar encara -Z e braços pendem em -Y: rotation.x positivo ergue os braços para a frente (-Z)
+  if (isCarrying) {
+    const carryBob = Math.sin(progress * Math.PI * 11.2) * 0.05 * soften;
+    avatar.leftArm.rotation.x = 0.96 + carryBob;
+    avatar.rightArm.rotation.x = 0.96 + carryBob;
+    avatar.leftArm.rotation.z = 0.14;
+    avatar.rightArm.rotation.z = -0.14;
+    if (avatar.torso) avatar.torso.rotation.x = -0.05;
+  } else {
+    avatar.leftArm.rotation.x = -stride * 0.65;
+    avatar.rightArm.rotation.x = stride * 0.65;
+    avatar.leftArm.rotation.z = 0;
+    avatar.rightArm.rotation.z = 0;
+    if (avatar.torso) avatar.torso.rotation.x = 0;
+  }
   avatar.headGroup.rotation.x = Math.cos(progress * Math.PI * 5.6) * 0.035 * soften;
 }
 
@@ -1276,13 +1396,29 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     actor.carGroup.visible = true;
     if (actor.doorPivot) actor.doorPivot.rotation.y = 0;
     actor.npcGroup.visible = false;
+    actor.carriedKind = 'mushroom';
     actor.heldPack.visible = false;
     actor.heldPack.position.set(0, 0.62, -0.26);
+    if (actor.heldVeggie) {
+      actor.heldVeggie.visible = false;
+      if (actor.heldVeggie.position && actor.heldVeggie.position.set) actor.heldVeggie.position.set(0, 0.62, -0.26);
+    }
     actor.cashGroup.visible = false;
     actor.cashGroup.position.y = 0;
     actor.cashGroup.rotation.y = 0;
     actor.avatar.headGroup.rotation.set(0, 0, 0);
     if (actor.avatar) {
+      if (actor.avatar.leftArm && actor.avatar.leftArm.rotation) {
+        actor.avatar.leftArm.rotation.x = 0;
+        actor.avatar.leftArm.rotation.z = 0;
+      }
+      if (actor.avatar.rightArm && actor.avatar.rightArm.rotation) {
+        actor.avatar.rightArm.rotation.x = 0;
+        actor.avatar.rightArm.rotation.z = 0;
+      }
+      if (actor.avatar.torso && actor.avatar.torso.rotation) {
+        actor.avatar.torso.rotation.x = 0;
+      }
       if (actor.avatar.labelSprite) updateTextSprite(actor.avatar.labelSprite, profile.name, '#ffffff');
       if (actor.avatar.chatSprite) actor.avatar.chatSprite.visible = false;
       if (actor.avatar.faceCtx) {
@@ -1385,6 +1521,11 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     const weight = THREE.MathUtils.smoothstep(order.timer, 0, 0.42);
     avatar.headGroup.rotation.x = -0.18 * weight;
     avatar.headGroup.rotation.y = Math.sin(order.timer * 2.15) * 0.21 * weight;
+    avatar.leftArm.rotation.x = 0.18 * weight;
+    avatar.rightArm.rotation.x = 0.18 * weight;
+    avatar.leftArm.rotation.z = 0.05 * weight;
+    avatar.rightArm.rotation.z = -0.05 * weight;
+    if (avatar.torso) avatar.torso.rotation.x = -0.04 * weight;
     if (order.timer < 2.15) return;
     order.phase = 'paying';
     order.timer = 0;
@@ -1398,10 +1539,12 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     let soldOne = false;
     let soldSpecies = '';
     let soldGrams = 10;
+    let soldKind = 'mushroom';
     if (roadStandState.availablePacks > 0) {
       roadStandState.availablePacks--;
       soldSpecies = roadStandState.speciesList.length ? (roadStandState.speciesList.shift() || '') : '';
       soldGrams = roadStandState.gramsList.length ? (Number(roadStandState.gramsList.shift()) || 10) : 10;
+      soldKind = roadStandState.itemKinds.length ? (roadStandState.itemKinds.shift() || 'mushroom') : 'mushroom';
       soldOne = true;
     } else if (shelfItems.length > 0) {
       const entry = shelfItems[0];
@@ -1418,10 +1561,15 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         const soldIt = entry.item;
         soldSpecies = (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.speciesName) ||
           (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.speciesName) || '';
-        soldGrams = Number(
-          (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.grams) ||
-          (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.grams) || 10
-        ) || 10;
+        if (soldIt.organicBasketCtrl) {
+          soldKind = 'veggie';
+          soldGrams = Math.max(10, Math.round(Number(soldIt.organicBasketCtrl.packsValue || 2) * 10));
+        } else {
+          soldGrams = Number(
+            (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.grams) ||
+            (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.grams) || 10
+          ) || 10;
+        }
         if (soldIt && soldIt.id) {
           soldIt._removedForSync = true;
           if (ctx && ctx.pendingMovedItems) {
@@ -1460,7 +1608,15 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
         ctx.queueWorldStateChange('stand_sold', roadStandState.totalSoldPacks);
       }
-      actor.heldPack.visible = true;
+      order.carriedKind = soldKind;
+      actor.carriedKind = soldKind;
+      if (soldKind === 'veggie' && actor.heldVeggie) {
+        actor.heldPack.visible = false;
+        actor.heldVeggie.visible = true;
+      } else {
+        actor.heldPack.visible = true;
+        if (actor.heldVeggie) actor.heldVeggie.visible = false;
+      }
       setNpcMood('love');
       if (actor.avatar) {
         if (actor.avatar.chatSprite) {
@@ -1499,13 +1655,19 @@ export function stepRoadsideMushroomSales(ctx, dt) {
   } else if (order.phase === 'paying') {
     const lift = THREE.MathUtils.smoothstep(order.timer, 0, 0.75);
     const settle = THREE.MathUtils.smoothstep(order.timer, 1.0, 2.4);
-    const reach = lift * (1 - settle * 0.3);
-    avatar.headGroup.rotation.x = -0.18 * (1 - settle);
+    const reach = lift * (1 - settle * 0.18);
+    avatar.headGroup.rotation.x = -0.16 * (1 - settle);
     avatar.headGroup.rotation.y *= Math.exp(-dt * 4);
-    avatar.leftArm.rotation.x = -0.68 * reach;
-    avatar.rightArm.rotation.x = -0.75 * reach;
-    actor.heldPack.position.y = 0.60 + 0.086 * reach;
-    actor.heldPack.position.z = -0.255 - 0.045 * reach;
+    avatar.leftArm.rotation.x = 0.98 * reach;
+    avatar.rightArm.rotation.x = 1.02 * reach;
+    avatar.leftArm.rotation.z = 0.14 * lift;
+    avatar.rightArm.rotation.z = -0.14 * lift;
+    if (avatar.torso) avatar.torso.rotation.x = -0.06 * lift * (1 - settle * 0.25);
+    const holdObj = (actor.carriedKind === 'veggie' && actor.heldVeggie) ? actor.heldVeggie : actor.heldPack;
+    if (holdObj && holdObj.position) {
+      holdObj.position.y = 0.60 + 0.08 * reach;
+      holdObj.position.z = -0.24 - 0.05 * reach;
+    }
     actor.cashGroup.position.y = order.timer * 0.24;
     actor.cashGroup.rotation.y = order.timer * 0.9;
     if (order.timer >= 2.65) {
@@ -1516,9 +1678,23 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     }
   } else if (order.phase === 'turning') {
     const turn = THREE.MathUtils.smoothstep(order.timer, 0, 0.9);
+    const isCarrying = Boolean(actor.heldPack?.visible || actor.heldVeggie?.visible);
     actor.npcGroup.rotation.y = Math.PI * turn;
     avatar.headGroup.rotation.x *= Math.exp(-dt * 5);
     avatar.headGroup.rotation.y *= Math.exp(-dt * 5);
+    if (isCarrying) {
+      avatar.leftArm.rotation.x = 0.96;
+      avatar.rightArm.rotation.x = 0.96;
+      avatar.leftArm.rotation.z = 0.14;
+      avatar.rightArm.rotation.z = -0.14;
+      if (avatar.torso) avatar.torso.rotation.x = -0.05;
+    } else {
+      avatar.leftArm.rotation.x = 0;
+      avatar.rightArm.rotation.x = 0;
+      avatar.leftArm.rotation.z = 0;
+      avatar.rightArm.rotation.z = 0;
+      if (avatar.torso) avatar.torso.rotation.x = 0;
+    }
     if (order.timer >= 0.9) {
       order.phase = 'walking_to_car';
       order.timer = 0;

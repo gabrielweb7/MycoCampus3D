@@ -58,6 +58,70 @@ test('grow explains what a bag still needs and announces a newly ready flush onl
   assert.match(messages[0], /ESP32/);
 });
 
+test('a porta do grow conserva umidade e só permite colher pela mira quando aberta', async () => {
+  const { growSlotActionLabel, toggleGrowDoor } = await import('../js/items/portable-grow.js');
+  const { updateHoverRay } = await import('../js/systems/hover-raycaster.js');
+  const { handlePrimaryAction } = await import('../js/systems/interaction-system.js');
+  const queued = [];
+  const ctx = {
+    scene: new THREE.Scene(),
+    pickableItems: [],
+    inFps: true,
+    isTouchDevice: () => true,
+    isHeldByRemote: () => false,
+    isItemInsideClosedCooker: () => false,
+    camera: new THREE.PerspectiveCamera(),
+    raycaster: new THREE.Raycaster(),
+    playerPos: new THREE.Vector3(),
+    cookerPots: [],
+    doorHitMeshes: [],
+    rankingBtnMeshes: [],
+    scaleTareMeshes: [],
+    burnerSwitchMeshes: [],
+    stirSwitchMeshes: [],
+    hoodSwitchMeshes: [],
+    lightSwitchMeshes: [],
+    wildMushrooms: [],
+    queueItemStateSync: item => queued.push(item.id)
+  };
+  const item = makeGrowShopItem(ctx, { id: 'dyn_grow_door', x: 0, y: 0, z: 0, ry: 0 }, 'grow_tent');
+  const grow = item.growCtrl;
+  grow.slots[0] = { started: Date.now() - 100000, duration: 90000, species: 'Shiitake', flush: 1 };
+  grow.humidity = 85;
+  assert.equal(toggleGrowDoor(ctx, item), true);
+  stepPortableGrows(ctx, 1);
+  assert.equal(grow.view.doorFlap.visible, true);
+  assert.ok(grow.humidity > 82);
+  const state = item.meta.serializeState(item);
+  assert.equal(state.grow.doorClosed, true);
+  const restored = makeGrowShopItem(ctx, { id: 'dyn_grow_restore', x: 3, y: 0, z: 0, ry: 0 }, 'grow_tent');
+  restored.meta.applyState(restored, state);
+  assert.equal(restored.growCtrl.view.doorFlap.visible, true);
+
+  ctx.hoveredPickable = item;
+  ctx.hoveredGrowSlot = 0;
+  assert.equal(handlePrimaryAction(ctx), false);
+  assert.equal(grow.slots[0].flush, 1);
+  assert.equal(toggleGrowDoor(ctx, item), true);
+  stepPortableGrows(ctx, 1);
+  assert.equal(grow.view.doorFlap.visible, false);
+  const aimedCap = grow.view.slotVisuals[0].mushrooms.children[0].children[1];
+  item.mesh.updateMatrixWorld(true);
+  const point = aimedCap.getWorldPosition(new THREE.Vector3());
+  ctx.camera.position.copy(point).add(new THREE.Vector3(0, 0, 1.5));
+  ctx.camera.lookAt(point);
+  ctx.camera.updateMatrixWorld(true);
+  ctx.playerPos.copy(ctx.camera.position);
+  updateHoverRay(ctx);
+  assert.equal(ctx.hoveredGrowSlot, 0);
+  assert.match(ctx.mobileAimPrompt, /Colher Shiitake/);
+  assert.match(growSlotActionLabel(grow, ctx.hoveredGrowSlot), /Colher Shiitake/);
+  assert.equal(handlePrimaryAction(ctx), true);
+  assert.equal(ctx.heldItem.wildMushroomCtrl.speciesName, 'Shiitake');
+  assert.equal(grow.slots[0].flush, 2);
+  assert.ok(queued.includes(ctx.heldItem.id));
+});
+
 test('a meetup link uses the fixed trailhead and is consumed only once', async () => {
   const { applyCampusMeetupInvite } = await import('../js/ui/campus-agenda.js');
   const calls = [];

@@ -12,6 +12,7 @@ import { terrainHeight } from '../engine/physics.js';
 import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from '../items/item-registry.js';
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { isNaturalSoilSpot } from '../world/nature-plaza.js';
+import { VILLAGE_LOTS, VILLAGE_HOUSE } from '../core/village-layout.js';
 import { triggerCozyHeartBurst } from '../world/cozy-details.js';
 import { firstUnoccludedRayHit, isRayOccludedByStructure } from '../systems/ray-occlusion.js';
 import { updateCultureLiquidLabel } from '../items/liquid-culture.js';
@@ -1027,6 +1028,59 @@ const CAMPUS_HIVE_CANDIDATES = [
   { x: 66.0, z: 28.0 }
 ];
 
+function createBeveledBoxGeo(w, h, d, bevel = 0.022) {
+  if (!THREE || !THREE.Shape || !THREE.ExtrudeGeometry) {
+    return THREE && THREE.BoxGeometry ? new THREE.BoxGeometry(w, h, d) : {};
+  }
+  const iw = Math.max(0.012, w - bevel * 2);
+  const ih = Math.max(0.012, h - bevel * 2);
+  const id = Math.max(0.012, d - bevel * 2);
+  const r = Math.min(bevel * 0.75, iw * 0.25, ih * 0.25);
+  const hw = iw * 0.5;
+  const hh = ih * 0.5;
+  const shape = new THREE.Shape();
+  shape.moveTo(-hw + r, -hh);
+  shape.lineTo(hw - r, -hh);
+  shape.quadraticCurveTo(hw, -hh, hw, -hh + r);
+  shape.lineTo(hw, hh - r);
+  shape.quadraticCurveTo(hw, hh, hw - r, hh);
+  shape.lineTo(-hw + r, hh);
+  shape.quadraticCurveTo(-hw, hh, -hw, hh - r);
+  shape.lineTo(-hw, -hh + r);
+  shape.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: id,
+    bevelEnabled: true,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelSegments: 2,
+    curveSegments: 3
+  });
+  geo.center();
+  return geo;
+}
+
+function createFacetedWingGeo() {
+  if (!THREE || !THREE.Shape || !THREE.ExtrudeGeometry) {
+    return THREE && THREE.BoxGeometry ? new THREE.BoxGeometry(0.16, 0.008, 0.11) : {};
+  }
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.lineTo(-0.055, 0.048);
+  shape.lineTo(-0.145, 0.078);
+  shape.lineTo(-0.185, 0.032);
+  shape.lineTo(-0.165, -0.038);
+  shape.lineTo(-0.072, -0.046);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.006,
+    bevelEnabled: false,
+    curveSegments: 2
+  });
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+}
+
 let beeSharedAssets = null;
 function getBeeSharedAssets() {
   if (beeSharedAssets) return beeSharedAssets;
@@ -1062,30 +1116,34 @@ function getBeeSharedAssets() {
   const hiveTex = loadCuteTex('beehive-cute.jpg');
 
   beeSharedAssets = markAllShared({
-    yellowMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.48, emissive: 0xca8a04, emissiveIntensity: 0.16 }),
-    queenYellowMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.32, emissive: 0xf59e0b, emissiveIntensity: 0.24 }),
-    blushMat: new THREE.MeshBasicMaterial({ color: 0xf472b6 }),
-    crownMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.22, metalness: 0.72, emissive: 0x854d0e, emissiveIntensity: 0.25 }),
-    darkMat: new THREE.MeshStandardMaterial({ color: 0x26170c, roughness: 0.72 }),
+    yellowMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.42, emissive: 0xeab308, emissiveIntensity: 0.22, flatShading: true }),
+    queenYellowMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.34, emissive: 0xf59e0b, emissiveIntensity: 0.28, flatShading: true }),
+    ruffMat: new THREE.MeshStandardMaterial({ color: 0xfffbeb, roughness: 0.65, emissive: 0xfef3c7, emissiveIntensity: 0.14, flatShading: true }),
+    blushMat: new THREE.MeshBasicMaterial({ color: 0xfb7185 }),
+    crownMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.24, metalness: 0.65, emissive: 0xd97706, emissiveIntensity: 0.30, flatShading: true }),
+    darkMat: new THREE.MeshStandardMaterial({ color: 0x26140a, roughness: 0.62, flatShading: true }),
     eyeWhiteMat: new THREE.MeshBasicMaterial({ color: 0xffffff }),
     wingMat: new THREE.MeshStandardMaterial({
-      color: 0xf0f9ff,
+      color: 0xf8fafc,
       transparent: true,
-      opacity: 0.72,
-      roughness: 0.15,
-      emissive: 0xbae6fd,
-      emissiveIntensity: 0.18,
+      opacity: 0.78,
+      roughness: 0.16,
+      emissive: 0xe0f2fe,
+      emissiveIntensity: 0.22,
       side: THREE.DoubleSide,
-      depthWrite: false
+      depthWrite: false,
+      flatShading: true
     }),
-    pollenMat: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.55, emissive: 0x92400e, emissiveIntensity: 0.2 }),
-    hiveWoodMat: new THREE.MeshStandardMaterial({ color: hiveTex ? 0xffffff : 0xd97706, map: hiveTex, roughness: 0.68 }),
-    hiveRoofGeo: new THREE.ConeGeometry(0.46, 0.22, 4),
-    hiveDarkMat: new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 }),
+    wingVeinMat: new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65 }),
+    pollenMat: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.50, emissive: 0xb45309, emissiveIntensity: 0.24, flatShading: true }),
+    hiveWoodMat: new THREE.MeshStandardMaterial({ color: hiveTex ? 0xffe4b5 : 0xf59e0b, map: hiveTex, roughness: 0.62, emissive: 0xb45309, emissiveIntensity: 0.12 }),
+    hiveDarkMat: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.68, emissive: 0x92400e, emissiveIntensity: 0.14, flatShading: true }),
+    hiveGlowMat: new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xf59e0b, emissiveIntensity: 0.95, roughness: 0.3 }),
+    hiveLeafMat: new THREE.MeshStandardMaterial({ color: 0x84cc16, roughness: 0.55, emissive: 0x4d7c0f, emissiveIntensity: 0.18, flatShading: true }),
     hiveAbandonedMat: new THREE.MeshStandardMaterial({ color: 0x94a3b8, map: hiveTex, roughness: 0.94 }),
-    hiveAbandonedBandMat: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.96 }),
-    honeyMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.22, metalness: 0.08, emissive: 0xb45309, emissiveIntensity: 0.24 }),
-    jewelMat: new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xe11d48, emissiveIntensity: 0.45, roughness: 0.2 }),
+    hiveAbandonedBandMat: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.96, flatShading: true }),
+    honeyMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.18, metalness: 0.08, emissive: 0xd97706, emissiveIntensity: 0.34, flatShading: true }),
+    jewelMat: new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xe11d48, emissiveIntensity: 0.65, roughness: 0.18, flatShading: true }),
     holeMat: new THREE.MeshBasicMaterial({ color: 0x0f172a }),
     trunkMat: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.85 }),
     leafMat: new THREE.MeshStandardMaterial({ color: 0x36b45e, roughness: 0.82 }),
@@ -1096,25 +1154,41 @@ function getBeeSharedAssets() {
     petalMats: FLOWER_COLORS.map((hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.65 })),
     birchCrownGeo: new THREE.DodecahedronGeometry(1, 1),
     trunkGeo: new THREE.CylinderGeometry(0.24, 0.30, 3.6, 8),
-    hiveBoxGeo: new THREE.BoxGeometry(0.56, 0.56, 0.56),
-    hiveTrimGeo: new THREE.BoxGeometry(0.585, 0.045, 0.585),
-    hiveHoleGeo: new THREE.BoxGeometry(0.14, 0.10, 0.04),
-    hivePorchGeo: new THREE.BoxGeometry(0.20, 0.032, 0.095),
+    hiveBaseGeo: new THREE.CylinderGeometry(0.24, 0.14, 0.10, 8),
+    hiveBandBotGeo: new THREE.CylinderGeometry(0.30, 0.25, 0.13, 8),
+    hiveRibBotGeo: new THREE.CylinderGeometry(0.325, 0.32, 0.055, 8),
+    hiveBandMidGeo: new THREE.CylinderGeometry(0.325, 0.325, 0.16, 8),
+    hiveRibTopGeo: new THREE.CylinderGeometry(0.315, 0.325, 0.055, 8),
+    hiveBandTopGeo: new THREE.CylinderGeometry(0.255, 0.30, 0.12, 8),
+    hiveCapGeo: new THREE.CylinderGeometry(0.14, 0.265, 0.10, 8),
+    hiveHangerBarGeo: createBeveledBoxGeo(0.56, 0.065, 0.095, 0.012),
+    hiveHangerPostGeo: createBeveledBoxGeo(0.075, 0.10, 0.085, 0.010),
+    hiveLeafGeo: new THREE.SphereGeometry(0.075, 6, 5),
+    hiveArchPillarGeo: createBeveledBoxGeo(0.048, 0.15, 0.065, 0.010),
+    hiveArchTopGeo: createBeveledBoxGeo(0.115, 0.048, 0.068, 0.010),
+    hiveGlowGeo: createBeveledBoxGeo(0.105, 0.14, 0.045, 0.014),
+    hivePorchGeo: createBeveledBoxGeo(0.21, 0.036, 0.095, 0.010),
+    hiveHitGeo: new THREE.CylinderGeometry(0.36, 0.36, 0.72, 8),
     honeyDropGeo: new THREE.SphereGeometry(0.036, 7, 6),
-    jewelGeo: new THREE.SphereGeometry(0.018, 6, 5),
-    beeBodyGeo: new THREE.BoxGeometry(0.18, 0.17, 0.24),
-    beeStripeGeo: new THREE.BoxGeometry(0.186, 0.174, 0.045),
-    beeButtGeo: new THREE.BoxGeometry(0.165, 0.152, 0.024),
-    beeStingerGeo: new THREE.ConeGeometry(0.016, 0.05, 5),
-    beeEyeGeo: new THREE.BoxGeometry(0.042, 0.058, 0.016),
-    beeGlintGeo: new THREE.BoxGeometry(0.018, 0.022, 0.018),
-    beeBlushGeo: new THREE.BoxGeometry(0.032, 0.018, 0.014),
-    beeAntGeo: new THREE.BoxGeometry(0.014, 0.045, 0.045),
-    beeLegGeo: new THREE.BoxGeometry(0.016, 0.038, 0.016),
+    jewelGeo: new THREE.OctahedronGeometry(0.019, 0),
+    beeBodyGeo: createBeveledBoxGeo(0.19, 0.175, 0.25, 0.022),
+    beeStripeGeo: createBeveledBoxGeo(0.198, 0.181, 0.044, 0.014),
+    beeButtGeo: createBeveledBoxGeo(0.15, 0.135, 0.036, 0.014),
+    beeStingerGeo: new THREE.ConeGeometry(0.018, 0.052, 6),
+    beeEyeGeo: new THREE.SphereGeometry(0.026, 8, 6),
+    beeGlintGeo: new THREE.SphereGeometry(0.011, 6, 5),
+    beeSmileGeo: THREE.TorusGeometry ? new THREE.TorusGeometry(0.016, 0.0045, 6, 10, Math.PI) : new THREE.BoxGeometry(0.03, 0.008, 0.008),
+    beeBlushGeo: new THREE.SphereGeometry(0.018, 6, 5),
+    beeAntStemGeo: new THREE.CylinderGeometry(0.007, 0.008, 0.038, 6),
+    beeAntTipGeo: new THREE.SphereGeometry(0.012, 6, 5),
+    beeLegGeo: new THREE.CylinderGeometry(0.011, 0.009, 0.040, 6),
     beePollenGeo: new THREE.SphereGeometry(0.045, 7, 6),
-    beeWingGeo: new THREE.BoxGeometry(0.16, 0.008, 0.11),
-    crownBaseGeo: new THREE.CylinderGeometry(0.058, 0.052, 0.026, 8),
-    crownSpikeGeo: new THREE.ConeGeometry(0.016, 0.042, 4),
+    beeWingGeo: createFacetedWingGeo(),
+    beeWingVeinGeo: new THREE.BoxGeometry(0.105, 0.009, 0.008),
+    queenRuffGeo: new THREE.SphereGeometry(0.034, 7, 6),
+    crownBaseGeo: new THREE.CylinderGeometry(0.062, 0.054, 0.030, 8),
+    crownSpikeGeo: new THREE.ConeGeometry(0.017, 0.044, 5),
+    crownOrbGeo: new THREE.SphereGeometry(0.011, 6, 5),
     stemGeo: new THREE.CylinderGeometry(0.018, 0.022, 0.26, 6),
     centerGeo: new THREE.SphereGeometry(0.045, 7, 6),
     petalGeo: new THREE.SphereGeometry(0.042, 6, 5),
@@ -1142,10 +1216,25 @@ function markSubtreeDynamic(root) {
 }
 
 function createCuteBeeMesh(isQueen) {
+  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial) {
+    return {
+      group: {
+        position: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
+        rotation: { x: 0, y: 0, z: 0 },
+        visible: true,
+        parent: null
+      },
+      wingL: { rotation: { x: 0, y: 0, z: 0 } },
+      wingR: { rotation: { x: 0, y: 0, z: 0 } },
+      pollenMesh: { visible: false },
+      migrationSprite: isQueen ? { visible: false } : null,
+      legs: []
+    };
+  }
   const a = getBeeSharedAssets();
   const g = new THREE.Group();
 
-  // Corpinho cúbico fofinho estilo Minecraft
+  // Corpinho low-poly chanfrado e fofinho
   const body = new THREE.Mesh(a.beeBodyGeo, isQueen ? a.queenYellowMat : a.yellowMat);
   g.add(body);
 
@@ -1153,34 +1242,48 @@ function createCuteBeeMesh(isQueen) {
   const stripe1 = new THREE.Mesh(a.beeStripeGeo, a.darkMat);
   stripe1.position.z = -0.005;
   const stripe2 = new THREE.Mesh(a.beeStripeGeo, a.darkMat);
-  stripe2.position.z = -0.080;
+  stripe2.position.z = -0.075;
   const buttCap = new THREE.Mesh(a.beeButtGeo, a.darkMat);
-  buttCap.position.z = -0.114;
+  buttCap.position.z = -0.116;
   const stinger = new THREE.Mesh(a.beeStingerGeo, a.darkMat);
   stinger.rotation.x = -Math.PI / 2;
-  stinger.position.set(0, -0.01, -0.145);
+  stinger.position.set(0, -0.01, -0.15);
   g.add(stripe1, stripe2, buttCap, stinger);
 
-  // Olhinhos grandes quadrados estilo Minecraft com brilho branco
+  // Olhinhos brilhantes, bochechas rosadas, sorriso fofo e anteninhas curvadas
   [-1, 1].forEach((side) => {
     const eye = new THREE.Mesh(a.beeEyeGeo, a.darkMat);
-    eye.position.set(side * 0.052, 0.005, 0.122);
+    eye.scale.set(0.85, 1.32, 0.52);
+    eye.position.set(side * 0.052, 0.006, 0.124);
     const glint = new THREE.Mesh(a.beeGlintGeo, a.eyeWhiteMat);
-    glint.position.set(side * 0.042, 0.02, 0.125);
+    glint.position.set(side * 0.044, 0.020, 0.134);
     const blush = new THREE.Mesh(a.beeBlushGeo, a.blushMat);
-    blush.position.set(side * 0.062, -0.032, 0.122);
-    const ant = new THREE.Mesh(a.beeAntGeo, a.darkMat);
-    ant.position.set(side * 0.042, 0.09, 0.12);
-    ant.rotation.x = 0.35;
-    g.add(eye, glint, blush, ant);
+    blush.scale.set(1.25, 0.72, 0.45);
+    blush.position.set(side * 0.068, -0.026, 0.122);
+
+    const antPivot = new THREE.Group();
+    antPivot.position.set(side * 0.046, 0.088, 0.092);
+    antPivot.rotation.set(0.45, 0, -side * 0.25);
+    const antStem = new THREE.Mesh(a.beeAntStemGeo, a.darkMat);
+    antStem.position.y = 0.018;
+    const antTip = new THREE.Mesh(a.beeAntTipGeo, a.darkMat);
+    antTip.position.set(0, 0.038, 0.010);
+    antPivot.add(antStem, antTip);
+
+    g.add(eye, glint, blush, antPivot);
   });
 
-  // 6 patinhas pequenas embaixo
+  const smile = new THREE.Mesh(a.beeSmileGeo, a.darkMat);
+  smile.position.set(0, -0.006, 0.130);
+  smile.rotation.z = Math.PI;
+  g.add(smile);
+
+  // 6 patinhas arredondadas embaixo
   const legs = [];
   for (let p = 0; p < 3; p++) {
     [-1, 1].forEach((side) => {
       const leg = new THREE.Mesh(a.beeLegGeo, a.darkMat);
-      leg.position.set(side * 0.052, -0.10, 0.055 - p * 0.055);
+      leg.position.set(side * 0.052, -0.10, 0.052 - p * 0.055);
       g.add(leg);
       legs.push(leg);
     });
@@ -1192,36 +1295,60 @@ function createCuteBeeMesh(isQueen) {
   pollenMesh.visible = false;
   g.add(pollenMesh);
 
-  // Asinhas translúcidas articuladas (esq/dir)
+  // Asinhas facetadas translúcidas com nervuras (esq/dir)
   const wingL = new THREE.Group();
-  wingL.position.set(-0.036, 0.088, -0.01);
+  wingL.position.set(-0.040, 0.092, -0.01);
   const wMeshL = new THREE.Mesh(a.beeWingGeo, a.wingMat);
-  wMeshL.position.set(-0.08, 0, 0);
-  wingL.add(wMeshL);
+  const wVeinL1 = new THREE.Mesh(a.beeWingVeinGeo, a.wingVeinMat);
+  wVeinL1.position.set(-0.08, 0.003, -0.012);
+  wVeinL1.rotation.y = 0.16;
+  const wVeinL2 = new THREE.Mesh(a.beeWingVeinGeo, a.wingVeinMat);
+  wVeinL2.scale.set(0.68, 1, 0.9);
+  wVeinL2.position.set(-0.075, 0.003, 0.016);
+  wVeinL2.rotation.y = -0.26;
+  wingL.add(wMeshL, wVeinL1, wVeinL2);
 
   const wingR = new THREE.Group();
-  wingR.position.set(0.036, 0.088, -0.01);
+  wingR.position.set(0.040, 0.092, -0.01);
   const wMeshR = new THREE.Mesh(a.beeWingGeo, a.wingMat);
-  wMeshR.position.set(0.08, 0, 0);
-  wingR.add(wMeshR);
+  wMeshR.scale.x = -1;
+  const wVeinR1 = new THREE.Mesh(a.beeWingVeinGeo, a.wingVeinMat);
+  wVeinR1.position.set(0.08, 0.003, -0.012);
+  wVeinR1.rotation.y = -0.16;
+  const wVeinR2 = new THREE.Mesh(a.beeWingVeinGeo, a.wingVeinMat);
+  wVeinR2.scale.set(0.68, 1, 0.9);
+  wVeinR2.position.set(0.075, 0.003, 0.016);
+  wVeinR2.rotation.y = 0.26;
+  wingR.add(wMeshR, wVeinR1, wVeinR2);
 
   g.add(wingL, wingR);
 
   let migrationSprite = null;
   if (isQueen) {
-    // Coroa dourada da Abelha Rainha
+    // Gola fofinha branca real no peito da Abelha Rainha
+    [-0.068, -0.036, 0, 0.036, 0.068].forEach((rx, rIdx) => {
+      const puff = new THREE.Mesh(a.queenRuffGeo, a.ruffMat);
+      const midBoost = 1 - Math.abs(rIdx - 2) * 0.12;
+      puff.scale.set(0.95 * midBoost, 0.85 * midBoost, 0.95 * midBoost);
+      puff.position.set(rx, -0.062 - (1 - midBoost) * 0.008, 0.105 - Math.abs(rx) * 0.28);
+      g.add(puff);
+    });
+
+    // Coroa dourada esculpida com pontas, esferas e rubi lapidado
     const crownBase = new THREE.Mesh(a.crownBaseGeo, a.crownMat);
-    crownBase.position.set(0, 0.098, 0.05);
+    crownBase.position.set(0, 0.106, 0.045);
     g.add(crownBase);
-    [-0.036, 0, 0.036].forEach((cx) => {
+    [[-0.038, 0.048], [0, 0.056], [0.038, 0.048]].forEach(([cx, cz]) => {
       const spike = new THREE.Mesh(a.crownSpikeGeo, a.crownMat);
-      spike.position.set(cx, 0.128, 0.05);
-      g.add(spike);
+      spike.position.set(cx, 0.138, cz);
+      const orb = new THREE.Mesh(a.crownOrbGeo, a.crownMat);
+      orb.position.set(cx, 0.162, cz);
+      g.add(spike, orb);
     });
     const jewel = new THREE.Mesh(a.jewelGeo, a.jewelMat);
-    jewel.position.set(0, 0.154, 0.05);
+    jewel.position.set(0, 0.130, 0.072);
     g.add(jewel);
-    g.scale.setScalar(1.42);
+    g.scale.setScalar(1.38);
 
     if (a.spriteMat) {
       migrationSprite = new THREE.Sprite(a.spriteMat);
@@ -1350,9 +1477,80 @@ export function createCampusFlower(ctx, x, z, colorIdx, opts = {}) {
   return fl;
 }
 
+function getStaticCampusEavesSpots() {
+  return [
+    { x: 17.5, y: 3.15, z: 35.15, mountType: 'eaves', label: 'Beiral do Empório' },
+    { x: 50.0, y: 3.35, z: 33.35, mountType: 'eaves', label: 'Beiral da Estação Ecológica' },
+    { x: 58.0, y: 3.35, z: 17.35, mountType: 'eaves', label: 'Beiral do Dormitório' },
+    { x: 48.0, y: 3.45, z: -3.65, mountType: 'eaves', label: 'Beiral do Cinema' }
+  ];
+}
+
+export function findNearestHiveMountSpot(ctx, fromX = 0, fromZ = 0) {
+  const candidates = [];
+  for (let i = 0; i < VILLAGE_LOTS.length; i++) {
+    const lot = VILLAGE_LOTS[i];
+    candidates.push(
+      { x: lot.x + lot.front * 2.1, y: 2.86, z: lot.doorZ + lot.front * 0.45, mountType: 'eaves', label: `Beiral Casa #${lot.id}` },
+      { x: lot.x - (VILLAGE_HOUSE.width / 2 + 0.36), y: 2.86, z: lot.houseZ, mountType: 'eaves', label: `Beiral Casa #${lot.id}` },
+      { x: lot.x + (VILLAGE_HOUSE.width / 2 + 0.36), y: 2.86, z: lot.houseZ, mountType: 'eaves', label: `Beiral Casa #${lot.id}` }
+    );
+  }
+  const zones = ctx && Array.isArray(ctx.roofZones) ? ctx.roofZones : null;
+  if (zones && zones.length) {
+    for (let i = 0; i < zones.length; i++) {
+      const z = zones[i];
+      if (!z || typeof z.minX !== 'number') continue;
+      // Casas da vila já adicionadas acima (roofY ~ 3.02)
+      if (Math.abs((z.roofY || 0) - 3.02) < 0.15) continue;
+      const midX = (z.minX + z.maxX) * 0.5;
+      const midZ = (z.minZ + z.maxZ) * 0.5;
+      const ey = Math.max(2.65, Math.min(3.55, (z.roofY || 3.4) - 0.55));
+      candidates.push(
+        { x: midX, y: ey, z: z.maxZ + 0.25, mountType: 'eaves', label: 'Beiral do Prédio' },
+        { x: midX, y: ey, z: z.minZ - 0.25, mountType: 'eaves', label: 'Beiral do Prédio' },
+        { x: z.minX - 0.25, y: ey, z: midZ, mountType: 'eaves', label: 'Beiral do Prédio' },
+        { x: z.maxX + 0.25, y: ey, z: midZ, mountType: 'eaves', label: 'Beiral do Prédio' }
+      );
+    }
+  } else {
+    const statics = getStaticCampusEavesSpots();
+    for (let i = 0; i < statics.length; i++) candidates.push(statics[i]);
+  }
+  for (let i = 0; i < CAMPUS_HIVE_CANDIDATES.length; i++) {
+    const c = CAMPUS_HIVE_CANDIDATES[i];
+    candidates.push({
+      x: c.x,
+      y: terrainHeight(c.x, c.z) + 2.55,
+      z: c.z,
+      mountType: 'tree',
+      label: 'Árvore Próxima'
+    });
+  }
+
+  const existing = (ctx && Array.isArray(ctx.beehives)) ? ctx.beehives : [];
+  let best = null;
+  let bestDist = Infinity;
+  for (let i = 0; i < candidates.length; i++) {
+    const cand = candidates[i];
+    const checkX = cand.mountType === 'tree' ? cand.x + 0.48 : cand.x;
+    const occupied = existing.some((h) => h && !h.abandoned && !h.collected && Math.hypot(h.x - checkX, h.z - cand.z) < 3.5);
+    if (occupied) continue;
+    const d = Math.hypot(checkX - fromX, cand.z - fromZ);
+    if (d < bestDist) {
+      bestDist = d;
+      best = cand;
+    }
+  }
+  return best;
+}
+
 function spawnTreeWithHiveSlot(ctx, x, z) {
-  const a = getBeeSharedAssets();
   const gy = terrainHeight(x, z);
+  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial || !ctx || !ctx.scene) {
+    return { tree: null, gy, posX: x, posZ: z };
+  }
+  const a = getBeeSharedAssets();
   const tree = new THREE.Group();
   tree.position.set(x, gy, z);
   const trunk = new THREE.Mesh(a.trunkGeo, a.trunkMat);
@@ -1374,77 +1572,553 @@ function spawnTreeWithHiveSlot(ctx, x, z) {
   }
   tree.add(trunk, ...crownMeshes);
   ctx.scene.add(tree);
-  return { tree, gy };
+  return { tree, gy, posX: x, posZ: z };
+}
+
+function buildHiveVisualGroup() {
+  const a = getBeeSharedAssets();
+  const hiveGroup = new THREE.Group();
+
+  const baseBowl = new THREE.Mesh(a.hiveBaseGeo, a.hiveDarkMat);
+  baseBowl.position.y = -0.27;
+  const bandBot = new THREE.Mesh(a.hiveBandBotGeo, a.hiveWoodMat);
+  bandBot.position.y = -0.16;
+  const ribBot = new THREE.Mesh(a.hiveRibBotGeo, a.hiveDarkMat);
+  ribBot.position.y = -0.085;
+  const bandMid = new THREE.Mesh(a.hiveBandMidGeo, a.hiveWoodMat);
+  bandMid.position.y = 0.02;
+  const ribTop = new THREE.Mesh(a.hiveRibTopGeo, a.hiveDarkMat);
+  ribTop.position.y = 0.125;
+  const bandTop = new THREE.Mesh(a.hiveBandTopGeo, a.hiveWoodMat);
+  bandTop.position.y = 0.21;
+  const capDome = new THREE.Mesh(a.hiveCapGeo, a.hiveDarkMat);
+  capDome.position.y = 0.315;
+
+  const hangerBar = new THREE.Mesh(a.hiveHangerBarGeo, a.hiveDarkMat);
+  hangerBar.position.set(-0.08, 0.42, 0);
+  const hangerPostL = new THREE.Mesh(a.hiveHangerPostGeo, a.hiveDarkMat);
+  hangerPostL.position.set(-0.28, 0.36, 0);
+  const hangerPostR = new THREE.Mesh(a.hiveHangerPostGeo, a.hiveDarkMat);
+  hangerPostR.position.set(0.14, 0.36, 0);
+  const hiveLeaf = new THREE.Mesh(a.hiveLeafGeo, a.hiveLeafMat);
+  hiveLeaf.scale.set(1.1, 0.72, 0.42);
+  hiveLeaf.position.set(0.04, 0.485, 0);
+  hiveLeaf.rotation.set(0.18, 0.35, 0.48);
+
+  const archL = new THREE.Mesh(a.hiveArchPillarGeo, a.hiveDarkMat);
+  archL.position.set(-0.078, -0.11, 0.302);
+  const archR = new THREE.Mesh(a.hiveArchPillarGeo, a.hiveDarkMat);
+  archR.position.set(0.078, -0.11, 0.302);
+  const archTop = new THREE.Mesh(a.hiveArchTopGeo, a.hiveDarkMat);
+  archTop.position.set(0, -0.032, 0.302);
+  const hiveGlow = new THREE.Mesh(a.hiveGlowGeo, a.hiveGlowMat);
+  hiveGlow.position.set(0, -0.108, 0.282);
+  const hivePorch = new THREE.Mesh(a.hivePorchGeo, a.hiveDarkMat);
+  hivePorch.position.set(0, -0.195, 0.318);
+
+  const honeyDropGroup = new THREE.Group();
+  const dropSpecs = [
+    [-0.14, 0.08, 0.318, 1.05, 1.55, 0.65],
+    [-0.18, 0.095, 0.305, 0.75, 1.15, 0.60],
+    [0.19, 0.165, 0.255, 0.85, 1.40, 0.65],
+    [0.24, 0.045, 0.225, 0.70, 1.15, 0.60]
+  ];
+  for (let di = 0; di < dropSpecs.length; di++) {
+    const ds = dropSpecs[di];
+    const dm = new THREE.Mesh(a.honeyDropGeo, a.honeyMat);
+    dm.position.set(ds[0], ds[1], ds[2]);
+    dm.scale.set(ds[3], ds[4], ds[5]);
+    honeyDropGroup.add(dm);
+  }
+
+  const hitMesh = new THREE.Mesh(a.hiveHitGeo, a.flowerHitMat);
+  hitMesh.position.y = 0.04;
+
+  hiveGroup.add(
+    baseBowl, bandBot, ribBot, bandMid, ribTop, bandTop, capDome,
+    hangerBar, hangerPostL, hangerPostR, hiveLeaf,
+    archL, archR, archTop, hiveGlow, hivePorch, honeyDropGroup, hitMesh
+  );
+  markSubtreeDynamic(hiveGroup);
+  return {
+    hiveGroup,
+    bandBot,
+    bandMid,
+    bandTop,
+    ribBot,
+    baseBowl,
+    ribTop,
+    capDome,
+    hangerBar,
+    hangerPostL,
+    hangerPostR,
+    archL,
+    archR,
+    archTop,
+    hiveGlow,
+    hiveLeaf,
+    hivePorch,
+    honeyDropGroup,
+    hitMesh
+  };
 }
 
 function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
-  const a = getBeeSharedAssets();
-  const hiveGroup = new THREE.Group();
-  hiveGroup.position.set(0.48, 2.55, 0);
+  const isEaves = opts.mountType === 'eaves' || !treeInfo;
+  const worldX = isEaves
+    ? (opts.x ?? 0)
+    : ((treeInfo.tree ? treeInfo.tree.position.x : (treeInfo.posX ?? 0)) + 0.48);
+  const worldY = isEaves
+    ? (opts.y ?? 2.86)
+    : ((treeInfo.gy ?? 0) + 2.55);
+  const worldZ = isEaves
+    ? (opts.z ?? 0)
+    : (treeInfo.tree ? treeInfo.tree.position.z : (treeInfo.posZ ?? 0));
 
-  const hiveBox = new THREE.Mesh(a.hiveBoxGeo, a.hiveWoodMat);
-  const hiveTopTrim = new THREE.Mesh(a.hiveTrimGeo, a.hiveDarkMat);
-  hiveTopTrim.position.y = 0.265;
-  const hiveBotTrim = new THREE.Mesh(a.hiveTrimGeo, a.hiveDarkMat);
-  hiveBotTrim.position.y = -0.265;
-  const hiveRoof = new THREE.Mesh(a.hiveRoofGeo, a.hiveDarkMat);
-  hiveRoof.position.y = 0.39;
-  hiveRoof.rotation.y = Math.PI / 4;
-  const hiveHole = new THREE.Mesh(a.hiveHoleGeo, a.holeMat);
-  hiveHole.position.set(0, -0.02, 0.282);
-  const hivePorch = new THREE.Mesh(a.hivePorchGeo, a.hiveDarkMat);
-  hivePorch.position.set(0, -0.09, 0.315);
+  if (!Array.isArray(ctx.beehives)) ctx.beehives = [];
+  if (!Array.isArray(ctx.beehiveHitMeshes)) ctx.beehiveHitMeshes = [];
 
-  const honeyDropGroup = new THREE.Group();
-  const drop1 = new THREE.Mesh(a.honeyDropGeo, a.honeyMat);
-  drop1.scale.set(0.95, 1.45, 0.72);
-  drop1.position.set(0.085, -0.145, 0.295);
-  const drop2 = new THREE.Mesh(a.honeyDropGeo, a.honeyMat);
-  drop2.scale.set(0.72, 1.15, 0.65);
-  drop2.position.set(-0.11, -0.21, 0.288);
-  honeyDropGroup.add(drop1, drop2);
+  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial || !ctx.scene) {
+    const mockHive = {
+      id,
+      mountType: isEaves ? 'eaves' : 'tree',
+      group: {
+        position: { x: worldX, y: worldY, z: worldZ, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
+        scale: { setScalar() {} },
+        visible: !opts.migrating,
+        parent: null
+      },
+      treeGroup: treeInfo ? treeInfo.tree : null,
+      boxMesh: null,
+      bandMesh: null,
+      honeycombMeshes: [],
+      trimMeshes: [],
+      glowMesh: null,
+      leafMesh: { visible: true },
+      honeyDropMesh: { visible: false, scale: { set() {} } },
+      hitMesh: { userData: {} },
+      treePos: isEaves ? null : { x: worldX - 0.48, z: worldZ },
+      x: worldX,
+      y: worldY,
+      z: worldZ,
+      honeyLevel: typeof opts.honeyLevel === 'number' ? opts.honeyLevel : 45,
+      abandoned: !!opts.abandoned,
+      migrating: !!opts.migrating,
+      buildProgress: typeof opts.buildProgress === 'number' ? opts.buildProgress : 1.0,
+      canCollectAbandoned: !!opts.abandoned,
+      collected: !!opts.collected,
+      extinct: !!opts.extinct,
+      failedMigrations: opts.failedMigrations || 0,
+      groundResting: false,
+      groundRestPos: null,
+      exhaustionTimer: 0,
+      flowersNearby: [],
+      queen: null,
+      bees: [],
+      noPollenTimer: 0
+    };
+    ctx.beehives.push(mockHive);
+    return mockHive;
+  }
 
-  hiveGroup.add(hiveBox, hiveTopTrim, hiveBotTrim, hiveRoof, hiveHole, hivePorch, honeyDropGroup);
-  markSubtreeDynamic(hiveGroup);
-  treeInfo.tree.add(hiveGroup);
-
-  const worldX = treeInfo.tree.position.x + 0.48;
-  const worldY = treeInfo.gy + 2.55;
-  const worldZ = treeInfo.tree.position.z;
+  const vis = buildHiveVisualGroup();
+  const hiveGroup = vis.hiveGroup;
+  if (isEaves) {
+    hiveGroup.position.set(worldX, worldY, worldZ);
+    ctx.scene.add(hiveGroup);
+  } else {
+    hiveGroup.position.set(0.48, 2.55, 0);
+    treeInfo.tree.add(hiveGroup);
+  }
 
   const hiveObj = {
     id,
+    mountType: isEaves ? 'eaves' : 'tree',
     group: hiveGroup,
-    boxMesh: hiveBox,
-    bandMesh: hiveBotTrim,
-    trimMeshes: [hiveTopTrim, hiveBotTrim, hiveRoof, hivePorch],
-    honeyDropMesh: honeyDropGroup,
-    hitMesh: hiveBox,
-    treePos: { x: treeInfo.tree.position.x, z: treeInfo.tree.position.z },
+    treeGroup: isEaves ? null : treeInfo.tree,
+    boxMesh: vis.bandMid,
+    bandMesh: vis.ribBot,
+    honeycombMeshes: [vis.bandBot, vis.bandMid, vis.bandTop],
+    trimMeshes: [
+      vis.baseBowl, vis.ribBot, vis.ribTop, vis.capDome,
+      vis.hangerBar, vis.hangerPostL, vis.hangerPostR,
+      vis.archL, vis.archR, vis.archTop, vis.hivePorch
+    ],
+    glowMesh: vis.hiveGlow,
+    leafMesh: vis.hiveLeaf,
+    honeyDropMesh: vis.honeyDropGroup,
+    hitMesh: vis.hitMesh,
+    treePos: isEaves ? null : { x: treeInfo.tree.position.x, z: treeInfo.tree.position.z },
     x: worldX,
     y: worldY,
     z: worldZ,
     honeyLevel: typeof opts.honeyLevel === 'number' ? opts.honeyLevel : 45,
-    abandoned: false,
+    abandoned: !!opts.abandoned,
     migrating: !!opts.migrating,
     buildProgress: typeof opts.buildProgress === 'number' ? opts.buildProgress : 1.0,
-    canCollectAbandoned: false,
-    collected: false,
+    canCollectAbandoned: !!opts.abandoned,
+    collected: !!opts.collected,
+    extinct: !!opts.extinct,
+    failedMigrations: opts.failedMigrations || 0,
+    groundResting: false,
+    groundRestPos: null,
+    exhaustionTimer: 0,
     flowersNearby: [],
     queen: null,
     bees: [],
     noPollenTimer: 0
   };
 
-  hiveBox.userData.hiveObj = hiveObj;
-  ctx.beehiveHitMeshes.push(hiveBox);
+  vis.hitMesh.userData.hiveObj = hiveObj;
+  ctx.beehiveHitMeshes.push(vis.hitMesh);
   ctx.beehives.push(hiveObj);
-  if (hiveObj.migrating) {
+  if (hiveObj.migrating || hiveObj.collected) {
     hiveGroup.visible = false;
   } else {
     hiveGroup.scale.setScalar(Math.max(0.2, hiveObj.buildProgress));
   }
   return hiveObj;
+}
+
+export function createHiveAtSpot(ctx, id, spot, opts = {}) {
+  if (spot && spot.mountType === 'eaves') {
+    return createHiveOnTree(ctx, id, null, { ...opts, mountType: 'eaves', x: spot.x, y: spot.y, z: spot.z });
+  }
+  const tx = spot ? spot.x : 0;
+  const tz = spot ? spot.z : 0;
+  const treeInfo = spawnTreeWithHiveSlot(ctx, tx, tz);
+  return createHiveOnTree(ctx, id, treeInfo, { ...opts, mountType: 'tree' });
+}
+
+function spawnHiveSwarm(ctx, hive, originPos = null, seedOffset = 0) {
+  if (!ctx || !hive) return;
+  if (!Array.isArray(ctx.pastureBees)) ctx.pastureBees = [];
+
+  const qPhase = seedOffset * 1.7;
+  let qx = originPos ? originPos.x : (hive.x + 0.22 + Math.cos(qPhase) * 1.05);
+  let qy = originPos ? (originPos.y + 0.35) : (hive.y + 0.42);
+  let qz = originPos ? originPos.z : (hive.z + 0.22 + Math.sin(qPhase) * 1.05);
+  if (!originPos && isBeeBlockedAt3D(ctx, qx, qy, qz, 0.22, null)) {
+    qx = hive.x + 0.45;
+    qy = hive.y + 1.05;
+    qz = hive.z + 0.45;
+  }
+  const qVis = createCuteBeeMesh(true);
+  qVis.group.position.set(qx, qy, qz);
+  if (ctx.scene && qVis.group && typeof ctx.scene.add === 'function' && qVis.group.isObject3D !== false) {
+    try { ctx.scene.add(qVis.group); } catch (_) {}
+  }
+  const queenObj = {
+    isQueen: true,
+    hive,
+    group: qVis.group,
+    wingL: qVis.wingL,
+    wingR: qVis.wingR,
+    legs: qVis.legs,
+    pollenMesh: qVis.pollenMesh,
+    migrationSprite: qVis.migrationSprite,
+    phase: qPhase,
+    radius: 1.05,
+    speed: 1.15,
+    state: hive.migrating ? 'migrate' : 'orbit',
+    avoidSide: seedOffset % 2 === 0 ? 1 : -1,
+    hasPollen: false
+  };
+  hive.queen = queenObj;
+  ctx.pastureBees.push(queenObj);
+
+  for (let b = 0; b < 3; b++) {
+    const beeVis = createCuteBeeMesh(false);
+    const bPhase = (seedOffset * 3 + b) * 2.1;
+    let bx = originPos ? (originPos.x + (b - 1) * 0.28) : (hive.x + Math.cos(bPhase) * 0.9);
+    let by = originPos ? (originPos.y + 0.25 + b * 0.06) : (hive.y + 0.1 + b * 0.06);
+    let bz = originPos ? (originPos.z + (b % 2 === 0 ? 0.22 : -0.22)) : (hive.z + Math.sin(bPhase) * 0.9);
+    if (!originPos && isBeeBlockedAt3D(ctx, bx, by, bz, 0.22, null)) {
+      bx = hive.x + (b - 1) * 0.35;
+      by = hive.y + 0.65;
+      bz = hive.z + 0.65;
+    }
+    beeVis.group.position.set(bx, by, bz);
+    if (ctx.scene && beeVis.group && typeof ctx.scene.add === 'function' && beeVis.group.isObject3D !== false) {
+      try { ctx.scene.add(beeVis.group); } catch (_) {}
+    }
+    const beeObj = {
+      isQueen: false,
+      hive,
+      group: beeVis.group,
+      wingL: beeVis.wingL,
+      wingR: beeVis.wingR,
+      legs: beeVis.legs,
+      pollenMesh: beeVis.pollenMesh,
+      phase: bPhase,
+      radius: 1.2 + b * 0.45,
+      speed: 1.8 + b * 0.2,
+      state: hive.migrating ? 'migrate' : 'to_flower',
+      targetFlower: null,
+      stateTimer: 0.4 + b * 0.7,
+      avoidSide: b % 2 === 0 ? 1 : -1,
+      hasPollen: false
+    };
+    hive.bees.push(beeObj);
+    ctx.pastureBees.push(beeObj);
+  }
+}
+
+export function serializeBeehives(ctx) {
+  const list = (ctx && Array.isArray(ctx.beehives)) ? ctx.beehives : [];
+  const compact = [];
+  for (let i = 0; i < list.length && compact.length < 24; i++) {
+    const h = list[i];
+    if (!h) continue;
+    compact.push({
+      id: String(h.id || ('hive_' + i)).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || ('hive_' + i),
+      x: Math.round((Number(h.x) || 0) * 100) / 100,
+      y: Math.round((Number(h.y) || 2.55) * 100) / 100,
+      z: Math.round((Number(h.z) || 0) * 100) / 100,
+      m: h.mountType === 'eaves' ? 'eaves' : 'tree',
+      h: Math.max(0, Math.min(100, Math.round(Number(h.honeyLevel) || 0))),
+      bp: Math.round(Math.max(0, Math.min(1, Number(h.buildProgress ?? 1))) * 100) / 100,
+      ab: h.abandoned ? 1 : 0,
+      co: h.collected ? 1 : 0,
+      ex: h.extinct ? 1 : 0,
+      fm: Math.max(0, Math.min(20, Math.round(Number(h.failedMigrations) || 0)))
+    });
+  }
+  return JSON.stringify(compact);
+}
+
+export function serializeCampusFlowers(ctx) {
+  const list = (ctx && Array.isArray(ctx.campusFlowers)) ? ctx.campusFlowers : [];
+  const compact = [];
+  for (let i = 0; i < list.length; i++) {
+    const fl = list[i];
+    if (!fl || fl.removed) continue;
+    compact.push({
+      x: Math.round((Number(fl.x) || 0) * 100) / 100,
+      z: Math.round((Number(fl.z) || 0) * 100) / 100,
+      c: Math.max(0, Math.min(15, Math.round(Number(fl.colorIdx) || 0))),
+      st: ['sprouting', 'blooming', 'seeding', 'wilting'].includes(fl.stage) ? fl.stage : 'blooming',
+      p: Math.round(Math.max(0, Math.min(1, Number(fl.pollen ?? 1))) * 100) / 100,
+      sh: fl.seedHarvested ? 1 : 0
+    });
+    if (compact.length >= 65) break;
+  }
+  return JSON.stringify(compact);
+}
+
+export function queueBeeEcologySync(ctx, force = false) {
+  if (!ctx || typeof ctx.queueWorldStateChange !== 'function') return false;
+  let queued = false;
+  const hJson = serializeBeehives(ctx);
+  if (hJson.length <= 6000 && (force || hJson !== ctx._lastSentBeehives)) {
+    if (hJson !== ctx._lastSentBeehives || force) {
+      ctx._lastSentBeehives = hJson;
+      ctx.queueWorldStateChange('campus_beehives', hJson);
+      queued = true;
+    }
+  }
+  const fJson = serializeCampusFlowers(ctx);
+  if (fJson.length <= 6000 && (force || fJson !== ctx._lastSentFlowers)) {
+    if (fJson !== ctx._lastSentFlowers || force) {
+      ctx._lastSentFlowers = fJson;
+      ctx.queueWorldStateChange('campus_flowers', fJson);
+      queued = true;
+    }
+  }
+  return queued;
+}
+
+export function applyBeeEcologyWorldState(ctx, stateMap) {
+  if (!ctx || !stateMap) return false;
+  let appliedAny = false;
+
+  if (typeof stateMap.campus_flowers === 'string' &&
+      stateMap.campus_flowers !== ctx._lastAppliedFlowers &&
+      stateMap.campus_flowers !== ctx._lastSentFlowers) {
+    try {
+      const parsed = JSON.parse(stateMap.campus_flowers);
+      if (Array.isArray(parsed)) {
+        const oldFlowers = Array.isArray(ctx.campusFlowers) ? ctx.campusFlowers.slice() : [];
+        for (let i = 0; i < oldFlowers.length; i++) removeCampusFlower(ctx, oldFlowers[i]);
+        if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = [];
+        for (let i = 0; i < parsed.length && i < 65; i++) {
+          const item = parsed[i];
+          if (!item || typeof item.x !== 'number' || typeof item.z !== 'number') continue;
+          const stage = ['sprouting', 'blooming', 'seeding', 'wilting'].includes(item.st) ? item.st : 'blooming';
+          const fl = createCampusFlower(ctx, item.x, item.z, item.c || 0, {
+            stage,
+            pollen: stage === 'blooming' ? (typeof item.p === 'number' ? item.p : 1) : 0
+          });
+          if (item.sh) {
+            fl.seedHarvested = true;
+            if (fl.seedPodMesh) fl.seedPodMesh.visible = false;
+          }
+          ctx.campusFlowers.push(fl);
+        }
+        ctx._lastAppliedFlowers = stateMap.campus_flowers;
+        ctx._lastSentFlowers = stateMap.campus_flowers;
+        appliedAny = true;
+      }
+    } catch (_) {}
+  }
+
+  if (typeof stateMap.campus_beehives === 'string' &&
+      stateMap.campus_beehives !== ctx._lastAppliedBeehives &&
+      stateMap.campus_beehives !== ctx._lastSentBeehives) {
+    try {
+      const parsed = JSON.parse(stateMap.campus_beehives);
+      if (Array.isArray(parsed)) {
+        if (Array.isArray(ctx.pastureBees)) {
+          for (let i = 0; i < ctx.pastureBees.length; i++) {
+            const b = ctx.pastureBees[i];
+            if (b && b.group && b.group.parent) b.group.parent.remove(b.group);
+          }
+          ctx.pastureBees.length = 0;
+        }
+        if (Array.isArray(ctx.beehives)) {
+          for (let i = 0; i < ctx.beehives.length; i++) {
+            const h = ctx.beehives[i];
+            if (!h) continue;
+            if (h.group && h.group.parent) h.group.parent.remove(h.group);
+            if (h.treeGroup && h.treeGroup.parent) h.treeGroup.parent.remove(h.treeGroup);
+          }
+          ctx.beehives.length = 0;
+        }
+        if (Array.isArray(ctx.beehiveHitMeshes)) ctx.beehiveHitMeshes.length = 0;
+
+        for (let i = 0; i < parsed.length && i < 24; i++) {
+          const item = parsed[i];
+          if (!item || typeof item.x !== 'number' || typeof item.z !== 'number') continue;
+          const isEaves = item.m === 'eaves';
+          const spot = isEaves
+            ? { x: item.x, y: typeof item.y === 'number' ? item.y : 2.86, z: item.z, mountType: 'eaves' }
+            : { x: item.x - 0.48, y: typeof item.y === 'number' ? item.y : 2.55, z: item.z, mountType: 'tree' };
+          const hive = createHiveAtSpot(ctx, item.id || ('hive_' + i), spot, {
+            honeyLevel: typeof item.h === 'number' ? item.h : 45,
+            buildProgress: typeof item.bp === 'number' ? item.bp : 1.0,
+            abandoned: !!item.ab,
+            collected: !!item.co,
+            extinct: !!item.ex,
+            failedMigrations: item.fm || 0
+          });
+          if (hive.abandoned || hive.extinct || hive.collected) {
+            markHiveAbandoned(hive);
+            hive.extinct = !!item.ex;
+            hive.collected = !!item.co;
+            if (hive.group) hive.group.visible = !hive.collected;
+            if (hive.hitMesh && hive.hitMesh.userData) hive.hitMesh.userData.ignoreRay = !!hive.collected;
+          } else {
+            spawnHiveSwarm(ctx, hive, null, i);
+          }
+        }
+        ctx._lastAppliedBeehives = stateMap.campus_beehives;
+        ctx._lastSentBeehives = stateMap.campus_beehives;
+        appliedAny = true;
+      }
+    } catch (_) {}
+  }
+
+  if (appliedAny) refreshAllHiveFlowers(ctx);
+  return appliedAny;
+}
+
+export function extinguishHiveColony(ctx, hive) {
+  if (!ctx || !hive || hive.extinct) return false;
+  hive.extinct = true;
+  hive.groundResting = false;
+  hive.exhaustionTimer = 0;
+
+  if (Array.isArray(ctx.pastureBees)) {
+    for (let i = ctx.pastureBees.length - 1; i >= 0; i--) {
+      const b = ctx.pastureBees[i];
+      if (b && b.hive === hive) {
+        if (b.group && b.group.parent) b.group.parent.remove(b.group);
+        ctx.pastureBees.splice(i, 1);
+      }
+    }
+  }
+
+  markHiveAbandoned(hive);
+
+  const px = ctx.playerPos ? ctx.playerPos.x : 0;
+  const pz = ctx.playerPos ? ctx.playerPos.z : 0;
+  const onToast = ctx.callbacks && ctx.callbacks.onToast;
+  if (onToast && Math.hypot(px - hive.x, pz - hive.z) <= 65) {
+    const activeLeft = (ctx.beehives || []).filter((h) => h && !h.abandoned && !h.extinct && !h.collected).length;
+    if (activeLeft === 0) {
+      onToast('🕯️ Extinção! O último reinado de abelhas não resistiu. Compre uma Colmeia ou Isca na Loja!');
+    } else {
+      onToast('🥀 Uma colônia de abelhas entrou em extinção por falta de flores!');
+    }
+  }
+  queueBeeEcologySync(ctx, true);
+  return true;
+}
+
+export function getBeeEcologySummary(ctx) {
+  const hives = (ctx && Array.isArray(ctx.beehives)) ? ctx.beehives : [];
+  const bees = (ctx && Array.isArray(ctx.pastureBees)) ? ctx.pastureBees : [];
+  const flowers = (ctx && Array.isArray(ctx.campusFlowers)) ? ctx.campusFlowers : [];
+
+  let activeHives = 0;
+  let abandonedHives = 0;
+  let extinctHives = 0;
+  let restingOnGroundHives = 0;
+  let honeySum = 0;
+  for (let i = 0; i < hives.length; i++) {
+    const h = hives[i];
+    if (!h || h.collected) continue;
+    if (h.abandoned) {
+      abandonedHives++;
+      if (h.extinct) extinctHives++;
+    } else {
+      activeHives++;
+      honeySum += Number(h.honeyLevel) || 0;
+      if (h.groundResting) restingOnGroundHives++;
+    }
+  }
+
+  let queens = 0;
+  let workers = 0;
+  for (let i = 0; i < bees.length; i++) {
+    const b = bees[i];
+    if (!b || !b.hive || b.hive.abandoned || b.hive.extinct) continue;
+    if (b.isQueen) queens++;
+    else workers++;
+  }
+
+  let bloomingFlowers = 0;
+  let sproutingFlowers = 0;
+  let seedingFlowers = 0;
+  let pollenSum = 0;
+  for (let i = 0; i < flowers.length; i++) {
+    const fl = flowers[i];
+    if (!fl || fl.removed) continue;
+    if (fl.stage === 'blooming') {
+      bloomingFlowers++;
+      pollenSum += Number(fl.pollen) || 0;
+    } else if (fl.stage === 'sprouting') {
+      sproutingFlowers++;
+    } else if (fl.stage === 'seeding') {
+      seedingFlowers++;
+    }
+  }
+
+  return {
+    activeHives,
+    abandonedHives,
+    extinctHives,
+    restingOnGroundHives,
+    totalBees: queens + workers,
+    queens,
+    workers,
+    totalFlowers: bloomingFlowers + sproutingFlowers + seedingFlowers,
+    bloomingFlowers,
+    sproutingFlowers,
+    seedingFlowers,
+    avgPollenPct: bloomingFlowers > 0 ? Math.round((pollenSum / bloomingFlowers) * 100) : 0,
+    avgHoneyPct: activeHives > 0 ? Math.round(honeySum / activeHives) : 0
+  };
 }
 
 function refreshHiveFlowers(ctx, hive, maxRadius = 11.5) {
@@ -1551,6 +2225,7 @@ export function disperseFlowerSeed(ctx, motherFl) {
   ctx.campusFlowers.push(child);
   if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: motherFl.x, y: motherFl.y, z: motherFl.z }, 0xfde047, 5);
   refreshAllHiveFlowers(ctx);
+  queueBeeEcologySync(ctx, true);
   return child;
 }
 
@@ -1582,6 +2257,7 @@ export function stepCampusFlowers(ctx, dt, nowSec = 0) {
         if (fl.seedPodMesh) fl.seedPodMesh.visible = false;
         if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: fl.x, y: fl.y, z: fl.z }, 0xfacc15, 4);
         refreshAllHiveFlowers(ctx);
+        queueBeeEcologySync(ctx, true);
       }
     } else if (fl.stage === 'blooming') {
       if (fl.centerMesh?.scale?.setScalar) fl.centerMesh.scale.setScalar(0.72 + Math.max(0, fl.pollen) * 0.28);
@@ -1608,26 +2284,39 @@ export function stepCampusFlowers(ctx, dt, nowSec = 0) {
       if (fl.group?.rotation) fl.group.rotation.z = wp * 0.35;
       if (fl.stageTimer >= (fl.wiltDuration || 4)) {
         removeCampusFlower(ctx, fl);
+        queueBeeEcologySync(ctx, true);
       }
     }
   }
 }
 
 function markHiveAbandoned(hive) {
-  const a = getBeeSharedAssets();
+  if (!hive) return;
+  const a = (THREE && THREE.MeshStandardMaterial) ? getBeeSharedAssets() : null;
   hive.abandoned = true;
   hive.migrating = false;
+  hive.groundResting = false;
   hive.honeyLevel = 0;
   hive.canCollectAbandoned = true;
-  hive.boxMesh.material = a.hiveAbandonedMat;
-  if (hive.trimMeshes && hive.trimMeshes.length) {
-    for (let i = 0; i < hive.trimMeshes.length; i++) {
-      if (hive.trimMeshes[i]) hive.trimMeshes[i].material = a.hiveAbandonedBandMat;
+  if (a) {
+    if (hive.honeycombMeshes && hive.honeycombMeshes.length) {
+      for (let i = 0; i < hive.honeycombMeshes.length; i++) {
+        if (hive.honeycombMeshes[i]) hive.honeycombMeshes[i].material = a.hiveAbandonedMat;
+      }
+    } else if (hive.boxMesh) {
+      hive.boxMesh.material = a.hiveAbandonedMat;
     }
-  } else if (hive.bandMesh) {
-    hive.bandMesh.material = a.hiveAbandonedBandMat;
+    if (hive.trimMeshes && hive.trimMeshes.length) {
+      for (let i = 0; i < hive.trimMeshes.length; i++) {
+        if (hive.trimMeshes[i]) hive.trimMeshes[i].material = a.hiveAbandonedBandMat;
+      }
+    } else if (hive.bandMesh) {
+      hive.bandMesh.material = a.hiveAbandonedBandMat;
+    }
+    if (hive.glowMesh) hive.glowMesh.material = a.holeMat;
   }
-  hive.honeyDropMesh.visible = false;
+  if (hive.leafMesh) hive.leafMesh.visible = false;
+  if (hive.honeyDropMesh) hive.honeyDropMesh.visible = false;
   hive.bees = [];
   hive.queen = null;
 }
@@ -1640,7 +2329,6 @@ function createPastureBees(ctx) {
   if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = []; else ctx.campusFlowers.length = 0;
   if (!Array.isArray(ctx.flowerHitMeshes)) ctx.flowerHitMeshes = []; else ctx.flowerHitMeshes.length = 0;
 
-  // Flores coloridas em solo natural com tempos variados perto das colmeias
   let flowerSeed = 0;
   CAMPUS_HIVE_CANDIDATES.forEach((spot, sIdx) => {
     const count = sIdx < 3 ? 6 : 7;
@@ -1668,113 +2356,49 @@ function createPastureBees(ctx) {
   // 3 Colmeias iniciais com Rainha + 3 abelhas operárias cada
   for (let hIdx = 0; hIdx < 3; hIdx++) {
     const hs = CAMPUS_HIVE_CANDIDATES[hIdx];
-    const treeInfo = spawnTreeWithHiveSlot(ctx, hs.x, hs.z);
-    const hive = createHiveOnTree(ctx, 'hive_' + hIdx, treeInfo, { honeyLevel: 45 + hIdx * 10, buildProgress: 1.0 });
+    const hive = createHiveAtSpot(ctx, 'hive_' + hIdx, { x: hs.x, z: hs.z, mountType: 'tree' }, {
+      honeyLevel: 45 + hIdx * 10,
+      buildProgress: 1.0
+    });
     refreshHiveFlowers(ctx, hive);
-
-    // Abelha Rainha maior com coroa dourada
-    const qPhase = hIdx * 1.7;
-    let qx = hive.x + 0.22 + Math.cos(qPhase) * 1.05;
-    let qy = hive.y + 0.42;
-    let qz = hive.z + 0.22 + Math.sin(qPhase) * 1.05;
-    if (isBeeBlockedAt3D(ctx, qx, qy, qz, 0.22, null)) {
-      qx = hive.x + 0.45;
-      qy = hive.y + 1.05;
-      qz = hive.z + 0.45;
-    }
-    const qVis = createCuteBeeMesh(true);
-    qVis.group.position.set(qx, qy, qz);
-    ctx.scene.add(qVis.group);
-    const queenObj = {
-      isQueen: true,
-      hive,
-      group: qVis.group,
-      wingL: qVis.wingL,
-      wingR: qVis.wingR,
-      legs: qVis.legs,
-      pollenMesh: qVis.pollenMesh,
-      migrationSprite: qVis.migrationSprite,
-      phase: qPhase,
-      radius: 1.05,
-      speed: 1.15,
-      state: 'orbit',
-      avoidSide: hIdx % 2 === 0 ? 1 : -1,
-      hasPollen: false
-    };
-    hive.queen = queenObj;
-    ctx.pastureBees.push(queenObj);
-
-    // Operárias forrageadoras espalhadas ao redor da colmeia
-    for (let b = 0; b < 3; b++) {
-      const beeVis = createCuteBeeMesh(false);
-      const bPhase = (hIdx * 3 + b) * 2.1;
-      let bx = hive.x + Math.cos(bPhase) * 0.9;
-      let by = hive.y + 0.1 + b * 0.06;
-      let bz = hive.z + Math.sin(bPhase) * 0.9;
-      if (isBeeBlockedAt3D(ctx, bx, by, bz, 0.22, null)) {
-        bx = hive.x + (b - 1) * 0.35;
-        by = hive.y + 0.65;
-        bz = hive.z + 0.65;
-      }
-      beeVis.group.position.set(bx, by, bz);
-      ctx.scene.add(beeVis.group);
-      const beeObj = {
-        isQueen: false,
-        hive,
-        group: beeVis.group,
-        wingL: beeVis.wingL,
-        wingR: beeVis.wingR,
-        legs: beeVis.legs,
-        pollenMesh: beeVis.pollenMesh,
-        phase: bPhase,
-        radius: 1.2 + b * 0.45,
-        speed: 1.8 + b * 0.2,
-        state: 'to_flower',
-        targetFlower: null,
-        stateTimer: 0.4 + b * 0.7,
-        avoidSide: b % 2 === 0 ? 1 : -1,
-        hasPollen: false
-      };
-      hive.bees.push(beeObj);
-      ctx.pastureBees.push(beeObj);
-    }
+    spawnHiveSwarm(ctx, hive, null, hIdx);
   }
 }
 
-function spawnFreshSproutsNearSpot(ctx, spot, targetCount = 4) {
-  if (!ctx || !spot) return;
-  if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = [];
-  let activeOrSprout = 0;
-  for (let i = 0; i < ctx.campusFlowers.length; i++) {
-    const fl = ctx.campusFlowers[i];
-    if (fl && !fl.removed && (fl.stage === 'blooming' || fl.stage === 'sprouting') &&
-      Math.hypot(fl.x - spot.x, fl.z - spot.z) <= 11.5) {
-      activeOrSprout++;
-    }
+function enterGroundRestMode(ctx, hive) {
+  if (!ctx || !hive || hive.abandoned || hive.extinct) return;
+  hive.groundResting = true;
+  hive.migrating = false;
+  hive.exhaustionTimer = hive.exhaustionTimer || 0;
+  let rx = hive.x + 0.85;
+  let rz = hive.z + 0.85;
+  if (!isNaturalSoilSpot(rx, rz, 0.5) || isBlockedAt(ctx, rx, rz, 0.45)) {
+    rx = hive.x + 0.6;
+    rz = hive.z + 0.6;
   }
-  const needed = Math.max(0, targetCount - activeOrSprout);
-  let spawned = 0;
-  for (let attempt = 0; attempt < 28 && spawned < needed && ctx.campusFlowers.length < MAX_CAMPUS_FLOWERS; attempt++) {
-    const ang = Math.random() * Math.PI * 2;
-    const dist = 2.2 + Math.random() * 5.2;
-    const fx = spot.x + Math.cos(ang) * dist;
-    const fz = spot.z + Math.sin(ang) * dist;
-    if (!isNaturalSoilSpot(fx, fz, 0.7) || isBlockedAt(ctx, fx, fz, 0.5)) continue;
-    ctx.campusFlowers.push(createCampusFlower(ctx, fx, fz, Math.floor(Math.random() * FLOWER_COLORS.length), {
-      stage: 'sprouting',
-      sproutDuration: 6 + Math.random() * 10
-    }));
-    spawned++;
+  const ry = terrainHeight(rx, rz) + 0.14;
+  hive.groundRestPos = { x: rx, y: ry, z: rz };
+
+  const px = ctx.playerPos ? ctx.playerPos.x : 0;
+  const pz = ctx.playerPos ? ctx.playerPos.z : 0;
+  const onToast = ctx.callbacks && ctx.callbacks.onToast;
+  if (onToast && Math.hypot(px - hive.x, pz - hive.z) <= 45) {
+    onToast('🐝 Enxame exausto sem flores! As abelhas estão descansando no chão...');
   }
+  queueBeeEcologySync(ctx, true);
 }
 
-function startHiveMigration(ctx, oldHive) {
-  // Escolhe outro ponto candidato do campus com mais flores disponíveis
+export function startHiveMigration(ctx, oldHive, isNight = false) {
+  if (!ctx || !oldHive || oldHive.abandoned || oldHive.collected || oldHive.extinct) return false;
+  const nightNow = !!isNight || (typeof window !== 'undefined' && !!window.campusIsNight) ||
+    (typeof ctx.sunElevation === 'number' && ctx.sunElevation < -0.05);
+
   let bestSpot = null;
   let bestScore = -1;
+  const hives = Array.isArray(ctx.beehives) ? ctx.beehives : [];
   for (let i = 0; i < CAMPUS_HIVE_CANDIDATES.length; i++) {
     const cand = CAMPUS_HIVE_CANDIDATES[i];
-    const occupied = ctx.beehives.some((h) => !h.abandoned && Math.hypot(h.x - cand.x, h.z - cand.z) < 6.0);
+    const occupied = hives.some((h) => h && !h.abandoned && !h.collected && Math.hypot(h.x - cand.x, h.z - cand.z) < 6.0);
     if (occupied) continue;
     let score = 0;
     if (ctx.campusFlowers) {
@@ -1790,26 +2414,28 @@ function startHiveMigration(ctx, oldHive) {
       bestSpot = cand;
     }
   }
-  if (!bestSpot) {
-    spawnFreshSproutsNearSpot(ctx, oldHive, 4);
-    refreshHiveFlowers(ctx, oldHive);
-    return;
-  }
 
-  // Garante brotos frescos no destino caso haja poucas flores ativas
-  if (bestScore <= 1) {
-    spawnFreshSproutsNearSpot(ctx, bestSpot, 4);
+  if (!bestSpot || bestScore <= 0) {
+    oldHive.failedMigrations = (oldHive.failedMigrations || 0) + 1;
+    // Se tentou migrar demais sem flores (ou falhou à noite), desce para descansar no chão antes de possível extinção
+    if (!bestSpot || oldHive.failedMigrations >= 3 || (nightNow && oldHive.failedMigrations >= 2)) {
+      enterGroundRestMode(ctx, oldHive);
+      return false;
+    }
+  } else {
+    oldHive.failedMigrations = 0;
   }
 
   const queen = oldHive.queen;
-  const bees = oldHive.bees.slice();
+  const bees = Array.isArray(oldHive.bees) ? oldHive.bees.slice() : [];
+  const nextFailedCount = oldHive.failedMigrations || 0;
   markHiveAbandoned(oldHive);
 
-  const treeInfo = spawnTreeWithHiveSlot(ctx, bestSpot.x, bestSpot.z);
-  const newHive = createHiveOnTree(ctx, 'hive_mig_' + ctx.beehives.length, treeInfo, {
+  const newHive = createHiveAtSpot(ctx, 'hive_mig_' + hives.length, { x: bestSpot.x, z: bestSpot.z, mountType: 'tree' }, {
     honeyLevel: 12,
     migrating: true,
-    buildProgress: 0.2
+    buildProgress: 0.2,
+    failedMigrations: nextFailedCount
   });
   newHive.queen = queen;
   newHive.bees = bees;
@@ -1824,6 +2450,8 @@ function startHiveMigration(ctx, oldHive) {
     bees[i].hasPollen = false;
     if (bees[i].pollenMesh) bees[i].pollenMesh.visible = false;
   }
+  queueBeeEcologySync(ctx, true);
+  return true;
 }
 
 const BEE_STEER_MAGS = [0.95, -0.95, 1.55, -1.55];
@@ -1963,33 +2591,186 @@ export function moveBeeSafely(ctx, bee, tx, ty, tz, speed, dt, bobY = 0, ignoreH
   return d;
 }
 
-function stepPastureBees(ctx, dt) {
+function removeDeployedEcologyPickable(ctx, item, dynamicKind) {
+  if (!ctx || !item) return;
+  item._removedForSync = true;
+  if (ctx.pendingMovedItems && item.id) {
+    ctx.pendingMovedItems[item.id] = {
+      id: item.id,
+      state: { custom: { dynamicKind, removed: true } }
+    };
+  }
+  if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
+  if (THREE && THREE.Object3D && typeof disposeObjectResources === 'function') {
+    try { disposeObjectResources(item.mesh); } catch (_) {}
+  }
+  if (Array.isArray(ctx.pickableItems)) {
+    const idx = ctx.pickableItems.indexOf(item);
+    if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+  }
+  if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
+    ctx.pickableMap.delete(item.id);
+  }
+}
+
+function deployStarterBeehiveItem(ctx, item) {
+  if (!ctx || !item || !item.starterBeehiveCtrl || item.starterBeehiveCtrl.deployed) return false;
+  const pos = (item.mesh && item.mesh.position) ? item.mesh.position : { x: 0, y: 0, z: 0 };
+  const spot = findNearestHiveMountSpot(ctx, pos.x, pos.z);
+  if (!spot) {
+    if (!item.starterBeehiveCtrl.warnedFull) {
+      item.starterBeehiveCtrl.warnedFull = true;
+      ctx.callbacks?.onToast?.('🐝 Todas as árvores e beirais próximos já possuem colmeias!');
+    }
+    return false;
+  }
+  item.starterBeehiveCtrl.deployed = true;
+  const hiveId = 'hive_buy_' + Date.now().toString(36) + '_' + ((ctx.beehives && ctx.beehives.length) || 0);
+  const newHive = createHiveAtSpot(ctx, hiveId, spot, {
+    honeyLevel: 15,
+    migrating: true,
+    buildProgress: 0.25
+  });
+  spawnHiveSwarm(ctx, newHive, { x: pos.x, y: pos.y, z: pos.z }, ((ctx.beehives && ctx.beehives.length) || 1));
+  if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: pos.x, y: pos.y + 0.25, z: pos.z }, 0xfacc15, 8);
+  removeDeployedEcologyPickable(ctx, item, 'beehive_starter');
+  ctx.notifyWorldAction?.();
+  ctx.callbacks?.onToast?.(`🐝 Enxame liberado! A Rainha e as abelhas estão migrando para ${spot.label}!`);
+  queueBeeEcologySync(ctx, true);
+  return true;
+}
+
+function triggerBeeBaitItem(ctx, item) {
+  if (!ctx || !item || !item.beeBaitCtrl || item.beeBaitCtrl.triggered) return false;
+  const pos = (item.mesh && item.mesh.position) ? item.mesh.position : { x: 0, y: 0, z: 0 };
+  const spot = findNearestHiveMountSpot(ctx, pos.x, pos.z);
+  if (!spot) {
+    if (!item.beeBaitCtrl.warnedFull) {
+      item.beeBaitCtrl.warnedFull = true;
+      ctx.callbacks?.onToast?.('🍯 Não há mais árvores ou beirais livres para atrair novo enxame!');
+    }
+    return false;
+  }
+  item.beeBaitCtrl.triggered = true;
+  const hiveId = 'hive_bait_' + Date.now().toString(36) + '_' + ((ctx.beehives && ctx.beehives.length) || 0);
+  const newHive = createHiveAtSpot(ctx, hiveId, spot, {
+    honeyLevel: 12,
+    migrating: true,
+    buildProgress: 0.25
+  });
+  const arrivalX = spot.x + (spot.x >= 0 ? 10 : -10);
+  const arrivalZ = spot.z + 8;
+  spawnHiveSwarm(ctx, newHive, { x: arrivalX, y: terrainHeight(arrivalX, arrivalZ) + 4.5, z: arrivalZ }, ((ctx.beehives && ctx.beehives.length) || 2));
+  if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: pos.x, y: pos.y + 0.2, z: pos.z }, 0xfbbf24, 10);
+  removeDeployedEcologyPickable(ctx, item, 'bee_bait');
+  ctx.notifyWorldAction?.();
+  ctx.callbacks?.onToast?.(`🐝🍯 A Isca atraiu um novo enxame para ${spot.label}!`);
+  queueBeeEcologySync(ctx, true);
+  return true;
+}
+
+function isInsideBuildingRoof(ctx, x, y, z) {
+  const zones = ctx && Array.isArray(ctx.roofZones) ? ctx.roofZones : null;
+  if (!zones || !zones.length) return false;
+  for (let i = 0; i < zones.length; i++) {
+    const rz = zones[i];
+    if (!rz) continue;
+    const margin = 0.6;
+    if (x >= rz.minX + margin && x <= rz.maxX - margin &&
+        z >= rz.minZ + margin && z <= rz.maxZ - margin &&
+        y < (rz.roofY || 4.0) - 0.35) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function stepDeployableBeeItems(ctx, dt) {
+  const items = ctx && Array.isArray(ctx.pickableItems) ? ctx.pickableItems : null;
+  if (!items || !items.length) return;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (!it || it._removedForSync || ctx.heldItem === it || it.crateParent) continue;
+    const pos = (it.mesh && it.mesh.position) ? it.mesh.position : { x: 0, y: 0, z: 0 };
+    if (isInsideBuildingRoof(ctx, pos.x, pos.y, pos.z)) continue;
+    if (it.starterBeehiveCtrl && !it.starterBeehiveCtrl.deployed) {
+      it.starterBeehiveCtrl.placedTimer = (it.starterBeehiveCtrl.placedTimer || 0) + dt;
+      if (it.starterBeehiveCtrl.placedTimer >= 2.2) {
+        deployStarterBeehiveItem(ctx, it);
+      }
+    } else if (it.beeBaitCtrl && !it.beeBaitCtrl.triggered) {
+      let hasFlowersNear = false;
+      if (Array.isArray(ctx.campusFlowers)) {
+        for (let fi = 0; fi < ctx.campusFlowers.length; fi++) {
+          const fl = ctx.campusFlowers[fi];
+          if (fl && !fl.removed && fl.stage === 'blooming' && Math.hypot(fl.x - pos.x, fl.z - pos.z) <= 14) {
+            hasFlowersNear = true;
+            break;
+          }
+        }
+      }
+      const rate = hasFlowersNear ? 1.5 : 1.0;
+      it.beeBaitCtrl.lureTimer = (it.beeBaitCtrl.lureTimer || 0) + dt * rate;
+      if (it.beeBaitCtrl.lureTimer >= 15.0) {
+        triggerBeeBaitItem(ctx, it);
+      }
+    }
+  }
+}
+
+export function stepPastureBees(ctx, dt) {
   if (!ctx) return;
   const nowSec = performance.now() * 0.001;
   const px = ctx.playerPos ? ctx.playerPos.x : 0;
   const pz = ctx.playerPos ? ctx.playerPos.z : 0;
+  const isNight = typeof ctx.sunElevation === 'number'
+    ? (ctx.sunElevation < -0.05)
+    : (typeof window !== 'undefined' && !!window.campusIsNight);
 
-  // Ciclo de vida das flores silvestres (broto -> flor -> semente -> dispersão -> murchar)
+  // Ciclo de vida das flores silvestres + itens compráveis no chão (colmeia nova / isca de abelhas)
   stepCampusFlowers(ctx, dt, nowSec);
+  stepDeployableBeeItems(ctx, dt);
 
-  // Atualiza colmeias (construção, brilho de mel, detecção de falta de flores -> migração)
+  // Atualiza colmeias (construção, brilho de mel, descanso no chão, extinção, migração)
   if (ctx.beehives) {
     for (let hi = 0; hi < ctx.beehives.length; hi++) {
       const hive = ctx.beehives[hi];
-      if (hive.collected || hive.abandoned) continue;
+      if (hive.collected || hive.abandoned || hive.extinct) continue;
 
       if (!hive.migrating && hive.buildProgress < 1.0) {
         hive.buildProgress = Math.min(1.0, hive.buildProgress + dt * 0.12);
-        hive.group.visible = true;
-        hive.group.scale.setScalar(Math.max(0.2, hive.buildProgress));
+        if (hive.group) {
+          hive.group.visible = true;
+          if (hive.group.scale?.setScalar) hive.group.scale.setScalar(Math.max(0.2, hive.buildProgress));
+        }
       }
 
       if (hive.honeyDropMesh) {
         hive.honeyDropMesh.visible = hive.buildProgress >= 0.8 && hive.honeyLevel >= 35;
-        if (hive.honeyDropMesh.visible) {
+        if (hive.honeyDropMesh.visible && hive.honeyDropMesh.scale?.set) {
           const dropScale = 0.7 + (hive.honeyLevel / 100) * 0.6;
           hive.honeyDropMesh.scale.set(1, dropScale, 1);
         }
+      }
+
+      if (hive.groundResting) {
+        let recoveredFlowers = 0;
+        refreshHiveFlowers(ctx, hive, 14.0);
+        for (let fi = 0; fi < hive.flowersNearby.length; fi++) {
+          const fl = hive.flowersNearby[fi];
+          if (fl && !fl.removed && fl.stage === 'blooming' && fl.pollen > 0.001) recoveredFlowers++;
+        }
+        if (recoveredFlowers > 0 && !isNight) {
+          hive.groundResting = false;
+          hive.exhaustionTimer = 0;
+          hive.failedMigrations = 0;
+        } else {
+          hive.exhaustionTimer = (hive.exhaustionTimer || 0) + dt;
+          if (hive.exhaustionTimer >= 30.0) {
+            extinguishHiveColony(ctx, hive);
+          }
+        }
+        continue;
       }
 
       // Verifica se ainda existem flores em floração ou brotando perto da colmeia
@@ -2006,7 +2787,7 @@ function stepPastureBees(ctx, dt) {
           hive.noPollenTimer += dt;
           if (hive.noPollenTimer > 5.0) {
             hive.noPollenTimer = 0;
-            startHiveMigration(ctx, hive);
+            startHiveMigration(ctx, hive, isNight);
           }
         } else {
           hive.noPollenTimer = 0;
@@ -2015,26 +2796,53 @@ function stepPastureBees(ctx, dt) {
     }
   }
 
+  ctx._beeSyncAccum = (ctx._beeSyncAccum || 0) + dt;
+  if (ctx._beeSyncAccum >= 12.0) {
+    ctx._beeSyncAccum = 0;
+    queueBeeEcologySync(ctx, false);
+  }
+
   if (!ctx.pastureBees || !ctx.pastureBees.length) return;
   const a = (THREE && THREE.MeshStandardMaterial) ? getBeeSharedAssets() : null;
 
-  for (let i = 0; i < ctx.pastureBees.length; i++) {
+  for (let i = ctx.pastureBees.length - 1; i >= 0; i--) {
     const bee = ctx.pastureBees[i];
     const hive = bee.hive;
-    if (!hive) continue;
+    if (!hive || hive.abandoned || hive.extinct || hive.collected) {
+      if (bee && bee.group && bee.group.parent) bee.group.parent.remove(bee.group);
+      ctx.pastureBees.splice(i, 1);
+      continue;
+    }
 
     const dist = Math.hypot(px - bee.group.position.x, pz - bee.group.position.z);
     bee.group.visible = dist <= 65;
     if (!bee.group.visible) continue;
 
     bee.phase += dt * (bee.speed || 1.4);
-    const flap = Math.sin(nowSec * 42 + i * 1.7) * 0.75;
-    bee.wingL.rotation.z = flap;
-    bee.wingR.rotation.z = -flap;
+    const flapSpeed = (hive.groundResting || isNight) ? 14 : 42;
+    const flapAmp = (hive.groundResting || isNight) ? 0.28 : 0.75;
+    const flap = Math.sin(nowSec * flapSpeed + i * 1.7) * flapAmp;
+    if (bee.wingL?.rotation) bee.wingL.rotation.z = flap;
+    if (bee.wingR?.rotation) bee.wingR.rotation.z = -flap;
     if (bee.legs && bee.legs.length) {
       for (let li = 0; li < bee.legs.length; li++) {
         bee.legs[li].rotation.x = Math.sin(nowSec * 18 + i + li * 0.6) * 0.25;
       }
+    }
+
+    // 0. Enxame exausto descansando no chão durante a noite / falta severa de flores
+    if (hive.groundResting && hive.groundRestPos) {
+      if (bee.migrationSprite) bee.migrationSprite.visible = false;
+      if (bee.pollenMesh) bee.pollenMesh.visible = false;
+      const gp = hive.groundRestPos;
+      const ox = bee.isQueen ? 0 : Math.cos(i * 2.1 + bee.phase * 0.25) * 0.48;
+      const oz = bee.isQueen ? 0 : Math.sin(i * 2.1 + bee.phase * 0.25) * 0.48;
+      const gx = gp.x + ox;
+      const gz = gp.z + oz;
+      const gy = terrainHeight(gx, gz) + 0.14 + Math.sin(nowSec * 2.6 + i) * 0.03;
+      moveBeeSafely(ctx, bee, gx, gy, gz, 1.8, dt, 0, null);
+      if (bee.group.rotation) bee.group.rotation.x = 0.04;
+      continue;
     }
 
     // 1. Voo de migração em enxame com a Rainha
@@ -2051,8 +2859,10 @@ function stepPastureBees(ctx, dt) {
         );
         if (arrivalDist < 0.65) {
           hive.migrating = false;
-          hive.group.visible = true;
-          hive.group.scale.setScalar(hive.buildProgress);
+          if (hive.group) {
+            hive.group.visible = true;
+            if (hive.group.scale?.setScalar) hive.group.scale.setScalar(hive.buildProgress);
+          }
           if (bee.migrationSprite) bee.migrationSprite.visible = false;
           bee.state = 'orbit';
           refreshHiveFlowers(ctx, hive);
@@ -2060,6 +2870,7 @@ function stepPastureBees(ctx, dt) {
             hive.bees[bi].state = 'to_flower';
             hive.bees[bi].stateTimer = 0.5 + bi * 0.6;
           }
+          queueBeeEcologySync(ctx, true);
         } else {
           const targetY = arrivalDist > 4.5
             ? Math.max(ty, terrainHeight(bee.group.position.x, bee.group.position.z) + 6.5)
@@ -2084,16 +2895,29 @@ function stepPastureBees(ctx, dt) {
     // 2. Rainha orbita suavemente ao redor da colmeia evitando obstáculos
     if (bee.isQueen) {
       if (bee.migrationSprite) bee.migrationSprite.visible = false;
-      const t = bee.phase;
-      const qx = hive.x + 0.22 + Math.cos(t) * 1.05;
-      const qz = hive.z + 0.22 + Math.sin(t) * 1.05;
-      const qy = hive.y + 0.42 + Math.sin(t * 2.5) * 0.22;
-      moveBeeSafely(ctx, bee, qx, qy, qz, 2.4, dt, 0, null);
+      const t = bee.phase * (isNight ? 0.45 : 1.0);
+      const rad = isNight ? 0.65 : 1.05;
+      const qx = hive.x + 0.22 + Math.cos(t) * rad;
+      const qz = hive.z + 0.22 + Math.sin(t) * rad;
+      const qy = hive.y + (isNight ? 0.18 : 0.42) + Math.sin(t * 2.5) * 0.16;
+      moveBeeSafely(ctx, bee, qx, qy, qz, isNight ? 1.5 : 2.4, dt, 0, null);
       bee.group.rotation.x = Math.sin(t * 2.5) * 0.10;
       continue;
     }
 
-    // 3. Operárias: forrageio entre colmeia e flores próximas
+    // 3. Noite tranquila: operárias descansam próximas à entrada da colmeia
+    if (isNight) {
+      if (bee.pollenMesh) bee.pollenMesh.visible = false;
+      const t = bee.phase * 0.5;
+      const rx = hive.x + Math.cos(t + i) * 0.46;
+      const rz = hive.z + 0.38 + Math.sin(t + i) * 0.28;
+      const ry = hive.y - 0.08 + Math.sin(nowSec * 2 + i) * 0.08;
+      moveBeeSafely(ctx, bee, rx, ry, rz, 1.8, dt, 0, hive);
+      bee.group.rotation.x = 0;
+      continue;
+    }
+
+    // 4. Operárias: forrageio entre colmeia e flores próximas
     if (bee.pollenMesh) bee.pollenMesh.visible = !!bee.hasPollen;
 
     if (hive.buildProgress < 1.0) {
@@ -2212,9 +3036,10 @@ export function getBeehiveHoverPrompt(hive, held) {
   if (!hive || hive.collected) return '';
   if (hive.abandoned && hive.canCollectAbandoned) {
     return held
-      ? '🪹 Colmeia Abandonada — Esvazie a mão para recolher'
-      : '🪹 Colmeia Abandonada — Levar p/ Compostagem';
+      ? (hive.extinct ? '🥀 Colmeia Extinta — Esvazie a mão para recolher' : '🪹 Colmeia Abandonada — Esvazie a mão para recolher')
+      : (hive.extinct ? '🥀 Colmeia Extinta — Levar p/ Compostagem' : '🪹 Colmeia Abandonada — Levar p/ Compostagem');
   }
+  if (hive.groundResting) return '🌙🐝 Enxame descansando no chão (Sem flores!)';
   if (hive.migrating) return '🐝 Enxame migrando!';
   if (hive.buildProgress < 1.0) {
     return `🐝 Colmeia em construção (${Math.round(hive.buildProgress * 100)}%)`;
@@ -2299,6 +3124,7 @@ export function interactBeehive(ctx, hive) {
     ctx.lastPickupAt = performance.now();
     ctx.callbacks?.onHoldChange?.(item.label);
     onToast?.('🪹 Colmeia seca recolhida! Leve à Caixa de Substrato da Horta.');
+    queueBeeEcologySync(ctx, true);
     return true;
   }
 
@@ -2353,6 +3179,7 @@ export function interactBeehive(ctx, hive) {
 
   hive.honeyLevel = Math.max(0, (hive.honeyLevel || 0) - 35);
   triggerCozyHeartBurst(hive.x, hive.y + 0.35, hive.z, 0xfacc15);
+  queueBeeEcologySync(ctx, true);
   return true;
 }
 
@@ -2519,6 +3346,7 @@ export function interactFlower(ctx, fl) {
     if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: fl.x, y: fl.y, z: fl.z }, 0x4ade80, 6);
     if (win && win.MycoAudio) win.MycoAudio.playClick();
     onToast?.('🌾 Semente colhida! Esta flor não vai se espalhar e vai murchar.');
+    queueBeeEcologySync(ctx, true);
     return true;
   }
 
@@ -2602,29 +3430,13 @@ export function plantFlowerSeedAtSpot(ctx, spot) {
   });
   ctx.campusFlowers.push(sprout);
   refreshAllHiveFlowers(ctx);
+  queueBeeEcologySync(ctx, true);
   if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: spot.x, y: spot.y + 0.15, z: spot.z }, 0x4ade80, 6);
   if (win && win.MycoAudio) win.MycoAudio.playClick();
 
   held.flowerSeedCtrl.count = Math.max(0, (held.flowerSeedCtrl.count || 0) - 1);
   if (held.flowerSeedCtrl.count <= 0) {
-    held._removedForSync = true;
-    if (ctx.pendingMovedItems && held.id) {
-      ctx.pendingMovedItems[held.id] = {
-        id: held.id,
-        state: { custom: { dynamicKind: 'flower_seeds', removed: true } }
-      };
-    }
-    if (held.mesh && held.mesh.parent) held.mesh.parent.remove(held.mesh);
-    if (THREE && THREE.Object3D && typeof disposeObjectResources === 'function') {
-      try { disposeObjectResources(held.mesh); } catch (_) {}
-    }
-    if (Array.isArray(ctx.pickableItems)) {
-      const idx = ctx.pickableItems.indexOf(held);
-      if (idx !== -1) ctx.pickableItems.splice(idx, 1);
-    }
-    if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
-      ctx.pickableMap.delete(held.id);
-    }
+    removeDeployedEcologyPickable(ctx, held, 'flower_seeds');
     ctx.heldItem = null;
     if (ctx.placementGhost) ctx.placementGhost.visible = false;
     ctx.callbacks?.onHoldChange?.(null);
@@ -2638,4 +3450,114 @@ export function plantFlowerSeedAtSpot(ctx, spot) {
     onToast?.(`🌱 Semente de flor plantada! (${held.flowerSeedCtrl.count} restantes)`);
   }
   return true;
+}
+
+// ============================================================================
+// ITENS COMPRÁVEIS: COLMEIA INICIAL NO CHÃO & ISCA DE ABELHAS
+// ============================================================================
+export function makeStarterBeehiveItem(ctx, id, x, y, z, opts = {}) {
+  const meta = {
+    category: 'gardening',
+    purpose: 'Coloque no chão perto de uma árvore ou beiral de casa: a Rainha e as abelhas migram rapidamente para o alto!',
+    compatibilities: { canEnterCooker: false },
+    serializeState: (it) => ({
+      dynamicKind: 'beehive_starter',
+      deployed: !!(it && it.starterBeehiveCtrl && it.starterBeehiveCtrl.deployed),
+      removed: !!(it && (it._removedForSync || (it.starterBeehiveCtrl && it.starterBeehiveCtrl.deployed)))
+    }),
+    applyState: (it, custom) => {
+      if (!it || !custom) return;
+      if (custom.deployed && it.starterBeehiveCtrl) it.starterBeehiveCtrl.deployed = true;
+    }
+  };
+
+  const label = '🐝 Colmeia Nova (Coloque no chão)';
+  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial) {
+    const mockItem = {
+      id,
+      label,
+      starterBeehiveCtrl: { placedTimer: 0, deployed: false },
+      mesh: {
+        position: { x, y, z, set(nx, ny, nz) { this.x = nx; this.y = ny; this.z = nz; } },
+        userData: { isStarterBeehive: true }
+      },
+      meta
+    };
+    if (ctx && Array.isArray(ctx.pickableItems)) ctx.pickableItems.push(mockItem);
+    return mockItem;
+  }
+
+  const a = getBeeSharedAssets();
+  const vis = buildHiveVisualGroup();
+  const g = vis.hiveGroup;
+  g.scale.setScalar(0.56);
+  // Desloca visual interno para que a base da caixinha repouse no chão (y = 0)
+  for (let i = 0; i < g.children.length; i++) {
+    g.children[i].position.y += 0.34;
+  }
+  const crateBase = new THREE.Mesh(a.hivePorchGeo, a.hiveDarkMat);
+  crateBase.scale.set(1.9, 1.4, 3.6);
+  crateBase.position.y = 0.028;
+  g.add(crateBase);
+  g.userData.isStarterBeehive = true;
+  markSubtreeDynamic(g);
+
+  const item = registerPickable(ctx, id, label, g, x, y, z, opts.ry || 0, 0.22, 0.36, meta);
+  item.starterBeehiveCtrl = { placedTimer: 0, deployed: false };
+  return item;
+}
+
+export function makeBeeBaitItem(ctx, id, x, y, z, opts = {}) {
+  const meta = {
+    category: 'gardening',
+    purpose: 'Isca aromática com mel e néctar: coloque no solo perto de flores para atrair um novo enxame selvagem.',
+    compatibilities: { canEnterCooker: false },
+    serializeState: (it) => ({
+      dynamicKind: 'bee_bait',
+      triggered: !!(it && it.beeBaitCtrl && it.beeBaitCtrl.triggered),
+      removed: !!(it && (it._removedForSync || (it.beeBaitCtrl && it.beeBaitCtrl.triggered)))
+    }),
+    applyState: (it, custom) => {
+      if (!it || !custom) return;
+      if (custom.triggered && it.beeBaitCtrl) it.beeBaitCtrl.triggered = true;
+    }
+  };
+
+  const label = '🍯 Isca de Abelhas (Coloque ao ar livre)';
+  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial) {
+    const mockItem = {
+      id,
+      label,
+      beeBaitCtrl: { lureTimer: 0, triggered: false },
+      mesh: {
+        position: { x, y, z, set(nx, ny, nz) { this.x = nx; this.y = ny; this.z = nz; } },
+        userData: { isBeeBait: true }
+      },
+      meta
+    };
+    if (ctx && Array.isArray(ctx.pickableItems)) ctx.pickableItems.push(mockItem);
+    return mockItem;
+  }
+
+  const a = getBeeSharedAssets();
+  const g = new THREE.Group();
+  const saucer = new THREE.Mesh(a.crownBaseGeo, a.hiveDarkMat);
+  saucer.scale.set(2.1, 1.2, 2.1);
+  saucer.position.y = 0.02;
+  const honeyPool = new THREE.Mesh(a.hiveBandMidGeo, a.honeyMat);
+  honeyPool.scale.set(0.32, 0.38, 0.32);
+  honeyPool.position.y = 0.065;
+  const flowerDot = new THREE.Mesh(a.centerGeo, a.petalMats[0]);
+  flowerDot.scale.setScalar(0.75);
+  flowerDot.position.set(0, 0.11, 0);
+  const twig = new THREE.Mesh(a.hiveLeafGeo, a.hiveLeafMat);
+  twig.scale.set(0.9, 0.55, 0.4);
+  twig.position.set(0.06, 0.12, 0.03);
+  g.add(saucer, honeyPool, flowerDot, twig);
+  g.userData.isBeeBait = true;
+  markSubtreeDynamic(g);
+
+  const item = registerPickable(ctx, id, label, g, x, y, z, opts.ry || 0, 0.15, 0.18, meta);
+  item.beeBaitCtrl = { lureTimer: 0, triggered: false };
+  return item;
 }

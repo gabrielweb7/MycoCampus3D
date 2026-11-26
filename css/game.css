@@ -1407,7 +1407,7 @@ body.device-touch #chat-container {
   flex-direction: column;
   align-items: center;
   width: auto;
-  max-width: min(92vw, 320px);
+  max-width: min(100%, 320px);
   margin: 0 auto;
 }
 
@@ -1425,7 +1425,7 @@ body.device-touch #chat-container {
 
 #myco-floating-actions .myco-context-primary {
   width: auto;
-  max-width: min(86vw, 260px);
+  max-width: min(100%, 260px);
   padding: 6px 14px;
   justify-content: center;
   background: rgba(18, 59, 53, 0.94);
@@ -1439,6 +1439,32 @@ body.device-touch #chat-container {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+#myco-floating-actions.mobile-context-actions .myco-context-hold {
+  min-height: 44px;
+  touch-action: none;
+}
+
+@media (orientation: landscape) and (max-height: 430px) {
+  #myco-floating-actions.mobile-context-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  #myco-floating-actions.mobile-context-actions:has(#myco-item-actions-list) .myco-context-primary {
+    max-width: 74%;
+  }
+
+  #myco-item-actions-list {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    width: auto;
+    max-width: none;
+  }
 }
 
 .no-scrollbar {

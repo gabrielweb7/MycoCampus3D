@@ -16,11 +16,20 @@ const FLOWER_COLORS = [0xf472b6, 0xc084fc, 0x60a5fa, 0xfb923c, 0xfacc15, 0xf8faf
 let gnomePool = null;
 let shadowGnomePool = null;
 let lonelyTreeGnome = null;
+let rogueBlackGnome = null;
 const LONELY_TREE_SPOTS = [
   { x: -58, z: -52 },
   { x: -66, z: 38 },
   { x: 58, z: -52 },
   { x: 74, z: 42 }
+];
+const ROGUE_BLACK_GNOME_SPOTS = [
+  { x: 64, z: 34, sector: 'Bosque Leste (Próx. Estação)' },
+  { x: 35, z: 34, sector: 'Corredor Empório / Estação' },
+  { x: 40, z: 18, sector: 'Lateral Norte da Estação' },
+  { x: 65, z: -26, sector: 'Bosque Nordeste' },
+  { x: -34, z: 33, sector: 'Bosque Sudoeste' },
+  { x: -60, z: -48, sector: 'Mata Noroeste' }
 ];
 let floraPool = null;
 let fireflyPoints = null;
@@ -880,6 +889,9 @@ export function stepTripGnomes(ctx, dt) {
 
   // Gnomo Solitário das Árvores (aparece longe da população e sobe na árvore ao se aproximar!)
   stepLonelyTreeGnome(ctx, dt, px, pz);
+
+  // Gnomo Preto Estranho Solitário (evento raro monitorado pela Estação Fauna & Flora)
+  stepRogueBlackGnome(ctx, dt, px, pz);
 }
 
 function stepLonelyTreeGnome(ctx, dt, px, pz) {
@@ -960,4 +972,188 @@ function stepLonelyTreeGnome(ctx, dt, px, pz) {
       L.timer = 18 + Math.random() * 14;
     }
   }
+}
+
+export function triggerRareBlackGnomeAppearance(ctx, spotIdx = 0) {
+  const spot = ROGUE_BLACK_GNOME_SPOTS[((spotIdx || 0) % ROGUE_BLACK_GNOME_SPOTS.length + ROGUE_BLACK_GNOME_SPOTS.length) % ROGUE_BLACK_GNOME_SPOTS.length];
+  if (!rogueBlackGnome) {
+    rogueBlackGnome = {
+      gn: (ctx && ctx.scene && THREE && THREE.Group) ? createSingleGnome(0x09090b, true) : {
+        root: { position: { x: spot.x, y: 0, z: spot.z, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }, rotation: { x: 0, y: 0, z: 0 }, visible: false },
+        legL: { rotation: { x: 0 } },
+        legR: { rotation: { x: 0 } },
+        armL: { rotation: { x: 0, z: 0 } },
+        armR: { rotation: { x: 0, z: 0 } },
+        headGrp: { rotation: { x: 0, y: 0, z: 0 } },
+        emoteSprite: null
+      },
+      active: false,
+      dormantTimer: 50,
+      activeTimer: 0,
+      mode: 'dormant',
+      modeTimer: 0,
+      weirdPhase: 0,
+      sector: spot.sector,
+      dirX: 1,
+      dirZ: 0.4,
+      anchorX: spot.x,
+      anchorZ: spot.z
+    };
+    if (ctx && ctx.scene && rogueBlackGnome.gn.root && rogueBlackGnome.gn.root.isObject3D !== false) {
+      try { ctx.scene.add(rogueBlackGnome.gn.root); } catch (_) {}
+    }
+  }
+
+  const R = rogueBlackGnome;
+  R.active = true;
+  R.activeTimer = 50 + Math.random() * 25;
+  R.mode = 'weird_walk';
+  R.modeTimer = 3.2 + Math.random() * 2.5;
+  R.weirdPhase = 0;
+  R.sector = spot.sector;
+  R.anchorX = spot.x;
+  R.anchorZ = spot.z;
+  const ang = Math.random() * Math.PI * 2;
+  R.dirX = Math.cos(ang);
+  R.dirZ = Math.sin(ang);
+  const gy = ctx && ctx.physCtx ? getGroundHeight(ctx.physCtx, spot.x, spot.z, 2) : terrainHeight(spot.x, spot.z);
+  R.gn.root.position.set(spot.x, gy, spot.z);
+  R.gn.root.visible = true;
+  if (R.gn.emoteSprite) setGnomeEmote(R.gn, '👁️');
+  return R;
+}
+
+export function clearRareBlackGnomeForTest() {
+  if (!rogueBlackGnome) return;
+  rogueBlackGnome.active = false;
+  rogueBlackGnome.mode = 'dormant';
+  if (rogueBlackGnome.gn && rogueBlackGnome.gn.root) rogueBlackGnome.gn.root.visible = false;
+}
+
+export function getRareBlackGnomeTelemetry() {
+  const active = Boolean(rogueBlackGnome && rogueBlackGnome.active);
+  const gx = active ? (rogueBlackGnome.gn.root.position.x || 0) : 0;
+  const gz = active ? (rogueBlackGnome.gn.root.position.z || 0) : 0;
+  const distToStation = active ? Math.round(Math.hypot(gx - 50, gz - 28)) : null;
+  const lonelyTreeActive = Boolean(lonelyTreeGnome && lonelyTreeGnome.phase !== 'hidden');
+  return {
+    active,
+    x: Math.round(gx * 10) / 10,
+    z: Math.round(gz * 10) / 10,
+    distToStation,
+    sector: active ? (rogueBlackGnome.sector || 'Setor Desconhecido') : 'Nenhum sinal',
+    behavior: active ? (rogueBlackGnome.mode || 'weird_walk') : 'dormant',
+    lonelyTreeActive,
+    lonelyTreePos: lonelyTreeGnome ? { x: lonelyTreeGnome.treeX, z: lonelyTreeGnome.treeZ } : null
+  };
+}
+
+function stepRogueBlackGnome(ctx, dt, px, pz) {
+  if (!ctx || !ctx.scene) return;
+  if (!rogueBlackGnome) {
+    const firstSpot = ROGUE_BLACK_GNOME_SPOTS[0];
+    rogueBlackGnome = {
+      gn: createSingleGnome(0x09090b, true),
+      active: false,
+      dormantTimer: 55 + Math.random() * 55,
+      activeTimer: 0,
+      mode: 'dormant',
+      modeTimer: 0,
+      weirdPhase: 0,
+      sector: firstSpot.sector,
+      dirX: 0.7,
+      dirZ: 0.7,
+      anchorX: firstSpot.x,
+      anchorZ: firstSpot.z
+    };
+    ctx.scene.add(rogueBlackGnome.gn.root);
+  }
+
+  const R = rogueBlackGnome;
+  const gn = R.gn;
+  if (!R.active) {
+    R.dormantTimer -= dt;
+    if (R.dormantTimer <= 0) {
+      triggerRareBlackGnomeAppearance(ctx, Math.floor(Math.random() * ROGUE_BLACK_GNOME_SPOTS.length));
+    }
+    return;
+  }
+
+  R.activeTimer -= dt;
+  R.modeTimer -= dt;
+  R.weirdPhase += dt * 7.2;
+
+  const gx = gn.root.position.x;
+  const gz = gn.root.position.z;
+  const distToPlayer = Math.hypot(gx - px, gz - pz);
+
+  if (R.activeTimer <= 0 || distToPlayer < 2.8) {
+    R.active = false;
+    R.mode = 'dormant';
+    R.dormantTimer = 150 + Math.random() * 110;
+    gn.root.visible = false;
+    if (distToPlayer < 12 && typeof window !== 'undefined' && window.MycoAudio && window.MycoAudio.playUmbralWhisper) {
+      window.MycoAudio.playUmbralWhisper();
+    }
+    return;
+  }
+
+  if (distToPlayer < 9.5 && R.mode !== 'scuttle_away') {
+    R.mode = 'scuttle_away';
+    R.modeTimer = 3.0;
+    const dxOut = (gx - px) / (distToPlayer || 1);
+    const dzOut = (gz - pz) / (distToPlayer || 1);
+    R.dirX = dxOut;
+    R.dirZ = dzOut;
+    if (gn.emoteSprite) setGnomeEmote(gn, '💨');
+  } else if (R.modeTimer <= 0) {
+    if (R.mode === 'twitch_freeze') {
+      R.mode = 'weird_walk';
+      R.modeTimer = 2.6 + Math.random() * 2.4;
+      const toAnchorX = R.anchorX - gx;
+      const toAnchorZ = R.anchorZ - gz;
+      const pullAng = Math.hypot(toAnchorX, toAnchorZ) > 9
+        ? Math.atan2(toAnchorZ, toAnchorX)
+        : (Math.random() * Math.PI * 2);
+      R.dirX = Math.cos(pullAng);
+      R.dirZ = Math.sin(pullAng);
+      if (gn.emoteSprite) setGnomeEmote(gn, '🕳️');
+    } else {
+      R.mode = 'twitch_freeze';
+      R.modeTimer = 1.4 + Math.random() * 1.4;
+      if (gn.emoteSprite) setGnomeEmote(gn, '👁️');
+    }
+  }
+
+  if (R.mode === 'twitch_freeze') {
+    gn.legL.rotation.x *= 0.8;
+    gn.legR.rotation.x *= 0.8;
+    gn.armL.rotation.x = 1.25 + Math.sin(R.weirdPhase * 2.2) * 0.25;
+    gn.armR.rotation.x = 0.25 + Math.cos(R.weirdPhase * 2.6) * 0.22;
+    gn.headGrp.rotation.z = Math.sin(R.weirdPhase * 3.1) * 0.45;
+    gn.root.rotation.y = Math.atan2(px - gx, pz - gz);
+    return;
+  }
+
+  const speed = R.mode === 'scuttle_away' ? 4.4 : 1.75;
+  const zig = Math.sin(R.weirdPhase * 0.85) * 0.65;
+  const moveX = (R.dirX - R.dirZ * zig) * speed * dt;
+  const moveZ = (R.dirZ + R.dirX * zig) * speed * dt;
+  const nx = Math.max(-78, Math.min(78, gx + moveX));
+  const nz = Math.max(-78, Math.min(78, gz + moveZ));
+  if (isNaturalSoilSpot(nx, nz, 0.4) || R.mode === 'scuttle_away') {
+    const ny = ctx.physCtx ? getGroundHeight(ctx.physCtx, nx, nz, 2) : terrainHeight(nx, nz);
+    gn.root.position.set(nx, ny, nz);
+  } else {
+    R.dirX = -R.dirX;
+    R.dirZ = -R.dirZ;
+  }
+
+  // Andar estranho: tronco torto de lado, cabeça tremendo e braços descoordenados
+  gn.root.rotation.y = Math.atan2(moveX, moveZ) + Math.sin(R.weirdPhase * 1.3) * 0.55;
+  gn.headGrp.rotation.z = Math.sin(R.weirdPhase * 1.9) * 0.40;
+  gn.legL.rotation.x = Math.sin(R.weirdPhase * 1.8) * 0.85;
+  gn.legR.rotation.x = -Math.sin(R.weirdPhase * 1.8) * 0.85;
+  gn.armL.rotation.x = 0.95 + Math.sin(R.weirdPhase * 2.4) * 0.65;
+  gn.armR.rotation.x = -0.65 + Math.cos(R.weirdPhase * 2.1) * 0.65;
 }

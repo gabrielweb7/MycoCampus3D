@@ -532,6 +532,7 @@ function mp_is_valid_state_key(string $k): bool {
         'greenhouse_humidifier', 'greenhouse_exhaust', 'greenhouse_cooler', 'greenhouse_light',
         'stand_packs', 'stand_sold',
         'garden_compost', 'garden_richness', 'garden_harvested', 'garden_baskets', 'garden_plants',
+        'campus_beehives', 'campus_flowers',
         'burner_timer_preset_lab', 'burner_timer_end_lab',
         'burner_timer_preset_sub', 'burner_timer_end_sub',
         'sport_soccer_goals', 'sport_basket_points', 'sport_basket_streak'

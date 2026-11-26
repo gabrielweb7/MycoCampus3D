@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 16;
+const MC_SCHEMA_VERSION = 17;
 const MC_TOKEN_TTL_DAYS = 30;
 const MC_PETS = ['cat_orange', 'cat_black', 'cat_calico', 'dog_golden', 'dog_husky', 'dog_pug'];
 
@@ -198,6 +198,11 @@ function mc_migrate(PDO $pdo): void {
             "ALTER TABLE mc_users ADD COLUMN progress_json MEDIUMTEXT NULL",
         ] as $ddl) {
             try { $pdo->exec($ddl); } catch (Throwable $e) {}
+        }
+
+        // v16 -> v17: Expande state_val em mc_world_state para suportar ecologia persistente (colmeias & flores)
+        if ($version < 17) {
+            try { $pdo->exec("ALTER TABLE mc_world_state MODIFY state_val TEXT NOT NULL"); } catch (Throwable $e) {}
         }
 
         try {

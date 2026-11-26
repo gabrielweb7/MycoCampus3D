@@ -110,6 +110,7 @@ test('assignActionShortcuts, triggerFloatingActionByCode e Pegar sem forçar mod
       prepend(ch) { this.children.unshift(ch); return ch; },
       replaceChildren() { this.children.length = 0; },
       setAttribute() {},
+      setPointerCapture() {},
       addEventListener(type, fn) { this.listeners[type] = fn; }
     };
     return el;
@@ -134,6 +135,37 @@ test('assignActionShortcuts, triggerFloatingActionByCode e Pegar sem forçar mod
     assert.equal(triggerFloatingActionByCode('KeyQ'), true);
     assert.deepEqual(pickedCalls, [['petri_pick', false]]);
     assert.equal(triggerFloatingActionByCode('Digit4'), false);
+
+    ctx.isTouchDevice = () => true;
+    ctx.hoveredPickable = makeItem('simple_tool', 'Ferramenta');
+    ctx.mobileAimPrompt = ctx.hoveredPickable.label;
+    syncFloatingActions(ctx);
+    assert.match(bar.children[0].children[0].textContent, /Pegar Ferramenta/);
+    assert.deepEqual(bar.children[1].children.map(button => button.children[0].textContent), ['🔍 Inspecionar']);
+
+    ctx.hoveredPickable = null;
+    ctx.heldItem = makeItem('water_test', 'Água', {
+      meta: { compatibilities: { poursWater: true } },
+      userData: { liquidCtrl: { volMl: 350 } }
+    });
+    ctx.lastPickupAt = -1000;
+    ctx.hoveredFillPot = { contents: [], waterMl: 0 };
+    ctx.mobileAimPrompt = 'Despejar água';
+    syncFloatingActions(ctx);
+    const holdButton = bar.children[0];
+    assert.match(holdButton.children[0].textContent, /Segure · Despejar água/);
+    holdButton.listeners.pointerdown({ button: 0, pointerId: 7, clientX: 1, clientY: 2 });
+    assert.equal(ctx.isPrimaryDown, true);
+    assert.equal(ctx.pourHold.dst, ctx.hoveredFillPot);
+    ctx.mobileAimPrompt = '';
+    syncFloatingActions(ctx);
+    assert.equal(bar.children[0], holdButton);
+    holdButton.listeners.pointercancel({ pointerId: 7 });
+    assert.equal(ctx.isPrimaryDown, false);
+    ctx.heldItem = null;
+    ctx.hoveredFillPot = null;
+    syncFloatingActions(ctx);
+    assert.equal(bar.classList.contains('hidden'), true);
   } finally {
     if (prevDocument === undefined) delete globalThis.document;
     else globalThis.document = prevDocument;

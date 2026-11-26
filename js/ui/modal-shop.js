@@ -46,6 +46,8 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_grow_humidifier', prefabId: 'grow_humidifier', name: 'Umidificador para Grow', desc: 'Conecte ao grow para gerar névoa e controlar a umidade.', price_coins: 150, icon: '💧' },
   { id: 'sup_grow_exhaust', prefabId: 'grow_exhaust', name: 'Exaustor para Grow', desc: 'Conecte ao grow com um duto flexível laminado para renovar o ar.', price_coins: 170, icon: '🌀' },
   { id: 'sup_flower_seeds', prefabId: 'flower_seeds', name: 'Sementes de Flor (5 un.)', desc: 'Plante flores na grama para alimentar abelhas e gerar mel natural.', price_coins: 25, icon: '🌸' },
+  { id: 'sup_bee_bait', prefabId: 'bee_bait', name: 'Isca de Abelhas (Mel & Néctar)', desc: 'Coloque ao ar livre perto de flores para atrair um novo enxame para árvores ou beirais.', price_coins: 75, icon: '🍯' },
+  { id: 'sup_beehive', prefabId: 'beehive_starter', name: 'Colmeia Inicial (Com Rainha)', desc: 'Coloque no chão perto de uma árvore ou casa: a Rainha e as abelhas migram logo para o alto.', price_coins: 180, icon: '🐝' },
   { id: 'sup_monotub', prefabId: 'monotub_24l', name: 'Caixa Monotub 24L', desc: 'Expanda sua produção com frutificação em massa.', price_coins: 260, icon: '📦' },
   { id: 'sup_dehydrator', prefabId: 'dehydrator', name: 'Desidratadora de Cogumelos', desc: 'Seque mais lotes simultâneos até 0% umidade.', price_coins: 380, icon: '♨️' },
   { id: 'sup_table', prefabId: 'table_stainless', name: 'Bancada Inox (1.6m)', desc: 'Mesa móvel adicional para ampliar seu laboratório.', price_coins: 320, icon: '🛠️' },
@@ -57,7 +59,7 @@ export const SHOP_SUPPLY_CATEGORIES = [
   { id: 'substrate', label: 'Substratos', icon: '🌽', ids: ['sup_flocao', 'sup_lc_nutrient'] },
   { id: 'lab', label: 'Laboratório', icon: '🧪', ids: ['sup_petri', 'sup_syringe', 'sup_lc', 'sup_ampoule_case'] },
   { id: 'hygiene', label: 'Higiene & Mofo', icon: '🧴', ids: ['sup_spray', 'sup_water_spray', 'sup_h2o2'] },
-  { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust', 'sup_flower_seeds'] },
+  { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust', 'sup_flower_seeds', 'sup_bee_bait', 'sup_beehive'] },
   { id: 'post', label: 'Pós-colheita', icon: '📦', ids: ['sup_dehydrator', 'sup_silica', 'sup_mylar', 'sup_crate'] },
   { id: 'furniture', label: 'Bancadas', icon: '🛠️', ids: ['sup_table'] }
 ];

@@ -611,6 +611,64 @@ if ($action === 'sync') {
                 $rawPlants = trim((string)$sVal);
                 if (!preg_match('/^[0-2]:\d{1,3}(?::1)?(,[0-2]:\d{1,3}(?::1)?){0,23}$/', $rawPlants)) continue;
                 $cleanVal = $rawPlants;
+            } elseif ($sKey === 'campus_beehives') {
+                $decoded = is_array($sVal) ? $sVal : json_decode((string)$sVal, true);
+                if (!is_array($decoded)) continue;
+                $cleanHives = [];
+                foreach (array_slice($decoded, 0, 24) as $hv) {
+                    if (!is_array($hv)) continue;
+                    $hid = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($hv['id'] ?? ''));
+                    if ($hid === '' || strlen($hid) > 32) continue;
+                    $hx = round(max(-300.0, min(300.0, (float)($hv['x'] ?? 0))), 2);
+                    $hy = round(max(-300.0, min(300.0, (float)($hv['y'] ?? 0))), 2);
+                    $hz = round(max(-300.0, min(300.0, (float)($hv['z'] ?? 0))), 2);
+                    $hm = (($hv['m'] ?? 'tree') === 'eaves') ? 'eaves' : 'tree';
+                    $hh = max(0, min(100, (int)round((float)($hv['h'] ?? 0))));
+                    $hbp = round(max(0.0, min(1.0, (float)($hv['bp'] ?? 1.0))), 2);
+                    $hab = !empty($hv['ab']) ? 1 : 0;
+                    $hco = !empty($hv['co']) ? 1 : 0;
+                    $hex = !empty($hv['ex']) ? 1 : 0;
+                    $hfm = max(0, min(20, (int)($hv['fm'] ?? 0)));
+                    $cleanHives[] = [
+                        'id' => $hid,
+                        'x' => $hx,
+                        'y' => $hy,
+                        'z' => $hz,
+                        'm' => $hm,
+                        'h' => $hh,
+                        'bp' => $hbp,
+                        'ab' => $hab,
+                        'co' => $hco,
+                        'ex' => $hex,
+                        'fm' => $hfm,
+                    ];
+                }
+                $cleanVal = json_encode($cleanHives, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                if (!is_string($cleanVal) || strlen($cleanVal) > 6000) continue;
+            } elseif ($sKey === 'campus_flowers') {
+                $decoded = is_array($sVal) ? $sVal : json_decode((string)$sVal, true);
+                if (!is_array($decoded)) continue;
+                $allowedStages = ['sprouting', 'blooming', 'seeding', 'wilting'];
+                $cleanFlowers = [];
+                foreach (array_slice($decoded, 0, 65) as $fl) {
+                    if (!is_array($fl)) continue;
+                    $fx = round(max(-300.0, min(300.0, (float)($fl['x'] ?? 0))), 2);
+                    $fz = round(max(-300.0, min(300.0, (float)($fl['z'] ?? 0))), 2);
+                    $fc = max(0, min(15, (int)($fl['c'] ?? 0)));
+                    $fst = in_array(($fl['st'] ?? 'blooming'), $allowedStages, true) ? $fl['st'] : 'blooming';
+                    $fp = round(max(0.0, min(1.0, (float)($fl['p'] ?? 1.0))), 2);
+                    $fsh = !empty($fl['sh']) ? 1 : 0;
+                    $cleanFlowers[] = [
+                        'x' => $fx,
+                        'z' => $fz,
+                        'c' => $fc,
+                        'st' => $fst,
+                        'p' => $fp,
+                        'sh' => $fsh,
+                    ];
+                }
+                $cleanVal = json_encode($cleanFlowers, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                if (!is_string($cleanVal) || strlen($cleanVal) > 6000) continue;
             } elseif ($sKey === 'burner_timer_preset_lab' || $sKey === 'burner_timer_preset_sub') {
                 $preset = (int)$sVal;
                 if (!in_array($preset, [0, 20, 60, 90, 120], true)) $preset = 0;

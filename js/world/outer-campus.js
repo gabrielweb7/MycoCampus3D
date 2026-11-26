@@ -1,5 +1,6 @@
 import { getTextures, brickMat, woodMat, makeBox, registerSnowable } from '../engine/textures.js';
 import { addWalkableSlab, addSolidWall } from '../engine/physics.js';
+import { buildEcologyMonitoringStation } from './ecology-station.js';
 
 export function buildOuterCampus(ctx) {
   var scene = ctx.scene;
@@ -489,21 +490,26 @@ export function buildOuterCampus(ctx) {
     dHeader.position.set(dx - 4.0, 4.1, dz + 5);
     var awning = makeBox(2.8, 0.25, 1.3, dm[2]);
     awning.position.set(dx - 4.0, 2.95, dz + 5.65);
-    // Cama & escrivaninha interna
-    var bed = makeBox(2.2, 0.55, 1.3, 0x3b82f6, { roughness: 0.7 });
-    bed.position.set(dx + 3.5, 0.42, dz - 2.5);
-    var dDesk = makeBox(1.8, 0.75, 0.9, 0xd97706, { roughness: 0.65 });
-    dDesk.position.set(dx + 3.5, 0.52, dz + 2.5);
-    scene.add(dHeader, awning, bed, dDesk);
-    ctx.solidColliders.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, minY: 0, maxY: 0.69, surfaceTopY: 0.69 });
-    ctx.solidColliders.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, minY: 0, maxY: 0.89, surfaceTopY: 0.89 });
-    var bedSurf = { minX: dx + 2.4, maxX: dx + 4.6, minZ: dz - 3.15, maxZ: dz - 1.85, topY: 0.695 };
-    var deskSurf = { minX: dx + 2.6, maxX: dx + 4.4, minZ: dz + 2.05, maxZ: dz + 2.95, topY: 0.895 };
-    ctx.supportSurfaces.push(bedSurf, deskSurf);
-    if (ctx.supportMeshes) {
-      bed.userData.supportSurface = bedSurf;
-      dDesk.userData.supportSurface = deskSurf;
-      ctx.supportMeshes.push(bed, dDesk);
+    // Dormitório [58, 12] mantém cama & escrivaninha; prédio [50, 28] vira Estação de Monitoramento da Fauna & Flora!
+    if (dx === 50 && dz === 28) {
+      scene.add(dHeader, awning);
+      buildEcologyMonitoringStation(ctx, dx, dz);
+    } else {
+      var bed = makeBox(2.2, 0.55, 1.3, 0x3b82f6, { roughness: 0.7 });
+      bed.position.set(dx + 3.5, 0.42, dz - 2.5);
+      var dDesk = makeBox(1.8, 0.75, 0.9, 0xd97706, { roughness: 0.65 });
+      dDesk.position.set(dx + 3.5, 0.52, dz + 2.5);
+      scene.add(dHeader, awning, bed, dDesk);
+      ctx.solidColliders.push({ minX: dx + 2.3, maxX: dx + 4.7, minZ: dz - 3.2, maxZ: dz - 1.8, minY: 0, maxY: 0.69, surfaceTopY: 0.69 });
+      ctx.solidColliders.push({ minX: dx + 2.5, maxX: dx + 4.5, minZ: dz + 2.0, maxZ: dz + 3.0, minY: 0, maxY: 0.89, surfaceTopY: 0.89 });
+      var bedSurf = { minX: dx + 2.4, maxX: dx + 4.6, minZ: dz - 3.15, maxZ: dz - 1.85, topY: 0.695 };
+      var deskSurf = { minX: dx + 2.6, maxX: dx + 4.4, minZ: dz + 2.05, maxZ: dz + 2.95, topY: 0.895 };
+      ctx.supportSurfaces.push(bedSurf, deskSurf);
+      if (ctx.supportMeshes) {
+        bed.userData.supportSurface = bedSurf;
+        dDesk.userData.supportSurface = deskSurf;
+        ctx.supportMeshes.push(bed, dDesk);
+      }
     }
   });
 }

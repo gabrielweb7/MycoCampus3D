@@ -20,6 +20,7 @@ import {
 } from '../world/staircase-clock.js';
 import { stepConfetti } from '../entities/confetti.js';
 import { stepTripGnomes } from '../world/trip-gnomes.js';
+import { stepEcologyMonitoringStation } from '../world/ecology-station.js';
 import { stepUfoAbduction } from '../world/ufo-abduction.js';
 import { dropUnsupportedItems } from '../entities/placement-ghost.js';
 import { stepMultiplayerAvatars } from '../entities/avatars.js';
@@ -467,6 +468,7 @@ export function startAnimationLoop(ctx) {
       stepPets(ctx, dt);
       stepVillageTraffic(ctx, now);
       stepTripGnomes(ctx, dt);
+      stepEcologyMonitoringStation(ctx, dt);
       stepUfoAbduction(ctx, dt);
 
       simSlowAccumDt += dt;

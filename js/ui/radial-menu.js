@@ -49,6 +49,7 @@ let barEl = null;
 let styleInjected = false;
 let currentActions = [];
 let lastSignature = '';
+let mobileHold = null;
 const BOWL_ING_KEYS = {
   vermiculite: 'actions.radial.ing_vermiculite',
   coco: 'actions.radial.ing_coco',
@@ -1500,17 +1501,66 @@ function addMobilePrimaryAction(ctx, actions) {
     if (species) label = t('hud.harvest_aimed', { item: species });
   } else if (!ctx.heldItem && target?.label === prompt) {
     label = t('hud.pick_aimed', { item: prompt });
+    const pick = actions.findIndex(action => action.id === 'move_' + target.id);
+    if (pick >= 0) {
+      const action = actions.splice(pick, 1)[0];
+      actions.unshift({ ...action, label, primary: true });
+      return;
+    }
   }
+  const syringe = ctx.hoveredSyringeTarget;
+  const liquidPump = syringe?.mode === 'draw' ||
+    (syringe?.mode === 'inject' && syringe.item?.mesh?.userData.liquidCtrl && !syringe.item.spawnCtrl);
+  const hold = !isPlacing && !!ctx.heldItem && !!(
+    liquidPump || ctx.hoveredFillPot || ctx.hoveredPourTarget ||
+    ctx.hoveredSinkAction === 'fill' || ctx.hoveredBowlTarget ||
+    ctx.hoveredScalpelTarget?.mode === 'attach_blade_to_scalpel' || ctx.hoveredBoardHit
+  );
   actions.unshift({
     id: 'aim_primary_' + (target?.id || wildMushroom?.id || ctx.hoveredDoorObj?.id || ''),
     label,
     primary: true,
+    hold,
     run: () => handlePrimaryAction(ctx)
   });
 }
 
+function releaseMobileHold() {
+  if (!mobileHold) return;
+  const { ctx } = mobileHold;
+  mobileHold = null;
+  ctx.isPrimaryDown = false;
+  ctx.flushCurrentStroke?.();
+}
+
+function bindMobileHold(button, ctx, getAction) {
+  button.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || mobileHold) return;
+    const action = getAction();
+    if (!action) return;
+    mobileHold = { ctx, id: event.pointerId, x: event.clientX, y: event.clientY };
+    button.setPointerCapture(event.pointerId);
+    ctx.isPrimaryDown = true;
+    action.run();
+  });
+  button.addEventListener('pointermove', event => {
+    if (mobileHold?.id !== event.pointerId) return;
+    window.rotateCampusCamera?.(event.clientX - mobileHold.x, event.clientY - mobileHold.y);
+    mobileHold.x = event.clientX;
+    mobileHold.y = event.clientY;
+  });
+  const release = event => {
+    if (mobileHold?.id === event.pointerId) releaseMobileHold();
+  };
+  button.addEventListener('pointerup', release);
+  button.addEventListener('pointercancel', release);
+  button.addEventListener('lostpointercapture', release);
+}
+
 export function syncFloatingActions(ctx) {
   const touch = !!ctx?.isTouchDevice?.();
+  if (mobileHold && (!touch || !ctx.inFps || ctx.lobbyTourActive || ctx.inventory?.pending || !ctx.isPrimaryDown)) releaseMobileHold();
+  if (mobileHold) return;
   if (!ctx || !ctx.inFps || ctx.lobbyTourActive || (!touch && ctx.placementMode) || ctx.inventory?.pending) {
     if (barEl) barEl.classList.add('hidden');
     currentActions = [];
@@ -1532,7 +1582,8 @@ export function syncFloatingActions(ctx) {
     return;
   }
 
-  const sig = (touch ? 'touch:' : '') + actions.map(action => `${action.id}:${action.key || ''}:${touch ? action.label : ''}`).join('|');
+  const sig = (touch ? 'touch:' : '') + actions.map(action =>
+    `${action.id}:${action.key || ''}:${touch ? action.label : ''}:${Number(!!action.hold)}`).join('|');
   currentActions = actions;
   if (sig === lastSignature && barEl && !barEl.classList.contains('hidden')) return;
   lastSignature = sig;
@@ -1565,12 +1616,19 @@ export function syncFloatingActions(ctx) {
       chip.appendChild(key);
     }
     const label = document.createElement('span');
-    label.textContent = act.icon ? `${act.icon} ${act.label}` : act.label;
+    label.textContent = act.hold ? t('hud.hold_action', { action: act.label }) : (act.icon ? `${act.icon} ${act.label}` : act.label);
     chip.appendChild(label);
+    const getAction = () => {
+      const live = currentActions[idx];
+      return live?.id === act.id && (!touch || live.label === act.label) ? live : null;
+    };
+    if (act.hold) {
+      chip.classList.add('myco-context-hold');
+      bindMobileHold(chip, ctx, getAction);
+    }
     chip.addEventListener('click', function (ev) {
       ev.stopPropagation();
-      const live = currentActions[idx];
-      if (live?.id === act.id && (!touch || live.label === act.label)) live.run();
+      if (!act.hold) getAction()?.run();
     });
     if (hasPrimary && idx === 0) {
       chip.classList.add('myco-context-primary');

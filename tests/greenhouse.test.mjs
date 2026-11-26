@@ -628,6 +628,81 @@ test('10 Novas Mecânicas de Imersão: Break & Shake, Flambagem na Lamparina, Mi
   assert.ok(getLocalMycoCoins() >= coinsBefore + 120, 'NPC deve ter pago +120 MycoCoins');
 });
 
+test('Cesta Orgânica da Horta exibe verduras no Empório e braços do NPC comprador apontam para frente', async () => {
+  const {
+    roadStandState,
+    interactRoadsideStand,
+    stepRoadsideMushroomSales
+  } = await import('../js/items/dehydration-packaging.js');
+
+  roadStandState.availablePacks = 0;
+  roadStandState.speciesList = [];
+  roadStandState.gramsList = [];
+  roadStandState.itemKinds = [];
+  roadStandState.standPacksMeshes = Array.from({ length: 12 }, () => ({ visible: false }));
+  roadStandState.standVeggieMeshes = Array.from({ length: 12 }, () => ({ visible: false }));
+
+  const basketItem = {
+    id: 'organic_basket_test_veggie',
+    label: 'Cesta Orgânica da Horta',
+    organicBasketCtrl: { packsValue: 2 },
+    mesh: { position: { x: 0, y: 0, z: 0 }, parent: null }
+  };
+  const ctx = {
+    heldItem: basketItem,
+    pickableItems: [basketItem],
+    callbacks: { onToast() {}, onHoldChange() {} }
+  };
+
+  assert.equal(interactRoadsideStand(ctx), true);
+  assert.equal(roadStandState.availablePacks, 2);
+  assert.deepEqual(roadStandState.itemKinds, ['veggie', 'veggie']);
+  assert.equal(roadStandState.standVeggieMeshes[0].visible, true);
+  assert.equal(roadStandState.standVeggieMeshes[1].visible, true);
+  assert.equal(roadStandState.standPacksMeshes[0].visible, false);
+
+  const mkLimb = () => ({ rotation: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } } });
+  const heldPack = new Group();
+  const heldVeggie = new Group();
+  heldPack.visible = false;
+  heldVeggie.visible = false;
+  roadStandState.actor = {
+    carGroup: { position: { x: -48, y: 0.04, z: 39.5, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }, rotation: { y: 0 }, visible: false },
+    bodyMat: { color: { setHex: () => {} } },
+    npcGroup: { position: { x: 17.5, y: 0.04, z: 38.6, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }, rotation: { y: 0 }, visible: false },
+    shirtMat: { color: { setHex: () => {} } },
+    hatMat: { color: { setHex: () => {} } },
+    avatar: {
+      headGroup: mkLimb(),
+      torso: mkLimb(),
+      leftLeg: mkLimb(),
+      rightLeg: mkLimb(),
+      leftArm: mkLimb(),
+      rightArm: mkLimb()
+    },
+    heldPack,
+    heldVeggie,
+    carriedKind: 'mushroom',
+    cashGroup: { position: { y: 0 }, rotation: { y: 0 }, visible: false }
+  };
+  roadStandState.npcSpawnCooldown = 0.05;
+  roadStandState.activeNpcOrder = null;
+
+  let sawPositiveForwardCarry = false;
+  for (let s = 0; s < 320; s++) {
+    stepRoadsideMushroomSales(ctx, 0.1);
+    const phase = roadStandState.activeNpcOrder?.phase;
+    if (phase === 'walking_to_car') {
+      assert.equal(roadStandState.actor.heldVeggie.visible, true, 'NPC deve segurar a cestinha de verduras ao ir embora');
+      assert.equal(roadStandState.actor.heldPack.visible, false);
+      if (roadStandState.actor.avatar.leftArm.rotation.x > 0.7 && roadStandState.actor.avatar.rightArm.rotation.x > 0.7) {
+        sawPositiveForwardCarry = true;
+      }
+    }
+  }
+  assert.equal(sawPositiveForwardCarry, true, 'braços do NPC devem rotacionar positivamente para a frente (-Z) ao carregar compra');
+});
+
 test('Horta garden_plants serializa/restaura estágios e applySyncedBurnerTimer sincroniza contagem pelo servidor', async () => {
   const {
     serializeGardenPlants,

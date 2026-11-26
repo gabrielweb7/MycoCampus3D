@@ -362,6 +362,7 @@ var _tmpItemSurf = {
   topY: 0, centerX: 0, centerZ: 0, halfW: 0, halfD: 0, ry: 0
 };
 var _sortedGravityIndices = [];
+var _cookerContentSet = new Set();
 
 function buildItemTopSurface(item, outSurf) {
   var topOff = getItemSupportTopOffset(item);
@@ -851,6 +852,16 @@ export function dropUnsupportedItems(ctx) {
     return ya - yb;
   });
 
+  // Itens dentro de uma panela (base 4cm, potes) seguem a panela e NUNCA podem servir de apoio para ela
+  _cookerContentSet.clear();
+  for (var ccp = 0; ccp < cookerPots.length; ccp++) {
+    var ccContents = cookerPots[ccp] && cookerPots[ccp].contents;
+    if (!ccContents) continue;
+    for (var ccc = 0; ccc < ccContents.length; ccc++) {
+      if (ccContents[ccc]) _cookerContentSet.add(ccContents[ccc]);
+    }
+  }
+
   for (var sIdx = 0; sIdx < _sortedGravityIndices.length; sIdx++) {
     var idx = _sortedGravityIndices[sIdx];
     var item = pickableItems[idx];
@@ -937,10 +948,11 @@ export function dropUnsupportedItems(ctx) {
         if (sj === idx) continue;
         var sBase = pickableItems[sj];
         if (!sBase || sBase === heldItem || !sBase.mesh?.visible || sBase.crateParent || ctx.isHeldByRemote(sBase.id)) continue;
+        if (_cookerContentSet.has(sBase) || (sBase.isAttached && sBase.potItem)) continue;
         var sTopOff = getItemSupportTopOffset(sBase);
         if (sTopOff <= 0) continue;
         var sTopY = sBase.mesh.position.y + sTopOff;
-        if (item.mesh.position.y < sTopY - 0.12) continue;
+        if (item.mesh.position.y < sTopY - 0.04) continue;
         var sExt = getItemSupportHalfExtents(sBase);
         var sHalfW = Math.max(0.05, sExt.w * 0.5) + 0.08;
         var sHalfD = Math.max(0.05, sExt.d * 0.5) + 0.08;

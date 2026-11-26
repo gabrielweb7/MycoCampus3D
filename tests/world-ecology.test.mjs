@@ -33,8 +33,25 @@ const {
   stepCampusFlowers,
   interactFlower,
   getFlowerInspectInfo,
-  plantFlowerSeedAtSpot
+  plantFlowerSeedAtSpot,
+  findNearestHiveMountSpot,
+  createHiveAtSpot,
+  serializeBeehives,
+  serializeCampusFlowers,
+  applyBeeEcologyWorldState,
+  extinguishHiveColony,
+  startHiveMigration,
+  stepPastureBees,
+  makeStarterBeehiveItem,
+  makeBeeBaitItem,
+  getBeeEcologySummary
 } = await import('../js/entities/pasture-cows.js');
+const {
+  triggerRareBlackGnomeAppearance,
+  clearRareBlackGnomeForTest,
+  getRareBlackGnomeTelemetry
+} = await import('../js/world/trip-gnomes.js');
+const { collectEcologyTelemetrySnapshot } = await import('../js/world/ecology-station.js');
 const { SHOP_SUPPLIES } = await import('../js/ui/modal-shop.js');
 const { BURNER_TIMER_PRESETS, formatBurnerTimerLabel } = await import('../js/items/pressure-cooker.js');
 const { DEHYDRATOR_META } = await import('../js/items/dehydrator.js');
@@ -320,4 +337,127 @@ test('vaquinhas migram sem girar paradas perto da parede e escapam de zonas bloq
   const safePt = findSafePasturePoint(ctx, 0, PASTURE_TROUGH_POS);
   assert.equal(isCowPositionWalkable(ctx, safePt.x, safePt.z, 1.0), true);
   assert.equal(cow0.group, cow0.mesh);
+});
+
+test('colmeias e flores persistem em JSON, descansam no chão à noite e podem entrar em extinção', () => {
+  const queued = {};
+  const ctxA = {
+    beehives: [],
+    beehiveHitMeshes: [],
+    campusFlowers: [],
+    flowerHitMeshes: [],
+    pastureBees: [],
+    pickableItems: [],
+    playerPos: { x: 0, y: 0, z: 0 },
+    sunElevation: -0.35, // noite
+    callbacks: { onToast() {} },
+    queueWorldStateChange(k, v) { queued[k] = v; }
+  };
+
+  const eavesSpot = findNearestHiveMountSpot(ctxA, 0, 50);
+  assert.ok(eavesSpot);
+  assert.equal(eavesSpot.mountType, 'eaves');
+
+  const h1 = createHiveAtSpot(ctxA, 'hive_eaves_1', eavesSpot, { honeyLevel: 60, buildProgress: 1.0 });
+  const fl1 = createCampusFlower(ctxA, eavesSpot.x + 2, eavesSpot.z + 2, 2, { stage: 'blooming', pollen: 0.7 });
+  ctxA.campusFlowers.push(fl1);
+
+  const hivesJson = serializeBeehives(ctxA);
+  const flowersJson = serializeCampusFlowers(ctxA);
+  assert.ok(hivesJson.includes('hive_eaves_1'));
+  assert.ok(hivesJson.includes('"m":"eaves"'));
+
+  // Outro cliente restaura colmeias e flores exatamente a partir do stateMap
+  const ctxB = {
+    beehives: [],
+    beehiveHitMeshes: [],
+    campusFlowers: [],
+    flowerHitMeshes: [],
+    pastureBees: [],
+    pickableItems: [],
+    callbacks: { onToast() {} }
+  };
+  assert.equal(applyBeeEcologyWorldState(ctxB, { campus_beehives: hivesJson, campus_flowers: flowersJson }), true);
+  assert.equal(ctxB.beehives.length, 1);
+  assert.equal(ctxB.beehives[0].mountType, 'eaves');
+  assert.equal(ctxB.beehives[0].honeyLevel, 60);
+  assert.equal(ctxB.campusFlowers.length, 1);
+  assert.equal(Math.round(ctxB.campusFlowers[0].pollen * 100), 70);
+  assert.ok(ctxB.pastureBees.length >= 4, 'colmeia ativa restaurada deve ter rainha e operárias');
+
+  // Sem flores disponíveis e falhando migrações à noite -> descansa no chão e depois extingue
+  ctxB.campusFlowers.length = 0;
+  ctxB.sunElevation = -0.35;
+  ctxB.queueWorldStateChange = (k, v) => { queued[k] = v; };
+  ctxB.beehives[0].failedMigrations = 1;
+  assert.equal(startHiveMigration(ctxB, ctxB.beehives[0], true), false);
+  assert.equal(ctxB.beehives[0].groundResting, true);
+
+  for (let s = 0; s < 32; s++) {
+    stepPastureBees(ctxB, 1.0);
+  }
+  assert.equal(ctxB.beehives[0].extinct, true);
+  assert.equal(ctxB.beehives[0].abandoned, true);
+  assert.equal(ctxB.pastureBees.length, 0);
+  assert.equal(getBeeEcologySummary(ctxB).activeHives, 0);
+  assert.ok(queued.campus_beehives.includes('"ex":1'));
+
+  // Restaura mundo totalmente extinto em um terceiro cliente (0 abelhas ativas preservadas!)
+  const ctxC = { beehives: [], beehiveHitMeshes: [], campusFlowers: [], flowerHitMeshes: [], pastureBees: [], pickableItems: [] };
+  applyBeeEcologyWorldState(ctxC, { campus_beehives: queued.campus_beehives, campus_flowers: '[]' });
+  assert.equal(getBeeEcologySummary(ctxC).activeHives, 0);
+  assert.equal(ctxC.pastureBees.length, 0);
+});
+
+test('colmeia comprável no chão e isca migram rápido para árvore/beiral e Estação monitora Gnomo Preto Raro', () => {
+  const ctx = {
+    beehives: [],
+    beehiveHitMeshes: [],
+    campusFlowers: [],
+    flowerHitMeshes: [],
+    pastureBees: [],
+    pastureCows: [{ mesh: { position: { x: 70, z: 4 } }, health: 96, happyTimer: 1 }],
+    wildMushrooms: [{ active: true }],
+    pickableItems: [],
+    heldItem: null,
+    sunElevation: 0.4,
+    callbacks: { onToast() {} }
+  };
+
+  // Planta flores perto da vila e do ponto da isca para sustentar as colmeias
+  ctx.campusFlowers.push(createCampusFlower(ctx, 3, 56, 0, { stage: 'blooming', pollen: 1.0 }));
+  ctx.campusFlowers.push(createCampusFlower(ctx, 25, 27, 1, { stage: 'blooming', pollen: 1.0 }));
+
+  // Compra e coloca Colmeia Inicial perto dos beirais da vila (x=2, z=58)
+  const starter = makeStarterBeehiveItem(ctx, 'dyn_hive_starter_1', 2, 0, 58);
+  assert.equal(SHOP_SUPPLIES.some((s) => s.id === 'sup_beehive' && s.prefabId === 'beehive_starter'), true);
+  assert.equal(SHOP_SUPPLIES.some((s) => s.id === 'sup_bee_bait' && s.prefabId === 'bee_bait'), true);
+
+  for (let i = 0; i < 25; i++) stepPastureBees(ctx, 0.1);
+  assert.equal(starter.starterBeehiveCtrl.deployed, true);
+  assert.equal(ctx.beehives.length, 1);
+  assert.equal(ctx.beehives[0].mountType, 'eaves', 'deve migrar rapidamente para o beiral de casa mais próximo');
+  assert.ok(ctx.pastureBees.length >= 4);
+
+  // Isca colocada fora atrai novo enxame após tempo de espera
+  const bait = makeBeeBaitItem(ctx, 'dyn_bee_bait_1', 24.5, 0, 26.5);
+  for (let i = 0; i < 16; i++) stepPastureBees(ctx, 1.0);
+  assert.equal(bait.beeBaitCtrl.triggered, true);
+  assert.equal(getBeeEcologySummary(ctx).activeHives, 2);
+
+  // Estação Fauna & Flora + Gnomo Preto Estranho Solitário
+  clearRareBlackGnomeForTest();
+  let snap = collectEcologyTelemetrySnapshot(ctx);
+  assert.equal(snap.activeHives, 2);
+  assert.equal(snap.cowsCount, 1);
+  assert.equal(snap.gnome.active, false);
+
+  triggerRareBlackGnomeAppearance(ctx, 0);
+  const tel = getRareBlackGnomeTelemetry();
+  assert.equal(tel.active, true);
+  assert.ok(typeof tel.distToStation === 'number');
+  snap = collectEcologyTelemetrySnapshot(ctx);
+  assert.equal(snap.gnome.active, true);
+  assert.match(snap.gnome.sector, /Estação|Bosque|Corredor|Lateral|Mata/);
+  clearRareBlackGnomeForTest();
 });

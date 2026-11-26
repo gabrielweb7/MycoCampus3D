@@ -500,7 +500,6 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
-  const hasAimTarget = !!prompt;
   if (!prompt && ctx.heldItem) {
     for (let fi = 0; fi < ctx.pickableItems.length; fi++) {
       const fItem = ctx.pickableItems[fi];
@@ -912,6 +911,7 @@ export function updateHoverRay(ctx, customNdc) {
         : t('actions.hover.road_stand_empty');
     }
   }
+  const hasAimTarget = !!prompt;
   if (!prompt && ctx.heldItem) {
     const held = ctx.heldItem;
     const isTouch = ctx.isTouchDevice?.();
