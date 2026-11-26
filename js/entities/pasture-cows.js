@@ -10,6 +10,7 @@
 
 import { terrainHeight } from '../engine/physics.js';
 import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from '../items/item-registry.js';
+import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { isNaturalSoilSpot } from '../world/nature-plaza.js';
 import { triggerCozyHeartBurst } from '../world/cozy-details.js';
 import { firstUnoccludedRayHit } from '../systems/ray-occlusion.js';
@@ -1290,6 +1291,7 @@ function stepPastureBees(ctx, dt) {
       bee.stateTimer -= dt;
       if (bee.targetFlower) {
         bee.group.position.y = bee.targetFlower.y + 0.14 + Math.sin(nowSec * 14) * 0.04;
+        bee.group.rotation.y += dt * 4.2;
       }
       if (bee.stateTimer <= 0) {
         if (bee.targetFlower) {
@@ -1309,6 +1311,7 @@ function stepPastureBees(ctx, dt) {
       if (d < 0.35) {
         bee.hasPollen = false;
         hive.honeyLevel = Math.min(100, (hive.honeyLevel || 0) + 12);
+        if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: hive.x, y: hive.y, z: hive.z }, 0xfacc15, 5);
         bee.targetFlower = null;
         bee.state = 'to_flower';
       } else {
