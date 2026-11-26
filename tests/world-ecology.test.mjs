@@ -47,6 +47,8 @@ const {
   getBeeEcologySummary
 } = await import('../js/entities/pasture-cows.js');
 const { separateHiveBees } = await import('../js/entities/bee-navigation.js');
+const { findHoveredBeehive, getBeehiveHoverPrompt, interactBeehive } = await import('../js/entities/bee-ecology.js');
+const { findHoveredFlower } = await import('../js/world/campus-flowers.js');
 const { updateCelestialSkyDome } = await import('../js/engine/sky-constellations.js');
 const {
   triggerRareBlackGnomeAppearance,
@@ -174,6 +176,57 @@ test('abelhas não atravessam obstáculos ao se separar nem ao tentar subir em u
   moveBeeSafely(ctx, nearWall, 5, 2, 0, 3, 0.1);
   const { x, y, z } = nearWall.group.position;
   assert.equal(isBeeBlockedAt3D(ctx, x, y, z, 0.15), false);
+});
+
+test('mira ignora colmeias invisíveis e flores murchando para alcançar alvos válidos atrás', () => {
+  const hiddenHive = { group: { visible: false } };
+  const visibleHive = { group: { visible: true } };
+  const wiltedFlower = { stage: 'wilting' };
+  const liveFlower = { stage: 'seeding' };
+  const mesh = (key, value) => ({ userData: { [key]: value } });
+  const ctx = {
+    beehiveHitMeshes: [mesh('hiveObj', hiddenHive), mesh('hiveObj', visibleHive)],
+    flowerHitMeshes: [mesh('flowerObj', wiltedFlower), mesh('flowerObj', liveFlower)]
+  };
+  const raycaster = {
+    intersectObjects: (objects) => objects.map((object, i) => ({ object, distance: 1 + i }))
+  };
+  assert.equal(findHoveredBeehive(raycaster, ctx), visibleHive);
+  assert.equal(ctx.hoverHit.distance, 2);
+  assert.equal(findHoveredFlower(raycaster, ctx), liveFlower);
+  assert.equal(ctx.hoverHit.distance, 2);
+});
+
+test('colher mel preserva a colmeia com recipiente cheio e exibe a quantidade que coube', () => {
+  const messages = [];
+  const synced = [];
+  const hive = { honeyLevel: 80, buildProgress: 1 };
+  const liquidCtrl = { maxMl: 800, volMl: 800 };
+  const heldItem = { mesh: { userData: { liquidCtrl } } };
+  const ctx = {
+    heldItem,
+    callbacks: { onToast: (message) => messages.push(message) },
+    queueItemStateSync: (item) => synced.push(item)
+  };
+  assert.match(getBeehiveHoverPrompt(hive, heldItem), /cheio/i);
+  assert.equal(interactBeehive(ctx, hive), true);
+  assert.equal(hive.honeyLevel, 80);
+  assert.equal(synced.length, 0);
+
+  liquidCtrl.volMl = 775;
+  assert.equal(interactBeehive(ctx, hive), true);
+  assert.equal(liquidCtrl.volMl, 800);
+  assert.equal(hive.honeyLevel, 45);
+  assert.match(messages.at(-1), /\+25ml/);
+  assert.deepEqual(synced, [heldItem]);
+
+  ctx.heldItem = { lcNutrientCtrl: { remainingGrams: 250, maxGrams: 250 } };
+  assert.equal(interactBeehive(ctx, hive), true);
+  assert.equal(hive.honeyLevel, 45);
+  ctx.heldItem.lcNutrientCtrl.remainingGrams = 230;
+  assert.equal(interactBeehive(ctx, hive), true);
+  assert.equal(ctx.heldItem.lcNutrientCtrl.remainingGrams, 250);
+  assert.match(messages.at(-1), /\+20g/);
 });
 
 test('ciclo de pólen (10% por visita), dispersão de sementes, colheita e plantio funcionam', () => {

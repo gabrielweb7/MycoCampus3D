@@ -417,17 +417,21 @@ export function makeFlowerSeedPacket(ctx, id, x, y, z, opts = {}) {
   return item;
 }
 
+const flowerRayOptions = {
+  checkWalls: true,
+  acceptHit(hit) {
+    const flower = hit.object?.userData?.flowerObj;
+    return !!flower && !flower.removed && flower.stage !== 'wilting';
+  }
+};
+
 export function findHoveredFlower(raycaster, ctx) {
   if (!raycaster || !ctx || !ctx.flowerHitMeshes || !ctx.flowerHitMeshes.length) return null;
   const hits = raycaster.intersectObjects(ctx.flowerHitMeshes, false);
-  const hit = firstUnoccludedRayHit(ctx, hits, 4.2, { checkWalls: true });
-  if (hit && hit.object && hit.object.userData && hit.object.userData.flowerObj) {
-    const fl = hit.object.userData.flowerObj;
-    if (fl.removed || fl.stage === 'wilting') return null;
-    ctx.hoverHit = hit;
-    return fl;
-  }
-  return null;
+  const hit = firstUnoccludedRayHit(ctx, hits, 4.2, flowerRayOptions);
+  if (!hit) return null;
+  ctx.hoverHit = hit;
+  return hit.object.userData.flowerObj;
 }
 
 export function getFlowerHoverPrompt(fl, held) {

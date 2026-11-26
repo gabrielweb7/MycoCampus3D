@@ -843,17 +843,29 @@ function isHoneyContainer(held) {
   return false;
 }
 
+function getHoneyContainerSpace(held) {
+  const nutrient = held.lcNutrientCtrl;
+  if (nutrient) return (nutrient.maxGrams || 250) - (nutrient.remainingGrams || 0);
+  const liquid = held.mesh?.userData?.liquidCtrl;
+  if (liquid && !held.spawnCtrl) return (liquid.maxMl || 800) - (liquid.volMl || 0);
+  return Infinity;
+}
+
+const hiveRayOptions = {
+  checkWalls: true,
+  acceptHit(hit) {
+    const hive = hit.object?.userData?.hiveObj;
+    return !!hive && !hive.collected && hive.group?.visible !== false;
+  }
+};
+
 export function findHoveredBeehive(raycaster, ctx) {
   if (!raycaster || !ctx || !ctx.beehiveHitMeshes || !ctx.beehiveHitMeshes.length) return null;
   const hits = raycaster.intersectObjects(ctx.beehiveHitMeshes, false);
-  const hit = firstUnoccludedRayHit(ctx, hits, 5.5, { checkWalls: true });
-  if (hit && hit.object && hit.object.userData && hit.object.userData.hiveObj) {
-    const hive = hit.object.userData.hiveObj;
-    if (hive.collected) return null;
-    ctx.hoverHit = hit;
-    return hive;
-  }
-  return null;
+  const hit = firstUnoccludedRayHit(ctx, hits, 5.5, hiveRayOptions);
+  if (!hit) return null;
+  ctx.hoverHit = hit;
+  return hit.object.userData.hiveObj;
 }
 
 export function getBeehiveHoverPrompt(hive, held) {
@@ -870,6 +882,7 @@ export function getBeehiveHoverPrompt(hive, held) {
   }
   const honeyPct = Math.round(hive.honeyLevel || 0);
   if (honeyPct >= 35 && isHoneyContainer(held)) {
+    if (getHoneyContainerSpace(held) <= 0) return '🍯 Recipiente cheio';
     return `🍯 Colher Mel Natural (Colmeia: ${honeyPct}%)`;
   }
   return `🐝 Colmeia (Mel: ${honeyPct}%)`;
@@ -965,16 +978,22 @@ export function interactBeehive(ctx, hive) {
     onToast?.('🍯 Segure um frasco de Cultura Líquida, Béquer, Nutriente CL ou Pote vazio para colher Mel!');
     return true;
   }
+  const space = getHoneyContainerSpace(held);
+  if (space <= 0) {
+    onToast?.('🍯 O recipiente está cheio.');
+    return true;
+  }
 
   if (held.lcNutrientCtrl) {
-    const maxG = held.lcNutrientCtrl.maxGrams || 250;
-    held.lcNutrientCtrl.remainingGrams = Math.min(maxG, (held.lcNutrientCtrl.remainingGrams || 0) + 50);
+    const added = Math.min(50, space);
+    held.lcNutrientCtrl.remainingGrams = (held.lcNutrientCtrl.remainingGrams || 0) + added;
     updateLcNutrientLabel(held);
     ctx.callbacks?.onHoldChange?.(held.label);
-    onToast?.('🍯 Mel Natural adicionado ao frasco de Nutriente CL! (+50g)');
+    onToast?.(`🍯 Mel Natural adicionado ao frasco (+${added}g).`);
   } else if (held.mesh && held.mesh.userData && held.mesh.userData.liquidCtrl && !held.spawnCtrl) {
     const lc = held.mesh.userData.liquidCtrl;
-    const nextMl = Math.min(lc.maxMl || 800, (lc.volMl || 0) + 100);
+    const previousMl = lc.volMl || 0;
+    const nextMl = previousMl + Math.min(100, space);
     if (held.setVolume) held.setVolume(nextMl);
     else lc.volMl = nextMl;
     if (held.cultureCtrl) {
@@ -987,7 +1006,8 @@ export function interactBeehive(ctx, hive) {
       held.label = `${lc.baseLabel || 'Recipiente'} (${Math.round(lc.volMl)}ml • 🍯 Mel Natural)`;
     }
     ctx.callbacks?.onHoldChange?.(held.label);
-    onToast?.('🍯 Mel Natural colhido! (+100ml de nutriente pronto para Cultura Líquida)');
+    const added = Math.round((lc.volMl - previousMl) * 10) / 10;
+    onToast?.(`🍯 Mel Natural colhido (+${added}ml).`);
   } else if (held.spawnCtrl && !held.spawnCtrl.filled && !held.spawnCtrl.isBag) {
     held.lcNutrientCtrl = { remainingGrams: 120, maxGrams: 250, isNaturalHoney: true };
     held.label = '🍯 Pote com Mel Natural (120g • Nutriente CL 4%)';
@@ -1000,6 +1020,7 @@ export function interactBeehive(ctx, hive) {
   }
 
   hive.honeyLevel = Math.max(0, (hive.honeyLevel || 0) - 35);
+  ctx.queueItemStateSync?.(held);
   triggerCozyHeartBurst(hive.x, hive.y + 0.35, hive.z, 0xfacc15);
   queueBeeEcologySync(ctx, true);
   return true;
