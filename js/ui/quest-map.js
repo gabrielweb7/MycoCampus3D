@@ -10,6 +10,7 @@ import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
 import { ACHIEVEMENTS, getUnlockedAchievements } from '../core/achievements.js';
 import { CULTIVATION_TRACKS, calculateRealWorldRecipe } from '../core/cultivation-tracks.js';
 import { VILLAGE_ENTRY } from '../core/village-layout.js';
+import { FOREST_ENTRY, MOUNTAIN_ENTRY } from '../core/campus-route-layout.js';
 import { renderVillageRentals } from './village-rentals.js';
 
 export const CAMPUS_SECTORS = [
@@ -22,8 +23,11 @@ export const CAMPUS_SECTORS = [
   { id: 'village', icon: '🏡', nameKey: 'map.village', descKey: 'map.village_desc', ...VILLAGE_ENTRY },
   { id: 'cinema', icon: '🎬', get name() { return t('misc.quest.sector_cinema_name'); }, get desc() { return t('misc.quest.sector_cinema_desc'); }, x: 48, y: 0.14, z: -6.5, yaw: 0 },
   { id: 'sports', icon: '⚽', get name() { return t('misc.quest.sector_sports_name'); }, get desc() { return t('misc.quest.sector_sports_desc'); }, x: -36, y: 0, z: -15, yaw: Math.PI / 2 },
-  { id: 'forest', icon: '🌲', get name() { return t('misc.quest.sector_forest_name'); }, get desc() { return t('misc.quest.sector_forest_desc'); }, x: 0, y: 0, z: -24, yaw: 0 },
-  { id: 'mountain', icon: '🏔️', get name() { return t('misc.quest.sector_mountain_name'); }, get desc() { return t('misc.quest.sector_mountain_desc'); }, x: 0, y: 28.5, z: -158, yaw: Math.PI }
+  { id: 'forest', icon: '🌲', nameKey: 'misc.quest.sector_forest_name', descKey: 'misc.quest.sector_forest_desc', ...FOREST_ENTRY },
+  { id: 'lake', icon: '🌉', nameKey: 'map.route_lake', descKey: 'map.route_lake_desc', x: 0, y: 0.02, z: 18.6, yaw: Math.PI },
+  { id: 'garden', icon: '🥬', nameKey: 'map.route_garden', descKey: 'map.route_garden_desc', x: 20, y: 0.02, z: 20.35, yaw: 0 },
+  { id: 'ecology', icon: '🌿', nameKey: 'map.route_ecology', descKey: 'map.route_ecology_desc', x: 46, y: 0, z: 34.7, yaw: 0 },
+  { id: 'mountain', icon: '🏔️', nameKey: 'misc.quest.sector_mountain_name', descKey: 'misc.quest.sector_mountain_desc', ...MOUNTAIN_ENTRY }
 ];
 
 export const LAB_QUEST_STEPS = [

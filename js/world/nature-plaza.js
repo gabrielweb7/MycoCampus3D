@@ -5,6 +5,7 @@ import { makeBox, getTextures, getGroundTextures } from '../engine/textures.js';
 import { terrainHeight } from '../engine/physics.js';
 import { villageDistance } from '../core/village-layout.js';
 import { createMushroomMeshBySpeciesName } from './mushroom-species.js';
+import { buildCampusRoutes, isOverCampusRoute } from './campus-routes.js';
 
 const THREE = window.THREE;
 const LITE_FLORA = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -78,13 +79,28 @@ export function buildNatureWorld(ctx) {
   scene.add(terrain);
   if (ctx.setTerrainSnowMat) ctx.setTerrainSnowMat(terrainSnowMat);
 
+  // Match the rendered terrain triangles, including the lower-detail mobile grid.
+  const terrainStep = size / segs;
+  buildCampusRoutes(scene, (x, z) => {
+    const gx = (x + size / 2) / terrainStep;
+    const gz = (z + size / 2) / terrainStep;
+    const col = Math.floor(gx);
+    const row = Math.floor(gz);
+    const a = row * (segs + 1) + col;
+    const b = a + segs + 1;
+    const u = gx - col;
+    const v = gz - row;
+    if (u + v <= 1) return pos.getY(a) * (1 - u - v) + pos.getY(a + 1) * u + pos.getY(b) * v;
+    return pos.getY(b + 1) * (u + v - 1) + pos.getY(a + 1) * (1 - v) + pos.getY(b) * (1 - u);
+  });
+
   const treePositions = [];
   for (let idx = 0; idx < 420; idx++) {
     const ang = idx * 2.39996;
     const rad = 64 + Math.sqrt(idx / 420) * 95;
     const tx = Math.cos(ang) * rad;
     const tz = Math.sin(ang) * rad * 0.85;
-    if (!isNaturalSoilSpot(tx, tz, 2.2)) continue;
+    if (!isNaturalSoilSpot(tx, tz, 2.2) || isOverCampusRoute(tx, tz, 0.7)) continue;
     treePositions.push({ x: tx, y: terrainHeight(tx, tz), z: tz, s: 0.85 + (idx % 5) * 0.18 });
   }
   const extraTrees = [
@@ -92,8 +108,19 @@ export function buildNatureWorld(ctx) {
     [-28, 30], [26, 28], [-70, -8], [72, 18], [68, -22], [-68, 22], [70, 30]
   ];
   extraTrees.forEach((et, k) => {
-    if (!isNaturalSoilSpot(et[0], et[1], 1.8)) return;
+    if (!isNaturalSoilSpot(et[0], et[1], 1.8) || isOverCampusRoute(et[0], et[1], 0.7)) return;
     treePositions.push({ x: et[0], y: terrainHeight(et[0], et[1]), z: et[1], s: 0.95 + (k % 3) * 0.15 });
+  });
+  const grove = [
+    [-30.1, -50.1, 1.28], [-25.1, -46.3, 1.22], [-24.5, -55.6, 1.12], [-19.8, -49.4, 1.27],
+    [-16.2, -49.5, 0.91], [-13.6, -51.1, 1.16], [-14.4, -56.4, 0.95], [-8.6, -55.1, 1.38],
+    [-10.3, -61.9, 1.07], [-14.2, -66.8, 1.18], [-20.5, -68.3, 0.97], [-24.8, -66.6, 1.36],
+    [-27.9, -58.2, 1.26], [-34.9, -54.8, 1.17], [-35.6, -50.1, 1.28], [-23, -58.6, 1.03]
+  ];
+  grove.forEach(([x, z, s], i) => {
+    if (!isNaturalSoilSpot(x, z, 0.75) || isOverCampusRoute(x, z, 0.77)) return;
+    if (treePositions.some(tree => Math.hypot(tree.x - x, tree.z - z) < 1.8)) return;
+    treePositions.push({ x, y: terrainHeight(x, z), z, s, grove: true, isPine: i % 4 === 3 });
   });
 
   buildForestSectors(scene, solidColliders, treePositions);
@@ -140,7 +167,7 @@ function buildForestSectors(scene, solidColliders, treePositions) {
       sector = { trees: [], pines: 0 };
       sectors.set(key, sector);
     }
-    const isPine = i % 5 !== 0;
+    const isPine = tree.isPine ?? i % 5 !== 0;
     sector.trees.push({ ...tree, i, isPine });
     sector.pines += Number(isPine);
   }
@@ -149,7 +176,7 @@ function buildForestSectors(scene, solidColliders, treePositions) {
   const pineGeo = new THREE.ConeGeometry(1, 1, LITE_FLORA ? 7 : 9);
   const crownGeo = new THREE.IcosahedronGeometry(1, LITE_FLORA ? 0 : 1);
   const trunkMat = new THREE.MeshStandardMaterial({ map: getTextures().texBark, color: 0xffffff, roughness: 0.9 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, flatShading: true });
   const dummy = new THREE.Object3D();
   const color = new THREE.Color();
   const layers = [0x1b7750, 0x259451, 0x389f55, 0x4cab63];
@@ -172,7 +199,7 @@ function buildForestSectors(scene, solidColliders, treePositions) {
     let pineIdx = 0;
     let crownIdx = 0;
     for (let trunkIdx = 0; trunkIdx < trees.length; trunkIdx++) {
-      const { x, y, z, s, i, isPine } = trees[trunkIdx];
+      const { x, y, z, s, i, isPine, grove } = trees[trunkIdx];
       const yaw = (i * 1.618) % (Math.PI * 2);
       const trunkWidth = s * (isPine ? 0.9 : 1.08);
       dummy.rotation.set(0, yaw, 0);
@@ -203,7 +230,8 @@ function buildForestSectors(scene, solidColliders, treePositions) {
           dummy.scale.set(radius * s, radius * 0.82 * s, radius * s);
           dummy.updateMatrix();
           crowns.setMatrixAt(crownIdx, dummy.matrix);
-          color.setHex(ci % 2 ? 0x62c55c : (i % 10 === 0 ? 0xf2b84b : 0x35a854));
+          color.setHex(grove ? (ci % 2 ? 0x8aa04a : 0x587437) :
+            (ci % 2 ? 0x62c55c : (i % 10 === 0 ? 0xf2b84b : 0x35a854)));
           crowns.setColorAt(crownIdx++, color);
         }
       }

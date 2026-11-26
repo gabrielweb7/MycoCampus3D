@@ -212,8 +212,9 @@ export function createCelestialSkyDome(scene) {
   const conStarGeo = new THREE.BufferGeometry();
   conStarGeo.setAttribute('position', new THREE.Float32BufferAttribute(cStarsPos, 3));
   conStarGeo.setAttribute('color', new THREE.Float32BufferAttribute(cStarsCol, 3));
+  const baseConSize = starSpriteTex ? 6.6 : 3.0;
   const conStarMat = new THREE.PointsMaterial({
-    size: starSpriteTex ? 5.8 : 2.6,
+    size: baseConSize,
     map: starSpriteTex || null,
     vertexColors: true,
     transparent: true,
@@ -223,6 +224,7 @@ export function createCelestialSkyDome(scene) {
     fog: false
   });
   const conStars = new THREE.Points(conStarGeo, conStarMat);
+  conStars.frustumCulled = false;
 
   const conLineGeo = new THREE.BufferGeometry();
   conLineGeo.setAttribute('position', new THREE.Float32BufferAttribute(cLinePos, 3));
@@ -235,12 +237,13 @@ export function createCelestialSkyDome(scene) {
     fog: false
   });
   const conLines = new THREE.LineSegments(conLineGeo, conLineMat);
+  conLines.frustumCulled = false;
 
-  // Campo natural e orgânico de estrelas de fundo (PRNG determinístico independente — sem arcos/círculos artificiais)
-  const bgCount = 260;
+  // Campo natural e orgânico de estrelas de fundo (PRNG determinístico + tons pastéis nostálgicos)
+  const bgCount = 340;
   const bgPos = new Float32Array(bgCount * 3);
   const bgCol = new Float32Array(bgCount * 3);
-  const bgPalette = [0xf8fafc, 0xdbeafe, 0xfef3c7, 0xfed7aa, 0xe0f2fe];
+  const bgPalette = [0xf8fafc, 0xdbeafe, 0xfef3c7, 0xfed7aa, 0xe9d5ff, 0xa5f3fc];
   let rngState = 0x9e3779b9;
   const nextRand = () => {
     rngState = (rngState + 0x6d2b79f5) | 0;
@@ -252,12 +255,12 @@ export function createCelestialSkyDome(scene) {
     const sTheta = nextRand() * Math.PI * 2;
     const sinPhi = 0.08 + nextRand() * 0.90;
     const cosPhi = Math.sqrt(Math.max(0, 1 - sinPhi * sinPhi));
-    const dist = 214;
+    const dist = 202;
     bgPos[st * 3] = Math.cos(sTheta) * cosPhi * dist;
-    bgPos[st * 3 + 1] = sinPhi * dist + 14;
+    bgPos[st * 3 + 1] = sinPhi * dist + 10;
     bgPos[st * 3 + 2] = Math.sin(sTheta) * cosPhi * dist;
     tmpColor.setHex(bgPalette[Math.floor(nextRand() * bgPalette.length)]);
-    const lum = 0.28 + Math.pow(nextRand(), 1.6) * 0.62;
+    const lum = 0.42 + Math.pow(nextRand(), 1.4) * 0.58;
     bgCol[st * 3] = tmpColor.r * lum;
     bgCol[st * 3 + 1] = tmpColor.g * lum;
     bgCol[st * 3 + 2] = tmpColor.b * lum;
@@ -265,16 +268,19 @@ export function createCelestialSkyDome(scene) {
   const bgGeo = new THREE.BufferGeometry();
   bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
   bgGeo.setAttribute('color', new THREE.BufferAttribute(bgCol, 3));
+  const baseBgSize = starSpriteTex ? 2.1 : 1.15;
   const bgMat = new THREE.PointsMaterial({
-    size: starSpriteTex ? 1.55 : 0.95,
+    size: baseBgSize,
     map: starSpriteTex || null,
     vertexColors: true,
     transparent: true,
     opacity: 0,
+    blending: THREE.AdditiveBlending,
     depthWrite: false,
     fog: false
   });
   const bgStars = new THREE.Points(bgGeo, bgMat);
+  bgStars.frustumCulled = false;
 
   // Pool de estrelas cadentes no ceu noturno
   const meteors = [];
@@ -309,8 +315,10 @@ export function createCelestialSkyDome(scene) {
     group: domeGroup,
     bgStars,
     bgMat,
+    baseBgSize,
     conStars,
     conStarMat,
+    baseConSize,
     conLines,
     conLineMat,
     labelMats,
@@ -319,19 +327,36 @@ export function createCelestialSkyDome(scene) {
   };
 }
 
-export function updateCelestialSkyDome(dome, dayFrac, sunY, weatherMode, elapsedTime) {
+export function updateCelestialSkyDome(dome, dayFrac, sunY, weatherMode, elapsedTime, skyOrigin = null, cameraFar = 220) {
   if (!dome || !dome.group) return;
   const nowT = elapsedTime || 0;
   const dt = (typeof dome.lastElapsed === 'number') ? Math.max(0, Math.min(0.1, nowT - dome.lastElapsed)) : 0.016;
   dome.lastElapsed = nowT;
 
-  const skyMul = weatherMode === 'rain' ? 0.12 : (weatherMode === 'overcast' ? 0.25 : (weatherMode === 'snow' ? 0.55 : 1.0));
-  const nightVis = Math.max(0, Math.min(1, (-sunY + 0.04) * 2.8)) * skyMul;
+  // Escala e centraliza o domo celeste estritamente dentro de camera.far (garante estrelas visíveis até em Mobile low/min!)
+  const skyRadius = Math.max(58, Math.min(200, (Number(cameraFar) || 220) - 10));
+  const skyScale = skyRadius / 205;
+  if (skyOrigin && dome.group.position && dome.group.position.set) {
+    dome.group.position.set(skyOrigin.x, skyOrigin.y, skyOrigin.z);
+  }
+  if (dome.group.scale && dome.group.scale.setScalar) {
+    dome.group.scale.setScalar(skyScale);
+  }
+  const starSizeBoost = skyScale < 0.8 ? 1.25 : 1.0;
+  if (dome.baseBgSize && dome.bgMat) dome.bgMat.size = dome.baseBgSize * skyScale * starSizeBoost;
+  if (dome.baseConSize && dome.conStarMat) dome.conStarMat.size = dome.baseConSize * skyScale * starSizeBoost;
+
+  const skyMul = weatherMode === 'rain' ? 0.16 : (weatherMode === 'overcast' ? 0.30 : (weatherMode === 'snow' ? 0.65 : 1.0));
+  const nightVis = Math.max(0, Math.min(1, (-sunY + 0.08) * 3.0)) * skyMul;
   const visible = nightVis > 0.02;
   dome.group.visible = visible;
 
-  // Atualiza estrelas cadentes (desativadas durante o dia)
+  // Atualiza estrelas cadentes centralizadas no observador (visíveis no Mobile e PC)
   if (dome.meteors) {
+    const ox = skyOrigin ? (skyOrigin.x || 0) : 0;
+    const oy = skyOrigin ? (skyOrigin.y || 0) : 0;
+    const oz = skyOrigin ? (skyOrigin.z || 0) : 0;
+    const mRad = skyRadius * 0.82;
     for (let i = 0; i < dome.meteors.length; i++) {
       const m = dome.meteors[i];
       if (!visible || nightVis < 0.25) {
@@ -347,13 +372,13 @@ export function updateCelestialSkyDome(dome, dayFrac, sunY, weatherMode, elapsed
           m.duration = 0.85 + Math.random() * 0.55;
           m.cooldown = 4.5 + Math.random() * 6.5;
           const a = Math.random() * Math.PI * 2;
-          m.sx = Math.cos(a) * 165;
-          m.sy = 95 + Math.random() * 55;
-          m.sz = Math.sin(a) * 165;
+          m.sx = ox + Math.cos(a) * mRad;
+          m.sy = oy + skyRadius * (0.48 + Math.random() * 0.28);
+          m.sz = oz + Math.sin(a) * mRad;
           const tangent = a + (Math.random() > 0.5 ? 1.25 : -1.25);
-          m.vx = Math.cos(tangent) * 125;
-          m.vy = -(35 + Math.random() * 30);
-          m.vz = Math.sin(tangent) * 125;
+          m.vx = Math.cos(tangent) * (skyRadius * 0.62);
+          m.vy = -(skyRadius * (0.18 + Math.random() * 0.16));
+          m.vz = Math.sin(tangent) * (skyRadius * 0.62);
           m.line.visible = true;
         }
       } else {
@@ -387,10 +412,10 @@ export function updateCelestialSkyDome(dome, dayFrac, sunY, weatherMode, elapsed
   dome.group.rotation.y = (dayFrac * Math.PI * 2) + nowT * 0.004;
   dome.group.rotation.z = 0.12;
 
-  const twinkle = 0.90 + Math.sin(nowT * 2.2) * 0.10;
-  dome.bgMat.opacity = Math.min(0.92, nightVis * 0.88);
+  const twinkle = 0.88 + Math.sin(nowT * 2.4) * 0.12;
+  dome.bgMat.opacity = Math.min(0.96, nightVis * 0.94);
   dome.conStarMat.opacity = Math.min(1.0, nightVis * twinkle);
-  dome.conLineMat.opacity = Math.min(0.32, nightVis * 0.30);
+  dome.conLineMat.opacity = Math.min(0.36, nightVis * 0.34);
   if (dome.labelMats) {
     const lblOp = Math.min(0.68, nightVis * 0.65);
     for (let li = 0; li < dome.labelMats.length; li++) {

@@ -12,28 +12,28 @@ const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThi
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
 const _Obj3DCtor = THREE && THREE.Object3D ? THREE.Object3D : null;
 
-const _cSkyDay = _ColorCtor ? new _ColorCtor(0x38bdf8) : null;
+const _cSkyDay = _ColorCtor ? new _ColorCtor(0x52c8fa) : null;
 const _cSkySunset = _ColorCtor ? new _ColorCtor(0xf97316) : null;
-const _cSkyNight = _ColorCtor ? new _ColorCtor(0x05091a) : null;
+const _cSkyNight = _ColorCtor ? new _ColorCtor(0x0b102b) : null;
 const _cSkyWork = _ColorCtor ? new _ColorCtor() : null;
 const _cPartly = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
 const _cOvercast = _ColorCtor ? new _ColorCtor(0x94a3b8) : null;
 const _cRain = _ColorCtor ? new _ColorCtor(0x475569) : null;
 const _cSnow = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
-const _cSunDay = _ColorCtor ? new _ColorCtor(0xfff3df) : null;
+const _cSunDay = _ColorCtor ? new _ColorCtor(0xfff1d2) : null;
 const _cSunSet = _ColorCtor ? new _ColorCtor(0xfb923c) : null;
-const _cSunNight = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
+const _cSunNight = _ColorCtor ? new _ColorCtor(0xa5b4fc) : null;
 const _cCloudRain = _ColorCtor ? new _ColorCtor(0x64748b) : null;
 const _cCloudOvercast = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
 const _cCloudWhite = _ColorCtor ? new _ColorCtor(0xffffff) : null;
 const _cSunSunsetGlow = _ColorCtor ? new _ColorCtor(0xfdba74) : null;
 const _cSnowWhite = _ColorCtor ? new _ColorCtor(0xf1f5f9) : null;
-const _cHemiSkyDay = _ColorCtor ? new _ColorCtor(0xd9f4ff) : null;
+const _cHemiSkyDay = _ColorCtor ? new _ColorCtor(0xe0f7ff) : null;
 const _cHemiSkySet = _ColorCtor ? new _ColorCtor(0xfed7aa) : null;
-const _cHemiSkyNight = _ColorCtor ? new _ColorCtor(0x60a5fa) : null;
-const _cHemiGndDay = _ColorCtor ? new _ColorCtor(0x548455) : null;
-const _cHemiGndSet = _ColorCtor ? new _ColorCtor(0x5b4668) : null;
-const _cHemiGndNight = _ColorCtor ? new _ColorCtor(0x1e293b) : null;
+const _cHemiSkyNight = _ColorCtor ? new _ColorCtor(0x818cf8) : null;
+const _cHemiGndDay = _ColorCtor ? new _ColorCtor(0x5a8e58) : null;
+const _cHemiGndSet = _ColorCtor ? new _ColorCtor(0x6e477c) : null;
+const _cHemiGndNight = _ColorCtor ? new _ColorCtor(0x241e42) : null;
 const _cloudDummy = _Obj3DCtor ? new _Obj3DCtor() : null;
 
 let lastSnowMix = -1;
@@ -120,30 +120,48 @@ export function updateDynamicEnvironment(dt, env) {
   if (wb.snow > 0.005) skyCol.lerp(_cSnow, 0.5 * wb.snow);
   env.scene.background.copy(skyCol);
   if (env.scene.fog) env.scene.fog.color.copy(skyCol);
+  const skyOrigin = env.inFps ? env.playerPos : (env.camera ? env.camera.position : env.playerPos);
+  const cameraFar = (env.camera && typeof env.camera.far === 'number') ? env.camera.far : 220;
+  const skyRadius = Math.max(58, Math.min(200, cameraFar - 10));
+  const celestialDist = skyRadius * 0.90;
+  const celestialScale = celestialDist / 170;
+  const ox = skyOrigin ? (skyOrigin.x || 0) : 0;
+  const oy = skyOrigin ? (skyOrigin.y || 0) : 0;
+  const oz = skyOrigin ? (skyOrigin.z || 0) : 0;
+
   if (env.skyGradient) {
-    const skyOrigin = env.inFps ? env.playerPos : (env.camera ? env.camera.position : env.playerPos);
-    stepSkyGradientDome(env.skyGradient, skyOrigin, sunX, sunY, weatherMode, wb);
+    stepSkyGradientDome(env.skyGradient, skyOrigin, sunX, sunY, weatherMode, wb, env.envTime);
   }
 
   if (env.sunDisc && env.sunHalo) {
-    env.sunDisc.position.set(sunX * 165, sunY * 145, -45);
+    env.sunDisc.position.set(ox + sunX * celestialDist, oy + sunY * celestialDist * 0.88, oz - celestialDist * 0.27);
     env.sunHalo.position.copy(env.sunDisc.position);
+    env.sunDisc.scale.setScalar(celestialScale);
+    env.sunHalo.scale.setScalar(celestialScale);
     const sunVis = sunY > -0.08 && wb.rain < 0.85;
     env.sunDisc.visible = sunVis;
     env.sunHalo.visible = sunVis;
     const sunOrbCol = sunY < 0.22 ? 0xfb923c : 0xfef08a;
     env.sunDisc.material.color.setHex(sunOrbCol);
     env.sunHalo.material.color.setHex(sunOrbCol);
-    env.sunHalo.material.opacity = Math.max(0.04, (0.36 - 0.20 * wb.overcast) * (1 - wb.rain));
+    env.sunHalo.material.opacity = Math.max(0.06, (0.42 - 0.22 * wb.overcast) * (1 - wb.rain));
   }
   if (env.moonDisc) {
-    env.moonDisc.position.set(-sunX * 165, -sunY * 145, -45);
-    env.moonDisc.visible = sunY < 0.08;
+    env.moonDisc.position.set(ox - sunX * celestialDist, oy - sunY * celestialDist * 0.88, oz - celestialDist * 0.27);
+    env.moonDisc.scale.setScalar(celestialScale);
+    const moonVis = sunY < 0.12 && wb.rain < 0.85;
+    env.moonDisc.visible = moonVis;
+    if (env.moonHalo) {
+      env.moonHalo.position.copy(env.moonDisc.position);
+      env.moonHalo.scale.setScalar(celestialScale);
+      env.moonHalo.visible = moonVis;
+      env.moonHalo.material.opacity = Math.max(0.04, 0.26 * (1 - wb.overcast * 0.65) * (1 - wb.rain));
+    }
   }
   if (env.celestialDome) {
-    updateCelestialSkyDome(env.celestialDome, dayFrac, sunY, weatherMode, env.envTime);
+    updateCelestialSkyDome(env.celestialDome, dayFrac, sunY, weatherMode, env.envTime, skyOrigin, cameraFar);
   } else if (env.starPoints) {
-    const starOp = Math.max(0, Math.min(0.9, (-sunY - 0.02) * 2.4)) * (weatherMode === 'rain' || weatherMode === 'overcast' ? 0.2 : 1);
+    const starOp = Math.max(0, Math.min(0.95, (-sunY + 0.04) * 2.6)) * (weatherMode === 'rain' || weatherMode === 'overcast' ? 0.25 : 1);
     env.starPoints.visible = starOp > 0.02;
     env.starPoints.material.opacity = starOp;
   }

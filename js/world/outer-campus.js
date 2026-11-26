@@ -16,7 +16,7 @@ export function buildOuterCampus(ctx) {
   // Faixa amarela central tracejada na Avenida Sul
   var dashMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
   for (var dx = -108; dx <= 108; dx += 5.5) {
-    if (Math.abs(dx + 42) < 4) continue;
+    if (Math.abs(dx + 42) < 4 || Math.abs(dx + 13) < 2.6 || Math.abs(dx) < 2.6) continue;
     var dash = makeBox(2.4, 0.036, 0.16, dashMat, { noShadow: true });
     dash.position.set(dx, 0.019, 39.5);
     scene.add(dash);

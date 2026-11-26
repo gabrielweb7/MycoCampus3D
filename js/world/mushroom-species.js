@@ -8,6 +8,7 @@ import { qualityState } from '../core/quality.js';
 
 import { terrainHeight } from '../engine/physics.js';
 import { isNaturalSoilSpot } from './nature-plaza.js';
+import { isOverCampusRoute } from './campus-routes.js';
 
 const THREE = window.THREE;
 
@@ -614,10 +615,11 @@ export function buildExpandedForestAndMushrooms(ctx) {
     }
   }
 
+  const visibleTrees = treeSpecs.filter(tree => !isOverCampusRoute(tree.x, tree.z, 0.65));
   let pineConeTotal = 0;
   let foliageTotal = 0;
-  for (let i = 0; i < treeSpecs.length; i++) {
-    const k = treeSpecs[i].kind;
+  for (let i = 0; i < visibleTrees.length; i++) {
+    const k = visibleTrees[i].kind;
     if (k === 'pine') pineConeTotal += 4;
     else if (k === 'ipe_yellow' || k === 'ipe_purple') foliageTotal += 4;
     else foliageTotal += 1;
@@ -630,7 +632,7 @@ export function buildExpandedForestAndMushrooms(ctx) {
   trunkGeo.userData.shared = true;
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
   trunkMat.userData.shared = true;
-  const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, Math.max(1, treeSpecs.length));
+  const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, visibleTrees.length);
   trunkInst.frustumCulled = false;
   trunkInst.userData.isDynamic = true;
 
@@ -660,8 +662,8 @@ export function buildExpandedForestAndMushrooms(ctx) {
   let foliageCursor = 0;
   const IPE_PUFFS = [[-0.7, 3.4, 0.2], [0.7, 3.3, -0.3], [0, 3.9, 0.1], [0.2, 3.2, 0.7]];
 
-  for (let i = 0; i < treeSpecs.length; i++) {
-    const ts = treeSpecs[i];
+  for (let i = 0; i < visibleTrees.length; i++) {
+    const ts = visibleTrees[i];
     const items = [];
     dummy.rotation.set(0, 0, 0);
     dummy.position.set(ts.x, ts.y + 1.6 * ts.scale, ts.z);

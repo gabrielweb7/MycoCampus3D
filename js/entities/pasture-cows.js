@@ -1348,7 +1348,7 @@ function createCuteBeeMesh(isQueen) {
     const jewel = new THREE.Mesh(a.jewelGeo, a.jewelMat);
     jewel.position.set(0, 0.130, 0.072);
     g.add(jewel);
-    g.scale.setScalar(1.38);
+    g.scale.setScalar(1.06);
 
     if (a.spriteMat) {
       migrationSprite = new THREE.Sprite(a.spriteMat);
@@ -1357,6 +1357,8 @@ function createCuteBeeMesh(isQueen) {
       migrationSprite.visible = false;
       g.add(migrationSprite);
     }
+  } else {
+    g.scale.setScalar(0.76);
   }
 
   markSubtreeDynamic(g);
@@ -1795,13 +1797,13 @@ function spawnHiveSwarm(ctx, hive, originPos = null, seedOffset = 0) {
   if (!Array.isArray(ctx.pastureBees)) ctx.pastureBees = [];
 
   const qPhase = seedOffset * 1.7;
-  let qx = originPos ? originPos.x : (hive.x + 0.22 + Math.cos(qPhase) * 1.05);
+  let qx = originPos ? originPos.x : (hive.x + 0.55 + Math.cos(qPhase) * 1.15);
   let qy = originPos ? (originPos.y + 0.35) : (hive.y + 0.42);
-  let qz = originPos ? originPos.z : (hive.z + 0.22 + Math.sin(qPhase) * 1.05);
-  if (!originPos && isBeeBlockedAt3D(ctx, qx, qy, qz, 0.22, null)) {
-    qx = hive.x + 0.45;
-    qy = hive.y + 1.05;
-    qz = hive.z + 0.45;
+  let qz = originPos ? originPos.z : (hive.z + 0.45 + Math.sin(qPhase) * 1.15);
+  if (!originPos && isBeeBlockedAt3D(ctx, qx, qy, qz, 0.15, hive)) {
+    qx = hive.x + 0.95;
+    qy = hive.y + 0.85;
+    qz = hive.z + 0.85;
   }
   const qVis = createCuteBeeMesh(true);
   qVis.group.position.set(qx, qy, qz);
@@ -1818,7 +1820,7 @@ function spawnHiveSwarm(ctx, hive, originPos = null, seedOffset = 0) {
     pollenMesh: qVis.pollenMesh,
     migrationSprite: qVis.migrationSprite,
     phase: qPhase,
-    radius: 1.05,
+    radius: 1.15,
     speed: 1.15,
     state: hive.migrating ? 'migrate' : 'orbit',
     avoidSide: seedOffset % 2 === 0 ? 1 : -1,
@@ -1830,13 +1832,13 @@ function spawnHiveSwarm(ctx, hive, originPos = null, seedOffset = 0) {
   for (let b = 0; b < 3; b++) {
     const beeVis = createCuteBeeMesh(false);
     const bPhase = (seedOffset * 3 + b) * 2.1;
-    let bx = originPos ? (originPos.x + (b - 1) * 0.28) : (hive.x + Math.cos(bPhase) * 0.9);
-    let by = originPos ? (originPos.y + 0.25 + b * 0.06) : (hive.y + 0.1 + b * 0.06);
-    let bz = originPos ? (originPos.z + (b % 2 === 0 ? 0.22 : -0.22)) : (hive.z + Math.sin(bPhase) * 0.9);
-    if (!originPos && isBeeBlockedAt3D(ctx, bx, by, bz, 0.22, null)) {
-      bx = hive.x + (b - 1) * 0.35;
-      by = hive.y + 0.65;
-      bz = hive.z + 0.65;
+    let bx = originPos ? (originPos.x + (b - 1) * 0.35) : (hive.x + 0.55 + Math.cos(bPhase) * (0.95 + b * 0.25));
+    let by = originPos ? (originPos.y + 0.25 + b * 0.08) : (hive.y + 0.05 + b * 0.14);
+    let bz = originPos ? (originPos.z + (b % 2 === 0 ? 0.28 : -0.28)) : (hive.z + 0.55 + Math.sin(bPhase) * (0.95 + b * 0.25));
+    if (!originPos && isBeeBlockedAt3D(ctx, bx, by, bz, 0.15, hive)) {
+      bx = hive.x + 0.65 + (b - 1) * 0.45;
+      by = hive.y + 0.35 + b * 0.14;
+      bz = hive.z + 0.85;
     }
     beeVis.group.position.set(bx, by, bz);
     if (ctx.scene && beeVis.group && typeof ctx.scene.add === 'function' && beeVis.group.isObject3D !== false) {
@@ -2121,7 +2123,7 @@ export function getBeeEcologySummary(ctx) {
   };
 }
 
-function refreshHiveFlowers(ctx, hive, maxRadius = 11.5) {
+function refreshHiveFlowers(ctx, hive, maxRadius = 18.0) {
   if (!ctx.campusFlowers) {
     hive.flowersNearby = [];
     return hive.flowersNearby;
@@ -2497,15 +2499,15 @@ export function isBeeBlockedAt3D(ctx, x, y, z, radius = 0.22, ignoreHiveBox = nu
     for (let i = 0; i < hives.length; i++) {
       const h = hives[i];
       if (!h || h.collected || h.migrating) continue;
-      if (h.treePos && y < h.y + 1.35) {
+      if (h.treePos && y < h.y + 1.15) {
         const tdx = x - h.treePos.x, tdz = z - h.treePos.z;
-        const tr = 0.44 + r;
+        const tr = 0.26 + r;
         if (tdx * tdx + tdz * tdz < tr * tr) return true;
       }
-      if (ignoreHiveBox === h && z > h.z + 0.26) continue;
-      if (Math.abs(x - h.x) < 0.34 + r &&
-        Math.abs(y - h.y) < 0.34 + r &&
-        Math.abs(z - h.z) < 0.34 + r) {
+      if (ignoreHiveBox === h && (z > h.z + 0.10 || Math.hypot(x - h.x, z - h.z) < 0.72)) continue;
+      if (Math.abs(x - h.x) < 0.26 + r &&
+        Math.abs(y - h.y) < 0.26 + r &&
+        Math.abs(z - h.z) < 0.26 + r) {
         return true;
       }
     }
@@ -2515,6 +2517,7 @@ export function isBeeBlockedAt3D(ctx, x, y, z, radius = 0.22, ignoreHiveBox = nu
 
 /** Move a abelha rumo ao alvo desviando lateralmente ou subindo sobre obstáculos 3D. */
 export function moveBeeSafely(ctx, bee, tx, ty, tz, speed, dt, bobY = 0, ignoreHiveBox = null) {
+  const r = 0.15;
   const pos = bee.group.position;
   const dx = tx - pos.x;
   const dy = ty - pos.y;
@@ -2533,13 +2536,21 @@ export function moveBeeSafely(ctx, bee, tx, ty, tz, speed, dt, bobY = 0, ignoreH
   const minGroundY = terrainHeight(nx, nz) + 0.16;
   if (ny < minGroundY) ny = minGroundY;
 
-  const lookDist = Math.min(d, 0.95);
+  const lookDist = Math.min(d, 0.75);
   const lx = pos.x + dirX * lookDist;
   const lz = pos.z + dirZ * lookDist;
   const ly = Math.max(terrainHeight(lx, lz) + 0.16, pos.y + dirY * lookDist);
 
-  if (!isBeeBlockedAt3D(ctx, nx, ny, nz, 0.22, ignoreHiveBox) &&
-    !isBeeBlockedAt3D(ctx, lx, ly, lz, 0.22, ignoreHiveBox)) {
+  if (!isBeeBlockedAt3D(ctx, nx, ny, nz, r, ignoreHiveBox) &&
+    !isBeeBlockedAt3D(ctx, lx, ly, lz, r, ignoreHiveBox)) {
+    pos.set(nx, ny, nz);
+    if (dx * dx + dz * dz > 1e-6) bee.group.rotation.y = Math.atan2(dx, dz);
+    return d;
+  }
+
+  // Se a abelha iniciou dentro/sobreposta a um obstáculo ou colmeia, permite sair imediatamente para ponto livre mais próximo
+  if (isBeeBlockedAt3D(ctx, pos.x, pos.y, pos.z, r, ignoreHiveBox) &&
+    !isBeeBlockedAt3D(ctx, nx, ny, nz, r * 0.45, ignoreHiveBox)) {
     pos.set(nx, ny, nz);
     if (dx * dx + dz * dz > 1e-6) bee.group.rotation.y = Math.atan2(dx, dz);
     return d;
@@ -2560,11 +2571,11 @@ export function moveBeeSafely(ctx, bee, tx, ty, tz, speed, dt, bobY = 0, ignoreH
     const cx = pos.x + sx * steerStep;
     const cz = pos.z + sz * steerStep;
     const cy = Math.max(terrainHeight(cx, cz) + 0.16, pos.y + dirY * steerStep * 0.5 + bobY);
-    const alx = pos.x + sx * 0.85;
-    const alz = pos.z + sz * 0.85;
+    const alx = pos.x + sx * 0.65;
+    const alz = pos.z + sz * 0.65;
     const aly = Math.max(terrainHeight(alx, alz) + 0.16, pos.y + dirY * 0.35);
-    if (!isBeeBlockedAt3D(ctx, cx, cy, cz, 0.22, ignoreHiveBox) &&
-      !isBeeBlockedAt3D(ctx, alx, aly, alz, 0.22, ignoreHiveBox)) {
+    if (!isBeeBlockedAt3D(ctx, cx, cy, cz, r, ignoreHiveBox) &&
+      !isBeeBlockedAt3D(ctx, alx, aly, alz, r, ignoreHiveBox)) {
       pos.set(cx, cy, cz);
       bee.avoidSide = deltaAng >= 0 ? 1 : -1;
       bee.group.rotation.y = Math.atan2(sx, sz);
@@ -2577,10 +2588,10 @@ export function moveBeeSafely(ctx, bee, tx, ty, tz, speed, dt, bobY = 0, ignoreH
   let climbY = pos.y + climbStep;
   let cx = pos.x + hDirX * stepDist * 0.35;
   let cz = pos.z + hDirZ * stepDist * 0.35;
-  if (isBeeBlockedAt3D(ctx, cx, climbY, cz, 0.22, ignoreHiveBox)) {
+  if (isBeeBlockedAt3D(ctx, cx, climbY, cz, r, ignoreHiveBox)) {
     cx = pos.x;
     cz = pos.z;
-    if (isBeeBlockedAt3D(ctx, cx, climbY, cz, 0.22, ignoreHiveBox)) {
+    if (isBeeBlockedAt3D(ctx, cx, climbY, cz, r, ignoreHiveBox)) {
       climbY = pos.y + climbStep * 1.25;
     }
   }
@@ -2725,6 +2736,9 @@ export function stepPastureBees(ctx, dt) {
   const pz = ctx.playerPos ? ctx.playerPos.z : 0;
   const isNight = typeof ctx.sunElevation === 'number'
     ? (ctx.sunElevation < -0.05)
+    : (typeof window !== 'undefined' && !!window.campusIsNight);
+  const isDeepNight = typeof ctx.sunElevation === 'number'
+    ? (ctx.sunElevation < -0.28)
     : (typeof window !== 'undefined' && !!window.campusIsNight);
 
   // Ciclo de vida das flores silvestres + itens compráveis no chão (colmeia nova / isca de abelhas)
@@ -2892,26 +2906,27 @@ export function stepPastureBees(ctx, dt) {
       continue;
     }
 
-    // 2. Rainha orbita suavemente ao redor da colmeia evitando obstáculos
+    // 2. Rainha orbita suavemente ao redor da colmeia (fora do tronco e da caixa)
     if (bee.isQueen) {
       if (bee.migrationSprite) bee.migrationSprite.visible = false;
-      const t = bee.phase * (isNight ? 0.45 : 1.0);
-      const rad = isNight ? 0.65 : 1.05;
-      const qx = hive.x + 0.22 + Math.cos(t) * rad;
-      const qz = hive.z + 0.22 + Math.sin(t) * rad;
-      const qy = hive.y + (isNight ? 0.18 : 0.42) + Math.sin(t * 2.5) * 0.16;
-      moveBeeSafely(ctx, bee, qx, qy, qz, isNight ? 1.5 : 2.4, dt, 0, null);
+      const t = bee.phase * (isDeepNight ? 0.45 : 1.0);
+      const rad = isDeepNight ? 0.92 : 1.18;
+      const qx = hive.x + 0.42 + Math.cos(t) * rad;
+      const qz = hive.z + 0.35 + Math.sin(t) * rad;
+      const qy = hive.y + (isDeepNight ? 0.22 : 0.48) + Math.sin(t * 2.5) * 0.16;
+      moveBeeSafely(ctx, bee, qx, qy, qz, isDeepNight ? 1.5 : 2.4, dt, 0, hive);
       bee.group.rotation.x = Math.sin(t * 2.5) * 0.10;
       continue;
     }
 
-    // 3. Noite tranquila: operárias descansam próximas à entrada da colmeia
-    if (isNight) {
+    // 3. Noite profunda: operárias descansam ao redor da colmeia sem se amontoar no tronco
+    if (isDeepNight) {
       if (bee.pollenMesh) bee.pollenMesh.visible = false;
-      const t = bee.phase * 0.5;
-      const rx = hive.x + Math.cos(t + i) * 0.46;
-      const rz = hive.z + 0.38 + Math.sin(t + i) * 0.28;
-      const ry = hive.y - 0.08 + Math.sin(nowSec * 2 + i) * 0.08;
+      const t = bee.phase * 0.48 + i * 2.09;
+      const restRad = 1.15 + (i % 3) * 0.24;
+      const rx = hive.x + 0.42 + Math.cos(t) * restRad;
+      const rz = hive.z + 0.38 + Math.sin(t) * restRad;
+      const ry = hive.y + 0.06 + (i % 2) * 0.18 + Math.sin(nowSec * 2 + i) * 0.06;
       moveBeeSafely(ctx, bee, rx, ry, rz, 1.8, dt, 0, hive);
       bee.group.rotation.x = 0;
       continue;
@@ -2922,29 +2937,33 @@ export function stepPastureBees(ctx, dt) {
 
     if (hive.buildProgress < 1.0) {
       // Orbitando e construindo a nova colmeia sem atravessar obstáculos
-      const t = bee.phase;
-      const nx = hive.x + 0.22 + Math.cos(t) * 1.1;
-      const nz = hive.z + 0.22 + Math.sin(t) * 1.1;
-      const ny = hive.y + Math.sin(t * 3.0) * 0.35;
-      moveBeeSafely(ctx, bee, nx, ny, nz, 2.6, dt, 0, null);
+      const t = bee.phase + i * 1.9;
+      const nx = hive.x + 0.42 + Math.cos(t) * (1.05 + (i % 3) * 0.22);
+      const nz = hive.z + 0.36 + Math.sin(t) * (1.05 + (i % 3) * 0.22);
+      const ny = hive.y + Math.sin(t * 3.0) * 0.28;
+      moveBeeSafely(ctx, bee, nx, ny, nz, 2.6, dt, 0, hive);
       bee.group.rotation.x = 0;
       continue;
     }
 
     if (bee.state === 'to_flower') {
       if (!bee.targetFlower || bee.targetFlower.removed || bee.targetFlower.stage !== 'blooming' || bee.targetFlower.pollen <= 0.001) {
-        const candidates = hive.flowersNearby.filter((fl) => fl && !fl.removed && fl.stage === 'blooming' && fl.pollen > 0.001);
+        let candidates = hive.flowersNearby.filter((fl) => fl && !fl.removed && fl.stage === 'blooming' && fl.pollen > 0.001);
+        if (!candidates.length) {
+          refreshHiveFlowers(ctx, hive, 18.0);
+          candidates = hive.flowersNearby.filter((fl) => fl && !fl.removed && fl.stage === 'blooming' && fl.pollen > 0.001);
+        }
         bee.targetFlower = candidates.length
           ? candidates[Math.floor(Math.random() * candidates.length)]
           : null;
       }
       if (!bee.targetFlower) {
-        // Sem flores disponíveis -> orbita colmeia aguardando brotos ou migração
-        const t = bee.phase;
-        const nx = hive.x + 0.22 + Math.cos(t) * bee.radius;
-        const nz = hive.z + 0.22 + Math.sin(t) * bee.radius;
-        const ny = hive.y + Math.sin(t * 2.8) * 0.3;
-        moveBeeSafely(ctx, bee, nx, ny, nz, 2.6, dt, 0, null);
+        // Sem flores disponíveis -> orbita livremente fora da colmeia aguardando brotos ou migração
+        const t = bee.phase + i * 2.05;
+        const nx = hive.x + 0.45 + Math.cos(t) * bee.radius;
+        const nz = hive.z + 0.40 + Math.sin(t) * bee.radius;
+        const ny = hive.y + Math.sin(t * 2.8) * 0.26;
+        moveBeeSafely(ctx, bee, nx, ny, nz, 2.6, dt, 0, hive);
         bee.group.rotation.x = 0;
       } else {
         const fl = bee.targetFlower;
@@ -2953,12 +2972,13 @@ export function stepPastureBees(ctx, dt) {
           (fl.y + 0.14) - bee.group.position.y,
           fl.z - bee.group.position.z
         );
-        if (flDist < 0.28) {
+        if (flDist < 0.32) {
           bee.state = 'collect';
           bee.stateTimer = 1.1;
           bee.group.rotation.x = 0;
         } else {
-          moveBeeSafely(ctx, bee, fl.x, fl.y + 0.14, fl.z, 2.8, dt, Math.sin(nowSec * 9 + i) * 0.008, null);
+          const nearHome = Math.hypot(bee.group.position.x - hive.x, bee.group.position.z - hive.z) < 1.25;
+          moveBeeSafely(ctx, bee, fl.x, fl.y + 0.14, fl.z, 3.0, dt, Math.sin(nowSec * 9 + i) * 0.008, nearHome ? hive : null);
           bee.group.rotation.x = 0.16;
         }
       }
@@ -2986,14 +3006,14 @@ export function stepPastureBees(ctx, dt) {
       }
     } else if (bee.state === 'to_hive') {
       const tx = hive.x;
-      const ty = hive.y - 0.02;
-      const tz = hive.z + 0.36;
+      const ty = hive.y - 0.08;
+      const tz = hive.z + 0.44;
       const d = Math.hypot(
         tx - bee.group.position.x,
         ty - bee.group.position.y,
         tz - bee.group.position.z
       );
-      if (d < 0.30) {
+      if (d < 0.44) {
         bee.hasPollen = false;
         hive.honeyLevel = Math.min(100, (hive.honeyLevel || 0) + 12);
         if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: hive.x, y: hive.y, z: hive.z }, 0xfacc15, 5);
@@ -3001,8 +3021,34 @@ export function stepPastureBees(ctx, dt) {
         bee.state = 'to_flower';
         bee.group.rotation.x = 0;
       } else {
-        moveBeeSafely(ctx, bee, tx, ty, tz, 2.6, dt, Math.sin(nowSec * 8 + i) * 0.008, hive);
+        moveBeeSafely(ctx, bee, tx, ty, tz, 2.8, dt, Math.sin(nowSec * 8 + i) * 0.008, hive);
         bee.group.rotation.x = 0.16;
+      }
+    }
+  }
+
+  // Separação suave entre abelhas para nunca formarem aglomerado sólido em um único ponto
+  for (let i = 0; i < ctx.pastureBees.length; i++) {
+    const aBee = ctx.pastureBees[i];
+    if (!aBee || !aBee.group || !aBee.group.visible) continue;
+    const pa = aBee.group.position;
+    for (let j = i + 1; j < ctx.pastureBees.length; j++) {
+      const bBee = ctx.pastureBees[j];
+      if (!bBee || !bBee.group || !bBee.group.visible || aBee.hive !== bBee.hive) continue;
+      const pb = bBee.group.position;
+      const sdx = pa.x - pb.x;
+      const sdy = pa.y - pb.y;
+      const sdz = pa.z - pb.z;
+      const dSq = sdx * sdx + sdy * sdy + sdz * sdz;
+      if (dSq < 0.21) {
+        const d = Math.sqrt(dSq);
+        const ux = d > 1e-4 ? (sdx / d) : (i % 2 === 0 ? 1 : -1);
+        const uz = d > 1e-4 ? (sdz / d) : (j % 2 === 0 ? 1 : -1);
+        const push = (0.46 - d) * 0.35;
+        pa.x += ux * push;
+        pa.z += uz * push;
+        pb.x -= ux * push;
+        pb.z -= uz * push;
       }
     }
   }

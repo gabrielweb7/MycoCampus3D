@@ -14,7 +14,7 @@ function getThree() {
 }
 
 export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
-export const CAMPUS_EXPOSURE = 1.04;
+export const CAMPUS_EXPOSURE = 1.07;
 
 const TIER_CONFIGS = {
   desktop: {
@@ -25,7 +25,7 @@ const TIER_CONFIGS = {
   },
   mobile: {
     high:   { ratioCap: 1.50, shadows: true,  soft: false, shadowExtent: 24, shadowMap: 768, shadowEvery: 2, far: 215, aura: true,  weatherParticles: 160, forestScale: 0.86, toneMap: true,  blur: false, maxLights: 3, itemCullDist: 52, lambert: false },
-    medium: { ratioCap: 1.15, shadows: false, soft: false, far: 155, aura: true,  weatherParticles: 50,  forestScale: 0.62, toneMap: false, blur: false, maxLights: 2, itemCullDist: 40, lambert: true },
+    medium: { ratioCap: 1.15, shadows: false, soft: false, far: 155, aura: true,  weatherParticles: 50,  forestScale: 0.62, toneMap: true,  blur: false, maxLights: 2, itemCullDist: 40, lambert: true },
     low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 112, aura: false, weatherParticles: 0,   forestScale: 0.44, toneMap: false, blur: false, maxLights: 1, itemCullDist: 32, lambert: true },
     min:    { fixedRatio: 0.68, shadows: false, soft: false, far: 84,  aura: false, weatherParticles: 0,   forestScale: 0.32, toneMap: false, blur: false, maxLights: 0, itemCullDist: 24, lambert: true }
   }

@@ -228,7 +228,13 @@ export function stepCozyDetails(ctrl, dt, envTime, sunY, weatherMode, qualityTie
         if (arr[idx + 1] > floorY + 4.2) arr[idx + 1] = floorY + 0.55;
       }
       ctrl.spAttr.needsUpdate = true;
-      ctrl.spMat.opacity = sunY < 0 ? 0.68 : 0.38;
+      ctrl.spMat.opacity = sunY < 0 ? 0.72 : 0.42;
+      if (ctrl.spMat.color && ctrl.spMat.color.setHSL) {
+        const hueShift = sunY < 0.08
+          ? (0.14 + Math.sin(envTime * 0.25) * 0.08 + (sunY < -0.15 ? 0.62 : 0)) % 1.0
+          : (0.42 + Math.sin(envTime * 0.2) * 0.05);
+        ctrl.spMat.color.setHSL(hueShift, 0.72, sunY < 0 ? 0.78 : 0.72);
+      }
     }
   }
 

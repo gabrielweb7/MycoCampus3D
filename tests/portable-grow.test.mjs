@@ -124,6 +124,7 @@ test('a porta do grow conserva umidade e só permite colher pela mira quando abe
 
 test('a meetup link uses the fixed trailhead and is consumed only once', async () => {
   const { applyCampusMeetupInvite } = await import('../js/ui/campus-agenda.js');
+  const { FOREST_ENTRY } = await import('../js/core/campus-route-layout.js');
   const calls = [];
   const originalDocument = globalThis.document;
   globalThis.document = { getElementById: () => null };
@@ -132,7 +133,7 @@ test('a meetup link uses the fixed trailhead and is consumed only once', async (
   window.teleportCampusPlayer = (...pose) => calls.push(pose);
   try {
     assert.equal(applyCampusMeetupInvite(), true);
-    assert.deepEqual(calls, [[0, 0, -24, 0]]);
+    assert.deepEqual(calls, [[FOREST_ENTRY.x, FOREST_ENTRY.y, FOREST_ENTRY.z, FOREST_ENTRY.yaw]]);
     assert.equal(new URL(window.location.href).searchParams.get('lang'), 'pt-BR');
     assert.equal(applyCampusMeetupInvite(), false);
     window.location.href = 'https://campus.example/index.html?encontro=unrecognized';

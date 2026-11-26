@@ -46,6 +46,7 @@ const {
   makeBeeBaitItem,
   getBeeEcologySummary
 } = await import('../js/entities/pasture-cows.js');
+const { updateCelestialSkyDome } = await import('../js/engine/sky-constellations.js');
 const {
   triggerRareBlackGnomeAppearance,
   clearRareBlackGnomeForTest,
@@ -460,4 +461,90 @@ test('colmeia comprável no chão e isca migram rápido para árvore/beiral e Es
   assert.equal(snap.gnome.active, true);
   assert.match(snap.gnome.sector, /Estação|Bosque|Corredor|Lateral|Mata/);
   clearRareBlackGnomeForTest();
+});
+
+test('abelhas coletam pólen no entardecer sem travar na colmeia/tronco e mantêm separação', () => {
+  const ctx = {
+    beehives: [],
+    beehiveHitMeshes: [],
+    campusFlowers: [],
+    flowerHitMeshes: [],
+    pastureBees: [],
+    pickableItems: [],
+    sunElevation: -0.12, // entardecer: antes interrompia a coleta precocemente
+    callbacks: { onToast() {} }
+  };
+
+  applyBeeEcologyWorldState(ctx, {
+    campus_beehives: JSON.stringify([
+      { id: 'hive_tree_forage', m: 'tree', x: 24.48, y: 2.55, z: 26, h: 20, bp: 1.0 }
+    ]),
+    campus_flowers: JSON.stringify([
+      { id: 'fl_tree_1', x: 27.2, z: 28.2, ci: 0, st: 'blooming', p: 1.0 }
+    ])
+  });
+  const hive = ctx.beehives[0];
+  const fl = ctx.campusFlowers[0];
+
+  for (let i = 0; i < 180; i++) {
+    stepPastureBees(ctx, 0.1);
+  }
+
+  const workers = ctx.pastureBees.filter((b) => !b.isQueen);
+  assert.ok(workers.length >= 3, 'colmeia deve possuir operárias ativas');
+  assert.ok(
+    fl.pollen < 1.0 || hive.honeyLevel > 20 || workers.some((w) => w.hasPollen || w.state === 'to_flower' || w.state === 'collecting' || w.state === 'to_hive'),
+    'operárias devem sair para coletar pólen mesmo no entardecer'
+  );
+
+  let minWorkerDist = Infinity;
+  for (let i = 0; i < workers.length; i++) {
+    const a = workers[i].group.position;
+    assert.equal(isBeeBlockedAt3D(ctx, a.x, a.y, a.z, 0.10, null), false, `operária ${i} não deve terminar presa em colisor`);
+    for (let j = i + 1; j < workers.length; j++) {
+      const b = workers[j].group.position;
+      const d = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+      if (d < minWorkerDist) minWorkerDist = d;
+    }
+  }
+  assert.ok(minWorkerDist >= 0.25, `abelhas devem manter separação mínima (observado ${minWorkerDist.toFixed(2)}m)`);
+});
+
+test('domo celeste escala para dentro do camera.far mobile mantendo estrelas visíveis', () => {
+  const dome = {
+    group: {
+      visible: false,
+      rotation: { y: 0, z: 0 },
+      position: {
+        x: 0,
+        y: 0,
+        z: 0,
+        set(x, y, z) {
+          this.x = x;
+          this.y = y;
+          this.z = z;
+        }
+      },
+      scale: {
+        s: 1,
+        setScalar(v) {
+          this.s = v;
+        }
+      }
+    },
+    bgMat: { opacity: 0, size: 1.5 },
+    baseBgSize: 1.5,
+    conStarMat: { opacity: 0, size: 3.1 },
+    baseConSize: 3.1,
+    conLineMat: { opacity: 0 }
+  };
+
+  updateCelestialSkyDome(dome, 0.92, -0.4, 'clear', 10, { x: 12, y: 2, z: -8 }, 84);
+  assert.equal(dome.group.visible, true);
+  assert.equal(dome.group.position.x, 12);
+  assert.equal(dome.group.position.z, -8);
+  assert.ok(dome.group.scale.s < 0.4, `escala mobile deve ficar < 0.4 (recebido ${dome.group.scale.s})`);
+  assert.ok(dome.group.scale.s * 204 < 84, 'estrelas e constelações devem caber dentro de camera.far=84');
+  assert.ok(dome.bgMat.opacity > 0);
+  assert.ok(dome.conStarMat.opacity > 0);
 });

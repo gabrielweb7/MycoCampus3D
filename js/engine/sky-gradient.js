@@ -6,13 +6,13 @@
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
 
-const _cTopDay = _ColorCtor ? new _ColorCtor(0x1d4ed8) : null;
-const _cTopSunset = _ColorCtor ? new _ColorCtor(0x6d28d9) : null;
-const _cTopNight = _ColorCtor ? new _ColorCtor(0x020617) : null;
+const _cTopDay = _ColorCtor ? new _ColorCtor(0x1b64d8) : null;
+const _cTopSunset = _ColorCtor ? new _ColorCtor(0x6b21a8) : null;
+const _cTopNight = _ColorCtor ? new _ColorCtor(0x050922) : null;
 
-const _cHorDay = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
+const _cHorDay = _ColorCtor ? new _ColorCtor(0x8de0ff) : null;
 const _cHorSunset = _ColorCtor ? new _ColorCtor(0xfb923c) : null;
-const _cHorNight = _ColorCtor ? new _ColorCtor(0x0f172a) : null;
+const _cHorNight = _ColorCtor ? new _ColorCtor(0x1e1b4b) : null;
 
 const _cRainTint = _ColorCtor ? new _ColorCtor(0x475569) : null;
 const _cOverTint = _ColorCtor ? new _ColorCtor(0x94a3b8) : null;
@@ -24,7 +24,7 @@ const _horWork = _ColorCtor ? new _ColorCtor() : null;
 export function createSkyGradientDome(scene) {
   if (!THREE || !scene || !THREE.ShaderMaterial || !THREE.SphereGeometry) return null;
 
-  const geo = new THREE.SphereGeometry(62, 24, 14);
+  const geo = new THREE.SphereGeometry(52, 24, 14);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -34,7 +34,9 @@ export function createSkyGradientDome(scene) {
       uTopColor: { value: _cTopDay.clone() },
       uHorizonColor: { value: _cHorDay.clone() },
       uSunDir: { value: new THREE.Vector3(0.4, 0.7, -0.3) },
-      uSunWarmth: { value: 0.25 }
+      uSunWarmth: { value: 0.25 },
+      uNightAmt: { value: 0.0 },
+      uTime: { value: 0.0 }
     },
     vertexShader: `
       varying vec3 vWorldDir;
@@ -48,13 +50,23 @@ export function createSkyGradientDome(scene) {
       uniform vec3 uHorizonColor;
       uniform vec3 uSunDir;
       uniform float uSunWarmth;
+      uniform float uNightAmt;
+      uniform float uTime;
       varying vec3 vWorldDir;
       void main() {
-        float h = clamp(vWorldDir.y, 0.0, 1.0);
-        float curve = pow(h, 0.58);
+        vec3 dir = normalize(vWorldDir);
+        float h = clamp(dir.y, 0.0, 1.0);
+        float curve = pow(h, 0.56);
         vec3 col = mix(uHorizonColor, uTopColor, curve);
-        float sunAmt = max(0.0, dot(normalize(vWorldDir), normalize(uSunDir)));
-        col += vec3(1.0, 0.72, 0.42) * pow(sunAmt, 7.0) * uSunWarmth;
+        float sunAmt = max(0.0, dot(dir, normalize(uSunDir)));
+        col += vec3(1.0, 0.76, 0.46) * pow(sunAmt, 6.5) * uSunWarmth;
+        if (uNightAmt > 0.01) {
+          float bandCoord = dir.x * 0.65 + dir.y * 0.45 - dir.z * 0.60;
+          float nebula = exp(-bandCoord * bandCoord * 7.5) * smoothstep(0.04, 0.45, h);
+          float swirl = 0.5 + 0.5 * sin(dir.x * 5.0 + dir.z * 4.2 + uTime * 0.14);
+          vec3 auroraCol = mix(vec3(0.24, 0.14, 0.48), vec3(0.14, 0.42, 0.58), swirl);
+          col += auroraCol * nebula * uNightAmt * 0.34;
+        }
         float dither = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
         gl_FragColor = vec4(col + dither, 1.0);
       }
@@ -73,7 +85,7 @@ export function createSkyGradientDome(scene) {
   return { mesh, mat, lastSunY: -99, lastMode: '' };
 }
 
-export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode, weatherBlend) {
+export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode, weatherBlend, envTime = 0) {
   if (!ctrl || !ctrl.mesh || !ctrl.mat || !_topWork || !_horWork) return;
   if (camPos) {
     ctrl.mesh.position.set(camPos.x, camPos.y, camPos.z);
@@ -82,18 +94,21 @@ export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode, weath
   const sY = typeof sunY === 'number' ? sunY : 0.4;
   _topWork.copy(_cTopDay);
   _horWork.copy(_cHorDay);
-  let sunWarmth = 0.20;
+  let sunWarmth = 0.24;
+  let nightAmt = 0.0;
 
   if (sY < 0.24 && sY > -0.18) {
     const sT = Math.max(0, Math.min(1, 1 - Math.abs(sY - 0.03) / 0.21));
-    _topWork.lerp(_cTopSunset, sT * 0.85);
+    _topWork.lerp(_cTopSunset, sT * 0.88);
     _horWork.lerp(_cHorSunset, sT);
-    sunWarmth = 0.20 + sT * 0.30;
+    sunWarmth = 0.24 + sT * 0.36;
+    nightAmt = sY < 0 ? Math.min(0.45, -sY * 2.2) : 0.0;
   } else if (sY <= -0.18) {
     const nT = Math.min(1, (-sY - 0.18) / 0.24);
     _topWork.lerp(_cTopNight, nT);
     _horWork.lerp(_cHorNight, nT);
     sunWarmth = 0.0;
+    nightAmt = 0.45 + nT * 0.55;
   }
 
   const wb = weatherBlend || null;
@@ -105,20 +120,25 @@ export function stepSkyGradientDome(ctrl, camPos, sunX, sunY, weatherMode, weath
     _topWork.lerp(_cOverTint, 0.48 * overW);
     _horWork.lerp(_cOverTint, 0.42 * overW);
     sunWarmth *= (1 - 0.65 * overW);
+    nightAmt *= (1 - 0.55 * overW);
   }
   if (rainW > 0.005) {
     _topWork.lerp(_cRainTint, 0.72 * rainW);
     _horWork.lerp(_cRainTint, 0.65 * rainW);
     sunWarmth *= (1 - rainW);
+    nightAmt *= (1 - 0.85 * rainW);
   }
   if (snowW > 0.005) {
     _topWork.lerp(_cSnowTint, 0.55 * snowW);
     _horWork.lerp(_cSnowTint, 0.50 * snowW);
     sunWarmth *= (1 - 0.75 * snowW);
+    nightAmt *= (1 - 0.4 * snowW);
   }
 
   ctrl.mat.uniforms.uTopColor.value.copy(_topWork);
   ctrl.mat.uniforms.uHorizonColor.value.copy(_horWork);
   ctrl.mat.uniforms.uSunDir.value.set(sunX || 0.4, sY, -0.35).normalize();
   ctrl.mat.uniforms.uSunWarmth.value = sunWarmth;
+  if (ctrl.mat.uniforms.uNightAmt) ctrl.mat.uniforms.uNightAmt.value = nightAmt;
+  if (ctrl.mat.uniforms.uTime) ctrl.mat.uniforms.uTime.value = envTime || 0;
 }
