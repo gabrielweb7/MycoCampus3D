@@ -314,6 +314,7 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   markItemsFalling();
   ctx._stackPhysicsDirty = true;
   ctx.heldItem = null;
+  ctx.mobileAimPrompt = '';
   ctx.thermoLaserOn = false;
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
   if (ctx.thermoLaserLine) ctx.thermoLaserLine.visible = false;

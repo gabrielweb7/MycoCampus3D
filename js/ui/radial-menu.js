@@ -1337,7 +1337,8 @@ function addMobilePrimaryAction(ctx, actions) {
     if (existing > 0) actions.unshift(actions.splice(existing, 1)[0]);
     return;
   }
-  const prompt = ctx.placementMode
+  const isPlacing = !!(ctx.placementMode && ctx.heldItem);
+  const prompt = isPlacing
     ? (ctx.placementValid ? t('hud.confirm_place') : '')
     : ctx.mobileAimPrompt;
   if (!prompt) return;
@@ -1367,7 +1368,9 @@ export function syncFloatingActions(ctx) {
     return;
   }
 
-  const actions = ctx.placementMode ? [] : buildContextActions(ctx);
+  if (ctx.placementMode && !ctx.heldItem) cancelHeldItemPlacement(ctx);
+  const isPlacing = !!(ctx.placementMode && ctx.heldItem);
+  const actions = isPlacing ? [] : buildContextActions(ctx);
   if (touch) addMobilePrimaryAction(ctx, actions);
   if (!actions.length) {
     if (barEl && !barEl.classList.contains('hidden')) {
