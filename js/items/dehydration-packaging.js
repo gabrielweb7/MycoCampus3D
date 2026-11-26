@@ -1266,8 +1266,9 @@ export function stepRoadsideMushroomSales(ctx, dt) {
 
     const profile = NPC_PROFILES[(roadStandState.totalSoldPacks + Math.floor(Math.random() * NPC_PROFILES.length)) % NPC_PROFILES.length];
     actor.bodyMat.color.setHex(profile.carColor);
-    actor.shirtMat.color.setHex(profile.shirtColor);
-    actor.hatMat.color.setHex(profile.hatColor);
+    // Todos os NPCs dos carrinhos mantêm o mesmo visual fofo e uniforme padronizado
+    actor.shirtMat.color.setHex(0x0284c7);
+    actor.hatMat.color.setHex(0x1e3a8a);
     // Carro nasce DENTRO do Túnel Escuro das Colinas Oeste (x = -114)!
     actor.carGroup.position.set(-114, 0.04, 39.5);
     actor.carGroup.rotation.y = 0;
@@ -1294,7 +1295,9 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       profile,
       isVip,
       phase: 'driving_in',
-      timer: 0
+      timer: 0,
+      mood: 'happy',
+      lastBlink: false
     };
     if (isVip && actor.avatar && actor.avatar.labelSprite) {
       updateTextSprite(actor.avatar.labelSprite, `⭐ VIP: ${profile.name}`, '#fde047');
@@ -1317,6 +1320,24 @@ export function stepRoadsideMushroomSales(ctx, dt) {
   const avatar = actor.avatar;
   const doorZ = roadZ - 1.15;
   order.timer += dt;
+
+  // Piscada natural periódica e atualização de expressão facial apenas quando muda
+  if (actor.npcGroup.visible && avatar && avatar.faceCtx) {
+    const blinkNow = (order.timer % 3.4) > 3.24;
+    if (blinkNow !== !!order.lastBlink) {
+      order.lastBlink = blinkNow;
+      drawAvatarFace(avatar.faceCtx, order.mood || 'happy', blinkNow);
+      if (avatar.faceTex) avatar.faceTex.needsUpdate = true;
+    }
+  }
+  const setNpcMood = (mood) => {
+    if (order.mood === mood) return;
+    order.mood = mood;
+    if (avatar && avatar.faceCtx) {
+      drawAvatarFace(avatar.faceCtx, mood, !!order.lastBlink);
+      if (avatar.faceTex) avatar.faceTex.needsUpdate = true;
+    }
+  };
 
   if (order.phase === 'driving_in') {
     const dist = Math.max(0.4, standX - actor.carGroup.position.x);
@@ -1343,6 +1364,7 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     if (order.timer >= 2.1) {
       order.phase = 'examining';
       order.timer = 0;
+      setNpcMood('focused');
       if (avatar.chatSprite) {
         updateTextSprite(avatar.chatSprite, t('stand.npc_examining'), '#aae3cf');
         avatar.chatSprite.visible = true;
@@ -1426,11 +1448,8 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         ctx.queueWorldStateChange('stand_sold', roadStandState.totalSoldPacks);
       }
       actor.heldPack.visible = true;
+      setNpcMood('love');
       if (actor.avatar) {
-        if (actor.avatar.faceCtx) {
-          drawAvatarFace(actor.avatar.faceCtx, 'love', false);
-          if (actor.avatar.faceTex) actor.avatar.faceTex.needsUpdate = true;
-        }
         if (actor.avatar.chatSprite) {
           updateTextSprite(
             actor.avatar.chatSprite,
@@ -1458,6 +1477,7 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       order.phase = 'turning';
       order.timer = 0;
       actor.cashGroup.visible = false;
+      setNpcMood('sad');
       if (actor.avatar && actor.avatar.chatSprite) {
         updateTextSprite(actor.avatar.chatSprite, '🛍️ Acabou! Volto já!', '#94a3b8');
         actor.avatar.chatSprite.visible = true;

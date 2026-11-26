@@ -62,6 +62,25 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 /**
+ * Remove tags de estado (ex: "Esterilizado", "Pronta", "%", "ml") do título do item,
+ * deixando apenas o nome limpo; detalhes completos ficam em Inspecionar.
+ */
+export function cleanItemTitle(rawTitle) {
+  let s = String(rawTitle || '').trim();
+  if (!s) return '';
+  // Remove sufixos após " • " ou " — "
+  s = s.split(/\s+[•—]\s+/)[0].trim();
+  // Remove parênteses de estado/esterilização/progresso, preservando identificadores como (Spawn), (PDA), (1.6m), (50 Vagas)
+  s = s.replace(/\s*\((?:[^)]*(?:esteril|steril|pront|ready|vazi|empty|chei|full|vencid|expir|contam|mofo|mold|seco|dry|umid|wet|inocul|coloniz|incub|crescen|growing|frutific|fruiting|ativo|active|deslig|off|ligad|on|\d+%|\d+\/\d+|\d+\s*ml|\d+\s*g\b)[^)]*)\)/gi, '').trim();
+  // Remove sufixos soltos após o nome base
+  s = s.replace(/\s+(?:n[aã]o\s+)?esterilizad[oa]s?\b/gi, '');
+  s = s.replace(/\s+(?:un)?sterilized\b/gi, '');
+  s = s.replace(/\s+(?:sin\s+)?esterilizar\b/gi, '');
+  s = s.replace(/\s+(?:vazi[oa]|chei[oa]|pront[oa]|vencid[oa]|selad[oa]|contaminad[oa])\b/gi, '');
+  return s.replace(/\s{2,}/g, ' ').trim();
+}
+
+/**
  * Converte um prompt textual e objeto alvo em título, parâmetros e ação formatados.
  */
 export function formatHoverInfo(prompt, targetObj) {
@@ -109,14 +128,15 @@ export function formatHoverInfo(prompt, targetObj) {
 
   // 3. Define título com base no alvo ou ação (preservando emoji completo com \uFE0F!)
   const emojiMatch = prompt.trim().match(LEADING_EMOJI_RE);
-  if (targetObj && (targetObj.label || targetObj.name)) {
-    title = String(targetObj.label || targetObj.name).trim();
+  const rawBase = targetObj && (targetObj.spawnCtrl?.baseLabel || targetObj.liquidCtrl?.baseLabel || targetObj.falconCtrl?.baseLabel || targetObj.label || targetObj.name);
+  if (rawBase) {
+    title = cleanItemTitle(rawBase);
     const titleHasEmoji = LEADING_EMOJI_RE.test(title);
     if (emojiMatch && !titleHasEmoji) {
       title = emojiMatch[0] + ' ' + title;
     }
   } else {
-    title = action;
+    title = cleanItemTitle(action) || action;
   }
 
   // Remove parâmetros redundantes do título quando já aparecem na linha de parâmetros

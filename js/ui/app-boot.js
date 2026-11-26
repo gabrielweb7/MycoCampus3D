@@ -2,6 +2,7 @@
  * MycoCampus3D — Bootstrap da Aplicação, Bindings de HUD, Chat & Eventos
  */
 import { bindQuickInventory } from './inventory-bar.js';
+import { cleanItemTitle } from '../entities/hover-3d-badge.js';
 import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
 import { forceCacheBustReload, isValidSemver } from '../core/version-updater.js';
 import { markPendingAutoUpdateNotice } from './whats-new-modal.js';
@@ -931,8 +932,9 @@ export function bootApp() {
       const heldName = $('held-item-bar-name');
       if (heldBar && heldName) {
         if (label && appState.currentUser) {
-          heldName.textContent = label;
-          heldName.title = label;
+          const cleanLabel = cleanItemTitle(label) || label;
+          heldName.textContent = cleanLabel;
+          heldName.title = cleanLabel;
           heldBar.classList.remove('hidden');
         } else {
           heldBar.classList.add('hidden');

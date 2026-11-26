@@ -88,14 +88,29 @@ export function disposeObject3D(root, skipMat) {
 export function drawAvatarFace(ctx, mood, blink) {
   ctx.clearRect(0, 0, 128, 128);
   const isTripMeme = mood === 'trip_meme';
+  const isLove = mood === 'love';
+  const isSad = mood === 'sad';
+  const isExcited = mood === 'excited';
   // Bochechas rosadas
-  ctx.fillStyle = isTripMeme ? 'rgba(244, 114, 182, 0.78)' : 'rgba(244, 114, 182, 0.55)';
-  ctx.beginPath(); ctx.ellipse(28, 76, isTripMeme ? 14 : 12, isTripMeme ? 8.5 : 7, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(100, 76, isTripMeme ? 14 : 12, isTripMeme ? 8.5 : 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = (isTripMeme || isLove) ? 'rgba(244, 114, 182, 0.78)' : 'rgba(244, 114, 182, 0.55)';
+  ctx.beginPath(); ctx.ellipse(28, 76, (isTripMeme || isLove) ? 14 : 12, (isTripMeme || isLove) ? 8.5 : 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(100, 76, (isTripMeme || isLove) ? 14 : 12, (isTripMeme || isLove) ? 8.5 : 7, 0, 0, Math.PI * 2); ctx.fill();
 
   // Olhos
-  if (isTripMeme && !blink) {
-    // Olhos arco-íris / felizes estilo meme ^ ^ brilhantes
+  if (isLove && !blink) {
+    // Olhos de coração ♥ ♥
+    ctx.fillStyle = '#f43f5e';
+    [40, 88].forEach(function (ex) {
+      ctx.beginPath();
+      ctx.moveTo(ex, 66);
+      ctx.bezierCurveTo(ex - 14, 56, ex - 13, 42, ex - 5, 42);
+      ctx.bezierCurveTo(ex - 1, 42, ex, 46, ex, 48);
+      ctx.bezierCurveTo(ex, 46, ex + 1, 42, ex + 5, 42);
+      ctx.bezierCurveTo(ex + 13, 42, ex + 14, 56, ex, 66);
+      ctx.fill();
+    });
+  } else if ((isTripMeme || isExcited) && !blink) {
+    // Olhos felizes estilo ^ ^ brilhantes
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 5.5;
     ctx.lineCap = 'round';
@@ -113,7 +128,7 @@ export function drawAvatarFace(ctx, mood, blink) {
   } else {
     [40, 88].forEach(function (ex) {
       ctx.fillStyle = '#0f172a';
-      ctx.beginPath(); ctx.ellipse(ex, 56, 10, 12, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(ex, 56, 10, isSad ? 10 : 12, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#ffffff';
       ctx.beginPath(); ctx.arc(ex - 3, 51, 3.6, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(ex + 3, 60, 1.8, 0, Math.PI * 2); ctx.fill();
@@ -124,8 +139,8 @@ export function drawAvatarFace(ctx, mood, blink) {
   ctx.strokeStyle = '#0f172a';
   ctx.lineWidth = 4.5;
   ctx.lineCap = 'round';
-  if (isTripMeme) {
-    // Sorrisão meme gigante :D com língua fofinha
+  if (isTripMeme || isLove || isExcited) {
+    // Sorrisão gigante :D
     ctx.fillStyle = '#be123c';
     ctx.beginPath();
     ctx.arc(64, 75, 16, 0.05, Math.PI - 0.05);
@@ -136,6 +151,10 @@ export function drawAvatarFace(ctx, mood, blink) {
     ctx.beginPath();
     ctx.ellipse(64, 87, 8, 4.5, 0, 0, Math.PI * 2);
     ctx.fill();
+  } else if (isSad) {
+    ctx.beginPath(); ctx.moveTo(28, 42); ctx.lineTo(48, 37); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(100, 42); ctx.lineTo(80, 37); ctx.stroke();
+    ctx.beginPath(); ctx.arc(64, 92, 10, Math.PI + 0.3, -0.3); ctx.stroke();
   } else if (mood === 'focused') {
     ctx.beginPath(); ctx.moveTo(28, 38); ctx.lineTo(50, 42); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(100, 38); ctx.lineTo(78, 42); ctx.stroke();
