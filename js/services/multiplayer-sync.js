@@ -83,8 +83,10 @@ export async function syncMultiplayer(forceHeldState = false) {
     if (data && data.kicked) {
       if (appState.syncTimer) clearInterval(appState.syncTimer);
       appState.syncTimer = null;
-      alert(data.error || t('misc.mp.kicked'));
-      window.location.reload();
+      appState.currentUser = null;
+      appState.authToken = null;
+      if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock();
+      alert(data.error || 'Sua conta foi conectada em outro dispositivo ou navegador. Atualize a página para jogar aqui.');
       return false;
     }
 

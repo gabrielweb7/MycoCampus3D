@@ -557,7 +557,7 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
     // Aim Assist leve no Mobile: facilita acertar itens pequenos (ampolas, bisturi, petri) perto da mira
-    if (!bestSmall && isTouch && ray && ro && rd) {
+    if (!bestSmall && ctx.isTouchDevice?.() && ray && ro && rd) {
       let bestAssistScore = Infinity;
       for (let i = 0; i < ctx.pickableItems.length; i++) {
         const item = ctx.pickableItems[i];

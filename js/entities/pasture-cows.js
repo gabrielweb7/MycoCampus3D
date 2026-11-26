@@ -703,12 +703,10 @@ function getBeeSharedAssets() {
     }
   };
   const hiveTex = loadCuteTex('beehive-cute.jpg');
-  const workerTex = loadCuteTex('bee-worker.jpg');
-  const queenTex = loadCuteTex('bee-queen.jpg');
 
   beeSharedAssets = markAllShared({
-    yellowMat: new THREE.MeshStandardMaterial({ color: workerTex ? 0xffffff : 0xfde047, map: workerTex, roughness: 0.55 }),
-    queenYellowMat: new THREE.MeshStandardMaterial({ color: queenTex ? 0xffffff : 0xfacc15, map: queenTex, roughness: 0.42, emissive: 0x713f12, emissiveIntensity: 0.14 }),
+    yellowMat: new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.52 }),
+    queenYellowMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.36, emissive: 0x854d0e, emissiveIntensity: 0.16 }),
     blushMat: new THREE.MeshBasicMaterial({ color: 0xf472b6 }),
     crownMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.22, metalness: 0.72, emissive: 0x854d0e, emissiveIntensity: 0.25 }),
     darkMat: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.72 }),

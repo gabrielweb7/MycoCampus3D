@@ -192,10 +192,10 @@ if ($action === 'sync') {
 
     // Garante sessão única por conta: novo acesso desconecta o anterior
     if ($initSync) {
-        $delOther = $pdo->prepare('DELETE FROM mc_sessions WHERE user_id = ? AND session_key <> ?');
+        $delOther = $pdo->prepare('DELETE FROM mc_sessions WHERE user_id = ? AND session_id <> ?');
         $delOther->execute([$userId, $sessionKey]);
     } else {
-        $chkOther = $pdo->prepare('SELECT 1 FROM mc_sessions WHERE user_id = ? AND session_key <> ? LIMIT 1');
+        $chkOther = $pdo->prepare('SELECT 1 FROM mc_sessions WHERE user_id = ? AND session_id <> ? LIMIT 1');
         $chkOther->execute([$userId, $sessionKey]);
         if ($chkOther->fetchColumn()) {
             if ($leaving) {
@@ -204,7 +204,7 @@ if ($action === 'sync') {
             mc_json([
                 'ok' => true,
                 'kicked' => true,
-                'error' => 'Sua conta foi conectada em outro dispositivo ou aba.'
+                'error' => 'Sua conta foi conectada em outro dispositivo ou navegador. Atualize a página para jogar aqui.'
             ]);
         }
     }
