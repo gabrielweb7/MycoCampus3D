@@ -104,8 +104,8 @@ function ensureFloatingStyles() {
       transform: translateY(-1px);
     }
     body.device-touch .myco-float-chip {
-      min-height: 44px;
-      padding: 5px 8px;
+      min-height: 34px;
+      padding: 5px 12px;
     }
     .myco-float-key {
       display: inline-flex;

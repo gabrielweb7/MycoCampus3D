@@ -1403,7 +1403,8 @@ body.device-touch #chat-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: min(100%, 360px);
+  width: auto;
+  max-width: min(92vw, 320px);
   margin: 0 auto;
 }
 
@@ -1413,14 +1414,18 @@ body.device-touch #chat-container {
 
 #myco-floating-actions.mobile-context-actions .myco-float-chip {
   flex: 0 0 auto;
-  min-height: 44px;
-  border-radius: 10px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
 }
 
 #myco-floating-actions .myco-context-primary {
-  width: 100%;
+  width: auto;
+  max-width: min(86vw, 260px);
+  padding: 6px 14px;
   justify-content: center;
-  background: #123b35;
+  background: rgba(18, 59, 53, 0.94);
   border-color: #5ab79f;
   text-align: center;
   overflow-wrap: anywhere;
