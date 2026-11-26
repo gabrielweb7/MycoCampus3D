@@ -1,6 +1,7 @@
 /**
  * MycoCampus3D — Sincronização Multiplayer em Tempo Real (Delta Sync)
  */
+import { applyCampusMeetupInvite } from '../ui/campus-agenda.js';
 import { appState } from '../core/state.js';
 import { setVillageTraffic } from '../world/village-traffic.js';
 import { events } from '../core/events.js';
@@ -144,6 +145,7 @@ export async function syncMultiplayer(forceHeldState = false) {
       if (firstSync && data.saved_pose && window.applyCampusSavedPose) {
         window.applyCampusSavedPose(data.saved_pose);
       }
+      if (firstSync && !data.force_teleport) applyCampusMeetupInvite();
       if (window.updateCampusPlayers) window.updateCampusPlayers(data.players || []);
       updateRemotePets(data.players || []);
       if (data.board_strokes && data.board_strokes.length && window.applyCampusBoardStrokes) {

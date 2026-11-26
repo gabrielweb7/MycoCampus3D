@@ -39,7 +39,7 @@ import { escapeHtml } from './dom-helpers.js';
 import { diagnoseItemPedagogy } from '../core/cultivation-tracks.js';
 import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposal.js';
 import { canPruneGardenPlant } from '../world/campus-garden.js';
-import { growHeldAction } from '../items/portable-grow.js';
+import { growHeldFeedback } from '../items/portable-grow.js';
 import { t } from '../core/i18n.js';
 
 let barEl = null;
@@ -824,7 +824,7 @@ function buildHeldItemActions(ctx) {
 function buildContextActions(ctx) {
   if (!ctx.adminEditMode && ctx.hoveredPickable?.growCtrl) {
     const item = ctx.hoveredPickable;
-    const label = ctx.heldItem ? growHeldAction(ctx.heldItem) : t('grow.panel');
+    const label = ctx.heldItem ? growHeldFeedback(ctx.heldItem, item.growCtrl) : t('grow.panel');
     if (label) {
       const actions = [{ id: 'portable_grow', icon: '🌱', label, run: () => handlePrimaryAction(ctx) }];
       if (!ctx.heldItem) {

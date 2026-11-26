@@ -45,7 +45,6 @@ export const roadStandState = {
   availablePacks: 0,
   speciesList: [],
   gramsList: [],
-  vipOrders: ['Golden Teacher', 'Juba de Leão'],
   standPacksMeshes: [],
   signCanvas: null,
   signCtx: null,
@@ -57,10 +56,8 @@ export const roadStandState = {
 };
 
 export function getActiveVipOrders() {
-  if (!Array.isArray(roadStandState.vipOrders) || roadStandState.vipOrders.length < 2) {
-    roadStandState.vipOrders = [VIP_SPECIES_MENU[0], VIP_SPECIES_MENU[1]];
-  }
-  return roadStandState.vipOrders.slice(0, 2);
+  const base = Math.floor(roadStandState.totalSoldPacks / 3) % VIP_SPECIES_MENU.length;
+  return [VIP_SPECIES_MENU[base], VIP_SPECIES_MENU[(base + 1) % VIP_SPECIES_MENU.length]];
 }
 
 export function matchVipOrder(speciesName) {
@@ -74,14 +71,6 @@ export function matchVipOrder(speciesName) {
     }
   }
   return null;
-}
-
-function rotateVipOrder(index) {
-  const vips = getActiveVipOrders();
-  const nextPool = VIP_SPECIES_MENU.filter((sp) => vips.indexOf(sp) === -1);
-  const pick = nextPool[(roadStandState.totalSoldPacks + index) % nextPool.length] || VIP_SPECIES_MENU[0];
-  vips[index] = pick;
-  roadStandState.vipOrders = vips;
 }
 
 const NPC_PROFILES = [
@@ -1430,7 +1419,6 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       const earnedCoins = isVipSale ? Math.round(basePrice * 1.5) : basePrice;
       roadStandState.totalSoldPacks++;
       roadStandState.totalCoinsEarned += earnedCoins;
-      if (vipMatch) rotateVipOrder(vipMatch.index);
       const newBalance = addLocalMycoCoins(earnedCoins);
       syncRoadStandVisual();
       if (ctx && ctx.queueWorldStateChange) {

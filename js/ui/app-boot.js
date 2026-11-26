@@ -56,6 +56,7 @@ import {
   renderAdminUsers,
   showAdminNotice
 } from './modal-admin.js';
+import { openCampusAgenda } from './campus-agenda.js';
 import { setupMobileJoystick } from './mobile-controls.js';
 import { showWhatsNewModal } from './whats-new-modal.js';
 import { initModalWindowManager } from './modal-window-manager.js';
@@ -251,6 +252,9 @@ function bindModalsAndToolbar() {
   if (btnOpenRanking) btnOpenRanking.onclick = openRankingModal;
   const btnCloseRanking = $('btn-close-ranking');
   if (btnCloseRanking) btnCloseRanking.onclick = () => $('ranking-modal')?.classList.add('hidden');
+
+  const btnAgenda = $('btn-open-agenda');
+  if (btnAgenda) btnAgenda.onclick = openCampusAgenda;
 
   const btnMap = $('btn-open-map');
   if (btnMap) {

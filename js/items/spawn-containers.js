@@ -145,7 +145,7 @@ export function applyMicroporeSeal(item) {
   return true;
 }
 
-function isBulkSubstrate(kind) {
+export function isBulkSubstrate(kind) {
   return kind === 'coco_verm' || kind === 'sawdust' || kind === 'coco' || kind === 'vermiculite';
 }
 

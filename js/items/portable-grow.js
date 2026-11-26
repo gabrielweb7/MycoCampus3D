@@ -1,5 +1,5 @@
 import { registerPickable, disposeObjectResources, getCachedCanvasTexture, bindPngTexture } from './item-registry.js';
-import { emptySpawnContainer, isFruitingBagReady } from './spawn-containers.js';
+import { emptySpawnContainer, isBulkSubstrate, isFruitingBagReady } from './spawn-containers.js';
 import { makeSpentCakeItem } from './monotub.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 import { releaseInputForModal } from '../ui/dom-helpers.js';
@@ -358,10 +358,42 @@ export function stepPortableGrows(ctx, dt) {
     deployed.visible = !carried;
     carry.visible = carried;
     if (!carried) updateGrow(item.growCtrl, dt, now);
+    const grow = item.growCtrl;
+    if (grow.notifyHarvest) {
+      let mask = 0;
+      let count = 0;
+      for (let i = 0; i < grow.slots.length; i++) {
+        if (!isReady(grow.slots[i], now)) continue;
+        mask |= 1 << i;
+        if (grow.readyMask != null && !(grow.readyMask & (1 << i))) count++;
+      }
+      grow.readyMask = mask;
+      if (count) ctx.callbacks?.onToast?.(t('grow.harvest_notice', { count }));
+    }
   }
 }
 
-export function growHeldAction(item) {
+function isReady(slot, now) {
+  return !!slot && !slot.spent && now >= slot.started + slot.duration;
+}
+
+export function countReadyGrowSlots(grow, now = Date.now()) {
+  return grow.slots.reduce((count, slot) => count + Number(isReady(slot, now)), 0);
+}
+
+export function growHeldFeedback(item, grow) {
+  const sc = item?.spawnCtrl;
+  if (item?.growModule) return t('grow.connect');
+  if (!sc?.isBag || !sc.filled) return '';
+  if (sc.contaminated || sc.burned || sc.expired) return t('grow.bag_unusable');
+  if (isFruitingBagReady(item)) return grow && !grow.slots.includes(null) ? t('grow.full') : t('grow.bag_place');
+  if (!sc.pasteurized || !isBulkSubstrate(sc.substrateKind)) return t('grow.bag_needs_bulk');
+  if (!sc.inoculated) return t('grow.bag_needs_spawn');
+  if (!sc.shaken) return t('grow.bag_shake');
+  return t('grow.bag_growing', { progress: Math.floor(sc.colonization || 0) });
+}
+
+function growHeldAction(item) {
   if (item?.growModule) return t('grow.connect');
   if (isFruitingBagReady(item)) return t('grow.load');
   return '';
@@ -396,7 +428,13 @@ function retimeFlushes(grow) {
 export function installInGrow(ctx, item) {
   const held = ctx.heldItem;
   const grow = item.growCtrl;
-  if (!grow || item.isReadOnly || held.isReadOnly || !growHeldAction(held)) return false;
+  if (!grow || !held || item.isReadOnly || held.isReadOnly) return false;
+  if (!growHeldAction(held)) {
+    const feedback = growHeldFeedback(held, grow);
+    if (!feedback) return false;
+    ctx.callbacks?.onToast?.(feedback);
+    return true;
+  }
   const toast = ctx.callbacks?.onToast;
   if (held.growModule) {
     const key = held.growModule === 'grow_humidifier' ? 'humidifier' : 'exhaust';
@@ -423,6 +461,9 @@ export function installInGrow(ctx, item) {
     }
     const spawn = held.spawnCtrl;
     grow.slots[index] = beginFlush(grow, spawn.speciesName || 'Cogumelo', 1);
+    if (!grow.notifyHarvest) grow.readyMask = null;
+    else if (grow.readyMask != null) grow.readyMask &= ~(1 << index);
+    grow.notifyHarvest = true;
     emptySpawnContainer(held);
     ctx.queueItemStateSync?.(held);
     ctx.callbacks?.onHoldChange?.(held.label);
@@ -526,6 +567,11 @@ export function openPortableGrowPanel(ctx, item) {
   auto.textContent = '🤖 ' + t('grow.auto');
   manual.textContent = '🎛 ' + t('grow.manual');
   const led = button(controls, () => toggle('led'));
+  const notice = button(controls, () => {
+    grow.notifyHarvest = !grow.notifyHarvest;
+    grow.readyMask = null;
+    refresh();
+  });
   const mist = button(controls, () => toggle('mistOn'));
   const fan = button(controls, () => toggle('fanOn'));
   const slotButtons = [];
@@ -561,6 +607,10 @@ export function openPortableGrowPanel(ctx, item) {
     auto.setAttribute('aria-pressed', String(grow.auto));
     manual.setAttribute('aria-pressed', String(!grow.auto));
     led.textContent = 'LED · ' + onOff(grow.led);
+    notice.textContent = '🔔 ' + t(grow.notifyHarvest ? 'grow.notice_on' : 'grow.notice_off');
+    notice.setAttribute('aria-pressed', String(!!grow.notifyHarvest));
+    const ready = countReadyGrowSlots(grow);
+    if (ready) capacity.note.textContent = t('grow.ready_count', { count: ready });
     mist.textContent = t('grow.humidifier') + ' · ' + moduleState(grow.humidifier, grow.mistOn);
     fan.textContent = t('grow.exhaust') + ' · ' + moduleState(grow.exhaust, grow.fanOn);
     mist.disabled = !grow.humidifier || grow.auto;
