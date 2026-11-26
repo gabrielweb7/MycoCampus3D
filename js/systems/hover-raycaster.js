@@ -271,6 +271,21 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.raycaster.far = 24;
   ctx.raycaster.setFromCamera(rayNdc, ctx.camera);
 
+  // Permite mirar e abrir/fechar portas mesmo segurando um item na mão (quando não está em modo posicionamento)
+  if (!ctx.placementMode && ctx.doorHitMeshes.length) {
+    const doorHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false), 4.2, { checkWalls: true });
+    if (doorHit) {
+      ctx.hoverHit = doorHit;
+      ctx.hoveredDoorObj = doorHit.object.userData.doorObj;
+      const dPrompt = t(
+        ctx.hoveredDoorObj.open ? 'actions.hover.door_close' : 'actions.hover.door_open',
+        { label: ctx.hoveredDoorObj.label }
+      );
+      setHoverPrompt(ctx, dPrompt);
+      return;
+    }
+  }
+
   if (resolveHeldItemHover(ctx, rayNdc, {
     intersectPickableItem,
     setHoverPrompt,

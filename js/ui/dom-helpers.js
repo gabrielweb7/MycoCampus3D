@@ -262,6 +262,7 @@ export function openIosFullscreenModal() {
 export function requestCampusFullscreen(opts = {}) {
   try {
     const explicit = Boolean(opts && opts.explicitUserClick);
+    if (!explicit && !isTouch()) return;
     if (isNativeFullscreenSupported()) {
       if (!isFullscreenActive()) {
         const el = document.documentElement;

@@ -982,10 +982,10 @@ function markHiveAbandoned(hive) {
 
 function createPastureBees(ctx) {
   if (!THREE || !ctx || !ctx.scene) return;
-  ctx.pastureBees = [];
-  ctx.beehives = [];
-  ctx.beehiveHitMeshes = [];
-  ctx.campusFlowers = [];
+  if (!Array.isArray(ctx.pastureBees)) ctx.pastureBees = []; else ctx.pastureBees.length = 0;
+  if (!Array.isArray(ctx.beehives)) ctx.beehives = []; else ctx.beehives.length = 0;
+  if (!Array.isArray(ctx.beehiveHitMeshes)) ctx.beehiveHitMeshes = []; else ctx.beehiveHitMeshes.length = 0;
+  if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = []; else ctx.campusFlowers.length = 0;
 
   // Flores coloridas perto das colmeias e em outras árvores/casas do campus
   let flowerSeed = 0;

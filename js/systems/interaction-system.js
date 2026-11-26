@@ -312,6 +312,12 @@ export function handlePrimaryAction(ctx, aimNdc) {
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable?.growCtrl && installInGrow(ctx, ctx.hoveredPickable)) return true;
     if (ctx.hoveredBeehive) return interactBeehive(ctx, ctx.hoveredBeehive);
+    if (ctx.hoveredDoorObj) {
+      ctx.hoveredDoorObj.open = !ctx.hoveredDoorObj.open;
+      ctx.queueWorldStateChange(ctx.hoveredDoorObj.id, ctx.hoveredDoorObj.open ? 1 : 0);
+      if (window.MycoAudio) window.MycoAudio.playDoor(ctx.hoveredDoorObj.open);
+      return true;
+    }
     if (ctx.hoveredPdaTarget) {
       const target = ctx.hoveredPdaTarget;
       if (ctx.heldItem.pdaReagentCtrl) {
