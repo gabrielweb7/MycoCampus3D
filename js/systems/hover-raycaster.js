@@ -736,12 +736,25 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
-  if (!prompt && !ctx.heldItem && ctx.cowHitMeshes && ctx.cowHitMeshes.length && refX > 26 && refX < 78 && refZ > 4 && refZ < 56) {
-    const cowHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.cowHitMeshes, false), 5.5, { checkWalls: true });
-    if (cowHit && cowHit.object.userData.cowObj) {
-      ctx.hoverHit = cowHit;
-      ctx.hoveredCow = cowHit.object.userData.cowObj;
-      prompt = t('actions.hover.cow_pet', { name: ctx.hoveredCow.name, health: ctx.hoveredCow.health, mood: ctx.hoveredCow.mood });
+  if (!prompt && !ctx.heldItem && ctx.cowHitMeshes && ctx.cowHitMeshes.length && ctx.pastureCows && ctx.pastureCows.length) {
+    let nearAnyCow = false;
+    for (let ci = 0; ci < ctx.pastureCows.length; ci++) {
+      const cw = ctx.pastureCows[ci];
+      if (!cw || cw.abducted || !cw.mesh || !cw.mesh.position) continue;
+      const cdx = cw.mesh.position.x - refX;
+      const cdz = cw.mesh.position.z - refZ;
+      if (cdx * cdx + cdz * cdz <= 49) {
+        nearAnyCow = true;
+        break;
+      }
+    }
+    if (nearAnyCow) {
+      const cowHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.cowHitMeshes, false), 5.5, { checkWalls: true });
+      if (cowHit && cowHit.object.userData.cowObj) {
+        ctx.hoverHit = cowHit;
+        ctx.hoveredCow = cowHit.object.userData.cowObj;
+        prompt = t('actions.hover.cow_pet', { name: ctx.hoveredCow.name, health: ctx.hoveredCow.health, mood: ctx.hoveredCow.mood });
+      }
     }
   }
   if (!prompt && !ctx.heldItem) {

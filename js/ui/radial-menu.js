@@ -2,7 +2,7 @@
  * Barra Flutuante Diegetica de Acoes Contextuais (PC & Mobile) - MycoCampus3D
  * Aparece automaticamente dentro do jogo ao apontar para itens/dispositivos ou segurar objetos,
  * sem soltar o Pointer Lock nem exibir cursor do Windows.
- * Acione com as teclas 1, 2, 3, 4 (PC) ou toque direto (Mobile).
+ * Acione pelos atalhos padronizados F, V, Z, G, I (PC) ou toque direto (Mobile).
  */
 
 import { BURNER_LEVEL_NAMES, setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
@@ -900,12 +900,6 @@ function buildHeldItemActions(ctx) {
       run: () => breakAndShakeSpawn(ctx, held)
     });
   }
-  actions.push({
-    id: 'held_inspect_' + held.id,
-    icon: '🔍',
-    label: t('actions.radial.inspect'),
-    run: () => inspectItemToast(ctx, held)
-  });
   if (!ctx.placementMode) {
     const plate = ctx.hoveredSporePrintPetri || ctx.hoveredPourTarget ||
       (ctx.hoveredSyringeTarget?.mode === 'open' ? ctx.hoveredSyringeTarget.item : null) ||
@@ -958,7 +952,14 @@ function buildHeldItemActions(ctx) {
       });
     }
   }
-  actions.length = Math.min(4, actions.length);
+  if (actions.length > 3) actions.length = 3;
+  actions.push({
+    id: 'held_inspect_' + held.id,
+    icon: '🔍',
+    key: 'I',
+    label: t('actions.radial.inspect'),
+    run: () => inspectItemToast(ctx, held)
+  });
   for (const action of actions) {
     const run = action.run;
     action.run = () => { if (ctx.heldItem === held) run(); };
@@ -978,7 +979,7 @@ function buildContextActions(ctx) {
     if (label) {
       const actions = [{ id: 'portable_grow', icon: '🌱', label, primary: true, run: () => handlePrimaryAction(ctx) }, doorAction];
       if (!ctx.heldItem) {
-        actions.push({ id: 'portable_grow_carry', icon: '🎒', label: t('grow.carry'), run: () => pickHoveredItemForMove(ctx, item, false) });
+        actions.push({ id: 'portable_grow_carry', icon: '🎒', key: 'G', label: t('grow.carry'), run: () => pickHoveredItemForMove(ctx, item, false) });
         const harvest = growSlotActionLabel(item.growCtrl, ctx.hoveredGrowSlot);
         if (harvest) {
           actions[0].primary = false;
@@ -1170,6 +1171,7 @@ function buildContextActions(ctx) {
     actions.push({
       id: 'inspect_hive_' + (ctx.hoveredBeehive.id || '0'),
       icon: '🔍',
+      key: 'I',
       label: t('actions.radial.inspect'),
       run: () => inspectBeehiveCard(ctx, ctx.hoveredBeehive)
     });
@@ -1271,8 +1273,18 @@ function buildContextActions(ctx) {
         }
       });
       actions.push({
+        id: 'fridge_info_' + target.id,
+        icon: '📋',
+        label: t('actions.radial.fridge_slots'),
+        run: () => {
+          const count = target.fridgeCtrl.slots ? target.fridgeCtrl.slots.filter(Boolean).length : 0;
+          if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.radial.fridge_slots_toast', { count }));
+        }
+      });
+      actions.push({
         id: 'fridge_move_' + target.id,
         icon: '🙌',
+        key: 'G',
         label: t('actions.radial.move_fridge'),
         run: () => {
           if (isCultureFridgeOccupied(ctx, target)) {
@@ -1289,17 +1301,9 @@ function buildContextActions(ctx) {
         }
       });
       actions.push({
-        id: 'fridge_info_' + target.id,
-        icon: '📋',
-        label: t('actions.radial.fridge_slots'),
-        run: () => {
-          const count = target.fridgeCtrl.slots ? target.fridgeCtrl.slots.filter(Boolean).length : 0;
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.radial.fridge_slots_toast', { count }));
-        }
-      });
-      actions.push({
         id: 'inspect_' + target.id,
         icon: '🔍',
+        key: 'I',
         label: t('actions.radial.inspect'),
         run: () => inspectItemToast(ctx, target)
       });
@@ -1397,10 +1401,12 @@ function buildContextActions(ctx) {
         run: () => openAmpouleCaseModal(ctx, target)
       });
     }
+    if (actions.length > 2) actions.length = 2;
     if (target.spawnCtrl || target.cultureCtrl || target.monotubCtrl || target.caseCtrl || (target.mesh && target.mesh.userData && target.mesh.userData.isPetri)) {
       actions.push({
         id: 'tag_' + target.id + '_' + (target.customTag || ''),
         icon: '🏷️',
+        key: 'Z',
         label: t(target.customTag ? 'actions.radial.edit_tag' : 'actions.radial.tag'),
         run: () => promptCustomItemTag(ctx, target)
       });
@@ -1408,21 +1414,71 @@ function buildContextActions(ctx) {
     actions.push({
       id: 'move_' + target.id,
       icon: '📦',
+      key: 'G',
       label: t('actions.radial.move'),
       run: () => {
-        if (ctx.pickHoveredItemForMove) ctx.pickHoveredItemForMove(target);
+        if (ctx.pickHoveredItemForMove) ctx.pickHoveredItemForMove(target, !!ctx.adminEditMode);
       }
     });
     actions.push({
       id: 'inspect_' + target.id,
       icon: '🔍',
+      key: 'I',
       label: t('actions.radial.inspect'),
       run: () => inspectItemToast(ctx, target)
     });
-    return actions.slice(0, 4);
+    return actions.slice(0, 5);
   }
 
   return actions;
+}
+
+const CONTEXT_ACTION_KEYS = ['F', 'V', 'Z'];
+
+function getSemanticActionKey(act) {
+  if (!act) return '';
+  if (act.key) return String(act.key).toUpperCase();
+  const id = act.id || '';
+  if (id.startsWith('move_') || id.startsWith('fridge_move_') || id === 'portable_grow_carry') return 'G';
+  if (id.startsWith('inspect_') || id.startsWith('held_inspect_')) return 'I';
+  if (id.startsWith('tag_')) return 'Z';
+  return '';
+}
+
+export function assignActionShortcuts(actions) {
+  if (!Array.isArray(actions)) return [];
+  const usedKeys = new Set();
+  for (let i = 0; i < actions.length; i++) {
+    const act = actions[i];
+    if (!act) continue;
+    const fixed = getSemanticActionKey(act);
+    if (fixed) {
+      act.key = fixed;
+      act.code = 'Key' + fixed;
+      usedKeys.add(fixed);
+    }
+  }
+  let ctxCursor = 0;
+  for (let i = 0; i < actions.length; i++) {
+    const act = actions[i];
+    if (!act || act.key) continue;
+    while (ctxCursor < CONTEXT_ACTION_KEYS.length && usedKeys.has(CONTEXT_ACTION_KEYS[ctxCursor])) {
+      ctxCursor++;
+    }
+    const assigned = CONTEXT_ACTION_KEYS[ctxCursor] || '';
+    if (assigned) {
+      act.key = assigned;
+      act.code = 'Key' + assigned;
+      usedKeys.add(assigned);
+      ctxCursor++;
+    }
+  }
+  return actions;
+}
+
+export function getFloatingActionsPreview(ctx) {
+  if (!ctx) return [];
+  return assignActionShortcuts(buildContextActions(ctx));
 }
 
 function addMobilePrimaryAction(ctx, actions) {
@@ -1466,6 +1522,7 @@ export function syncFloatingActions(ctx) {
   const isPlacing = !!(ctx.placementMode && ctx.heldItem);
   const actions = isPlacing ? [] : buildContextActions(ctx);
   if (touch) addMobilePrimaryAction(ctx, actions);
+  assignActionShortcuts(actions);
   if (!actions.length) {
     if (barEl && !barEl.classList.contains('hidden')) {
       barEl.classList.add('hidden');
@@ -1475,7 +1532,7 @@ export function syncFloatingActions(ctx) {
     return;
   }
 
-  const sig = (touch ? 'touch:' : '') + actions.map(action => touch ? `${action.id}:${action.label}` : action.id).join('|');
+  const sig = (touch ? 'touch:' : '') + actions.map(action => `${action.id}:${action.key || ''}:${touch ? action.label : ''}`).join('|');
   currentActions = actions;
   if (sig === lastSignature && barEl && !barEl.classList.contains('hidden')) return;
   lastSignature = sig;
@@ -1497,16 +1554,14 @@ export function syncFloatingActions(ctx) {
     secondary.setAttribute('role', 'group');
     secondary.setAttribute('aria-label', t('hud.item_actions'));
   }
-  const ACTION_KEYS = ['F', 'Z', 'V', '4'];
   actions.forEach(function (act, idx) {
-    const keyHint = ACTION_KEYS[idx] || String(idx + 1);
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'myco-float-chip';
-    if (!touch) {
+    if (!touch && act.key) {
       const key = document.createElement('span');
       key.className = 'myco-float-key';
-      key.textContent = keyHint;
+      key.textContent = act.key;
       chip.appendChild(key);
     }
     const label = document.createElement('span');
@@ -1531,6 +1586,19 @@ export function triggerFloatingAction(index) {
   if (index >= 0 && index < currentActions.length && currentActions[index]) {
     currentActions[index].run();
     return true;
+  }
+  return false;
+}
+
+export function triggerFloatingActionByCode(code) {
+  if (!code) return false;
+  const normalized = code === 'KeyQ' ? 'KeyG' : code;
+  for (let i = 0; i < currentActions.length; i++) {
+    const act = currentActions[i];
+    if (act && act.code === normalized) {
+      act.run();
+      return true;
+    }
   }
   return false;
 }

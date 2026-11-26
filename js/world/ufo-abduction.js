@@ -2,6 +2,7 @@
  * MycoCampus3D — Disco Voador (Passagem Rara no Céu & Abdução de Vaquinha)
  */
 import { getGroundHeight } from '../engine/physics.js';
+import { findSafePasturePoint, PASTURE_TROUGH_POS } from '../entities/pasture-cows.js';
 
 const THREE = window.THREE;
 
@@ -102,11 +103,17 @@ function releaseCow(cow, ctx) {
   cow.abducted = false;
   cow.mesh.scale.setScalar(1);
   cow.mesh.rotation.set(0, cow.yaw || 0, 0);
-  const rx = 64 + (Math.random() - 0.5) * 12;
-  const rz = 8 + (Math.random() - 0.5) * 16;
+  const safePt = findSafePasturePoint(ctx, Math.floor(Math.random() * 999), PASTURE_TROUGH_POS);
+  const rx = safePt.x;
+  const rz = safePt.z;
   const ry = ctx && ctx.physCtx ? getGroundHeight(ctx.physCtx, rx, rz, 2) : 0;
   cow.mesh.position.set(rx, ry, rz);
   cow.mesh.visible = true;
+  cow.stuckTimer = 0;
+  cow.avoidTimer = 0;
+  cow.routeIdx = 1;
+  cow.lastProgressX = rx;
+  cow.lastProgressZ = rz;
 }
 
 export function stepUfoAbduction(ctx, dt) {

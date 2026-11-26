@@ -421,7 +421,7 @@ const sim = {
 
   getCinemaHitTarget: function (uv) { return getCinemaHitTarget(sim, uv); },
   dropHeldItem: function () { return dropHeldItem(sim); },
-  pickHoveredItemForMove: function (explicitItem) { return pickHoveredItemForMove(sim, explicitItem); },
+  pickHoveredItemForMove: function (explicitItem, startPlacement) { return pickHoveredItemForMove(sim, explicitItem, startPlacement); },
   toggleHeldItemPlacement: function () { return toggleHeldItemPlacement(sim); },
   cancelHeldItemPlacement: function () { return cancelHeldItemPlacement(sim); },
   handlePrimaryAction: function (aimNdc) { return handlePrimaryAction(sim, aimNdc); },

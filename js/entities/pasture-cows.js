@@ -25,15 +25,22 @@ export const POOP_TOTAL_LIFETIME_SEC = 120; // 30s crescendo + 90s disponível a
 export const MAX_ACTIVE_POOPS = 18;
 
 const PASTURE_BOUNDS = { minX: -84, maxX: 84, minZ: -78, maxZ: 78 };
-const HERD_MIGRATION_SPOTS = [
-  { x: 64, z: 8 },
-  { x: 62, z: -38 },
-  { x: -62, z: -38 },
-  { x: -66, z: 16 },
-  { x: 52, z: 60 },
-  { x: -50, z: 60 }
-];
+export const PASTURE_TROUGH_POS = Object.freeze({ x: 74, z: 2 });
+export const HERD_MIGRATION_LEG_SEC = 40;
+export const HERD_MIGRATION_ROUTE = Object.freeze([
+  { x: 75, z: 22, name: 'Pasto Sudeste' },
+  { x: 71, z: 2, name: 'Cocho de Feno' },
+  { x: 72, z: -28, name: 'Pasto Nordeste' },
+  { x: 46, z: -56, name: 'Prado Norte-Leste' },
+  { x: 0, z: -58, name: 'Prado da Reitoria' },
+  { x: -46, z: -58, name: 'Prado Noroeste' },
+  { x: -74, z: -54, name: 'Bosque Noroeste' },
+  { x: -75, z: -18, name: 'Pasto Oeste' },
+  { x: -75, z: 18, name: 'Clareira Oeste' }
+]);
 const COW_NAMES = ['Mimosa', 'Estrela', 'Pipoca', 'Bela', 'Malhada', 'Flor'];
+const COW_STEER_OFFSETS = [0.45, 0.9, 1.4, 2.05, -0.45, -0.9, -1.4, -2.05, Math.PI];
+const COW_UNSTICK_RINGS = [1.5, 3.0, 5.0, 8.0];
 
 function isInsideTownOrRoad(x, z) {
   // Mantém vaquinhas, cocôs e Cubensis longe da cidade, prédios, quadras, estradas e concreto
@@ -47,45 +54,89 @@ function hash01(a, b) {
   return x - Math.floor(x);
 }
 
-function isBlockedAt(ctx, x, z, radius) {
+export function isCowBlockedAt(ctx, x, z, radius = 0.9) {
   const r = radius || 0.9;
-  const cols = ctx.solidColliders;
+  const cols = ctx && ctx.solidColliders;
   if (cols) {
     for (let i = 0; i < cols.length; i++) {
       const c = cols[i];
       if (!c) continue;
-      if (x >= c.minX - r && x <= c.maxX + r && z >= c.minZ - r && z <= c.maxZ + r) {
+      if (typeof c.minY === 'number' && c.minY > 1.8) continue;
+      if (c.radiusXZ > 0) {
+        const dx = x - c.centerX;
+        const dz = z - c.centerZ;
+        const limit = c.radiusXZ + r;
+        if (dx * dx + dz * dz < limit * limit) return true;
+      } else if (x >= c.minX - r && x <= c.maxX + r && z >= c.minZ - r && z <= c.maxZ + r) {
         return true;
       }
     }
   }
-  const walls = ctx.wallSegments;
+  const walls = ctx && ctx.wallSegments;
   if (walls) {
     for (let i = 0; i < walls.length; i++) {
       const w = walls[i];
       if (!w) continue;
+      if (typeof w.minY === 'number' && w.minY > 1.8) continue;
       const vx = w.x2 - w.x1, vz = w.z2 - w.z1;
       const lenSq = vx * vx + vz * vz;
       if (lenSq < 1e-6) continue;
       const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (z - w.z1) * vz) / lenSq));
       const px = w.x1 + t * vx, pz = w.z1 + t * vz;
       const distSq = (x - px) * (x - px) + (z - pz) * (z - pz);
-      const minR = r + (w.thickness || 0.25) * 0.5;
+      const minR = r + (w.halfThick || (w.thickness || 0.25) * 0.5);
       if (distSq < minR * minR) return true;
     }
   }
   return false;
 }
 
-function findSafePasturePoint(ctx, seedIdx) {
-  for (let attempt = 0; attempt < 60; attempt++) {
-    const u = hash01(seedIdx + 1, attempt + 1);
-    const v = hash01(seedIdx + 17, attempt + 31);
-    const x = PASTURE_BOUNDS.minX + u * (PASTURE_BOUNDS.maxX - PASTURE_BOUNDS.minX);
-    const z = PASTURE_BOUNDS.minZ + v * (PASTURE_BOUNDS.maxZ - PASTURE_BOUNDS.minZ);
-    if (!isInsideTownOrRoad(x, z) && !isBlockedAt(ctx, x, z, 1.1)) return { x, z };
+const isBlockedAt = isCowBlockedAt;
+
+export function isCowPositionWalkable(ctx, x, z, radius = 0.95) {
+  if (x < PASTURE_BOUNDS.minX || x > PASTURE_BOUNDS.maxX ||
+      z < PASTURE_BOUNDS.minZ || z > 34.0) {
+    return false;
   }
-  return { x: 64, z: 8 };
+  if (isInsideTownOrRoad(x, z)) return false;
+  if (isCowBlockedAt(ctx, x, z, radius)) return false;
+  return true;
+}
+
+export function getHerdRouteIndex(syncClock) {
+  const n = HERD_MIGRATION_ROUTE.length;
+  if (n <= 1) return 0;
+  const span = (n - 1) * 2;
+  const step = Math.floor(Math.max(0, syncClock) / HERD_MIGRATION_LEG_SEC) % span;
+  return step < n ? step : span - step;
+}
+
+export function findSafePasturePoint(ctx, seedIdx, anchor = PASTURE_TROUGH_POS) {
+  const base = anchor || PASTURE_TROUGH_POS;
+  const cows = ctx && ctx.pastureCows;
+  for (let attempt = 0; attempt < 36; attempt++) {
+    const ring = 2.8 + (attempt % 4) * 2.8;
+    const ang = hash01(seedIdx + 1, attempt + 1) * Math.PI * 2;
+    const x = base.x + Math.cos(ang) * ring;
+    const z = base.z + Math.sin(ang) * ring;
+    if (!isCowPositionWalkable(ctx, x, z, 1.1)) continue;
+    let tooClose = false;
+    if (attempt < 24 && cows && cows.length) {
+      for (let j = 0; j < cows.length; j++) {
+        const other = cows[j];
+        if (!other || !other.mesh || !other.mesh.position) continue;
+        const dx = x - other.mesh.position.x;
+        const dz = z - other.mesh.position.z;
+        if (dx * dx + dz * dz < 2.2 * 2.2) { tooClose = true; break; }
+      }
+    }
+    if (!tooClose) return { x, z };
+  }
+  for (let r = 0; r < HERD_MIGRATION_ROUTE.length; r++) {
+    const wp = HERD_MIGRATION_ROUTE[(seedIdx + r) % HERD_MIGRATION_ROUTE.length];
+    if (isCowPositionWalkable(ctx, wp.x, wp.z, 1.1)) return { x: wp.x, z: wp.z };
+  }
+  return { x: PASTURE_TROUGH_POS.x, z: PASTURE_TROUGH_POS.z };
 }
 
 let cowSharedAssets = null;
@@ -312,6 +363,108 @@ function createPoopWithFliesAndCubensis(x, y, z, poopId, variantSeed) {
   return { group: g, flies, myceliumGroup, cubensisGroup, caps, mushParts };
 }
 
+const _unstickTarget = { x: 0, z: 0 };
+const _steerResult = { yaw: 0, side: 1, scale: 1 };
+
+function wrapAngle(a) {
+  let d = a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+function hasCowCollisionAt(ctx, cowIdx, cx, cz, tx, tz, minRadius = 1.15) {
+  const cows = ctx.pastureCows;
+  if (!cows) return false;
+  const minRSq = minRadius * minRadius;
+  for (let j = 0; j < cows.length; j++) {
+    if (j === cowIdx) continue;
+    const other = cows[j];
+    if (!other || other.abducted || !other.mesh || !other.mesh.position) continue;
+    const ox = other.mesh.position.x;
+    const oz = other.mesh.position.z;
+    const newDistSq = (tx - ox) * (tx - ox) + (tz - oz) * (tz - oz);
+    if (newDistSq >= minRSq) continue;
+    const curDistSq = (cx - ox) * (cx - ox) + (cz - oz) * (cz - oz);
+    if (newDistSq < curDistSq - 1e-4) return true;
+  }
+  return false;
+}
+
+function isHeadingClearForCow(ctx, cowIdx, cx, cz, yaw, probeDist) {
+  const sx = Math.sin(yaw);
+  const sz = Math.cos(yaw);
+  const midDist = probeDist * 0.5;
+  if (!isCowPositionWalkable(ctx, cx + sx * midDist, cz + sz * midDist, 0.95)) return false;
+  if (!isCowPositionWalkable(ctx, cx + sx * probeDist, cz + sz * probeDist, 0.95)) return false;
+  const stepProbe = Math.min(0.45, probeDist);
+  if (hasCowCollisionAt(ctx, cowIdx, cx, cz, cx + sx * stepProbe, cz + sz * stepProbe, 1.15)) {
+    return false;
+  }
+  return true;
+}
+
+function findNearestWalkableSpot(ctx, cx, cz) {
+  for (let ri = 0; ri < COW_UNSTICK_RINGS.length; ri++) {
+    const r = COW_UNSTICK_RINGS[ri];
+    for (let ai = 0; ai < 12; ai++) {
+      const ang = (ai / 12) * Math.PI * 2;
+      const tx = cx + Math.sin(ang) * r;
+      const tz = cz + Math.cos(ang) * r;
+      if (isCowPositionWalkable(ctx, tx, tz, 0.9)) {
+        _unstickTarget.x = tx;
+        _unstickTarget.z = tz;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function chooseCowSteerHeading(ctx, cowIdx, cx, cz, baseYaw, avoidSide) {
+  const pref = avoidSide >= 0 ? 1 : -1;
+  for (let k = 0; k < COW_STEER_OFFSETS.length; k++) {
+    const baseOff = COW_STEER_OFFSETS[k];
+    const off = baseOff * pref;
+    const tryYaw = baseYaw + off;
+    if (isHeadingClearForCow(ctx, cowIdx, cx, cz, tryYaw, 1.4)) {
+      _steerResult.yaw = tryYaw;
+      _steerResult.side = baseOff === Math.PI ? -pref : (off >= 0 ? 1 : -1);
+      _steerResult.scale = 1.0;
+      return true;
+    }
+  }
+  for (let k = 0; k < COW_STEER_OFFSETS.length; k++) {
+    const baseOff = COW_STEER_OFFSETS[k];
+    const off = baseOff * pref;
+    const tryYaw = baseYaw + off;
+    if (isHeadingClearForCow(ctx, cowIdx, cx, cz, tryYaw, 0.55)) {
+      _steerResult.yaw = tryYaw;
+      _steerResult.side = baseOff === Math.PI ? -pref : (off >= 0 ? 1 : -1);
+      _steerResult.scale = 0.6;
+      return true;
+    }
+  }
+  return false;
+}
+
+function findClosestRouteIndex(ctx, x, z) {
+  let bestIdx = 0;
+  let bestDistSq = Infinity;
+  for (let r = 0; r < HERD_MIGRATION_ROUTE.length; r++) {
+    const wp = HERD_MIGRATION_ROUTE[r];
+    if (!isCowPositionWalkable(ctx, wp.x, wp.z, 0.95)) continue;
+    const dx = wp.x - x;
+    const dz = wp.z - z;
+    const dSq = dx * dx + dz * dz;
+    if (dSq < bestDistSq) {
+      bestDistSq = dSq;
+      bestIdx = r;
+    }
+  }
+  return bestIdx;
+}
+
 export function createPastureAndCows(ctx) {
   if (!THREE || !ctx || !ctx.scene) return;
   ctx.pastureCows = ctx.pastureCows || [];
@@ -326,18 +479,36 @@ export function createPastureAndCows(ctx) {
   const hayMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.95 });
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, transparent: true, opacity: 0.85 });
 
-  const ty = terrainHeight(64, 8);
+  const tx = PASTURE_TROUGH_POS.x;
+  const tz = PASTURE_TROUGH_POS.z;
+  const ty = terrainHeight(tx, tz);
   const trough = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.42, 0.9), woodMat);
-  trough.position.set(64, ty + 0.21, 8);
+  trough.position.set(tx, ty + 0.21, tz);
   const hayPile = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.26, 0.72), hayMat);
-  hayPile.position.set(63.45, ty + 0.36, 8);
+  hayPile.position.set(tx - 0.55, ty + 0.36, tz);
   const troughWater = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.14, 0.72), waterMat);
-  troughWater.position.set(64.55, ty + 0.32, 8);
+  troughWater.position.set(tx + 0.55, ty + 0.32, tz);
   fenceGroup.add(trough, hayPile, troughWater);
   ctx.scene.add(fenceGroup);
+  if (ctx.solidColliders) {
+    ctx.solidColliders.push({
+      minX: tx - 1.3,
+      maxX: tx + 1.3,
+      minZ: tz - 0.55,
+      maxZ: tz + 0.55,
+      minY: ty,
+      maxY: ty + 0.7
+    });
+  }
+
+  const initSyncClock = (ctx.serverTimeSec && ctx.serverTimeSec > 0)
+    ? ctx.serverTimeSec + ((performance.now() - (ctx.serverTimeSyncAt || 0)) / 1000)
+    : (Date.now() / 1000);
+  const initRouteIdx = getHerdRouteIndex(initSyncClock);
+  const initAnchor = HERD_MIGRATION_ROUTE[initRouteIdx] || PASTURE_TROUGH_POS;
 
   for (let i = 0; i < 6; i++) {
-    const pos = findSafePasturePoint(ctx, i);
+    const pos = findSafePasturePoint(ctx, i, initAnchor);
     const cy = terrainHeight(pos.x, pos.z);
     const cowVis = createCuteCowMesh(i);
     cowVis.group.position.set(pos.x, cy, pos.z);
@@ -349,16 +520,29 @@ export function createPastureAndCows(ctx) {
       id: 'cow_' + i,
       name: COW_NAMES[i % COW_NAMES.length],
       mesh: cowVis.group,
+      group: cowVis.group,
       head: cowVis.head,
       legs: cowVis.legs,
       tail: cowVis.tail,
       yaw: initYaw,
-      baseSpeed: 0.95 + (i % 3) * 0.22,
-      speed: 0.95,
+      targetYaw: initYaw,
+      baseSpeed: 1.08 + (i % 3) * 0.16,
+      speed: 1.08,
       health: 100,
       mood: 'Pastando 🌿',
       state: 'wander', // 'wander' | 'graze' | 'curious' | 'flee'
+      routeIdx: initRouteIdx,
+      avoidSide: i % 2 === 0 ? 1 : -1,
+      avoidTimer: 0,
+      avoidYaw: initYaw,
+      curiousTimer: 0,
+      curiousCooldown: 0,
+      stuckTimer: 0,
+      lastProgressX: pos.x,
+      lastProgressZ: pos.z,
+      grazeTimer: 0,
       fleeTimer: 0,
+      happyTimer: 0,
       lastBucket: -1,
       lastPoopBucket: -1,
       walkPhase: i * 1.3
@@ -376,6 +560,8 @@ export function petCow(cowObj) {
   cowObj.mood = 'Feliz 💚 (Muuu!)';
   cowObj.state = 'curious';
   cowObj.happyTimer = 3.0;
+  cowObj.fleeTimer = 0;
+  cowObj.curiousTimer = 3.0;
   if (cowObj.mesh && cowObj.mesh.position) {
     triggerCozyHeartBurst(cowObj.mesh.position.x, cowObj.mesh.position.y + 1.35, cowObj.mesh.position.z, 0xf472b6);
   }
@@ -391,154 +577,314 @@ export function stepPastureCows(ctx, dt) {
   // Relógio sincronizado com o servidor para todas as telas verem igual
   const syncClock = (ctx.serverTimeSec && ctx.serverTimeSec > 0)
     ? ctx.serverTimeSec + ((performance.now() - (ctx.serverTimeSyncAt || 0)) / 1000)
-    : (Date.now() / 1000);
+    : (typeof ctx.simClockSec === 'number' ? ctx.simClockSec : (Date.now() / 1000));
   const steerBucket = Math.floor(syncClock / 4);
-  const herdSpot = HERD_MIGRATION_SPOTS[Math.floor(syncClock / 28) % HERD_MIGRATION_SPOTS.length];
-  let herdCx = 0, herdCz = 0, herdN = 0;
-  for (let hi = 0; hi < ctx.pastureCows.length; hi++) {
-    const hc = ctx.pastureCows[hi];
-    if (hc && !hc.abducted) {
-      herdCx += hc.mesh.position.x;
-      herdCz += hc.mesh.position.z;
-      herdN++;
-    }
-  }
-  if (herdN > 0) { herdCx /= herdN; herdCz /= herdN; }
+  const herdRouteIdx = getHerdRouteIndex(syncClock);
 
   for (let i = 0; i < ctx.pastureCows.length; i++) {
     const cow = ctx.pastureCows[i];
-    if (cow.abducted) continue;
+    if (!cow || cow.abducted || !cow.mesh || !cow.mesh.position) continue;
     const cx = cow.mesh.position.x;
     const cz = cow.mesh.position.z;
     const distToPlayer = Math.hypot(px - cx, pz - cz);
     cow.mesh.visible = distToPlayer <= 78;
 
-    // 1. Comportamento inteligente: curiosa com jogador perto, ou corre assustada se muito perto
+    if (typeof cow.yaw !== 'number') cow.yaw = 0;
+    if (typeof cow.targetYaw !== 'number') cow.targetYaw = cow.yaw;
+    if (!cow.baseSpeed) cow.baseSpeed = 1.08 + (i % 3) * 0.16;
+    if (!cow.avoidSide) cow.avoidSide = i % 2 === 0 ? 1 : -1;
+    if (typeof cow.routeIdx !== 'number' || cow.routeIdx < 0 || cow.routeIdx >= HERD_MIGRATION_ROUTE.length) {
+      cow.routeIdx = findClosestRouteIndex(ctx, cx, cz);
+    }
+
+    let wp = HERD_MIGRATION_ROUTE[cow.routeIdx] || PASTURE_TROUGH_POS;
+    const distToWp = Math.hypot(wp.x - cx, wp.z - cz);
+    if (distToWp <= 6.5 && cow.routeIdx !== herdRouteIdx) {
+      cow.routeIdx += cow.routeIdx < herdRouteIdx ? 1 : -1;
+      wp = HERD_MIGRATION_ROUTE[cow.routeIdx] || wp;
+    }
+
+    const spotAng = i * 1.0471975 + steerBucket * 0.12;
+    const spotRad = 2.6 + (i % 3) * 1.35;
+    let goalX = wp.x + Math.cos(spotAng) * spotRad;
+    let goalZ = wp.z + Math.sin(spotAng) * spotRad;
+    if (!isCowPositionWalkable(ctx, goalX, goalZ, 1.0)) {
+      goalX = wp.x;
+      goalZ = wp.z;
+    }
+    const distToGoal = Math.hypot(goalX - cx, goalZ - cz);
+
+    if (cow.happyTimer > 0) {
+      cow.happyTimer = Math.max(0, cow.happyTimer - dt);
+      if (cow.happyTimer <= 0) cow.lastBucket = -1;
+    }
     if (cow.fleeTimer > 0) {
-      cow.fleeTimer -= dt;
+      cow.fleeTimer = Math.max(0, cow.fleeTimer - dt);
+      if (cow.fleeTimer <= 0) cow.lastBucket = -1;
+    }
+    if (cow.curiousCooldown > 0) cow.curiousCooldown = Math.max(0, cow.curiousCooldown - dt);
+    if (cow.avoidTimer > 0) cow.avoidTimer = Math.max(0, cow.avoidTimer - dt);
+    if (cow.grazeTimer > 0) {
+      cow.grazeTimer = Math.max(0, cow.grazeTimer - dt);
+      if (cow.grazeTimer <= 0) cow.lastBucket = -1;
+    }
+
+    let desiredYaw = cow.yaw;
+    let herdPullApplied = false;
+
+    // 1. Máquina de estados viva (sem travar nem girar no lugar)
+    if (cow.happyTimer > 0) {
+      cow.state = 'curious';
+      cow.speed = 0;
+      cow.mood = 'Feliz 💚 (Muuu!)';
+      desiredYaw = Math.atan2(px - cx, pz - cz);
+      cow.targetYaw = desiredYaw;
+    } else if (cow.fleeTimer > 0) {
       cow.state = 'flee';
-      cow.speed = cow.baseSpeed * 2.4;
+      cow.speed = cow.baseSpeed * 2.15;
       cow.mood = 'Correndo 💨';
-    } else if (distToPlayer < 2.4) {
-      cow.fleeTimer = 3.2;
-      cow.yaw = Math.atan2(cx - px, cz - pz);
+      desiredYaw = Math.atan2(cx - px, cz - pz);
+    } else if (distToPlayer < 1.35) {
+      cow.fleeTimer = 2.4;
+      cow.curiousTimer = 0;
+      cow.grazeTimer = 0;
       cow.state = 'flee';
-      cow.speed = cow.baseSpeed * 2.4;
+      cow.speed = cow.baseSpeed * 2.15;
       cow.mood = 'Assustada 💨';
-    } else if (distToPlayer < 6.5) {
+      desiredYaw = Math.atan2(cx - px, cz - pz);
+    } else if (distToPlayer < 5.2 && cow.curiousCooldown <= 0) {
+      if (cow.curiousTimer <= 0) {
+        cow.curiousTimer = 2.4;
+        cow.grazeTimer = 0;
+        cow.lastBucket = -1;
+      }
+      cow.curiousTimer = Math.max(0, cow.curiousTimer - dt);
       cow.state = 'curious';
       cow.speed = 0;
       cow.mood = 'Curiosa 👀';
-      const lookYaw = Math.atan2(px - cx, pz - cz);
-      let diff = lookYaw - cow.yaw;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      cow.yaw += diff * Math.min(1, dt * 4.5);
+      desiredYaw = Math.atan2(px - cx, pz - cz);
+      cow.targetYaw = desiredYaw;
+      if (cow.curiousTimer <= 0) {
+        cow.curiousCooldown = 11.0;
+        cow.lastBucket = -1;
+      }
     } else {
-      if (steerBucket !== cow.lastBucket) {
+      if (cow.curiousTimer > 0) {
+        cow.curiousTimer = 0;
+        cow.lastBucket = -1;
+      }
+      if (cow.grazeTimer <= 0 && (steerBucket !== cow.lastBucket || cow.state === 'curious' || cow.state === 'flee')) {
         cow.lastBucket = steerBucket;
         const rAct = hash01(i + 3, steerBucket);
-        if (rAct < 0.24) {
+        const grazeChance = distToGoal > 8 ? 0.12 : 0.42;
+        if (rAct < grazeChance) {
+          cow.grazeTimer = distToGoal > 8
+            ? 2.5 + hash01(i + 5, steerBucket) * 2.0
+            : 4.0 + hash01(i + 5, steerBucket) * 3.0;
           cow.state = 'graze';
           cow.speed = 0;
-          const nearTrough = Math.hypot(cx - 57, cz - 8) < 3.6;
-          cow.mood = nearTrough ? (rAct < 0.12 ? 'Bebendo água 💧' : 'Comendo feno 🌾') : 'Pastando 🌿';
         } else {
           cow.state = 'wander';
-          cow.speed = cow.baseSpeed;
-          cow.mood = 'Passeando 🌤️';
-          if (herdN > 1 && Math.hypot(herdCx - cx, herdCz - cz) > 7.0) {
-            cow.yaw = Math.atan2(herdCx - cx, herdCz - cz) + (hash01(i + 13, steerBucket) - 0.5) * 0.45;
-            cow.mood = 'Seguindo o rebanho 🐄';
-          } else if (rAct > 0.55) {
-            cow.yaw = Math.atan2(herdSpot.x - cx, herdSpot.z - cz) + (hash01(i + 19, steerBucket) - 0.5) * 0.55;
-            cow.mood = 'Migrando 🌿';
-          } else {
-            cow.yaw += (hash01(i + 19, steerBucket) - 0.5) * 1.4;
-          }
         }
       }
-    }
 
-    // 2. Movimento com desvio de obstáculos e outras vaquinhas
-    if (cow.speed > 0.01) {
-      let nx = cx + Math.sin(cow.yaw) * cow.speed * dt;
-      let nz = cz + Math.cos(cow.yaw) * cow.speed * dt;
-      let blocked = nx < PASTURE_BOUNDS.minX || nx > PASTURE_BOUNDS.maxX ||
-        nz < PASTURE_BOUNDS.minZ || nz > PASTURE_BOUNDS.maxZ ||
-        isInsideTownOrRoad(nx, nz) ||
-        isBlockedAt(ctx, nx, nz, 0.95);
+      if (cow.grazeTimer > 0) {
+        cow.state = 'graze';
+        cow.speed = 0;
+        const nearTrough = Math.hypot(cx - PASTURE_TROUGH_POS.x, cz - PASTURE_TROUGH_POS.z) < 5.5;
+        cow.mood = nearTrough
+          ? (hash01(i + 7, steerBucket) < 0.5 ? 'Bebendo água 💧' : 'Comendo feno 🌾')
+          : 'Pastando 🌿';
+      } else {
+        cow.state = 'wander';
+        cow.speed = distToGoal > 9 ? cow.baseSpeed * 1.15 : cow.baseSpeed;
 
-      if (!blocked) {
+        let sepX = 0;
+        let sepZ = 0;
+        let herdPullX = 0;
+        let herdPullZ = 0;
+        let herdPullCount = 0;
         for (let j = 0; j < ctx.pastureCows.length; j++) {
           if (i === j) continue;
           const other = ctx.pastureCows[j];
-          const odx = nx - other.mesh.position.x, odz = nz - other.mesh.position.z;
-          if (odx * odx + odz * odz < 1.8 * 1.8) { blocked = true; break; }
+          if (!other || other.abducted || !other.mesh || !other.mesh.position) continue;
+          const dx = other.mesh.position.x - cx;
+          const dz = other.mesh.position.z - cz;
+          const dSq = dx * dx + dz * dz;
+          if (dSq > 1e-5 && dSq < 2.5 * 2.5) {
+            const d = Math.sqrt(dSq);
+            const w = (2.5 - d) / 2.5;
+            sepX -= (dx / d) * w;
+            sepZ -= (dz / d) * w;
+          } else if (dSq >= 25 && dSq <= 324) {
+            herdPullX += dx;
+            herdPullZ += dz;
+            herdPullCount++;
+          }
         }
-      }
 
-      if (cow.turnCooldown > 0) cow.turnCooldown = Math.max(0, cow.turnCooldown - dt);
-      if (blocked) {
-        if ((cow.turnCooldown || 0) <= 0) {
-          let escaped = false;
-          for (const offset of [0.7, -0.7, 1.4, -1.4, Math.PI * 0.75]) {
-            const tryYaw = cow.yaw + offset;
-            const tx = cx + Math.sin(tryYaw) * cow.speed * dt;
-            const tz = cz + Math.cos(tryYaw) * cow.speed * dt;
-            if (tx >= PASTURE_BOUNDS.minX && tx <= PASTURE_BOUNDS.maxX &&
-                tz >= PASTURE_BOUNDS.minZ && tz <= PASTURE_BOUNDS.maxZ &&
-                !isInsideTownOrRoad(tx, tz) &&
-                !isBlockedAt(ctx, tx, tz, 0.95)) {
-              cow.yaw = tryYaw;
-              nx = tx; nz = tz;
-              escaped = true;
-              break;
+        let dirX = 0;
+        let dirZ = 0;
+        if (distToGoal > 0.35) {
+          dirX = (goalX - cx) / distToGoal;
+          dirZ = (goalZ - cz) / distToGoal;
+        } else {
+          const idleAng = (steerBucket * 0.8 + i * 1.9) % (Math.PI * 2);
+          dirX = Math.sin(idleAng);
+          dirZ = Math.cos(idleAng);
+        }
+
+        if (distToGoal <= 12) {
+          if (herdPullCount > 0) {
+            const hpLen = Math.hypot(herdPullX, herdPullZ);
+            if (hpLen > 0.5) {
+              dirX += (herdPullX / hpLen) * 0.28;
+              dirZ += (herdPullZ / hpLen) * 0.28;
+              herdPullApplied = true;
             }
           }
-          if (!escaped) {
-            cow.yaw += Math.PI * 0.65;
-            cow.turnCooldown = 0.55;
-            nx = cx; nz = cz;
-          } else {
-            cow.turnCooldown = 0.25;
-          }
+          const sway = Math.sin(syncClock * 0.28 + i * 2.1) * 0.24;
+          dirX += -dirZ * sway;
+          dirZ += dirX * sway;
+        }
+
+        dirX += sepX * 1.35;
+        dirZ += sepZ * 1.35;
+        desiredYaw = Math.hypot(dirX, dirZ) > 1e-4 ? Math.atan2(dirX, dirZ) : cow.yaw;
+
+        if (cow.routeIdx !== herdRouteIdx || distToGoal > 12) {
+          cow.mood = 'Migrando 🌿';
+        } else if (herdPullApplied) {
+          cow.mood = 'Seguindo o rebanho 🐄';
         } else {
-          nx = cx; nz = cz;
+          cow.mood = 'Passeando 🌤️';
+        }
+      }
+    }
+
+    // 2. Movimento seguro com destravamento e lookahead (sem girar em círculo)
+    let movedDist = 0;
+    let nx = cx;
+    let nz = cz;
+    const currentlyWalkable = isCowPositionWalkable(ctx, cx, cz, 0.85);
+
+    if (!currentlyWalkable) {
+      cow.grazeTimer = 0;
+      cow.avoidTimer = 0;
+      if (findNearestWalkableSpot(ctx, cx, cz)) {
+        const ux = _unstickTarget.x - cx;
+        const uz = _unstickTarget.z - cz;
+        const uLen = Math.hypot(ux, uz);
+        if (uLen > 1e-4) {
+          const escapeYaw = Math.atan2(ux, uz);
+          cow.targetYaw = escapeYaw;
+          const stepDist = Math.min(uLen, Math.max(cow.speed, cow.baseSpeed) * dt);
+          nx = cx + (ux / uLen) * stepDist;
+          nz = cz + (uz / uLen) * stepDist;
+          movedDist = Math.hypot(nx - cx, nz - cz);
+          cow.mesh.position.set(nx, terrainHeight(nx, nz), nz);
+          cow.routeIdx = findClosestRouteIndex(ctx, nx, nz);
+        }
+      }
+    } else if (cow.speed > 0.01) {
+      let steerYaw = desiredYaw;
+      if (cow.avoidTimer > 0) {
+        if (isHeadingClearForCow(ctx, i, cx, cz, desiredYaw, 2.4)) {
+          cow.avoidTimer = 0;
+        } else {
+          steerYaw = cow.avoidYaw;
         }
       }
 
-      const ny = terrainHeight(nx, nz);
-      cow.mesh.position.set(nx, ny, nz);
+      let chosenYaw = steerYaw;
+      let moveScale = 1.0;
+      const tryStep = cow.speed * dt;
+      const directNx = cx + Math.sin(steerYaw) * tryStep;
+      const directNz = cz + Math.cos(steerYaw) * tryStep;
+      const directClear = isCowPositionWalkable(ctx, directNx, directNz, 0.95) &&
+        isHeadingClearForCow(ctx, i, cx, cz, steerYaw, 1.4);
+
+      if (!directClear) {
+        if (chooseCowSteerHeading(ctx, i, cx, cz, desiredYaw, cow.avoidSide)) {
+          chosenYaw = _steerResult.yaw;
+          cow.avoidSide = _steerResult.side;
+          cow.avoidYaw = chosenYaw;
+          cow.avoidTimer = 0.75;
+          moveScale = _steerResult.scale;
+        } else {
+          moveScale = 0;
+        }
+      }
+
+      cow.targetYaw = chosenYaw;
+      if (moveScale > 0) {
+        const stepDist = cow.speed * dt * moveScale;
+        const candX = cx + Math.sin(chosenYaw) * stepDist;
+        const candZ = cz + Math.cos(chosenYaw) * stepDist;
+        if (isCowPositionWalkable(ctx, candX, candZ, 0.95) &&
+            !hasCowCollisionAt(ctx, i, cx, cz, candX, candZ, 1.15)) {
+          nx = candX;
+          nz = candZ;
+          movedDist = Math.hypot(nx - cx, nz - cz);
+          cow.mesh.position.set(nx, terrainHeight(nx, nz), nz);
+        }
+      }
+
+      cow.stuckTimer = (cow.stuckTimer || 0) + dt;
+      if (cow.stuckTimer >= 1.5) {
+        const progress = Math.hypot(nx - (cow.lastProgressX ?? cx), nz - (cow.lastProgressZ ?? cz));
+        cow.stuckTimer = 0;
+        cow.lastProgressX = nx;
+        cow.lastProgressZ = nz;
+        if (progress < 0.35) {
+          cow.avoidSide = -(cow.avoidSide || 1);
+          cow.avoidTimer = 0;
+          cow.routeIdx = findClosestRouteIndex(ctx, nx, nz);
+        }
+      }
+    } else {
+      cow.stuckTimer = 0;
+      cow.lastProgressX = cx;
+      cow.lastProgressZ = cz;
     }
+
+    const yawDiff = wrapAngle(cow.targetYaw - cow.yaw);
+    const maxTurn = dt * ((cow.state === 'flee' || cow.avoidTimer > 0) ? 5.5 : 3.2);
+    cow.yaw = wrapAngle(cow.yaw + Math.max(-maxTurn, Math.min(maxTurn, yawDiff)));
     cow.mesh.rotation.y = cow.yaw;
 
-    // 3. Animação (só quando visível para manter FPS alto)
+    // 3. Animação honesta baseada no deslocamento real (só quando visível para manter FPS alto)
     const groundY = terrainHeight(cow.mesh.position.x, cow.mesh.position.z);
-    if (cow.happyTimer > 0) cow.happyTimer = Math.max(0, cow.happyTimer - dt);
+    const actualSpeed = dt > 1e-4 ? movedDist / dt : 0;
     if (cow.mesh.visible) {
       if (cow.happyTimer > 0) {
         const bounce = Math.abs(Math.sin(syncClock * 10.0 + i)) * 0.14;
         cow.mesh.position.y = groundY + bounce;
-        cow.tail.rotation.z = Math.sin(syncClock * 18.0) * 0.65;
-        cow.head.rotation.x = -0.12 + Math.sin(syncClock * 8.0) * 0.14;
-      } else if (cow.speed > 0.01) {
+        if (cow.tail && cow.tail.rotation) cow.tail.rotation.z = Math.sin(syncClock * 18.0) * 0.65;
+        if (cow.head && cow.head.rotation) cow.head.rotation.x = -0.12 + Math.sin(syncClock * 8.0) * 0.14;
+      } else if (actualSpeed > 0.08) {
         cow.mesh.position.y = groundY;
-        cow.walkPhase += dt * cow.speed * 5.2;
+        cow.walkPhase = (cow.walkPhase || 0) + dt * actualSpeed * 5.2;
         const swing = Math.sin(cow.walkPhase) * 0.44;
-        cow.legs[0].rotation.x = swing;
-        cow.legs[3].rotation.x = swing;
-        cow.legs[1].rotation.x = -swing;
-        cow.legs[2].rotation.x = -swing;
-        cow.head.rotation.x = 0.12 + Math.sin(cow.walkPhase * 0.4) * 0.08;
-        cow.tail.rotation.z = Math.sin(cow.walkPhase * 1.5) * 0.25;
+        if (cow.legs && cow.legs.length >= 4) {
+          cow.legs[0].rotation.x = swing;
+          cow.legs[3].rotation.x = swing;
+          cow.legs[1].rotation.x = -swing;
+          cow.legs[2].rotation.x = -swing;
+        }
+        if (cow.head && cow.head.rotation) cow.head.rotation.x = 0.12 + Math.sin(cow.walkPhase * 0.4) * 0.08;
+        if (cow.tail && cow.tail.rotation) cow.tail.rotation.z = Math.sin(cow.walkPhase * 1.5) * 0.25;
       } else {
         cow.mesh.position.y = groundY;
-        for (let li = 0; li < 4; li++) cow.legs[li].rotation.x *= 0.85;
-        cow.head.rotation.x = cow.state === 'graze'
-          ? 0.48 + Math.sin(syncClock * 3.0 + i) * 0.10
-          : 0.05 + Math.sin(syncClock * 1.5 + i) * 0.04;
-        cow.tail.rotation.z = Math.sin(syncClock * 2.2 + i) * 0.18;
+        if (cow.legs) {
+          for (let li = 0; li < cow.legs.length; li++) cow.legs[li].rotation.x *= 0.85;
+        }
+        if (cow.head && cow.head.rotation) {
+          cow.head.rotation.x = cow.state === 'graze'
+            ? 0.48 + Math.sin(syncClock * 3.0 + i) * 0.10
+            : 0.05 + Math.sin(syncClock * 1.5 + i) * 0.04;
+        }
+        if (cow.tail && cow.tail.rotation) cow.tail.rotation.z = Math.sin(syncClock * 2.2 + i) * 0.18;
       }
     }
 
@@ -548,42 +894,45 @@ export function stepPastureCows(ctx, dt) {
       cow.lastPoopBucket = poopBucket;
     } else if (poopBucket > cow.lastPoopBucket) {
       cow.lastPoopBucket = poopBucket;
-      if (ctx.cowPoops.length >= MAX_ACTIVE_POOPS) {
-        const oldest = ctx.cowPoops.shift();
-        if (oldest && oldest.group) {
-          if (oldest.group.parent) oldest.group.parent.remove(oldest.group);
-          disposeObjectResources(oldest.group);
+      if (THREE && THREE.Group && ctx.scene && ctx.cowPoops) {
+        if (ctx.cowPoops.length >= MAX_ACTIVE_POOPS) {
+          const oldest = ctx.cowPoops.shift();
+          if (oldest && oldest.group) {
+            if (oldest.group.parent) oldest.group.parent.remove(oldest.group);
+            disposeObjectResources(oldest.group);
+          }
         }
-      }
-      const pxPos = cow.mesh.position.x - Math.sin(cow.yaw) * 0.55;
-      const pzPos = cow.mesh.position.z - Math.cos(cow.yaw) * 0.55;
-      const pyPos = terrainHeight(pxPos, pzPos);
-      const poopId = `wild_poop_${i}_${poopBucket}`;
-      const poopVis = createPoopWithFliesAndCubensis(pxPos, pyPos, pzPos, poopId, poopBucket + i * 13);
-      ctx.scene.add(poopVis.group);
-      ctx.cowPoops.push({
-        id: poopId,
-        group: poopVis.group,
-        flies: poopVis.flies,
-        myceliumGroup: poopVis.myceliumGroup,
-        cubensisGroup: poopVis.cubensisGroup,
-        mushParts: poopVis.mushParts,
-        ageSec: 0,
-        grown: false,
-        wildEntry: {
+        const pxPos = cow.mesh.position.x - Math.sin(cow.yaw) * 0.55;
+        const pzPos = cow.mesh.position.z - Math.cos(cow.yaw) * 0.55;
+        const pyPos = terrainHeight(pxPos, pzPos);
+        const poopId = `wild_poop_${i}_${poopBucket}`;
+        const poopVis = createPoopWithFliesAndCubensis(pxPos, pyPos, pzPos, poopId, poopBucket + i * 13);
+        ctx.scene.add(poopVis.group);
+        ctx.cowPoops.push({
           id: poopId,
-          group: poopVis.cubensisGroup,
-          worldX: pxPos,
-          worldZ: pzPos,
-          capMesh: poopVis.caps[0],
-          active: false,
-          respawnAt: 0
-        }
-      });
+          group: poopVis.group,
+          flies: poopVis.flies,
+          myceliumGroup: poopVis.myceliumGroup,
+          cubensisGroup: poopVis.cubensisGroup,
+          mushParts: poopVis.mushParts,
+          ageSec: 0,
+          grown: false,
+          wildEntry: {
+            id: poopId,
+            group: poopVis.cubensisGroup,
+            worldX: pxPos,
+            worldZ: pzPos,
+            capMesh: poopVis.caps[0],
+            active: false,
+            respawnAt: 0
+          }
+        });
+      }
     }
   }
 
   // 5. Atualiza mosquinhas + crescimento animado (micélio -> pins -> haste -> chapéu) + desaparecimento após 120s
+  if (!ctx.cowPoops) return;
   for (let pi = ctx.cowPoops.length - 1; pi >= 0; pi--) {
     const p = ctx.cowPoops[pi];
     p.ageSec += dt;

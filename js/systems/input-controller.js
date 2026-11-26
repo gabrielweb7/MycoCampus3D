@@ -59,8 +59,9 @@ export function bindControls(ctx) {
       'KeyW', 'KeyA', 'KeyS', 'KeyD',
       'KeyR', 'KeyF', 'KeyG', 'KeyQ',
       'KeyX', 'KeyI', 'KeyC', 'KeyE',
+      'KeyZ', 'KeyV',
       'Space', 'Tab',
-      'Digit1', 'Digit2', 'Digit3', 'Digit4'
+      'Digit1', 'Digit2', 'Digit3'
     ];
     if (GAME_KEYS.indexOf(e.code) !== -1) {
       if (e.ctrlKey || e.metaKey || e.code === 'Space' || e.code === 'Tab') {
@@ -79,7 +80,7 @@ export function bindControls(ctx) {
     if (ctx.inventory?.pending) {
       if (ctx.inventory.pending.createdAt && (performance.now() - ctx.inventory.pending.createdAt > 2500)) {
         ctx.inventory.pending = null;
-      } else if (['KeyX', 'KeyG', 'KeyQ', 'KeyF', 'KeyZ', 'KeyV', 'Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) {
+      } else if (['KeyX', 'KeyG', 'KeyQ', 'KeyF', 'KeyZ', 'KeyV', 'KeyI', 'Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
         return;
       }
     }
@@ -92,11 +93,15 @@ export function bindControls(ctx) {
         }
       }
     }
-    if ((e.code === 'KeyG' || e.code === 'KeyQ') && !e.repeat) {
+    if ((e.code === 'KeyG' || e.code === 'KeyQ') && !e.repeat && !e.ctrlKey && !e.metaKey) {
       if (ctx.heldItem) {
+        e.preventDefault();
         ctx.toggleHeldItemPlacement();
+      } else if (window.triggerCampusFloatingActionByCode?.('KeyG')) {
+        e.preventDefault();
       } else if (ctx.hoveredPickable && ctx.pickHoveredItemForMove) {
-        ctx.pickHoveredItemForMove();
+        e.preventDefault();
+        ctx.pickHoveredItemForMove(undefined, !!ctx.adminEditMode);
       }
     }
     if (e.code === 'KeyR' && ctx.heldItem) {
@@ -108,9 +113,9 @@ export function bindControls(ctx) {
         ctx.heldRotY = (ctx.heldRotY || 0) + delta;
       }
     }
-    if (e.code === 'KeyI') {
-      if (window.inspectCampusHeldItem) {
-        e.preventDefault();
+    if (e.code === 'KeyI' && !e.repeat && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      if (!window.triggerCampusFloatingActionByCode?.('KeyI') && window.inspectCampusHeldItem) {
         window.inspectCampusHeldItem();
       }
     }
@@ -122,29 +127,18 @@ export function bindControls(ctx) {
         window.selectCampusQuickSlot(slot);
       }
     }
-    // Context actions on held item:
-    // KeyF = Action 0 (Open/Close lid, eat, toggle laser, wear gloves, drain)
-    // KeyZ = Action 1
-    // KeyV = Action 2
-    // Digit4 = Action 3
-    if (!e.repeat && !e.ctrlKey && !e.metaKey) {
-      let actIdx = -1;
-      if (e.code === 'KeyF') actIdx = 0;
-      else if (e.code === 'KeyZ') actIdx = 1;
-      else if (e.code === 'KeyV') actIdx = 2;
-      else if (e.code === 'Digit4') actIdx = 3;
-
-      if (actIdx !== -1) {
-        let handledAction = false;
-        if (window.triggerCampusFloatingAction) {
-          handledAction = window.triggerCampusFloatingAction(actIdx);
-        }
-        if (handledAction) {
-          e.preventDefault();
-        } else if (e.code === 'KeyF' && window.openCampusRadialMenu) {
-          e.preventDefault();
-          window.openCampusRadialMenu();
-        }
+    // Standardized contextual action keys:
+    // KeyF = Primary contextual action
+    // KeyV = Secondary contextual action
+    // KeyZ = Label (Etiqueta) or 3rd contextual action
+    if (!e.repeat && !e.ctrlKey && !e.metaKey &&
+        (e.code === 'KeyF' || e.code === 'KeyV' || e.code === 'KeyZ')) {
+      const handledAction = !!window.triggerCampusFloatingActionByCode?.(e.code);
+      if (handledAction) {
+        e.preventDefault();
+      } else if (e.code === 'KeyF' && window.openCampusRadialMenu) {
+        e.preventDefault();
+        window.openCampusRadialMenu();
       }
     }
     if (e.code === 'Escape') {

@@ -149,7 +149,7 @@ export default {
     'actions.hover.case_open': '💼 Abrir Maleta Porta-Ampolas 5ML ({used}/{max})',
     'actions.hover.fridge_close': '🧊 Fechar Porta da Geladeira (4°C)',
     'actions.hover.fridge_open': '🧊 Abrir Porta da Geladeira (4°C)',
-    'actions.hover.monotub_move_touch': 'Mover para carregar',
+    'actions.hover.monotub_move_touch': 'Pegar para carregar',
     'actions.hover.monotub_move_key': 'G/Q para carregar',
     'actions.hover.silica_crisp_default': 'Crocantes',
     'actions.hover.silica_take': '🫙 Retirar {grams} g ({stored}/{cap}g • {species})',
@@ -195,7 +195,7 @@ export default {
     'actions.hover.blind_open': '🪟 Abrir Persiana',
     'actions.hover.road_stand_packs': '🚗 Quiosque Drive-Thru ({packs} pacotes no balcão • 🪙 {price} MycoCoins cada • Clientes a caminho!)',
     'actions.hover.road_stand_empty': '🚗 Quiosque Drive-Thru da Estrada • Traga Caixas de Entrega ou Pacotes Selados da Sala de Desidratação!',
-    'actions.hover.held_options_hint': 'Use as teclas 1–4 para as opções',
+    'actions.hover.held_options_hint': 'Use F, V, Z ou I para as opções',
     'actions.hover.thermo_ambient': 'Ambiente',
     'actions.hover.held_place_hint': 'Mire e clique para posicionar • {options}',
 
@@ -473,7 +473,7 @@ export default {
     'actions.radial.tip_trash': 'Segure o resíduo e mire aqui. A ação informa se descarta o item inteiro ou só esvazia o conteúdo.',
     'actions.radial.tip_hood': 'Ligue o fluxo, aplique álcool e seque com papel. Apoie as culturas na bancada interna antes de abri-las.',
     'actions.radial.tip_fridge': 'Abra a porta pela opção numerada enquanto segura uma cultura fechada. Mire numa vaga livre e clique para guardar.',
-    'actions.radial.tip_monotub_spent': 'Carregue a caixa com Mover e despeje o bolo no compostor da horta.',
+    'actions.radial.tip_monotub_spent': 'Pegue a caixa com Pegar [G] e despeje o bolo no compostor da horta.',
     'actions.radial.tip_monotub_active': 'Use o menu numerado para operar a caixa na mão. Apoie na bancada para preparar ou na estante LED para frutificar.',
     'actions.radial.tip_dehydrator_crisp': 'Clique com a mão livre para recolher o lote pronto.',
     'actions.radial.tip_dehydrator_idle': 'Segure um cogumelo fresco e mire na desidratadora para carregar um lote.',
@@ -657,7 +657,7 @@ export default {
     'actions.radial.garden_harvest_plant': 'Colher Planta',
     'actions.radial.garden_view': 'Ver Horta',
     'actions.radial.cow_pet': 'Fazer Carinho',
-    'actions.radial.move_fridge': 'Mover Geladeira',
+    'actions.radial.move_fridge': 'Pegar Geladeira',
     'actions.radial.fridge_empty_first': '🚫 Retire tudo de dentro da geladeira antes de movê-la.',
     'actions.radial.fridge_slots': 'Ver Vagas',
     'actions.radial.fridge_slots_toast': '🧊 Geladeira 4°C • {count} vagas configuradas nas prateleiras.',
@@ -665,8 +665,8 @@ export default {
     'actions.radial.silica_take': 'Retirar {grams} g',
     'actions.radial.edit_tag': 'Editar Etiqueta',
     'actions.radial.tag': 'Etiqueta',
-    'actions.radial.move': 'Mover',
-    'actions.radial.open_menu_hint': '🎯 Pressione F ou clique na ação desejada.'
+    'actions.radial.move': 'Pegar',
+    'actions.radial.open_menu_hint': '🎯 Use os atalhos mostrados nos botões (F, V, Z, G, I) ou clique na ação.'
   },
   en: {
     'actions.common.item': 'Item',
@@ -817,7 +817,7 @@ export default {
     'actions.hover.case_open': '💼 Open 5ML Ampoule Case ({used}/{max})',
     'actions.hover.fridge_close': '🧊 Close Fridge Door (4°C)',
     'actions.hover.fridge_open': '🧊 Open Fridge Door (4°C)',
-    'actions.hover.monotub_move_touch': 'Move to carry',
+    'actions.hover.monotub_move_touch': 'Pick up to carry',
     'actions.hover.monotub_move_key': 'G/Q to carry',
     'actions.hover.silica_crisp_default': 'Cracker-dry',
     'actions.hover.silica_take': '🫙 Take {grams} g ({stored}/{cap}g • {species})',
@@ -863,7 +863,7 @@ export default {
     'actions.hover.blind_open': '🪟 Open Blinds',
     'actions.hover.road_stand_packs': '🚗 Drive-Thru Kiosk ({packs} packs on counter • 🪙 {price} MycoCoins each • Customers on the way!)',
     'actions.hover.road_stand_empty': '🚗 Road Drive-Thru Kiosk • Bring Delivery Crates or Sealed Packs from the Dehydration Room!',
-    'actions.hover.held_options_hint': 'Use keys 1–4 for options',
+    'actions.hover.held_options_hint': 'Use F, V, Z or I for options',
     'actions.hover.thermo_ambient': 'Ambient',
     'actions.hover.held_place_hint': 'Aim and click to place • {options}',
 
@@ -1141,7 +1141,7 @@ export default {
     'actions.radial.tip_trash': 'Hold the waste and aim here. The action tells you whether it discards the whole item or only empties the contents.',
     'actions.radial.tip_hood': 'Turn on the flow, apply alcohol, and wipe dry with paper. Place cultures on the inner bench before opening them.',
     'actions.radial.tip_fridge': 'Open the door via the numbered option while holding a closed culture. Aim at a free slot and click to store.',
-    'actions.radial.tip_monotub_spent': 'Carry the tub with Move and dump the cake into the garden composter.',
+    'actions.radial.tip_monotub_spent': 'Pick up the tub with Pick Up [G] and dump the cake into the garden composter.',
     'actions.radial.tip_monotub_active': 'Use the numbered menu to operate the tub in hand. Place on the bench to prepare or on the LED rack to fruit.',
     'actions.radial.tip_dehydrator_crisp': 'Click with an empty hand to collect the finished batch.',
     'actions.radial.tip_dehydrator_idle': 'Hold a fresh mushroom and aim at the dehydrator to load a batch.',
@@ -1325,7 +1325,7 @@ export default {
     'actions.radial.garden_harvest_plant': 'Harvest Plant',
     'actions.radial.garden_view': 'View Garden',
     'actions.radial.cow_pet': 'Pet Cow',
-    'actions.radial.move_fridge': 'Move Fridge',
+    'actions.radial.move_fridge': 'Pick Up Fridge',
     'actions.radial.fridge_empty_first': '🚫 Remove everything inside the fridge before moving it.',
     'actions.radial.fridge_slots': 'View Slots',
     'actions.radial.fridge_slots_toast': '🧊 Fridge 4°C • {count} slots configured on shelves.',
@@ -1333,8 +1333,8 @@ export default {
     'actions.radial.silica_take': 'Take {grams} g',
     'actions.radial.edit_tag': 'Edit Label',
     'actions.radial.tag': 'Label',
-    'actions.radial.move': 'Move',
-    'actions.radial.open_menu_hint': '🎯 Press F or click the desired action.'
+    'actions.radial.move': 'Pick Up',
+    'actions.radial.open_menu_hint': '🎯 Use the shortcuts shown on the buttons (F, V, Z, G, I) or click the action.'
   },
   es: {
     'actions.common.item': 'Ítem',
@@ -1485,7 +1485,7 @@ export default {
     'actions.hover.case_open': '💼 Abrir Maletín Porta-Ampollas 5ML ({used}/{max})',
     'actions.hover.fridge_close': '🧊 Cerrar Puerta de la Nevera (4°C)',
     'actions.hover.fridge_open': '🧊 Abrir Puerta de la Nevera (4°C)',
-    'actions.hover.monotub_move_touch': 'Mover para cargar',
+    'actions.hover.monotub_move_touch': 'Recoger para llevar',
     'actions.hover.monotub_move_key': 'G/Q para cargar',
     'actions.hover.silica_crisp_default': 'Crujientes',
     'actions.hover.silica_take': '🫙 Sacar {grams} g ({stored}/{cap}g • {species})',
@@ -1531,7 +1531,7 @@ export default {
     'actions.hover.blind_open': '🪟 Abrir Persiana',
     'actions.hover.road_stand_packs': '🚗 Emporio Drive-Thru ({packs} paquetes • 🪙 {price} MycoCoins)',
     'actions.hover.road_stand_empty': '🚗 Kiosco Drive-Thru de la Carretera • ¡Trae Cajas de Entrega o Paquetes Sellados de la Sala de Deshidratación!',
-    'actions.hover.held_options_hint': 'Usa las teclas 1–4 para las opciones',
+    'actions.hover.held_options_hint': 'Usa F, V, Z o I para las opciones',
     'actions.hover.thermo_ambient': 'Ambiente',
     'actions.hover.held_place_hint': 'Apunta y haz clic para colocar • {options}',
 
@@ -1809,7 +1809,7 @@ export default {
     'actions.radial.tip_trash': 'Sostén el residuo y apunta aquí. La acción informa si desecha el ítem entero o solo vacía el contenido.',
     'actions.radial.tip_hood': 'Enciende el flujo, aplica alcohol y seca con papel. Apoya los cultivos en la mesa interna antes de abrirlos.',
     'actions.radial.tip_fridge': 'Abre la puerta con la opción numerada mientras sostienes un cultivo cerrado. Apunta a un espacio libre y haz clic para guardar.',
-    'actions.radial.tip_monotub_spent': 'Carga la caja con Mover y vacía el bloque en el compostador del huerto.',
+    'actions.radial.tip_monotub_spent': 'Recoge la caja con Recoger [G] y vacía el bloque en el compostador del huerto.',
     'actions.radial.tip_monotub_active': 'Usa el menú numerado para operar la caja en mano. Apóyala en la mesa para preparar o en el estante LED para fructificar.',
     'actions.radial.tip_dehydrator_crisp': 'Haz clic con la mano libre para recoger el lote listo.',
     'actions.radial.tip_dehydrator_idle': 'Sostén un hongo fresco y apunta a la deshidratadora para cargar un lote.',
@@ -1993,7 +1993,7 @@ export default {
     'actions.radial.garden_harvest_plant': 'Cosechar Planta',
     'actions.radial.garden_view': 'Ver Huerto',
     'actions.radial.cow_pet': 'Acariciar',
-    'actions.radial.move_fridge': 'Mover Nevera',
+    'actions.radial.move_fridge': 'Recoger Nevera',
     'actions.radial.fridge_empty_first': '🚫 Retira todo de dentro de la nevera antes de moverla.',
     'actions.radial.fridge_slots': 'Ver Espacios',
     'actions.radial.fridge_slots_toast': '🧊 Nevera 4°C • {count} espacios configurados en los estantes.',
@@ -2001,7 +2001,7 @@ export default {
     'actions.radial.silica_take': 'Sacar {grams} g',
     'actions.radial.edit_tag': 'Editar Etiqueta',
     'actions.radial.tag': 'Etiqueta',
-    'actions.radial.move': 'Mover',
-    'actions.radial.open_menu_hint': '🎯 Pulsa F o haz clic en la acción deseada.'
+    'actions.radial.move': 'Recoger',
+    'actions.radial.open_menu_hint': '🎯 Usa los atajos mostrados en los botones (F, V, Z, G, I) o haz clic en la acción.'
   }
 };

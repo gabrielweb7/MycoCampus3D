@@ -458,7 +458,7 @@ function ensureMicroscopeModalDom() {
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <button id="btn-move-microscope" type="button"
-            class="px-2.5 py-1.5 rounded-lg bg-emerald-600/85 hover:bg-emerald-500 text-white text-xs font-bold">📦 Mover</button>
+            class="px-2.5 py-1.5 rounded-lg bg-emerald-600/85 hover:bg-emerald-500 text-white text-xs font-bold">📦 Pegar</button>
           <button id="btn-close-microscope" type="button"
             class="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-bold">✕ Fechar</button>
         </div>

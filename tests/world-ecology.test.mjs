@@ -18,7 +18,14 @@ const { MUSHROOM_SPECIES_CATALOG } = await import('../js/world/mushroom-species.
 const {
   COW_POOP_INTERVAL_SEC,
   POOP_CUBENSIS_GROW_SEC,
+  PASTURE_TROUGH_POS,
+  HERD_MIGRATION_LEG_SEC,
+  HERD_MIGRATION_ROUTE,
+  isCowPositionWalkable,
+  findSafePasturePoint,
+  getHerdRouteIndex,
   petCow,
+  stepPastureCows,
   isBeeBlockedAt3D,
   moveBeeSafely,
   FLOWER_POLLEN_PER_VISIT,
@@ -195,4 +202,122 @@ test('ciclo de pólen (10% por visita), dispersão de sementes, colheita e plant
   const shopEntry = SHOP_SUPPLIES.find((s) => s.id === 'sup_flower_seeds');
   assert.ok(shopEntry);
   assert.equal(shopEntry.prefabId, 'flower_seeds');
+});
+
+test('rota de migração e cocho das vaquinhas ficam 100% em pasto livre e corredores desobstruídos', () => {
+  const worldCtx = {
+    solidColliders: [
+      { minX: 72.7, maxX: 75.3, minZ: 1.45, maxZ: 2.55, minY: 0, maxY: 0.7 }
+    ],
+    wallSegments: [
+      { x1: -26, z1: -43.5, x2: 26, z2: -43.5, minY: 0, maxY: 6, halfThick: 0.25 }
+    ]
+  };
+  assert.notEqual(PASTURE_TROUGH_POS.x, 64);
+  assert.notEqual(PASTURE_TROUGH_POS.z, 8);
+  assert.equal(isCowPositionWalkable({ solidColliders: [], wallSegments: [] }, PASTURE_TROUGH_POS.x, PASTURE_TROUGH_POS.z, 0.95), true);
+
+  for (let i = 0; i < HERD_MIGRATION_ROUTE.length; i++) {
+    const wp = HERD_MIGRATION_ROUTE[i];
+    assert.equal(isCowPositionWalkable(worldCtx, wp.x, wp.z, 0.95), true, `waypoint ${wp.name} deve ser caminhável`);
+    if (i < HERD_MIGRATION_ROUTE.length - 1) {
+      const next = HERD_MIGRATION_ROUTE[i + 1];
+      for (let s = 1; s < 25; s++) {
+        const t = s / 25;
+        const ix = wp.x + (next.x - wp.x) * t;
+        const iz = wp.z + (next.z - wp.z) * t;
+        assert.equal(
+          isCowPositionWalkable(worldCtx, ix, iz, 0.95),
+          true,
+          `corredor ${wp.name} -> ${next.name} bloqueado no passo ${s}`
+        );
+      }
+    }
+  }
+
+  const visited = new Set();
+  for (let step = 0; step < HERD_MIGRATION_ROUTE.length * 2; step++) {
+    visited.add(getHerdRouteIndex(step * HERD_MIGRATION_LEG_SEC));
+  }
+  assert.equal(visited.size, HERD_MIGRATION_ROUTE.length);
+});
+
+test('vaquinhas migram sem girar paradas perto da parede e escapam de zonas bloqueadas', () => {
+  const makeCow = (id, x, z, routeIdx) => {
+    const mesh = {
+      position: new globalThis.window.THREE.Vector3(x, 0, z),
+      rotation: { x: 0, y: 0, z: 0 },
+      visible: true
+    };
+    return {
+      id,
+      name: id,
+      mesh,
+      group: mesh,
+      head: { rotation: { x: 0, y: 0, z: 0 } },
+      legs: Array.from({ length: 4 }, () => ({ rotation: { x: 0, y: 0, z: 0 } })),
+      tail: { rotation: { x: 0, y: 0, z: 0 } },
+      yaw: 0,
+      targetYaw: 0,
+      baseSpeed: 1.2,
+      speed: 1.2,
+      health: 100,
+      mood: 'Pastando 🌿',
+      state: 'wander',
+      routeIdx,
+      avoidSide: 1,
+      avoidTimer: 0,
+      avoidYaw: 0,
+      curiousTimer: 0,
+      curiousCooldown: 0,
+      stuckTimer: 0,
+      lastProgressX: x,
+      lastProgressZ: z,
+      grazeTimer: 0,
+      fleeTimer: 0,
+      happyTimer: 0,
+      lastBucket: -1,
+      lastPoopBucket: -1,
+      walkPhase: 0
+    };
+  };
+
+  // Par de vaquinhas coladas atrás da parede da Reitoria + 1 vaquinha presa dentro do Dormitório 1
+  const cow0 = makeCow('cow_0', 0.0, -45.2, 4);
+  const cow1 = makeCow('cow_1', 1.1, -45.2, 4);
+  const cow2 = makeCow('cow_2', 58.0, 12.0, 1);
+  const ctx = {
+    playerPos: new globalThis.window.THREE.Vector3(0, 0, 14),
+    simClockSec: 3 * HERD_MIGRATION_LEG_SEC + 1,
+    solidColliders: [
+      { minX: 50.5, maxX: 65.5, minZ: 6.5, maxZ: 17.5, minY: 0, maxY: 5 }
+    ],
+    wallSegments: [
+      { x1: -26, z1: -43.5, x2: 26, z2: -43.5, minY: 0, maxY: 6, halfThick: 0.25 }
+    ],
+    pastureCows: [cow0, cow1, cow2],
+    cowPoops: []
+  };
+
+  assert.equal(isCowPositionWalkable(ctx, cow2.mesh.position.x, cow2.mesh.position.z, 0.85), false);
+  let cow2EscapedStep = -1;
+  for (let s = 0; s < 1500; s++) {
+    ctx.simClockSec += 0.1;
+    stepPastureCows(ctx, 0.1);
+    if (cow2EscapedStep === -1 && isCowPositionWalkable(ctx, cow2.mesh.position.x, cow2.mesh.position.z, 0.85)) {
+      cow2EscapedStep = s;
+    }
+    assert.equal(isCowPositionWalkable(ctx, cow0.mesh.position.x, cow0.mesh.position.z, 0.85), true);
+    assert.equal(isCowPositionWalkable(ctx, cow1.mesh.position.x, cow1.mesh.position.z, 0.85), true);
+  }
+
+  assert.ok(cow2EscapedStep >= 0 && cow2EscapedStep < 120, `vaquinha presa deve escapar rapidamente (passo ${cow2EscapedStep})`);
+  const disp0 = Math.hypot(cow0.mesh.position.x - 0.0, cow0.mesh.position.z - (-45.2));
+  const disp1 = Math.hypot(cow1.mesh.position.x - 1.1, cow1.mesh.position.z - (-45.2));
+  assert.ok(disp0 > 20, `cow_0 deve migrar > 20m (deslocou ${disp0.toFixed(1)}m)`);
+  assert.ok(disp1 > 20, `cow_1 deve migrar > 20m (deslocou ${disp1.toFixed(1)}m)`);
+
+  const safePt = findSafePasturePoint(ctx, 0, PASTURE_TROUGH_POS);
+  assert.equal(isCowPositionWalkable(ctx, safePt.x, safePt.z, 1.0), true);
+  assert.equal(cow0.group, cow0.mesh);
 });

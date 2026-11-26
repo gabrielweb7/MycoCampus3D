@@ -18,7 +18,7 @@ import { setHeldTwoHandedGhost } from './interaction-system.js';
 import { applyQualityTier } from './game-loop.js';
 import * as worldSync from './world-sync.js';
 import * as adminEditor from './admin-editor.js';
-import { openRadialMenu, triggerFloatingAction, inspectItemToast } from '../ui/radial-menu.js';
+import { openRadialMenu, triggerFloatingAction, triggerFloatingActionByCode, inspectItemToast, inspectBeehiveCard } from '../ui/radial-menu.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
 
 const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
@@ -400,6 +400,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.inspectCampusHeldItem = function () {
     if (sim.heldItem) inspectItemToast(sim, sim.heldItem);
     else if (sim.hoveredPickable) inspectItemToast(sim, sim.hoveredPickable);
+    else if (sim.hoveredBeehive) inspectBeehiveCard(sim, sim.hoveredBeehive);
     else if (sim.raycaster && sim.supportMeshes && sim.supportMeshes.length) {
       sim.raycaster.setFromCamera(new THREE.Vector2(0, 0), sim.camera);
       const hits = sim.raycaster.intersectObjects(sim.supportMeshes, false);
@@ -415,6 +416,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
   window.openCampusRadialMenu = function () { openRadialMenu(sim); };
   window.triggerCampusFloatingAction = triggerFloatingAction;
+  window.triggerCampusFloatingActionByCode = triggerFloatingActionByCode;
 
   window.MycoCampus = window.MycoCampus || {};
   window.MycoCampus.teleportPlayer = window.teleportCampusPlayer;
