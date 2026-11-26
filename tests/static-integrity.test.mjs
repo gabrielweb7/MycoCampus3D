@@ -195,9 +195,15 @@ test('todos os imports e exports estáticos entre módulos ES de js/ resolvem se
     adj.set(file, edges);
   }
 
-  const entry = path.join(JS_DIR, 'main.js');
-  const visited = new Set([entry]);
-  const queue = [entry];
+  const entryPages = ['index.html', 'catalogo.html'];
+  const queue = entryPages.flatMap(page => {
+    const html = fs.readFileSync(path.join(ROOT, page), 'utf8');
+    return [...html.matchAll(/<script[^>]*type="module"[^>]*src="(js\/[^"?]+)(?:\?[^"]*)?"/g)]
+      .map(match => path.join(ROOT, match[1]));
+  });
+  assert.ok(queue.includes(path.join(JS_DIR, 'main.js')));
+  assert.ok(queue.includes(path.join(JS_DIR, 'ui', 'item-catalog.js')));
+  const visited = new Set(queue);
   while (queue.length > 0) {
     const cur = queue.shift();
     for (const nxt of (adj.get(cur) || [])) {
@@ -208,7 +214,7 @@ test('todos os imports e exports estáticos entre módulos ES de js/ resolvem se
     }
   }
   const orphans = files.filter((f) => !visited.has(f)).map((f) => path.relative(ROOT, f));
-  assert.deepEqual(orphans, [], `Módulos órfãos não alcançáveis a partir de js/main.js: ${orphans.join(', ')}`);
+  assert.deepEqual(orphans, [], `Módulos órfãos sem entrada no jogo ou no catálogo: ${orphans.join(', ')}`);
 });
 
 test('proteção contra regressões de referências corrigidas na refatoração', () => {

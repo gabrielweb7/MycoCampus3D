@@ -14,7 +14,7 @@ import { resetMonotubToCleanEmpty } from '../items/monotub.js';
 import { createBanner } from './nature-plaza.js';
 import { triggerCozyHeartBurst } from './cozy-details.js';
 
-import { createGardenModels, makeSubstrateBox } from './campus-garden-models.js';
+import { createGardenModels, makeGardenBasketModel, makeSubstrateBox } from './campus-garden-models.js';
 
 import { t } from '../core/i18n.js';
 
@@ -95,19 +95,16 @@ export function applyGardenWorldState(stateMap) {
 }
 
 export function makeOrganicGardenBasket(ctx, px, py, pz, customId = null) {
-  const g = new THREE.Group();
-  const woodM = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.78 });
-  const tomM = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.32 });
-  const letM = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.65 });
-  const crateBase = makeBox(0.32, 0.14, 0.24, woodM);
-  crateBase.position.y = 0.07;
-  g.add(crateBase);
+  const g = makeGardenBasketModel(THREE);
+  g.scale.setScalar(0.57);
+  models ||= createGardenModels(THREE);
   for (let i = 0; i < 2; i++) {
-    const tom = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), tomM);
-    tom.position.set(-0.06 + i * 0.11, 0.17, -0.03);
-    const letHead = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), letM);
-    letHead.position.set(-0.05 + i * 0.11, 0.165, 0.05);
-    g.add(tom, letHead);
+    const { group: fruit } = models.makeFruit();
+    fruit.position.set(-0.115 + i * 0.20, 0.23, -0.075);
+    const lettuce = models.makeLettuce();
+    lettuce.position.set(-0.12 + i * 0.23, 0.16, 0.07);
+    lettuce.scale.setScalar(0.50);
+    g.add(fruit, lettuce);
   }
   const id = customId || ('organic_basket_' + Date.now().toString(36));
   const item = registerPickable(
@@ -211,7 +208,6 @@ export function buildCampusVegetableGarden(ctx) {
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
   const darkSoilMat = new THREE.MeshStandardMaterial({ color: 0x29180d, roughness: 0.96 });
   models ||= createGardenModels(THREE);
-  const stakeMat = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.82 });
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
 
   // Placa / Banner da Horta Orgânica com mastro de aço fixado no chão (sem flutuar!)
@@ -367,22 +363,20 @@ export function buildCampusVegetableGarden(ctx) {
   // 3b. CESTA DE COLHEITA ORGÂNICA DA HORTA (x: 19.9, z: 18.7)
   const bx = 19.9;
   const bz = 18.7;
-  const basketGroup = new THREE.Group();
-  const basketRim = makeBox(0.66, 0.24, 0.46, stakeMat);
-  basketRim.position.set(bx, 0.12, bz);
-  basketGroup.add(basketRim);
+  const basketGroup = makeGardenBasketModel(THREE);
+  basketGroup.position.set(bx, 0, bz);
   gardenState.basketItems = [];
   for (let bi = 0; bi < 6; bi++) {
     const isTom = bi % 2 === 1;
     const itemMesh = isTom ? models.makeFruit().group : models.makeLettuce();
-    itemMesh.scale.setScalar(isTom ? 1 : 0.25);
-    itemMesh.position.set(bx - 0.18 + (bi % 3) * 0.18, 0.26, bz - 0.08 + Math.floor(bi / 3) * 0.16);
+    itemMesh.scale.setScalar(isTom ? 1.25 : 0.40);
+    itemMesh.position.set(-0.16 + (bi % 3) * 0.16, isTom ? 0.23 : 0.17, -0.075 + Math.floor(bi / 3) * 0.15);
     itemMesh.visible = bi === 0;
     basketGroup.add(itemMesh);
     gardenState.basketItems.push(itemMesh);
   }
-  const basketHit = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.45, 0.55), hitMat);
-  basketHit.position.set(bx, 0.22, bz);
+  const basketHit = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.55, 0.52), hitMat);
+  basketHit.position.y = 0.275;
   basketHit.userData.gardenTarget = {
     type: 'harvest_basket',
     label: '🧺 Cesta de Colheita Orgânica da Horta'

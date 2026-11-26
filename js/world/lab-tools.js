@@ -61,7 +61,7 @@ const THREE = window.THREE;
 
 function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
-export function buildCampusWingsAndEquipment(ctx) {
+export function buildCampusWingsAndEquipment(ctx, { includeOutdoor = true } = {}) {
   const scene = ctx.scene;
   const solidColliders = ctx.solidColliders;
   const supportSurfaces = ctx.supportSurfaces;
@@ -484,6 +484,8 @@ export function buildCampusWingsAndEquipment(ctx) {
     sinkPos: { x: 19.8, z: 2.9 }
   });
   makeWaterSprayBottle(ctx, 'water_spray_greenhouse_01', 21.2, 1.02, 2.9);
+
+  if (!includeOutdoor) return;
 
   // Horta Orgânica Externa com Alfaces, Tomates e Caixa de Substrato / Compostagem (Sul da Estufa)
   buildCampusVegetableGarden(ctx);

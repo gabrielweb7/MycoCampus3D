@@ -1,4 +1,4 @@
-import { registerPickable, disposeObjectResources, getCachedCanvasTexture } from './item-registry.js';
+import { registerPickable, disposeObjectResources, getCachedCanvasTexture, bindPngTexture } from './item-registry.js';
 import { emptySpawnContainer, isFruitingBagReady } from './spawn-containers.js';
 import { makeSpentCakeItem } from './monotub.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
@@ -50,7 +50,7 @@ function buildModule(kind) {
   const THREE = window.THREE;
   const group = new THREE.Group();
   const dark = material(0x252a2d);
-  const shell = material(kind === 'grow_humidifier' ? 0xeee9dc : 0x454c50, { metalness: 0.18 });
+  const shell = material(kind === 'grow_humidifier' ? 0xe8e0ce : 0x454c50, { metalness: 0.18 });
   if (kind === 'grow_humidifier') {
     const water = new THREE.Mesh(new THREE.CylinderGeometry(0.162, 0.165, 0.13, 14), material(0x71cbd5));
     water.position.y = 0.165;
@@ -68,11 +68,11 @@ function buildModule(kind) {
       group.add(label);
     }
   }
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.17, 0.3, 14), shell);
-  body.position.y = 0.15;
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.17, kind === 'grow_humidifier' ? 0.11 : 0.3, 14), shell);
+  body.position.y = kind === 'grow_humidifier' ? 0.055 : 0.15;
   group.add(body);
-  const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.035, 14), dark);
-  lip.position.y = 0.31;
+  const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.163, 0.074, 14), kind === 'grow_humidifier' ? shell : dark);
+  lip.position.y = 0.267;
   group.add(lip);
   const status = material(0x53d7bd, { emissive: 0x32d1b1, emissiveIntensity: 0 });
   box(group, status, 0.046, 0.018, 0.018, 0, 0.07, 0.162);
@@ -90,50 +90,143 @@ function buildModule(kind) {
   return { group, rotor, status };
 }
 
+function roundedOutline(path, width, height, radius) {
+  const x = width * 0.5;
+  const y = height * 0.5;
+  path.moveTo(-x + radius, -y);
+  path.lineTo(x - radius, -y);
+  path.quadraticCurveTo(x, -y, x, -y + radius);
+  path.lineTo(x, y - radius);
+  path.quadraticCurveTo(x, y, x - radius, y);
+  path.lineTo(-x + radius, y);
+  path.quadraticCurveTo(-x, y, -x, y - radius);
+  path.lineTo(-x, -y + radius);
+  path.quadraticCurveTo(-x, -y, -x + radius, -y);
+  return path;
+}
+
+function frontFrame(THREE, mat, width, height, edge, depth) {
+  const outline = roundedOutline(new THREE.Shape(), width, height, 0.105);
+  outline.holes.push(roundedOutline(new THREE.Path(), width - 2 * edge, height - 2 * edge, 0.067));
+  const geo = new THREE.ExtrudeGeometry(outline, {
+    depth, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.004, bevelSegments: 1, curveSegments: 4
+  });
+  return new THREE.Mesh(geo, mat);
+}
+
+function makeTravelBag(THREE, cloth, trim) {
+  const bag = new THREE.Group();
+  const shell = new THREE.Mesh(new THREE.CapsuleGeometry(0.108, 0.36, 5, 14), cloth);
+  shell.rotation.z = Math.PI / 2;
+  shell.position.y = 0.11;
+  bag.add(shell);
+  const strapGeo = new THREE.TorusGeometry(0.109, 0.012, 6, 18);
+  for (const x of [-0.15, 0.15]) {
+    const strap = new THREE.Mesh(strapGeo, trim);
+    strap.rotation.y = Math.PI / 2;
+    strap.position.set(x, 0.11, 0);
+    bag.add(strap);
+  }
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.083, 0.012, 6, 16, Math.PI), trim);
+  handle.position.y = 0.207;
+  bag.add(handle);
+  bag.visible = false;
+  bag.userData.hideInPlacement = true;
+  return bag;
+}
+
 function buildTent() {
   const THREE = window.THREE;
+  const itemRoot = new THREE.Group();
   const group = new THREE.Group();
-  const cloth = material(0x242625);
-  const piping = material(0x829d47);
-  const lining = material(0xc3c7c8, { metalness: 0.26 });
-  const steel = material(0x42484a);
-  const floor = material(0x777c79);
-  const led = material(0xf6efd3, { emissive: 0xffefb9, emissiveIntensity: 1.35 });
-  const silver = material(0xb6b9b8, { metalness: 0.55, roughness: 0.45 });
-  box(group, cloth, 1.77, 0.09, 0.89, 0, 2.29, 0);
-  box(group, floor, 1.77, 0.1, 0.89, 0, 0.075, 0);
-  box(group, cloth, 1.77, 2.13, 0.05, 0, 1.18, -0.425);
-  box(group, lining, 1.68, 2.12, 0.02, 0, 1.18, -0.391);
-  for (const side of [-1, 1]) {
-    box(group, cloth, 0.048, 2.16, 0.89, side * 0.86, 1.18, 0);
-    box(group, lining, 0.016, 2.1, 0.81, side * 0.826, 1.18, 0);
-    box(group, piping, 0.035, 2.25, 0.035, side * 0.859, 1.17, 0.444);
+  group.userData.visibleInPlacement = true;
+  itemRoot.add(group);
+  const cloth = material(0x777674, { roughness: 0.96 });
+  const piping = material(0x687d3b, { roughness: 0.88 });
+  const seam = material(0xc6ad71, { roughness: 0.9 });
+  const lining = material(0xd7d1c4, { roughness: 0.56, metalness: 0.17, emissive: 0xcdb890, emissiveIntensity: 0.12 });
+  const steel = material(0x55534d, { roughness: 0.46, metalness: 0.28 });
+  const floor = material(0x8d897f);
+  const led = material(0xffebc1, { emissive: 0xffdeb0, emissiveIntensity: 1.35 });
+  const silver = material(0xc1c2bc, { metalness: 0.38, roughness: 0.36 });
+  if (typeof document !== 'undefined') {
+    bindPngTexture('assets/textures/grow-ripstop.jpg', cloth, { repeatX: 2, repeatY: 3 });
+    bindPngTexture('assets/textures/grow-foil.jpg', lining, { repeatX: 1, repeatY: 2 });
   }
-  for (const y of [0.12, 2.25]) box(group, piping, 1.72, 0.03, 0.035, 0, y, 0.444);
-  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.071, 0.071, 1.65, 10), lining);
+  const carry = makeTravelBag(THREE, cloth, piping);
+  itemRoot.add(carry);
+
+  box(group, cloth, 1.15, 0.075, 0.76, 0, 2.274, -0.018);
+  box(group, cloth, 1.15, 0.08, 0.76, 0, 0.084, -0.018);
+  box(group, cloth, 1.15, 2.19, 0.05, 0, 1.18, -0.386);
+  box(group, lining, 1.08, 2.13, 0.017, 0, 1.18, -0.351);
+  box(group, lining, 1.08, 0.025, 0.72, 0, 0.132, -0.01);
+  box(group, lining, 1.08, 0.018, 0.72, 0, 2.225, -0.01);
+  for (const side of [-1, 1]) {
+    box(group, cloth, 0.047, 2.16, 0.76, side * 0.565, 1.18, -0.018);
+    box(group, lining, 0.017, 2.1, 0.70, side * 0.534, 1.18, -0.01);
+    for (const z of [-0.30, 0.28]) {
+      box(group, floor, 0.105, 0.07, 0.105, side * 0.47, 0.035, z);
+    }
+    box(group, steel, 0.023, 2.02, 0.022, side * 0.503, 1.17, -0.301);
+  }
+  const frame = frontFrame(THREE, cloth, 1.18, 2.25, 0.091, 0.038);
+  frame.position.set(0, 1.179, 0.35);
+  group.add(frame);
+  const binding = frontFrame(THREE, piping, 1.181, 2.255, 0.021, 0.011);
+  binding.position.set(0, 1.179, 0.391);
+  group.add(binding);
+  const zipper = frontFrame(THREE, floor, 1.041, 2.108, 0.011, 0.008);
+  zipper.position.set(0, 1.178, 0.393);
+  group.add(zipper);
+  const stitchGeo = new THREE.BoxGeometry(0.003, 0.017, 0.004);
+  const stitches = new THREE.InstancedMesh(stitchGeo, seam, 100);
+  const stitch = new THREE.Object3D();
+  for (let i = 0; i < 100; i++) {
+    stitch.position.set(i < 50 ? -0.576 : 0.576, 0.165 + (i % 50) * 0.041, 0.407);
+    stitch.updateMatrix();
+    stitches.setMatrixAt(i, stitch.matrix);
+  }
+  group.add(stitches);
+  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.059, 0.059, 1.00, 14), lining);
   roll.rotation.z = Math.PI / 2;
-  roll.position.set(0, 2.15, 0.416);
+  roll.position.set(0, 2.146, 0.365);
   group.add(roll);
-  for (const x of [-0.55, 0.55]) box(group, cloth, 0.064, 0.14, 0.15, x, 2.15, 0.416);
-  box(group, led, 1.3, 0.034, 0.1, 0, 2.225, -0.05);
-  box(group, steel, 0.25, 0.17, 0.05, 0.73, 1.94, 0.46);
-  box(group, material(0x173a33, { emissive: 0x236852, emissiveIntensity: 0.55 }), 0.185, 0.09, 0.009, 0.73, 1.956, 0.489);
+  for (const x of [-0.335, 0.335]) box(group, cloth, 0.045, 0.13, 0.126, x, 2.15, 0.363);
+  box(group, steel, 0.85, 0.025, 0.106, 0, 2.152, 0.16);
+  box(group, led, 0.80, 0.013, 0.055, 0, 2.133, 0.16);
+  box(group, piping, 0.174, 0.113, 0.037, 0.493, 1.955, 0.412);
+  const screenMap = getCachedCanvasTexture('portable_grow_display', 192, 96, ctx => {
+    ctx.fillStyle = '#0b211f';
+    ctx.fillRect(0, 0, 192, 96);
+    ctx.fillStyle = '#b4f2d6';
+    ctx.font = 'bold 34px monospace';
+    ctx.fillText('ESP32', 13, 41);
+    ctx.fillStyle = '#4addad';
+    for (let i = 0; i < 4; i++) ctx.fillRect(16 + i * 20, 71 - i * 5, 12, 9 + i * 5);
+  });
+  box(group, new THREE.MeshBasicMaterial({ color: screenMap ? 0xffffff : 0x64a98c, map: screenMap }), 0.133, 0.073, 0.007, 0.493, 1.957, 0.434);
 
   const slotVisuals = [];
   const cakeMat = material(0xd7bd95, { flatShading: true });
   const trunkMat = material(0xf4dfbf);
   const capMat = material(0xb97c3c, { flatShading: true });
-  const trayGeo = new THREE.CylinderGeometry(0.16, 0.145, 0.033, 12);
-  const cakeGeo = new THREE.CylinderGeometry(0.109, 0.12, 0.13, 10);
+  const trayGeo = new THREE.CylinderGeometry(0.132, 0.116, 0.035, 15);
+  const trayRim = new THREE.TorusGeometry(0.119, 0.010, 6, 20);
+  trayRim.rotateX(-Math.PI / 2);
+  const cakeGeo = new THREE.CylinderGeometry(0.096, 0.101, 0.13, 10);
   const stemGeo = new THREE.CylinderGeometry(0.014, 0.021, 0.11, 7);
   const capGeo = new THREE.SphereGeometry(0.055, 9, 5, 0, Math.PI * 2, 0, Math.PI * 0.53);
   for (const y of shelfLevels) {
-    for (let i = 0; i < 9; i++) box(group, steel, 1.63, 0.027, 0.017, 0, y, -0.34 + 0.085 * i);
-    for (const x of [-0.79, 0, 0.79]) box(group, steel, 0.042, 0.043, 0.74, x, y, 0);
-    for (const x of [-0.52, 0, 0.52]) {
+    for (let i = 0; i < 9; i++) box(group, steel, 1.035, 0.023, 0.014, 0, y, -0.31 + 0.077 * i);
+    for (const x of [-0.498, 0, 0.498]) box(group, steel, 0.032, 0.033, 0.69, x, y, 0);
+    box(group, steel, 1.032, 0.041, 0.029, 0, y, 0.325);
+    for (const x of [-0.34, 0, 0.34]) {
       const tray = new THREE.Mesh(trayGeo, steel);
       tray.position.set(x, y + 0.027, 0.03);
-      group.add(tray);
+      const rim = new THREE.Mesh(trayRim, floor);
+      rim.position.set(x, y + 0.045, 0.03);
+      group.add(tray, rim);
       const cake = new THREE.Mesh(cakeGeo, cakeMat);
       cake.position.set(x, y + 0.11, 0.03);
       group.add(cake);
@@ -158,10 +251,10 @@ function buildTent() {
 
   const humidifier = buildModule('grow_humidifier');
   const exhaust = buildModule('grow_exhaust');
-  humidifier.group.position.set(1.13, 0.04, 0.16);
-  exhaust.group.position.set(-1.13, 0.04, -0.03);
+  humidifier.group.position.set(0.81, 0.04, 0.16);
+  exhaust.group.position.set(-0.84, 0.04, -0.03);
   tube(humidifier.group, silver, [[0, 0.32, 0], [0, 0.95, 0], [-0.07, 1.2, 0], [-0.29, 1.28, 0]]);
-  tube(exhaust.group, silver, [[0, 0.31, 0], [0.07, 0.39, -0.075], [0.2, 0.37, -0.115], [0.32, 0.32, -0.115], [0.49, 0.32, -0.115]]);
+  tube(exhaust.group, silver, [[0, 0.31, 0], [0.07, 0.39, -0.075], [0.2, 0.37, -0.115], [0.29, 0.32, -0.115]]);
   group.add(humidifier.group, exhaust.group);
 
   const mist = new THREE.Group();
@@ -169,7 +262,7 @@ function buildTent() {
   const mistGeo = new THREE.IcosahedronGeometry(0.04, 0);
   for (let i = 0; i < 14; i++) mist.add(new THREE.Mesh(mistGeo, mistMat));
   group.add(mist);
-  return { group, slotVisuals, led, humidifier, exhaust, mist };
+  return { group: itemRoot, deployed: group, carry, slotVisuals, led, lining, humidifier, exhaust, mist };
 }
 
 export function makeGrowShopItem(ctx, opts, kind) {
@@ -181,7 +274,6 @@ export function makeGrowShopItem(ctx, opts, kind) {
     return item;
   }
   const view = buildTent();
-  view.group.scale.set(0.89, 1.16, 1);
   view.group.userData.twoHanded = true;
   view.group.userData.isRack = true;
   const grow = {
@@ -189,7 +281,7 @@ export function makeGrowShopItem(ctx, opts, kind) {
     humidifier: false, exhaust: false, mistOn: false, fanOn: false,
     slots: Array(CAPACITY).fill(null), view
   };
-  const item = registerPickable(ctx, id, opts.label || GROW_PREFABS[kind], view.group, opts.x, opts.y, opts.z, opts.ry, 0.84, 2.71, {
+  const item = registerPickable(ctx, id, opts.label || GROW_PREFABS[kind], view.group, opts.x, opts.y, opts.z, opts.ry, 0.66, 2.32, {
     category: 'equipment',
     weightGrams: 9500,
     serializeState: () => ({
@@ -231,6 +323,7 @@ function updateGrow(grow, dt, now) {
   grow.humidity += ((vapor ? 88 : 64) - grow.humidity) * Math.min(1, dt * 0.3);
   grow.air += ((fan ? 94 : 70) - grow.air) * Math.min(1, dt * 0.25);
   view.led.emissiveIntensity = grow.led ? 1.35 : 0;
+  view.lining.emissiveIntensity = grow.led ? 0.16 : 0.015;
   view.led.color.setHex(grow.led ? 0xf6efd3 : 0x5d605b);
   view.humidifier.group.visible = grow.humidifier;
   view.exhaust.group.visible = grow.exhaust;
@@ -259,7 +352,12 @@ function updateGrow(grow, dt, now) {
 export function stepPortableGrows(ctx, dt) {
   const now = Date.now();
   for (const item of ctx.pickableItems) {
-    if (item.growCtrl) updateGrow(item.growCtrl, dt, now);
+    if (!item.growCtrl) continue;
+    const carried = item === ctx.heldItem || !!ctx.isHeldByRemote?.(item.id);
+    const { carry, deployed } = item.growCtrl.view;
+    deployed.visible = !carried;
+    carry.visible = carried;
+    if (!carried) updateGrow(item.growCtrl, dt, now);
   }
 }
 
@@ -369,11 +467,26 @@ export function openPortableGrowPanel(ctx, item) {
   const grow = item.growCtrl;
   const dialog = document.createElement('dialog');
   dialog.id = 'portable-grow-panel';
-  dialog.className = 'portable-grow-panel';
+  dialog.className = 'glass-panel portable-grow-panel';
+  dialog.setAttribute('aria-labelledby', 'grow-panel-title');
+  const header = document.createElement('header');
+  header.className = 'grow-panel-header';
+  const headerText = document.createElement('div');
   const title = document.createElement('h2');
+  title.id = 'grow-panel-title';
   title.textContent = GROW_PREFABS.grow_tent;
-  const status = document.createElement('p');
+  const subtitle = document.createElement('p');
+  subtitle.textContent = t('grow.subtitle');
+  headerText.append(title, subtitle);
+  header.append(headerText);
+  const body = document.createElement('div');
+  body.className = 'grow-panel-body';
+  const metrics = document.createElement('div');
+  metrics.className = 'grow-metrics';
   const controls = document.createElement('div');
+  controls.className = 'grow-device-controls';
+  const modes = document.createElement('div');
+  modes.className = 'grow-mode-controls';
   const slots = document.createElement('div');
   slots.className = 'portable-grow-slots';
   function button(parent, action) {
@@ -383,6 +496,23 @@ export function openPortableGrowPanel(ctx, item) {
     parent.append(node);
     return node;
   }
+  function metric(label, accent) {
+    const card = document.createElement('div');
+    card.className = 'grow-metric';
+    card.dataset.accent = accent;
+    const caption = document.createElement('span');
+    caption.textContent = label;
+    const value = document.createElement('strong');
+    const note = document.createElement('small');
+    card.append(caption, value, note);
+    metrics.append(card);
+    return { value, note };
+  }
+  const humidity = metric('💧 ' + t('grow.humidity'), 'sky');
+  const air = metric('🌬 ' + t('grow.air'), 'green');
+  const light = metric('💡 LED Grow', 'violet');
+  const capacity = metric('📦 ' + t('grow.shelves'), 'amber');
+
   function toggle(key) {
     if (item.isReadOnly || item._removedForSync || ctx.isHeldByRemote?.(item.id)) return;
     grow[key] = !grow[key];
@@ -391,7 +521,10 @@ export function openPortableGrowPanel(ctx, item) {
     sync(ctx, item);
     refresh();
   }
-  const auto = button(controls, () => toggle('auto'));
+  const auto = button(modes, () => { if (!grow.auto) toggle('auto'); });
+  const manual = button(modes, () => { if (grow.auto) toggle('auto'); });
+  auto.textContent = '🤖 ' + t('grow.auto');
+  manual.textContent = '🎛 ' + t('grow.manual');
   const led = button(controls, () => toggle('led'));
   const mist = button(controls, () => toggle('mistOn'));
   const fan = button(controls, () => toggle('fanOn'));
@@ -409,14 +542,24 @@ export function openPortableGrowPanel(ctx, item) {
     }
     slots.append(row);
   }
-  const close = button(dialog, () => dialog.close());
-  close.textContent = t('grow.close');
-  dialog.prepend(title, status, controls, slots);
+  const close = button(header, () => dialog.close());
+  close.className = 'grow-close';
+  close.textContent = '× ' + t('grow.close');
+  body.append(metrics, modes, controls, slots);
+  dialog.append(header, body);
   function refresh() {
     const onOff = (value) => t(value ? 'grow.on' : 'grow.off');
     const moduleState = (installed, enabled) => t(!installed ? 'grow.absent' : grow.auto ? 'grow.auto' : enabled ? 'grow.on' : 'grow.off');
-    status.textContent = t('grow.status', { humidity: Math.round(grow.humidity), air: Math.round(grow.air) });
-    auto.textContent = t(grow.auto ? 'grow.auto' : 'grow.manual');
+    humidity.value.textContent = Math.round(grow.humidity) + '%';
+    humidity.note.textContent = t('grow.humidifier') + ' · ' + moduleState(grow.humidifier, grow.mistOn);
+    air.value.textContent = Math.round(grow.air) + '%';
+    air.note.textContent = t('grow.exhaust') + ' · ' + moduleState(grow.exhaust, grow.fanOn);
+    light.value.textContent = onOff(grow.led);
+    light.note.textContent = t('grow.integrated');
+    capacity.value.textContent = grow.slots.filter(Boolean).length + ' / ' + CAPACITY;
+    capacity.note.textContent = t('grow.occupied');
+    auto.setAttribute('aria-pressed', String(grow.auto));
+    manual.setAttribute('aria-pressed', String(!grow.auto));
     led.textContent = 'LED · ' + onOff(grow.led);
     mist.textContent = t('grow.humidifier') + ' · ' + moduleState(grow.humidifier, grow.mistOn);
     fan.textContent = t('grow.exhaust') + ' · ' + moduleState(grow.exhaust, grow.fanOn);
@@ -429,6 +572,7 @@ export function openPortableGrowPanel(ctx, item) {
       const action = !slot ? 'grow.empty' : slot.spent ? 'grow.spent' : progress === 100 ? 'grow.harvest' : 'grow.progress';
       slotButtons[i].textContent = t(action, { progress, species: slot?.species, flush: slot?.flush });
       slotButtons[i].disabled = !slot || (!slot.spent && progress < 100);
+      slotButtons[i].dataset.state = !slot ? 'empty' : slot.spent || progress === 100 ? 'ready' : 'growing';
     }
   }
   document.body.append(dialog);

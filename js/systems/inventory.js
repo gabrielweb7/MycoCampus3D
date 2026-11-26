@@ -7,7 +7,7 @@ export function createQuickInventory() {
 }
 
 export function getStorageBlock(item) {
-  if (!item) return '';
+  if (!item || item.growCtrl || item.growModule) return '';
   const data = item.mesh?.userData;
   if (!data || data.twoHanded || item.monotubCtrl || item.bowlCtrl || item.cookerRef || item.potItem || item.caseCtrl) return 'large';
   if (data.petriCtrl?.lidOpen || (item.spawnCtrl?.isPP5 && item.spawnCtrl.lidOpen) ||

@@ -221,3 +221,52 @@ export function makeSubstrateBox(THREE, width, height, depth) {
   group.add(emblem);
   return { group, fill };
 }
+
+export function makeGardenBasketModel(THREE) {
+  const group = new THREE.Group();
+  const wicker = [0xa86a34, 0xc58b48, 0xd6a45f].map(color => matte(THREE, color));
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.268, 0.254, 0.035, 20), wicker[0]);
+  base.scale.z = 0.71;
+  base.position.y = 0.028;
+  group.add(base);
+
+  const strands = 24;
+  for (let row = 0; row < 7; row++) {
+    const height = 0.055 + row * 0.028;
+    const radius = 0.257 + row * 0.006;
+    const points = Array.from({ length: strands }, (_, col) => {
+      const angle = col * Math.PI * 2 / strands;
+      const weave = (row + col) % 2 ? 0.008 : -0.008;
+      return new THREE.Vector3(Math.cos(angle) * (radius + weave), height, Math.sin(angle) * (radius * 0.71 + weave));
+    });
+    const curve = new THREE.CatmullRomCurve3(points, true);
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, strands * 2, 0.017, 5, true), wicker[row % 3]));
+  }
+
+  const rib = new THREE.CylinderGeometry(0.010, 0.011, 0.18, 5);
+  const stakes = new THREE.InstancedMesh(rib, wicker[1], strands);
+  const stake = new THREE.Object3D();
+  for (let col = 0; col < strands; col++) {
+    const angle = col * Math.PI * 2 / strands;
+    stake.position.set(0.274 * Math.cos(angle), 0.136, 0.196 * Math.sin(angle));
+    stake.rotation.set(Math.sin(angle) * 0.13, 0, -Math.cos(angle) * 0.18);
+    stake.updateMatrix();
+    stakes.setMatrixAt(col, stake.matrix);
+  }
+  group.add(stakes);
+
+  const rimGeo = new THREE.TorusGeometry(0.294, 0.023, 7, 32);
+  const rim = new THREE.Mesh(rimGeo, wicker[2]);
+  rim.rotation.x = -Math.PI / 2;
+  rim.scale.y = 0.74;
+  rim.position.y = 0.235;
+  group.add(rim);
+
+  const handlePoints = Array.from({ length: 13 }, (_, i) => {
+    const angle = i * Math.PI / 12;
+    return new THREE.Vector3(Math.cos(angle) * 0.282, 0.216 + Math.sin(angle) * 0.31, 0);
+  });
+  const handleCurve = new THREE.CatmullRomCurve3(handlePoints);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(handleCurve, 28, 0.024, 7, false), wicker[1]));
+  return group;
+}

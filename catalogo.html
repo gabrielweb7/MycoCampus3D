@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111516">
+  <title>Catálogo 3D · MycoCampus3D</title>
+  <link rel="icon" href="assets/favicon-32.png">
+  <link rel="stylesheet" href="css/item-catalog.css">
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="index.html"><img src="assets/icon-192.png" width="34" height="34" alt="">MycoCampus3D</a>
+    <a class="back" href="index.html"><span aria-hidden="true">←</span> <span data-i18n="catalog.back">Voltar ao jogo</span></a>
+  </header>
+  <main class="catalog">
+    <section class="library" aria-labelledby="library-title">
+      <h1 id="library-title" data-i18n="catalog.title">Catálogo de itens</h1>
+      <label class="search">
+        <span class="search-icon" aria-hidden="true"></span>
+        <input id="item-search" type="search" data-i18n-aria="catalog.search" data-i18n-placeholder="catalog.search" placeholder="Buscar por nome">
+      </label>
+      <label class="category-label" for="item-category" data-i18n="catalog.category">Categoria</label>
+      <select id="item-category"><option value="" data-i18n="catalog.all">Todas as categorias</option></select>
+      <p id="item-count" class="count" role="status" data-i18n="catalog.loading">Carregando modelos…</p>
+      <nav id="item-list" class="item-list" aria-labelledby="library-title"></nav>
+    </section>
+    <section class="viewer" aria-labelledby="item-title">
+      <header class="viewer-header">
+        <p id="item-kind" class="item-kind" hidden></p>
+        <h2 id="item-title" data-i18n="catalog.viewer">Visor 3D</h2>
+        <p id="item-detail" class="item-detail" hidden></p>
+      </header>
+      <div id="stage" class="stage">
+        <canvas id="item-canvas" tabindex="0" data-i18n-aria="catalog.orbit_help" aria-describedby="viewer-help"></canvas>
+        <p id="viewer-status" class="viewer-status" role="status" hidden></p>
+      </div>
+      <footer class="viewer-footer">
+        <p id="viewer-help" data-i18n="catalog.orbit_help">Arraste para girar. Use a roda do mouse ou a pinça para aproximar.</p>
+        <div class="viewer-controls">
+          <button id="auto-spin" type="button" aria-pressed="true" data-i18n="catalog.spin">Giro automático</button>
+          <button id="zoom-out" type="button" title="Afastar" data-i18n-title="catalog.zoom_out" data-i18n-aria="catalog.zoom_out">−</button>
+          <button id="zoom-in" type="button" title="Aproximar" data-i18n-title="catalog.zoom_in" data-i18n-aria="catalog.zoom_in">+</button>
+          <button id="reset-camera" type="button" title="Recentralizar" data-i18n-title="catalog.reset" data-i18n-aria="catalog.reset">↺</button>
+        </div>
+      </footer>
+    </section>
+  </main>
+  <script type="module" src="js/ui/item-catalog.js"></script>
+</body>
+</html>

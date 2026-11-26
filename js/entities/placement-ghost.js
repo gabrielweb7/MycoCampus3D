@@ -2,7 +2,8 @@ import { getItemGroundHeight } from '../engine/physics.js';
 import { appState } from '../core/state.js';
 import { canPlaceVillageItem } from '../core/village-layout.js';
 import { t } from '../core/i18n.js';
-import { positionCrateCargo } from '../systems/crate-cargo.js';
+import { CRATE_HEIGHT, cratePackMask, positionCrateCargo } from '../systems/crate-cargo.js';
+import { isRayOccludedByStructure } from '../systems/ray-occlusion.js';
 import { isPointInBoundsXZ } from '../items/item-registry.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import {
@@ -35,8 +36,24 @@ const STACK_CFG_PP5 = Object.freeze({
   maxStack: 6
 });
 
+const STACK_CFG_CRATE = Object.freeze({
+  kind: 'crate',
+  spacing: CRATE_HEIGHT,
+  alignRadius: 0.11,
+  aimDistSq: 0.071,
+  halfHeight: CRATE_HEIGHT * 0.5,
+  maxStack: 4
+});
+
+const STACK_OCCLUSION = { checkWalls: true };
+
+function stackSpacing(item, config) {
+  return config.kind === 'crate' ? config.spacing * Math.abs(item.mesh.scale.y) : config.spacing;
+}
+
 export function getStackConfig(item) {
   if (!item || !item.mesh) return null;
+  if (item.deliveryCrateCtrl) return STACK_CFG_CRATE;
   if (item.mesh.userData && item.mesh.userData.isPetri) return STACK_CFG_PETRI;
   if (item.spawnCtrl && item.spawnCtrl.isPP5) return STACK_CFG_PP5;
   return null;
@@ -50,6 +67,8 @@ var placementHoloWrap = null;
 var placementHoloMats = [];
 var placementGhostItemId = null;
 var placementGhostHasLid = false;
+var placementGhostCrateMask = 0;
+var placementGhostCargo = [];
 var placementGhostLastValid = null;
 
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
@@ -93,6 +112,8 @@ export function createPlacementGhost(scene) {
   placementGhost.name = 'PlacementGhost';
   placementGhostItemId = null;
   placementGhostHasLid = false;
+  placementGhostCrateMask = 0;
+  placementGhostCargo.length = 0;
   placementGhostLastValid = null;
   placementHoloMats = [];
   placementRing = new THREE.Mesh(
@@ -158,7 +179,7 @@ function cloneGhostMaterial(origM, matList) {
  */
 function cloneVisualGroupForGhost(src, matList, isRoot) {
   if (!src) return null;
-  if (!isRoot && (!src.visible || src.isPoints || src.isLine || src.isSprite || src.isLight)) {
+  if (!isRoot && (src.userData.hideInPlacement || (!src.visible && !src.userData.visibleInPlacement) || src.isPoints || src.isLine || src.isSprite || src.isLight)) {
     return null;
   }
 
@@ -168,7 +189,13 @@ function cloneVisualGroupForGhost(src, matList, isRoot) {
     var clonedMat = Array.isArray(src.material)
       ? src.material.map(function (m) { return cloneGhostMaterial(m, matList); })
       : cloneGhostMaterial(src.material, matList);
-    dst = new THREE.Mesh(src.geometry, clonedMat);
+    if (src.isInstancedMesh) {
+      dst = new THREE.InstancedMesh(src.geometry, clonedMat, src.count);
+      dst.instanceMatrix.copy(src.instanceMatrix);
+      if (src.instanceColor) dst.instanceColor = src.instanceColor.clone();
+    } else {
+      dst = new THREE.Mesh(src.geometry, clonedMat);
+    }
     dst.castShadow = false;
     dst.receiveShadow = false;
   } else {
@@ -205,7 +232,15 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
   if (placementDot) placementDot.matrixAutoUpdate = true;
   if (placementHoloWrap) placementHoloWrap.matrixAutoUpdate = true;
   var hasLid = !!(item.lidItem && item.lidItem.isAttached);
-  if (placementGhostItemId !== item.id || placementGhostHasLid !== hasLid) {
+  const cargo = item.deliveryCrateCtrl ? item.trayContents : null;
+  const crateMask = item.deliveryCrateCtrl ? cratePackMask(item) : 0;
+  const cargoCount = cargo?.length || 0;
+  let cargoChanged = placementGhostCargo.length !== cargoCount || crateMask !== placementGhostCrateMask;
+  for (let i = 0; !cargoChanged && i < cargoCount; i++) {
+    const previous = placementGhostCargo[i];
+    cargoChanged = previous.item !== cargo[i].item || previous.slot !== cargo[i].item.crateCargo?.slot;
+  }
+  if (placementGhostItemId !== item.id || placementGhostHasLid !== hasLid || cargoChanged) {
     while (placementHoloWrap.children.length > 0) {
       placementHoloWrap.remove(placementHoloWrap.children[0]);
     }
@@ -227,6 +262,19 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
       placementHoloWrap.add(clone);
     }
 
+    placementGhostCargo.length = 0;
+    for (let i = 0; i < cargoCount; i++) {
+      const { item: content, localOffset } = cargo[i];
+      placementGhostCargo.push({ item: content, slot: content.crateCargo?.slot });
+      const cargoClone = cloneVisualGroupForGhost(content.mesh, placementHoloMats, true);
+      if (!cargoClone) continue;
+      // Cargo is a separate world object. Scale its offset with the crate,
+      // while preserving the scale of its own mesh.
+      cargoClone.position.copy(localOffset).multiply(item.mesh.scale);
+      cargoClone.rotation.set(0, 0, 0);
+      placementHoloWrap.add(cargoClone);
+    }
+
     if (hasLid && item.lidItem && item.lidItem.mesh) {
       var lidClone = cloneVisualGroupForGhost(item.lidItem.mesh, placementHoloMats, true);
       if (lidClone) {
@@ -239,6 +287,7 @@ export function updatePlacementGhostVisual(item, isValid, rotY, elapsedTime) {
 
     placementGhostItemId = item.id;
     placementGhostHasLid = hasLid;
+    placementGhostCrateMask = crateMask;
     placementGhostLastValid = null;
   }
   var col = isValid ? 0x10b981 : 0xef4444;
@@ -392,6 +441,7 @@ export function findPlacementTarget(ctx, customNdc) {
 
   ctx.setSnapClosePot(null);
   ctx.setSnapPetriStack(false);
+  ctx.setSnapCrateStack?.(0);
 
   var rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
   raycaster.setFromCamera(rayNdc, camera);
@@ -419,14 +469,14 @@ export function findPlacementTarget(ctx, customNdc) {
     }
   }
 
-  // 0b. Pilha de Placas de Petri (max 7) e Potinhos PP5 de Flocao (max 6)
+  // 0b. Pilhas de placas, potes PP5 e caixas de transporte.
   var stackCfg = getStackConfig(heldItem);
   if (stackCfg) {
     var stackBest = null;
     var stackDist = 4.2;
     for (var pi = 0; pi < pickableItems.length; pi++) {
       var cand = pickableItems[pi];
-      if (!cand || cand === heldItem) continue;
+      if (isPlacementExcludedItem(ctx, heldItem, cand) || cand.crateParent) continue;
       var candCfg = getStackConfig(cand);
       if (!candCfg || candCfg.kind !== stackCfg.kind) continue;
       if (ctx.isHeldByRemote(cand.id)) continue;
@@ -434,6 +484,7 @@ export function findPlacementTarget(ctx, customNdc) {
       _tmpPlaceCenter.set(cpos.x, cpos.y + stackCfg.halfHeight, cpos.z);
       var dCam = origin.distanceTo(_tmpPlaceCenter);
       if (dCam < stackDist && raycaster.ray.distanceSqToPoint(_tmpPlaceCenter) < stackCfg.aimDistSq) {
+        if (stackCfg.kind === 'crate' && isRayOccludedByStructure(ctx, dCam, STACK_OCCLUSION)) continue;
         stackDist = dCam;
         stackBest = cand;
       }
@@ -443,15 +494,26 @@ export function findPlacementTarget(ctx, customNdc) {
       var bz = stackBest.mesh.position.z;
       var stackCount = 0;
       var maxY = stackBest.mesh.position.y;
+      var stackTop = stackBest;
       for (var pj = 0; pj < pickableItems.length; pj++) {
         var pOther = pickableItems[pj];
-        if (!pOther || pOther === heldItem) continue;
+        if (isPlacementExcludedItem(ctx, heldItem, pOther) || pOther.crateParent) continue;
         var pOtherCfg = getStackConfig(pOther);
         if (!pOtherCfg || pOtherCfg.kind !== stackCfg.kind) continue;
+        if (stackCfg.kind === 'crate' && Math.abs(pOther.mesh.position.y - stackBest.mesh.position.y) > stackCfg.spacing * stackCfg.maxStack + 0.04) continue;
         if (Math.hypot(pOther.mesh.position.x - bx, pOther.mesh.position.z - bz) < stackCfg.alignRadius) {
           stackCount++;
-          if (pOther.mesh.position.y > maxY) maxY = pOther.mesh.position.y;
+          if (pOther.mesh.position.y > maxY) {
+            maxY = pOther.mesh.position.y;
+            stackTop = pOther;
+          }
         }
+      }
+      if (stackCfg.kind === 'crate') {
+        ctx.setSnapCrateStack?.(stackCount + 1);
+        ctx.setSnapPetriStack(true);
+        ctx.setHeldRotY(stackTop.mesh.rotation.y);
+        return _tmpPlacePt.set(stackTop.mesh.position.x, maxY + stackSpacing(stackTop, stackCfg), stackTop.mesh.position.z);
       }
       if (stackCount < stackCfg.maxStack) {
         ctx.setSnapPetriStack(true);
@@ -567,7 +629,11 @@ export function isPlacementBlocked(ctx, pt) {
     placementBlockedReason = t('village.placement_locked');
     return true;
   }
-  if (ctx.snapClosePot || ctx.snapPetriStack) return false;
+  if (ctx.snapCrateStack > STACK_CFG_CRATE.maxStack) {
+    placementBlockedReason = t('crate.stack_full');
+    return true;
+  }
+  if (ctx.snapClosePot || (ctx.snapPetriStack && !ctx.snapCrateStack)) return false;
 
   var heldH = heldItem.height || (heldItem.mesh.userData.tableDims ? heldItem.mesh.userData.tableDims.h : 0.32);
   var heldMinY = pt.y;
@@ -749,8 +815,8 @@ export function isPlacementBlocked(ctx, pt) {
     var vx = w.x2 - w.x1, vz = w.z2 - w.z1;
     var len2 = vx * vx + vz * vz;
     if (len2 < 1e-6) continue;
-    var t = Math.max(0, Math.min(1, ((pt.x - w.x1) * vx + (pt.z - w.z1) * vz) / len2));
-    var dist = Math.hypot(pt.x - (w.x1 + t * vx), pt.z - (w.z1 + t * vz));
+    var wallFraction = Math.max(0, Math.min(1, ((pt.x - w.x1) * vx + (pt.z - w.z1) * vz) / len2));
+    var dist = Math.hypot(pt.x - (w.x1 + wallFraction * vx), pt.z - (w.z1 + wallFraction * vz));
     var effectiveHalf = heldIsBox ? Math.min(heldHw, heldHd) : heldRad;
     var minWallDist = Math.max(0.16, effectiveHalf * 0.78 + 0.08);
     if (dist < minWallDist) {
@@ -872,15 +938,17 @@ export function dropUnsupportedItems(ctx) {
         for (var pj = 0; pj < pickableItems.length; pj++) {
           if (pj === idx) continue;
           var pBase = pickableItems[pj];
-          if (!pBase || pBase === heldItem || ctx.isHeldByRemote(pBase.id)) continue;
+          if (!pBase || pBase === heldItem || !pBase.mesh?.visible || pBase.crateParent || ctx.isHeldByRemote(pBase.id)) continue;
           var baseStackCfg = getStackConfig(pBase);
           if (!baseStackCfg || baseStackCfg.kind !== itemStackCfg.kind) continue;
           var dxS = pBase.mesh.position.x - item.mesh.position.x;
           var dzS = pBase.mesh.position.z - item.mesh.position.z;
           if (dxS * dxS + dzS * dzS < alignR * alignR) {
             var dyStack = item.mesh.position.y - pBase.mesh.position.y;
+            const spacing = stackSpacing(pBase, itemStackCfg);
+            if (itemStackCfg.kind === 'crate' && dyStack > spacing + 0.085) continue;
             if (dyStack > 0.008 || (Math.abs(dyStack) <= 0.008 && idx > pj)) {
-              supportedY = Math.max(supportedY, pBase.mesh.position.y + itemStackCfg.spacing);
+              supportedY = Math.max(supportedY, pBase.mesh.position.y + spacing);
             }
           }
         }
@@ -889,6 +957,14 @@ export function dropUnsupportedItems(ctx) {
     if (item.mesh.position.y < supportedY - 0.005 && !item.mesh.userData.isTable && !item.mesh.userData.isHood) {
       item.mesh.position.y = supportedY;
       if (item.mesh.userData.updateBounds) item.mesh.userData.updateBounds(item);
+      if (item.deliveryCrateCtrl) {
+        item.isMoved = true;
+        recentlyDropped[item.id] = Math.max(recentlyDropped[item.id] || 0, now + 15000);
+        pendingMovedItems[item.id] = {
+          ...pendingMovedItems[item.id], id: item.id, x: item.mesh.position.x, y: supportedY,
+          z: item.mesh.position.z, ry: item.mesh.rotation.y
+        };
+      }
     } else if (item.mesh.position.y > supportedY + 0.015) {
       anyFalling = true;
       recentlyDropped[item.id] = Math.max(recentlyDropped[item.id] || 0, now + 15000);

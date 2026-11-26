@@ -22,6 +22,7 @@ import { interactDehydrator, updateDehydratorVisual } from '../items/dehydrator.
 import { updateMushroomBagVisual } from '../items/dehydration-packaging.js';
 import {
   handlePrimaryAction,
+  pickHoveredItemForMove,
   dropHeldItem,
   setHeldTwoHandedGhost,
   eatHeldMushroom,
@@ -822,8 +823,15 @@ function buildHeldItemActions(ctx) {
 
 function buildContextActions(ctx) {
   if (!ctx.adminEditMode && ctx.hoveredPickable?.growCtrl) {
+    const item = ctx.hoveredPickable;
     const label = ctx.heldItem ? growHeldAction(ctx.heldItem) : t('grow.panel');
-    if (label) return [{ id: 'portable_grow', icon: '🌱', label, run: () => handlePrimaryAction(ctx) }];
+    if (label) {
+      const actions = [{ id: 'portable_grow', icon: '🌱', label, run: () => handlePrimaryAction(ctx) }];
+      if (!ctx.heldItem) {
+        actions.push({ id: 'portable_grow_carry', icon: '🎒', label: t('grow.carry'), run: () => pickHoveredItemForMove(ctx, item, false) });
+      }
+      return actions;
+    }
   }
 
   if (ctx.heldItem && canReceiveSpawnForFruiting(ctx.hoveredG2GTarget)) {

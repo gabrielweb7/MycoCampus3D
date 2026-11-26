@@ -9,15 +9,13 @@ export function buildOuterCampus(ctx) {
 
   // 1. Avenidas asfaltadas ligando de ponta a ponta do mapa até os Túneis nas Colinas!
   var roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.88 });
-  var roadSouth = makeBox(240, 0.03, 7.2, roadMat, { noShadow: true });
-  roadSouth.position.set(0, 0.015, 39.5);
-  var roadEast = makeBox(7.0, 0.03, 62, roadMat, { noShadow: true });
-  roadEast.position.set(30.5, 0.015, 8.5);
-  scene.add(roadSouth, roadEast);
+  addWalkableSlab(scene, ctx.walkableFloors, 0, 0.03, 39.5, 240, 0.03, 7.2, roadMat, { noShadow: true });
+  addWalkableSlab(scene, ctx.walkableFloors, 30.5, 0.03, 6.7, 7, 0.03, 58.4, roadMat, { noShadow: true });
 
   // Faixa amarela central tracejada na Avenida Sul
   var dashMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
   for (var dx = -108; dx <= 108; dx += 5.5) {
+    if (Math.abs(dx + 42) < 4) continue;
     var dash = makeBox(2.4, 0.036, 0.16, dashMat, { noShadow: true });
     dash.position.set(dx, 0.019, 39.5);
     scene.add(dash);
@@ -50,14 +48,12 @@ export function buildOuterCampus(ctx) {
     scene.add(st1, st2);
   }
 
-  // Calcada em bloquetes ligando a Praca Central ate a ponte e continuando do outro lado do Lago em 8!
-  var walkS = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 5.2), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-  walkS.rotation.x = -Math.PI / 2; walkS.position.set(0, 0.022, 18.4); walkS.receiveShadow = true;
-  var walkSouthEnd = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 6.5), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-  walkSouthEnd.rotation.x = -Math.PI / 2; walkSouthEnd.position.set(0, 0.022, 38.6); walkSouthEnd.receiveShadow = true;
-  var walkE = new THREE.Mesh(new THREE.PlaneGeometry(14, 8), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
-  walkE.rotation.x = -Math.PI / 2; walkE.position.set(27, 0.022, 12); walkE.receiveShadow = true;
-  scene.add(walkS, walkSouthEnd, walkE);
+  // O bloquete começa depois da avenida, sem uma segunda superfície sobre o asfalto.
+  var walkSouthEnd = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 1.25), new THREE.MeshStandardMaterial({ map: texPaving, roughness: 0.88 }));
+  walkSouthEnd.rotation.x = -Math.PI / 2;
+  walkSouthEnd.position.set(0, 0.024, 43.725);
+  walkSouthEnd.receiveShadow = true;
+  scene.add(walkSouthEnd);
 
   // 2. Lago Duplo (formato de 8) com profundidade em camadas + agua cristalina animada + Ponte de Madeira Arqueada
   var lakeMat = new THREE.MeshStandardMaterial({
@@ -76,18 +72,41 @@ export function buildOuterCampus(ctx) {
   var lakeDeepMat = new THREE.MeshStandardMaterial({ color: 0x021724, roughness: 0.98 });
   var lakeBedMat = lakeDeepMat;
   var lakeStoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.88 });
+  function waterOutline(path, radius) {
+    const join = Math.acos(6.5 / radius);
+    path.absarc(-6.5, 0, radius, join, Math.PI * 2 - join, false);
+    path.absarc(6.5, 0, radius, Math.PI + join, Math.PI * 3 - join, false);
+    path.closePath();
+    return path;
+  }
+  function addLakeSurface(outline, mat, height) {
+    const geometry = new THREE.ShapeGeometry(outline, 32);
+    const uv = geometry.getAttribute('uv');
+    const positions = geometry.getAttribute('position');
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (positions.getX(i) + 15) / 30, (positions.getY(i) + 8.5) / 17);
+    const mesh = new THREE.Mesh(geometry, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(0, height, 28);
+    scene.add(mesh);
+  }
+  function lakeCircle(path, cx, radius) {
+    path.absarc(cx, 0, radius, 0, Math.PI * 2, false);
+    return path;
+  }
+  const shore = waterOutline(new THREE.Shape(), 8.28);
+  shore.holes.push(waterOutline(new THREE.Path(), 7.55));
+  addLakeSurface(shore, new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.82 }), 0.05);
+  const shallows = waterOutline(new THREE.Shape(), 7.55);
+  for (const x of [-6.5, 6.5]) shallows.holes.push(lakeCircle(new THREE.Path(), x, 5.78));
+  addLakeSurface(shallows, lakeShallowMat, 0.023);
+  for (const x of [-6.5, 6.5]) {
+    const middle = lakeCircle(new THREE.Shape(), x, 5.78);
+    middle.holes.push(lakeCircle(new THREE.Path(), x, 3.7));
+    addLakeSurface(middle, lakeMidMat, 0.023);
+    addLakeSurface(lakeCircle(new THREE.Shape(), x, 3.7), lakeDeepMat, 0.023);
+  }
+  addLakeSurface(waterOutline(new THREE.Shape(), 7.55), lakeMat, 0.11);
   [-6.5, 6.5].forEach(function (lx) {
-    var bed1 = new THREE.Mesh(new THREE.CircleGeometry(7.55, 36), lakeShallowMat);
-    bed1.rotation.x = -Math.PI / 2; bed1.position.set(lx, 0.015, 28.0);
-    var bed2 = new THREE.Mesh(new THREE.CircleGeometry(5.8, 32), lakeMidMat);
-    bed2.rotation.x = -Math.PI / 2; bed2.position.set(lx, 0.018, 28.0);
-    var bed3 = new THREE.Mesh(new THREE.CircleGeometry(3.7, 28), lakeDeepMat);
-    bed3.rotation.x = -Math.PI / 2; bed3.position.set(lx, 0.021, 28.0);
-    var lobe = new THREE.Mesh(new THREE.CircleGeometry(7.55, 36), lakeMat);
-    lobe.rotation.x = -Math.PI / 2; lobe.position.set(lx, 0.11, 28.0);
-    var rim = new THREE.Mesh(new THREE.RingGeometry(7.42, 8.28, 36), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.82 }));
-    rim.rotation.x = -Math.PI / 2; rim.position.set(lx, 0.045, 28.0);
-    scene.add(bed1, bed2, bed3, lobe, rim);
     // Algumas pedras submersas e na margem para dar sensacao de profundidade real
     for (var st = 0; st < 8; st++) {
       var sang = (st / 8) * Math.PI * 2 + (lx > 0 ? 0.3 : 0);

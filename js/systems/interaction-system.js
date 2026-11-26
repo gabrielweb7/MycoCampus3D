@@ -1366,9 +1366,9 @@ function pickUpTargetItem(ctx, targetItem, startPlacement) {
   return true;
 }
 
-export function pickHoveredItemForMove(ctx, explicitItem) {
+export function pickHoveredItemForMove(ctx, explicitItem, startPlacement = true) {
   if (!ctx || ctx.heldItem) return false;
   const target = explicitItem || ctx.hoveredPickable;
   if (!target) return false;
-  return pickUpTargetItem(ctx, target, true);
+  return pickUpTargetItem(ctx, target, startPlacement);
 }

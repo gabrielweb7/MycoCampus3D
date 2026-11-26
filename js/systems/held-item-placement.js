@@ -47,6 +47,7 @@ function setPlacementMode(ctx, active) {
   ctx.placementMode = active;
   if (!active) {
     ctx.placementValid = false;
+    ctx.snapCrateStack = 0;
     if (ctx.placementGhost) ctx.placementGhost.visible = false;
   }
   if (ctx.callbacks.onPlacementModeChange) {
@@ -101,7 +102,7 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
     return false;
   }
 
-  const crate = findAimedCrate(ctx, rayNdc);
+  const crate = ctx.heldItem.deliveryCrateCtrl ? null : findAimedCrate(ctx, rayNdc);
   if (crate) {
     const slot = freeCrateSlot(crate, ctx.heldItem.mushroomBagCtrl?.sealed ? null : ctx.heldItem);
     const error = cratePlacementError(crate, ctx.heldItem, slot);
@@ -140,7 +141,7 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
   const prompt = ctx.snapClosePot
     ? '🍲 Fechar tampa na Panela de Pressão'
     : (ctx.placementValid
-      ? (isTouch ? '📦 Toque para posicionar: ' : '📦 Clique para posicionar: ') + ctx.heldItem.label
+      ? (ctx.snapCrateStack ? t('crate.stack_place', { count: ctx.snapCrateStack }) : (isTouch ? '📦 Toque para posicionar: ' : '📦 Clique para posicionar: ') + ctx.heldItem.label)
       : (getPlacementBlockedReason() || '🚫 Local bloqueado (espaço ocupado)'));
   if (ctx.hover3dBadge) hideHover3dBadge(ctx.hover3dBadge);
   if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
@@ -172,6 +173,10 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   if (!held || !canPlaceVillageItem(point.x, point.z, held, appState.villageLease)) return false;
 
   held.mesh.visible = true;
+  if (held.growCtrl) {
+    held.growCtrl.view.carry.visible = false;
+    held.growCtrl.view.deployed.visible = true;
+  }
   held.mesh.position.copy(point);
   held.mesh.rotation.set(0, ctx.heldRotY, 0);
   if (held.wildMushroomCtrl && held.wildMushroomCtrl.bodyGroup) {

@@ -1,6 +1,6 @@
 import { VILLAGE_ENTRY_X, VILLAGE_HOUSE, VILLAGE_LOTS, VILLAGE_STREET_Z } from '../core/village-layout.js';
 import { addSolidWall, addWalkableSlab } from '../engine/physics.js';
-import { getGroundTextures, getTextures, makeBox, woodMat } from '../engine/textures.js';
+import { getGroundTextures, getTextures, makeBox, registerSnowable, woodMat } from '../engine/textures.js';
 import { buildGardenTap, buildLabSink } from '../items/lab-sink.js';
 
 const THREE = window.THREE;
@@ -265,6 +265,61 @@ function buildYard(ctx, root, lot, mats) {
   ctx.solidColliders.push({ minX: treeX - 0.24, maxX: treeX + 0.24, minZ: treeZ - 0.24, maxZ: treeZ + 0.24, minY: 0, maxY: 1.8 });
 }
 
+function makeGrassGeometry() {
+  const positions = [];
+  const colors = [];
+  const base = new THREE.Color(0x718445);
+  const tip = new THREE.Color(0xc8d384);
+  for (let i = 0; i < 4; i++) {
+    const angle = i * 2.4;
+    const x = Math.cos(angle);
+    const z = Math.sin(angle);
+    const h = 0.075 + i * 0.017;
+    positions.push(-z * 0.022, 0, x * 0.022, z * 0.022, 0, -x * 0.022, x * 0.064, h, z * 0.064);
+    colors.push(base.r, base.g, base.b, base.r, base.g, base.b, tip.r, tip.g, tip.b);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function addVillageGrass(root, geometry, mat, minX, maxX, minZ, maxZ, skip) {
+  const spacing = 0.64;
+  const columns = Math.floor((maxX - minX) / spacing);
+  const rows = Math.floor((maxZ - minZ) / spacing);
+  const mesh = new THREE.InstancedMesh(geometry, mat, columns * rows);
+  const tuft = new THREE.Object3D();
+  const variation = new THREE.Color();
+  let seed = Math.round(minX * 31 + minZ * 127) >>> 0;
+  const random = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  let count = 0;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      const x = minX + (col + 0.2 + random() * 0.6) * spacing;
+      const z = minZ + (row + 0.2 + random() * 0.6) * spacing;
+      if (skip(x, z) || random() < 0.26) continue;
+      const size = 0.68 + random() * 0.72;
+      tuft.position.set(x, 0.004, z);
+      tuft.rotation.y = random() * Math.PI * 2;
+      tuft.scale.set(size, size, size);
+      tuft.updateMatrix();
+      mesh.setMatrixAt(count, tuft.matrix);
+      const shade = 0.76 + random() * 0.24;
+      mesh.setColorAt(count, variation.setRGB(shade, shade, shade));
+      count++;
+    }
+  }
+  mesh.count = count;
+  mesh.computeBoundingSphere();
+  mesh.userData.ignoreRay = true;
+  root.add(mesh);
+}
+
 export function buildVillage(ctx) {
   const dirt = new THREE.MeshStandardMaterial({ map: getGroundTextures().dirt, color: 0xebc394, roughness: 0.97 });
   dirt.userData.keepPbr = true;
@@ -277,7 +332,17 @@ export function buildVillage(ctx) {
   };
   // Short sections preserve frustum culling along the lane without breaking texture UVs.
   for (let x = -52; x <= 52; x += 26) ground(ctx.scene, dirt, x, VILLAGE_STREET_Z, 26, 7, 0.028);
-  ground(ctx.scene, dirt, VILLAGE_ENTRY_X, 54.35, 3.7, 23.5, 0.030);
+  const entryStart = 43.10;
+  const entryEnd = VILLAGE_STREET_Z - 3.5;
+  ground(ctx.scene, dirt, VILLAGE_ENTRY_X, (entryStart + entryEnd) / 2, 3.7, entryEnd - entryStart, 0.028);
+
+  const grassGeo = makeGrassGeometry();
+  const grassMat = new THREE.MeshStandardMaterial({ color: 0xa9bd7a, vertexColors: true, roughness: 1, side: THREE.DoubleSide });
+  registerSnowable(grassMat);
+  for (const side of [-1, 1]) {
+    const x = VILLAGE_ENTRY_X + side * 3.4;
+    addVillageGrass(ctx.scene, grassGeo, grassMat, x - 1, x + 1, 43.3, entryEnd, () => false);
+  }
   const palettes = PALETTES.map(([wall, roof]) => ({
     wall: material(wall), roof: material(roof), accent: material(new THREE.Color(roof).multiplyScalar(0.76))
   }));
@@ -287,6 +352,12 @@ export function buildVillage(ctx) {
     const mats = { ...shared, ...palettes[(lot.id - 1 + (lot.front < 0 ? 2 : 0)) % palettes.length] };
     buildHouse(ctx, root, lot, mats);
     buildYard(ctx, root, lot, mats);
+    addVillageGrass(root, grassGeo, grassMat, lot.minX + 0.25, lot.maxX - 0.25, lot.minZ + 0.25, lot.maxZ - 0.25, (x, z) => {
+      const dx = Math.abs(x - lot.x);
+      const underHouse = dx < VILLAGE_HOUSE.width * 0.5 + 0.25 && Math.abs(z - lot.houseZ) < VILLAGE_HOUSE.depth * 0.5 + 0.3;
+      const onPath = dx < 1.15 && (z - lot.doorZ) * lot.front > -0.25;
+      return underHouse || onPath;
+    });
     buildCottageWorkArea(ctx, root, lot, mats);
   }
 }

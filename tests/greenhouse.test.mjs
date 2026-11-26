@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { Group, MathUtils } from '../js/vendor/three.bundle.min.js';
 
 globalThis.window = globalThis.window || {
   THREE: {
+    MathUtils,
     Vector3: class { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; } },
     Box3: class {},
     Quaternion: class {},
@@ -583,16 +585,29 @@ test('10 Novas Mecânicas de Imersão: Break & Shake, Flambagem na Lamparina, Mi
     npcGroup: { position: { x: 11.5, y: 0.04, z: 38.6, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }, rotation: { y: 0 }, visible: false },
     shirtMat: { color: { setHex: () => {} } },
     hatMat: { color: { setHex: () => {} } },
-    heldPack: { visible: false },
+    avatar: { headGroup: new Group(), leftLeg: new Group(), rightLeg: new Group(), leftArm: new Group(), rightArm: new Group() },
+    heldPack: new Group(),
     cashGroup: { position: { y: 0 }, rotation: { y: 0 }, visible: false }
   };
   roadStandState.npcSpawnCooldown = 0.1;
   roadStandState.activeNpcOrder = null;
   const coinsBefore = getLocalMycoCoins();
 
-  for (let s = 0; s < 40; s++) {
-    stepRoadsideMushroomSales(ctx, 0.5);
+  const seen = new Set();
+  for (let s = 0; s < 360; s++) {
+    stepRoadsideMushroomSales(ctx, 0.1);
+    const phase = roadStandState.activeNpcOrder?.phase;
+    seen.add(phase);
+    if (phase === 'examining') {
+      assert.equal(roadStandState.availablePacks, 1);
+      assert.equal(roadStandState.actor.npcGroup.rotation.y, 0);
+    }
+    if (phase === 'walking_to_car') {
+      assert.equal(roadStandState.actor.npcGroup.rotation.y, Math.PI);
+      assert.equal(roadStandState.actor.heldPack.visible, true);
+    }
   }
+  assert.ok(seen.has('examining') && seen.has('paying') && seen.has('walking_to_car'));
   assert.equal(roadStandState.availablePacks, 0, 'NPC deve ter comprado o pacote de cogumelos desidratados');
   assert.ok(getLocalMycoCoins() >= coinsBefore + 120, 'NPC deve ter pago +120 MycoCoins');
 });

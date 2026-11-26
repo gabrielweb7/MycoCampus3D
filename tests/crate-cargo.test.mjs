@@ -7,7 +7,8 @@ const { makeDeliveryCrate, interactRoadsideStand } = await import('../js/items/d
 const { registerPickable } = await import('../js/items/item-registry.js');
 const { placeHeldInCrate, commitHeldItemPlacement } = await import('../js/systems/held-item-placement.js');
 const { handlePrimaryAction, pickHoveredItemForMove } = await import('../js/systems/interaction-system.js');
-const { findAimedCrate, freeCrateSlot } = await import('../js/systems/crate-cargo.js');
+const { createPlacementGhost, findPlacementTarget, isPlacementBlocked, updatePlacementGhostVisual } = await import('../js/entities/placement-ghost.js');
+const { CRATE_HEIGHT, findAimedCrate, freeCrateSlot } = await import('../js/systems/crate-cargo.js');
 const { applyCampusItemStates, queueItemStateSync } = await import('../js/systems/world-objects-sync.js');
 
 function setup() {
@@ -106,4 +107,58 @@ test('primary action harvests directly into a held crate and preserves a full cr
   assert.equal(handlePrimaryAction(ctx), true);
   assert.equal(claims, 1);
   assert.equal(ctx.hoveredMushroom.active, true);
+});
+
+test('placement ghost refreshes the same crate from sealed packs to its real fresh cargo', () => {
+  const ctx = setup();
+  const crate = makeDeliveryCrate(ctx, 'delivery_crate_05', 1, 0, 1, { packsCount: 1 });
+  const ghost = createPlacementGhost(ctx.scene);
+  updatePlacementGhostVisual(crate, true, 0, 0);
+  const wrap = ghost.children.at(-1);
+  assert.ok(wrap.children[0].children.length > 19);
+
+  crate.deliveryCrateCtrl.packsCount = 0;
+  const mushroom = makeTool(ctx);
+  mushroom.wildMushroomCtrl = {};
+  ctx.heldItem = mushroom;
+  assert.equal(placeHeldInCrate(ctx, crate), true);
+  updatePlacementGhostVisual(crate, true, Math.PI / 2, 0);
+
+  assert.equal(wrap.children.length, 2);
+  assert.equal(wrap.children[0].children.length, 19, 'all four sealed pack meshes are hidden');
+  assert.equal(wrap.children[1].geometry, mushroom.mesh.geometry);
+  assert.notEqual(wrap.children[1].material, mushroom.mesh.material);
+  assert.ok(wrap.children[1].position.distanceTo(crate.trayContents[0].localOffset) < 0.001);
+});
+
+test('a stack aligns empty and loaded crates by their rim and rejects a fifth', () => {
+  const ctx = setup();
+  Object.assign(ctx, {
+    camera: new THREE.PerspectiveCamera(65, 1, 0.01, 25),
+    raycaster: new THREE.Raycaster(),
+    supportMeshes: [], supportSurfaces: [], wallSegments: [],
+    setSnapClosePot(value) { this.snapClosePot = value; },
+    setSnapPetriStack(value) { this.snapPetriStack = value; },
+    setSnapCrateStack(value) { this.snapCrateStack = value; },
+    setHeldRotY(value) { this.heldRotY = value; }
+  });
+  const surfaceY = 0.04;
+  for (let i = 0; i < 3; i++) {
+    makeDeliveryCrate(ctx, 'delivery_crate_test_' + i, 1, surfaceY + CRATE_HEIGHT * i, 1, { packsCount: i, ry: 0.3 });
+  }
+  ctx.heldItem = makeDeliveryCrate(ctx, 'delivery_crate_held', 0, 0, 0);
+  ctx.camera.position.set(1, 1.3, 2);
+  ctx.camera.lookAt(1, surfaceY + CRATE_HEIGHT * 2.5, 1);
+  ctx.camera.updateMatrixWorld();
+  const ray = new THREE.Vector2();
+  const fourth = findPlacementTarget(ctx, ray);
+  assert.equal(ctx.snapCrateStack, 4);
+  assert.ok(Math.abs(fourth.y - (surfaceY + CRATE_HEIGHT * 3)) < 0.001);
+  assert.equal(ctx.heldRotY, 0.3);
+  assert.equal(isPlacementBlocked(ctx, fourth), false);
+
+  makeDeliveryCrate(ctx, 'delivery_crate_fourth', 1, fourth.y, 1);
+  const fifth = findPlacementTarget(ctx, ray);
+  assert.equal(ctx.snapCrateStack, 5);
+  assert.equal(isPlacementBlocked(ctx, fifth), true);
 });

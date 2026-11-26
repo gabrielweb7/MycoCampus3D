@@ -731,11 +731,17 @@ export function buildRoadsideMushroomStand(ctx) {
   standGroup.add(floorSlab, frontWalk);
   if (ctx.walkableFloors) {
     ctx.walkableFloors.push({
-      minX: hx - houseW * 0.5,
-      maxX: hx + houseW * 0.5,
-      minZ: hz - houseD * 0.5,
-      maxZ: hz + houseD * 0.5 + 1.8,
+      minX: hx - (houseW + 0.4) * 0.5,
+      maxX: hx + (houseW + 0.4) * 0.5,
+      minZ: hz - (houseD + 0.4) * 0.5,
+      maxZ: hz + (houseD + 0.4) * 0.5,
       topY: floorY
+    }, {
+      minX: hx - (houseW + 0.4) * 0.5,
+      maxX: hx + (houseW + 0.4) * 0.5,
+      minZ: hz + houseD * 0.5,
+      maxZ: hz + houseD * 0.5 + 3.6,
+      topY: 0.04
     });
   }
 
@@ -1221,7 +1227,7 @@ function getFrontShelfSaleItems(ctx) {
   if (!ctx || !Array.isArray(ctx.pickableItems)) return found;
   for (let i = 0; i < ctx.pickableItems.length; i++) {
     const it = ctx.pickableItems[i];
-    if (!it || !it.mesh || !it.mesh.position || it === ctx.heldItem) continue;
+    if (!it || !it.mesh || !it.mesh.position || it === ctx.heldItem || it.crateParent || it.isReadOnly) continue;
     const p = it.mesh.position;
     if (p.x < 14.4 || p.x > 20.6 || p.z < 34.8 || p.z > 36.8 || p.y < 0.4) continue;
     if (it.deliveryCrateCtrl && it.deliveryCrateCtrl.packsCount > 0) {
@@ -1233,6 +1239,20 @@ function getFrontShelfSaleItems(ctx) {
     }
   }
   return found;
+}
+
+function walkRoadBuyer(actor, fromZ, toZ, elapsed, duration) {
+  const progress = Math.min(1, elapsed / duration);
+  const soften = Math.min(1, progress * 6, (1 - progress) * 6);
+  const stride = Math.sin(progress * Math.PI * 5.6) * 0.36 * soften;
+  const avatar = actor.avatar;
+  actor.npcGroup.position.z = THREE.MathUtils.lerp(fromZ, toZ, THREE.MathUtils.smoothstep(progress, 0, 1));
+  actor.npcGroup.position.y = 0.04 + Math.abs(stride) * 0.075;
+  avatar.leftLeg.rotation.x = stride;
+  avatar.rightLeg.rotation.x = -stride;
+  avatar.leftArm.rotation.x = actor.heldPack.visible ? -0.56 : -stride * 0.65;
+  avatar.rightArm.rotation.x = actor.heldPack.visible ? -0.56 : stride * 0.65;
+  avatar.headGroup.rotation.x = Math.cos(progress * Math.PI * 5.6) * 0.035 * soften;
 }
 
 /**
@@ -1266,7 +1286,11 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     if (actor.doorPivot) actor.doorPivot.rotation.y = 0;
     actor.npcGroup.visible = false;
     actor.heldPack.visible = false;
+    actor.heldPack.position.set(0, 0.62, -0.26);
     actor.cashGroup.visible = false;
+    actor.cashGroup.position.y = 0;
+    actor.cashGroup.rotation.y = 0;
+    actor.avatar.headGroup.rotation.set(0, 0, 0);
     if (actor.avatar) {
       if (actor.avatar.labelSprite) updateTextSprite(actor.avatar.labelSprite, profile.name, '#ffffff');
       if (actor.avatar.chatSprite) actor.avatar.chatSprite.visible = false;
@@ -1280,7 +1304,7 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     roadStandState.activeNpcOrder = {
       profile,
       isVip,
-      phase: 'driving_in', // driving_in -> walking_to_stand -> paying_happy -> walking_to_car -> driving_away
+      phase: 'driving_in',
       timer: 0
     };
     if (isVip && actor.avatar && actor.avatar.labelSprite) {
@@ -1301,195 +1325,200 @@ export function stepRoadsideMushroomSales(ctx, dt) {
     }
   };
 
-  const animateWalkLimbs = (t, active) => {
-    const av = actor.avatar;
-    if (!av) return;
-    const sw = active ? Math.sin(t * 11) * 0.55 : 0;
-    if (av.leftLeg) av.leftLeg.rotation.x = sw;
-    if (av.rightLeg) av.rightLeg.rotation.x = -sw;
-    if (av.leftArm) av.leftArm.rotation.x = actor.heldPack.visible ? -0.75 : -sw * 0.8;
-    if (av.rightArm) av.rightArm.rotation.x = actor.heldPack.visible ? -0.75 : sw * 0.8;
-  };
+  const avatar = actor.avatar;
+  const doorZ = roadZ - 1.15;
+  order.timer += dt;
 
   if (order.phase === 'driving_in') {
-    const dist = Math.max(0.5, standX - actor.carGroup.position.x);
-    const speed = dist < 12 ? Math.max(4.5, dist * 1.45) : 22.0;
+    const dist = Math.max(0.4, standX - actor.carGroup.position.x);
+    const speed = Math.min(18, Math.max(1.8, dist * 1.1));
     actor.carGroup.position.x = Math.min(standX, actor.carGroup.position.x + dt * speed);
     spinWheels(speed * 2.2);
-    if (actor.carGroup.position.x >= standX - 0.05) {
-      actor.carGroup.position.x = standX;
+    if (actor.carGroup.position.x >= standX) {
+      order.phase = 'opening_door';
+      order.timer = 0;
+    }
+  } else if (order.phase === 'opening_door') {
+    const door = THREE.MathUtils.smoothstep(order.timer, 0, 0.75);
+    if (actor.doorPivot) actor.doorPivot.rotation.y = -1.08 * door;
+    if (order.timer >= 0.82) {
+      actor.npcGroup.position.set(standX, 0.04, doorZ);
+      actor.npcGroup.rotation.y = 0;
+      actor.npcGroup.visible = true;
       order.phase = 'walking_to_stand';
       order.timer = 0;
-      if (actor.doorPivot) actor.doorPivot.rotation.y = -1.05;
-      playAudio('playCarHonk');
-      actor.npcGroup.position.set(standX, 0.04, roadZ - 1.15);
-      actor.npcGroup.rotation.y = Math.PI;
-      actor.npcGroup.visible = true;
-      actor.heldPack.visible = false;
-      actor.cashGroup.visible = false;
-      if (actor.avatar && actor.avatar.chatSprite) {
-        updateTextSprite(actor.avatar.chatSprite, '🍄 Vim comprar cogumelos!', '#38bdf8');
-        actor.avatar.chatSprite.visible = true;
-      }
     }
   } else if (order.phase === 'walking_to_stand') {
-    order.timer += dt;
-    if (actor.doorPivot && order.timer > 0.35) {
-      actor.doorPivot.rotation.y = Math.min(0, actor.doorPivot.rotation.y + dt * 3.5);
-    }
-    actor.npcGroup.position.z = Math.max(standStopZ, actor.npcGroup.position.z - dt * 2.3);
-    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 11)) * 0.05;
-    animateWalkLimbs(order.timer, true);
-    if (actor.npcGroup.position.z <= standStopZ + 0.04) {
-      order.phase = 'paying_happy';
+    walkRoadBuyer(actor, doorZ, standStopZ, order.timer, 2.1);
+    if (actor.doorPivot) actor.doorPivot.rotation.y = -1.08 * (1 - THREE.MathUtils.smoothstep(order.timer, 0.3, 1));
+    if (order.timer >= 2.1) {
+      order.phase = 'examining';
       order.timer = 0;
-      animateWalkLimbs(0, false);
+      if (avatar.chatSprite) {
+        updateTextSprite(avatar.chatSprite, t('stand.npc_examining'), '#aae3cf');
+        avatar.chatSprite.visible = true;
+      }
+    }
+  } else if (order.phase === 'examining') {
+    const weight = THREE.MathUtils.smoothstep(order.timer, 0, 0.42);
+    avatar.headGroup.rotation.x = -0.18 * weight;
+    avatar.headGroup.rotation.y = Math.sin(order.timer * 2.15) * 0.21 * weight;
+    if (order.timer < 2.15) return;
+    order.phase = 'paying';
+    order.timer = 0;
+    if (totalForSale > 0) {
       actor.cashGroup.visible = true;
       playAudio('playCashRegister');
       if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
+    }
 
-      // Consome 1 pacote do balcão OU da estante da frente e paga 🪙 120 MycoCoins (ou +50% em pedido VIP)!
-      let soldOne = false;
-      let soldSpecies = '';
-      let soldGrams = 10;
-      if (roadStandState.availablePacks > 0) {
-        roadStandState.availablePacks--;
-        soldSpecies = roadStandState.speciesList.length ? (roadStandState.speciesList.shift() || '') : '';
-        soldGrams = roadStandState.gramsList.length ? (Number(roadStandState.gramsList.shift()) || 10) : 10;
+    // Consome 1 pacote do balcão OU da estante da frente e paga 🪙 120 MycoCoins (ou +50% em pedido VIP)!
+    let soldOne = false;
+    let soldSpecies = '';
+    let soldGrams = 10;
+    if (roadStandState.availablePacks > 0) {
+      roadStandState.availablePacks--;
+      soldSpecies = roadStandState.speciesList.length ? (roadStandState.speciesList.shift() || '') : '';
+      soldGrams = roadStandState.gramsList.length ? (Number(roadStandState.gramsList.shift()) || 10) : 10;
+      soldOne = true;
+    } else if (shelfItems.length > 0) {
+      const entry = shelfItems[0];
+      if (entry.kind === 'crate' && entry.item.deliveryCrateCtrl) {
+        entry.item.deliveryCrateCtrl.packsCount = Math.max(0, entry.item.deliveryCrateCtrl.packsCount - 1);
+        const cs = entry.item.deliveryCrateCtrl.speciesList;
+        const cg = entry.item.deliveryCrateCtrl.gramsList;
+        if (Array.isArray(cs) && cs.length) soldSpecies = cs.shift() || '';
+        if (Array.isArray(cg) && cg.length) soldGrams = Number(cg.shift()) || 10;
+        updateDeliveryCrateVisual(entry.item);
+        ctx?.queueItemStateSync?.(entry.item);
         soldOne = true;
-      } else if (shelfItems.length > 0) {
-        const entry = shelfItems[0];
-        if (entry.kind === 'crate' && entry.item.deliveryCrateCtrl) {
-          entry.item.deliveryCrateCtrl.packsCount = Math.max(0, entry.item.deliveryCrateCtrl.packsCount - 1);
-          const cs = entry.item.deliveryCrateCtrl.speciesList;
-          const cg = entry.item.deliveryCrateCtrl.gramsList;
-          if (Array.isArray(cs) && cs.length) soldSpecies = cs.shift() || '';
-          if (Array.isArray(cg) && cg.length) soldGrams = Number(cg.shift()) || 10;
-          updateDeliveryCrateVisual(entry.item);
-          ctx?.queueItemStateSync?.(entry.item);
-          soldOne = true;
-        } else {
-          const soldIt = entry.item;
-          soldSpecies = (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.speciesName) ||
-            (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.speciesName) || '';
-          soldGrams = Number(
-            (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.grams) ||
-            (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.grams) || 10
-          ) || 10;
-          if (soldIt && soldIt.id) {
-            soldIt._removedForSync = true;
-            if (ctx && ctx.pendingMovedItems) {
-              ctx.pendingMovedItems[soldIt.id] = {
-                id: soldIt.id,
-                state: {
-                  custom: {
-                    dynamicKind: soldIt.organicBasketCtrl ? 'organic_basket' : 'mushroom_bag',
-                    removed: true
-                  }
-                }
-              };
-            }
-          }
-          if (soldIt.mesh && soldIt.mesh.parent) soldIt.mesh.parent.remove(soldIt.mesh);
-          disposeObjectResources(soldIt.mesh);
-          const idx = ctx.pickableItems.indexOf(soldIt);
-          if (idx !== -1) ctx.pickableItems.splice(idx, 1);
-          if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') ctx.pickableMap.delete(soldIt.id);
-          soldOne = true;
-        }
-      }
-      if (soldOne) {
-        const vipMatch = matchVipOrder(soldSpecies);
-        const isVipSale = !!(vipMatch || order.isVip);
-        const packGrams = Math.max(1, Math.round(Number(soldGrams) || 10));
-        const basePrice = Math.round(MYCOCOIN_PRICE_PER_PACK * (packGrams / 10));
-        const earnedCoins = isVipSale ? Math.round(basePrice * 1.5) : basePrice;
-        roadStandState.totalSoldPacks++;
-        roadStandState.totalCoinsEarned += earnedCoins;
-        if (vipMatch) rotateVipOrder(vipMatch.index);
-        const newBalance = addLocalMycoCoins(earnedCoins);
-        syncRoadStandVisual();
-        if (ctx && ctx.queueWorldStateChange) {
-          ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
-          ctx.queueWorldStateChange('stand_sold', roadStandState.totalSoldPacks);
-        }
-        actor.heldPack.visible = true;
-        if (actor.avatar) {
-          if (actor.avatar.faceCtx) {
-            drawAvatarFace(actor.avatar.faceCtx, 'love', false);
-            if (actor.avatar.faceTex) actor.avatar.faceTex.needsUpdate = true;
-          }
-          if (actor.avatar.chatSprite) {
-            updateTextSprite(
-              actor.avatar.chatSprite,
-              vipMatch
-                ? `⭐😍 VIP ${vipMatch.species}! +🪙 ${earnedCoins}!`
-                : (isVipSale ? `⭐😍 VIP +🪙 ${earnedCoins}!` : `😍🍄 +🪙 ${earnedCoins}! Obrigado!`),
-              isVipSale ? '#fde047' : '#34d399'
-            );
-            actor.avatar.chatSprite.visible = true;
-          }
-        }
-        if (ctx && ctx.callbacks && ctx.callbacks.onHarvestMushroom) {
-          ctx.callbacks.onHarvestMushroom('sale_pack_' + roadStandState.totalSoldPacks);
-        }
-        if (ctx && ctx.callbacks && ctx.callbacks.onLabStep) {
-          ctx.callbacks.onLabStep('sell_pack');
-        }
-        if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-          const vipPrefix = vipMatch
-            ? `⭐ VIP ATENDIDO (${vipMatch.species}: +🪙 ${earnedCoins}!) `
-            : (isVipSale ? `⭐ PEDIDO VIP (+🪙 ${earnedCoins})! ` : '');
-          ctx.callbacks.onToast(`🚗💵 ${vipPrefix}${order.profile.name}: ${order.profile.quote} (Saldo: 🪙 ${newBalance} MycoCoins)`);
-        }
       } else {
-        order.phase = 'walking_to_car';
-        order.timer = 0;
-        actor.cashGroup.visible = false;
-        actor.npcGroup.rotation.y = 0;
-        if (actor.doorPivot) actor.doorPivot.rotation.y = -1.05;
-        if (actor.avatar && actor.avatar.chatSprite) {
-          updateTextSprite(actor.avatar.chatSprite, '🛍️ Acabou! Volto já!', '#94a3b8');
+        const soldIt = entry.item;
+        soldSpecies = (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.speciesName) ||
+          (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.speciesName) || '';
+        soldGrams = Number(
+          (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.grams) ||
+          (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.grams) || 10
+        ) || 10;
+        if (soldIt && soldIt.id) {
+          soldIt._removedForSync = true;
+          if (ctx && ctx.pendingMovedItems) {
+            ctx.pendingMovedItems[soldIt.id] = {
+              id: soldIt.id,
+              state: {
+                custom: {
+                  dynamicKind: soldIt.organicBasketCtrl ? 'organic_basket' : 'mushroom_bag',
+                  removed: true
+                }
+              }
+            };
+          }
+        }
+        if (soldIt.mesh && soldIt.mesh.parent) soldIt.mesh.parent.remove(soldIt.mesh);
+        disposeObjectResources(soldIt.mesh);
+        const idx = ctx.pickableItems.indexOf(soldIt);
+        if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+        if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') ctx.pickableMap.delete(soldIt.id);
+        soldOne = true;
+      }
+    }
+    if (soldOne) {
+      const vipMatch = matchVipOrder(soldSpecies);
+      const isVipSale = !!(vipMatch || order.isVip);
+      const packGrams = Math.max(1, Math.round(Number(soldGrams) || 10));
+      const basePrice = Math.round(MYCOCOIN_PRICE_PER_PACK * (packGrams / 10));
+      const earnedCoins = isVipSale ? Math.round(basePrice * 1.5) : basePrice;
+      roadStandState.totalSoldPacks++;
+      roadStandState.totalCoinsEarned += earnedCoins;
+      if (vipMatch) rotateVipOrder(vipMatch.index);
+      const newBalance = addLocalMycoCoins(earnedCoins);
+      syncRoadStandVisual();
+      if (ctx && ctx.queueWorldStateChange) {
+        ctx.queueWorldStateChange('stand_packs', roadStandState.availablePacks);
+        ctx.queueWorldStateChange('stand_sold', roadStandState.totalSoldPacks);
+      }
+      actor.heldPack.visible = true;
+      if (actor.avatar) {
+        if (actor.avatar.faceCtx) {
+          drawAvatarFace(actor.avatar.faceCtx, 'love', false);
+          if (actor.avatar.faceTex) actor.avatar.faceTex.needsUpdate = true;
+        }
+        if (actor.avatar.chatSprite) {
+          updateTextSprite(
+            actor.avatar.chatSprite,
+            vipMatch
+              ? `⭐😍 VIP ${vipMatch.species}! +🪙 ${earnedCoins}!`
+              : (isVipSale ? `⭐😍 VIP +🪙 ${earnedCoins}!` : `😍🍄 +🪙 ${earnedCoins}! Obrigado!`),
+            isVipSale ? '#fde047' : '#34d399'
+          );
           actor.avatar.chatSprite.visible = true;
         }
       }
-    }
-  } else if (order.phase === 'paying_happy') {
-    order.timer += dt;
-    // Animação feliz do avatar pulando, acenando e notas de dinheiro subindo!
-    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 9.5)) * 0.22;
-    actor.npcGroup.rotation.y = Math.PI + Math.sin(order.timer * 6.5) * 0.28;
-    if (actor.avatar && actor.avatar.leftArm && actor.avatar.rightArm) {
-      actor.avatar.leftArm.rotation.x = -0.8 - Math.sin(order.timer * 12) * 0.35;
-      actor.avatar.rightArm.rotation.x = -0.8 + Math.sin(order.timer * 12) * 0.35;
-    }
-    actor.cashGroup.position.y = order.timer * 0.45;
-    actor.cashGroup.rotation.y = order.timer * 3.5;
-
-    if (order.timer >= 2.3) {
-      order.phase = 'walking_to_car';
+      if (ctx && ctx.callbacks && ctx.callbacks.onHarvestMushroom) {
+        ctx.callbacks.onHarvestMushroom('sale_pack_' + roadStandState.totalSoldPacks);
+      }
+      if (ctx && ctx.callbacks && ctx.callbacks.onLabStep) {
+        ctx.callbacks.onLabStep('sell_pack');
+      }
+      if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
+        const vipPrefix = vipMatch
+          ? `⭐ VIP ATENDIDO (${vipMatch.species}: +🪙 ${earnedCoins}!) `
+          : (isVipSale ? `⭐ PEDIDO VIP (+🪙 ${earnedCoins})! ` : '');
+        ctx.callbacks.onToast(`🚗💵 ${vipPrefix}${order.profile.name}: ${order.profile.quote} (Saldo: 🪙 ${newBalance} MycoCoins)`);
+      }
+    } else {
+      order.phase = 'turning';
       order.timer = 0;
       actor.cashGroup.visible = false;
-      actor.cashGroup.position.y = 0;
-      actor.npcGroup.rotation.y = 0;
-      if (actor.doorPivot) actor.doorPivot.rotation.y = -1.05;
+      if (actor.avatar && actor.avatar.chatSprite) {
+        updateTextSprite(actor.avatar.chatSprite, '🛍️ Acabou! Volto já!', '#94a3b8');
+        actor.avatar.chatSprite.visible = true;
+      }
+    }
+  } else if (order.phase === 'paying') {
+    const lift = THREE.MathUtils.smoothstep(order.timer, 0, 0.75);
+    const settle = THREE.MathUtils.smoothstep(order.timer, 1.0, 2.4);
+    const reach = lift * (1 - settle * 0.3);
+    avatar.headGroup.rotation.x = -0.18 * (1 - settle);
+    avatar.headGroup.rotation.y *= Math.exp(-dt * 4);
+    avatar.leftArm.rotation.x = -0.68 * reach;
+    avatar.rightArm.rotation.x = -0.75 * reach;
+    actor.heldPack.position.y = 0.60 + 0.086 * reach;
+    actor.heldPack.position.z = -0.255 - 0.045 * reach;
+    actor.cashGroup.position.y = order.timer * 0.24;
+    actor.cashGroup.rotation.y = order.timer * 0.9;
+    if (order.timer >= 2.65) {
+      order.phase = 'turning';
+      order.timer = 0;
+      actor.cashGroup.visible = false;
+      if (avatar.chatSprite) avatar.chatSprite.visible = false;
+    }
+  } else if (order.phase === 'turning') {
+    const turn = THREE.MathUtils.smoothstep(order.timer, 0, 0.9);
+    actor.npcGroup.rotation.y = Math.PI * turn;
+    avatar.headGroup.rotation.x *= Math.exp(-dt * 5);
+    avatar.headGroup.rotation.y *= Math.exp(-dt * 5);
+    if (order.timer >= 0.9) {
+      order.phase = 'walking_to_car';
+      order.timer = 0;
     }
   } else if (order.phase === 'walking_to_car') {
-    order.timer += dt;
-    actor.npcGroup.position.z = Math.min(roadZ - 1.10, actor.npcGroup.position.z + dt * 2.4);
-    actor.npcGroup.position.y = 0.04 + Math.abs(Math.sin(order.timer * 11)) * 0.05;
-    animateWalkLimbs(order.timer, true);
-    if (actor.npcGroup.position.z >= roadZ - 1.12) {
+    walkRoadBuyer(actor, standStopZ, doorZ, order.timer, 2.35);
+    if (actor.doorPivot) actor.doorPivot.rotation.y = -1.08 * THREE.MathUtils.smoothstep(order.timer, 1.55, 2.25);
+    if (order.timer >= 2.35) {
       actor.npcGroup.visible = false;
-      if (actor.avatar && actor.avatar.chatSprite) actor.avatar.chatSprite.visible = false;
-      if (actor.doorPivot) actor.doorPivot.rotation.y = 0;
-      playAudio('playCarHonk');
+      if (avatar.chatSprite) avatar.chatSprite.visible = false;
+      order.phase = 'closing_door';
+      order.timer = 0;
+    }
+  } else if (order.phase === 'closing_door') {
+    if (actor.doorPivot) actor.doorPivot.rotation.y = -1.08 * (1 - THREE.MathUtils.smoothstep(order.timer, 0, 0.7));
+    if (order.timer >= 0.7) {
       order.phase = 'driving_away';
       order.timer = 0;
     }
   } else if (order.phase === 'driving_away') {
-    order.timer += dt;
-    const speed = Math.min(24.0, 6.0 + order.timer * 12.0);
+    const speed = Math.min(20, order.timer * 4.4);
     actor.carGroup.position.x += dt * speed;
     spinWheels(speed * 2.2);
     // Entra no Túnel Escuro das Colinas Leste (x = +114)
