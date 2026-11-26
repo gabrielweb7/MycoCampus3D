@@ -726,6 +726,7 @@ function getBeeSharedAssets() {
     hiveAbandonedMat: new THREE.MeshStandardMaterial({ color: 0x94a3b8, map: hiveTex, roughness: 0.94 }),
     hiveAbandonedBandMat: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.96 }),
     honeyMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.28, emissive: 0x854d0e, emissiveIntensity: 0.18 }),
+    jewelMat: new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xe11d48, emissiveIntensity: 0.45, roughness: 0.2 }),
     holeMat: new THREE.MeshBasicMaterial({ color: 0x0f172a }),
     trunkMat: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.85 }),
     leafMat: new THREE.MeshStandardMaterial({ color: 0x36b45e, roughness: 0.82 }),
@@ -739,7 +740,9 @@ function getBeeSharedAssets() {
     hiveBoxGeo: new THREE.BoxGeometry(0.56, 0.56, 0.56),
     hiveBandGeo: new THREE.BoxGeometry(0.58, 0.12, 0.58),
     hiveHoleGeo: new THREE.BoxGeometry(0.14, 0.10, 0.04),
+    hivePorchGeo: new THREE.BoxGeometry(0.22, 0.035, 0.09),
     honeyDropGeo: new THREE.BoxGeometry(0.10, 0.12, 0.05),
+    jewelGeo: new THREE.SphereGeometry(0.018, 6, 5),
     stemGeo: new THREE.CylinderGeometry(0.018, 0.022, 0.26, 6),
     centerGeo: new THREE.SphereGeometry(0.045, 7, 6),
     petalGeo: new THREE.SphereGeometry(0.042, 6, 5),
@@ -781,11 +784,13 @@ function createCuteBeeMesh(isQueen) {
   });
 
   // 6 patinhas pequenas embaixo
+  const legs = [];
   for (let p = 0; p < 3; p++) {
     [-1, 1].forEach((side) => {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.038, 0.016), a.darkMat);
       leg.position.set(side * 0.052, -0.10, 0.055 - p * 0.055);
       g.add(leg);
+      legs.push(leg);
     });
   }
 
@@ -821,6 +826,9 @@ function createCuteBeeMesh(isQueen) {
       spike.position.set(cx, 0.134, 0.06);
       g.add(spike);
     });
+    const jewel = new THREE.Mesh(a.jewelGeo, a.jewelMat);
+    jewel.position.set(0, 0.16, 0.06);
+    g.add(jewel);
     g.scale.setScalar(1.42);
 
     if (a.spriteMat) {
@@ -832,7 +840,7 @@ function createCuteBeeMesh(isQueen) {
     }
   }
 
-  return { group: g, wingL, wingR, pollenMesh, migrationSprite };
+  return { group: g, wingL, wingR, pollenMesh, migrationSprite, legs };
 }
 
 function createCampusFlower(ctx, x, z, colorIdx) {
@@ -908,9 +916,11 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
   hiveRoof.rotation.y = Math.PI / 4;
   const hiveHole = new THREE.Mesh(a.hiveHoleGeo, a.holeMat);
   hiveHole.position.set(0, -0.02, 0.285);
+  const hivePorch = new THREE.Mesh(a.hivePorchGeo, a.hiveDarkMat);
+  hivePorch.position.set(0, -0.085, 0.30);
   const honeyDrop = new THREE.Mesh(a.honeyDropGeo, a.honeyMat);
   honeyDrop.position.set(0.08, -0.22, 0.285);
-  hiveGroup.add(hiveBox, hiveBand, hiveRoof, hiveHole, honeyDrop);
+  hiveGroup.add(hiveBox, hiveBand, hiveRoof, hiveHole, hivePorch, honeyDrop);
   treeInfo.tree.add(hiveGroup);
 
   const worldX = treeInfo.tree.position.x + 0.48;
@@ -1019,6 +1029,7 @@ function createPastureBees(ctx) {
       group: qVis.group,
       wingL: qVis.wingL,
       wingR: qVis.wingR,
+      legs: qVis.legs,
       pollenMesh: qVis.pollenMesh,
       migrationSprite: qVis.migrationSprite,
       phase: hIdx * 1.7,
@@ -1041,6 +1052,7 @@ function createPastureBees(ctx) {
         group: beeVis.group,
         wingL: beeVis.wingL,
         wingR: beeVis.wingR,
+        legs: beeVis.legs,
         pollenMesh: beeVis.pollenMesh,
         phase: (hIdx * 3 + b) * 2.1,
         radius: 1.2 + b * 0.45,
@@ -1076,7 +1088,17 @@ function startHiveMigration(ctx, oldHive) {
       bestSpot = cand;
     }
   }
-  if (!bestSpot) return;
+  if (!bestSpot) {
+    if (oldHive.flowersNearby && oldHive.flowersNearby.length) {
+      const a = getBeeSharedAssets();
+      for (let f = 0; f < oldHive.flowersNearby.length; f++) {
+        const fl = oldHive.flowersNearby[f];
+        fl.pollen = 1.0;
+        if (fl.centerMesh) fl.centerMesh.material = a.flowerCenterMat;
+      }
+    }
+    return;
+  }
 
   // Garante flores frescas no destino caso todas estejam baixas
   if (bestScore <= 1 && ctx.campusFlowers) {
@@ -1190,6 +1212,11 @@ function stepPastureBees(ctx, dt) {
     const flap = Math.sin(nowSec * 42 + i * 1.7) * 0.75;
     bee.wingL.rotation.z = flap;
     bee.wingR.rotation.z = -flap;
+    if (bee.legs && bee.legs.length) {
+      for (let li = 0; li < bee.legs.length; li++) {
+        bee.legs[li].rotation.x = Math.sin(nowSec * 18 + i + li * 0.6) * 0.25;
+      }
+    }
 
     // 1. Voo de migração em enxame com a Rainha
     if (hive.migrating) {
@@ -1291,6 +1318,7 @@ function stepPastureBees(ctx, dt) {
         const nz = hive.z + Math.sin(t) * bee.radius;
         const ny = hive.y + Math.sin(t * 2.8) * 0.3;
         bee.group.position.set(nx, ny, nz);
+        bee.group.rotation.x = 0;
       } else {
         const fl = bee.targetFlower;
         const dx = fl.x - bee.group.position.x;
@@ -1300,15 +1328,18 @@ function stepPastureBees(ctx, dt) {
         if (d < 0.25) {
           bee.state = 'collect';
           bee.stateTimer = 1.1;
+          bee.group.rotation.x = 0;
         } else {
           const step = Math.min(d, 2.8 * dt);
           bee.group.position.x += (dx / d) * step;
           bee.group.position.y += (dy / d) * step + Math.sin(nowSec * 9 + i) * 0.008;
           bee.group.position.z += (dz / d) * step;
           bee.group.rotation.y = Math.atan2(dx, dz);
+          bee.group.rotation.x = 0.16;
         }
       }
     } else if (bee.state === 'collect') {
+      bee.group.rotation.x = 0;
       bee.stateTimer -= dt;
       if (bee.targetFlower) {
         bee.group.position.y = bee.targetFlower.y + 0.14 + Math.sin(nowSec * 14) * 0.04;
@@ -1335,12 +1366,14 @@ function stepPastureBees(ctx, dt) {
         if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: hive.x, y: hive.y, z: hive.z }, 0xfacc15, 5);
         bee.targetFlower = null;
         bee.state = 'to_flower';
+        bee.group.rotation.x = 0;
       } else {
         const step = Math.min(d, 2.6 * dt);
         bee.group.position.x += (dx / d) * step;
         bee.group.position.y += (dy / d) * step + Math.sin(nowSec * 8 + i) * 0.008;
         bee.group.position.z += (dz / d) * step;
         bee.group.rotation.y = Math.atan2(dx, dz);
+        bee.group.rotation.x = 0.16;
       }
     }
   }
