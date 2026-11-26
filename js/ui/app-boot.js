@@ -891,10 +891,14 @@ export function bootApp() {
     $('campus-lobby')?.classList.add('hidden');
   }
 
-  // Auto-fade FPS hint on touch after 8 seconds
+  // Adapt FPS hint text on touch and auto-fade after 8 seconds
   if (isTouch()) {
+    const hint = $('fps-hint');
+    if (hint) {
+      delete hint.dataset.i18n;
+      hint.textContent = t('misc.hud.fps_hint_touch');
+    }
     setTimeout(() => {
-      const hint = $('fps-hint');
       if (hint) {
         hint.style.transition = 'opacity 0.8s ease';
         hint.style.opacity = '0';
@@ -1011,7 +1015,7 @@ export function bootApp() {
       const pill = $('interact-pill');
       const hint = $('fps-hint');
       if (pill && Date.now() >= getToastUntil()) {
-        if (txt && (isTouch() ? !shownInMobileActions : mobilePlacementModeActive)) {
+        if (txt && (isTouch() ? !shownInMobileActions : (mobilePlacementModeActive && !shownInMobileActions))) {
           pill.textContent = txt;
           pill.classList.remove('hidden');
           if (hint) hint.style.opacity = '0';

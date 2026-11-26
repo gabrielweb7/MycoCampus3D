@@ -2,6 +2,7 @@
 export default {
   "pt-BR": {
     "news.title": "Novidades do MycoCampus",
+    "misc.hud.fps_hint_touch": "🕹️ Analógico anda • Arraste a tela para olhar • Pular à direita",
     "misc.hud.immersiveOn": "HUD Imersivo Compacto ativado!",
     "misc.hud.standard": "HUD padrão restaurado.",
     "misc.mycoteca.summary": "Descobertas: {found} / {total} espécies",
@@ -298,6 +299,7 @@ export default {
   },
   "en": {
     "news.title": "MycoCampus Updates",
+    "misc.hud.fps_hint_touch": "🕹️ Stick moves • Drag screen to look • Jump on the right",
     "misc.hud.immersiveOn": "Compact Immersive HUD enabled!",
     "misc.hud.standard": "Standard HUD restored.",
     "misc.mycoteca.summary": "Discoveries: {found} / {total} species",
@@ -594,6 +596,7 @@ export default {
   },
   "es": {
     "news.title": "Novedades de MycoCampus",
+    "misc.hud.fps_hint_touch": "🕹️ Joystick camina • Arrastra para mirar • Saltar a la derecha",
     "misc.hud.immersiveOn": "¡HUD Inmersivo Compacto activado!",
     "misc.hud.standard": "HUD estándar restaurado.",
     "misc.mycoteca.summary": "Descubrimientos: {found} / {total} especies",
