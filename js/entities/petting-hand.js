@@ -56,7 +56,20 @@ function createHandGroup() {
   return g;
 }
 
+let hudTimer = null;
+
 export function triggerPettingAnimation(scene, targetGroup, heightOffset = 0.95) {
+  if (typeof document !== 'undefined') {
+    const ov = document.getElementById('petting-hand-overlay');
+    if (ov) {
+      ov.classList.remove('hidden');
+      if (hudTimer) clearTimeout(hudTimer);
+      hudTimer = setTimeout(() => {
+        ov.classList.add('hidden');
+        hudTimer = null;
+      }, 1550);
+    }
+  }
   if (!THREE || !scene || !targetGroup) return;
   const hand = createHandGroup();
   scene.add(hand);

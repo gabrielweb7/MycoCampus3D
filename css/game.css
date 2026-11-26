@@ -1449,6 +1449,36 @@ body.device-touch #chat-container {
   display: none;
 }
 
+@keyframes myco-pet-stroke {
+  0%, 100% { transform: translate(-6px, -24px) rotate(-6deg) scale(1); }
+  25% { transform: translate(8px, -8px) rotate(4deg) scale(1.03); }
+  50% { transform: translate(-4px, -20px) rotate(-4deg) scale(1); }
+  75% { transform: translate(8px, -6px) rotate(5deg) scale(1.03); }
+}
+
+@keyframes myco-pet-heart {
+  0% { opacity: 0; transform: translateY(8px) scale(0.6); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-48px) scale(1.15); }
+}
+
+#petting-hand-overlay .petting-hand-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: myco-pet-stroke 1.4s ease-in-out infinite;
+}
+
+#petting-hand-overlay .petting-heart {
+  position: absolute;
+  font-size: 20px;
+  animation: myco-pet-heart 1.2s ease-out infinite;
+}
+#petting-hand-overlay .petting-heart.h1 { left: 10px; top: -6px; animation-delay: 0s; }
+#petting-hand-overlay .petting-heart.h2 { right: 12px; top: -14px; animation-delay: 0.3s; }
+#petting-hand-overlay .petting-heart.h3 { left: 50%; top: -22px; animation-delay: 0.6s; }
+
 .portable-grow-panel {
   width: min(720px, calc(100vw - 24px));
   max-height: 88vh;

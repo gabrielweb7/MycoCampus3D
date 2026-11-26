@@ -24,9 +24,7 @@ export function syncHudMiniTimers(ctx) {
     for (let i = 0; i < ctx.cookerPots.length; i++) {
       const cp = ctx.cookerPots[i];
       if (!cp) continue;
-      if (cp.progress >= 100 && cp.psi > 0.5) {
-        pills.push({ id: 'pot_done_' + i, text: t('misc.timers.pot_ready'), cls: 'border-emerald-400/50 text-emerald-200 bg-emerald-950/80' });
-      } else if (cp.progress > 0 && cp.progress < 100) {
+      if (cp.progress > 0 && cp.progress < 100) {
         pills.push({ id: 'pot_' + i, text: t('misc.timers.pot_pct', { pct: Math.round(cp.progress) }), cls: 'border-amber-400/45 text-amber-200 bg-slate-900/85' });
       }
     }
@@ -36,13 +34,9 @@ export function syncHudMiniTimers(ctx) {
     for (let i = 0; i < ctx.pickableItems.length; i++) {
       const it = ctx.pickableItems[i];
       const dc = it && it.dehydratorCtrl;
-      if (!dc || !dc.hasMushroom) continue;
-      if (dc.crisp) {
-        pills.push({ id: 'deh_done_' + it.id, text: t('misc.timers.deh_ready'), cls: 'border-emerald-400/50 text-emerald-200 bg-emerald-950/80' });
-      } else {
-        const pct = Math.max(0, Math.min(99, Math.round(dc.progress || 0)));
-        pills.push({ id: 'deh_' + it.id, text: t('misc.timers.deh_pct', { pct }), cls: 'border-orange-400/45 text-orange-200 bg-slate-900/85' });
-      }
+      if (!dc || !dc.hasMushroom || dc.crisp) continue;
+      const pct = Math.max(1, Math.min(99, Math.round(dc.progress || 0)));
+      pills.push({ id: 'deh_' + it.id, text: t('misc.timers.deh_pct', { pct }), cls: 'border-orange-400/45 text-orange-200 bg-slate-900/85' });
     }
   }
 

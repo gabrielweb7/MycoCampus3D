@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.9.0">
+  <link rel="stylesheet" href="css/game.css?v=2.9.1">
 </head>
 
 <body>
@@ -203,7 +203,7 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.9.0</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.9.1</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -329,7 +329,28 @@
     </div>
 
     <!-- Interaction Prompt Pill -->
-    <div id="hud-mini-timers" class="fixed top-16 left-3 z-20 flex flex-col gap-1 pointer-events-none"></div>
+    <div id="hud-mini-timers" class="fixed top-14 right-2 sm:top-16 sm:left-3 sm:right-auto z-20 flex flex-col items-end sm:items-start gap-1 pointer-events-none"></div>
+    <div id="petting-hand-overlay" class="hidden fixed inset-0 z-30 pointer-events-none flex items-center justify-center">
+      <div class="petting-hand-wrap">
+        <svg viewBox="0 0 180 140" class="w-36 h-28 sm:w-44 sm:h-36 drop-shadow-[0_10px_18px_rgba(0,0,0,0.55)]" aria-hidden="true">
+          <defs>
+            <linearGradient id="handSkin" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fde2d2"/>
+              <stop offset="55%" stop-color="#f5bfa0"/>
+              <stop offset="100%" stop-color="#e39d78"/>
+            </linearGradient>
+          </defs>
+          <!-- Mão aberta curvada estilo primeira pessoa (pose carinho) -->
+          <path d="M18,52 C38,34 78,24 114,28 C134,30 150,40 160,54 C164,60 158,68 150,64 C138,56 124,52 108,52 C92,52 78,58 76,68 C74,77 86,86 106,88 C118,89 126,95 123,103 C120,110 108,113 92,110 C64,104 42,92 22,86 Z" fill="url(#handSkin)" stroke="#c87e59" stroke-width="2.5" stroke-linejoin="round"/>
+          <!-- Dedos curvados suavemente -->
+          <path d="M116,32 C132,34 146,42 154,53" fill="none" stroke="#d9926f" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M110,41 C128,43 140,49 148,59" fill="none" stroke="#d9926f" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="petting-heart h1">❤️</span>
+        <span class="petting-heart h2">💖</span>
+        <span class="petting-heart h3">❤️</span>
+      </div>
+    </div>
     <div id="interact-pill" data-i18n="hud.interact"
       class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40 z-24">
       Interagir
@@ -950,9 +971,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.9.0';</script>
+  <script>window.MYCO_VERSION = '2.9.1';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.9.0"></script>
+  <script type="module" src="js/main.js?v=2.9.1"></script>
 </body>
 
 </html>

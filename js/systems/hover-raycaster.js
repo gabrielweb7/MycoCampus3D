@@ -438,22 +438,6 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
-  if (!ctx.heldItem && ctx.seatMeshes.length) {
-    const stHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.seatMeshes, false), 4.2);
-    if (stHit) {
-      ctx.hoverHit = stHit;
-      const candSeat = stHit.object.userData.seatInfo;
-      if (isSeatOccupied(ctx.remoteAvatars, candSeat)) {
-        prompt = t('actions.hover.seat_occupied');
-      } else {
-        ctx.hoveredSeat = candSeat;
-        prompt = t('actions.hover.seat_sit');
-      }
-      setHoverPrompt(ctx, prompt);
-      return;
-    }
-  }
-
   if (!prompt && ctx.doorHitMeshes.length) {
     const doorHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.doorHitMeshes, false), 5.0);
     if (doorHit) {
@@ -752,6 +736,19 @@ export function updateHoverRay(ctx, customNdc) {
     if (hive) {
       ctx.hoveredBeehive = hive;
       prompt = getBeehiveHoverPrompt(hive, ctx.heldItem);
+    }
+  }
+  if (!prompt && !ctx.heldItem && !ctx.seated && ctx.seatMeshes.length) {
+    const stHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObjects(ctx.seatMeshes, false), 3.0, { checkWalls: true });
+    if (stHit) {
+      ctx.hoverHit = stHit;
+      const candSeat = stHit.object.userData.seatInfo;
+      if (isSeatOccupied(ctx.remoteAvatars, candSeat)) {
+        prompt = t('actions.hover.seat_occupied');
+      } else {
+        ctx.hoveredSeat = candSeat;
+        prompt = t('actions.hover.seat_sit');
+      }
     }
   }
   if (!prompt && !ctx.heldItem && refZ >= 43 && refZ <= 97 && ctx.villageHitMeshes?.length) {
