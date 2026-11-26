@@ -256,4 +256,8 @@ test('proteção contra regressões de referências corrigidas na refatoração'
   assert.match(opt, /hover3dBadge\.sprite/);
   assert.match(opt, /cw\.mesh\s*\|\|\s*cw\.group/);
   assert.match(opt, /cp\.group\s*\|\|\s*cp\.mesh/);
+  assert.match(opt, /sim\.pastureBees/);
+  assert.match(opt, /sim\.beehives/);
+  assert.match(opt, /sim\.campusFlowers/);
+  assert.match(opt, /sim\.beehiveHitMeshes/);
 });

@@ -118,6 +118,9 @@ function collectDynamicObjects(sim) {
   markTreeList(sim.sportBalls, (sp) => sp && sp.mesh);
   markTreeList(sim.pastureCows, (cw) => cw && (cw.mesh || cw.group));
   markTreeList(sim.cowPoops, (cp) => cp && (cp.group || cp.mesh));
+  markTreeList(sim.pastureBees, (b) => b && b.group);
+  markTreeList(sim.beehives, (h) => h && h.group);
+  markTreeList(sim.campusFlowers, (fl) => fl && fl.group);
   markTreeList(sim.wildMushrooms, (wm) => wm && wm.group);
   markTreeList(sim.forestCullGroups, (fg) => fg && fg.obj);
   markTreeList(sim.mushroomCullGroups, (mg) => mg && mg.obj);
@@ -171,6 +174,7 @@ function collectDynamicObjects(sim) {
   markList(sim.villageHitMeshes);
   markList(sim.labTrashMeshes);
   markList(sim.cowHitMeshes);
+  markList(sim.beehiveHitMeshes);
   if (sim.cinemaScreenMesh) dynamicObjects.add(sim.cinemaScreenMesh);
   if (sim.cinemaBeam) dynamicObjects.add(sim.cinemaBeam);
   if (sim.campusLightSwitches) {

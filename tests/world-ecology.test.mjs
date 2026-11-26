@@ -1,16 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 globalThis.window = globalThis.window || {
   THREE: {
-    Vector3: class { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; } },
+    Vector3: class {
+      constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
+      set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
+    },
     Box3: class {},
     Quaternion: class {}
   }
 };
 
 const { MUSHROOM_SPECIES_CATALOG } = await import('../js/world/mushroom-species.js');
-const { COW_POOP_INTERVAL_SEC, POOP_CUBENSIS_GROW_SEC, petCow } = await import('../js/entities/pasture-cows.js');
+const { COW_POOP_INTERVAL_SEC, POOP_CUBENSIS_GROW_SEC, petCow, isBeeBlockedAt3D, moveBeeSafely } = await import('../js/entities/pasture-cows.js');
 const { BURNER_TIMER_PRESETS, formatBurnerTimerLabel } = await import('../js/items/pressure-cooker.js');
 const { DEHYDRATOR_META } = await import('../js/items/dehydrator.js');
 const { registerDiscoveredSpecies, getDiscoveredSpecies } = await import('../js/systems/mycoteca.js');
@@ -70,4 +75,39 @@ test('DEHYDRATOR_META serializa e restaura estado da desidratadora e mycoteca fu
 
   assert.ok(Array.isArray(getDiscoveredSpecies()));
   assert.equal(typeof registerDiscoveredSpecies('Psilocybe cubensis').isNew, 'boolean');
+});
+
+test('abelhas protegem objetos dinâmicos, respeitam oclusão de migração e desviam de paredes em 3D', () => {
+  const optSrc = fs.readFileSync(path.resolve('js/engine/scene-optimizer.js'), 'utf8');
+  assert.match(optSrc, /markTreeList\(sim\.pastureBees/);
+  assert.match(optSrc, /markTreeList\(sim\.beehives/);
+  assert.match(optSrc, /markTreeList\(sim\.campusFlowers/);
+
+  const beeSrc = fs.readFileSync(path.resolve('js/entities/pasture-cows.js'), 'utf8');
+  assert.match(beeSrc, /depthTest:\s*true/);
+  assert.match(beeSrc, /migrationSprite\.visible\s*=\s*dist\s*<=\s*18/);
+
+  const wallCtx = {
+    solidColliders: [{ minX: 4, maxX: 6, minZ: -5, maxZ: 5, minY: 0, maxY: 3.5 }],
+    wallSegments: [],
+    beehives: []
+  };
+  assert.equal(isBeeBlockedAt3D(wallCtx, 5, 2.0, 0, 0.22, null), true);
+  assert.equal(isBeeBlockedAt3D(wallCtx, 5, 4.2, 0, 0.22, null), false);
+
+  const bee = {
+    avoidSide: 1,
+    group: {
+      position: new globalThis.window.THREE.Vector3(3.6, 2.0, 0),
+      rotation: { x: 0, y: 0, z: 0 }
+    }
+  };
+  for (let s = 0; s < 35; s++) {
+    moveBeeSafely(wallCtx, bee, 8.0, 2.0, 0.0, 3.0, 0.1, 0, null);
+    assert.equal(
+      isBeeBlockedAt3D(wallCtx, bee.group.position.x, bee.group.position.y, bee.group.position.z, 0.05, null),
+      false,
+      `abelha não pode entrar na parede no passo ${s}`
+    );
+  }
 });
