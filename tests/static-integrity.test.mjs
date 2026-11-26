@@ -260,4 +260,5 @@ test('proteção contra regressões de referências corrigidas na refatoração'
   assert.match(opt, /sim\.beehives/);
   assert.match(opt, /sim\.campusFlowers/);
   assert.match(opt, /sim\.beehiveHitMeshes/);
+  assert.match(opt, /sim\.flowerHitMeshes/);
 });

@@ -150,6 +150,7 @@ const MC_SHOP_SUPPLIES = [
     'sup_grow_tent' => ['prefab_id' => 'grow_tent', 'price_coins' => 620, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_grow_humidifier' => ['prefab_id' => 'grow_humidifier', 'price_coins' => 150, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_grow_exhaust' => ['prefab_id' => 'grow_exhaust', 'price_coins' => 170, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_flower_seeds' => ['prefab_id' => 'flower_seeds', 'price_coins' => 25, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_monotub' => ['prefab_id' => 'monotub_24l', 'price_coins' => 260, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_table' => ['prefab_id' => 'table_stainless', 'price_coins' => 320, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_dehydrator' => ['prefab_id' => 'dehydrator', 'price_coins' => 380, 'req_xp' => 0, 'req_mushrooms' => 0],

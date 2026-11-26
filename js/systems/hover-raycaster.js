@@ -23,7 +23,14 @@ import { canPruneGardenPlant, gardenHitMeshes, gardenState } from '../world/camp
 import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
 import { getMonotubActionLabel } from '../items/monotub.js';
 import { getLocalCompanionPet } from '../entities/pets.js';
-import { findHoveredBeehive, getBeehiveHoverPrompt } from '../entities/pasture-cows.js';
+import {
+  findHoveredBeehive,
+  getBeehiveHoverPrompt,
+  findHoveredFlower,
+  getFlowerHoverPrompt,
+  findFlowerPlantSpot,
+  getFlowerPlantHoverPrompt
+} from '../entities/pasture-cows.js';
 import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 import { t } from '../core/i18n.js';
 import { cratePlacementError, findAimedCrate, freeCrateSlot } from './crate-cargo.js';
@@ -225,6 +232,8 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredCow = null;
   ctx.hoveredPet = null;
   ctx.hoveredBeehive = null;
+  ctx.hoveredFlower = null;
+  ctx.hoveredFlowerPlantSpot = null;
   ctx.hoveredSportBall = null;
   ctx.hoveredSinkAction = null;
   ctx.hoveredGrainCooker = null;
@@ -751,6 +760,20 @@ export function updateHoverRay(ctx, customNdc) {
     if (hive) {
       ctx.hoveredBeehive = hive;
       prompt = getBeehiveHoverPrompt(hive, ctx.heldItem);
+    }
+  }
+  if (!prompt) {
+    const fl = findHoveredFlower(ctx.raycaster, ctx);
+    if (fl) {
+      ctx.hoveredFlower = fl;
+      prompt = getFlowerHoverPrompt(fl, ctx.heldItem);
+    }
+  }
+  if (!prompt && ctx.heldItem && ctx.heldItem.flowerSeedCtrl && !ctx.placementMode) {
+    const plantSpot = findFlowerPlantSpot(ctx.raycaster, ctx);
+    if (plantSpot) {
+      ctx.hoveredFlowerPlantSpot = plantSpot;
+      prompt = getFlowerPlantHoverPrompt(ctx.heldItem);
     }
   }
   if (!prompt && !ctx.heldItem && !ctx.seated && ctx.seatMeshes.length) {

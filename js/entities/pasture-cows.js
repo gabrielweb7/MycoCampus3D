@@ -13,7 +13,7 @@ import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { isNaturalSoilSpot } from '../world/nature-plaza.js';
 import { triggerCozyHeartBurst } from '../world/cozy-details.js';
-import { firstUnoccludedRayHit } from '../systems/ray-occlusion.js';
+import { firstUnoccludedRayHit, isRayOccludedByStructure } from '../systems/ray-occlusion.js';
 import { updateCultureLiquidLabel } from '../items/liquid-culture.js';
 import { updateLcNutrientLabel } from '../items/pda-bottle.js';
 
@@ -657,6 +657,14 @@ export function stepPastureCows(ctx, dt) {
 // ABELHAS INTELIGENTES, RAINHA COM COROA, FLORES, MEL E MIGRAÇÃO DE ENXAME
 // ============================================================================
 const FLOWER_COLORS = [0xf472b6, 0xa855f7, 0xef4444, 0x38bdf8, 0xfb923c, 0xf8fafc];
+const FLOWER_COLOR_NAMES = ['Rosa', 'Lavanda', 'Vermelha', 'Azul', 'Laranja', 'Branca'];
+export const FLOWER_POLLEN_PER_VISIT = 0.10;
+export const MAX_CAMPUS_FLOWERS = 110;
+let flowerIdSeq = 0;
+const _flowerPlantHit = {
+  point: THREE && THREE.Vector3 ? new THREE.Vector3() : { x: 0, y: 0, z: 0 },
+  distance: 0
+};
 
 const CAMPUS_HIVE_CANDIDATES = [
   { x: 24.8, z: 26.5 },
@@ -761,6 +769,14 @@ function getBeeSharedAssets() {
     stemGeo: new THREE.CylinderGeometry(0.018, 0.022, 0.26, 6),
     centerGeo: new THREE.SphereGeometry(0.045, 7, 6),
     petalGeo: new THREE.SphereGeometry(0.042, 6, 5),
+    flowerHitGeo: new THREE.CylinderGeometry(0.22, 0.22, 0.42, 6),
+    flowerHitMat: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+    flowerSeedPodGeo: new THREE.SphereGeometry(0.055, 7, 6),
+    flowerSeedPodMat: new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xf59e0b, emissiveIntensity: 0.42, roughness: 0.35 }),
+    seedPackBodyGeo: new THREE.BoxGeometry(0.11, 0.145, 0.028),
+    seedPackBodyMat: new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.72 }),
+    seedPackTrimGeo: new THREE.BoxGeometry(0.114, 0.028, 0.032),
+    seedPackTrimMat: new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.58 }),
     spriteMat: spriteTex ? new THREE.SpriteMaterial({ map: spriteTex, transparent: true, depthTest: true, depthWrite: false }) : null
   });
   return beeSharedAssets;
@@ -871,38 +887,118 @@ function createCuteBeeMesh(isQueen) {
   return { group: g, wingL, wingR, pollenMesh, migrationSprite, legs };
 }
 
-function createCampusFlower(ctx, x, z, colorIdx) {
-  const a = getBeeSharedAssets();
+export function createCampusFlower(ctx, x, z, colorIdx, opts = {}) {
   const gy = terrainHeight(x, z);
+  const cIdx = (((colorIdx || 0) % FLOWER_COLORS.length) + FLOWER_COLORS.length) % FLOWER_COLORS.length;
+  const baseScale = typeof opts.baseScale === 'number' ? opts.baseScale : (0.88 + Math.random() * 0.28);
+  const stage = opts.stage || 'blooming';
+  const pollen = stage === 'blooming' ? (typeof opts.pollen === 'number' ? opts.pollen : 1.0) : 0;
+  const sproutDuration = typeof opts.sproutDuration === 'number' ? opts.sproutDuration : (12 + Math.random() * 20);
+  const seedHoldDuration = typeof opts.seedHoldDuration === 'number' ? opts.seedHoldDuration : (18 + Math.random() * 22);
+  const wiltDuration = typeof opts.wiltDuration === 'number' ? opts.wiltDuration : (3.2 + Math.random() * 3.0);
+  const stageTimer = typeof opts.stageTimer === 'number' ? opts.stageTimer : 0;
+  const id = 'fl_' + (++flowerIdSeq);
+
+  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial || !ctx || !ctx.scene) {
+    const mockFlower = {
+      id,
+      group: {
+        position: { x, y: gy, z },
+        scale: { x: baseScale, y: baseScale, z: baseScale, setScalar(s) { this.x = s; this.y = s; this.z = s; } },
+        rotation: { x: 0, y: 0, z: 0 },
+        visible: true,
+        parent: null
+      },
+      centerMesh: {
+        material: null,
+        scale: { setScalar() {} }
+      },
+      petalGroup: { scale: { setScalar() {}, set() {} } },
+      seedPodMesh: { visible: stage === 'seeding', position: { y: 0.32 }, scale: { setScalar() {} } },
+      hitMesh: null,
+      x,
+      y: gy + 0.28 * baseScale,
+      z,
+      colorIdx: cIdx,
+      baseScale,
+      stage,
+      pollen,
+      stageTimer,
+      sproutDuration,
+      seedHoldDuration,
+      wiltDuration,
+      seedHarvested: false,
+      removed: false
+    };
+    return mockFlower;
+  }
+
+  const a = getBeeSharedAssets();
   const fg = new THREE.Group();
   fg.position.set(x, gy, z);
 
   const stem = new THREE.Mesh(a.stemGeo, a.stemMat);
   stem.position.y = 0.13;
-  const center = new THREE.Mesh(a.centerGeo, a.flowerCenterMat);
+  const center = new THREE.Mesh(a.centerGeo, stage === 'blooming' ? a.flowerCenterMat : a.flowerCenterEmptyMat);
   center.position.y = 0.27;
+  center.scale.setScalar(0.72 + pollen * 0.28);
   fg.add(stem, center);
 
-  const petalMat = a.petalMats[colorIdx % a.petalMats.length];
+  const petalGroup = new THREE.Group();
+  const petalMat = a.petalMats[cIdx];
   for (let p = 0; p < 5; p++) {
     const ang = (p / 5) * Math.PI * 2;
     const petal = new THREE.Mesh(a.petalGeo, petalMat);
     petal.position.set(Math.cos(ang) * 0.062, 0.265, Math.sin(ang) * 0.062);
     petal.scale.set(1.15, 0.65, 1.15);
-    fg.add(petal);
+    petalGroup.add(petal);
   }
+  if (stage === 'sprouting') {
+    const t = Math.max(0, Math.min(1, stageTimer / sproutDuration));
+    fg.scale.setScalar(baseScale * (0.24 + 0.76 * t));
+    petalGroup.scale.setScalar(0.15 + 0.85 * t);
+  } else {
+    fg.scale.setScalar(baseScale);
+  }
+  fg.add(petalGroup);
+
+  const seedPodMesh = new THREE.Mesh(a.flowerSeedPodGeo, a.flowerSeedPodMat);
+  seedPodMesh.position.set(0, 0.32, 0);
+  seedPodMesh.visible = stage === 'seeding';
+  fg.add(seedPodMesh);
+
+  const hitMesh = new THREE.Mesh(a.flowerHitGeo, a.flowerHitMat);
+  hitMesh.position.y = 0.21;
+  fg.add(hitMesh);
 
   markSubtreeDynamic(fg);
   ctx.scene.add(fg);
-  return {
+
+  const fl = {
+    id,
     group: fg,
     centerMesh: center,
+    petalGroup,
+    seedPodMesh,
+    hitMesh,
     x,
-    y: gy + 0.28,
+    y: gy + 0.28 * baseScale,
     z,
-    pollen: 1.0,
-    regenTimer: 0
+    colorIdx: cIdx,
+    baseScale,
+    stage,
+    pollen,
+    stageTimer,
+    sproutDuration,
+    seedHoldDuration,
+    wiltDuration,
+    seedHarvested: false,
+    removed: false
   };
+  hitMesh.userData.flowerObj = fl;
+  if (!Array.isArray(ctx.flowerHitMeshes)) ctx.flowerHitMeshes = [];
+  ctx.flowerHitMeshes.push(hitMesh);
+  return fl;
 }
 
 function spawnTreeWithHiveSlot(ctx, x, z) {
@@ -1010,12 +1106,162 @@ function refreshHiveFlowers(ctx, hive, maxRadius = 11.5) {
   const list = [];
   for (let i = 0; i < ctx.campusFlowers.length; i++) {
     const fl = ctx.campusFlowers[i];
-    if (Math.hypot(fl.x - hive.x, fl.z - hive.z) <= maxRadius) {
+    if (fl && !fl.removed && Math.hypot(fl.x - hive.x, fl.z - hive.z) <= maxRadius) {
       list.push(fl);
     }
   }
   hive.flowersNearby = list;
   return list;
+}
+
+function refreshAllHiveFlowers(ctx) {
+  if (!ctx || !ctx.beehives) return;
+  for (let i = 0; i < ctx.beehives.length; i++) {
+    const h = ctx.beehives[i];
+    if (h && !h.abandoned && !h.collected) refreshHiveFlowers(ctx, h);
+  }
+}
+
+function transitionFlowerToSeeding(fl, a) {
+  fl.pollen = 0;
+  fl.stage = 'seeding';
+  fl.stageTimer = 0;
+  fl.seedHarvested = false;
+  if (fl.centerMesh) {
+    if (a) fl.centerMesh.material = a.flowerCenterEmptyMat;
+    if (fl.centerMesh.scale?.setScalar) fl.centerMesh.scale.setScalar(0.72);
+  }
+  if (fl.petalGroup?.scale?.set) fl.petalGroup.scale.set(0.86, 0.72, 0.86);
+  if (fl.seedPodMesh) fl.seedPodMesh.visible = true;
+}
+
+function removeCampusFlower(ctx, fl) {
+  if (!fl || fl.removed) return;
+  fl.removed = true;
+  if (fl.group) {
+    if (fl.group.parent) fl.group.parent.remove(fl.group);
+    if (THREE && THREE.Object3D && typeof disposeObjectResources === 'function') {
+      try { disposeObjectResources(fl.group); } catch (_) {}
+    }
+  }
+  if (fl.hitMesh && ctx && Array.isArray(ctx.flowerHitMeshes)) {
+    const hIdx = ctx.flowerHitMeshes.indexOf(fl.hitMesh);
+    if (hIdx !== -1) ctx.flowerHitMeshes.splice(hIdx, 1);
+  }
+  if (ctx && Array.isArray(ctx.campusFlowers)) {
+    const fIdx = ctx.campusFlowers.indexOf(fl);
+    if (fIdx !== -1) ctx.campusFlowers.splice(fIdx, 1);
+  }
+  if (ctx && Array.isArray(ctx.pastureBees)) {
+    for (let i = 0; i < ctx.pastureBees.length; i++) {
+      if (ctx.pastureBees[i] && ctx.pastureBees[i].targetFlower === fl) {
+        ctx.pastureBees[i].targetFlower = null;
+      }
+    }
+  }
+  if (ctx && ctx.hoveredFlower === fl) ctx.hoveredFlower = null;
+  refreshAllHiveFlowers(ctx);
+}
+
+export function disperseFlowerSeed(ctx, motherFl) {
+  if (!ctx || !motherFl) return null;
+  if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = [];
+  if (ctx.campusFlowers.length >= MAX_CAMPUS_FLOWERS) return null;
+
+  let sx = 0, sz = 0, found = false;
+  for (let attempt = 0; attempt < 22; attempt++) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 1.8 + Math.random() * 3.8;
+    const cx = motherFl.x + Math.cos(ang) * dist;
+    const cz = motherFl.z + Math.sin(ang) * dist;
+    if (!isNaturalSoilSpot(cx, cz, 0.65) || isBlockedAt(ctx, cx, cz, 0.45)) continue;
+    let tooClose = false;
+    for (let i = 0; i < ctx.campusFlowers.length; i++) {
+      const other = ctx.campusFlowers[i];
+      if (other && !other.removed && Math.hypot(other.x - cx, other.z - cz) < 0.75) {
+        tooClose = true;
+        break;
+      }
+    }
+    if (!tooClose) {
+      sx = cx;
+      sz = cz;
+      found = true;
+      break;
+    }
+  }
+  if (!found) return null;
+
+  const nextColor = Math.random() < 0.75
+    ? motherFl.colorIdx
+    : Math.floor(Math.random() * FLOWER_COLORS.length);
+  const child = createCampusFlower(ctx, sx, sz, nextColor, {
+    stage: 'sprouting',
+    sproutDuration: 12 + Math.random() * 20
+  });
+  ctx.campusFlowers.push(child);
+  if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: motherFl.x, y: motherFl.y, z: motherFl.z }, 0xfde047, 5);
+  refreshAllHiveFlowers(ctx);
+  return child;
+}
+
+export function stepCampusFlowers(ctx, dt, nowSec = 0) {
+  if (!ctx || !Array.isArray(ctx.campusFlowers) || !ctx.campusFlowers.length) return;
+  const a = (THREE && THREE.MeshStandardMaterial) ? getBeeSharedAssets() : null;
+
+  for (let fi = ctx.campusFlowers.length - 1; fi >= 0; fi--) {
+    const fl = ctx.campusFlowers[fi];
+    if (!fl || fl.removed) {
+      ctx.campusFlowers.splice(fi, 1);
+      continue;
+    }
+
+    if (fl.stage === 'sprouting') {
+      fl.stageTimer += dt;
+      const p = Math.max(0, Math.min(1, fl.stageTimer / (fl.sproutDuration || 18)));
+      if (fl.group?.scale?.setScalar) fl.group.scale.setScalar((fl.baseScale || 1) * (0.24 + 0.76 * p));
+      if (fl.petalGroup?.scale?.setScalar) fl.petalGroup.scale.setScalar(0.15 + 0.85 * p);
+      if (fl.stageTimer >= (fl.sproutDuration || 18)) {
+        fl.stage = 'blooming';
+        fl.pollen = 1.0;
+        fl.stageTimer = 0;
+        if (fl.centerMesh) {
+          if (a) fl.centerMesh.material = a.flowerCenterMat;
+          if (fl.centerMesh.scale?.setScalar) fl.centerMesh.scale.setScalar(1.0);
+        }
+        if (fl.petalGroup?.scale?.setScalar) fl.petalGroup.scale.setScalar(1.0);
+        if (fl.seedPodMesh) fl.seedPodMesh.visible = false;
+        if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: fl.x, y: fl.y, z: fl.z }, 0xfacc15, 4);
+        refreshAllHiveFlowers(ctx);
+      }
+    } else if (fl.stage === 'blooming') {
+      if (fl.centerMesh?.scale?.setScalar) fl.centerMesh.scale.setScalar(0.72 + Math.max(0, fl.pollen) * 0.28);
+      if (fl.pollen <= 0.001) {
+        transitionFlowerToSeeding(fl, a);
+      }
+    } else if (fl.stage === 'seeding') {
+      fl.stageTimer += dt;
+      if (fl.seedPodMesh) {
+        fl.seedPodMesh.visible = true;
+        if (fl.seedPodMesh.position) fl.seedPodMesh.position.y = 0.32 + Math.sin(nowSec * 5 + fi) * 0.02;
+        if (fl.seedPodMesh.scale?.setScalar) fl.seedPodMesh.scale.setScalar(0.95 + Math.sin(nowSec * 6 + fi) * 0.14);
+      }
+      if (fl.stageTimer >= (fl.seedHoldDuration || 25)) {
+        if (!fl.seedHarvested) disperseFlowerSeed(ctx, fl);
+        if (fl.seedPodMesh) fl.seedPodMesh.visible = false;
+        fl.stage = 'wilting';
+        fl.stageTimer = 0;
+      }
+    } else if (fl.stage === 'wilting') {
+      fl.stageTimer += dt;
+      const wp = Math.max(0, Math.min(1, fl.stageTimer / (fl.wiltDuration || 4)));
+      if (fl.group?.scale?.setScalar) fl.group.scale.setScalar((fl.baseScale || 1) * (1 - 0.95 * wp));
+      if (fl.group?.rotation) fl.group.rotation.z = wp * 0.35;
+      if (fl.stageTimer >= (fl.wiltDuration || 4)) {
+        removeCampusFlower(ctx, fl);
+      }
+    }
+  }
 }
 
 function markHiveAbandoned(hive) {
@@ -1043,8 +1289,9 @@ function createPastureBees(ctx) {
   if (!Array.isArray(ctx.beehives)) ctx.beehives = []; else ctx.beehives.length = 0;
   if (!Array.isArray(ctx.beehiveHitMeshes)) ctx.beehiveHitMeshes = []; else ctx.beehiveHitMeshes.length = 0;
   if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = []; else ctx.campusFlowers.length = 0;
+  if (!Array.isArray(ctx.flowerHitMeshes)) ctx.flowerHitMeshes = []; else ctx.flowerHitMeshes.length = 0;
 
-  // Flores coloridas apenas em solo natural perto das colmeias do campus
+  // Flores coloridas em solo natural com tempos variados perto das colmeias
   let flowerSeed = 0;
   CAMPUS_HIVE_CANDIDATES.forEach((spot, sIdx) => {
     const count = sIdx < 3 ? 6 : 7;
@@ -1055,7 +1302,14 @@ function createPastureBees(ctx) {
         const fx = spot.x + Math.cos(ang) * dist;
         const fz = spot.z + Math.sin(ang) * dist;
         if (isNaturalSoilSpot(fx, fz, 0.7) && !isBlockedAt(ctx, fx, fz, 0.5)) {
-          ctx.campusFlowers.push(createCampusFlower(ctx, fx, fz, flowerSeed++));
+          const isStaggeredSprout = sIdx >= 3 && (flowerSeed % 6 === 0);
+          const sDur = 12 + hash01(f + 5, sIdx + 19) * 20;
+          ctx.campusFlowers.push(createCampusFlower(ctx, fx, fz, flowerSeed++, {
+            stage: isStaggeredSprout ? 'sprouting' : 'blooming',
+            pollen: 1.0,
+            sproutDuration: sDur,
+            stageTimer: isStaggeredSprout ? sDur * hash01(sIdx + 2, f + 9) * 0.7 : 0
+          }));
           break;
         }
       }
@@ -1138,6 +1392,33 @@ function createPastureBees(ctx) {
   }
 }
 
+function spawnFreshSproutsNearSpot(ctx, spot, targetCount = 4) {
+  if (!ctx || !spot) return;
+  if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = [];
+  let activeOrSprout = 0;
+  for (let i = 0; i < ctx.campusFlowers.length; i++) {
+    const fl = ctx.campusFlowers[i];
+    if (fl && !fl.removed && (fl.stage === 'blooming' || fl.stage === 'sprouting') &&
+      Math.hypot(fl.x - spot.x, fl.z - spot.z) <= 11.5) {
+      activeOrSprout++;
+    }
+  }
+  const needed = Math.max(0, targetCount - activeOrSprout);
+  let spawned = 0;
+  for (let attempt = 0; attempt < 28 && spawned < needed && ctx.campusFlowers.length < MAX_CAMPUS_FLOWERS; attempt++) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 2.2 + Math.random() * 5.2;
+    const fx = spot.x + Math.cos(ang) * dist;
+    const fz = spot.z + Math.sin(ang) * dist;
+    if (!isNaturalSoilSpot(fx, fz, 0.7) || isBlockedAt(ctx, fx, fz, 0.5)) continue;
+    ctx.campusFlowers.push(createCampusFlower(ctx, fx, fz, Math.floor(Math.random() * FLOWER_COLORS.length), {
+      stage: 'sprouting',
+      sproutDuration: 6 + Math.random() * 10
+    }));
+    spawned++;
+  }
+}
+
 function startHiveMigration(ctx, oldHive) {
   // Escolhe outro ponto candidato do campus com mais flores disponíveis
   let bestSpot = null;
@@ -1150,7 +1431,9 @@ function startHiveMigration(ctx, oldHive) {
     if (ctx.campusFlowers) {
       for (let f = 0; f < ctx.campusFlowers.length; f++) {
         const fl = ctx.campusFlowers[f];
-        if (fl.pollen > 0.15 && Math.hypot(fl.x - cand.x, fl.z - cand.z) <= 11.5) score++;
+        if (fl && !fl.removed && fl.stage === 'blooming' && fl.pollen > 0.001 && Math.hypot(fl.x - cand.x, fl.z - cand.z) <= 11.5) {
+          score++;
+        }
       }
     }
     if (score > bestScore) {
@@ -1159,26 +1442,14 @@ function startHiveMigration(ctx, oldHive) {
     }
   }
   if (!bestSpot) {
-    if (oldHive.flowersNearby && oldHive.flowersNearby.length) {
-      const a = getBeeSharedAssets();
-      for (let f = 0; f < oldHive.flowersNearby.length; f++) {
-        const fl = oldHive.flowersNearby[f];
-        fl.pollen = 1.0;
-        if (fl.centerMesh) fl.centerMesh.material = a.flowerCenterMat;
-      }
-    }
+    spawnFreshSproutsNearSpot(ctx, oldHive, 4);
+    refreshHiveFlowers(ctx, oldHive);
     return;
   }
 
-  // Garante flores frescas no destino caso todas estejam baixas
-  if (bestScore <= 1 && ctx.campusFlowers) {
-    for (let f = 0; f < ctx.campusFlowers.length; f++) {
-      const fl = ctx.campusFlowers[f];
-      if (Math.hypot(fl.x - bestSpot.x, fl.z - bestSpot.z) <= 11.5) {
-        fl.pollen = 1.0;
-        fl.centerMesh.material = getBeeSharedAssets().flowerCenterMat;
-      }
-    }
+  // Garante brotos frescos no destino caso haja poucas flores ativas
+  if (bestScore <= 1) {
+    spawnFreshSproutsNearSpot(ctx, bestSpot, 4);
   }
 
   const queen = oldHive.queen;
@@ -1349,20 +1620,8 @@ function stepPastureBees(ctx, dt) {
   const px = ctx.playerPos ? ctx.playerPos.x : 0;
   const pz = ctx.playerPos ? ctx.playerPos.z : 0;
 
-  // Regeneração lenta das flores esgotadas (para ciclos futuros)
-  if (ctx.campusFlowers) {
-    for (let fi = 0; fi < ctx.campusFlowers.length; fi++) {
-      const fl = ctx.campusFlowers[fi];
-      if (fl.pollen <= 0.1) {
-        fl.regenTimer += dt;
-        if (fl.regenTimer > 32) {
-          fl.pollen = 1.0;
-          fl.regenTimer = 0;
-          fl.centerMesh.material = getBeeSharedAssets().flowerCenterMat;
-        }
-      }
-    }
-  }
+  // Ciclo de vida das flores silvestres (broto -> flor -> semente -> dispersão -> murchar)
+  stepCampusFlowers(ctx, dt, nowSec);
 
   // Atualiza colmeias (construção, brilho de mel, detecção de falta de flores -> migração)
   if (ctx.beehives) {
@@ -1384,15 +1643,19 @@ function stepPastureBees(ctx, dt) {
         }
       }
 
-      // Verifica se faltam flores com pólen perto da colmeia ativa
+      // Verifica se ainda existem flores em floração ou brotando perto da colmeia
       if (!hive.migrating && hive.buildProgress >= 1.0) {
         let availableFlowers = 0;
+        let upcomingSprouts = 0;
         for (let fi = 0; fi < hive.flowersNearby.length; fi++) {
-          if (hive.flowersNearby[fi].pollen > 0.15) availableFlowers++;
+          const fl = hive.flowersNearby[fi];
+          if (!fl || fl.removed) continue;
+          if (fl.stage === 'blooming' && fl.pollen > 0.001) availableFlowers++;
+          else if (fl.stage === 'sprouting' || (fl.stage === 'seeding' && !fl.seedHarvested)) upcomingSprouts++;
         }
-        if (availableFlowers === 0) {
+        if (availableFlowers === 0 && upcomingSprouts === 0) {
           hive.noPollenTimer += dt;
-          if (hive.noPollenTimer > 4.0) {
+          if (hive.noPollenTimer > 5.0) {
             hive.noPollenTimer = 0;
             startHiveMigration(ctx, hive);
           }
@@ -1404,7 +1667,7 @@ function stepPastureBees(ctx, dt) {
   }
 
   if (!ctx.pastureBees || !ctx.pastureBees.length) return;
-  const a = getBeeSharedAssets();
+  const a = (THREE && THREE.MeshStandardMaterial) ? getBeeSharedAssets() : null;
 
   for (let i = 0; i < ctx.pastureBees.length; i++) {
     const bee = ctx.pastureBees[i];
@@ -1496,14 +1759,14 @@ function stepPastureBees(ctx, dt) {
     }
 
     if (bee.state === 'to_flower') {
-      if (!bee.targetFlower || bee.targetFlower.pollen <= 0.15) {
-        const candidates = hive.flowersNearby.filter((fl) => fl.pollen > 0.15);
+      if (!bee.targetFlower || bee.targetFlower.removed || bee.targetFlower.stage !== 'blooming' || bee.targetFlower.pollen <= 0.001) {
+        const candidates = hive.flowersNearby.filter((fl) => fl && !fl.removed && fl.stage === 'blooming' && fl.pollen > 0.001);
         bee.targetFlower = candidates.length
           ? candidates[Math.floor(Math.random() * candidates.length)]
           : null;
       }
       if (!bee.targetFlower) {
-        // Sem flores disponíveis -> orbita colmeia aguardando migração
+        // Sem flores disponíveis -> orbita colmeia aguardando brotos ou migração
         const t = bee.phase;
         const nx = hive.x + 0.22 + Math.cos(t) * bee.radius;
         const nz = hive.z + 0.22 + Math.sin(t) * bee.radius;
@@ -1529,15 +1792,20 @@ function stepPastureBees(ctx, dt) {
     } else if (bee.state === 'collect') {
       bee.group.rotation.x = 0;
       bee.stateTimer -= dt;
-      if (bee.targetFlower) {
+      if (bee.targetFlower && !bee.targetFlower.removed && bee.targetFlower.stage === 'blooming') {
         bee.group.position.y = bee.targetFlower.y + 0.14 + Math.sin(nowSec * 14) * 0.04;
         bee.group.rotation.y += dt * 4.2;
+      } else {
+        bee.targetFlower = null;
+        bee.state = 'to_flower';
+        continue;
       }
       if (bee.stateTimer <= 0) {
-        if (bee.targetFlower) {
-          bee.targetFlower.pollen = Math.max(0, bee.targetFlower.pollen - 0.15);
-          if (bee.targetFlower.pollen <= 0.15) {
-            bee.targetFlower.centerMesh.material = a.flowerCenterEmptyMat;
+        if (bee.targetFlower && !bee.targetFlower.removed) {
+          const nextPollen = Math.max(0, Math.round((bee.targetFlower.pollen - FLOWER_POLLEN_PER_VISIT) * 100) / 100);
+          bee.targetFlower.pollen = nextPollen;
+          if (nextPollen <= 0.001) {
+            transitionFlowerToSeeding(bee.targetFlower, a);
           }
         }
         bee.hasPollen = true;
@@ -1644,12 +1912,11 @@ function createAbandonedHiveCompostItem(ctx, hive) {
 
 export function getBeehiveInspectInfo(hive) {
   if (!hive) return null;
-  const totalFlowers = Array.isArray(hive.flowersNearby) ? hive.flowersNearby.length : 0;
+  const flowers = Array.isArray(hive.flowersNearby) ? hive.flowersNearby.filter((fl) => fl && !fl.removed) : [];
+  const totalFlowers = flowers.length;
   let activeFlowers = 0;
-  if (totalFlowers) {
-    for (let i = 0; i < totalFlowers; i++) {
-      if (hive.flowersNearby[i].pollen > 0.15) activeFlowers++;
-    }
+  for (let i = 0; i < totalFlowers; i++) {
+    if (flowers[i].stage === 'blooming' && flowers[i].pollen > 0.001) activeFlowers++;
   }
   const honeyPct = Math.round(hive.honeyLevel || 0);
   const buildPct = Math.round((hive.buildProgress || 0) * 100);
@@ -1737,5 +2004,289 @@ export function interactBeehive(ctx, hive) {
 
   hive.honeyLevel = Math.max(0, (hive.honeyLevel || 0) - 35);
   triggerCozyHeartBurst(hive.x, hive.y + 0.35, hive.z, 0xfacc15);
+  return true;
+}
+
+// ============================================================================
+// FLORES SILVESTRES, INSPEÇÃO DE PÓLEN, SEMENTES E PLANTIO
+// ============================================================================
+export function updateFlowerSeedLabel(item) {
+  if (!item || !item.flowerSeedCtrl) return;
+  const count = Math.max(0, Math.round(item.flowerSeedCtrl.count || 0));
+  item.label = `🌱 Sementes de Flor (${count} un.)`;
+  if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
+}
+
+export function makeFlowerSeedPacket(ctx, id, x, y, z, opts = {}) {
+  const count = Math.max(1, Math.min(20, opts.count ?? 5));
+  const meta = {
+    category: 'gardening',
+    purpose: 'Pacote de sementes de flores silvestres; mire na grama natural para plantar e alimentar abelhas.',
+    compatibilities: { canEnterCooker: false },
+    serializeState: (it) => ({
+      flowerSeeds: it && it.flowerSeedCtrl ? Math.max(0, Math.round(it.flowerSeedCtrl.count || 0)) : 0
+    }),
+    applyState: (it, custom) => {
+      if (!it || !custom || typeof custom.flowerSeeds !== 'number') return;
+      it.flowerSeedCtrl = it.flowerSeedCtrl || { count: 5, maxCount: 20 };
+      it.flowerSeedCtrl.count = Math.max(1, Math.min(20, Math.round(custom.flowerSeeds)));
+      updateFlowerSeedLabel(it);
+    }
+  };
+
+  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial) {
+    const mockItem = {
+      id,
+      label: `🌱 Sementes de Flor (${count} un.)`,
+      flowerSeedCtrl: { count, maxCount: 20 },
+      mesh: {
+        position: { x, y, z, set() {} },
+        userData: { isFlowerSeedPacket: true }
+      },
+      meta
+    };
+    if (ctx && Array.isArray(ctx.pickableItems)) ctx.pickableItems.push(mockItem);
+    return mockItem;
+  }
+
+  const a = getBeeSharedAssets();
+  const g = new THREE.Group();
+
+  const body = new THREE.Mesh(a.seedPackBodyGeo, a.seedPackBodyMat);
+  body.position.y = 0.075;
+  const trim = new THREE.Mesh(a.seedPackTrimGeo, a.seedPackTrimMat);
+  trim.position.y = 0.132;
+
+  const emblemCenter = new THREE.Mesh(a.centerGeo, a.flowerCenterMat);
+  emblemCenter.scale.setScalar(0.32);
+  emblemCenter.position.set(0, 0.068, 0.015);
+  const emblemMat = a.petalMats[(opts.colorIdx || 0) % a.petalMats.length];
+  for (let p = 0; p < 5; p++) {
+    const ang = (p / 5) * Math.PI * 2;
+    const ep = new THREE.Mesh(a.petalGeo, emblemMat);
+    ep.scale.set(0.32, 0.32, 0.18);
+    ep.position.set(Math.cos(ang) * 0.019, 0.068 + Math.sin(ang) * 0.019, 0.014);
+    g.add(ep);
+  }
+
+  g.add(body, trim, emblemCenter);
+  g.userData.isFlowerSeedPacket = true;
+  markSubtreeDynamic(g);
+
+  const label = `🌱 Sementes de Flor (${count} un.)`;
+  const item = registerPickable(ctx, id, label, g, x, y, z, opts.ry || 0, 0.08, 0.15, meta);
+  item.flowerSeedCtrl = { count, maxCount: 20 };
+  updateFlowerSeedLabel(item);
+  return item;
+}
+
+export function findHoveredFlower(raycaster, ctx) {
+  if (!raycaster || !ctx || !ctx.flowerHitMeshes || !ctx.flowerHitMeshes.length) return null;
+  const hits = raycaster.intersectObjects(ctx.flowerHitMeshes, false);
+  const hit = firstUnoccludedRayHit(ctx, hits, 4.2, { checkWalls: true });
+  if (hit && hit.object && hit.object.userData && hit.object.userData.flowerObj) {
+    const fl = hit.object.userData.flowerObj;
+    if (fl.removed || fl.stage === 'wilting') return null;
+    ctx.hoverHit = hit;
+    return fl;
+  }
+  return null;
+}
+
+export function getFlowerHoverPrompt(fl, held) {
+  if (!fl || fl.removed) return '';
+  if (fl.stage === 'seeding' && !fl.seedHarvested) {
+    if (!held || held.flowerSeedCtrl) {
+      return '🌾 Flor (Semente Pronta!) — Colher Semente';
+    }
+    return '🌾 Flor (Semente Pronta!) — Esvazie a mão para colher';
+  }
+  if (fl.stage === 'sprouting') {
+    const pct = Math.max(0, Math.min(100, Math.round((fl.stageTimer / (fl.sproutDuration || 18)) * 100)));
+    return `🌱 Broto de Flor (${pct}%)`;
+  }
+  const pollenPct = Math.max(0, Math.min(100, Math.round((fl.pollen || 0) * 100)));
+  return `🌸 Flor Silvestre (Pólen: ${pollenPct}%)`;
+}
+
+export function getFlowerInspectInfo(fl) {
+  if (!fl || fl.removed) return null;
+  const pollenPct = Math.max(0, Math.min(100, Math.round((fl.pollen || 0) * 100)));
+  const growthPct = fl.stage === 'sprouting'
+    ? Math.max(0, Math.min(100, Math.round((fl.stageTimer / (fl.sproutDuration || 18)) * 100)))
+    : 100;
+  const seedTimeLeftSec = fl.stage === 'seeding'
+    ? Math.max(0, Math.ceil((fl.seedHoldDuration || 25) - (fl.stageTimer || 0)))
+    : 0;
+  const colorName = FLOWER_COLOR_NAMES[fl.colorIdx] || 'Silvestre';
+  return {
+    stage: fl.stage,
+    pollenPct,
+    growthPct,
+    seedTimeLeftSec,
+    colorName,
+    seedHarvested: !!fl.seedHarvested
+  };
+}
+
+export function interactFlower(ctx, fl) {
+  if (!ctx || !fl || fl.removed) return false;
+  const onToast = ctx.callbacks && ctx.callbacks.onToast;
+  const held = ctx.heldItem;
+  const win = typeof window !== 'undefined' ? window : null;
+
+  if (fl.stage === 'seeding' && !fl.seedHarvested) {
+    if (held && !held.flowerSeedCtrl) {
+      onToast?.('👐 Esvazie a mão ou segure Sementes de Flor para colher esta semente!');
+      return true;
+    }
+
+    if (held && held.flowerSeedCtrl) {
+      const maxC = held.flowerSeedCtrl.maxCount || 20;
+      if ((held.flowerSeedCtrl.count || 0) >= maxC) {
+        onToast?.('🎒 Seu pacote de sementes já está cheio (20 un.)!');
+        return true;
+      }
+      held.flowerSeedCtrl.count = Math.min(maxC, (held.flowerSeedCtrl.count || 0) + 1);
+      updateFlowerSeedLabel(held);
+      ctx.callbacks?.onHoldChange?.(held.label);
+      ctx.markItemMoved?.(held);
+      ctx.notifyWorldAction?.();
+    } else {
+      const id = 'dyn_flower_seeds_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 999);
+      const item = makeFlowerSeedPacket(ctx, id, fl.x, fl.y, fl.z, { count: 1, colorIdx: fl.colorIdx });
+      item.isMoved = true;
+      ctx.heldItem = item;
+      ctx.lastPickupAt = performance.now();
+      ctx.callbacks?.onHoldChange?.(item.label);
+      ctx.markItemMoved?.(item);
+      ctx.notifyWorldAction?.();
+    }
+
+    fl.seedHarvested = true;
+    if (fl.seedPodMesh) fl.seedPodMesh.visible = false;
+    fl.stage = 'wilting';
+    fl.stageTimer = 0;
+    if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: fl.x, y: fl.y, z: fl.z }, 0x4ade80, 6);
+    if (win && win.MycoAudio) win.MycoAudio.playClick();
+    onToast?.('🌾 Semente colhida! Esta flor não vai se espalhar e vai murchar.');
+    return true;
+  }
+
+  if (fl.stage === 'sprouting') {
+    const pct = Math.max(0, Math.min(100, Math.round((fl.stageTimer / (fl.sproutDuration || 18)) * 100)));
+    onToast?.(`🌱 Broto de Flor crescendo (${pct}%). Em breve atrairá as abelhas!`);
+    return true;
+  }
+
+  if (fl.stage === 'blooming') {
+    const pollenPct = Math.max(0, Math.min(100, Math.round((fl.pollen || 0) * 100)));
+    onToast?.(`🌸 Flor Silvestre (${pollenPct}% de pólen • pressione F para inspecionar).`);
+    return true;
+  }
+
+  return true;
+}
+
+export function findFlowerPlantSpot(raycaster, ctx) {
+  if (!raycaster || !raycaster.ray) return null;
+  const ro = raycaster.ray.origin;
+  const rd = raycaster.ray.direction;
+  if (!ro || !rd || rd.y >= -0.05) return null;
+
+  let t = (terrainHeight(ro.x, ro.z) - ro.y) / rd.y;
+  if (!Number.isFinite(t) || t < 0.45 || t > 5.2) return null;
+
+  let x = ro.x + rd.x * t;
+  let z = ro.z + rd.z * t;
+  const gy = terrainHeight(x, z);
+  const t2 = (gy - ro.y) / rd.y;
+  if (Number.isFinite(t2) && t2 >= 0.45 && t2 <= 5.2) {
+    t = t2;
+    x = ro.x + rd.x * t;
+    z = ro.z + rd.z * t;
+  }
+  const finalY = terrainHeight(x, z);
+
+  if (ctx && isRayOccludedByStructure(ctx, t, { checkWalls: true })) return null;
+  if (!isNaturalSoilSpot(x, z, 0.55) || isBlockedAt(ctx || {}, x, z, 0.45)) return null;
+  if (ctx && ctx.campusFlowers) {
+    for (let i = 0; i < ctx.campusFlowers.length; i++) {
+      const fl = ctx.campusFlowers[i];
+      if (fl && !fl.removed && Math.hypot(fl.x - x, fl.z - z) < 0.45) return null;
+    }
+  }
+
+  if (_flowerPlantHit.point.set) _flowerPlantHit.point.set(x, finalY, z);
+  else {
+    _flowerPlantHit.point.x = x;
+    _flowerPlantHit.point.y = finalY;
+    _flowerPlantHit.point.z = z;
+  }
+  _flowerPlantHit.distance = t;
+  if (ctx) ctx.hoverHit = _flowerPlantHit;
+  return { x, y: finalY, z, distance: t };
+}
+
+export function getFlowerPlantHoverPrompt(held) {
+  const count = held && held.flowerSeedCtrl ? Math.max(0, Math.round(held.flowerSeedCtrl.count || 0)) : 0;
+  return `🌱 Plantar Semente de Flor aqui (${count} un.)`;
+}
+
+export function plantFlowerSeedAtSpot(ctx, spot) {
+  if (!ctx || !spot || !ctx.heldItem || !ctx.heldItem.flowerSeedCtrl) return false;
+  const held = ctx.heldItem;
+  const onToast = ctx.callbacks && ctx.callbacks.onToast;
+  const win = typeof window !== 'undefined' ? window : null;
+
+  if ((held.flowerSeedCtrl.count || 0) <= 0) return false;
+  if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = [];
+  if (ctx.campusFlowers.length >= MAX_CAMPUS_FLOWERS) {
+    onToast?.('🌸 O campus já está cheio de flores! Aguarde algumas murcharem.');
+    return true;
+  }
+
+  const colorIdx = Math.floor(Math.random() * FLOWER_COLORS.length);
+  const sprout = createCampusFlower(ctx, spot.x, spot.z, colorIdx, {
+    stage: 'sprouting',
+    sproutDuration: 10 + Math.random() * 14
+  });
+  ctx.campusFlowers.push(sprout);
+  refreshAllHiveFlowers(ctx);
+  if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: spot.x, y: spot.y + 0.15, z: spot.z }, 0x4ade80, 6);
+  if (win && win.MycoAudio) win.MycoAudio.playClick();
+
+  held.flowerSeedCtrl.count = Math.max(0, (held.flowerSeedCtrl.count || 0) - 1);
+  if (held.flowerSeedCtrl.count <= 0) {
+    held._removedForSync = true;
+    if (ctx.pendingMovedItems && held.id) {
+      ctx.pendingMovedItems[held.id] = {
+        id: held.id,
+        state: { custom: { dynamicKind: 'flower_seeds', removed: true } }
+      };
+    }
+    if (held.mesh && held.mesh.parent) held.mesh.parent.remove(held.mesh);
+    if (THREE && THREE.Object3D && typeof disposeObjectResources === 'function') {
+      try { disposeObjectResources(held.mesh); } catch (_) {}
+    }
+    if (Array.isArray(ctx.pickableItems)) {
+      const idx = ctx.pickableItems.indexOf(held);
+      if (idx !== -1) ctx.pickableItems.splice(idx, 1);
+    }
+    if (ctx.pickableMap && typeof ctx.pickableMap.delete === 'function') {
+      ctx.pickableMap.delete(held.id);
+    }
+    ctx.heldItem = null;
+    if (ctx.placementGhost) ctx.placementGhost.visible = false;
+    ctx.callbacks?.onHoldChange?.(null);
+    ctx.notifyWorldAction?.();
+    onToast?.('🌸 Última semente plantada! A flor vai brotar em breve.');
+  } else {
+    updateFlowerSeedLabel(held);
+    ctx.callbacks?.onHoldChange?.(held.label);
+    ctx.markItemMoved?.(held);
+    ctx.notifyWorldAction?.();
+    onToast?.(`🌱 Semente de flor plantada! (${held.flowerSeedCtrl.count} restantes)`);
+  }
   return true;
 }

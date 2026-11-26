@@ -27,6 +27,7 @@ import { rebuildCrateCargo, removeCrateCargo } from './crate-cargo.js';
 import { makeSyringe10ml } from '../items/syringe.js';
 import { makeFlocao500g } from '../items/flocao-corn.js';
 import { makeAmpouleCase, makeVial3ml } from '../items/ampoule-case.js';
+import { makeFlowerSeedPacket } from '../entities/pasture-cows.js';
 import { saveLocalMovedObject } from './world-objects-sync.js';
 import { moveItemWithSupported, dropSupportedItemsToGround } from './surface-group-move.js';
 import { getItemGroundHeight } from '../engine/physics.js';
@@ -203,6 +204,12 @@ export function ensureCoreAdminPrefabs() {
     label: 'Extrato de Malte / Mel 250g',
     category: 'reagent',
     factory: (ctx, opts) => makeLcNutrientBottle(ctx, opts.id || ('dyn_lc_nutrient_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+
+  registerItemPrefab('flower_seeds', {
+    label: 'Sementes de Flor (5 un.)',
+    category: 'gardening',
+    factory: (ctx, opts) => makeFlowerSeedPacket(ctx, opts.id || ('dyn_flower_seeds_' + Date.now().toString(36)), opts.x, opts.y, opts.z, { count: 5 })
   });
 }
 

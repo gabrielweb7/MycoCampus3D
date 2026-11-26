@@ -175,6 +175,7 @@ function collectDynamicObjects(sim) {
   markList(sim.labTrashMeshes);
   markList(sim.cowHitMeshes);
   markList(sim.beehiveHitMeshes);
+  markList(sim.flowerHitMeshes);
   if (sim.cinemaScreenMesh) dynamicObjects.add(sim.cinemaScreenMesh);
   if (sim.cinemaBeam) dynamicObjects.add(sim.cinemaBeam);
   if (sim.campusLightSwitches) {

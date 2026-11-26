@@ -7,7 +7,7 @@
 import { scrollRanking } from '../world/staircase-clock.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, cycleBurnerTimer, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
-import { petCow, interactBeehive } from '../entities/pasture-cows.js';
+import { petCow, interactBeehive, interactFlower } from '../entities/pasture-cows.js';
 import { petLocalCompanion } from '../entities/pets.js';
 import { triggerPettingAnimation } from '../entities/petting-hand.js';
 import { grabSportBall, throwHeldSportBall } from './sports-physics.js';
@@ -344,6 +344,9 @@ export function handleWorldInteraction(ctx) {
   }
   if (ctx.hoveredBeehive) {
     return interactBeehive(ctx, ctx.hoveredBeehive);
+  }
+  if (ctx.hoveredFlower) {
+    return interactFlower(ctx, ctx.hoveredFlower);
   }
   if (ctx.hoveredTelescope) {
     setTelescopeZoom(ctx, !ctx.telescopeZoomActive);

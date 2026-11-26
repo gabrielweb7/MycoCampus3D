@@ -5,7 +5,7 @@
  */
 
 import { t } from '../core/i18n.js';
-import { interactBeehive } from '../entities/pasture-cows.js';
+import { interactBeehive, interactFlower, plantFlowerSeedAtSpot } from '../entities/pasture-cows.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
@@ -312,6 +312,8 @@ export function handlePrimaryAction(ctx, aimNdc) {
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable?.growCtrl && installInGrow(ctx, ctx.hoveredPickable)) return true;
     if (ctx.hoveredBeehive) return interactBeehive(ctx, ctx.hoveredBeehive);
+    if (ctx.hoveredFlower) return interactFlower(ctx, ctx.hoveredFlower);
+    if (ctx.hoveredFlowerPlantSpot && ctx.heldItem.flowerSeedCtrl) return plantFlowerSeedAtSpot(ctx, ctx.hoveredFlowerPlantSpot);
     if (ctx.hoveredDoorObj) {
       ctx.hoveredDoorObj.open = !ctx.hoveredDoorObj.open;
       ctx.queueWorldStateChange(ctx.hoveredDoorObj.id, ctx.hoveredDoorObj.open ? 1 : 0);

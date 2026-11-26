@@ -41,7 +41,7 @@ import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposa
 import { canPruneGardenPlant } from '../world/campus-garden.js';
 import { growDoorActionLabel, growHeldFeedback, growSlotActionLabel, openPortableGrowPanel, toggleGrowDoor } from '../items/portable-grow.js';
 import { cleanItemTitle } from '../entities/hover-3d-badge.js';
-import { getBeehiveInspectInfo } from '../entities/pasture-cows.js';
+import { getBeehiveInspectInfo, getFlowerInspectInfo, interactFlower } from '../entities/pasture-cows.js';
 import { canDisposeItemInTrash, getTrashActionLabel, handleTrashDisposal, isContaminatedOrBurned } from '../items/lab-trash.js';
 import { t } from '../core/i18n.js';
 
@@ -739,6 +739,60 @@ export function inspectBeehiveCard(ctx, hive) {
   scheduleStatusCardDismiss(card);
 }
 
+export function inspectFlowerCard(ctx, fl) {
+  const info = getFlowerInspectInfo(fl);
+  if (!info) return;
+  const card = document.getElementById('item-status-card');
+  const titleEl = document.getElementById('item-status-title');
+  const iconEl = document.getElementById('item-status-icon');
+  const bodyEl = document.getElementById('item-status-body');
+  if (!card || !bodyEl) return;
+
+  const iconMap = {
+    sprouting: '🌱',
+    blooming: '🌸',
+    seeding: '🌾',
+    wilting: '🥀'
+  };
+  if (iconEl) iconEl.textContent = iconMap[info.stage] || '🌸';
+  if (titleEl) titleEl.textContent = t('actions.flower.title', { color: info.colorName });
+
+  const statusMeta = {
+    sprouting: { icon: '🌱', key: 'actions.flower.status_sprouting', cls: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40' },
+    blooming: { icon: '🌸', key: 'actions.flower.status_blooming', cls: 'bg-pink-500/20 text-pink-200 border-pink-400/40' },
+    seeding: { icon: '🌾', key: 'actions.flower.status_seeding', cls: 'bg-amber-500/20 text-amber-200 border-amber-400/40' },
+    wilting: { icon: '🥀', key: 'actions.flower.status_wilting', cls: 'bg-slate-700/70 text-slate-300 border-slate-500/40' }
+  }[info.stage] || { icon: '🌸', key: 'actions.flower.status_blooming', cls: 'bg-pink-500/20 text-pink-200 border-pink-400/40' };
+
+  const chips = [
+    { icon: statusMeta.icon, text: t(statusMeta.key, { pct: info.growthPct }), color: statusMeta.cls },
+    {
+      icon: '🌼',
+      text: t('actions.flower.pollen', { pct: info.pollenPct }),
+      color: info.pollenPct > 0 ? 'bg-yellow-500/20 text-yellow-200 border-yellow-400/40' : 'bg-slate-800/80 text-slate-300 border-slate-600/40'
+    }
+  ];
+  if (info.stage === 'seeding' && !info.seedHarvested) {
+    chips.push({
+      icon: '⏳',
+      text: t('actions.flower.seed_timer', { sec: info.seedTimeLeftSec }),
+      color: 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40'
+    });
+  }
+
+  const tipKey = info.stage === 'seeding'
+    ? 'actions.flower.tip_seeding'
+    : (info.stage === 'sprouting' ? 'actions.flower.tip_sprouting' : 'actions.flower.tip_blooming');
+  const tipHtml = `<p class="w-full text-cyan-200 text-[11px] leading-snug pt-1">💡 ${escapeHtml(t(tipKey))}</p>`;
+
+  bodyEl.innerHTML = chips.map(c => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${c.color}">${c.icon} ${escapeHtml(c.text)}</span>`).join('') + tipHtml;
+
+  ensureStatusCardDraggable(card);
+  card.classList.remove('hidden');
+  applySavedStatusCardPos(card);
+  scheduleStatusCardDismiss(card);
+}
+
 export function inspectItemToast(ctx, item) {
   if (!item) return;
   showItemStatusCard(item, ctx);
@@ -940,6 +994,26 @@ function buildContextActions(ctx) {
   if (ctx.heldItem && canReceiveSpawnForFruiting(ctx.hoveredG2GTarget)) {
     return [{ id: 'grow_mix_bag', icon: '🌾', label: t('grow.mix_bag'), primary: true, run: () => handlePrimaryAction(ctx) }];
   }
+  if (ctx.heldItem && ctx.heldItem.flowerSeedCtrl && ctx.hoveredFlower) {
+    const fl = ctx.hoveredFlower;
+    const flActions = [];
+    if (fl.stage === 'seeding' && !fl.seedHarvested) {
+      flActions.push({
+        id: 'harvest_flower_seed_' + (fl.id || '0'),
+        icon: '🌾',
+        label: t('actions.flower.harvest_seed'),
+        primary: true,
+        run: () => interactFlower(ctx, fl)
+      });
+    }
+    flActions.push({
+      id: 'inspect_flower_' + (fl.id || '0') + '_' + fl.stage + '_' + Math.round((fl.pollen || 0) * 100),
+      icon: '🔍',
+      label: t('actions.radial.inspect'),
+      run: () => inspectFlowerCard(ctx, fl)
+    });
+    return flActions;
+  }
   if (ctx.heldItem) return buildHeldItemActions(ctx);
   const actions = [];
 
@@ -1098,6 +1172,26 @@ function buildContextActions(ctx) {
       icon: '🔍',
       label: t('actions.radial.inspect'),
       run: () => inspectBeehiveCard(ctx, ctx.hoveredBeehive)
+    });
+    return actions;
+  }
+
+  if (ctx.hoveredFlower) {
+    const fl = ctx.hoveredFlower;
+    if (fl.stage === 'seeding' && !fl.seedHarvested) {
+      actions.push({
+        id: 'harvest_flower_seed_' + (fl.id || '0'),
+        icon: '🌾',
+        label: t('actions.flower.harvest_seed'),
+        primary: true,
+        run: () => interactFlower(ctx, fl)
+      });
+    }
+    actions.push({
+      id: 'inspect_flower_' + (fl.id || '0') + '_' + fl.stage + '_' + Math.round((fl.pollen || 0) * 100),
+      icon: '🔍',
+      label: t('actions.radial.inspect'),
+      run: () => inspectFlowerCard(ctx, fl)
     });
     return actions;
   }
