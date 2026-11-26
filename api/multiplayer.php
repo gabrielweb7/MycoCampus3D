@@ -190,6 +190,25 @@ if ($action === 'sync') {
     $initSync = !empty($body['init_sync']);
     $leaving = !$initSync && !empty($body['leaving']);
 
+    // Garante sessão única por conta: novo acesso desconecta o anterior
+    if ($initSync) {
+        $delOther = $pdo->prepare('DELETE FROM mc_sessions WHERE user_id = ? AND session_key <> ?');
+        $delOther->execute([$userId, $sessionKey]);
+    } else {
+        $chkOther = $pdo->prepare('SELECT 1 FROM mc_sessions WHERE user_id = ? AND session_key <> ? LIMIT 1');
+        $chkOther->execute([$userId, $sessionKey]);
+        if ($chkOther->fetchColumn()) {
+            if ($leaving) {
+                mc_json(['ok' => true]);
+            }
+            mc_json([
+                'ok' => true,
+                'kicked' => true,
+                'error' => 'Sua conta foi conectada em outro dispositivo ou aba.'
+            ]);
+        }
+    }
+
     // 1. Processa eventos pendentes do Master Admin (kick ou teleport)
     $forceTeleport = null;
     $evStmt = $pdo->prepare('SELECT id, action_type, payload FROM mc_admin_events WHERE target_user_id = ? ORDER BY id ASC');

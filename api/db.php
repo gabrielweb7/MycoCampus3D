@@ -264,6 +264,8 @@ function mc_clear_auth_cookie(): void {
 /** Gera token de sessao (retorna o token puro; salva apenas o hash). */
 function mc_issue_token(PDO $pdo, int $userId): string {
     $pdo->exec('DELETE FROM mc_auth_tokens WHERE last_used < (NOW() - INTERVAL ' . MC_TOKEN_TTL_DAYS . ' DAY)');
+    $delOld = $pdo->prepare('DELETE FROM mc_auth_tokens WHERE user_id = ?');
+    $delOld->execute([$userId]);
     $token = bin2hex(random_bytes(32));
     $ins = $pdo->prepare('INSERT INTO mc_auth_tokens (token_hash, user_id) VALUES (?, ?)');
     $ins->execute([hash('sha256', $token), $userId]);
