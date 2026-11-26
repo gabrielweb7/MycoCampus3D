@@ -690,9 +690,26 @@ function getBeeSharedAssets() {
     sctx.fillText('🐝 Enxame migrando!', 160, 33);
   });
 
+  const loadCuteTex = (file) => {
+    if (typeof document === 'undefined' || !THREE.TextureLoader) return null;
+    try {
+      const tex = new THREE.TextureLoader().load('assets/textures/' + file);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+      tex.userData.shared = true;
+      return tex;
+    } catch (e) {
+      return null;
+    }
+  };
+  const hiveTex = loadCuteTex('beehive-cute.jpg');
+  const workerTex = loadCuteTex('bee-worker.jpg');
+  const queenTex = loadCuteTex('bee-queen.jpg');
+
   beeSharedAssets = markAllShared({
-    yellowMat: new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.55 }),
-    queenYellowMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.42, emissive: 0x713f12, emissiveIntensity: 0.12 }),
+    yellowMat: new THREE.MeshStandardMaterial({ color: workerTex ? 0xffffff : 0xfde047, map: workerTex, roughness: 0.55 }),
+    queenYellowMat: new THREE.MeshStandardMaterial({ color: queenTex ? 0xffffff : 0xfacc15, map: queenTex, roughness: 0.42, emissive: 0x713f12, emissiveIntensity: 0.14 }),
+    blushMat: new THREE.MeshBasicMaterial({ color: 0xf472b6 }),
     crownMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.22, metalness: 0.72, emissive: 0x854d0e, emissiveIntensity: 0.25 }),
     darkMat: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.72 }),
     eyeWhiteMat: new THREE.MeshBasicMaterial({ color: 0xffffff }),
@@ -705,7 +722,8 @@ function getBeeSharedAssets() {
       depthWrite: false
     }),
     pollenMat: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.55, emissive: 0x92400e, emissiveIntensity: 0.2 }),
-    hiveWoodMat: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.72 }),
+    hiveWoodMat: new THREE.MeshStandardMaterial({ color: hiveTex ? 0xffffff : 0xd97706, map: hiveTex, roughness: 0.68 }),
+    hiveRoofGeo: new THREE.ConeGeometry(0.46, 0.22, 4),
     hiveDarkMat: new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 }),
     hiveAbandonedMat: new THREE.MeshStandardMaterial({ color: 0x78716c, roughness: 0.94 }),
     hiveAbandonedBandMat: new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.96 }),
@@ -756,10 +774,12 @@ function createCuteBeeMesh(isQueen) {
     eye.position.set(side * 0.052, 0.005, 0.122);
     const glint = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.022, 0.018), a.eyeWhiteMat);
     glint.position.set(side * 0.042, 0.02, 0.125);
+    const blush = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.018, 0.014), a.blushMat);
+    blush.position.set(side * 0.062, -0.032, 0.122);
     const ant = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.045, 0.045), a.darkMat);
     ant.position.set(side * 0.042, 0.09, 0.12);
     ant.rotation.x = 0.35;
-    g.add(eye, glint, ant);
+    g.add(eye, glint, blush, ant);
   });
 
   // 6 patinhas pequenas embaixo
@@ -885,11 +905,14 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
   const hiveBox = new THREE.Mesh(a.hiveBoxGeo, a.hiveWoodMat);
   const hiveBand = new THREE.Mesh(a.hiveBandGeo, a.hiveDarkMat);
   hiveBand.position.y = -0.10;
+  const hiveRoof = new THREE.Mesh(a.hiveRoofGeo, a.hiveDarkMat);
+  hiveRoof.position.y = 0.39;
+  hiveRoof.rotation.y = Math.PI / 4;
   const hiveHole = new THREE.Mesh(a.hiveHoleGeo, a.holeMat);
   hiveHole.position.set(0, -0.02, 0.285);
   const honeyDrop = new THREE.Mesh(a.honeyDropGeo, a.honeyMat);
   honeyDrop.position.set(0.08, -0.22, 0.285);
-  hiveGroup.add(hiveBox, hiveBand, hiveHole, honeyDrop);
+  hiveGroup.add(hiveBox, hiveBand, hiveRoof, hiveHole, honeyDrop);
   treeInfo.tree.add(hiveGroup);
 
   const worldX = treeInfo.tree.position.x + 0.48;
