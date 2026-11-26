@@ -419,6 +419,14 @@ test('formatHoverInfo: deduplica nome repetido do item no action e preserva vari
   assert.equal(mush.title, '🍄 Cantarelo Dourado');
   assert.equal(mush.params, 'Cantharellus cibarius • +25 XP • +1 Cogu');
   assert.equal(mush.action, 'Colher');
+
+  const cake = formatHoverInfo('🍂 Bolo Seco Esgotado (Psilocybe cubensis • 4/4 Flushs — Leve à Caixa de Substrato da Horta)', {
+    label: 'Bolo Seco Esgotado (Psilocybe cubensis • 4/4 Flushs — Leve à Caixa de Substrato da Horta)'
+  });
+  assert.ok(cake);
+  assert.equal(cake.title, '🍂 Bolo Seco Esgotado');
+  assert.equal(cake.params, 'Psilocybe cubensis • 4/4 Flushs • Leve à Caixa de Substrato da Horta');
+  assert.equal(cake.action, '');
 });
 
 test('10 Novas Mecânicas de Imersão: Break & Shake, Flambagem na Lamparina, Microscópio 1000x, Casing, Dunk e Pote c/ Sílica Gel', () => {

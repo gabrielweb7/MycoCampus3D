@@ -40,6 +40,7 @@ import { diagnoseItemPedagogy } from '../core/cultivation-tracks.js';
 import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposal.js';
 import { canPruneGardenPlant } from '../world/campus-garden.js';
 import { growDoorActionLabel, growHeldFeedback, growSlotActionLabel, openPortableGrowPanel, toggleGrowDoor } from '../items/portable-grow.js';
+import { cleanItemTitle } from '../entities/hover-3d-badge.js';
 import { t } from '../core/i18n.js';
 
 let barEl = null;
@@ -291,7 +292,8 @@ export function showItemStatusCard(item, ctx) {
   const bodyEl = document.getElementById('item-status-body');
   if (!card || !bodyEl) return;
 
-  const title = item.label || t('actions.common.item');
+  const rawTitle = item.label || t('actions.common.item');
+  const title = cleanItemTitle(rawTitle) || rawTitle;
   const icon = (item.meta && item.meta.icon) || (item.mesh && item.mesh.userData && item.mesh.userData.isTray ? '📥' : '🔍');
   if (titleEl) titleEl.textContent = title;
   if (iconEl) iconEl.textContent = icon;
@@ -616,9 +618,26 @@ export function showItemStatusCard(item, ctx) {
     chips.push({ icon: '🏷️', text: t('actions.radial.chip_tag', { tag: item.customTag }), color: 'bg-teal-500/20 text-teal-200 border-teal-500/40' });
   }
 
-  const itemSpecies = (petri && petri.speciesName) || (cc && cc.speciesName) || (sp && sp.inoculated && sp.speciesName) || (syr && syr.speciesName) || (item.scalpelCtrl && item.scalpelCtrl.biopsySpecies) || '';
-  if (itemSpecies) {
-    chips.push({ icon: '🧬', text: t('actions.radial.chip_species', { species: itemSpecies }), color: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' });
+  const itemSpecies =
+    (petri && petri.speciesName) ||
+    (cc && cc.speciesName) ||
+    (sp && sp.speciesName) ||
+    (syr && syr.speciesName) ||
+    (item.monotubCtrl && item.monotubCtrl.speciesName) ||
+    (item.spentCakeCtrl && item.spentCakeCtrl.speciesName) ||
+    (item.dehydratorCtrl && item.dehydratorCtrl.speciesName) ||
+    (item.mushroomBagCtrl && item.mushroomBagCtrl.speciesName) ||
+    (item.falconCtrl && item.falconCtrl.speciesName) ||
+    (item.vial3mlCtrl && item.vial3mlCtrl.speciesName) ||
+    (item.scalpelCtrl && item.scalpelCtrl.biopsySpecies) ||
+    '';
+  if (itemSpecies && !chips.some((c) => c.icon === '🧬')) {
+    chips.unshift({ icon: '🧬', text: t('actions.radial.chip_species', { species: itemSpecies }), color: 'bg-fuchsia-500/25 text-fuchsia-200 border-fuchsia-400/45' });
+  } else if (item.growTentCtrl && Array.isArray(item.growTentCtrl.slots)) {
+    const growSpecies = [...new Set(item.growTentCtrl.slots.map((sl) => sl && sl.speciesName).filter(Boolean))];
+    if (growSpecies.length) {
+      chips.unshift({ icon: '🧬', text: t('actions.radial.chip_species', { species: growSpecies.join(', ') }), color: 'bg-fuchsia-500/25 text-fuchsia-200 border-fuchsia-400/45' });
+    }
   }
 
   const purposeHtml = item.meta?.purpose

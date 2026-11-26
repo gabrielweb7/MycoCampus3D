@@ -68,10 +68,12 @@ function roundRect(ctx, x, y, w, h, r) {
 export function cleanItemTitle(rawTitle) {
   let s = String(rawTitle || '').trim();
   if (!s) return '';
+  // Remove parênteses de estado/esterilização/progresso/flush ANTES de dividir por " • " ou " — "
+  s = s.replace(/\s*\((?:[^)]*(?:esteril|steril|pront|ready|vazi|empty|chei|full|vencid|expir|contam|mofo|mold|seco|dry|umid|wet|inocul|coloniz|incub|crescen|growing|frutific|fruiting|ativo|active|deslig|off|ligad|on|flush|oleada|esgotad|spent|\d+%|\d+\/\d+|\d+\s*ml|\d+\s*g\b|[•—])[^)]*)\)/gi, '').trim();
   // Remove sufixos após " • " ou " — "
   s = s.split(/\s+[•—]\s+/)[0].trim();
-  // Remove parênteses de estado/esterilização/progresso, preservando identificadores como (Spawn), (PDA), (1.6m), (50 Vagas)
-  s = s.replace(/\s*\((?:[^)]*(?:esteril|steril|pront|ready|vazi|empty|chei|full|vencid|expir|contam|mofo|mold|seco|dry|umid|wet|inocul|coloniz|incub|crescen|growing|frutific|fruiting|ativo|active|deslig|off|ligad|on|\d+%|\d+\/\d+|\d+\s*ml|\d+\s*g\b)[^)]*)\)/gi, '').trim();
+  // Fecha/remove eventual "(" que tenha ficado aberto após corte
+  s = s.replace(/\s*\([^)]*$/, '').trim();
   // Remove sufixos soltos após o nome base
   s = s.replace(/\s+(?:n[aã]o\s+)?esterilizad[oa]s?\b/gi, '');
   s = s.replace(/\s+(?:un)?sterilized\b/gi, '');

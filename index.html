@@ -317,15 +317,15 @@
 
     <!-- Dedicated Item Status Card (never blocked by menus) -->
     <div id="item-status-card"
-      class="hidden fixed bottom-28 left-1/2 -translate-x-1/2 glass-panel rounded-2xl px-4 py-2.5 z-40 max-w-[94vw] w-max sm:max-w-md border border-emerald-400/50 shadow-2xl backdrop-blur-xl flex flex-col gap-1.5 transition-opacity pointer-events-auto">
-      <div class="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1">
-        <div class="flex items-center gap-1.5 font-extrabold text-xs sm:text-sm text-emerald-300">
-          <span id="item-status-icon">🔍</span>
-          <span id="item-status-title" data-i18n="hud.item_status_title">Status do Item</span>
+      class="hidden fixed bottom-28 left-1/2 -translate-x-1/2 glass-panel rounded-2xl p-3 sm:px-4 sm:py-3 z-40 border border-emerald-400/50 shadow-2xl backdrop-blur-xl flex flex-col gap-2 transition-opacity pointer-events-auto">
+      <div class="flex items-center justify-between gap-2 border-b border-slate-700/60 pb-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="item-status-icon" class="text-base sm:text-lg px-1.5 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-400/30 shrink-0">🔍</span>
+          <span id="item-status-title" data-i18n="hud.item_status_title" class="font-extrabold text-xs sm:text-sm text-emerald-300 truncate">Status do Item</span>
         </div>
-        <button id="btn-close-status" type="button" title="Fechar (Esc)" class="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded hover:bg-slate-800/80 transition">✕</button>
+        <button id="btn-close-status" type="button" title="Fechar (Esc)" class="text-slate-300 hover:text-white text-xs font-bold min-w-[28px] min-h-[28px] flex items-center justify-center rounded-lg bg-slate-800/70 hover:bg-slate-700 transition shrink-0">✕</button>
       </div>
-      <div id="item-status-body" class="text-xs text-slate-200 flex flex-wrap gap-1.5 leading-relaxed font-medium"></div>
+      <div id="item-status-body" class="text-xs text-slate-200 flex flex-wrap gap-1.5 leading-relaxed font-medium overflow-y-auto pr-0.5"></div>
     </div>
 
     <!-- Interaction Prompt Pill -->

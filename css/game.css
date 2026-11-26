@@ -612,6 +612,8 @@ body.myco-trip-faint #campus-canvas-wrap {
 #item-status-card {
   bottom: 164px;
   top: auto;
+  width: min(92vw, 420px);
+  max-height: min(62dvh, 440px);
   z-index: 42;
   cursor: grab;
   user-select: none;
@@ -625,7 +627,8 @@ body.myco-trip-faint #campus-canvas-wrap {
 body.device-touch #item-status-card {
   top: 64px;
   bottom: auto;
-  max-width: min(92vw, 420px);
+  width: min(92vw, 400px);
+  max-height: min(56dvh, 380px);
 }
 
 #interact-pill {
