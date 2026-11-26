@@ -705,11 +705,11 @@ function getBeeSharedAssets() {
   const hiveTex = loadCuteTex('beehive-cute.jpg');
 
   beeSharedAssets = markAllShared({
-    yellowMat: new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.52 }),
-    queenYellowMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.36, emissive: 0x854d0e, emissiveIntensity: 0.16 }),
+    yellowMat: new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.50 }),
+    queenYellowMat: new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.34, emissive: 0xb45309, emissiveIntensity: 0.26 }),
     blushMat: new THREE.MeshBasicMaterial({ color: 0xf472b6 }),
     crownMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.22, metalness: 0.72, emissive: 0x854d0e, emissiveIntensity: 0.25 }),
-    darkMat: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.72 }),
+    darkMat: new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.72 }),
     eyeWhiteMat: new THREE.MeshBasicMaterial({ color: 0xffffff }),
     wingMat: new THREE.MeshStandardMaterial({
       color: 0xe0f2fe,
@@ -723,8 +723,8 @@ function getBeeSharedAssets() {
     hiveWoodMat: new THREE.MeshStandardMaterial({ color: hiveTex ? 0xffffff : 0xd97706, map: hiveTex, roughness: 0.68 }),
     hiveRoofGeo: new THREE.ConeGeometry(0.46, 0.22, 4),
     hiveDarkMat: new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 }),
-    hiveAbandonedMat: new THREE.MeshStandardMaterial({ color: 0x78716c, roughness: 0.94 }),
-    hiveAbandonedBandMat: new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.96 }),
+    hiveAbandonedMat: new THREE.MeshStandardMaterial({ color: 0x94a3b8, map: hiveTex, roughness: 0.94 }),
+    hiveAbandonedBandMat: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.96 }),
     honeyMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.28, emissive: 0x854d0e, emissiveIntensity: 0.18 }),
     holeMat: new THREE.MeshBasicMaterial({ color: 0x0f172a }),
     trunkMat: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.85 }),
@@ -1126,7 +1126,7 @@ function stepPastureBees(ctx, dt) {
       const fl = ctx.campusFlowers[fi];
       if (fl.pollen <= 0.1) {
         fl.regenTimer += dt;
-        if (fl.regenTimer > 95) {
+        if (fl.regenTimer > 32) {
           fl.pollen = 1.0;
           fl.regenTimer = 0;
           fl.centerMesh.material = getBeeSharedAssets().flowerCenterMat;
@@ -1316,7 +1316,7 @@ function stepPastureBees(ctx, dt) {
       }
       if (bee.stateTimer <= 0) {
         if (bee.targetFlower) {
-          bee.targetFlower.pollen = Math.max(0, bee.targetFlower.pollen - 0.35);
+          bee.targetFlower.pollen = Math.max(0, bee.targetFlower.pollen - 0.15);
           if (bee.targetFlower.pollen <= 0.15) {
             bee.targetFlower.centerMesh.material = a.flowerCenterEmptyMat;
           }
