@@ -18,13 +18,13 @@ function makeContext(heldItem, extra = {}) {
   return { heldItem, callbacks: {}, lastPickupAt: -1000, notifyWorldAction() {}, ...extra };
 }
 
-test('clique com Petri na mão não abre a placa nem usa a porta', () => {
+test('clique com Petri na mão não abre a placa e abre a porta quando mirado nela', () => {
   const plate = makePickable('petri_1', { isPetri: true, petriCtrl: { lidOpen: false } });
   const door = { open: false };
   const ctx = makeContext(plate, { hoveredDoorObj: door, queueWorldStateChange() {} });
   handlePrimaryAction(ctx);
   assert.equal(plate.mesh.userData.petriCtrl.lidOpen, false);
-  assert.equal(door.open, false);
+  assert.equal(door.open, true);
   assert.equal(ctx.heldItem, plate);
 });
 
