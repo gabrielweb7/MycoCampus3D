@@ -285,6 +285,7 @@ function bindModalsAndToolbar() {
       releaseInputForModal();
       renderShopModal();
       $('shop-modal')?.classList.remove('hidden');
+      $('btn-close-shop')?.focus({ preventScroll: true });
     };
   }
   const btnCloseShop = $('btn-close-shop');
@@ -292,6 +293,7 @@ function bindModalsAndToolbar() {
     btnCloseShop.onclick = () => {
       if (window.MycoAudio) window.MycoAudio.playClick();
       $('shop-modal')?.classList.add('hidden');
+      btnShop?.focus({ preventScroll: true });
     };
   }
   const btnMycoteca = $('btn-open-mycoteca');
@@ -399,6 +401,10 @@ function bindModalsAndToolbar() {
     if (mEl) {
       mEl.addEventListener('click', (e) => {
         if (e.target === mEl) {
+          if (mId === 'shop-modal' && btnCloseShop) {
+            btnCloseShop.click();
+            return;
+          }
           if (window.MycoAudio) window.MycoAudio.playClick();
           mEl.classList.add('hidden');
         }

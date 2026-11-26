@@ -10,27 +10,38 @@ import { buildLabSink } from './lab-sink.js';
 
 const THREE = window.THREE;
 
-export function isAsepticWorkArea(ctx, item) {
-  const air = ctx.hoodAirData;
-  const area = air && air.workArea;
-  const pos = item && item.mesh && item.mesh.position;
-  return !!(air && air.on && area && pos &&
-    Date.now() < ctx.hoodSanitizedUntil &&
+function isInHood(air, pos) {
+  const area = air?.workArea;
+  return !!(area && pos && !air.item?._removedForSync &&
     pos.x >= area.minX && pos.x <= area.maxX &&
     pos.z >= area.minZ && pos.z <= area.maxZ &&
     pos.y >= area.topY - 0.15 && pos.y <= area.topY + 0.6);
 }
 
+function findItemHood(ctx, item) {
+  const pos = item?.mesh?.position;
+  if (isInHood(ctx.hoodAirData, pos)) return ctx.hoodAirData;
+  return ctx.shopHoods?.find((hood) => isInHood(hood, pos)) || null;
+}
+
+export function getHoodSanitationContext(ctx, target) {
+  return target?.hoodCtrl?.portable ? target.hoodCtrl : ctx;
+}
+
+export function isAsepticWorkArea(ctx, item) {
+  const hood = findItemHood(ctx, item);
+  if (!hood?.on) return false;
+  const state = getHoodSanitationContext(ctx, hood.item);
+  return !state.hoodAlcoholWet && Date.now() < state.hoodSanitizedUntil;
+}
+
 export function getAsepticWorkAreaReason(ctx, item) {
-  const air = ctx.hoodAirData;
-  const area = air && air.workArea;
-  const pos = item && item.mesh && item.mesh.position;
-  if (!air || !air.on) return '💨 Ligue o Fluxo Laminar no botão lateral da capela.';
-  if (ctx.hoodAlcoholWet) return '🧻 Passe o Papel Toalha no Fluxo Laminar para secar o álcool e concluir a desinfecção!';
-  if (!(Date.now() < ctx.hoodSanitizedUntil)) return '🧴 Passe Álcool 70% (3x) no Fluxo Laminar e depois seque com Papel Toalha.';
-  if (!area || !pos || pos.x < area.minX || pos.x > area.maxX || pos.z < area.minZ || pos.z > area.maxZ || pos.y < area.topY - 0.15 || pos.y > area.topY + 0.6) {
-    return '🧫 Coloque a placa sobre a bancada interna do Fluxo Laminar.';
-  }
+  const air = findItemHood(ctx, item);
+  if (!air) return '🧫 Coloque a placa sobre a bancada interna do Fluxo Laminar.';
+  if (!air.on) return '💨 Ligue o Fluxo Laminar no botão lateral da capela.';
+  const state = getHoodSanitationContext(ctx, air.item);
+  if (state.hoodAlcoholWet) return '🧻 Passe o Papel Toalha no Fluxo Laminar para secar o álcool e concluir a desinfecção!';
+  if (!(Date.now() < state.hoodSanitizedUntil)) return '🧴 Passe Álcool 70% (3x) no Fluxo Laminar e depois seque com Papel Toalha.';
   return '';
 }
 
@@ -136,7 +147,21 @@ export function buildLaminarHoodAndBenches(ctx) {
   solidColliders.push({ minX: rackX - 1.65, maxX: rackX + 1.65, minZ: rackZ - 0.38, maxZ: rackZ + 0.38, minY: 0.14, maxY: 2.1 });
 
   addMovableStainlessTable(ctx, 'table_hood_lab', 'Mesa Inox (Fluxo Laminar)', -18.5, 0.12, -8.2, 1.5, 0.90, 2.4);
+  const item = makeLaminarHood(ctx, 'laminar_hood_lab', -18.5, 1.02, -8.2);
+  ctx.setHoodAirData?.(item.hoodCtrl);
+  return item;
+}
 
+export function setHoodPower(air, on) {
+  air.on = on;
+  air.points.visible = on;
+  air.hepaMat.emissiveIntensity = on ? 0.45 : 0.04;
+  air.ledMat.color.setHex(on ? 0x22c55e : 0xef4444);
+  if (air.workLight) air.workLight.visible = on;
+}
+
+export function makeLaminarHood(ctx, id, x, y, z) {
+  const portable = id !== 'laminar_hood_lab';
   const hoodGroup = new THREE.Group();
   const hoodBackBox = makeBox(0.32, 1.08, 2.34, 0x0f172a, { roughness: 0.45, metalness: 0.4 });
   hoodBackBox.position.set(-0.58, 0.54, 0);
@@ -198,20 +223,19 @@ export function buildLaminarHoodAndBenches(ctx) {
   hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLedBezel, hoodLed, airPoints);
 
   const hoodLight = new THREE.PointLight(0xe0f2fe, 0.95, 4.0, 1.8);
-  hoodLight.position.set(-18.5, 1.82, -8.2);
-  scene.add(hoodLight);
+  hoodLight.position.set(0, 0.8, 0);
+  hoodGroup.add(hoodLight);
 
-  const hoodSurf = { minX: -19.08, maxX: -17.85, minZ: -9.32, maxZ: -7.08, topY: 1.065, isHood: true };
-  const hoodAirData = { on: true, points: airPoints, attr: airAttr, hepaMat, ledMat: hoodLedMat, workLight: hoodLight, workArea: hoodSurf };
-  if (ctx.setHoodAirData) ctx.setHoodAirData(hoodAirData);
+  const hoodSurf = { minX: x - 0.58, maxX: x + 0.65, minZ: z - 1.12, maxZ: z + 1.12, topY: y + 0.045, isHood: true };
+  const hoodAirData = { portable, points: airPoints, attr: airAttr, hepaMat, ledMat: hoodLedMat, workLight: hoodLight, workArea: hoodSurf };
   hoodBtnMesh.userData.hoodSwitch = hoodAirData;
   hoodSwitchBox.userData.hoodSwitch = hoodAirData;
   ctx.hoodSwitchMeshes.push(hoodBtnMesh, hoodSwitchBox);
 
-  supportSurfaces.push(hoodSurf);
+  ctx.supportSurfaces.push(hoodSurf);
   hoodBase.userData.supportSurface = hoodSurf;
   hoodWorkMat.userData.supportSurface = hoodSurf;
-  supportMeshes.push(hoodBase, hoodWorkMat);
+  ctx.supportMeshes.push(hoodBase, hoodWorkMat);
   hoodGroup.userData.twoHanded = true;
   hoodGroup.userData.isHood = true;
   hoodGroup.userData.hoodLight = hoodLight;
@@ -219,20 +243,44 @@ export function buildLaminarHoodAndBenches(ctx) {
   hoodGroup.userData.dynamicSurface = hoodSurf;
   hoodGroup.userData.updateBounds = updateItemBounds;
   hoodGroup.userData.isBlockedPickup = function (item) { return isSurfaceOccupied(ctx, hoodSurf, item); };
-  return registerPickable(ctx, 'laminar_hood_lab', 'Capela de Fluxo Laminar', hoodGroup, -18.5, 1.02, -8.2, 0, 0.85, 1.1, LAMINAR_HOOD_META);
+  const item = registerPickable(ctx, id, 'Capela de Fluxo Laminar', hoodGroup, x, y, z, 0, 0.85, 1.1, LAMINAR_HOOD_META);
+  hoodAirData.item = item;
+  item.hoodCtrl = hoodAirData;
+  if (portable) {
+    (ctx.shopHoods ??= []).push(hoodAirData);
+    item.meta.serializeState = () => ({
+      hoodOn: hoodAirData.on,
+      hoodSanitizedUntil: hoodAirData.hoodSanitizedUntil || 0,
+      hoodAlcoholWet: !!hoodAirData.hoodAlcoholWet
+    });
+    item.meta.applyState = (_item, state) => {
+      if (typeof state.hoodOn === 'boolean') setHoodPower(hoodAirData, state.hoodOn);
+      hoodAirData.hoodSanitizedUntil = Math.min(Date.now() + 120000, Number(state.hoodSanitizedUntil) || 0);
+      hoodAirData.hoodAlcoholWet = !!state.hoodAlcoholWet;
+    };
+  }
+  setHoodPower(hoodAirData, !portable);
+  return item;
 }
 
 export function stepLaminarHood(ctx, dt) {
-  if (!ctx.hoodAirData || !ctx.hoodAirData.on || !ctx.hoodAirData.attr) return;
-  const wa = ctx.hoodAirData.workArea;
-  if (wa && ctx.playerPos) {
+  stepHoodAir(ctx.hoodAirData, ctx.playerPos, dt);
+  if (ctx.shopHoods) {
+    for (const air of ctx.shopHoods) stepHoodAir(air, ctx.playerPos, dt);
+  }
+}
+
+function stepHoodAir(air, playerPos, dt) {
+  if (!air?.on || air.item?._removedForSync || !air.attr) return;
+  const wa = air.workArea;
+  if (wa && playerPos) {
     const cx = (wa.minX + wa.maxX) * 0.5;
     const cz = (wa.minZ + wa.maxZ) * 0.5;
-    const dx = ctx.playerPos.x - cx;
-    const dz = ctx.playerPos.z - cz;
+    const dx = playerPos.x - cx;
+    const dz = playerPos.z - cz;
     if (dx * dx + dz * dz > 484) return;
   }
-  const aArr = ctx.hoodAirData.attr.array;
+  const aArr = air.attr.array;
   for (let ai = 0; ai < aArr.length; ai += 3) {
     aArr[ai] += dt * 1.45;
     if (aArr[ai] > 0.78) {
@@ -241,5 +289,5 @@ export function stepLaminarHood(ctx, dt) {
       aArr[ai + 2] = (Math.random() - 0.5) * 2.0;
     }
   }
-  ctx.hoodAirData.attr.needsUpdate = true;
+  air.attr.needsUpdate = true;
 }

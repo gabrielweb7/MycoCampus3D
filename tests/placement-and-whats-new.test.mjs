@@ -313,10 +313,21 @@ test('FAMOUS_CONSTELLATIONS inclui Órion, Cruzeiro do Sul, Ursa Maior, Escorpi�
 });
 
 test('SHOP_SUPPLIES e LAB_QUEST_STEPS estão completos e marcos da Micoteca dão recompensa', async () => {
-  const { SHOP_SUPPLIES } = await import('../js/ui/modal-shop.js');
+  const { SHOP_SUPPLIES, SHOP_SUPPLY_CATEGORIES } = await import('../js/ui/modal-shop.js');
+  const { ensureCoreAdminPrefabs } = await import('../js/systems/admin-editor.js');
+  const { getItemPrefab } = await import('../js/items/item-prefabs.js');
   const { LAB_QUEST_STEPS } = await import('../js/ui/quest-map.js');
   const { MICOTECA_MILESTONES, registerDiscoveredSpecies } = await import('../js/systems/mycoteca.js');
-  assert.ok(SHOP_SUPPLIES.length >= 10);
+  assert.ok(SHOP_SUPPLIES.length >= 62);
+  assert.equal(new Set(SHOP_SUPPLIES.map((item) => item.id)).size, SHOP_SUPPLIES.length);
+  ensureCoreAdminPrefabs();
+  for (const item of SHOP_SUPPLIES) {
+    assert.ok(getItemPrefab(item.prefabId), `${item.id} precisa de um prefab para entrega`);
+    const categories = SHOP_SUPPLY_CATEGORIES.filter((category) =>
+      item.category ? item.category === category.id : category.ids.includes(item.id)
+    );
+    assert.equal(categories.length, 1, `${item.id} precisa aparecer em uma única categoria`);
+  }
   assert.ok(SHOP_SUPPLIES.some((s) => s.prefabId === 'monotub_24l'));
   assert.ok(SHOP_SUPPLIES.some((s) => s.prefabId === 'dehydrator'));
   assert.equal(LAB_QUEST_STEPS.length, 8);

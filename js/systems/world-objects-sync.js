@@ -535,6 +535,7 @@ export function getReplicatedItemState(sim, item) {
       grainCookSec: Math.round((cooker.grainCookSec || 0) / 5) * 5,
       grainAlDente: !!cooker.grainAlDente,
       hasBase: cooker.hasBase !== false,
+      ...(item.id.startsWith('dyn_') ? { lidAttached: !!cooker.lidItem?.isAttached } : {}),
       contents: cooker.contents.slice(0, 6).map((content) => content.id)
     };
   }
@@ -832,6 +833,9 @@ export function applyReplicatedItemState(sim, item, state) {
     const cooker = sim.cookerPots.find((candidate) => candidate.potItem === item);
     const incoming = state.cooker;
     if (cooker && incoming && typeof incoming === 'object') {
+      if (typeof incoming.lidAttached === 'boolean' && !sim.pendingMovedItems?.[cooker.lidItem.id]) {
+        cooker.lidItem.isAttached = incoming.lidAttached;
+      }
       if (typeof incoming.waterMl === 'number' && Number.isFinite(incoming.waterMl)) {
         cooker.waterMl = Math.max(0, Math.min(cooker.maxWaterMl, incoming.waterMl));
       }

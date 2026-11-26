@@ -5,7 +5,8 @@
  * Acione pelos atalhos padronizados F, V, Z, G, I (PC) ou toque direto (Mobile).
  */
 
-import { BURNER_LEVEL_NAMES, setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { BURNER_LEVEL_NAMES, queuePurchasedBurnerState, setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
+import { getItemKindId } from '../items/item-registry.js';
 import { getContamInfo } from '../items/contaminations.js';
 import { togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
@@ -608,7 +609,7 @@ export function showItemStatusCard(item, ctx) {
     });
   }
 
-  if (item.id && item.id.indexOf('gloves_box_') === 0 && ctx) {
+  if (getItemKindId(item).startsWith('gloves_box') && ctx) {
     const gRem = ctx.glovesUntil ? Math.max(0, Math.ceil((ctx.glovesUntil - performance.now()) / 1000)) : 0;
     const gActive = !!(ctx.wearingGloves && !ctx.glovesExpired && gRem > 0);
     chips.push({
@@ -855,7 +856,7 @@ function buildHeldItemActions(ctx) {
       label: t(ctx.thermoLaserOn ? 'actions.radial.laser_off' : 'actions.radial.laser_on'),
       run: () => toggleHeldThermometer(ctx)
     });
-  } else if (held.id && held.id.indexOf('gloves_box_') === 0) {
+  } else if (getItemKindId(held).startsWith('gloves_box')) {
     const gRem = ctx.glovesUntil ? Math.max(0, Math.ceil((ctx.glovesUntil - performance.now()) / 1000)) : 0;
     const wearActive = !!(ctx.wearingGloves && !ctx.glovesExpired && gRem > 0);
     actions.push({
@@ -1115,9 +1116,11 @@ function buildContextActions(ctx) {
         run: () => {
           setBurnerLevel(ctx.hoveredBurnerSwitch, 0);
           if (window.MycoAudio) window.MycoAudio.playSwitch();
-          const bId = ctx.hoveredBurnerSwitch.id || 'burner_lab';
-          ctx.queueWorldStateChange(bId, 0);
-          ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, 0);
+          if (!queuePurchasedBurnerState(ctx, ctx.hoveredBurnerSwitch)) {
+            const bId = ctx.hoveredBurnerSwitch.id || 'burner_lab';
+            ctx.queueWorldStateChange(bId, 0);
+            ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, 0);
+          }
           if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.radial.burner_off_toast'));
         }
       });
@@ -1311,7 +1314,7 @@ function buildContextActions(ctx) {
       });
       return actions;
     }
-    if (target.id && target.id.indexOf('gloves_box_') === 0) {
+    if (getItemKindId(target).startsWith('gloves_box')) {
       const gRem = ctx.glovesUntil ? Math.max(0, Math.ceil((ctx.glovesUntil - performance.now()) / 1000)) : 0;
       const wearActive = !!(ctx.wearingGloves && !ctx.glovesExpired && gRem > 0);
       actions.push({

@@ -131,6 +131,35 @@ export function applySyncedBurnerTimer(burner, presetMin, endServerTs, serverNow
   drawBurnerTimerDisplay(burner);
 }
 
+export function bindBurnerItem(item, burner) {
+  burner.item = item;
+  if (!item.id.startsWith('dyn_')) return item;
+  item.meta.serializeState = () => ({
+    burnerLevel: burner.level,
+    burnerTimer: burner.timerPresetMin || 0,
+    burnerEndsAt: burner.timerEndsAt || 0
+  });
+  item.meta.applyState = (_item, state) => {
+    if (!Number.isInteger(state.burnerLevel)) return;
+    const now = Math.floor(Date.now() / 1000);
+    const end = Math.max(0, Number(state.burnerEndsAt) || 0);
+    burner.timerEndsAt = end;
+    setBurnerLevel(burner, end && end <= now ? 0 : state.burnerLevel);
+    applySyncedBurnerTimer(burner, state.burnerTimer, end, now);
+  };
+  return item;
+}
+
+export function queuePurchasedBurnerState(ctx, burner) {
+  if (!burner.item?.id.startsWith('dyn_')) return false;
+  burner.timerEndsAt = burner.on && burner.timerPresetMin > 0
+    ? Math.ceil(Date.now() / 1000 + burner.timerRemainingSec)
+    : 0;
+  ctx.queueItemStateSync?.(burner.item);
+  ctx.notifyWorldAction?.();
+  return true;
+}
+
 function createSteamEmitter(parent, startY) {
   const count = 24;
   const positions = new Float32Array(count * 3);
@@ -429,7 +458,8 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   timerScreen.userData.burnerTimerIdx = bIdx;
   ctx.burnerSwitchMeshes.push(knobBase, knobPointer, timerScreen);
   ctx.burnerDevices.push(bState);
-  return registerPickable(ctx, id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12, ELECTRIC_BURNER_META);
+  const item = registerPickable(ctx, id, 'Fogareiro Elétrico (Autoclave)', bg, px, py, pz, 0, 0.32, 0.12, ELECTRIC_BURNER_META);
+  return bindBurnerItem(item, bState);
 }
 
 export function setBurnerLevel(burner, level) {
@@ -471,12 +501,13 @@ export function stepPressureCookers(ctx, dt) {
   let anyPotSteaming = false;
   for (let bni = 0; bni < ctx.burnerDevices.length; bni++) {
     const bnd = ctx.burnerDevices[bni];
+    if (bnd.item?._adminRemoved || bnd.item?._removedForSync) continue;
     if (bnd.kind === 'electric' && bnd.on && bnd.timerPresetMin > 0) {
       bnd.timerRemainingSec = Math.max(0, (bnd.timerRemainingSec || 0) - dt);
       bnd.timerDrawAcc = (bnd.timerDrawAcc || 0) + dt;
       if (bnd.timerRemainingSec <= 0) {
         setBurnerLevel(bnd, 0);
-        if (ctx.queueWorldStateChange) {
+        if (!queuePurchasedBurnerState(ctx, bnd) && ctx.queueWorldStateChange) {
           const bId = bnd.id || 'burner_lab';
           const suffix = bId === 'burner_lab' ? 'lab' : 'sub';
           ctx.queueWorldStateChange(bId, 0);
@@ -604,6 +635,7 @@ export function stepPressureCookers(ctx, dt) {
     let activeBurner = null;
     for (let bi = 0; bi < ctx.burnerDevices.length; bi++) {
       const bn = ctx.burnerDevices[bi];
+      if (bn.item?._adminRemoved || bn.item?._removedForSync) continue;
       if (bn.on &&
           potP.x >= bn.surface.minX - 0.06 && potP.x <= bn.surface.maxX + 0.06 &&
           potP.z >= bn.surface.minZ - 0.06 && potP.z <= bn.surface.maxZ + 0.06 &&

@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.10.6">
+  <link rel="stylesheet" href="css/game.css?v=2.10.7">
 </head>
 
 <body>
@@ -203,7 +203,7 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.10.6</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.10.7</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -548,42 +548,42 @@
     </div>
   </div>
 
-  <!-- COSMETICS SHOP MODAL -->
-  <div id="shop-modal"
-    class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
-    <div class="glass-panel rounded-2xl modal-card-lg flex flex-col overflow-hidden max-h-[90dvh]">
-      <div class="flex items-center justify-between px-3.5 sm:px-5 py-2.5 sm:py-3.5 border-b border-slate-700/60 bg-slate-900/50">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="text-xl shrink-0">👑</span>
-          <div class="min-w-0">
-            <h2 data-i18n="modal.shop_title" class="text-sm sm:text-base font-extrabold text-white truncate">Loja do Campus</h2>
-            <p data-i18n="modal.shop_subtitle" class="text-[11px] text-purple-300 truncate">Cosméticos, brinquedos, pets e equipamentos</p>
+  <!-- CAMPUS SHOP -->
+  <div id="shop-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" role="dialog"
+    aria-modal="true" aria-labelledby="shop-title">
+    <div class="glass-panel shop-panel">
+      <div class="shop-header">
+        <div class="shop-heading">
+          <span class="shop-emblem" aria-hidden="true">🧺</span>
+          <h2 id="shop-title" data-i18n="modal.shop_title">Loja do Campus</h2>
+        </div>
+        <div class="shop-header-end">
+          <span class="shop-wallet">🪙 <strong id="shop-user-coins">250</strong> <span>MycoCoins</span></span>
+          <button id="btn-close-shop" type="button" data-i18n-aria-label="ui.shop.close">✕</button>
+        </div>
+      </div>
+      <div class="shop-nav">
+        <nav class="shop-tabs">
+          <button id="shop-tab-supplies" type="button" data-i18n="ui.shop.tab_supplies">Suprimentos</button>
+          <button id="shop-tab-hats" type="button" data-i18n="modal.shop_hats">🎩 Chapéus</button>
+          <button id="shop-tab-toys" type="button" data-i18n="modal.shop_toys">🏂 Brinquedos</button>
+          <button id="shop-tab-pets" type="button" data-i18n="modal.shop_pets">🐾 Pets</button>
+        </nav>
+        <div class="shop-progress">
+          <span>⭐ <span id="shop-user-xp">0</span> XP</span>
+          <span>🍄 <span id="shop-user-mushrooms">0</span> <span data-i18n="ui.shop.harvested_label">Colhidos</span></span>
+        </div>
+      </div>
+      <div class="shop-body">
+        <div id="shop-categories" class="shop-categories"></div>
+        <div class="shop-main">
+          <div id="shop-toolbar" class="shop-toolbar">
+            <input id="shop-supply-search" type="search" autocomplete="off">
+            <span id="shop-results-count" aria-live="polite"></span>
           </div>
+          <p id="shop-status" class="shop-status" role="status" hidden></p>
+          <div id="shop-grid" class="shop-grid"></div>
         </div>
-        <button id="btn-close-shop" class="text-slate-300 hover:text-white text-lg font-bold px-2 shrink-0">✕</button>
-      </div>
-      <div
-        class="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-purple-950/40 border-b border-purple-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-slate-300 gap-2">
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0">
-          <button id="shop-tab-hats" data-i18n="modal.shop_hats"
-            class="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold text-xs transition">🎩 Chapéus</button>
-          <button id="shop-tab-toys" data-i18n="modal.shop_toys"
-            class="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🏂
-            Brinquedos</button>
-          <button id="shop-tab-pets" data-i18n="modal.shop_pets"
-            class="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🐾 Pets</button>
-          <button id="shop-tab-supplies"
-            class="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🧪
-            Equipamentos</button>
-        </div>
-        <div class="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-bold text-[11px] sm:text-xs bg-slate-900/50 sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-lg border border-slate-800/70 sm:border-0">
-          <span class="text-yellow-300 whitespace-nowrap">🪙 <span id="shop-user-coins">250</span> <span class="hidden sm:inline">MycoCoins</span></span>
-          <span class="text-amber-300 whitespace-nowrap">⭐ <span id="shop-user-xp">0</span> XP</span>
-          <span class="text-emerald-300 whitespace-nowrap">🍄 <span id="shop-user-mushrooms">0</span> <span data-i18n="ui.shop.harvested_label">Colhidos</span></span>
-        </div>
-      </div>
-      <div id="shop-grid" class="p-3 sm:p-5 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
-        <!-- Rendered dynamically -->
       </div>
     </div>
   </div>
@@ -971,9 +971,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.10.6';</script>
+  <script>window.MYCO_VERSION = '2.10.7';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.10.6"></script>
+  <script type="module" src="js/main.js?v=2.10.7"></script>
 </body>
 
 </html>

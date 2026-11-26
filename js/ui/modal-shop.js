@@ -52,7 +52,44 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_monotub', prefabId: 'monotub_24l', name: 'Caixa Monotub 24L', desc: 'Expanda sua produção com frutificação em massa.', price_coins: 260, icon: '📦' },
   { id: 'sup_dehydrator', prefabId: 'dehydrator', name: 'Desidratadora de Cogumelos', desc: 'Seque mais lotes simultâneos até 0% umidade.', price_coins: 380, icon: '♨️' },
   { id: 'sup_table', prefabId: 'table_stainless', name: 'Bancada Inox (1.6m)', desc: 'Mesa móvel adicional para ampliar seu laboratório.', price_coins: 320, icon: '🛠️' },
-  { id: 'sup_ampoule_case', prefabId: 'ampoule_case', name: 'Maleta Porta-Ampolas 5ML (50 Vagas)', desc: '24 espécies (Cubensis, Comestíveis e Raras) já colonizadas em cultura líquida + 26 vagas extras (máx. 50).', price_coins: 1000, req_xp: 1000, req_mushrooms: 100, icon: '💼' }
+  { id: 'sup_ampoule_case', prefabId: 'ampoule_case', name: 'Maleta Porta-Ampolas 5ML (50 Vagas)', desc: '24 espécies (Cubensis, Comestíveis e Raras) já colonizadas em cultura líquida + 26 vagas extras (máx. 50).', price_coins: 1000, req_xp: 1000, req_mushrooms: 100, icon: '💼' },
+  { id: 'sup_beaker_1l', prefabId: 'beaker_1l', category: 'containers', name: "Béquer graduado de 1 L", desc: "Béquer de vidro para medir e misturar líquidos.", price_coins: 75, icon: '🧪' },
+  { id: 'sup_vial_3ml', prefabId: 'vial_3ml', category: 'containers', name: "Ampola vazia de 5 ml", desc: "Ampola estéril para guardar amostras na maleta.", price_coins: 30, icon: '🧪' },
+  { id: 'sup_falcon_15ml', prefabId: 'falcon_15ml', category: 'containers', name: "Tubo Falcon 15 ml", desc: "Tubo graduado pequeno, com tampa.", price_coins: 35, icon: '🧪' },
+  { id: 'sup_falcon_50ml', prefabId: 'falcon_50ml', category: 'containers', name: "Tubo Falcon 50 ml", desc: "Tubo graduado grande, com tampa.", price_coins: 45, icon: '🧪' },
+  { id: 'sup_falcon_rack', prefabId: 'falcon_rack', category: 'containers', name: 'Suporte de Tubos Falcon', desc: 'Organize e transporte tubos juntos.', price_coins: 65, icon: '🧺' },
+  { id: 'sup_petri_bare', prefabId: 'petri_bare', category: 'containers', name: "Placa de Petri sem meio", desc: "Placa vazia para receber o meio preparado no laboratório.", price_coins: 25, icon: '🧫' },
+  { id: 'sup_distilled_jug', prefabId: 'distilled_jug', category: 'containers', name: "Garrafão de Água Destilada 5 L", desc: "Recipiente cheio para abastecer outros frascos.", price_coins: 75, icon: '💧' },
+  { id: 'sup_mixing_bowl', prefabId: 'mixing_bowl', category: 'lab', name: "Pote de Mistura", desc: "Misture ingredientes com a colher de laboratório.", price_coins: 65, icon: '🥣' },
+  { id: 'sup_lab_spoon', prefabId: 'lab_spoon', category: 'lab', name: "Colher de Laboratório", desc: "Use com o pote de mistura.", price_coins: 20, icon: '🥄' },
+  { id: 'sup_lab_tray', prefabId: 'lab_tray', category: 'lab', name: "Bandeja Inox", desc: "Organize e transporte itens pequenos juntos.", price_coins: 85, icon: '🍽️' },
+  { id: 'sup_scalpel', prefabId: 'scalpel', category: 'lab', name: "Bisturi", desc: "Ferramenta para coletar amostras no jogo.", price_coins: 65, icon: '🔪' },
+  { id: 'sup_scalpel_blade', prefabId: 'scalpel_blade', category: 'lab', name: "Lâmina de Bisturi", desc: "Lâmina de reposição para o bisturi.", price_coins: 20, icon: '🔧' },
+  { id: 'sup_pda_bottle', prefabId: 'pda_bottle', category: 'substrate', name: "Pó BDA/PDA 500 g", desc: "Frasco de reposição para o laboratório.", price_coins: 80, icon: '🫙' },
+  { id: 'sup_substrate_grain', prefabId: 'substrate_grain', category: 'substrate', name: "Milho em Grão 5 kg", desc: "Saco de milho de pipoca para a bancada de preparo.", price_coins: 110, icon: '🌽' },
+  { id: 'sup_substrate_wheat', prefabId: 'substrate_wheat', category: 'substrate', name: "Trigo em Grão 5 kg", desc: "Saco de trigo para a bancada de preparo.", price_coins: 110, icon: '🌾' },
+  { id: 'sup_substrate_sorghum', prefabId: 'substrate_sorghum', category: 'substrate', name: "Sorgo Vermelho 5 kg", desc: "Saco de sorgo para a bancada de preparo.", price_coins: 115, icon: '🌾' },
+  { id: 'sup_substrate_coco', prefabId: 'substrate_coco', category: 'substrate', name: "Pó de Coco 5 kg", desc: "Insumo para o pote de mistura e a caixa de cultivo.", price_coins: 95, icon: '🥥' },
+  { id: 'sup_substrate_vermiculite', prefabId: 'substrate_vermiculite', category: 'substrate', name: "Vermiculita 5 kg", desc: "Insumo para o pote de mistura e a caixa de cultivo.", price_coins: 95, icon: '🪨' },
+  { id: 'sup_substrate_sawdust', prefabId: 'substrate_sawdust', category: 'substrate', name: "Serragem de Eucalipto 5 kg", desc: "Saco para os blocos de cogumelos gourmet do jogo.", price_coins: 100, icon: '🪵' },
+  { id: 'sup_paper_towel', prefabId: 'paper_towel', category: 'hygiene', name: "Papel-toalha", desc: "Seque superfícies do laboratório.", price_coins: 20, icon: '🧻' },
+  { id: 'sup_gloves_box', prefabId: 'gloves_box', category: 'hygiene', name: "Caixa de Luvas", desc: "Equipe as luvas pelas ações do item.", price_coins: 35, icon: '🧤' },
+  { id: 'sup_foil_roll', prefabId: 'foil_roll', category: 'hygiene', name: "Rolo de Papel-Alumínio", desc: "Proteja recipientes no laboratório.", price_coins: 30, icon: '📜' },
+  { id: 'sup_micropore', prefabId: 'micropore', category: 'hygiene', name: "Fita Micropore", desc: "Rolo de fita para recipientes e placas compatíveis.", price_coins: 30, icon: '🩹' },
+  { id: 'sup_parafilm', prefabId: 'parafilm', category: 'hygiene', name: "Rolo de Parafilm", desc: "Sele placas pela ação contextual.", price_coins: 35, icon: '📏' },
+  { id: 'sup_lab_trash', prefabId: 'lab_trash', category: 'hygiene', name: "Lixeira de Laboratório", desc: "Ponto móvel de descarte de itens.", price_coins: 90, icon: '🗑️' },
+  { id: 'sup_magnetic_stirrer', prefabId: 'magnetic_stirrer', category: 'equipment', name: "Agitador Magnético", desc: "Equipamento de bancada com controle de velocidade.", price_coins: 210, icon: '⚙️' },
+  { id: 'sup_infrared_thermometer', prefabId: 'infrared_thermometer', category: 'equipment', name: "Termômetro Laser", desc: "Mire para conferir a temperatura.", price_coins: 150, icon: '🌡️' },
+  { id: 'sup_precision_scale', prefabId: 'precision_scale', category: 'equipment', name: "Balança de Precisão", desc: "Pese itens e use o botão de tara.", price_coins: 180, icon: '⚖️' },
+  { id: 'sup_lab_microscope', prefabId: 'lab_microscope', category: 'equipment', name: "Microscópio", desc: "Observe amostras na bancada.", price_coins: 350, icon: '🔬' },
+  { id: 'sup_alcohol_lamp', prefabId: 'alcohol_lamp', category: 'equipment', name: "Lamparina a Álcool", desc: "Acenda pela ação do equipamento.", price_coins: 90, icon: '🔥' },
+  { id: 'sup_culture_fridge', prefabId: 'culture_fridge', category: 'equipment', name: "Geladeira de Laboratório", desc: "Guarde amostras nas prateleiras refrigeradas.", price_coins: 480, icon: '🧊' },
+  { id: 'sup_heat_sealer', prefabId: 'heat_sealer', category: 'post', name: "Seladora Térmica", desc: "Sele sacos e embalagens compatíveis.", price_coins: 230, icon: '🛠️' },
+  { id: 'sup_cooker_base', prefabId: 'cooker_base', category: 'equipment', name: "Base Perfurada", desc: "Acessório que encaixa na panela.", price_coins: 65, icon: '♨️' },
+  { id: 'sup_electric_burner', prefabId: 'electric_burner', category: 'equipment', name: "Fogareiro Elétrico", desc: "Fogareiro de bancada com controle de potência e timer.", price_coins: 230, icon: '🔌' },
+  { id: 'sup_gas_tripod', prefabId: 'gas_tripod', category: 'equipment', name: "Tripé a Gás", desc: "Fogareiro de chão com controle de chama.", price_coins: 270, icon: '🔥' },
+  { id: 'sup_pressure_cooker', prefabId: 'pressure_cooker', category: 'equipment', name: "Panela de Pressão 20 L", desc: "Panela móvel com tampa compatível inclusa.", price_coins: 360, icon: '♨️' },
+  { id: 'sup_laminar_hood', prefabId: 'laminar_hood', category: 'equipment', name: "Capela de Fluxo Laminar", desc: "Estação móvel com controle de ventilação.", price_coins: 580, icon: '💨' },
 ];
 
 export const SHOP_SUPPLY_CATEGORIES = [
@@ -60,6 +97,7 @@ export const SHOP_SUPPLY_CATEGORIES = [
   { id: 'substrate', label: 'Substratos', icon: '🌽', ids: ['sup_flocao', 'sup_lc_nutrient'] },
   { id: 'lab', label: 'Laboratório', icon: '🧪', ids: ['sup_petri', 'sup_syringe', 'sup_lc', 'sup_ampoule_case'] },
   { id: 'hygiene', label: 'Higiene & Mofo', icon: '🧴', ids: ['sup_spray', 'sup_water_spray', 'sup_h2o2'] },
+  { id: 'equipment', label: 'Equipamentos', icon: '⚙️', ids: [] },
   { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust', 'sup_flower_seeds', 'sup_bee_bait', 'sup_beehive'] },
   { id: 'post', label: 'Pós-colheita', icon: '📦', ids: ['sup_dehydrator', 'sup_silica', 'sup_mylar', 'sup_crate'] },
   { id: 'furniture', label: 'Bancadas', icon: '🛠️', ids: ['sup_table'] }
@@ -68,7 +106,8 @@ export const SHOP_SUPPLY_CATEGORIES = [
 let activeSupplyCat = 'all';
 let supplySearchQuery = '';
 
-let activeShopTab = 'hats';
+let activeShopTab = 'supplies';
+let supplyPurchasePending = false;
 
 events.on('pets:changed', () => {
   if (activeShopTab === 'pets' && !$('shop-modal')?.classList.contains('hidden')) renderShopModal();
@@ -109,8 +148,159 @@ window.toggleCampusParaglider = function () {
   toast3D(next ? t('ui.shop.paragliderOn') : t('ui.shop.paragliderOff'));
 };
 
+function normalizeSearch(value) {
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+}
+
+function showShopStatus(message, error = false) {
+  const status = $('shop-status');
+  status.textContent = message;
+  status.hidden = !message;
+  status.dataset.error = String(error);
+}
+
+async function buySupply(supply, button) {
+  if (supplyPurchasePending) return;
+  supplyPurchasePending = true;
+  button.disabled = true;
+  showShopStatus(t('ui.shop.processing'));
+  const userId = appState.currentUser?.id;
+  try {
+    if (userId != null) {
+      const delivery = window.getCampusShopDeliveryPose?.(supply.prefabId);
+      if (!delivery) {
+        showShopStatus(t('ui.shop.waitCampus'), true);
+        return;
+      }
+      await window.flushCampusMycoCoins?.();
+      if (appState.currentUser?.id !== userId) {
+        showShopStatus('');
+        return;
+      }
+      if (pendingCoinOperations(userId).length) {
+        showShopStatus(t('ui.shop.waitCoinSync'), true);
+        return;
+      }
+      const result = await orderShopSupply(supply.id, delivery);
+      if (!result?.ok) {
+        showShopStatus(result?.error || t('ui.shop.buyFailed'), true);
+        return;
+      }
+    } else {
+      if (getLocalMycoCoins() < supply.price_coins) {
+        showShopStatus(t('ui.shop.missing', { list: coinsTxt(supply.price_coins - getLocalMycoCoins()) }), true);
+        return;
+      }
+      if (!window.spawnCampusShopItem?.(supply.prefabId)) {
+        showShopStatus(t('ui.shop.enterCampus'), true);
+        return;
+      }
+      addLocalMycoCoins(-supply.price_coins);
+    }
+    window.MycoAudio?.playCashRegister?.();
+    updateUserHud();
+    events.emit('sync:now');
+    showShopStatus(t(userId != null ? 'ui.shop.purchaseConfirmed' : 'ui.shop.delivered', { name: nm('sup', supply, 'name') }));
+  } catch (error) {
+    showShopStatus(error.message || t('ui.shop.supplyError'), true);
+  } finally {
+    supplyPurchasePending = false;
+    renderShopModal();
+  }
+}
+
+function renderSupplies(grid, userCoins, userXp, userMush, scrollTop) {
+  const panel = $('shop-categories');
+  const search = $('shop-supply-search');
+  panel.replaceChildren();
+  for (const category of [{ id: 'all', icon: '🛒' }, ...SHOP_SUPPLY_CATEGORIES]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = category.icon + ' ' + t('ui.shop.cat.' + category.id);
+    button.setAttribute('aria-pressed', String(activeSupplyCat === category.id));
+    button.onclick = () => {
+      activeSupplyCat = category.id;
+      for (const chip of panel.children) chip.setAttribute('aria-pressed', String(chip === button));
+      renderResults(0);
+    };
+    panel.appendChild(button);
+  }
+
+  search.placeholder = t('ui.shop.search_placeholder');
+  search.setAttribute('aria-label', search.placeholder);
+  search.value = supplySearchQuery;
+  search.oninput = () => {
+    supplySearchQuery = search.value;
+    renderResults(0);
+  };
+  renderResults(scrollTop);
+
+  function renderResults(nextScroll) {
+    const terms = normalizeSearch(supplySearchQuery).split(/\s+/).filter(Boolean);
+    let count = 0;
+    const results = document.createDocumentFragment();
+    for (const category of SHOP_SUPPLY_CATEGORIES) {
+      if (activeSupplyCat !== 'all' && activeSupplyCat !== category.id) continue;
+      const supplies = SHOP_SUPPLIES.filter((supply) => {
+        if (supply.category ? supply.category !== category.id : !category.ids.includes(supply.id)) return false;
+        if (!terms.length) return true;
+        const text = normalizeSearch([nm('sup', supply, 'name'), nm('sup', supply, 'desc'), supply.name, supply.prefabId].join(' '));
+        return terms.every((term) => text.includes(term));
+      }).sort((a, b) => a.price_coins - b.price_coins);
+      if (!supplies.length) continue;
+      count += supplies.length;
+      if (activeSupplyCat === 'all') {
+        const heading = document.createElement('h3');
+        heading.className = 'shop-section-title';
+        heading.textContent = t('ui.shop.cat.' + category.id);
+        results.appendChild(heading);
+      }
+      for (const supply of supplies) results.appendChild(makeSupplyCard(supply));
+    }
+    if (!count) {
+      const empty = document.createElement('p');
+      empty.className = 'shop-empty';
+      empty.textContent = t('ui.shop.search_empty');
+      results.appendChild(empty);
+    }
+    $('shop-results-count').textContent = t(count === 1 ? 'ui.shop.result_single' : 'ui.shop.result_count', { n: count });
+    grid.replaceChildren(results);
+    grid.scrollTop = nextScroll;
+  }
+
+  function makeSupplyCard(supply) {
+    const card = document.createElement('article');
+    card.className = 'shop-product';
+    card.dataset.supplyId = supply.id;
+    card.innerHTML = '<div class="shop-product-head"><span class="shop-product-icon" aria-hidden="true"></span><h4></h4></div><p></p>';
+    card.querySelector('.shop-product-icon').textContent = supply.icon;
+    card.querySelector('h4').textContent = nm('sup', supply, 'name');
+    card.querySelector('p').textContent = nm('sup', supply, 'desc');
+
+    const missing = [];
+    if (userCoins < supply.price_coins) missing.push(coinsTxt(supply.price_coins - userCoins));
+    if (userXp < (supply.req_xp || 0)) missing.push((supply.req_xp - userXp) + ' XP');
+    if (userMush < (supply.req_mushrooms || 0)) missing.push(t('ui.shop.mushrooms', { n: supply.req_mushrooms - userMush }));
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'shop-product-buy';
+    button.disabled = missing.length > 0 || supplyPurchasePending;
+    button.textContent = t('ui.shop.buyDeliver', { price: supply.price_coins });
+    if (missing.length) {
+      const requirements = document.createElement('p');
+      requirements.textContent = t('ui.shop.missing', { list: missing.join(' + ') });
+      card.appendChild(requirements);
+    }
+    button.setAttribute('aria-label', nm('sup', supply, 'name') + ' · ' + button.textContent);
+    button.onclick = () => buySupply(supply, button);
+    card.appendChild(button);
+    return card;
+  }
+}
+
 export function renderShopModal() {
   const grid = $('shop-grid');
+  const previousScroll = grid.scrollTop;
   if (!grid) return;
   grid.innerHTML = '';
   const user = appState.currentUser;
@@ -135,195 +325,27 @@ export function renderShopModal() {
     }
   } catch (e) {}
 
-  const tabHats = $('shop-tab-hats');
-  const tabToys = $('shop-tab-toys');
-  const tabPets = $('shop-tab-pets');
-  const tabSupplies = $('shop-tab-supplies');
-  if (tabHats && tabToys) {
-    const baseTab = 'shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg font-bold text-xs transition ';
-    tabHats.className = baseTab + (activeShopTab === 'hats' ? 'bg-purple-600 text-white shadow-sm' : 'bg-slate-800/80 text-slate-300 hover:text-white');
-    tabToys.className = baseTab + (activeShopTab === 'toys' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-slate-800/80 text-slate-300 hover:text-white');
-    if (tabPets) {
-      tabPets.className = baseTab + (activeShopTab === 'pets' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'bg-slate-800/80 text-slate-300 hover:text-white');
-      tabPets.onclick = () => { activeShopTab = 'pets'; renderShopModal(); };
-    }
-    if (tabSupplies) {
-      tabSupplies.className = baseTab + (activeShopTab === 'supplies' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-800/80 text-slate-300 hover:text-white');
-      tabSupplies.onclick = () => { activeShopTab = 'supplies'; renderShopModal(); };
-    }
-    tabHats.onclick = () => { activeShopTab = 'hats'; renderShopModal(); };
-    tabToys.onclick = () => { activeShopTab = 'toys'; renderShopModal(); };
+  for (const tab of ['supplies', 'hats', 'toys', 'pets']) {
+    const button = $('shop-tab-' + tab);
+    if (!button) continue;
+    button.setAttribute('aria-pressed', String(activeShopTab === tab));
+    button.onclick = () => {
+      if (activeShopTab === tab) return;
+      activeShopTab = tab;
+      grid.scrollTop = 0;
+      renderShopModal();
+    };
   }
-
-  if (activeShopTab === 'pets') {
-    renderPetShop(grid, renderShopModal);
+  const isCatalog = activeShopTab === 'supplies';
+  $('shop-toolbar').hidden = !isCatalog;
+  $('shop-categories').hidden = !isCatalog;
+  $('btn-close-shop')?.setAttribute('aria-label', t('ui.shop.close'));
+  if (isCatalog) {
+    renderSupplies(grid, userCoins, userXp, userMush, previousScroll);
     return;
   }
-
-  if (activeShopTab === 'supplies') {
-    const stickyWrap = document.createElement('div');
-    stickyWrap.className = 'col-span-full flex flex-col gap-2 sticky top-0 z-10 py-2 -mt-2 sm:-mt-3 -mx-3 sm:-mx-5 px-3 sm:px-5 bg-slate-900/95 border-b border-slate-800/80 shadow-sm';
-
-    const searchRow = document.createElement('div');
-    searchRow.className = 'relative flex items-center';
-    const searchInput = document.createElement('input');
-    searchInput.id = 'shop-supply-search';
-    searchInput.type = 'search';
-    searchInput.value = supplySearchQuery;
-    searchInput.placeholder = t('ui.shop.search_placeholder');
-    searchInput.className = 'w-full px-3 py-1.5 pr-8 rounded-lg bg-slate-950/90 border border-slate-700/80 text-white text-xs placeholder-slate-400 focus:outline-none focus:border-emerald-400';
-    searchInput.oninput = (ev) => {
-      const pos = ev.target.selectionStart ?? ev.target.value.length;
-      supplySearchQuery = ev.target.value;
-      renderShopModal();
-      const restored = $('shop-supply-search');
-      if (restored) {
-        restored.focus();
-        try { restored.setSelectionRange(pos, pos); } catch (e) {}
-      }
-    };
-    searchRow.appendChild(searchInput);
-    if (supplySearchQuery) {
-      const clearBtn = document.createElement('button');
-      clearBtn.type = 'button';
-      clearBtn.className = 'absolute right-2 text-slate-400 hover:text-white text-xs font-bold px-1';
-      clearBtn.textContent = '✕';
-      clearBtn.onclick = () => { supplySearchQuery = ''; renderShopModal(); $('shop-supply-search')?.focus(); };
-      searchRow.appendChild(clearBtn);
-    }
-    stickyWrap.appendChild(searchRow);
-
-    const chipBar = document.createElement('div');
-    chipBar.className = 'flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar';
-    [{ id: 'all', icon: '🛒' }].concat(SHOP_SUPPLY_CATEGORIES).forEach((c) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] font-bold border transition ' +
-        (activeSupplyCat === c.id ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm' : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:text-white');
-      chip.textContent = c.icon + ' ' + t('ui.shop.cat.' + c.id);
-      chip.onclick = () => { activeSupplyCat = c.id; renderShopModal(); };
-      chipBar.appendChild(chip);
-    });
-    stickyWrap.appendChild(chipBar);
-    grid.appendChild(stickyWrap);
-
-    const normQuery = supplySearchQuery.trim().toLowerCase();
-    const supplyById = new Map(SHOP_SUPPLIES.map((s) => [s.id, s]));
-    const supplyEntries = [];
-    SHOP_SUPPLY_CATEGORIES.forEach((c) => {
-      if (activeSupplyCat !== 'all' && activeSupplyCat !== c.id) return;
-      const items = c.ids
-        .map((id) => supplyById.get(id))
-        .filter((s) => {
-          if (!s) return false;
-          if (!normQuery) return true;
-          const label = nm('sup', s, 'name').toLowerCase();
-          const desc = nm('sup', s, 'desc').toLowerCase();
-          return label.includes(normQuery) || desc.includes(normQuery);
-        })
-        .sort((a, b) => a.price_coins - b.price_coins);
-      if (!items.length) return;
-      const head = document.createElement('div');
-      head.className = 'col-span-full flex items-center justify-between text-[11px] sm:text-xs font-extrabold text-emerald-300 uppercase tracking-wider pt-2 pb-1.5 border-b border-emerald-500/20';
-      head.innerHTML = `<span>${c.icon} ${escapeHtml(t('ui.shop.cat.' + c.id))}</span><span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-[10px]">${items.length}</span>`;
-      grid.appendChild(head);
-      items.forEach((s) => supplyEntries.push(s));
-      items.forEach((sup) => renderSupplyCard(sup));
-    });
-    if (!supplyEntries.length) {
-      const empty = document.createElement('div');
-      empty.className = 'col-span-full text-center py-8 text-xs text-slate-400 font-semibold';
-      empty.textContent = t('ui.shop.search_empty');
-      grid.appendChild(empty);
-    }
-    function renderSupplyCard(sup) {
-      const reqXp = sup.req_xp || 0;
-      const reqMush = sup.req_mushrooms || 0;
-      const hasCoins = userCoins >= sup.price_coins;
-      const hasXp = userXp >= reqXp;
-      const hasMush = userMush >= reqMush;
-      const canBuy = hasCoins && hasXp && hasMush;
-      const reqLine = `🪙 ${coinsTxt(sup.price_coins)}` +
-        (reqXp > 0 ? ` • ⭐ ${reqXp} XP` : '') +
-        (reqMush > 0 ? ` • 🍄 ${t('ui.shop.mushrooms', { n: reqMush })}` : '');
-      const card = document.createElement('div');
-      card.className = 'glass-panel rounded-xl p-3 flex flex-col justify-between border border-emerald-500/35';
-      card.innerHTML =
-        `<div class="space-y-1.5">` +
-          `<div class="flex items-center gap-2">` +
-            `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">${sup.icon}</span>` +
-            `<div>` +
-              `<div class="font-bold text-white text-xs">${escapeHtml(nm('sup', sup, 'name'))}</div>` +
-              `<div class="text-[11px] text-slate-400">${escapeHtml(nm('sup', sup, 'desc'))}</div>` +
-            `</div>` +
-          `</div>` +
-          `<div class="pt-1 text-[11px] font-bold text-yellow-300">${reqLine}</div>` +
-        `</div>`;
-      const btnWrap = document.createElement('div');
-      btnWrap.className = 'pt-3';
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      if (canBuy) {
-        btn.className = 'w-full py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow transition';
-        btn.textContent = t('ui.shop.buyDeliver', { price: sup.price_coins });
-        btn.onclick = async () => {
-          btn.disabled = true;
-          try {
-            if (appState.currentUser) {
-              const userId = appState.currentUser.id;
-              const delivery = window.getCampusShopDeliveryPose?.(sup.prefabId);
-              if (!delivery) {
-                toast3D(t('ui.shop.waitCampus'));
-                btn.disabled = false;
-                return;
-              }
-              if (window.flushCampusMycoCoins) await window.flushCampusMycoCoins();
-              if (appState.currentUser?.id !== userId) return;
-              if (pendingCoinOperations(userId).length) {
-                toast3D(t('ui.shop.waitCoinSync'));
-                btn.disabled = false;
-                return;
-              }
-              const buyRes = await orderShopSupply(sup.id, delivery);
-              if (!buyRes?.ok) {
-                toast3D((buyRes?.pending ? '⌛ ' : '❌ ') + (buyRes?.error || t('ui.shop.buyFailed')));
-                btn.disabled = false;
-                return;
-              }
-            } else {
-              const spawned = window.spawnCampusShopItem ? window.spawnCampusShopItem(sup.prefabId) : null;
-              if (!spawned) {
-                toast3D(t('ui.shop.enterCampus'));
-                btn.disabled = false;
-                return;
-              }
-              addLocalMycoCoins(-sup.price_coins);
-            }
-            if (window.MycoAudio && window.MycoAudio.playCashRegister) window.MycoAudio.playCashRegister();
-            updateUserHud();
-            $('shop-modal')?.classList.add('hidden');
-            events.emit('sync:now');
-            toast3D(appState.currentUser
-              ? t('ui.shop.purchaseConfirmed', { name: nm('sup', sup, 'name') })
-              : t('ui.shop.delivered', { name: nm('sup', sup, 'name') }));
-          } catch (e) {
-            toast3D('❌ ' + (e.message || t('ui.shop.supplyError')));
-            btn.disabled = false;
-          }
-        };
-      } else {
-        btn.disabled = true;
-        btn.className = 'w-full py-1.5 rounded-lg bg-slate-800/80 text-slate-500 font-semibold text-xs border border-slate-700/40';
-        const missing = [];
-        if (!hasCoins) missing.push(coinsTxt(sup.price_coins - userCoins));
-        if (!hasXp) missing.push(`${reqXp - userXp} XP`);
-        if (!hasMush) missing.push(t('ui.shop.mushrooms', { n: reqMush - userMush }));
-        btn.textContent = t('ui.shop.missing', { list: missing.join(' + ') });
-      }
-      btnWrap.appendChild(btn);
-      card.appendChild(btnWrap);
-      grid.appendChild(card);
-    }
+  if (activeShopTab === 'pets') {
+    renderPetShop(grid, renderShopModal);
     return;
   }
 

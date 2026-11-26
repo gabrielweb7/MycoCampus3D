@@ -10,6 +10,7 @@
 
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
+import { bindBurnerItem } from './pressure-cooker.js';
 
 const THREE = window.THREE;
 
@@ -381,5 +382,6 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   ctx.burnerSwitchMeshes.push(valve1, knob1, valve2, knob2, valveHit);
   ctx.burnerDevices.push(bState);
 
-  return registerPickable(ctx, id, 'Tripé Fogareiro a Gás (GLP)', tg, px, py, pz, 0, 0.36, totalH, GAS_TRIPOD_META);
+  const item = registerPickable(ctx, id, 'Tripé Fogareiro a Gás (GLP)', tg, px, py, pz, 0, 0.36, totalH, GAS_TRIPOD_META);
+  return bindBurnerItem(item, bState);
 }

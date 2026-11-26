@@ -5,6 +5,7 @@
 
 import { registerPickable } from './item-registry.js';
 import { spawnSprayParticles } from './alcohol-spray.js';
+import { getHoodSanitationContext } from './laminar-hood.js';
 import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
@@ -78,18 +79,24 @@ export function wipeWithPaperTowel(ctx, wipeInfo) {
   const isHood = target === 'hood' || (target.mesh && target.mesh.userData && target.mesh.userData.isHood);
 
   if (isHood) {
-    const hadWet = !!ctx.hoodAlcoholWet;
-    const wasActive = ctx.hoodSanitizedUntil > Date.now();
+    const hood = getHoodSanitationContext(ctx, target);
+    const hadWet = !!hood.hoodAlcoholWet;
+    const wasActive = hood.hoodSanitizedUntil > Date.now();
     if (!hadWet && !wasActive) {
       if (ctx.callbacks && ctx.callbacks.onToast) {
         ctx.callbacks.onToast(t('items.paperTowel.m2'));
       }
       return;
     }
-    ctx.hoodAlcoholWet = false;
-    ctx.hoodSanitizeHits = 0;
-    ctx.hoodSanitizedUntil = Date.now() + 120000;
-    ctx.queueWorldStateChange('hood_sanitized_until', 1);
+    hood.hoodAlcoholWet = false;
+    hood.hoodSanitizeHits = 0;
+    hood.hoodSanitizedUntil = Date.now() + 120000;
+    if (hood.portable) {
+      ctx.queueItemStateSync?.(target);
+      ctx.notifyWorldAction?.();
+    } else {
+      ctx.queueWorldStateChange('hood_sanitized_until', 1);
+    }
     if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('sanitize_hood');
     let extraDry = 0;
     if (ctx.hoverHit && ctx.hoverHit.point && ctx.pickableItems) {

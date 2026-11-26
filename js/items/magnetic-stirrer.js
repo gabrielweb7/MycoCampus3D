@@ -81,7 +81,17 @@ export function makeMagneticStirrer(ctx, id, px, py, pz) {
   knob2.children.forEach(function (c) { c.userData.stirSwitch = stirState; ctx.stirSwitchMeshes.push(c); });
   ctx.stirSwitchMeshes.push(frontPanel);
   ctx.stirrerDevices.push(stirState);
-  return registerPickable(ctx, id, 'Agitador Magnético (MYCO-MAG)', sg, px, py, pz, 0, 0.24, 0.14, MAGNETIC_STIRRER_META);
+  const item = registerPickable(ctx, id, 'Agitador Magnético (MYCO-MAG)', sg, px, py, pz, 0, 0.24, 0.14, MAGNETIC_STIRRER_META);
+  stirState.item = item;
+  if (id.startsWith('dyn_')) {
+    item.meta.serializeState = () => ({ stirrerOn: stirState.on });
+    item.meta.applyState = (_item, state) => {
+      if (typeof state.stirrerOn !== 'boolean') return;
+      stirState.on = state.stirrerOn;
+      ledMat.color.setHex(stirState.on ? 0x22c55e : 0xef4444);
+    };
+  }
+  return item;
 }
 
 export function stepMagneticStirrers(ctx, dt) {
@@ -101,7 +111,8 @@ export function stepMagneticStirrers(ctx, dt) {
     const lx = liqIt.mesh.position.x, ly = liqIt.mesh.position.y, lz = liqIt.mesh.position.z;
     for (let sj = 0; sj < ctx.stirrerDevices.length; sj++) {
       const st = ctx.stirrerDevices[sj];
-      if (st.on && lx >= st.surface.minX && lx <= st.surface.maxX && lz >= st.surface.minZ && lz <= st.surface.maxZ && Math.abs(ly - st.surface.topY) < 0.08) {
+      if (st.on && !st.item?._adminRemoved && !st.item?._removedForSync &&
+          lx >= st.surface.minX && lx <= st.surface.maxX && lz >= st.surface.minZ && lz <= st.surface.maxZ && Math.abs(ly - st.surface.topY) < 0.08) {
         lcCtrl.stirBar.rotation.y += dt * 18;
         if (lcCtrl.mycCloud) lcCtrl.mycCloud.rotation.y += dt * 4.5;
         const medium = liqIt.pdaMediumCtrl;

@@ -4,6 +4,7 @@
 
 import { makeBox } from '../engine/textures.js';
 import { registerPickable } from './item-registry.js';
+import { getHoodSanitationContext } from './laminar-hood.js';
 import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
@@ -148,14 +149,15 @@ export function getSanitizationStatus(target, ctx) {
   const nowEpoch = Date.now();
 
   if (isHood && ctx) {
-    const wet = !!ctx.hoodAlcoholWet;
-    const active = !wet && ctx.hoodSanitizedUntil > nowEpoch;
-    const hits = (wet || active) ? 3 : Math.min(2, ctx.hoodSanitizeHits || 0);
+    const hood = getHoodSanitationContext(ctx, target);
+    const wet = !!hood.hoodAlcoholWet;
+    const active = !wet && hood.hoodSanitizedUntil > nowEpoch;
+    const hits = (wet || active) ? 3 : Math.min(2, hood.hoodSanitizeHits || 0);
     return {
       hits,
       alcoholWet: wet,
       isSanitized: active,
-      remainingSec: active ? Math.max(1, Math.ceil((ctx.hoodSanitizedUntil - nowEpoch) / 1000)) : 0
+      remainingSec: active ? Math.max(1, Math.ceil((hood.hoodSanitizedUntil - nowEpoch) / 1000)) : 0
     };
   }
 
@@ -245,8 +247,13 @@ export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}
   const st = getSanitizationStatus(target, ctx);
 
   if (isHood) {
-    ctx.hoodAlcoholWet = true;
-    ctx.hoodSanitizeHits = 0;
+    const hood = getHoodSanitationContext(ctx, target);
+    hood.hoodAlcoholWet = true;
+    hood.hoodSanitizeHits = 0;
+    if (hood.portable) {
+      hood.hoodSanitizedUntil = 0;
+      ctx.queueItemStateSync?.(target);
+    }
   } else if (typeof target === 'object') {
     target.alcoholWet = true;
     target._sanitizeHits = 0;
@@ -260,9 +267,14 @@ export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}
       const it = ctx.pickableItems[i];
       if (!it || !it.mesh || it === ctx.heldItem || it === target) continue;
       if (it.mesh.userData && it.mesh.userData.isHood) {
-        if (!ctx.hoodAlcoholWet && Math.abs(hp.x - it.mesh.position.x) <= 0.9 && Math.abs(hp.z - it.mesh.position.z) <= 0.6) {
-          ctx.hoodAlcoholWet = true;
-          ctx.hoodSanitizeHits = 0;
+        const hood = getHoodSanitationContext(ctx, it);
+        if (!hood.hoodAlcoholWet && Math.abs(hp.x - it.mesh.position.x) <= 0.9 && Math.abs(hp.z - it.mesh.position.z) <= 0.6) {
+          hood.hoodAlcoholWet = true;
+          hood.hoodSanitizeHits = 0;
+          if (hood.portable) {
+            hood.hoodSanitizedUntil = 0;
+            ctx.queueItemStateSync?.(it);
+          }
           extraWet++;
         }
         continue;

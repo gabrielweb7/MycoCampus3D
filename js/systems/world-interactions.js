@@ -5,8 +5,9 @@
  */
 
 import { scrollRanking } from '../world/staircase-clock.js';
-import { setBurnerLevel, BURNER_LEVEL_NAMES, cycleBurnerTimer, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
+import { setBurnerLevel, BURNER_LEVEL_NAMES, cycleBurnerTimer, formatBurnerTimerLabel, queuePurchasedBurnerState } from '../items/pressure-cooker.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
+import { setHoodPower } from '../items/laminar-hood.js';
 import { petCow } from '../entities/pasture-cows.js';
 import { interactBeehive } from '../entities/bee-ecology.js';
 import { interactFlower } from '../world/campus-flowers.js';
@@ -286,23 +287,28 @@ export function handleWorldInteraction(ctx) {
     return true;
   }
   if (ctx.hoveredHoodSwitch) {
-    ctx.hoveredHoodSwitch.on = !ctx.hoveredHoodSwitch.on;
-    ctx.hoveredHoodSwitch.points.visible = ctx.hoveredHoodSwitch.on;
-    ctx.hoveredHoodSwitch.hepaMat.emissiveIntensity = ctx.hoveredHoodSwitch.on ? 0.45 : 0.04;
-    ctx.hoveredHoodSwitch.ledMat.color.setHex(ctx.hoveredHoodSwitch.on ? 0x22c55e : 0xef4444);
-    if (ctx.hoveredHoodSwitch.workLight) {
-      ctx.hoveredHoodSwitch.workLight.visible = ctx.hoveredHoodSwitch.on;
-      ctx.hoveredHoodSwitch.workLight.intensity = ctx.hoveredHoodSwitch.on ? 0.95 : 0;
-    }
+    const hood = ctx.hoveredHoodSwitch;
+    setHoodPower(hood, !hood.on);
     if (window.MycoAudio) window.MycoAudio.playSwitch();
-    ctx.queueWorldStateChange('hood_lab', ctx.hoveredHoodSwitch.on ? 1 : 0);
-    if (ctx.hoveredHoodSwitch.on && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('hood_on');
+    if (hood.portable) {
+      ctx.queueItemStateSync?.(hood.item);
+      ctx.notifyWorldAction?.();
+    } else {
+      ctx.queueWorldStateChange('hood_lab', hood.on ? 1 : 0);
+    }
+    if (hood.on && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('hood_on');
     return true;
   }
   if (ctx.hoveredStirSwitch) {
-    ctx.hoveredStirSwitch.on = !ctx.hoveredStirSwitch.on;
-    ctx.hoveredStirSwitch.ledMat.color.setHex(ctx.hoveredStirSwitch.on ? 0x22c55e : 0xef4444);
-    ctx.queueWorldStateChange('stir_lab', ctx.hoveredStirSwitch.on ? 1 : 0);
+    const stirrer = ctx.hoveredStirSwitch;
+    stirrer.on = !stirrer.on;
+    stirrer.ledMat.color.setHex(stirrer.on ? 0x22c55e : 0xef4444);
+    if (stirrer.item?.id.startsWith('dyn_')) {
+      ctx.queueItemStateSync?.(stirrer.item);
+      ctx.notifyWorldAction?.();
+    } else {
+      ctx.queueWorldStateChange('stir_lab', stirrer.on ? 1 : 0);
+    }
     return true;
   }
   if (ctx.hoveredScaleTare) {
@@ -362,7 +368,7 @@ export function handleWorldInteraction(ctx) {
   if (ctx.hoveredBurnerTimer) {
     const nextMin = cycleBurnerTimer(ctx.hoveredBurnerTimer);
     if (window.MycoAudio) window.MycoAudio.playSwitch();
-    if (ctx.queueWorldStateChange) {
+    if (!queuePurchasedBurnerState(ctx, ctx.hoveredBurnerTimer) && ctx.queueWorldStateChange) {
       const bId = ctx.hoveredBurnerTimer.id || 'burner_lab';
       const suffix = bId === 'burner_lab' ? 'lab' : 'sub';
       const baseNow = ctx.serverTimeSec || Math.floor(Date.now() / 1000);
@@ -383,10 +389,13 @@ export function handleWorldInteraction(ctx) {
     const nextLvl = ((ctx.hoveredBurnerSwitch.level || (ctx.hoveredBurnerSwitch.on ? 3 : 0)) + 1) % 4;
     setBurnerLevel(ctx.hoveredBurnerSwitch, nextLvl);
     if (window.MycoAudio) window.MycoAudio.playSwitch();
+    const syncedPurchased = queuePurchasedBurnerState(ctx, ctx.hoveredBurnerSwitch);
     const bId = ctx.hoveredBurnerSwitch.id || 'burner_lab';
-    ctx.queueWorldStateChange(bId, ctx.hoveredBurnerSwitch.on ? 1 : 0);
-    ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, ctx.hoveredBurnerSwitch.level || 0);
-    if (ctx.hoveredBurnerSwitch.kind === 'electric') {
+    if (!syncedPurchased) {
+      ctx.queueWorldStateChange(bId, ctx.hoveredBurnerSwitch.on ? 1 : 0);
+      ctx.queueWorldStateChange(bId === 'burner_lab' ? 'burner_level_lab' : `${bId}_level`, ctx.hoveredBurnerSwitch.level || 0);
+    }
+    if (!syncedPurchased && ctx.hoveredBurnerSwitch.kind === 'electric') {
       const suffix = bId === 'burner_lab' ? 'lab' : 'sub';
       const baseNow = ctx.serverTimeSec || Math.floor(Date.now() / 1000);
       const elapsedSinceSync = ctx.serverTimeSyncAt ? Math.max(0, (performance.now() - ctx.serverTimeSyncAt) / 1000) : 0;

@@ -4,6 +4,7 @@ import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { getBowlBulkReadiness, addIngredientToBowl, stirMixingBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { markBladePackEmpty, updateScalpelLabel } from '../items/scalpel.js';
 import { fillSpawnWithSubstrate, getSpawnContainerBaseLabel } from '../items/spawn-containers.js';
+import { getItemKindId } from '../items/item-registry.js';
 import { updateFalconCultureVisual } from '../items/falcon-tubes.js';
 import { inoculatePetri, updatePetriVisual } from '../items/petri-dish.js';
 import { unlockAchievement } from '../core/achievements.js';
@@ -493,7 +494,7 @@ export function handleScalpelTargetAction(ctx) {
 
 export function handleSubstrateTargetAction(ctx) {
   const target = ctx.hoveredGrainTarget;
-  const heldId = (ctx.heldItem && ctx.heldItem.id) || '';
+  const heldId = getItemKindId(ctx.heldItem);
   const isVerm = heldId.indexOf('vermiculite') !== -1;
   const isSawdust = heldId.indexOf('sawdust') !== -1;
   const isCoco = !isSawdust && heldId.indexOf('coco') !== -1;

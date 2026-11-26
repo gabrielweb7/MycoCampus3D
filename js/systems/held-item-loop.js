@@ -9,7 +9,7 @@ import { getGroundHeight } from '../engine/physics.js';
 import { getVirtualDayFrac } from '../world/staircase-clock.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { addSyringeMix, updateSyringeVolume } from '../items/syringe.js';
-import { canSyringeTarget, getItemBaseTempC } from '../items/item-registry.js';
+import { canSyringeTarget, getItemBaseTempC, getItemKindId } from '../items/item-registry.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { inoculatePetri } from '../items/petri-dish.js';
 import { greenhouseSlots, greenhouseHitMeshes, greenhouseEnv } from '../world/greenhouse.js';
@@ -336,7 +336,7 @@ function applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, fin
     : (syrCtrl && typeof syrCtrl.generation === 'number' ? syrCtrl.generation : null);
   if (finalD > 0.01 && syringeTarget) {
     let drawKind = 'water';
-    if (syringeTarget.id && syringeTarget.id.indexOf('distilled_jug') === 0) drawKind = 'distilled';
+    if (getItemKindId(syringeTarget).startsWith('distilled_jug')) drawKind = 'distilled';
     else if (syringeTarget.cultureCtrl && syringeTarget.cultureCtrl.colonized) {
       drawKind = 'lc';
       const sourceOrigin = normalizeCultureOrigin(syringeTarget.cultureCtrl.origin);

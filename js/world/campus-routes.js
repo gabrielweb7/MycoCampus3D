@@ -1,7 +1,5 @@
 import { CAMPUS_CROSSINGS, CAMPUS_ROUTES } from '../core/campus-route-layout.js';
 import { getGroundTextures, makeBox } from '../engine/textures.js';
-import { getCachedCanvasTexture } from '../items/item-registry.js';
-import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 let routes;
@@ -82,61 +80,6 @@ function makeRibbon({ samples, width, surface, closed }, groundY, material) {
   mesh.receiveShadow = true;
   mesh.userData.ignoreRay = true;
   return mesh;
-}
-
-const WAYMARKS = [
-  [-32.5, -43.1, 0, 'misc.quest.sector_forest_name', '↑'],
-  [-19.6, -61.1, 0, 'misc.quest.sector_mountain_name', '↑'],
-  [-24.4, -53.8, Math.PI, 'misc.quest.sector_plaza_name', '↑'],
-  [-12, 34.2, Math.PI, 'map.village', '↑'],
-  [34.85, 1.35, -Math.PI / 2, 'misc.quest.sector_cinema_name', '↑'],
-  [-33.65, -9.15, 0, 'misc.quest.sector_sports_name', '←']
-];
-const REVERSE_ARROW = { '↑': '↓', '←': '→' };
-
-function addWaymarks(scene, groundY) {
-  const postMat = new THREE.MeshStandardMaterial({ color: 0x604025, roughness: 0.95 });
-  const boardMat = new THREE.MeshStandardMaterial({ color: 0x3e3325, roughness: 0.85 });
-  const boardY = 1.55;
-  const boardHeight = 0.44;
-  const boardDepth = 0.10;
-  const postHeight = boardY - boardHeight / 2 + 0.015;
-  const faceGeo = new THREE.PlaneGeometry(1.77, 0.38);
-  for (const [x, z, yaw, label, arrow] of WAYMARKS) {
-    const sign = new THREE.Group();
-    sign.name = 'Campus waymark ' + label;
-    sign.position.set(x, groundY(x, z), z);
-    sign.rotation.y = yaw;
-    const post = makeBox(0.11, postHeight, 0.12, postMat);
-    post.position.y = postHeight / 2;
-    const board = makeBox(1.85, boardHeight, boardDepth, boardMat);
-    board.position.y = boardY;
-    sign.add(post, board);
-    const text = t(label);
-    for (const side of [1, -1]) {
-      const symbol = side > 0 ? arrow : REVERSE_ARROW[arrow];
-      const map = getCachedCanvasTexture(`campus-route-${text}-${symbol}`, 512, 112, ctx => {
-        ctx.fillStyle = '#211b16';
-        ctx.fillRect(0, 0, 512, 112);
-        ctx.strokeStyle = '#ce9e63';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(6, 6, 500, 100);
-        ctx.fillStyle = '#fff8e8';
-        ctx.font = 'bold 50px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, 27, 57, 383);
-        ctx.textAlign = 'center';
-        ctx.fillText(symbol, 455, 57, 55);
-      });
-      if (!map) continue;
-      const face = new THREE.Mesh(faceGeo, new THREE.MeshBasicMaterial({ map, toneMapped: false }));
-      face.position.set(0, boardY, side * (boardDepth / 2 + 0.002));
-      face.rotation.y = side > 0 ? 0 : Math.PI;
-      sign.add(face);
-    }
-    scene.add(sign);
-  }
 }
 
 function addWoodlandDetails(scene, groundY) {
@@ -223,6 +166,5 @@ export function buildCampusRoutes(scene, groundY) {
       scene.add(line);
     }
   }
-  addWaymarks(scene, groundY);
   addWoodlandDetails(scene, groundY);
 }

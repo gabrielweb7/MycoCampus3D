@@ -225,7 +225,7 @@ export function makeFalconTube(ctx, id, maxMl, px, py, pz, initMl) {
   return item;
 }
 
-export function makeFalconRack(ctx, rx, ry, rz) {
+export function makeFalconRack(ctx, rx, ry, rz, id = 'falcon_rack_lab') {
   const rg = new THREE.Group();
   rg.position.set(rx, ry, rz);
   const blueMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.42 });
@@ -256,11 +256,11 @@ export function makeFalconRack(ctx, rx, ry, rz) {
   rg.userData.tableDims = { w: 0.24, h: 0.012, d: 0.16, surfOffset: 0 };
   rg.userData.dynamicSurface = rackSurf;
   rg.userData.updateBounds = updateItemBounds;
-  const rackItem = registerPickable(ctx, 'falcon_rack_lab', 'Suporte Azul de Tubos Falcon', rg, rx, ry, rz, 0, 0.14, 0.08, {
+  const rackItem = registerPickable(ctx, id, 'Suporte Azul de Tubos Falcon', rg, rx, ry, rz, 0, 0.14, 0.08, {
     category: 'tool',
     purpose: 'Suporte para transportar e organizar Tubos Falcon / Slants',
     weightGrams: 180,
     compatibilities: { canEnterCooker: false, supportsItemsOnSurface: true }
   });
-  return rackItem.mesh;
+  return rackItem;
 }

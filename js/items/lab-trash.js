@@ -4,7 +4,7 @@
  * ou descarta recipientes de uso único e embalagens vazias.
  */
 
-import { disposeObjectResources, registerPickable, updateItemBounds } from './item-registry.js';
+import { disposeObjectResources, getItemKindId, registerPickable, updateItemBounds } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
 import { updateSpawnVisual } from './spawn-containers.js';
 import { updatePetriVisual } from './petri-dish.js';
@@ -46,7 +46,7 @@ function makeTrashLabelTexture() {
   return tex;
 }
 
-export function buildLabTrashBin(ctx, px, py, pz) {
+export function buildLabTrashBin(ctx, px, py, pz, id = 'lab_trash_01') {
   const tg = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.28 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.4, roughness: 0.55 });
@@ -115,7 +115,7 @@ export function buildLabTrashBin(ctx, px, py, pz) {
   tg.userData.tableDims = { w: 0.40, h: 0.58, d: 0.40, surfOffset: 0 };
   tg.userData.updateBounds = updateItemBounds;
 
-  const item = registerPickable(ctx, 'lab_trash_01', 'Lixo (Lixeira do Laboratório)', tg, px, py, pz, 0, 0.22, 0.58, LAB_TRASH_META);
+  const item = registerPickable(ctx, id, 'Lixo (Lixeira do Laboratório)', tg, px, py, pz, 0, 0.22, 0.58, LAB_TRASH_META);
 
   if (ctx.labTrashMeshes) ctx.labTrashMeshes.push(hitMesh);
   if (ctx.solidColliders) {
@@ -151,7 +151,7 @@ export function canDisposeItemInTrash(item) {
     const mc = item.monotubCtrl;
     return !!(mc.hasSpawn || mc.hasBulk || mc.spent || mc.contaminated);
   }
-  if (item.mesh.userData.liquidCtrl && item.id.indexOf('distilled_jug') !== 0) {
+  if (item.mesh.userData.liquidCtrl && !getItemKindId(item).startsWith('distilled_jug')) {
     const hasPda = !!(item.pdaMediumCtrl && (item.pdaMediumCtrl.powderGrams > 0 || item.pdaMediumCtrl.mixed || item.pdaMediumCtrl.burned));
     const hasCulture = !!(item.cultureCtrl && (item.cultureCtrl.colonized || item.cultureCtrl.contaminated || item.cultureCtrl.expired));
     // Água pura sempre é descartada na pia, nunca no lixo
@@ -256,7 +256,7 @@ export function resetDisposableContainer(item) {
     item.cultureCtrl.ageGameDays = 0;
     item.cultureCtrl.shelfLifeAgeDays = 0;
   }
-  if (item.mesh.userData.liquidCtrl && item.id.indexOf('distilled_jug') !== 0) {
+  if (item.mesh.userData.liquidCtrl && !getItemKindId(item).startsWith('distilled_jug')) {
     updateContainerVolume(item, 0);
     cleaned = true;
   }

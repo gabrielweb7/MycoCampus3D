@@ -28,7 +28,7 @@ import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWildHarvest, handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { removeCrateCargo } from './crate-cargo.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
+import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, getItemKindId, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
 import { discardHeldLiquid } from './liquid-disposal.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
@@ -522,7 +522,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       wipeWithPaperTowel(ctx, ctx.hoveredWipeTarget);
       return;
     }
-    if (ctx.hoveredParafilmTarget && !ctx.placementMode && ctx.heldItem.id && ctx.heldItem.id.indexOf('parafilm_') === 0) {
+    if (ctx.hoveredParafilmTarget && !ctx.placementMode && ctx.heldItem.mesh.userData.isParafilm) {
       const target = ctx.hoveredParafilmTarget;
       const pc = target.mesh && target.mesh.userData && target.mesh.userData.petriCtrl;
       if (pc && pc.lidOpen) {
@@ -1162,9 +1162,10 @@ export function handlePrimaryAction(ctx, aimNdc) {
       }
       return;
     }
-    if (ctx.hoveredGrainCooker && (ctx.heldItem.id.indexOf('substrate_grain_') === 0 || ctx.heldItem.id.indexOf('substrate_wheat_') === 0 || ctx.heldItem.id.indexOf('substrate_sorghum_') === 0)) {
+    const heldKind = getItemKindId(ctx.heldItem);
+    if (ctx.hoveredGrainCooker && /^substrate_(grain|wheat|sorghum)(?:_|$)/.test(heldKind)) {
       const cp = ctx.hoveredGrainCooker;
-      const gKind = ctx.heldItem.id.indexOf('wheat') !== -1 ? 'wheat' : (ctx.heldItem.id.indexOf('sorghum') !== -1 ? 'sorghum' : 'grain');
+      const gKind = heldKind.startsWith('substrate_wheat') ? 'wheat' : (heldKind.startsWith('substrate_sorghum') ? 'sorghum' : 'grain');
       const addG = Math.min(500, 4000 - (cp.grainGrams || 0));
       if (addG > 0) {
         cp.grainGrams = (cp.grainGrams || 0) + addG;
@@ -1177,7 +1178,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       }
       return;
     }
-    if (ctx.hoveredGrainTarget && ctx.heldItem.id.indexOf('substrate_') === 0) {
+    if (ctx.hoveredGrainTarget && heldKind.startsWith('substrate_')) {
       handleSubstrateTargetAction(ctx);
       return;
     }

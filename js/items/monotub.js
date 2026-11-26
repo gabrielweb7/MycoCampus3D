@@ -17,7 +17,7 @@
 import { calculateHarvestYieldGrams, getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
-import { bindPngTexture, getCachedCanvasTexture, registerPickable, updateItemBounds } from './item-registry.js';
+import { bindPngTexture, getCachedCanvasTexture, getItemKindId, registerPickable, updateItemBounds } from './item-registry.js';
 import { getSanitizationStatus } from './alcohol-spray.js';
 import { updateContainerVolume } from './liquid-culture.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
@@ -883,7 +883,7 @@ export function interactMonotub(ctx, tubItem) {
   // 1b. Se o bolo já está 100% colonizado e o jogador está segurando Vermiculita, Pó de Coco ou Substrato Pasteurizado -> aplicar Camada de Casing!
   const isHoldingCasingSource = held && (
     isHoldingPasteurizedBulkSubstrate(held) ||
-    (typeof held.id === 'string' && (held.id.indexOf('substrate_vermiculite') === 0 || held.id.indexOf('substrate_coco') === 0))
+    (/^substrate_(vermiculite|coco)(?:_|$)/.test(getItemKindId(held)))
   );
   if (!mc.spent && !mc.contaminated && mc.colonization >= 100 && !mc.hasCasing && isHoldingCasingSource) {
     const isRawCasing = !(held.spawnCtrl && (held.spawnCtrl.pasteurized || held.spawnCtrl.sterilized)) && !(held.bowlCtrl && held.bowlCtrl.pasteurized);

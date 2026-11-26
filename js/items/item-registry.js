@@ -225,6 +225,10 @@ export function registerPickable(ctx, id, label, mesh, x, y, z, ry, radius, heig
   return entry;
 }
 
+export function getItemKindId(item) {
+  return item?.meta?.prefabId || item?.mesh?.userData?.prefabId || item?.id || '';
+}
+
 export function getItemWeightGrams(item) {
   if (!item) return 0;
   const meta = item.meta || (item.mesh && item.mesh.userData && item.mesh.userData.itemMeta);
@@ -251,7 +255,7 @@ export function getItemBaseTempC(item, ctx) {
 
 export function canItemEnterCooker(item) {
   if (!item || !item.mesh) return false;
-  if (item.id && item.id.indexOf('distilled_jug') === 0) return false;
+  if (getItemKindId(item).startsWith('distilled_jug')) return false;
   const meta = item.meta || item.mesh.userData.itemMeta;
   if (meta && meta.compatibilities && meta.compatibilities.canEnterCooker !== undefined) {
     return !!meta.compatibilities.canEnterCooker;
@@ -448,12 +452,12 @@ export function getItemSupportTopOffset(item) {
   if (ud.isCookerBase) return 0.036 * sy;
   if (item.lidItem && item.lidItem.isAttached) return 0.42 * sy;
   if (item.mushroomBagCtrl) return 0.035 * sy;
-  const id = item.id || '';
-  if (id.indexOf('gloves_box_') === 0) return 0.122 * sy;
+  const id = getItemKindId(item);
+  if (id.startsWith('gloves_box')) return 0.122 * sy;
   if (id.indexOf('substrate_') === 0) return 0.42 * sy;
-  if (id.indexOf('flocao_500g_') === 0) return 0.22 * sy;
+  if (id.startsWith('flocao_500g')) return 0.22 * sy;
   if (id === 'falcon_rack_lab') return 0.08 * sy;
-  if (id.indexOf('foil_roll_') === 0) return 0.065 * sy;
+  if (id.startsWith('foil_roll')) return 0.065 * sy;
   return 0;
 }
 
@@ -469,9 +473,9 @@ export function getItemSupportHalfExtents(item) {
   else if (item && item.silicaJarCtrl) { w = 0.17; d = 0.17; }
   else if (item && item.organicBasketCtrl) { w = 0.32; d = 0.24; }
   else if (item && item.sealerCtrl) { w = 0.28; d = 0.16; }
-  else if (item && item.id && item.id.indexOf('substrate_') === 0) { w = 0.30; d = 0.22; }
-  else if (item && item.id && item.id.indexOf('gloves_box_') === 0) { w = 0.24; d = 0.13; }
-  else if (item && item.id && item.id.indexOf('flocao_500g_') === 0) { w = 0.18; d = 0.12; }
+  else if (getItemKindId(item).startsWith('substrate_')) { w = 0.30; d = 0.22; }
+  else if (getItemKindId(item).startsWith('gloves_box')) { w = 0.24; d = 0.13; }
+  else if (getItemKindId(item).startsWith('flocao_500g')) { w = 0.18; d = 0.12; }
   else {
     const r = (item && item.radius) || 0.18;
     w = r * 1.6;

@@ -167,7 +167,8 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         strpos($itemId, 'falcon_') === 0 || strpos($itemId, 'syringe_10ml_') === 0 ||
         strpos($itemId, 'mixing_bowl_') === 0 || strpos($itemId, 'scalpel_') === 0;
     if ($hasItemState && array_key_exists('containerId', $raw) && is_string($raw['containerId']) &&
-        ($raw['containerId'] === '' || in_array($raw['containerId'], ['pressure_cooker_lab', 'pressure_cooker_sub'], true))) {
+        ($raw['containerId'] === '' || in_array($raw['containerId'], ['pressure_cooker_lab', 'pressure_cooker_sub'], true) ||
+            (strpos($raw['containerId'], 'dyn_') === 0 && mp_is_allowed_item_id($raw['containerId'])))) {
         $clean['containerId'] = $raw['containerId'];
     }
 
@@ -317,7 +318,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if ($medium) $clean['pdaMedium'] = $medium;
     }
 
-    if (strpos($itemId, 'pda_bottle') === 0 && isset($raw['pdaReagent']) &&
+    if (($isDyn || strpos($itemId, 'pda_bottle') === 0) && isset($raw['pdaReagent']) &&
         is_array($raw['pdaReagent']) && isset($raw['pdaReagent']['remainingGrams']) &&
         is_numeric($raw['pdaReagent']['remainingGrams']) &&
         is_finite((float)$raw['pdaReagent']['remainingGrams'])) {
@@ -385,7 +386,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if ($lm) $clean['liquidMix'] = $lm;
     }
 
-    if (strpos($itemId, 'mixing_bowl_') === 0 && isset($raw['bowl']) && is_array($raw['bowl'])) {
+    if (($isDyn || strpos($itemId, 'mixing_bowl_') === 0) && isset($raw['bowl']) && is_array($raw['bowl'])) {
         $src = $raw['bowl'];
         $bowl = [];
         if (isset($src['ingredients']) && is_array($src['ingredients'])) {
@@ -405,7 +406,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if ($bowl) $clean['bowl'] = $bowl;
     }
 
-    if (strpos($itemId, 'scalpel_') === 0 && isset($raw['scalpel']) && is_array($raw['scalpel'])) {
+    if (($isDyn || strpos($itemId, 'scalpel_') === 0) && isset($raw['scalpel']) && is_array($raw['scalpel'])) {
         $scalpel = [];
         foreach (['hasBlade', 'sterile', 'hasMycelium', 'bladeContaminated', 'cutContaminated'] as $key) {
             if (isset($raw['scalpel'][$key]) && is_bool($raw['scalpel'][$key])) $scalpel[$key] = $raw['scalpel'][$key];
@@ -426,7 +427,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if ($scalpel) $clean['scalpel'] = $scalpel;
     }
 
-    if (strpos($itemId, 'scalpel_blade_') === 0 && isset($raw['bladePack']) && is_array($raw['bladePack'])) {
+    if (($isDyn || strpos($itemId, 'scalpel_blade_') === 0) && isset($raw['bladePack']) && is_array($raw['bladePack'])) {
         if (isset($raw['bladePack']['empty']) && is_bool($raw['bladePack']['empty'])) {
             $clean['bladePack'] = ['empty' => $raw['bladePack']['empty']];
         }
@@ -454,7 +455,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         $clean['sanitizedRemainingSec'] = max(0, min(300, (int)round((float)$raw['sanitizedRemainingSec'])));
     }
 
-    if (strpos($itemId, 'pressure_cooker_') === 0 && isset($raw['cooker']) && is_array($raw['cooker'])) {
+    if (($isDyn || strpos($itemId, 'pressure_cooker_') === 0) && isset($raw['cooker']) && is_array($raw['cooker'])) {
         $src = $raw['cooker'];
         $cooker = [];
         if (isset($src['waterMl']) && is_numeric($src['waterMl']) && is_finite((float)$src['waterMl'])) {
@@ -466,7 +467,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
                 $cooker[$key] = max(0, min($limit, (float)$src[$key]));
             }
         }
-        foreach (['sterilized', 'burned', 'grainAlDente', 'hasBase'] as $key) {
+        foreach (['sterilized', 'burned', 'grainAlDente', 'hasBase', 'lidAttached'] as $key) {
             if (isset($src[$key]) && is_bool($src[$key])) $cooker[$key] = $src[$key];
         }
         if (isset($src['contents']) && is_array($src['contents'])) {
@@ -479,7 +480,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if ($cooker) $clean['cooker'] = $cooker;
     }
 
-    if (strpos($itemId, 'culture_fridge_') === 0 && isset($raw['fridge']) && is_array($raw['fridge'])) {
+    if (($isDyn || strpos($itemId, 'culture_fridge_') === 0) && isset($raw['fridge']) && is_array($raw['fridge'])) {
         if (isset($raw['fridge']['doorOpen']) && is_bool($raw['fridge']['doorOpen'])) {
             $clean['fridge'] = ['doorOpen' => $raw['fridge']['doorOpen']];
         }

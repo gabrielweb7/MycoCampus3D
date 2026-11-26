@@ -12,7 +12,7 @@ export { isRayOccludedByStructure, firstUnoccludedRayHit } from './ray-occlusion
 import { getSyringeInjectionDoseMl } from '../items/syringe.js';
 import { updatePlacementGhostVisual } from '../entities/placement-ghost.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
-import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, hasPdaContents } from '../items/item-registry.js';
+import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, getItemKindId, hasPdaContents } from '../items/item-registry.js';
 import { getDrainableVolume } from './liquid-disposal.js';
 import { t } from '../core/i18n.js';
 import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge } from '../items/culture-fridge.js';
@@ -236,7 +236,7 @@ function handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
   const pickHit = findPickableHit(ctx, bestDist, null, intersectPickableItem, { nearest: true });
   if (pickHit) {
     bestDist = pickHit.hit.distance;
-    bestTarget = pickHit.item.mesh.userData.isHood ? 'hood' : pickHit.item;
+    bestTarget = pickHit.item;
     bestLabel = pickHit.item.label;
     bestPoint = pickHit.hit.point;
     bestHitObj = pickHit.hit;
@@ -298,7 +298,7 @@ function handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt) {
   const pickHit = findPickableHit(ctx, bestDist, null, intersectPickableItem, { nearest: true });
   if (pickHit) {
     bestDist = pickHit.hit.distance;
-    bestTarget = pickHit.item.mesh.userData.isHood ? 'hood' : pickHit.item;
+    bestTarget = pickHit.item;
     bestLabel = pickHit.item.label;
     bestHitObj = pickHit.hit;
   }
@@ -350,7 +350,7 @@ function handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt) {
 
 function handleParafilmHover(ctx, intersectPickableItem, setHoverPrompt) {
   if (ctx.placementMode || !ctx.heldItem.id) return false;
-  if (ctx.heldItem.id.indexOf('parafilm_') === 0) {
+  if (ctx.heldItem.mesh.userData.isParafilm) {
     const res = findPickableHit(ctx, 3.5, (c) => !!(c.mesh && c.mesh.userData.isPetri), intersectPickableItem, { requireFridgeAccess: true });
     if (!res) return false;
     ctx.hoverHit = res.hit;
@@ -620,7 +620,7 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
   const sourceHasPda = hasPdaContents(ctx.heldItem);
   const sourceCanPourWater = !!(ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.poursWater);
   const isTubeSlantOrCulture = !!(
-    (ctx.heldItem.id && ctx.heldItem.id.indexOf('falcon_') === 0) ||
+    getItemKindId(ctx.heldItem).startsWith('falcon_') ||
     ctx.heldItem.cultureCtrl ||
     (ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.cultureCtrl) ||
     (ctx.heldItem.pdaMediumCtrl && ctx.heldItem.pdaMediumCtrl.isSlant)
@@ -872,8 +872,9 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
       }
     }
   }
-  if (!ctx.heldItem.id || ctx.heldItem.id.indexOf('substrate_') !== 0) return false;
-  if (ctx.heldItem.id.indexOf('substrate_grain_') === 0 || ctx.heldItem.id.indexOf('substrate_wheat_') === 0 || ctx.heldItem.id.indexOf('substrate_sorghum_') === 0) {
+  const heldId = getItemKindId(ctx.heldItem);
+  if (!heldId.startsWith('substrate_')) return false;
+  if (/^substrate_(grain|wheat|sorghum)(?:_|$)/.test(heldId)) {
     for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
       const cp = ctx.cookerPots[ci];
       const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
@@ -888,7 +889,6 @@ function handleSubstrateHover(ctx, intersectPickableItem, setHoverPrompt) {
       }
     }
   }
-  const heldId = (ctx.heldItem && ctx.heldItem.id) || '';
   const isVerm = heldId.indexOf('vermiculite') !== -1;
   const isSawdust = heldId.indexOf('sawdust') !== -1;
   const isCoco = !isSawdust && heldId.indexOf('coco') !== -1;
@@ -1143,7 +1143,7 @@ function handleMonotubAndGardenHover(ctx, intersectPickableItem, setHoverPrompt)
   // 3. Segurando Spawn Colonizado, Substrato Pasteurizado, Vermiculita/Pó de Coco (Casing), Galão 5L (Dunk) ou Colher Inox -> interagir com Monotub 24L
   const canAddSpawn = isHoldingColonizedGrainSpawn(held);
   const canAddBulk = isHoldingPasteurizedBulkSubstrate(held);
-  const isCasingSack = typeof held.id === 'string' && (held.id.indexOf('substrate_vermiculite') === 0 || held.id.indexOf('substrate_coco') === 0);
+  const isCasingSack = /^substrate_(vermiculite|coco)(?:_|$)/.test(getItemKindId(held));
   const isWaterJug = !!(held.mesh && held.mesh.userData && held.mesh.userData.isWaterGallon);
   const isSpoon = !!(held.mesh && held.mesh.userData && held.mesh.userData.isLabSpoon);
   if (canAddSpawn || canAddBulk || isCasingSack || isWaterJug || isSpoon) {

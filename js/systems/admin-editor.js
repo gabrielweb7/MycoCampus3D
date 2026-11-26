@@ -10,18 +10,31 @@ import { markItemsFalling } from '../entities/placement-ghost.js';
 import { addMovableStainlessTable } from '../items/stainless-table.js';
 import { makeLabTray } from '../items/lab-tray.js';
 import { makeAlcoholSprayBottle, makeH2O2SprayBottle, makeWaterSprayBottle } from '../items/alcohol-spray.js';
-import { makeLcNutrientBottle } from '../items/pda-bottle.js';
+import { createPdaBottleGroup, makeLcNutrientBottle, PDA_BOTTLE_META } from '../items/pda-bottle.js';
 import { getPetriMeta, makePetriDish } from '../items/petri-dish.js';
 import { makeBeaker1L, makeLiquidJar800 } from '../items/liquid-culture.js';
-import { makePdaMediaBottle1L } from '../items/pda-mix.js';
+import { attachPdaMediumCtrl, attachPdaReagentCtrl, makePdaMediaBottle1L } from '../items/pda-mix.js';
 import { makePP5Cup145ml } from '../items/pp5-cup.js';
-import { makeMixingBowl } from '../items/mixing-bowl.js';
+import { makeLabSpoon, makeMixingBowl } from '../items/mixing-bowl.js';
 import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
 import { makeInfraredThermometer } from '../items/thermometer.js';
 import { makeDehydrator } from '../items/dehydrator.js';
 import { GROW_PREFABS, makeGrowShopItem } from '../items/portable-grow.js';
 import { makeMonotub24L } from '../items/monotub.js';
-import { makeSilicaStorageJar } from '../items/lab-advanced-tools.js';
+import { makeAlcoholLamp, makeLabMicroscope, makeSilicaStorageJar } from '../items/lab-advanced-tools.js';
+import { makeFalconRack, makeFalconTube } from '../items/falcon-tubes.js';
+import { makeDistilledJug5L } from '../items/distilled-jug.js';
+import { makeGlovesBox, makeFoilRoll, makeSubstrateBag5kg, makeTapeRoll } from '../items/storage-rack.js';
+import { makePaperTowelRoll } from '../items/paper-towel.js';
+import { makeScalpel, makeScalpelBladePack } from '../items/scalpel.js';
+import { createPrecisionScale } from '../items/precision-scale.js';
+import { createHeatSealer } from '../items/heat-sealer.js';
+import { makeCultureFridge } from '../items/culture-fridge.js';
+import { createPressureCookerPair, makeElectricBurner } from '../items/pressure-cooker.js';
+import { makeGasTripodBurner } from '../items/gas-tripod.js';
+import { makeCookerBase } from '../items/cooker-base.js';
+import { buildLabTrashBin } from '../items/lab-trash.js';
+import { makeLaminarHood } from '../items/laminar-hood.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
 import { makeMushroomBag, makeDeliveryCrate } from '../items/mushroom-packaging.js';
 import { rebuildCrateCargo, removeCrateCargo } from './crate-cargo.js';
@@ -32,7 +45,7 @@ import { makeFlowerSeedPacket } from '../world/campus-flowers.js';
 import { makeStarterBeehiveItem, makeBeeBaitItem } from '../entities/bee-ecology.js';
 import { saveLocalMovedObject } from './world-objects-sync.js';
 import { moveItemWithSupported, dropSupportedItemsToGround } from './surface-group-move.js';
-import { getItemGroundHeight } from '../engine/physics.js';
+import { clampPosAgainstWalls, getItemGroundHeight } from '../engine/physics.js';
 import { apiPost } from '../services/api-client.js';
 import { events } from '../core/events.js';
 
@@ -91,7 +104,11 @@ export function ensureCoreAdminPrefabs() {
   registerItemPrefab('beaker_1l', {
     label: 'Béquer Vidro 1L',
     category: 'glassware',
-    factory: (ctx, opts) => makeBeaker1L(ctx, opts.id || ('dyn_beaker_1l_' + Date.now().toString(36)), opts.x, opts.y, opts.z, 0)
+    factory: (ctx, opts) => {
+      const item = makeBeaker1L(ctx, opts.id || ('dyn_beaker_1l_' + Date.now().toString(36)), opts.x, opts.y, opts.z, 0);
+      attachPdaMediumCtrl(item, 'beaker', false);
+      return item;
+    }
   });
 
   registerItemPrefab('liquid_culture', {
@@ -191,9 +208,9 @@ export function ensureCoreAdminPrefabs() {
   });
 
   registerItemPrefab('vial_3ml', {
-    label: 'Ampola 5ML',
+    label: 'Ampola Vazia 5 ml',
     category: 'glassware',
-    factory: (ctx, opts) => makeVial3ml(ctx, opts.id || ('dyn_vial3ml_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
+    factory: (ctx, opts) => makeVial3ml(ctx, opts.id || ('dyn_vial3ml_' + Date.now().toString(36)), opts.x, opts.y, opts.z, { volMl: 0, ...opts })
   });
 
   registerItemPrefab('h2o2_spray', {
@@ -231,6 +248,57 @@ export function ensureCoreAdminPrefabs() {
     category: 'gardening',
     factory: (ctx, opts) => makeStarterBeehiveItem(ctx, opts.id || ('dyn_beehive_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
   });
+
+  for (const [prefabId, label, category, make] of [
+    ['lab_spoon', 'Colher de Laboratório', 'tools', makeLabSpoon],
+    ['scalpel', 'Bisturi', 'tools', makeScalpel],
+    ['scalpel_blade', 'Lâmina de Bisturi', 'tools', makeScalpelBladePack],
+    ['paper_towel', 'Papel-toalha', 'sanitization', makePaperTowelRoll],
+    ['gloves_box', 'Caixa de Luvas', 'ppe', makeGlovesBox],
+    ['foil_roll', 'Papel-Alumínio', 'tools', makeFoilRoll],
+    ['micropore', 'Fita Micropore', 'tools', (ctx, id, x, y, z) => makeTapeRoll(ctx, id, 'micropore', x, y, z)],
+    ['parafilm', 'Rolo de Parafilm', 'tools', (ctx, id, x, y, z) => makeTapeRoll(ctx, id, 'parafilm', x, y, z)],
+    ['lab_trash', 'Lixeira de Laboratório', 'equipment', (ctx, id, x, y, z) => buildLabTrashBin(ctx, x, y, z, id)],
+    ['falcon_15ml', 'Tubo Falcon 15 ml', 'glassware', (ctx, id, x, y, z) => makeFalconTube(ctx, id, 15, x, y, z, 0)],
+    ['falcon_50ml', 'Tubo Falcon 50 ml', 'glassware', (ctx, id, x, y, z) => makeFalconTube(ctx, id, 50, x, y, z, 0)],
+    ['falcon_rack', 'Suporte de Tubos Falcon', 'tools', (ctx, id, x, y, z) => makeFalconRack(ctx, x, y, z, id)],
+    ['distilled_jug', 'Garrafão de Água Destilada 5 L', 'glassware', (ctx, id, x, y, z) => makeDistilledJug5L(ctx, id, x, y, z, 5000)],
+    ['petri_bare', 'Placa de Petri sem Meio', 'glassware', (ctx, id, x, y, z) =>
+      registerPickable(ctx, id, 'Placa de Petri sem Meio', makePetriDish('bare'), x, y, z, 0, 0.14, 0.08, getPetriMeta('bare'))],
+    ['pda_bottle', 'Pó BDA/PDA 500 g', 'reagent', (ctx, id, x, y, z) => {
+      const item = registerPickable(ctx, id, 'Pó BDA/PDA 500 g', createPdaBottleGroup(), x, y, z, 0, 0.15, 0.34, PDA_BOTTLE_META);
+      attachPdaReagentCtrl(item);
+      return item;
+    }],
+    ['precision_scale', 'Balança de Precisão', 'equipment', createPrecisionScale],
+    ['heat_sealer', 'Seladora Térmica', 'equipment', createHeatSealer],
+    ['alcohol_lamp', 'Lamparina a Álcool', 'equipment', makeAlcoholLamp],
+    ['lab_microscope', 'Microscópio', 'equipment', makeLabMicroscope],
+    ['culture_fridge', 'Geladeira de Laboratório', 'equipment', makeCultureFridge],
+    ['cooker_base', 'Base Perfurada', 'equipment', makeCookerBase],
+    ['electric_burner', 'Fogareiro Elétrico', 'equipment', makeElectricBurner],
+    ['gas_tripod', 'Tripé a Gás', 'equipment', makeGasTripodBurner],
+    ['pressure_cooker', 'Panela de Pressão 20 L', 'equipment', (ctx, id, x, y, z) =>
+      createPressureCookerPair(ctx, id, id + '_lid', '', x, y, z).potItem],
+    ['laminar_hood', 'Capela de Fluxo Laminar', 'equipment', makeLaminarHood],
+  ]) {
+    registerItemPrefab(prefabId, {
+      label,
+      category,
+      factory: (ctx, opts) => make(ctx, opts.id || ('dyn_' + prefabId + '_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+    });
+  }
+
+  for (const [kind, label] of Object.entries({
+    grain: 'Milho em Grão 5 kg', wheat: 'Trigo em Grão 5 kg', sorghum: 'Sorgo Vermelho 5 kg',
+    coco: 'Pó de Coco 5 kg', vermiculite: 'Vermiculita 5 kg', sawdust: 'Serragem de Eucalipto 5 kg'
+  })) {
+    registerItemPrefab('substrate_' + kind, {
+      label,
+      category: 'substrate',
+      factory: (ctx, opts) => makeSubstrateBag5kg(ctx, opts.id || ('dyn_substrate_' + kind + '_' + Date.now().toString(36)), kind, opts.x, opts.y, opts.z)
+    });
+  }
 }
 
 export function getShopDeliveryPose(sim, prefabId, { requireReady = true } = {}) {
@@ -240,18 +308,41 @@ export function getShopDeliveryPose(sim, prefabId, { requireReady = true } = {})
   const px = sim.playerPos ? sim.playerPos.x : 0;
   const pz = sim.playerPos ? sim.playerPos.z : 10;
   const yaw = sim.playerYaw || 0;
-  const tx = px - Math.sin(yaw) * 1.15;
-  const tz = pz - Math.cos(yaw) * 1.15;
   const baseY = sim.playerPos ? sim.playerPos.y : 0;
-  const ty = getItemGroundHeight(sim.physCtx, tx, tz, baseY + 1.2);
-  return { x: tx, y: ty, z: tz, ry: yaw };
+  const clearance = prefabId === 'laminar_hood' ? 1.25 : (prefabId === 'table_stainless' || prefabId === 'grow_tent' ? 0.72 : 0.28);
+  for (const distance of [1.25 + clearance, 2.15 + clearance]) {
+    for (const angle of [0, -0.55, 0.55, -1.15, 1.15, Math.PI]) {
+      const x = px - Math.sin(yaw + angle) * distance;
+      const z = pz - Math.cos(yaw + angle) * distance;
+      const y = getItemGroundHeight(sim.physCtx, x, z, baseY + 1.2);
+      if (Math.abs(y - baseY) > 1.25) continue;
+      if (sim.physCtx) {
+        const point = { x, y: y + 0.12, z };
+        clampPosAgainstWalls(sim.physCtx, point, clearance);
+        if (Math.hypot(point.x - x, point.z - z) > 0.04) continue;
+      }
+      const overlaps = sim.pickableItems?.some((item) => {
+        const mesh = item.mesh;
+        if (!mesh || !mesh.visible || item === sim.heldItem || item._removedForSync) return false;
+        const other = mesh.userData.tableDims;
+        const extent = other ? Math.hypot(other.w, other.d) / 2 : item.radius || 0.2;
+        return Math.abs(mesh.position.y - y) < 0.26 &&
+          Math.hypot(mesh.position.x - x, mesh.position.z - z) < clearance + extent;
+      });
+      if (!overlaps) return { x, y, z, ry: yaw };
+    }
+  }
+  return null;
 }
 
 export function spawnShopItemNearPlayer(sim, prefabId) {
   const pose = getShopDeliveryPose(sim, prefabId, { requireReady: false });
   if (!pose) return null;
   const { x: tx, y: ty, z: tz, ry: yaw } = pose;
-  const item = spawnItemFromPrefab(sim, prefabId, { x: tx, y: ty, z: tz, ry: yaw });
+  const item = spawnItemFromPrefab(sim, prefabId, {
+    id: 'dyn_shop_' + (globalThis.crypto?.randomUUID?.().replaceAll('-', '') || Date.now().toString(36) + Math.random().toString(36).slice(2)),
+    x: tx, y: ty, z: tz, ry: yaw
+  });
   if (!item) return null;
   if (item.mesh && item.mesh.userData && item.mesh.userData.updateBounds) {
     item.mesh.userData.updateBounds(item);
