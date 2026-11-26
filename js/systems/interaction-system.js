@@ -4,6 +4,7 @@
  * termometro laser, lousa e delegacao de interacoes fixas do mundo e raycasting.
  */
 
+import { t } from '../core/i18n.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
@@ -42,8 +43,9 @@ import { getItemsSupportedBy } from './surface-group-move.js';
 import { depositSporePrintOnPetri, fillPetriWithPda, sealPetriWithParafilm } from '../items/petri-dish.js';
 import { interactMonotub, placeMonotubInLedRackSlot, rehydrateMonotubCake, dunkMonotubAtSink, treatMonotubWithH2O2 } from '../items/monotub.js';
 import { isHoldingColonizedSpawn } from '../world/greenhouse.js';
+import { installInGrow, openPortableGrowPanel } from '../items/portable-grow.js';
 import { isHoldingSpentCakeForCompost, interactGardenTarget } from '../world/campus-garden.js';
-import { applyFoilWrap, applyMicroporeSeal, getSpawnContainerBaseLabel, transferGrainToGrain, updateSpawnVisual } from '../items/spawn-containers.js';
+import { applyFoilWrap, applyMicroporeSeal, getSpawnContainerBaseLabel, canReceiveSpawnForFruiting, mixSpawnIntoFruitingBag, transferGrainToGrain, updateSpawnVisual } from '../items/spawn-containers.js';
 import { updateLcNutrientLabel } from '../items/pda-bottle.js';
 import {
   interactAlcoholLamp,
@@ -307,6 +309,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       if (ctx.cratePlacementTarget) return placeHeldInCrate(ctx, ctx.cratePlacementTarget);
       return commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
     }
+    if (!ctx.adminEditMode && ctx.hoveredPickable?.growCtrl && installInGrow(ctx, ctx.hoveredPickable)) return true;
     if (ctx.hoveredPdaTarget) {
       const target = ctx.hoveredPdaTarget;
       if (ctx.heldItem.pdaReagentCtrl) {
@@ -594,6 +597,13 @@ export function handlePrimaryAction(ctx, aimNdc) {
       return;
     }
     if (ctx.hoveredG2GTarget && !ctx.placementMode && ctx.heldItem.spawnCtrl) {
+      if (canReceiveSpawnForFruiting(ctx.hoveredG2GTarget)) {
+        if (mixSpawnIntoFruitingBag(ctx, ctx.heldItem, ctx.hoveredG2GTarget)) {
+          window.MycoAudio?.playClick?.();
+          ctx.callbacks?.onToast?.(t('grow.bag_shake'));
+        }
+        return true;
+      }
       const res = transferGrainToGrain(ctx, ctx.heldItem, ctx.hoveredG2GTarget);
       if (res && res.ok) {
         if (window.MycoAudio) window.MycoAudio.playClick();
@@ -1195,6 +1205,10 @@ export function handlePrimaryAction(ctx, aimNdc) {
   }
   if (!ctx.adminEditMode && handleWorldInteraction(ctx)) return;
   if (ctx.hoveredPickable) {
+    if (!ctx.adminEditMode && ctx.hoveredPickable.growCtrl) {
+      openPortableGrowPanel(ctx, ctx.hoveredPickable);
+      return true;
+    }
     if (!ctx.adminEditMode && ctx.hoveredPickable.dehydratorCtrl) {
       interactDehydrator(ctx, ctx.hoveredPickable);
       return;

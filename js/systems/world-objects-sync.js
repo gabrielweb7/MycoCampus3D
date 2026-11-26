@@ -2,6 +2,7 @@
  * Sincronizacao de Objetos Fisicos, Estados de Culturas e Pose Salva (MycoCampus3D)
  */
 
+import { isFruitingBagWaitingForMix } from '../items/spawn-containers.js';
 import { normalizeCultureOrigin } from '../core/culture-origin.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
@@ -930,7 +931,7 @@ export function advanceOfflineItemState(item, ageSec, sim) {
   }
 
   const sc = item.spawnCtrl || (meshData && meshData.spawnCtrl);
-  if (sc && sc.inoculated && !sc.colonized && !sc.contaminated && !sc.burned && !sc.expired) {
+  if (sc && sc.inoculated && !sc.colonized && !sc.contaminated && !sc.burned && !sc.expired && !isFruitingBagWaitingForMix(sc)) {
     const shakeMult = sc.shaken ? 2.2 : 1.0;
     const genMult = 1 + Math.min(3, Math.max(0, sc.generation || 0)) * 0.15;
     const rate = sc.refrigerated ? (4.2 * 0.2) : (4.2 * shakeMult * genMult);

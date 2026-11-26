@@ -2,6 +2,7 @@
  * Recipientes de Spawn: Vidro 800ml (Milho) e Bag 1,5kg + Colonizacao (MycoCampus3D)
  */
 
+import { t } from '../core/i18n.js';
 import { getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
 import { bindPngTexture, getCachedCanvasTexture, registerPickable } from './item-registry.js';
@@ -144,6 +145,54 @@ export function applyMicroporeSeal(item) {
   return true;
 }
 
+function isBulkSubstrate(kind) {
+  return kind === 'coco_verm' || kind === 'sawdust' || kind === 'coco' || kind === 'vermiculite';
+}
+
+export function isFruitingBagWaitingForMix(sc) {
+  return sc.isBag && sc.pasteurized && isBulkSubstrate(sc.substrateKind) && !sc.shaken;
+}
+
+export function canReceiveSpawnForFruiting(item) {
+  const sc = item?.spawnCtrl;
+  return !!(sc?.isBag && sc.filled && sc.pasteurized && isBulkSubstrate(sc.substrateKind) &&
+    !sc.inoculated && !sc.contaminated && !sc.burned && !sc.expired);
+}
+
+export function isFruitingBagReady(item) {
+  const sc = item?.spawnCtrl;
+  return !!(sc?.isBag && sc.filled && sc.pasteurized && isBulkSubstrate(sc.substrateKind) &&
+    sc.inoculated && sc.shaken && sc.colonized && !sc.contaminated && !sc.burned && !sc.expired);
+}
+
+export function mixSpawnIntoFruitingBag(ctx, source, bag) {
+  const sc = source?.spawnCtrl;
+  if (!sc?.filled || !sc.colonized || sc.contaminated || sc.burned || sc.expired ||
+      sc.substrateKind === 'pda' || isBulkSubstrate(sc.substrateKind) ||
+      source.isReadOnly || bag?.isReadOnly || !canReceiveSpawnForFruiting(bag)) return false;
+  const target = bag.spawnCtrl;
+  Object.assign(target, {
+    inoculated: true, colonized: false, shaken: false, colonization: 20, speciesName: sc.speciesName,
+    origin: normalizeCultureOrigin(sc.origin), generation: sc.generation, ageGameDays: 0, shelfLifeAgeDays: 0
+  });
+  emptySpawnContainer(source);
+  target.updateVisual();
+  ctx.queueItemStateSync?.(source);
+  ctx.queueItemStateSync?.(bag);
+  ctx.callbacks?.onHoldChange?.(source.label);
+  ctx.notifyWorldAction?.();
+  return true;
+}
+
+export function emptySpawnContainer(item) {
+  Object.assign(item.spawnCtrl, {
+    filled: false, fillGrams: 0, waterMl: 0, substrateKind: '', sterilized: false, pasteurized: false,
+    pasteurizedOnly: false, sterilizeProgress: 0, sealed: false, inoculated: false, colonized: false,
+    shaken: false, colonization: 0, ageGameDays: 0, shelfLifeAgeDays: 0, speciesName: '', origin: '', g2gUses: 0
+  });
+  item.spawnCtrl.updateVisual();
+}
+
 export function transferGrainToGrain(ctx, srcItem, dstItem) {
   if (!srcItem || !dstItem || srcItem === dstItem || !srcItem.spawnCtrl || !dstItem.spawnCtrl) return { ok: false, reason: 'invalid' };
   const s = srcItem.spawnCtrl;
@@ -237,7 +286,10 @@ export function updateSpawnVisual(item) {
       item.label = sc.baseLabel + ' (Queimado 🔥 Jogue fora)';
     } else if (sc.contaminated) {
       item.label = sc.baseLabel + ' (🦠 ' + contamTag + ')';
-    } else if (sc.colonization >= 100) {
+    } else if (sc.isBag && sc.pasteurized && sc.inoculated && isBulkSubstrate(sc.substrateKind)) {
+    const progress = Math.floor(sc.colonization);
+    item.label = t(isFruitingBagReady(item) ? 'grow.bag_ready' : !sc.shaken ? 'grow.bag_shake' : 'grow.bag_growing', { progress });
+  } else if (sc.colonization >= 100) {
       item.label = sc.baseLabel + ' (100% Colonizado ✅)' + getSpawnCultureStatus(item);
     } else if (sc.inoculated) {
       item.label = sc.baseLabel + getSpawnCultureStatus(item);
@@ -523,6 +575,7 @@ export function breakAndShakeSpawn(ctx, item) {
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
     ctx.callbacks.onToast(`💥 Break & Shake realizado em ${sc.baseLabel}! Os grãos colonizados foram espalhados — velocidade de colonização dobrada (2.2x)!`);
   }
+  ctx?.queueItemStateSync?.(item);
   if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
   return true;
 }
@@ -563,7 +616,8 @@ export function stepSpawnColonization(ctx, dt) {
         : (isCultureIncubationTemperatureSuitable(sgIt, ctx) ? baseRate : 0);
       const dryStall = sc.hydrated === false && (sc.waterMl || 0) < 30 &&
         (sc.substrateKind === 'corn' || sc.substrateKind === 'grain' || sc.substrateKind === 'wheat' || sc.substrateKind === 'sorghum');
-      const maxCol = dryStall ? 15 : 100;
+      const waitingForMix = isFruitingBagWaitingForMix(sc);
+      const maxCol = waitingForMix ? 20 : dryStall ? 15 : 100;
       if (sc.colonization < maxCol && spawnRate > 0) {
         sc.colonization = Math.min(maxCol, sc.colonization + dt * spawnRate);
         changed = true;

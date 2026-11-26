@@ -474,6 +474,33 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     }
 
     if (isset($raw['custom']) && is_array($raw['custom'])) {
+        if (array_key_exists('grow', $raw['custom'])) {
+            $grow = $raw['custom']['grow'];
+            unset($raw['custom']['grow']);
+            if ($isDyn && is_array($grow)) {
+                $validGrow = [];
+                foreach (['auto', 'led', 'humidifier', 'exhaust', 'mistOn', 'fanOn'] as $key) {
+                    if (isset($grow[$key]) && is_bool($grow[$key])) $validGrow[$key] = $grow[$key];
+                }
+                if (isset($grow['slots']) && is_array($grow['slots'])) {
+                    $validGrow['slots'] = array_fill(0, 9, null);
+                    $nowMs = (int)round(microtime(true) * 1000);
+                    for ($i = 0; $i < 9; $i++) {
+                        $slot = $grow['slots'][$i] ?? null;
+                        if (!is_array($slot) || !is_string($slot['species'] ?? null) || trim($slot['species']) === '') continue;
+                        if (!is_numeric($slot['started'] ?? null) || !is_numeric($slot['duration'] ?? null)) continue;
+                        $validGrow['slots'][$i] = [
+                            'species' => mb_substr(trim($slot['species']), 0, 80, 'UTF-8'),
+                            'flush' => max(1, min(4, is_numeric($slot['flush'] ?? null) ? (int)$slot['flush'] : 1)),
+                            'started' => max(0, min($nowMs, (int)$slot['started'])),
+                            'duration' => max(89000, min(162000, (int)$slot['duration'])),
+                            'spent' => ($slot['spent'] ?? false) === true
+                        ];
+                    }
+                }
+                $raw['custom']['grow'] = $validGrow;
+            }
+        }
         $customJson = json_encode($raw['custom'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if (is_string($customJson) && strlen($customJson) <= 16384) {
             $clean['custom'] = $raw['custom'];

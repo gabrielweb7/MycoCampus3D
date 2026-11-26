@@ -29,7 +29,7 @@ import {
   toggleHeldThermometer
 } from '../systems/interaction-system.js';
 import { getMonotubActionLabel, interactMonotub, updateMonotubVisual } from '../items/monotub.js';
-import { breakAndShakeSpawn, getSpawnSubstrateDisplayName, updateSpawnVisual } from '../items/spawn-containers.js';
+import { breakAndShakeSpawn, canReceiveSpawnForFruiting, getSpawnSubstrateDisplayName, updateSpawnVisual } from '../items/spawn-containers.js';
 import { interactSilicaStorageJar, interactLabMicroscope } from '../items/lab-advanced-tools.js';
 import { toggleAmpouleCaseLid, openAmpouleCaseModal } from '../items/ampoule-case.js';
 import { handleWorldInteraction } from '../systems/world-interactions.js';
@@ -37,6 +37,8 @@ import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
 import { escapeHtml } from './dom-helpers.js';
 import { diagnoseItemPedagogy } from '../core/cultivation-tracks.js';
 import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposal.js';
+import { canPruneGardenPlant } from '../world/campus-garden.js';
+import { growHeldAction } from '../items/portable-grow.js';
 import { t } from '../core/i18n.js';
 
 let barEl = null;
@@ -819,6 +821,14 @@ function buildHeldItemActions(ctx) {
 }
 
 function buildContextActions(ctx) {
+  if (!ctx.adminEditMode && ctx.hoveredPickable?.growCtrl) {
+    const label = ctx.heldItem ? growHeldAction(ctx.heldItem) : t('grow.panel');
+    if (label) return [{ id: 'portable_grow', icon: '🌱', label, run: () => handlePrimaryAction(ctx) }];
+  }
+
+  if (ctx.heldItem && canReceiveSpawnForFruiting(ctx.hoveredG2GTarget)) {
+    return [{ id: 'grow_mix_bag', icon: '🌾', label: t('grow.mix_bag'), run: () => handlePrimaryAction(ctx) }];
+  }
   if (ctx.heldItem) return buildHeldItemActions(ctx);
   const actions = [];
 
@@ -999,10 +1009,11 @@ function buildContextActions(ctx) {
 
   if (!ctx.heldItem && ctx.hoveredGardenTarget) {
     const gt = ctx.hoveredGardenTarget;
+    const prune = canPruneGardenPlant(gt.plant);
     actions.push({
       id: 'garden_' + gt.type,
       icon: gt.type === 'harvest_basket' ? '🧺' : '🌿',
-      label: gt.type === 'harvest_basket' ? 'Pegar Cesta' : (gt.type === 'plant' && gt.plant?.stage === 2 ? 'Colher Planta' : 'Ver Horta'),
+      label: prune ? t('garden.prune') : (gt.type === 'harvest_basket' ? 'Pegar Cesta' : (gt.plant?.stage === 2 ? 'Colher Planta' : 'Ver Horta')),
       run: () => handlePrimaryAction(ctx)
     });
     return actions;

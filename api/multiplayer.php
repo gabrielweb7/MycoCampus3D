@@ -590,7 +590,7 @@ if ($action === 'sync') {
                 $cleanVal = (string)max(0, min($maxMap[$sKey], (int)round((float)$sVal)));
             } elseif ($sKey === 'garden_plants') {
                 $rawPlants = trim((string)$sVal);
-                if (!preg_match('/^[0-2]:\d{1,3}(,[0-2]:\d{1,3}){0,23}$/', $rawPlants)) continue;
+                if (!preg_match('/^[0-2]:\d{1,3}(?::1)?(,[0-2]:\d{1,3}(?::1)?){0,23}$/', $rawPlants)) continue;
                 $cleanVal = $rawPlants;
             } elseif ($sKey === 'burner_timer_preset_lab' || $sKey === 'burner_timer_preset_sub') {
                 $preset = (int)$sVal;

@@ -18,7 +18,8 @@ import { isCultureAccessibleFromFridge, isPartOfFridgeDoor, isCultureFridgeOccup
 import { formatSprayHoverPrompt } from '../items/alcohol-spray.js';
 import { isItemInClosedCabinet } from '../items/lab-cabinets.js';
 import { formatHoverInfo, updateHover3dBadge, hideHover3dBadge } from '../entities/hover-3d-badge.js';
-import { gardenHitMeshes, gardenState } from '../world/campus-garden.js';
+import { growHeldAction } from '../items/portable-grow.js';
+import { canPruneGardenPlant, gardenHitMeshes, gardenState } from '../world/campus-garden.js';
 import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
 import { getMonotubActionLabel } from '../items/monotub.js';
 import { telescopeHitMeshes } from '../world/plaza-telescope.js';
@@ -490,6 +491,18 @@ export function updateHoverRay(ctx, customNdc) {
       }
     }
   }
+  if (!prompt && !ctx.adminEditMode && !ctx.placementMode && growHeldAction(ctx.heldItem)) {
+    let nearest = 4;
+    for (const item of ctx.pickableItems) {
+      if (!item.growCtrl || item.isReadOnly || ctx.isHeldByRemote(item.id)) continue;
+      const hit = intersectPickableItem(ctx.raycaster, item);
+      if (!hit || hit.distance >= nearest || isRayOccludedByStructure(ctx, hit.distance, { checkWalls: true })) continue;
+      nearest = hit.distance;
+      ctx.hoveredPickable = item;
+      ctx.hoverHit = hit;
+    }
+    if (ctx.hoveredPickable?.growCtrl) prompt = growHeldAction(ctx.heldItem);
+  }
   let bestSmall = null, bestSmallDist = Infinity, bestSmallHit = null;
   let bestLarge = null, bestLargeDist = Infinity, bestLargeHit = null;
   let bestBlocked = null, bestBlockedDist = Infinity, bestBlockedHit = null;
@@ -553,6 +566,8 @@ export function updateHoverRay(ctx, customNdc) {
       } else {
         prompt = bestBlocked.label;
       }
+    } else if (ctx.hoveredPickable?.growCtrl && !ctx.adminEditMode) {
+      prompt = t('grow.panel');
     } else if (ctx.hoveredPickable) {
       let potStatus = null;
       for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
@@ -739,6 +754,8 @@ export function updateHoverRay(ctx, customNdc) {
           prompt = pl.kind === 'tomato'
             ? `🍅 Colher Tomates Vermelhos Orgânicos (${pl.name})`
             : `🥬 Colher Alface Crespa Orgânica (${pl.name})`;
+        } else if (canPruneGardenPlant(pl)) {
+          prompt = `✂️ ${t('garden.prune')} • ${Math.floor(pl.growth)}%`;
         } else {
           const stTxt = pl.stage === 0 ? 'Muda crescendo' : (pl.kind === 'tomato' ? 'Tomates verdes amadurecendo' : 'Folhas crescendo');
           prompt = `🌿 ${pl.name} • ${stTxt} (${Math.floor(pl.growth)}%) • Adube na Caixa de Substrato ao lado!`;

@@ -1420,3 +1420,55 @@ body.device-touch #chat-container {
   border: 1px solid #475569;
   border-radius: 12px;
 }
+
+.portable-grow-panel {
+  width: min(620px, calc(100vw - 28px));
+  max-height: 85vh;
+  overflow: auto;
+  color: #ecfdf5;
+  background: #111e22;
+  border: 1px solid #5b8f75;
+  border-radius: 16px;
+  padding: clamp(12px, 4vw, 24px);
+}
+
+.portable-grow-panel::backdrop {
+  background: rgb(5 12 16 / 70%);
+}
+
+.portable-grow-panel h2 {
+  margin: 0;
+}
+
+.portable-grow-panel button {
+  margin: 3px;
+  padding: 8px 10px;
+  background: #28463e;
+  color: inherit;
+  border: 1px solid #668c78;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.portable-grow-panel button:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.portable-grow-slots {
+  margin: 12px 0;
+}
+
+.portable-grow-slots fieldset {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
+  margin: 0 0 6px;
+  padding: 3px;
+  border: 1px solid #668c78;
+  border-radius: 8px;
+}
+
+.portable-grow-slots button {
+  overflow-wrap: anywhere;
+}

@@ -18,6 +18,7 @@ import { makeMixingBowl } from '../items/mixing-bowl.js';
 import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
 import { makeInfraredThermometer } from '../items/thermometer.js';
 import { makeDehydrator } from '../items/dehydrator.js';
+import { GROW_PREFABS, makeGrowShopItem } from '../items/portable-grow.js';
 import { makeMonotub24L } from '../items/monotub.js';
 import { makeSilicaStorageJar } from '../items/lab-advanced-tools.js';
 import { makeSpawnJar800, makeSpawnBag1500 } from '../items/spawn-containers.js';
@@ -37,6 +38,9 @@ let corePrefabsRegistered = false;
 export function ensureCoreAdminPrefabs() {
   if (corePrefabsRegistered) return;
   corePrefabsRegistered = true;
+  for (const [kind, label] of Object.entries(GROW_PREFABS)) {
+    registerItemPrefab(kind, { label, category: 'equipment', factory: (ctx, opts) => makeGrowShopItem(ctx, opts, kind) });
+  }
 
   registerItemPrefab('table_stainless', {
     label: 'Bancada Inox (1.6m)',

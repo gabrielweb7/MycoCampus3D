@@ -41,6 +41,7 @@ import { stepCultureFridges } from '../items/culture-fridge.js';
 import { stepLabCabinets } from '../items/lab-cabinets.js';
 import { stepPetriCultures } from '../items/petri-dish.js';
 import { stepFalconCultures } from '../items/falcon-tubes.js';
+import { stepPortableGrows } from '../items/portable-grow.js';
 import { stepGreenhouse } from '../world/greenhouse.js';
 import { stepForestDistanceCulling } from '../world/mushroom-species.js';
 import { stepPastureCows } from '../entities/pasture-cows.js';
@@ -471,6 +472,7 @@ export function startAnimationLoop(ctx) {
         stepSpawnColonization(ctx, slowDt);
         stepLabSinks(ctx);
         stepGreenhouse(ctx, slowDt);
+        stepPortableGrows(ctx, slowDt);
         stepDehydrators(ctx, slowDt);
         stepMonotubs(ctx, slowDt);
         stepCampusGarden(slowDt, ctx);

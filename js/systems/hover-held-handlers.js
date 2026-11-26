@@ -4,6 +4,7 @@
  * reutilizando um helper único de broad-phase + raycast em pickables.
  */
 
+import { canReceiveSpawnForFruiting } from '../items/spawn-containers.js';
 import { getHeldBoardToolColor } from './chalkboard.js';
 import { isRayOccludedByStructure, firstUnoccludedRayHit } from './ray-occlusion.js';
 import { cratePlacementError, freeCrateSlot } from './crate-cargo.js';
@@ -1192,6 +1193,7 @@ function handleG2GHover(ctx, intersectPickableItem, setHoverPrompt) {
   const res = findPickableHit(ctx, 3.5, (c) => {
     const d = c && c.spawnCtrl;
     if (!d || c === ctx.heldItem) return false;
+    if (canReceiveSpawnForFruiting(c)) return true;
     const dIsGrain = d.substrateKind !== 'coco_verm' && d.substrateKind !== 'sawdust' && d.substrateKind !== 'pda';
     return !!(d.filled && dIsGrain && d.sterilized && !d.inoculated && !d.contaminated && !d.burned && (!d.isBag || d.sealed));
   }, intersectPickableItem);
@@ -1199,6 +1201,10 @@ function handleG2GHover(ctx, intersectPickableItem, setHoverPrompt) {
   ctx.hoverHit = res.hit;
   ctx.hoveredG2GTarget = res.item;
   hidePlacementGhost(ctx);
+  if (canReceiveSpawnForFruiting(res.item)) {
+    setHoverPrompt(ctx, t('grow.mix_bag'));
+    return true;
+  }
   const rem = Math.max(0, 3 - (srcSc.g2gUses || 0));
   setHoverPrompt(ctx, rem > 0
     ? `🌾🧬 Transferência Grão-para-Grão (G2G) no Fluxo Laminar para ${res.item.label} (${rem}/3 usos)`

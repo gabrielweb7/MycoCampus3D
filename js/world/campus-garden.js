@@ -9,12 +9,17 @@
  */
 
 import { makeBox } from '../engine/textures.js';
-import { getCachedCanvasTexture, disposeObjectResources, registerPickable } from '../items/item-registry.js';
+import { disposeObjectResources, registerPickable } from '../items/item-registry.js';
 import { resetMonotubToCleanEmpty } from '../items/monotub.js';
 import { createBanner } from './nature-plaza.js';
 import { triggerCozyHeartBurst } from './cozy-details.js';
 
+import { createGardenModels, makeSubstrateBox } from './campus-garden-models.js';
+
+import { t } from '../core/i18n.js';
+
 const THREE = window.THREE;
+let models;
 
 export const gardenHitMeshes = [];
 export const gardenPlants = [];
@@ -37,7 +42,7 @@ export const gardenState = {
 
 export function serializeGardenPlants(plants = gardenPlants) {
   if (!Array.isArray(plants) || !plants.length) return '';
-  return plants.map((pl) => `${Math.max(0, Math.min(2, pl.stage | 0))}:${Math.max(0, Math.min(999, Math.round(pl.growth || 0)))}`).join(',');
+  return plants.map((pl) => `${Math.max(0, Math.min(2, pl.stage | 0))}:${Math.max(0, Math.min(999, Math.round(pl.growth || 0)))}${pl.stage === 1 && pl.pruned ? ':1' : ''}`).join(',');
 }
 
 export function applySerializedGardenPlants(rawStr, plants = gardenPlants) {
@@ -46,11 +51,13 @@ export function applySerializedGardenPlants(rawStr, plants = gardenPlants) {
   let anyChanged = false;
   for (let i = 0; i < plants.length && i < tokens.length; i++) {
     const parts = tokens[i].split(':');
-    if (parts.length !== 2) continue;
+    if (parts.length !== 2 && parts.length !== 3) continue;
     const st = Math.max(0, Math.min(2, parseInt(parts[0], 10) || 0));
     const gr = Math.max(0, Math.min(99, parseInt(parts[1], 10) || 0));
     const pl = plants[i];
-    if (pl.stage !== st || Math.abs((pl.growth || 0) - gr) > 6) {
+    const pruned = st === 1 && pl.kind === 'tomato' && parts[2] === '1';
+    if (pl.stage !== st || !!pl.pruned !== pruned || Math.abs((pl.growth || 0) - gr) > 6) {
+      pl.pruned = pruned;
       pl.stage = st;
       pl.growth = gr;
       updatePlantVisual(pl);
@@ -147,22 +154,24 @@ export function isHoldingSpentCakeForCompost(held) {
   return false;
 }
 
+export function canPruneGardenPlant(plant) {
+  return plant?.kind === 'tomato' && plant.stage === 1 && !plant.pruned;
+}
+
 function updatePlantVisual(plant) {
   if (!plant || !plant.group) return;
   const gFrac = Math.max(0, Math.min(1, (plant.growth || 0) / 100));
   const s = plant.stage === 0
     ? (0.38 + gFrac * 0.30)
-    : (plant.stage === 1 ? (0.68 + gFrac * 0.34) : 1.06);
+    : (plant.stage === 1 ? (plant.kind === 'tomato' ? 0.98 + gFrac * 0.08 : 0.68 + gFrac * 0.34) : 1.06);
   if (plant.foliageGroup && plant.foliageGroup.scale && plant.foliageGroup.scale.set) {
     plant.foliageGroup.scale.set(s, s, s);
   }
-  if (plant.kind === 'tomato' && plant.fruits) {
-    for (let i = 0; i < plant.fruits.length; i++) {
-      const fr = plant.fruits[i];
-      fr.visible = plant.stage >= 1;
-      if (fr.material) {
-        fr.material.color.setHex(plant.stage === 2 ? 0xef4444 : 0x65a30d);
-      }
+  if (plant.lowerShoots) plant.lowerShoots.visible = plant.stage !== 1 || !plant.pruned;
+  if (plant.fruits) {
+    for (const fruit of plant.fruits) {
+      fruit.group.visible = plant.stage === 2 || (plant.stage === 1 && gFrac >= 0.18);
+      fruit.body.material = plant.stage === 2 ? models.ripe : models.green;
     }
   }
 }
@@ -173,8 +182,7 @@ function updateCompostVisual(immediate = false) {
   if (immediate) gardenState.currentCompostFrac = frac;
   if (!gardenState.compostFillMesh) return;
   const f = gardenState.currentCompostFrac;
-  gardenState.compostFillMesh.scale.y = f;
-  gardenState.compostFillMesh.position.y = 0.08 + 0.22 * f;
+  gardenState.compostFillMesh.position.y = 0.11 + 0.46 * f;
 }
 
 function triggerGardenBurst(x, y, z, colorHex = 0x34d399) {
@@ -202,10 +210,7 @@ export function buildCampusVegetableGarden(ctx) {
 
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
   const darkSoilMat = new THREE.MeshStandardMaterial({ color: 0x29180d, roughness: 0.96 });
-  const compostSoilMat = new THREE.MeshStandardMaterial({ color: 0x3b2313, roughness: 0.94 });
-  const lettuceMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.65 });
-  const lettuceInnerMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.62 });
-  const tomatoLeafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.72 });
+  models ||= createGardenModels(THREE);
   const stakeMat = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.82 });
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
 
@@ -223,55 +228,17 @@ export function buildCampusVegetableGarden(ctx) {
   // 1. CAIXA DE SUBSTRATO & COMPOSTAGEM DA HORTA (x: 15.6, z: 17.6)
   const cx = 15.6;
   const cz = 17.6;
-  const compostGroup = new THREE.Group();
   const binW = 1.35;
   const binD = 1.15;
   const binH = 0.68;
 
-  const wallF = makeBox(binW, binH, 0.08, woodMat);
-  wallF.position.set(cx, binH * 0.5, cz + binD * 0.5);
-  const wallB = makeBox(binW, binH, 0.08, woodMat);
-  wallB.position.set(cx, binH * 0.5, cz - binD * 0.5);
-  const wallL = makeBox(0.08, binH, binD, woodMat);
-  wallL.position.set(cx - binW * 0.5, binH * 0.5, cz);
-  const wallR = makeBox(0.08, binH, binD, woodMat);
-  wallR.position.set(cx + binW * 0.5, binH * 0.5, cz);
-  compostGroup.add(wallF, wallB, wallL, wallR);
-
-  const compostFill = makeBox(binW - 0.14, 0.44, binD - 0.14, compostSoilMat);
-  compostFill.position.set(cx, 0.22, cz);
-  compostGroup.add(compostFill);
-  gardenState.compostFillMesh = compostFill;
-  updateCompostVisual();
-
-  // Placa frontal na Caixa de Substrato
-  const signTex = getCachedCanvasTexture('garden_compost_sign', 256, 96, (sctx) => {
-    sctx.fillStyle = '#064e3b';
-    sctx.fillRect(0, 0, 256, 96);
-    sctx.strokeStyle = '#34d399';
-    sctx.lineWidth = 4;
-    sctx.strokeRect(3, 3, 250, 90);
-    sctx.fillStyle = '#a7f3d0';
-    sctx.font = 'bold 19px system-ui, sans-serif';
-    sctx.textAlign = 'center';
-    sctx.fillText('🌱 CAIXA DE SUBSTRATO', 128, 34);
-    sctx.fillStyle = '#ffffff';
-    sctx.font = 'bold 14px system-ui, sans-serif';
-    sctx.fillText('Jogue Bolos Esgotados (4 Flushs)', 128, 60);
-    sctx.fillStyle = '#fde68a';
-    sctx.font = '13px system-ui, sans-serif';
-    sctx.fillText('Adubo Micelial p/ Alfaces & Tomates', 128, 82);
-  });
-  const signMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.95, 0.36),
-    new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide })
-  );
-  signMesh.position.set(cx, 0.42, cz - binD * 0.5 - 0.048);
-  signMesh.rotation.y = Math.PI;
-  compostGroup.add(signMesh);
+  const { group: compostGroup, fill } = makeSubstrateBox(THREE, binW, binH, binD);
+  compostGroup.position.set(cx, 0, cz);
+  gardenState.compostFillMesh = fill;
+  updateCompostVisual(true);
 
   const compostHit = new THREE.Mesh(new THREE.BoxGeometry(binW + 0.2, binH + 0.35, binD + 0.2), hitMat);
-  compostHit.position.set(cx, binH * 0.5 + 0.1, cz);
+  compostHit.position.y = binH * 0.5 + 0.1;
   compostHit.userData.gardenTarget = {
     type: 'compost_box',
     label: 'Caixa de Substrato & Compostagem da Horta'
@@ -309,8 +276,6 @@ export function buildCampusVegetableGarden(ctx) {
     maxY: bedH
   });
 
-  const leafOuterGeo = new THREE.SphereGeometry(0.14, 10, 8);
-  const leafInnerGeo = new THREE.SphereGeometry(0.085, 8, 6);
   for (let r = 0; r < 2; r++) {
     for (let c = 0; c < 4; c++) {
       const px = lx - 0.78 + c * 0.52;
@@ -318,17 +283,8 @@ export function buildCampusVegetableGarden(ctx) {
       const pGroup = new THREE.Group();
       pGroup.position.set(px, bedH + 0.03, pz);
 
-      const foliageGroup = new THREE.Group();
-      for (let lf = 0; lf < 5; lf++) {
-        const ang = (lf / 5) * Math.PI * 2;
-        const leaf = new THREE.Mesh(leafOuterGeo, lettuceMat);
-        leaf.scale.set(1.1, 0.55, 0.85);
-        leaf.position.set(Math.cos(ang) * 0.06, 0.05, Math.sin(ang) * 0.06);
-        foliageGroup.add(leaf);
-      }
-      const core = new THREE.Mesh(leafInnerGeo, lettuceInnerMat);
-      core.position.y = 0.07;
-      foliageGroup.add(core);
+      const foliageGroup = models.makeLettuce();
+      foliageGroup.rotation.y = (r * 4 + c) * 0.93;
       pGroup.add(foliageGroup);
 
       const pHit = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.42), hitMat);
@@ -372,10 +328,6 @@ export function buildCampusVegetableGarden(ctx) {
     maxY: bedH
   });
 
-  const stakeGeo = new THREE.CylinderGeometry(0.014, 0.016, 0.85, 8);
-  const bushGeo = new THREE.DodecahedronGeometry(0.16, 1);
-  const fruitGeo = new THREE.SphereGeometry(0.032, 10, 8);
-
   for (let r = 0; r < 2; r++) {
     for (let c = 0; c < 3; c++) {
       const px = tx - 0.72 + c * 0.72;
@@ -383,34 +335,9 @@ export function buildCampusVegetableGarden(ctx) {
       const pGroup = new THREE.Group();
       pGroup.position.set(px, bedH + 0.03, pz);
 
-      const stake = new THREE.Mesh(stakeGeo, stakeMat);
-      stake.position.y = 0.42;
-      pGroup.add(stake);
-
-      const foliageGroup = new THREE.Group();
-      const b1 = new THREE.Mesh(bushGeo, tomatoLeafMat);
-      b1.position.y = 0.28;
-      const b2 = new THREE.Mesh(bushGeo, tomatoLeafMat);
-      b2.scale.setScalar(0.82);
-      b2.position.y = 0.54;
-      foliageGroup.add(b1, b2);
-
-      const fruits = [];
-      const fruitCoords = [
-        [0.12, 0.26, 0.08],
-        [-0.11, 0.32, 0.09],
-        [0.09, 0.48, -0.09],
-        [-0.08, 0.52, -0.08]
-      ];
-      for (let fi = 0; fi < fruitCoords.length; fi++) {
-        const fc = fruitCoords[fi];
-        const fMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.25 });
-        const fr = new THREE.Mesh(fruitGeo, fMat);
-        fr.position.set(fc[0], fc[1], fc[2]);
-        foliageGroup.add(fr);
-        fruits.push(fr);
-      }
-      pGroup.add(foliageGroup);
+      const { stake, foliage: foliageGroup, lowerShoots, fruits } = models.makeTomato();
+      pGroup.rotation.y = (r * 3 + c) * 0.79;
+      pGroup.add(stake, foliageGroup);
 
       const pHit = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.90, 0.46), hitMat);
       pHit.position.y = 0.45;
@@ -422,6 +349,7 @@ export function buildCampusVegetableGarden(ctx) {
         growth: 55,
         group: pGroup,
         foliageGroup,
+        lowerShoots,
         fruits
       };
       pHit.userData.gardenTarget = {
@@ -446,10 +374,8 @@ export function buildCampusVegetableGarden(ctx) {
   gardenState.basketItems = [];
   for (let bi = 0; bi < 6; bi++) {
     const isTom = bi % 2 === 1;
-    const itemMesh = new THREE.Mesh(
-      isTom ? fruitGeo : leafInnerGeo,
-      isTom ? new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.28 }) : lettuceMat
-    );
+    const itemMesh = isTom ? models.makeFruit().group : models.makeLettuce();
+    itemMesh.scale.setScalar(isTom ? 1 : 0.25);
     itemMesh.position.set(bx - 0.18 + (bi % 3) * 0.18, 0.26, bz - 0.08 + Math.floor(bi / 3) * 0.16);
     itemMesh.visible = bi === 0;
     basketGroup.add(itemMesh);
@@ -635,8 +561,9 @@ export function interactGardenTarget(ctx, target) {
   if (target.type === 'plant' && target.plant) {
     const pl = target.plant;
     if (pl.stage === 2) {
-      pl.stage = 0;
+      pl.stage = pl.kind === 'tomato' ? 1 : 0;
       pl.growth = 0;
+      pl.pruned = false;
       gardenState.totalHarvested++;
       if (gardenState.totalHarvested % 3 === 0) {
         gardenState.readyBaskets++;
@@ -667,6 +594,18 @@ export function interactGardenTarget(ctx, target) {
       return true;
     }
 
+    if (canPruneGardenPlant(pl)) {
+      pl.pruned = true;
+      pl.growth = Math.min(99, pl.growth + 18);
+      updatePlantVisual(pl);
+      ctx.queueWorldStateChange?.('garden_plants', serializeGardenPlants());
+      triggerGardenBurst(pl.group.position.x, 0.62, pl.group.position.z, 0x86b72e);
+      window.MycoAudio?.playClick?.();
+      onToast?.(t('garden.pruned'));
+      ctx.notifyWorldAction?.();
+      return true;
+    }
+
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (onToast) {
       const stLbl = pl.stage === 0 ? 'Muda crescendo' : (pl.kind === 'tomato' ? 'Tomates verdes amadurecendo' : 'Folhas crescendo');
@@ -687,8 +626,7 @@ export function stepCampusGarden(dt, ctx) {
     gardenState.currentCompostFrac += (gardenState.targetCompostFrac - gardenState.currentCompostFrac) * Math.min(1, dt * 4.5);
     if (gardenState.compostFillMesh) {
       const f = gardenState.currentCompostFrac;
-      gardenState.compostFillMesh.scale.y = f;
-      gardenState.compostFillMesh.position.y = 0.08 + 0.22 * f;
+      gardenState.compostFillMesh.position.y = 0.11 + 0.46 * f;
     }
   }
 
