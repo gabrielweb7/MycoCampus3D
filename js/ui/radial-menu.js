@@ -41,6 +41,7 @@ import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposa
 import { canPruneGardenPlant } from '../world/campus-garden.js';
 import { growDoorActionLabel, growHeldFeedback, growSlotActionLabel, openPortableGrowPanel, toggleGrowDoor } from '../items/portable-grow.js';
 import { cleanItemTitle } from '../entities/hover-3d-badge.js';
+import { canDisposeItemInTrash, getTrashActionLabel, handleTrashDisposal, isContaminatedOrBurned } from '../items/lab-trash.js';
 import { t } from '../core/i18n.js';
 
 let barEl = null;
@@ -651,6 +652,21 @@ export function showItemStatusCard(item, ctx) {
     ? `<div class="mt-2 w-full p-2 rounded-lg border text-[11px] leading-snug ${diag.level === 'danger' ? 'bg-rose-950/50 border-rose-500/40 text-rose-200' : (diag.level === 'warn' ? 'bg-amber-950/50 border-amber-500/40 text-amber-200' : 'bg-emerald-950/40 border-emerald-500/35 text-emerald-200')}"><b>📘 ${diag.status}:</b> ${diag.cause} <i>${escapeHtml(t('actions.radial.label_real_tip'))}</i> ${diag.realWorldTip}</div>`
     : '';
   bodyEl.innerHTML = chips.map(c => `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${c.color}">${c.icon} ${escapeHtml(c.text)}</span>`).join('') + purposeHtml + tipHtml + diagHtml;
+
+  if (ctx && (isContaminatedOrBurned(item) || canDisposeItemInTrash(item))) {
+    const canTrash = canDisposeItemInTrash(item);
+    if (canTrash && isContaminatedOrBurned(item)) {
+      const quickBtn = document.createElement('button');
+      quickBtn.type = 'button';
+      quickBtn.className = 'mt-1.5 w-full py-1.5 px-3 rounded-xl bg-rose-600/80 hover:bg-rose-500 text-white font-bold text-[11px] border border-rose-400/50 transition';
+      quickBtn.textContent = getTrashActionLabel(item);
+      quickBtn.onclick = () => {
+        handleTrashDisposal(ctx, item);
+        card.classList.add('hidden');
+      };
+      bodyEl.appendChild(quickBtn);
+    }
+  }
 
   ensureStatusCardDraggable(card);
   card.classList.remove('hidden');

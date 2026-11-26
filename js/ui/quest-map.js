@@ -7,6 +7,7 @@ import { apiPost } from '../services/api-client.js';
 import { $, escapeHtml, showFloatingToast } from './dom-helpers.js';
 import { updateUserHud } from './hud-lobby.js';
 import { addLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { ACHIEVEMENTS, getUnlockedAchievements } from '../core/achievements.js';
 import { CULTIVATION_TRACKS, calculateRealWorldRecipe } from '../core/cultivation-tracks.js';
 import { VILLAGE_ENTRY } from '../core/village-layout.js';
 import { renderVillageRentals } from './village-rentals.js';
@@ -396,4 +397,24 @@ export function renderQuestModal() {
       `<div class="text-[11px] text-slate-300">${escapeHtml(st.desc)}</div></div>`;
     body.appendChild(row);
   });
+
+  const unlockedAch = getUnlockedAchievements();
+  const achDoneCount = ACHIEVEMENTS.filter((a) => !!unlockedAch[a.id]).length;
+  const achTitle = document.createElement('div');
+  achTitle.className = 'pt-3 pb-1 text-xs font-extrabold text-amber-300 border-t border-slate-700/60 mt-2';
+  achTitle.textContent = t('misc.ach.section_title', { done: achDoneCount, total: ACHIEVEMENTS.length });
+  body.appendChild(achTitle);
+  const achGrid = document.createElement('div');
+  achGrid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2';
+  ACHIEVEMENTS.forEach((a) => {
+    const got = !!unlockedAch[a.id];
+    const card = document.createElement('div');
+    card.className = 'p-2.5 rounded-xl border flex items-center gap-2 ' +
+      (got ? 'bg-amber-950/35 border-amber-400/45' : 'bg-slate-900/60 border-slate-700/60 opacity-75');
+    card.innerHTML = `<span class="text-lg">${got ? a.icon : '🔒'}</span>` +
+      `<div class="min-w-0 flex-1"><div class="font-bold text-[11px] ${got ? 'text-amber-200' : 'text-slate-300'} truncate">${escapeHtml(t('misc.ach.' + a.id + '.name'))}</div>` +
+      `<div class="text-[10px] text-slate-400">+🪙 ${a.coins} • +${a.xp} XP</div></div>`;
+    achGrid.appendChild(card);
+  });
+  body.appendChild(achGrid);
 }

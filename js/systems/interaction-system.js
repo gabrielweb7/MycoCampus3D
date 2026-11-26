@@ -5,6 +5,7 @@
  */
 
 import { t } from '../core/i18n.js';
+import { interactBeehive } from '../entities/pasture-cows.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
@@ -310,6 +311,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       return commitHeldItemPlacement(ctx, ctx.placementGhost.position, true);
     }
     if (!ctx.adminEditMode && ctx.hoveredPickable?.growCtrl && installInGrow(ctx, ctx.hoveredPickable)) return true;
+    if (ctx.hoveredBeehive) return interactBeehive(ctx, ctx.hoveredBeehive);
     if (ctx.hoveredPdaTarget) {
       const target = ctx.hoveredPdaTarget;
       if (ctx.heldItem.pdaReagentCtrl) {
@@ -1342,8 +1344,8 @@ function pickUpTargetItem(ctx, targetItem, startPlacement) {
       if (cand.mesh.userData.isTable || cand.mesh.userData.isHood || cand.mesh.userData.isTray) continue;
       cand.mesh.getWorldPosition(_locVec);
       trayMesh.worldToLocal(_locVec);
-      if (Math.abs(_locVec.x) <= 0.22 && Math.abs(_locVec.z) <= 0.16 &&
-        _locVec.y >= -0.05 && _locVec.y <= 0.38) {
+      if (Math.abs(_locVec.x) <= 0.26 && Math.abs(_locVec.z) <= 0.20 &&
+        _locVec.y >= -0.05 && _locVec.y <= 0.42) {
         carried.push({
           item: cand,
           localOffset: _locVec.clone(),

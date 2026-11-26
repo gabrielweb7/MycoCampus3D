@@ -2,6 +2,8 @@
  * MycoCampus3D — Bootstrap da Aplicação, Bindings de HUD, Chat & Eventos
  */
 import { bindQuickInventory } from './inventory-bar.js';
+import { getCameraSensitivity, setCameraSensitivity } from '../core/camera-settings.js';
+import { unlockAchievement } from '../core/achievements.js';
 import { cleanItemTitle } from '../entities/hover-3d-badge.js';
 import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
 import { forceCacheBustReload, isValidSemver } from '../core/version-updater.js';
@@ -73,6 +75,7 @@ async function harvestMushroom(mushId, specimen, operationId) {
       if (appState.currentUser?.id !== data.user.id) return;
       appState.currentUser = preserveNewerPetState(appState.currentUser, data.user);
       updateUserHud();
+      unlockAchievement('golden_harvest');
     }
     return data;
   } catch (e) {}
@@ -86,6 +89,7 @@ async function harvestGreenhouseSlot(slot) {
       if (appState.currentUser?.id !== data.user.id) return;
       appState.currentUser = preserveNewerPetState(appState.currentUser, data.user);
       updateUserHud();
+      unlockAchievement('golden_harvest');
       showFloatingToast('🍄 +50 XP e +2 Cogumelos colhidos na Estufa!');
     }
   } catch (e) {}
@@ -365,6 +369,17 @@ function bindModalsAndToolbar() {
   const btnSettingsQuality = $('btn-settings-quality');
   if (btnSettingsQuality && btnQuality) {
     btnSettingsQuality.onclick = () => btnQuality.click();
+  }
+  const sensSlider = $('settings-sens-slider');
+  const sensVal = $('settings-sens-val');
+  if (sensSlider) {
+    const curSens = getCameraSensitivity();
+    sensSlider.value = String(curSens);
+    if (sensVal) sensVal.textContent = curSens.toFixed(1) + 'x';
+    sensSlider.oninput = () => {
+      const next = setCameraSensitivity(sensSlider.value);
+      if (sensVal) sensVal.textContent = next.toFixed(1) + 'x';
+    };
   }
   const btnSettingsAudio = $('btn-settings-audio');
   if (btnSettingsAudio) {

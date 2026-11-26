@@ -13,6 +13,7 @@ import {
 } from '../engine/cinema.js';
 import { updateDynamicEnvironment as envUpdate } from '../engine/environment.js';
 import { stepBlobShadows } from '../engine/blob-shadows.js';
+import { stepFxBursts } from '../engine/fx-burst.js';
 import {
   getVirtualDayFrac,
   updateClockTexture
@@ -53,6 +54,8 @@ import { stepCampusGarden } from '../world/campus-garden.js';
 import { stepAlcoholLamps } from '../items/lab-advanced-tools.js';
 import { stepRoadsideMushroomSales } from '../items/dehydration-packaging.js';
 import { stepAmpouleCases } from '../items/ampoule-case.js';
+import { syncHudMiniTimers } from '../ui/hud-timers.js';
+let lastMiniTimersAt = 0;
 
 let lastMobileHoverAt = 0;
 let lastDesktopHoverAt = 0;
@@ -293,6 +296,7 @@ export function updateDynamicEnvironment(ctx, dt) {
   ctx.rainbowActive = _envRainbow.active;
   ctx.rainbowTimer = _envRainbow.timer;
   ctx.rainbowDuration = _envRainbow.duration;
+  ctx.sunElevation = Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2);
 }
 
 function stepArchitectureProps(ctx, dt, now) {
@@ -453,6 +457,10 @@ export function startAnimationLoop(ctx) {
       stepAmpouleCases(ctx, dt);
       stepLabCabinets(ctx, dt);
       stepMagneticStirrers(ctx, dt);
+      if (now - lastMiniTimersAt >= 500) {
+        lastMiniTimersAt = now;
+        syncHudMiniTimers(ctx);
+      }
       stepPressureCookers(ctx, dt);
       stepSprayBursts(ctx, dt);
       stepPastureCows(ctx, dt);
@@ -485,8 +493,9 @@ export function startAnimationLoop(ctx) {
       drawCinemaVideoFrame(ctx, dt);
       updateDynamicEnvironment(ctx, dt);
       stepConfetti(dt);
+      stepFxBursts(dt);
       if (typeof window !== 'undefined' && ctx.playerPos) {
-        const sunYNow = Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2);
+        const sunYNow = typeof ctx.sunElevation === 'number' ? ctx.sunElevation : Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2);
         window.campusIsNight = sunYNow < -0.05;
         if (window.MycoAudio && window.MycoAudio.stepAmbience) {
           const insideWing = Math.abs(ctx.playerPos.x) > 13 && Math.abs(ctx.playerPos.x) < 25 && Math.abs(ctx.playerPos.z) < 16;

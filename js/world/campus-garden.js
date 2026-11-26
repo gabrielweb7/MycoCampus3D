@@ -613,7 +613,9 @@ export function interactGardenTarget(ctx, target) {
 
 export function stepCampusGarden(dt, ctx) {
   gardenAnimTime += dt;
-  const boost = 0.75 + (gardenState.soilRichness / 100) * 1.75;
+  const isRaining = !!(ctx && ctx.weatherMode === 'rain');
+  const rainBonus = isRaining ? 1.45 : 1.0;
+  const boost = (0.75 + (gardenState.soilRichness / 100) * 1.75) * rainBonus;
 
   // 1. Animação suave de subida do nível da Caixa de Substrato
   if (Math.abs(gardenState.targetCompostFrac - gardenState.currentCompostFrac) > 0.002) {

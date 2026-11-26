@@ -11,6 +11,7 @@
 
 import { getCultureOriginLabel } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
+import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { updateScalpelLabel } from './scalpel.js';
 import { getContamInfo } from './contaminations.js';
@@ -162,7 +163,14 @@ export function interactAlcoholLamp(ctx, lampItem) {
     updateScalpelLabel(held);
     playAudio('playSpray');
     if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_flame');
-    if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
+    if (ctx && ctx.scene && lampItem.mesh) {
+      spawnCampusFxBurst(ctx.scene, {
+        x: lampItem.mesh.position.x,
+        y: lampItem.mesh.position.y + 0.12,
+        z: lampItem.mesh.position.z
+      }, 0xf97316, 8);
+    }
+    if (typeof window !== 'undefined') window.triggerCampusHaptic?.('success');
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
     if (onToast) {
       onToast(t('items.labAdvancedTools.m2'));

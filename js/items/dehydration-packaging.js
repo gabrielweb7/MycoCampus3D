@@ -22,6 +22,7 @@ import { t } from '../core/i18n.js';
 import { addWallLabBench } from './laminar-hood.js';
 import { addMovableStainlessTable } from './stainless-table.js';
 import { buildCuteAvatar, drawAvatarFace } from '../entities/avatars.js';
+import { unlockAchievement } from '../core/achievements.js';
 
 const THREE = window.THREE;
 
@@ -1451,6 +1452,8 @@ export function stepRoadsideMushroomSales(ctx, dt) {
       const earnedCoins = isVipSale ? Math.round(basePrice * 1.5) : basePrice;
       roadStandState.totalSoldPacks++;
       roadStandState.totalCoinsEarned += earnedCoins;
+      if (isVipSale) unlockAchievement('vip_seller', ctx?.callbacks?.onToast);
+      if (roadStandState.totalSoldPacks >= 10) unlockAchievement('emporium_10', ctx?.callbacks?.onToast);
       const newBalance = addLocalMycoCoins(earnedCoins);
       syncRoadStandVisual();
       if (ctx && ctx.queueWorldStateChange) {

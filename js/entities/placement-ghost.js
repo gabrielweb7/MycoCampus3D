@@ -4,7 +4,7 @@ import { canPlaceVillageItem } from '../core/village-layout.js';
 import { t } from '../core/i18n.js';
 import { CRATE_HEIGHT, cratePackMask, positionCrateCargo } from '../systems/crate-cargo.js';
 import { isRayOccludedByStructure } from '../systems/ray-occlusion.js';
-import { isPointInBoundsXZ } from '../items/item-registry.js';
+import { isPointInBoundsXZ, getItemSupportTopOffset, getItemSupportHalfExtents } from '../items/item-registry.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import {
   PETRI_DISH_HEIGHT,
@@ -930,6 +930,23 @@ export function dropUnsupportedItems(ctx) {
               item.mesh.position.y < s0.topY) {
             supportedY = Math.max(supportedY, s0.topY);
           }
+        }
+      }
+      // Suporte por outros itens (ex: itens colocados em cima de caixas, monotubs, bandejas, etc.)
+      for (var sj = 0; sj < pickableItems.length; sj++) {
+        if (sj === idx) continue;
+        var sBase = pickableItems[sj];
+        if (!sBase || sBase === heldItem || !sBase.mesh?.visible || sBase.crateParent || ctx.isHeldByRemote(sBase.id)) continue;
+        var sTopOff = getItemSupportTopOffset(sBase);
+        if (sTopOff <= 0) continue;
+        var sTopY = sBase.mesh.position.y + sTopOff;
+        if (item.mesh.position.y < sTopY - 0.12) continue;
+        var sExt = getItemSupportHalfExtents(sBase);
+        var sHalfW = Math.max(0.05, sExt.w * 0.5) + 0.08;
+        var sHalfD = Math.max(0.05, sExt.d * 0.5) + 0.08;
+        if (Math.abs(item.mesh.position.x - sBase.mesh.position.x) <= sHalfW &&
+            Math.abs(item.mesh.position.z - sBase.mesh.position.z) <= sHalfD) {
+          supportedY = Math.max(supportedY, sTopY);
         }
       }
       var itemStackCfg = getStackConfig(item);

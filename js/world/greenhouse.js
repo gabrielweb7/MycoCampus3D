@@ -1506,11 +1506,16 @@ export function stepGreenhouse(ctx, dt) {
   }
 
   // 2. Dinâmica física de Umidade, CO2 e Temperatura da Câmara (influenciada pela porta + clima externo)
+  const isRaining = greenhouseEnv.weatherMode === 'rain';
   const mistGain = greenhouseEnv.humidifierPower * 0.95;
-  const exhaustDryLoss = greenhouseEnv.exhaustPower * 0.42;
-  const ambientLoss = 0.22;
-  const doorHumMix = isDoorOpen ? ((greenhouseEnv.outsideHumidity - greenhouseEnv.humidity) * 0.14 - 0.85) : 0;
-  greenhouseEnv.humidity = Math.max(25, Math.min(99, greenhouseEnv.humidity + (mistGain - exhaustDryLoss - ambientLoss + doorHumMix) * dt));
+  const exhaustDryLoss = greenhouseEnv.exhaustPower * (isRaining ? 0.28 : 0.42);
+  const ambientLoss = isRaining ? 0.07 : 0.22;
+  const rainAmbientGain = isRaining
+    ? Math.max(0, (Math.min(97, greenhouseEnv.targetHumidity + 13) - greenhouseEnv.humidity) * 0.08 + 0.32)
+    : 0;
+  const effectiveOutsideHum = isRaining ? Math.min(98, greenhouseEnv.outsideHumidity + 14) : greenhouseEnv.outsideHumidity;
+  const doorHumMix = isDoorOpen ? ((effectiveOutsideHum - greenhouseEnv.humidity) * 0.14 - (isRaining ? 0.35 : 0.85)) : 0;
+  greenhouseEnv.humidity = Math.max(25, Math.min(99, greenhouseEnv.humidity + (mistGain + rainAmbientGain - exhaustDryLoss - ambientLoss + doorHumMix) * dt));
 
   const co2Produced = activeCount * 2.2 + 4.0;
   const co2Removed = greenhouseEnv.exhaustPower * 40.0;

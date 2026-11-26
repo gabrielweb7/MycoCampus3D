@@ -9,9 +9,12 @@
  */
 
 import { terrainHeight } from '../engine/physics.js';
-import { disposeObjectResources } from '../items/item-registry.js';
+import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from '../items/item-registry.js';
 import { isNaturalSoilSpot } from '../world/nature-plaza.js';
 import { triggerCozyHeartBurst } from '../world/cozy-details.js';
+import { firstUnoccludedRayHit } from '../systems/ray-occlusion.js';
+import { updateCultureLiquidLabel } from '../items/liquid-culture.js';
+import { updateLcNutrientLabel } from '../items/pda-bottle.js';
 
 const THREE = window.THREE;
 
@@ -650,183 +653,824 @@ export function stepPastureCows(ctx, dt) {
 }
 
 // ============================================================================
-// ABELHAS FOFINHAS ESTILO MINECRAFT + COLMEIAS NAS ÁRVORES E FLORES
+// ABELHAS INTELIGENTES, RAINHA COM COROA, FLORES, MEL E MIGRAÇÃO DE ENXAME
 // ============================================================================
-function createCuteBeeMesh() {
-  const g = new THREE.Group();
-  const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.55 });
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.72 });
-  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const wingMat = new THREE.MeshStandardMaterial({
-    color: 0xe0f2fe,
-    transparent: true,
-    opacity: 0.72,
-    roughness: 0.15,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  });
-  const pollenMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.65 });
+const FLOWER_COLORS = [0xf472b6, 0xa855f7, 0xef4444, 0x38bdf8, 0xfb923c, 0xf8fafc];
 
-  // Corpinho cúbico fofinho estilo Minecraft (mais largo e gorduchinho)
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.17, 0.24), yellowMat);
+const CAMPUS_HIVE_CANDIDATES = [
+  { x: 25.0, z: 25.0 },
+  { x: 68.5, z: -16.0 },
+  { x: -69.5, z: 12.0 },
+  { x: 36.0, z: 36.0 },
+  { x: 54.0, z: -28.0 },
+  { x: -56.0, z: -22.0 },
+  { x: -46.0, z: 36.0 },
+  { x: 46.0, z: -46.0 },
+  { x: -28.0, z: 42.0 }
+];
+
+let beeSharedAssets = null;
+function getBeeSharedAssets() {
+  if (beeSharedAssets) return beeSharedAssets;
+  const spriteTex = getCachedCanvasTexture('bee_swarm_migrating_lbl', 320, 64, (sctx) => {
+    sctx.clearRect(0, 0, 320, 64);
+    sctx.fillStyle = 'rgba(15, 23, 42, 0.86)';
+    sctx.beginPath();
+    if (sctx.roundRect) sctx.roundRect(6, 6, 308, 52, 14);
+    else sctx.rect(6, 6, 308, 52);
+    sctx.fill();
+    sctx.strokeStyle = '#facc15';
+    sctx.lineWidth = 3;
+    sctx.stroke();
+    sctx.fillStyle = '#fef08a';
+    sctx.font = 'bold 22px system-ui, sans-serif';
+    sctx.textAlign = 'center';
+    sctx.textBaseline = 'middle';
+    sctx.fillText('🐝 Enxame migrando!', 160, 33);
+  });
+
+  beeSharedAssets = markAllShared({
+    yellowMat: new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.55 }),
+    queenYellowMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.42, emissive: 0x713f12, emissiveIntensity: 0.12 }),
+    crownMat: new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.22, metalness: 0.72, emissive: 0x854d0e, emissiveIntensity: 0.25 }),
+    darkMat: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.72 }),
+    eyeWhiteMat: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+    wingMat: new THREE.MeshStandardMaterial({
+      color: 0xe0f2fe,
+      transparent: true,
+      opacity: 0.72,
+      roughness: 0.15,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    }),
+    pollenMat: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.55, emissive: 0x92400e, emissiveIntensity: 0.2 }),
+    hiveWoodMat: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.72 }),
+    hiveDarkMat: new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 }),
+    hiveAbandonedMat: new THREE.MeshStandardMaterial({ color: 0x78716c, roughness: 0.94 }),
+    hiveAbandonedBandMat: new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.96 }),
+    honeyMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.28, emissive: 0x854d0e, emissiveIntensity: 0.18 }),
+    holeMat: new THREE.MeshBasicMaterial({ color: 0x0f172a }),
+    trunkMat: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.85 }),
+    leafMat: new THREE.MeshStandardMaterial({ color: 0x36b45e, roughness: 0.82 }),
+    leafLightMat: new THREE.MeshStandardMaterial({ color: 0x74cf65, roughness: 0.8 }),
+    stemMat: new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.85 }),
+    flowerCenterMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 }),
+    flowerCenterEmptyMat: new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.85 }),
+    petalMats: FLOWER_COLORS.map((hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.65 })),
+    birchCrownGeo: new THREE.DodecahedronGeometry(1, 1),
+    trunkGeo: new THREE.CylinderGeometry(0.24, 0.30, 3.6, 8),
+    hiveBoxGeo: new THREE.BoxGeometry(0.56, 0.56, 0.56),
+    hiveBandGeo: new THREE.BoxGeometry(0.58, 0.12, 0.58),
+    hiveHoleGeo: new THREE.BoxGeometry(0.14, 0.10, 0.04),
+    honeyDropGeo: new THREE.BoxGeometry(0.10, 0.12, 0.05),
+    stemGeo: new THREE.CylinderGeometry(0.018, 0.022, 0.26, 6),
+    centerGeo: new THREE.SphereGeometry(0.045, 7, 6),
+    petalGeo: new THREE.SphereGeometry(0.042, 6, 5),
+    spriteMat: spriteTex ? new THREE.SpriteMaterial({ map: spriteTex, transparent: true, depthTest: false }) : null
+  });
+  return beeSharedAssets;
+}
+
+function createCuteBeeMesh(isQueen) {
+  const a = getBeeSharedAssets();
+  const g = new THREE.Group();
+
+  // Corpinho cúbico fofinho estilo Minecraft
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.17, 0.24), isQueen ? a.queenYellowMat : a.yellowMat);
   g.add(body);
 
-  // 2 listras pretas no abdômen
-  const stripe1 = new THREE.Mesh(new THREE.BoxGeometry(0.186, 0.174, 0.045), darkMat);
+  // 2 listras pretas no abdômen + ferrão
+  const stripe1 = new THREE.Mesh(new THREE.BoxGeometry(0.186, 0.174, 0.045), a.darkMat);
   stripe1.position.z = -0.015;
-  const stripe2 = new THREE.Mesh(new THREE.BoxGeometry(0.186, 0.174, 0.045), darkMat);
+  const stripe2 = new THREE.Mesh(new THREE.BoxGeometry(0.186, 0.174, 0.045), a.darkMat);
   stripe2.position.z = -0.095;
-  const stinger = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.05, 5), darkMat);
+  const stinger = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.05, 5), a.darkMat);
   stinger.rotation.x = -Math.PI / 2;
   stinger.position.set(0, -0.01, -0.145);
   g.add(stripe1, stripe2, stinger);
 
-  // Olhinhos grandes quadrados estilo Minecraft com brilho branco!
+  // Olhinhos grandes quadrados estilo Minecraft com brilho branco
   [-1, 1].forEach((side) => {
-    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.058, 0.016), darkMat);
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.058, 0.016), a.darkMat);
     eye.position.set(side * 0.052, 0.005, 0.122);
-    const glint = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.022, 0.018), eyeWhiteMat);
+    const glint = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.022, 0.018), a.eyeWhiteMat);
     glint.position.set(side * 0.042, 0.02, 0.125);
-    const ant = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.045, 0.045), darkMat);
+    const ant = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.045, 0.045), a.darkMat);
     ant.position.set(side * 0.042, 0.09, 0.12);
     ant.rotation.x = 0.35;
     g.add(eye, glint, ant);
   });
 
-  // 6 patinhas pequenas embaixo + pontinhos de pólen
+  // 6 patinhas pequenas embaixo
   for (let p = 0; p < 3; p++) {
     [-1, 1].forEach((side) => {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.038, 0.016), darkMat);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.038, 0.016), a.darkMat);
       leg.position.set(side * 0.052, -0.10, 0.055 - p * 0.055);
       g.add(leg);
     });
   }
-  const pollen = new THREE.Mesh(new THREE.SphereGeometry(0.024, 6, 5), pollenMat);
-  pollen.position.set(0.045, -0.08, -0.02);
-  g.add(pollen);
+
+  // Bolinha de pólen amarela visível durante a volta para a colmeia
+  const pollenMesh = new THREE.Mesh(new THREE.SphereGeometry(0.045, 7, 6), a.pollenMat);
+  pollenMesh.position.set(0, -0.115, -0.02);
+  pollenMesh.visible = false;
+  g.add(pollenMesh);
 
   // Asinhas translúcidas articuladas (esq/dir)
   const wingL = new THREE.Group();
   wingL.position.set(-0.04, 0.088, 0.01);
-  const wMeshL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.008, 0.11), wingMat);
+  const wMeshL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.008, 0.11), a.wingMat);
   wMeshL.position.set(-0.08, 0, 0);
   wingL.add(wMeshL);
 
   const wingR = new THREE.Group();
   wingR.position.set(0.04, 0.088, 0.01);
-  const wMeshR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.008, 0.11), wingMat);
+  const wMeshR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.008, 0.11), a.wingMat);
   wMeshR.position.set(0.08, 0, 0);
   wingR.add(wMeshR);
 
   g.add(wingL, wingR);
-  return { group: g, wingL, wingR };
+
+  let migrationSprite = null;
+  if (isQueen) {
+    // Coroa dourada da Abelha Rainha
+    const crownBase = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.052, 0.026, 8), a.crownMat);
+    crownBase.position.set(0, 0.105, 0.06);
+    g.add(crownBase);
+    [-0.036, 0, 0.036].forEach((cx) => {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.042, 4), a.crownMat);
+      spike.position.set(cx, 0.134, 0.06);
+      g.add(spike);
+    });
+    g.scale.setScalar(1.42);
+
+    if (a.spriteMat) {
+      migrationSprite = new THREE.Sprite(a.spriteMat);
+      migrationSprite.position.set(0, 0.34, 0);
+      migrationSprite.scale.set(1.45, 0.29, 1);
+      migrationSprite.visible = false;
+      g.add(migrationSprite);
+    }
+  }
+
+  return { group: g, wingL, wingR, pollenMesh, migrationSprite };
+}
+
+function createCampusFlower(ctx, x, z, colorIdx) {
+  const a = getBeeSharedAssets();
+  const gy = terrainHeight(x, z);
+  const fg = new THREE.Group();
+  fg.position.set(x, gy, z);
+
+  const stem = new THREE.Mesh(a.stemGeo, a.stemMat);
+  stem.position.y = 0.13;
+  const center = new THREE.Mesh(a.centerGeo, a.flowerCenterMat);
+  center.position.y = 0.27;
+  fg.add(stem, center);
+
+  const petalMat = a.petalMats[colorIdx % a.petalMats.length];
+  for (let p = 0; p < 5; p++) {
+    const ang = (p / 5) * Math.PI * 2;
+    const petal = new THREE.Mesh(a.petalGeo, petalMat);
+    petal.position.set(Math.cos(ang) * 0.062, 0.265, Math.sin(ang) * 0.062);
+    petal.scale.set(1.15, 0.65, 1.15);
+    fg.add(petal);
+  }
+
+  ctx.scene.add(fg);
+  return {
+    group: fg,
+    centerMesh: center,
+    x,
+    y: gy + 0.28,
+    z,
+    pollen: 1.0,
+    regenTimer: 0
+  };
+}
+
+function spawnTreeWithHiveSlot(ctx, x, z) {
+  const a = getBeeSharedAssets();
+  const gy = terrainHeight(x, z);
+  const tree = new THREE.Group();
+  tree.position.set(x, gy, z);
+  const trunk = new THREE.Mesh(a.trunkGeo, a.trunkMat);
+  trunk.position.y = 1.8;
+  const crownPuffs = [
+    [-0.62, 3.9, 0.08, 1.05, 0], [0.62, 3.95, -0.12, 1.08, 1],
+    [0.05, 4.18, 0.64, 0.96, 1], [-0.08, 4.25, -0.62, 0.92, 0],
+    [0, 4.88, 0, 1.02, 1]
+  ];
+  const crownMeshes = [];
+  for (let ci = 0; ci < crownPuffs.length; ci++) {
+    const cp = crownPuffs[ci];
+    const crown = new THREE.Mesh(a.birchCrownGeo, cp[4] ? a.leafLightMat : a.leafMat);
+    crown.position.set(cp[0], cp[1], cp[2]);
+    crown.scale.set(cp[3], cp[3] * 0.8, cp[3]);
+    crown.rotation.set(ci * 0.11, ci * 0.72, ci * 0.08);
+    crown.castShadow = true;
+    crownMeshes.push(crown);
+  }
+  tree.add(trunk, ...crownMeshes);
+  ctx.scene.add(tree);
+  return { tree, gy };
+}
+
+function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
+  const a = getBeeSharedAssets();
+  const hiveGroup = new THREE.Group();
+  hiveGroup.position.set(0.48, 2.55, 0);
+
+  const hiveBox = new THREE.Mesh(a.hiveBoxGeo, a.hiveWoodMat);
+  const hiveBand = new THREE.Mesh(a.hiveBandGeo, a.hiveDarkMat);
+  hiveBand.position.y = -0.10;
+  const hiveHole = new THREE.Mesh(a.hiveHoleGeo, a.holeMat);
+  hiveHole.position.set(0, -0.02, 0.285);
+  const honeyDrop = new THREE.Mesh(a.honeyDropGeo, a.honeyMat);
+  honeyDrop.position.set(0.08, -0.22, 0.285);
+  hiveGroup.add(hiveBox, hiveBand, hiveHole, honeyDrop);
+  treeInfo.tree.add(hiveGroup);
+
+  const worldX = treeInfo.tree.position.x + 0.48;
+  const worldY = treeInfo.gy + 2.55;
+  const worldZ = treeInfo.tree.position.z;
+
+  const hiveObj = {
+    id,
+    group: hiveGroup,
+    boxMesh: hiveBox,
+    bandMesh: hiveBand,
+    honeyDropMesh: honeyDrop,
+    hitMesh: hiveBox,
+    treePos: { x: treeInfo.tree.position.x, z: treeInfo.tree.position.z },
+    x: worldX,
+    y: worldY,
+    z: worldZ,
+    honeyLevel: typeof opts.honeyLevel === 'number' ? opts.honeyLevel : 45,
+    abandoned: false,
+    migrating: !!opts.migrating,
+    buildProgress: typeof opts.buildProgress === 'number' ? opts.buildProgress : 1.0,
+    canCollectAbandoned: false,
+    collected: false,
+    flowersNearby: [],
+    queen: null,
+    bees: [],
+    noPollenTimer: 0
+  };
+
+  hiveBox.userData.hiveObj = hiveObj;
+  ctx.beehiveHitMeshes.push(hiveBox);
+  ctx.beehives.push(hiveObj);
+  if (hiveObj.migrating) {
+    hiveGroup.visible = false;
+  } else {
+    hiveGroup.scale.setScalar(Math.max(0.2, hiveObj.buildProgress));
+  }
+  return hiveObj;
+}
+
+function refreshHiveFlowers(ctx, hive, maxRadius = 11.5) {
+  if (!ctx.campusFlowers) {
+    hive.flowersNearby = [];
+    return hive.flowersNearby;
+  }
+  const list = [];
+  for (let i = 0; i < ctx.campusFlowers.length; i++) {
+    const fl = ctx.campusFlowers[i];
+    if (Math.hypot(fl.x - hive.x, fl.z - hive.z) <= maxRadius) {
+      list.push(fl);
+    }
+  }
+  hive.flowersNearby = list;
+  return list;
+}
+
+function markHiveAbandoned(hive) {
+  const a = getBeeSharedAssets();
+  hive.abandoned = true;
+  hive.migrating = false;
+  hive.honeyLevel = 0;
+  hive.canCollectAbandoned = true;
+  hive.boxMesh.material = a.hiveAbandonedMat;
+  hive.bandMesh.material = a.hiveAbandonedBandMat;
+  hive.honeyDropMesh.visible = false;
+  hive.bees = [];
+  hive.queen = null;
 }
 
 function createPastureBees(ctx) {
   if (!THREE || !ctx || !ctx.scene) return;
   ctx.pastureBees = [];
+  ctx.beehives = [];
+  ctx.beehiveHitMeshes = [];
+  ctx.campusFlowers = [];
 
-  // 3 Colmeias estilo madeira/mel em áreas de grama arborizada (longe de concreto/prédios)
-  const hiveSpots = [
-    { x: 25.0, z: 25.0, bees: 3 },
-    { x: 68.5, z: -16.0, bees: 3 },
-    { x: -69.5, z: 12.0, bees: 3 }
-  ];
-
-  const hiveWoodMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.72 });
-  const hiveDarkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
-  const honeyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, emissive: 0x854d0e, emissiveIntensity: 0.15 });
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.85 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x36b45e, roughness: 0.82 });
-  const leafLightMat = new THREE.MeshStandardMaterial({ color: 0x74cf65, roughness: 0.8 });
-  const birchCrownGeo = new THREE.DodecahedronGeometry(1, 1);
-
-  hiveSpots.forEach((hs, hIdx) => {
-    const gy = terrainHeight(hs.x, hs.z);
-    // Árvore de bétula fofa com colmeia pendurada igual à referência!
-    const tree = new THREE.Group();
-    tree.position.set(hs.x, gy, hs.z);
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 3.6, 8), trunkMat);
-    trunk.position.y = 1.8;
-    const crownPuffs = [
-      [-0.62, 3.9, 0.08, 1.05, 0], [0.62, 3.95, -0.12, 1.08, 1],
-      [0.05, 4.18, 0.64, 0.96, 1], [-0.08, 4.25, -0.62, 0.92, 0],
-      [0, 4.88, 0, 1.02, 1]
-    ];
-    const crownMeshes = [];
-    for (let ci = 0; ci < crownPuffs.length; ci++) {
-      const cp = crownPuffs[ci];
-      const crown = new THREE.Mesh(birchCrownGeo, cp[4] ? leafLightMat : leafMat);
-      crown.position.set(cp[0], cp[1], cp[2]);
-      crown.scale.set(cp[3], cp[3] * 0.8, cp[3]);
-      crown.rotation.set(ci * 0.11, ci * 0.72, ci * 0.08);
-      crown.castShadow = true;
-      crownMeshes.push(crown);
+  // Flores coloridas perto das colmeias e em outras árvores/casas do campus
+  let flowerSeed = 0;
+  CAMPUS_HIVE_CANDIDATES.forEach((spot, sIdx) => {
+    const count = sIdx < 3 ? 5 : 7;
+    for (let f = 0; f < count; f++) {
+      const ang = (f / count) * Math.PI * 2 + hash01(sIdx + 1, f + 3) * 0.7;
+      const dist = 2.1 + hash01(f + 7, sIdx + 11) * 4.2;
+      const fx = spot.x + Math.cos(ang) * dist;
+      const fz = spot.z + Math.sin(ang) * dist;
+      if (!isBlockedAt(ctx, fx, fz, 0.5)) {
+        ctx.campusFlowers.push(createCampusFlower(ctx, fx, fz, flowerSeed++));
+      }
     }
+  });
 
-    // Colmeia quadrada listrada com mel escorrendo
-    const hive = new THREE.Group();
-    hive.position.set(0.48, 2.55, 0);
-    const hiveBox = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.56, 0.56), hiveWoodMat);
-    const hiveBand = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.12, 0.58), hiveDarkMat);
-    hiveBand.position.y = -0.10;
-    const hiveHole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.10, 0.04), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
-    hiveHole.position.set(0, -0.02, 0.285);
-    const honeyDrop = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.12, 0.05), honeyMat);
-    honeyDrop.position.set(0.08, -0.22, 0.285);
-    hive.add(hiveBox, hiveBand, hiveHole, honeyDrop);
+  // 3 Colmeias iniciais com Rainha + 3 abelhas operárias cada
+  for (let hIdx = 0; hIdx < 3; hIdx++) {
+    const hs = CAMPUS_HIVE_CANDIDATES[hIdx];
+    const treeInfo = spawnTreeWithHiveSlot(ctx, hs.x, hs.z);
+    const hive = createHiveOnTree(ctx, 'hive_' + hIdx, treeInfo, { honeyLevel: 45 + hIdx * 10, buildProgress: 1.0 });
+    refreshHiveFlowers(ctx, hive);
 
-    tree.add(trunk, ...crownMeshes, hive);
-    ctx.scene.add(tree);
+    // Abelha Rainha maior com coroa dourada
+    const qVis = createCuteBeeMesh(true);
+    qVis.group.position.set(hive.x + 0.35, hive.y + 0.45, hive.z + 0.35);
+    ctx.scene.add(qVis.group);
+    const queenObj = {
+      isQueen: true,
+      hive,
+      group: qVis.group,
+      wingL: qVis.wingL,
+      wingR: qVis.wingR,
+      pollenMesh: qVis.pollenMesh,
+      migrationSprite: qVis.migrationSprite,
+      phase: hIdx * 1.7,
+      radius: 0.9,
+      speed: 1.15,
+      state: 'orbit',
+      hasPollen: false
+    };
+    hive.queen = queenObj;
+    ctx.pastureBees.push(queenObj);
 
-    for (let b = 0; b < hs.bees; b++) {
-      const beeVis = createCuteBeeMesh();
-      beeVis.group.position.set(hs.x + 0.8, gy + 2.2, hs.z + 0.8);
+    // Operárias forrageadoras
+    for (let b = 0; b < 3; b++) {
+      const beeVis = createCuteBeeMesh(false);
+      beeVis.group.position.set(hive.x + 0.6, hive.y - 0.1, hive.z + 0.6);
       ctx.scene.add(beeVis.group);
-      ctx.pastureBees.push({
+      const beeObj = {
+        isQueen: false,
+        hive,
         group: beeVis.group,
         wingL: beeVis.wingL,
         wingR: beeVis.wingR,
-        homeX: hs.x + 0.4,
-        homeY: gy + 1.85,
-        homeZ: hs.z + 0.4,
+        pollenMesh: beeVis.pollenMesh,
         phase: (hIdx * 3 + b) * 2.1,
-        radius: 1.6 + b * 0.75,
-        speed: 0.95 + b * 0.22
-      });
+        radius: 1.2 + b * 0.45,
+        speed: 1.8 + b * 0.2,
+        state: 'to_flower',
+        targetFlower: null,
+        stateTimer: 0.4 + b * 0.7,
+        hasPollen: false
+      };
+      hive.bees.push(beeObj);
+      ctx.pastureBees.push(beeObj);
     }
+  }
+}
+
+function startHiveMigration(ctx, oldHive) {
+  // Escolhe outro ponto candidato do campus com mais flores disponíveis
+  let bestSpot = null;
+  let bestScore = -1;
+  for (let i = 0; i < CAMPUS_HIVE_CANDIDATES.length; i++) {
+    const cand = CAMPUS_HIVE_CANDIDATES[i];
+    const occupied = ctx.beehives.some((h) => !h.abandoned && Math.hypot(h.x - cand.x, h.z - cand.z) < 6.0);
+    if (occupied) continue;
+    let score = 0;
+    if (ctx.campusFlowers) {
+      for (let f = 0; f < ctx.campusFlowers.length; f++) {
+        const fl = ctx.campusFlowers[f];
+        if (fl.pollen > 0.15 && Math.hypot(fl.x - cand.x, fl.z - cand.z) <= 11.5) score++;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestSpot = cand;
+    }
+  }
+  if (!bestSpot) return;
+
+  // Garante flores frescas no destino caso todas estejam baixas
+  if (bestScore <= 1 && ctx.campusFlowers) {
+    for (let f = 0; f < ctx.campusFlowers.length; f++) {
+      const fl = ctx.campusFlowers[f];
+      if (Math.hypot(fl.x - bestSpot.x, fl.z - bestSpot.z) <= 11.5) {
+        fl.pollen = 1.0;
+        fl.centerMesh.material = getBeeSharedAssets().flowerCenterMat;
+      }
+    }
+  }
+
+  const queen = oldHive.queen;
+  const bees = oldHive.bees.slice();
+  markHiveAbandoned(oldHive);
+
+  const treeInfo = spawnTreeWithHiveSlot(ctx, bestSpot.x, bestSpot.z);
+  const newHive = createHiveOnTree(ctx, 'hive_mig_' + ctx.beehives.length, treeInfo, {
+    honeyLevel: 12,
+    migrating: true,
+    buildProgress: 0.2
   });
+  newHive.queen = queen;
+  newHive.bees = bees;
+  if (queen) {
+    queen.hive = newHive;
+    queen.state = 'migrate';
+    if (queen.migrationSprite) queen.migrationSprite.visible = true;
+  }
+  for (let i = 0; i < bees.length; i++) {
+    bees[i].hive = newHive;
+    bees[i].state = 'migrate';
+    bees[i].hasPollen = false;
+    if (bees[i].pollenMesh) bees[i].pollenMesh.visible = false;
+  }
 }
 
 function stepPastureBees(ctx, dt) {
-  if (!ctx || !ctx.pastureBees || !ctx.pastureBees.length) return;
+  if (!ctx) return;
   const nowSec = performance.now() * 0.001;
   const px = ctx.playerPos ? ctx.playerPos.x : 0;
   const pz = ctx.playerPos ? ctx.playerPos.z : 0;
 
+  // Regeneração lenta das flores esgotadas (para ciclos futuros)
+  if (ctx.campusFlowers) {
+    for (let fi = 0; fi < ctx.campusFlowers.length; fi++) {
+      const fl = ctx.campusFlowers[fi];
+      if (fl.pollen <= 0.1) {
+        fl.regenTimer += dt;
+        if (fl.regenTimer > 95) {
+          fl.pollen = 1.0;
+          fl.regenTimer = 0;
+          fl.centerMesh.material = getBeeSharedAssets().flowerCenterMat;
+        }
+      }
+    }
+  }
+
+  // Atualiza colmeias (construção, brilho de mel, detecção de falta de flores -> migração)
+  if (ctx.beehives) {
+    for (let hi = 0; hi < ctx.beehives.length; hi++) {
+      const hive = ctx.beehives[hi];
+      if (hive.collected || hive.abandoned) continue;
+
+      if (!hive.migrating && hive.buildProgress < 1.0) {
+        hive.buildProgress = Math.min(1.0, hive.buildProgress + dt * 0.12);
+        hive.group.visible = true;
+        hive.group.scale.setScalar(Math.max(0.2, hive.buildProgress));
+      }
+
+      if (hive.honeyDropMesh) {
+        hive.honeyDropMesh.visible = hive.buildProgress >= 0.8 && hive.honeyLevel >= 35;
+        if (hive.honeyDropMesh.visible) {
+          const dropScale = 0.7 + (hive.honeyLevel / 100) * 0.6;
+          hive.honeyDropMesh.scale.set(1, dropScale, 1);
+        }
+      }
+
+      // Verifica se faltam flores com pólen perto da colmeia ativa
+      if (!hive.migrating && hive.buildProgress >= 1.0) {
+        let availableFlowers = 0;
+        for (let fi = 0; fi < hive.flowersNearby.length; fi++) {
+          if (hive.flowersNearby[fi].pollen > 0.15) availableFlowers++;
+        }
+        if (availableFlowers === 0) {
+          hive.noPollenTimer += dt;
+          if (hive.noPollenTimer > 4.0) {
+            hive.noPollenTimer = 0;
+            startHiveMigration(ctx, hive);
+          }
+        } else {
+          hive.noPollenTimer = 0;
+        }
+      }
+    }
+  }
+
+  if (!ctx.pastureBees || !ctx.pastureBees.length) return;
+  const a = getBeeSharedAssets();
+
   for (let i = 0; i < ctx.pastureBees.length; i++) {
     const bee = ctx.pastureBees[i];
-    const dist = Math.hypot(px - bee.homeX, pz - bee.homeZ);
-    bee.group.visible = dist <= 55;
+    const hive = bee.hive;
+    if (!hive) continue;
+
+    const dist = Math.hypot(px - bee.group.position.x, pz - bee.group.position.z);
+    bee.group.visible = dist <= 65;
     if (!bee.group.visible) continue;
 
-    bee.phase += dt * bee.speed;
-    const t = bee.phase;
-    const nx = bee.homeX + Math.cos(t) * bee.radius + Math.sin(t * 2.3) * 0.45;
-    const nz = bee.homeZ + Math.sin(t * 0.85) * bee.radius + Math.cos(t * 1.7) * 0.45;
-    const ny = bee.homeY + Math.sin(t * 3.1) * 0.42;
-
-    const dx = nx - bee.group.position.x;
-    const dz = nz - bee.group.position.z;
-    if (dx * dx + dz * dz > 1e-6) {
-      bee.group.rotation.y = Math.atan2(dx, dz);
-    }
-    bee.group.position.set(nx, ny, nz);
-
-    // Batida rápida de asinhas + leve balanço fofo
+    bee.phase += dt * (bee.speed || 1.4);
     const flap = Math.sin(nowSec * 42 + i * 1.7) * 0.75;
     bee.wingL.rotation.z = flap;
     bee.wingR.rotation.z = -flap;
-    bee.group.rotation.x = Math.sin(t * 3.1) * 0.12;
+
+    // 1. Voo de migração em enxame com a Rainha
+    if (hive.migrating) {
+      if (bee.isQueen) {
+        if (bee.migrationSprite) bee.migrationSprite.visible = true;
+        const tx = hive.x;
+        const ty = hive.y + 0.55;
+        const tz = hive.z;
+        const dx = tx - bee.group.position.x;
+        const dy = ty - bee.group.position.y;
+        const dz = tz - bee.group.position.z;
+        const d = Math.hypot(dx, dy, dz);
+        if (d < 0.65) {
+          hive.migrating = false;
+          hive.group.visible = true;
+          hive.group.scale.setScalar(hive.buildProgress);
+          if (bee.migrationSprite) bee.migrationSprite.visible = false;
+          bee.state = 'orbit';
+          refreshHiveFlowers(ctx, hive);
+          for (let bi = 0; bi < hive.bees.length; bi++) {
+            hive.bees[bi].state = 'to_flower';
+            hive.bees[bi].stateTimer = 0.5 + bi * 0.6;
+          }
+        } else {
+          const step = Math.min(d, 4.2 * dt);
+          bee.group.position.x += (dx / d) * step;
+          bee.group.position.y += (dy / d) * step + Math.sin(nowSec * 5) * 0.01;
+          bee.group.position.z += (dz / d) * step;
+          bee.group.rotation.y = Math.atan2(dx, dz);
+        }
+      } else {
+        const q = hive.queen;
+        const qx = q ? q.group.position.x : hive.x;
+        const qy = q ? q.group.position.y : hive.y + 0.5;
+        const qz = q ? q.group.position.z : hive.z;
+        const ox = Math.cos(bee.phase * 1.6 + i) * 0.85;
+        const oy = Math.sin(bee.phase * 2.2 + i) * 0.35 - 0.15;
+        const oz = Math.sin(bee.phase * 1.4 + i) * 0.85;
+        const tx = qx + ox;
+        const ty = qy + oy;
+        const tz = qz + oz;
+        const dx = tx - bee.group.position.x;
+        const dy = ty - bee.group.position.y;
+        const dz = tz - bee.group.position.z;
+        const d = Math.hypot(dx, dy, dz);
+        if (d > 0.02) {
+          const step = Math.min(d, 5.2 * dt);
+          bee.group.position.x += (dx / d) * step;
+          bee.group.position.y += (dy / d) * step;
+          bee.group.position.z += (dz / d) * step;
+          bee.group.rotation.y = Math.atan2(dx, dz);
+        }
+      }
+      continue;
+    }
+
+    // 2. Rainha orbita suavemente ao redor da colmeia
+    if (bee.isQueen) {
+      if (bee.migrationSprite) bee.migrationSprite.visible = false;
+      const t = bee.phase;
+      const nx = hive.x + Math.cos(t) * 0.85;
+      const nz = hive.z + Math.sin(t) * 0.85;
+      const ny = hive.y + 0.35 + Math.sin(t * 2.5) * 0.22;
+      const dx = nx - bee.group.position.x;
+      const dz = nz - bee.group.position.z;
+      if (dx * dx + dz * dz > 1e-6) bee.group.rotation.y = Math.atan2(dx, dz);
+      bee.group.position.set(nx, ny, nz);
+      bee.group.rotation.x = Math.sin(t * 2.5) * 0.10;
+      continue;
+    }
+
+    // 3. Operárias: forrageio entre colmeia e flores próximas
+    if (bee.pollenMesh) bee.pollenMesh.visible = !!bee.hasPollen;
+
+    if (hive.buildProgress < 1.0) {
+      // Orbitando e construindo a nova colmeia
+      const t = bee.phase;
+      const nx = hive.x + Math.cos(t) * 1.1;
+      const nz = hive.z + Math.sin(t * 1.1) * 1.1;
+      const ny = hive.y + Math.sin(t * 3.0) * 0.35;
+      const dx = nx - bee.group.position.x;
+      const dz = nz - bee.group.position.z;
+      if (dx * dx + dz * dz > 1e-6) bee.group.rotation.y = Math.atan2(dx, dz);
+      bee.group.position.set(nx, ny, nz);
+      continue;
+    }
+
+    if (bee.state === 'to_flower') {
+      if (!bee.targetFlower || bee.targetFlower.pollen <= 0.15) {
+        const candidates = hive.flowersNearby.filter((fl) => fl.pollen > 0.15);
+        bee.targetFlower = candidates.length
+          ? candidates[Math.floor(Math.random() * candidates.length)]
+          : null;
+      }
+      if (!bee.targetFlower) {
+        // Sem flores disponíveis -> orbita colmeia aguardando migração
+        const t = bee.phase;
+        const nx = hive.x + Math.cos(t) * bee.radius;
+        const nz = hive.z + Math.sin(t) * bee.radius;
+        const ny = hive.y + Math.sin(t * 2.8) * 0.3;
+        bee.group.position.set(nx, ny, nz);
+      } else {
+        const fl = bee.targetFlower;
+        const dx = fl.x - bee.group.position.x;
+        const dy = (fl.y + 0.12) - bee.group.position.y;
+        const dz = fl.z - bee.group.position.z;
+        const d = Math.hypot(dx, dy, dz);
+        if (d < 0.25) {
+          bee.state = 'collect';
+          bee.stateTimer = 1.1;
+        } else {
+          const step = Math.min(d, 2.8 * dt);
+          bee.group.position.x += (dx / d) * step;
+          bee.group.position.y += (dy / d) * step + Math.sin(nowSec * 9 + i) * 0.008;
+          bee.group.position.z += (dz / d) * step;
+          bee.group.rotation.y = Math.atan2(dx, dz);
+        }
+      }
+    } else if (bee.state === 'collect') {
+      bee.stateTimer -= dt;
+      if (bee.targetFlower) {
+        bee.group.position.y = bee.targetFlower.y + 0.14 + Math.sin(nowSec * 14) * 0.04;
+      }
+      if (bee.stateTimer <= 0) {
+        if (bee.targetFlower) {
+          bee.targetFlower.pollen = Math.max(0, bee.targetFlower.pollen - 0.35);
+          if (bee.targetFlower.pollen <= 0.15) {
+            bee.targetFlower.centerMesh.material = a.flowerCenterEmptyMat;
+          }
+        }
+        bee.hasPollen = true;
+        bee.state = 'to_hive';
+      }
+    } else if (bee.state === 'to_hive') {
+      const dx = hive.x - bee.group.position.x;
+      const dy = (hive.y - 0.02) - bee.group.position.y;
+      const dz = hive.z - bee.group.position.z;
+      const d = Math.hypot(dx, dy, dz);
+      if (d < 0.35) {
+        bee.hasPollen = false;
+        hive.honeyLevel = Math.min(100, (hive.honeyLevel || 0) + 12);
+        bee.targetFlower = null;
+        bee.state = 'to_flower';
+      } else {
+        const step = Math.min(d, 2.6 * dt);
+        bee.group.position.x += (dx / d) * step;
+        bee.group.position.y += (dy / d) * step + Math.sin(nowSec * 8 + i) * 0.008;
+        bee.group.position.z += (dz / d) * step;
+        bee.group.rotation.y = Math.atan2(dx, dz);
+      }
+    }
   }
+}
+
+// ============================================================================
+// INTERAÇÃO E COLHEITA DE MEL / COLMEIA ABANDONADA
+// ============================================================================
+function isHoneyContainer(held) {
+  if (!held) return false;
+  if (held.lcNutrientCtrl) return true;
+  if (held.mesh && held.mesh.userData && held.mesh.userData.liquidCtrl && !held.spawnCtrl) return true;
+  if (held.spawnCtrl && !held.spawnCtrl.filled && !held.spawnCtrl.isBag) return true;
+  return false;
+}
+
+export function findHoveredBeehive(raycaster, ctx) {
+  if (!raycaster || !ctx || !ctx.beehiveHitMeshes || !ctx.beehiveHitMeshes.length) return null;
+  const hits = raycaster.intersectObjects(ctx.beehiveHitMeshes, false);
+  const hit = firstUnoccludedRayHit(ctx, hits, 5.5, { checkWalls: true });
+  if (hit && hit.object && hit.object.userData && hit.object.userData.hiveObj) {
+    const hive = hit.object.userData.hiveObj;
+    if (hive.collected) return null;
+    ctx.hoverHit = hit;
+    return hive;
+  }
+  return null;
+}
+
+export function getBeehiveHoverPrompt(hive, held) {
+  if (!hive || hive.collected) return '';
+  if (hive.abandoned && hive.canCollectAbandoned) {
+    return held
+      ? '🪹 Colmeia Abandonada — Esvazie a mão para recolher'
+      : '🪹 Colmeia Abandonada — Levar p/ Compostagem';
+  }
+  if (hive.migrating) return '🐝 Enxame migrando!';
+  if (hive.buildProgress < 1.0) {
+    return `🐝 Colmeia em construção (${Math.round(hive.buildProgress * 100)}%)`;
+  }
+  const honeyPct = Math.round(hive.honeyLevel || 0);
+  if (honeyPct >= 35 && isHoneyContainer(held)) {
+    return `🍯 Colher Mel Natural (Colmeia: ${honeyPct}%)`;
+  }
+  return `🐝 Colmeia (Mel: ${honeyPct}%)`;
+}
+
+function createAbandonedHiveCompostItem(ctx, hive) {
+  const a = getBeeSharedAssets();
+  const g = new THREE.Group();
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.28), a.hiveAbandonedMat);
+  box.position.y = 0.14;
+  const band = new THREE.Mesh(new THREE.BoxGeometry(0.295, 0.06, 0.295), a.hiveAbandonedBandMat);
+  band.position.y = 0.09;
+  g.add(box, band);
+
+  const itemId = 'compost_hive_' + (hive.id || '0') + '_' + Math.floor(performance.now());
+  const item = registerPickable(
+    ctx,
+    itemId,
+    '🪹 Colmeia Seca (Leve à Caixa de Substrato da Horta)',
+    g,
+    hive.x,
+    hive.y,
+    hive.z,
+    0,
+    0.18,
+    0.28,
+    {
+      category: 'spent_substrate',
+      purpose: 'Colmeia seca abandonada; excelente material orgânico para a Caixa de Substrato da Horta',
+      weightGrams: 420,
+      compatibilities: { canEnterCooker: false, isSpentMushroomCake: true }
+    }
+  );
+  item.spentCakeCtrl = { speciesName: 'Colmeia Seca' };
+  item.compostHiveCtrl = { hiveId: hive.id };
+  return item;
+}
+
+export function interactBeehive(ctx, hive) {
+  if (!ctx || !hive || hive.collected) return false;
+  const onToast = ctx.callbacks && ctx.callbacks.onToast;
+  const held = ctx.heldItem;
+
+  // 1. Recolher colmeia abandonada para compostagem na Horta
+  if (hive.abandoned && hive.canCollectAbandoned) {
+    if (held) {
+      onToast?.('👐 Esvazie a mão para recolher a colmeia seca!');
+      return true;
+    }
+    const item = createAbandonedHiveCompostItem(ctx, hive);
+    hive.collected = true;
+    hive.canCollectAbandoned = false;
+    hive.group.visible = false;
+    if (hive.hitMesh && hive.hitMesh.userData) hive.hitMesh.userData.ignoreRay = true;
+
+    ctx.heldItem = item;
+    ctx.lastPickupAt = performance.now();
+    ctx.callbacks?.onHoldChange?.(item.label);
+    onToast?.('🪹 Colmeia seca recolhida! Leve à Caixa de Substrato da Horta.');
+    return true;
+  }
+
+  if (hive.migrating || hive.buildProgress < 1.0) {
+    onToast?.('🐝 As abelhas ainda estão construindo esta colmeia!');
+    return true;
+  }
+
+  // 2. Colheita de Mel Natural
+  if ((hive.honeyLevel || 0) < 35) {
+    onToast?.(`🐝 Colmeia com pouco mel (${Math.round(hive.honeyLevel || 0)}%). Aguarde as abelhas coletarem pólen!`);
+    return true;
+  }
+
+  if (!isHoneyContainer(held)) {
+    onToast?.('🍯 Segure um frasco de Cultura Líquida, Béquer, Nutriente CL ou Pote vazio para colher Mel!');
+    return true;
+  }
+
+  if (held.lcNutrientCtrl) {
+    const maxG = held.lcNutrientCtrl.maxGrams || 250;
+    held.lcNutrientCtrl.remainingGrams = Math.min(maxG, (held.lcNutrientCtrl.remainingGrams || 0) + 50);
+    updateLcNutrientLabel(held);
+    ctx.callbacks?.onHoldChange?.(held.label);
+    onToast?.('🍯 Mel Natural adicionado ao frasco de Nutriente CL! (+50g)');
+  } else if (held.mesh && held.mesh.userData && held.mesh.userData.liquidCtrl && !held.spawnCtrl) {
+    const lc = held.mesh.userData.liquidCtrl;
+    const nextMl = Math.min(lc.maxMl || 800, (lc.volMl || 0) + 100);
+    if (held.setVolume) held.setVolume(nextMl);
+    else lc.volMl = nextMl;
+    if (held.cultureCtrl) {
+      held.cultureCtrl.hasNutrient = true;
+      if (!held.cultureCtrl.contaminated && !held.cultureCtrl.colonized && lc.liqMesh?.material?.color) {
+        lc.liqMesh.material.color.setHex(0xf59e0b);
+      }
+      updateCultureLiquidLabel(held);
+    } else {
+      held.label = `${lc.baseLabel || 'Recipiente'} (${Math.round(lc.volMl)}ml • 🍯 Mel Natural)`;
+    }
+    ctx.callbacks?.onHoldChange?.(held.label);
+    onToast?.('🍯 Mel Natural colhido! (+100ml de nutriente pronto para Cultura Líquida)');
+  } else if (held.spawnCtrl && !held.spawnCtrl.filled && !held.spawnCtrl.isBag) {
+    held.lcNutrientCtrl = { remainingGrams: 120, maxGrams: 250, isNaturalHoney: true };
+    held.label = '🍯 Pote com Mel Natural (120g • Nutriente CL 4%)';
+    if (held.mesh && held.mesh.userData) {
+      held.mesh.userData.isLcNutrientBottle = true;
+      held.mesh.userData.pickableLabel = held.label;
+    }
+    ctx.callbacks?.onHoldChange?.(held.label);
+    onToast?.('🍯 Pote de vidro preenchido com Mel Natural! (Nutriente CL 4%)');
+  }
+
+  hive.honeyLevel = Math.max(0, (hive.honeyLevel || 0) - 35);
+  triggerCozyHeartBurst(hive.x, hive.y + 0.35, hive.z, 0xfacc15);
+  return true;
 }

@@ -2,6 +2,9 @@
 import { appState } from '../core/state.js';
 import { petAction } from '../services/pets.js';
 import { getGroundHeight, clampPosAgainstWalls } from '../engine/physics.js';
+import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
+import { triggerPettingAnimation, stepPettingHands } from './petting-hand.js';
+import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 let unitBox;
@@ -14,6 +17,73 @@ const STAY_RADIUS = 4;
 const remotePets = new Map();
 let remoteSnapshots = [];
 let remoteSnapshotIds = new Set();
+const peePuddles = [];
+let peeGeo = null;
+let peeMat = null;
+
+function spawnPetPeePuddle(scene, x, y, z) {
+  if (!THREE || !scene) return;
+  if (!peeGeo) peeGeo = new THREE.CylinderGeometry(0.18, 0.21, 0.014, 14);
+  if (!peeMat) peeMat = new THREE.MeshStandardMaterial({
+    color: 0xfacc15,
+    roughness: 0.18,
+    metalness: 0.05,
+    transparent: true,
+    opacity: 0.72
+  });
+  const mesh = new THREE.Mesh(peeGeo, peeMat);
+  mesh.position.set(x, y + 0.012, z);
+  mesh.scale.set(0.25, 1, 0.25);
+  scene.add(mesh);
+  peePuddles.push({ mesh, age: 0, maxAge: 22 });
+  while (peePuddles.length > 4) {
+    const old = peePuddles.shift();
+    if (old?.mesh?.parent) old.mesh.parent.remove(old.mesh);
+  }
+}
+
+function stepPetPeePuddles(dt) {
+  for (let i = peePuddles.length - 1; i >= 0; i--) {
+    const p = peePuddles[i];
+    p.age += dt;
+    if (p.age >= p.maxAge) {
+      if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+      peePuddles.splice(i, 1);
+      continue;
+    }
+    if (p.age < 1.2) {
+      const grow = 0.25 + (p.age / 1.2) * 0.75;
+      p.mesh.scale.set(grow, 1, grow);
+    } else if (p.age > p.maxAge - 5) {
+      const dry = Math.max(0.04, (p.maxAge - p.age) / 5);
+      p.mesh.scale.set(dry, 1, dry);
+    } else {
+      p.mesh.scale.set(1, 1, 1);
+    }
+  }
+}
+
+export function getLocalCompanionPet() {
+  if (!companion || !companion.group || !companion.group.visible) return null;
+  return companion;
+}
+
+export function petLocalCompanion(ctx) {
+  const pet = getLocalCompanionPet();
+  if (!pet || !ctx || !ctx.scene) return false;
+  pet.loveUntil = performance.now() + 2600;
+  pet.hopUntil = performance.now() + 900;
+  pet.peeUntil = 0;
+  triggerPettingAnimation(ctx.scene, pet.group, pet.id.startsWith('cat_') ? 0.92 : 0.98);
+  if (typeof window !== 'undefined') {
+    if (window.MycoAudio?.playClick) window.MycoAudio.playClick();
+    if (window.triggerCampusHaptic) window.triggerCampusHaptic('light');
+  }
+  if (ctx.callbacks?.onToast) {
+    ctx.callbacks.onToast(t('misc.pet.petted'));
+  }
+  return true;
+}
 
 export function getLocalPetPose() {
   if (!companion || companion.id !== appState.currentUser?.progress?.pets?.selected) return null;
@@ -115,7 +185,26 @@ function createAnimal(id) {
   }
   if (orange) for (let i = 0; i < 2; i++) box(tail, 0xbf6720, 0, 0.09 + i * 0.11, 0.052, 0.092, 0.045, 0.01);
   if (husky || calico) box(tail, husky ? white : dark, 0, 0.31, 0, 0.095, 0.08, 0.095);
-  return { group, body, head, legs, tail, eyes, glints, id, phase: 0, roamTimer: 0, targetX: 0, targetZ: 0, idleTime: 0, eatingTime: 0, stuck: 0, sidestep: 0, pending: false, retryAt: 0 };
+  const moodSprite = typeof document !== 'undefined' ? makeTextSprite('😊', '#fef08a') : null;
+  if (moodSprite) {
+    moodSprite.scale.set(0.48, 0.24, 1);
+    moodSprite.position.set(0, 1.05, 0.12);
+    moodSprite.visible = false;
+    group.add(moodSprite);
+  }
+  return {
+    group, body, head, legs, tail, eyes, glints, id, moodSprite,
+    lastMoodEmoji: '',
+    phase: 0, roamTimer: 0, targetX: 0, targetZ: 0, idleTime: 0, eatingTime: 0, stuck: 0, sidestep: 0, pending: false, retryAt: 0,
+    followMoving: false,
+    nextPeeAt: 35 + Math.random() * 28,
+    peeUntil: 0,
+    peeSpawned: false,
+    nextCuriousAt: 12 + Math.random() * 10,
+    curiousUntil: 0,
+    loveUntil: 0,
+    hopUntil: 0
+  };
 }
 
 function createBowl(kind) {
@@ -205,6 +294,8 @@ function stepRemotePets(ctx, dt) {
 }
 
 export function stepPets(ctx, dt) {
+  stepPettingHands(dt);
+  stepPetPeePuddles(dt);
   const user = appState.currentUser;
   const state = user?.progress?.pets;
   if (ctx.scene && user) stepRemotePets(ctx, dt);
@@ -246,9 +337,15 @@ export function stepPets(ctx, dt) {
   if (need) {
     const target = state.bowls[need].pos;
     tx = target.x; tz = target.z; stop = 0.48;
+    pet.followMoving = true;
   } else if (state.mode === 'follow') {
-    tx = ctx.playerPos.x; tz = ctx.playerPos.z; stop = 1.55;
+    tx = ctx.playerPos.x; tz = ctx.playerPos.z;
+    const ownerDist = Math.hypot(tx - pos.x, tz - pos.z);
+    if (ownerDist > 3.2) pet.followMoving = true;
+    else if (ownerDist <= 1.75) pet.followMoving = false;
+    stop = pet.followMoving ? 1.65 : 999;
   } else {
+    pet.followMoving = false;
     pet.roamTimer -= dt;
     if (pet.roamTimer <= 0) {
       pet.roamTimer = 5 + Math.random() * 8;
@@ -262,6 +359,7 @@ export function stepPets(ctx, dt) {
     tx = pet.targetX; tz = pet.targetZ; stop = 0.35;
   }
   if (!need && state.mode === 'follow' && Math.hypot(pos.x - ctx.playerPos.x, pos.z - ctx.playerPos.z) > 30) {
+    const oldX = pos.x, oldZ = pos.z;
     pos.set(ctx.playerPos.x + 1, ctx.playerPos.y, ctx.playerPos.z + 1);
     clampPosAgainstWalls(ctx.physCtx, pos, 0.23);
     if (anchor && Math.hypot(pos.x - anchor.x, pos.z - anchor.z) > STAY_RADIUS) {
@@ -273,28 +371,65 @@ export function stepPets(ctx, dt) {
   }
   const dx = tx - pos.x, dz = tz - pos.z;
   const dist = Math.hypot(dx, dz);
-  const walking = dist > stop;
-  pet.motion = walking ? (need || dist > 6 ? 'run' : 'walk') : (need ? 'eat' : (pet.idleTime > 18 ? 'sleep' : 'idle'));
+  const nowPerf = performance.now();
+  const isPeeing = pet.peeUntil > nowPerf;
+  const walking = !isPeeing && dist > stop;
+  pet.motion = isPeeing ? 'pee' : (walking ? (need || dist > 6 ? 'run' : 'walk') : (need ? 'eat' : (pet.idleTime > 20 ? 'sleep' : (pet.idleTime > 1.5 ? 'sit' : 'idle'))));
   if (walking) {
     pet.idleTime = 0;
     pet.eatingTime = 0;
+    pet.curiousUntil = 0;
     const speed = need || dist > 6 ? 3.1 : 1.3;
     const distance = Math.min(dist - stop, speed * dt);
     const oldX = pos.x, oldZ = pos.z;
-    const side = pet.sidestep > 0 ? 0.85 : 0;
+    const side = pet.sidestep > 0 ? 0.95 : (pet.sidestep < 0 ? -0.95 : 0);
     pos.x += (dx / dist - dz / dist * side) * distance;
     pos.z += (dz / dist + dx / dist * side) * distance;
-    clampPosAgainstWalls(ctx.physCtx, pos, 0.23);
+    clampPosAgainstWalls(ctx.physCtx, pos, 0.25);
+    // Desvia de bancadas, capelas, estantes e geladeira para não atravessar objetos
+    if (Array.isArray(ctx.pickableItems)) {
+      for (let oi = 0; oi < ctx.pickableItems.length; oi++) {
+        const ob = ctx.pickableItems[oi];
+        if (!ob || !ob.mesh) continue;
+        const ud = ob.mesh.userData;
+        if (!ud || (!ud.isTable && !ud.isHood && !ud.isRack && !ob.fridgeCtrl)) continue;
+        if (Math.abs(ob.mesh.position.y - pos.y) > 1.4) continue;
+        const rad = (ob.radius || 0.75) + 0.28;
+        const odx = pos.x - ob.mesh.position.x;
+        const odz = pos.z - ob.mesh.position.z;
+        const odSq = odx * odx + odz * odz;
+        if (odSq > 1e-5 && odSq < rad * rad) {
+          const od = Math.sqrt(odSq);
+          pos.x = ob.mesh.position.x + (odx / od) * rad;
+          pos.z = ob.mesh.position.z + (odz / od) * rad;
+        }
+      }
+    }
     if (Math.hypot(tx - pos.x, tz - pos.z) >= dist - distance * 0.15) pet.stuck += dt;
     else pet.stuck = Math.max(0, pet.stuck - dt);
-    if (pet.stuck > 0.7) { pet.sidestep = 2; pet.stuck = 0; }
-    else pet.sidestep = Math.max(0, pet.sidestep - dt);
+    if (pet.stuck > 0.45) {
+      pet.sidestepDir = -(pet.sidestepDir || (Math.random() < 0.5 ? 1 : -1));
+      pet.sidestep = 1.8 * pet.sidestepDir;
+      pet.stuck = 0;
+    } else if (pet.sidestep > 0) {
+      pet.sidestep = Math.max(0, pet.sidestep - dt);
+    } else if (pet.sidestep < 0) {
+      pet.sidestep = Math.min(0, pet.sidestep + dt);
+    }
     if (Math.hypot(pos.x - oldX, pos.z - oldZ) < 0.001 && state.mode !== 'follow' && !need) pet.roamTimer = 0;
     pos.y = getGroundHeight(ctx.physCtx, pos.x, pos.z, pos.y, null, pos.y + 0.5);
     pet.group.rotation.y = Math.atan2(dx, dz);
     pet.phase += dt * (speed > 2 ? 12 : 7);
   } else {
     pet.idleTime += dt;
+    if (!need && !isPeeing && state.mode === 'follow' && dist > 0.4) {
+      // Olha suavemente para o dono enquanto está sentado perto
+      const targetYaw = Math.atan2(dx, dz);
+      let diff = targetYaw - pet.group.rotation.y;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      pet.group.rotation.y += diff * Math.min(1, dt * 3.5);
+    }
     if (need) {
       pet.eatingTime += dt;
       if (pet.eatingTime > 2.5 && !pet.pending && now >= pet.retryAt) {
@@ -302,24 +437,66 @@ export function stepPets(ctx, dt) {
         pet.retryAt = now + 10000;
         petAction('consume_' + need).catch(() => {}).finally(() => { pet.pending = false; });
       }
+    } else if (!isPeeing && pet.idleTime > 2.2) {
+      pet.nextPeeAt -= dt;
+      pet.nextCuriousAt -= dt;
+      if (pet.nextPeeAt <= 0) {
+        pet.peeUntil = nowPerf + 2400;
+        pet.peeSpawned = false;
+        pet.nextPeeAt = 45 + Math.random() * 35;
+      } else if (pet.nextCuriousAt <= 0) {
+        pet.curiousUntil = nowPerf + 2800;
+        pet.nextCuriousAt = 14 + Math.random() * 12;
+      }
     }
+  }
+  if (isPeeing && !pet.peeSpawned && (pet.peeUntil - nowPerf) < 1700) {
+    pet.peeSpawned = true;
+    const backX = pos.x - Math.sin(pet.group.rotation.y) * 0.25;
+    const backZ = pos.z - Math.cos(pet.group.rotation.y) * 0.25;
+    spawnPetPeePuddle(ctx.scene, backX, pos.y, backZ);
   }
   const swing = walking ? Math.sin(pet.phase) * (need ? 0.65 : 0.43) : 0;
   pet.legs[0].rotation.x = swing; pet.legs[3].rotation.x = swing;
   pet.legs[1].rotation.x = -swing; pet.legs[2].rotation.x = -swing;
+  pet.legs[2].rotation.z = isPeeing ? 0.72 : 0;
+  const isCurious = !walking && !need && !isPeeing && pet.curiousUntil > nowPerf;
+  pet.head.rotation.z = isCurious ? Math.sin(now * 0.004) * 0.26 : 0;
   pet.head.rotation.x = need && !walking ? 0.4 + Math.sin(pet.eatingTime * 7) * 0.08 : Math.sin(now * 0.002) * 0.035;
-  pet.tail.rotation.z = Math.sin(now * (walking ? 0.008 : 0.003)) * 0.28;
-  pet.body.position.y = walking ? Math.abs(Math.sin(pet.phase)) * 0.025 : 0;
-  const sleeping = !walking && !need && pet.idleTime > 18;
-  pet.body.rotation.z = sleeping ? 0.4 : 0;
+  pet.tail.rotation.z = Math.sin(now * (walking || pet.loveUntil > nowPerf ? 0.012 : 0.003)) * 0.30;
+  const hopY = pet.hopUntil > nowPerf ? Math.abs(Math.sin(nowPerf * 0.014)) * 0.14 : 0;
+  pet.body.position.y = (walking ? Math.abs(Math.sin(pet.phase)) * 0.025 : 0) + hopY;
+  const sleeping = !walking && !need && !isPeeing && pet.idleTime > 20 && pet.loveUntil <= nowPerf;
+  pet.body.rotation.z = sleeping ? 0.4 : (isPeeing ? -0.14 : 0);
   if (sleeping) pet.body.position.y = -0.12;
   const blink = sleeping || now % 7000 < 160;
   for (const eye of pet.eyes) eye.scale.y = blink ? 0.008 : 0.07;
   for (const glint of pet.glints) glint.visible = !blink;
-  if (!walking && !need && pet.idleTime > 5) {
-    pet.body.rotation.x = 0.13;
-    pet.legs[0].rotation.x = -0.6; pet.legs[2].rotation.x = -0.6;
+  if (!walking && !need && !isPeeing && pet.idleTime > 1.5 && !sleeping) {
+    pet.body.rotation.x = 0.14;
+    pet.legs[0].rotation.x = -0.62; pet.legs[2].rotation.x = -0.62;
   } else pet.body.rotation.x = 0;
+
+  // Emoji emotivo acima do pet (atualiza só quando muda)
+  if (pet.moodSprite) {
+    let emoji = '';
+    if (pet.loveUntil > nowPerf) emoji = '❤️';
+    else if (isPeeing) emoji = '💦';
+    else if (need === 'food') emoji = '🍽️';
+    else if (need === 'water') emoji = '💧';
+    else if (sleeping) emoji = '💤';
+    else if (isCurious) emoji = '❓';
+    else if (!walking && pet.idleTime > 1.5 && state.mode === 'follow') emoji = '😊';
+    if (emoji !== pet.lastMoodEmoji) {
+      pet.lastMoodEmoji = emoji;
+      if (emoji && typeof document !== 'undefined') {
+        updateTextSprite(pet.moodSprite, emoji, '#ffffff');
+        pet.moodSprite.visible = true;
+      } else {
+        pet.moodSprite.visible = false;
+      }
+    }
+  }
 }
 
 function canReachBowlFromAnchor(pos, anchor) {

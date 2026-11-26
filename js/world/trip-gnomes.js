@@ -15,6 +15,13 @@ const FLOWER_COLORS = [0xf472b6, 0xc084fc, 0x60a5fa, 0xfb923c, 0xfacc15, 0xf8faf
 
 let gnomePool = null;
 let shadowGnomePool = null;
+let lonelyTreeGnome = null;
+const LONELY_TREE_SPOTS = [
+  { x: -58, z: -52 },
+  { x: -66, z: 38 },
+  { x: 58, z: -52 },
+  { x: 74, z: 42 }
+];
 let floraPool = null;
 let fireflyPoints = null;
 let fireflyData = null;
@@ -868,6 +875,89 @@ export function stepTripGnomes(ctx, dt) {
       gn.legR.rotation.x *= Math.exp(-10 * dt);
       gn.armL.rotation.x *= Math.exp(-10 * dt);
       gn.armR.rotation.x *= Math.exp(-10 * dt);
+    }
+  }
+
+  // Gnomo Solitário das Árvores (aparece longe da população e sobe na árvore ao se aproximar!)
+  stepLonelyTreeGnome(ctx, dt, px, pz);
+}
+
+function stepLonelyTreeGnome(ctx, dt, px, pz) {
+  if (!ctx || !ctx.scene) return;
+  if (!lonelyTreeGnome) {
+    const gn = createSingleGnome(0x15803d, false);
+    const tree = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.36, 4.2, 8), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 }));
+    trunk.position.y = 2.1;
+    const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(1.75, 1), new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.85 }));
+    crown.position.y = 4.6;
+    tree.add(trunk, crown);
+    ctx.scene.add(tree);
+    ctx.scene.add(gn.root);
+    const spot = LONELY_TREE_SPOTS[0];
+    const gy = getGroundHeight(ctx.physCtx, spot.x, spot.z, 2);
+    tree.position.set(spot.x, gy, spot.z);
+    gn.root.position.set(spot.x + 1.1, gy, spot.z + 0.8);
+    setGnomeEmote(gn, '🌲');
+    lonelyTreeGnome = { gn, tree, spotIdx: 0, phase: 'idle', timer: 0, treeX: spot.x, treeY: gy, treeZ: spot.z };
+  }
+  const L = lonelyTreeGnome;
+  const gn = L.gn;
+  if (L.phase === 'hidden') {
+    L.timer -= dt;
+    if (L.timer <= 0) {
+      L.spotIdx = (L.spotIdx + 1) % LONELY_TREE_SPOTS.length;
+      const spot = LONELY_TREE_SPOTS[L.spotIdx];
+      const gy = getGroundHeight(ctx.physCtx, spot.x, spot.z, 2);
+      L.treeX = spot.x; L.treeY = gy; L.treeZ = spot.z;
+      L.tree.position.set(spot.x, gy, spot.z);
+      gn.root.position.set(spot.x + 1.1, gy, spot.z + 0.8);
+      gn.root.scale.setScalar(1);
+      gn.root.visible = true;
+      setGnomeEmote(gn, '🌲');
+      L.phase = 'idle';
+    }
+    return;
+  }
+  const distToPlayer = Math.hypot(gn.root.position.x - px, gn.root.position.z - pz);
+  if (L.phase === 'idle') {
+    gn.root.rotation.y += dt * 0.4;
+    if (distToPlayer < 7.0) {
+      L.phase = 'run_to_tree';
+      setGnomeEmote(gn, '😮');
+    }
+  } else if (L.phase === 'run_to_tree') {
+    const dx = L.treeX - gn.root.position.x;
+    const dz = L.treeZ - gn.root.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.45) {
+      L.phase = 'climbing';
+      L.timer = 0;
+      setGnomeEmote(gn, '💨');
+    } else {
+      const step = Math.min(d, 5.5 * dt);
+      gn.root.position.x += (dx / d) * step;
+      gn.root.position.z += (dz / d) * step;
+      gn.root.position.y = getGroundHeight(ctx.physCtx, gn.root.position.x, gn.root.position.z, L.treeY + 1);
+      gn.root.rotation.y = Math.atan2(dx, dz);
+      gn.phase += dt * 16;
+      const sw = Math.sin(gn.phase) * 0.7;
+      gn.legL.rotation.x = sw; gn.legR.rotation.x = -sw;
+    }
+  } else if (L.phase === 'climbing') {
+    L.timer += dt;
+    gn.root.position.y += dt * 3.4;
+    gn.phase += dt * 20;
+    gn.armL.rotation.x = -1.6 + Math.sin(gn.phase) * 0.5;
+    gn.armR.rotation.x = -1.6 - Math.sin(gn.phase) * 0.5;
+    if (gn.root.position.y >= L.treeY + 3.8) {
+      const shrink = Math.max(0.05, 1 - (gn.root.position.y - (L.treeY + 3.8)) * 1.2);
+      gn.root.scale.setScalar(shrink);
+    }
+    if (gn.root.position.y >= L.treeY + 4.7) {
+      gn.root.visible = false;
+      L.phase = 'hidden';
+      L.timer = 18 + Math.random() * 14;
     }
   }
 }

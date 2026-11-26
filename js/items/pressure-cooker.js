@@ -10,6 +10,7 @@ import { contaminatePetri, sterilizePetri, updatePetriVisual } from './petri-dis
 import { updateContainerVolume } from './liquid-culture.js';
 import { updateScalpelLabel } from './scalpel.js';
 import { t } from '../core/i18n.js';
+import { unlockAchievement } from '../core/achievements.js';
 
 const THREE = window.THREE;
 const LAB = GAME_CONFIG.lab;
@@ -808,6 +809,7 @@ export function stepPressureCookers(ctx, dt) {
                 cIt.spawnCtrl.sterilized = true;
                 cIt.spawnCtrl.pasteurizedOnly = false;
                 if (isBulkSubstrate) cIt.spawnCtrl.pasteurized = true;
+                else unlockAchievement('sterile_master', onToast);
               }
             }
             if (Math.floor(cIt.spawnCtrl.sterilizeProgress) !== prevPct || !!cIt.spawnCtrl.sterilized !== prevSter) {

@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.8.6">
+  <link rel="stylesheet" href="css/game.css?v=2.9.0">
 </head>
 
 <body>
@@ -203,7 +203,7 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.8.6</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.9.0</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -329,6 +329,7 @@
     </div>
 
     <!-- Interaction Prompt Pill -->
+    <div id="hud-mini-timers" class="fixed top-16 left-3 z-20 flex flex-col gap-1 pointer-events-none"></div>
     <div id="interact-pill" data-i18n="hud.interact"
       class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 glass-panel rounded-full px-4 py-1.5 text-xs font-bold text-emerald-300 border border-emerald-400/40 z-24">
       Interagir
@@ -912,6 +913,16 @@
         </div>
 
         <div class="rounded-xl bg-slate-900/75 border border-slate-700/80 p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <div data-i18n="settings.sens_section" class="font-extrabold text-amber-300 text-sm">🎯 Sensibilidade da Câmera</div>
+            <span id="settings-sens-val" class="text-xs font-extrabold text-amber-200">1.0x</span>
+          </div>
+          <p data-i18n="settings.sens_desc" class="text-[11px] text-slate-400">Ajuste a velocidade ao girar a câmera com mouse ou toque.</p>
+          <input id="settings-sens-slider" type="range" min="0.4" max="2.5" step="0.1" value="1.0"
+            class="w-full accent-amber-400 cursor-pointer">
+        </div>
+
+        <div class="rounded-xl bg-slate-900/75 border border-slate-700/80 p-3.5 space-y-2">
           <div data-i18n="settings.audio_section" class="font-extrabold text-purple-300 text-sm">🔊 Áudio &amp; Tela</div>
           <p id="settings-audio-current" role="status" class="text-[11px] font-semibold text-slate-300"></p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -939,9 +950,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.8.6';</script>
+  <script>window.MYCO_VERSION = '2.9.0';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.8.6"></script>
+  <script type="module" src="js/main.js?v=2.9.0"></script>
 </body>
 
 </html>

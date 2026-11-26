@@ -326,7 +326,7 @@ export function makeGrowShopItem(ctx, opts, kind) {
   return item;
 }
 
-function updateGrow(grow, dt, now) {
+function updateGrow(grow, dt, now, ctx) {
   const { view } = grow;
   const vapor = grow.humidifier && (grow.auto || grow.mistOn);
   const fan = grow.exhaust && (grow.auto || grow.fanOn);
@@ -344,8 +344,13 @@ function updateGrow(grow, dt, now) {
   view.doorRoll.position.y = 2.146 - door * (DOOR_HEIGHT - 0.1);
   view.doorRoll.scale.x = view.doorRoll.scale.z = 1 - door * 0.7;
   view.doorStraps.visible = door === 0;
-  view.led.emissiveIntensity = grow.led ? 1.35 : 0;
-  view.lining.emissiveIntensity = grow.led ? 0.16 : 0.015;
+  const isNight = !!(ctx && ctx.sunElevation !== undefined && ctx.sunElevation < 0.08);
+  const nightFactor = isNight ? Math.min(1, Math.max(0, (0.08 - ctx.sunElevation) / 0.25)) : 0;
+  const targetLedIntensity = grow.led ? (1.35 + nightFactor * 0.75) : 0;
+  const targetLiningIntensity = grow.led ? (0.16 + nightFactor * 0.12) : 0.015;
+  const ledBlend = Math.min(1, dt * 3.0);
+  view.led.emissiveIntensity += (targetLedIntensity - view.led.emissiveIntensity) * ledBlend;
+  view.lining.emissiveIntensity += (targetLiningIntensity - view.lining.emissiveIntensity) * ledBlend;
   view.led.color.setHex(grow.led ? 0xf6efd3 : 0x5d605b);
   view.humidifier.group.visible = grow.humidifier;
   view.exhaust.group.visible = grow.exhaust;
@@ -379,7 +384,7 @@ export function stepPortableGrows(ctx, dt) {
     const { carry, deployed } = item.growCtrl.view;
     deployed.visible = !carried;
     carry.visible = carried;
-    if (!carried) updateGrow(item.growCtrl, dt, now);
+    if (!carried) updateGrow(item.growCtrl, dt, now, ctx);
     const grow = item.growCtrl;
     if (grow.notifyHarvest) {
       let mask = 0;

@@ -16,6 +16,7 @@
 
 import { calculateHarvestYieldGrams, getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
+import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { bindPngTexture, getCachedCanvasTexture, registerPickable, updateItemBounds } from './item-registry.js';
 import { getSanitizationStatus } from './alcohol-spray.js';
 import { updateContainerVolume } from './liquid-culture.js';
@@ -24,6 +25,7 @@ import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 import { createMushroomMeshBySpeciesName, getMushroomVisualProfile } from '../world/mushroom-species.js';
 import { pickContamKind, getContamInfo } from './contaminations.js';
 import { t as tr } from '../core/i18n.js';
+import { unlockAchievement } from '../core/achievements.js';
 
 const THREE = window.THREE;
 
@@ -438,6 +440,14 @@ export function treatMonotubWithH2O2(ctx, item) {
     mc.contamKind = '';
     mc.contamReason = '';
     updateMonotubVisual(item);
+    if (ctx && ctx.scene && item.mesh) {
+      spawnCampusFxBurst(ctx.scene, {
+        x: item.mesh.position.x,
+        y: item.mesh.position.y + 0.16,
+        z: item.mesh.position.z
+      }, 0x38bdf8, 8);
+    }
+    if (typeof window !== 'undefined') window.triggerCampusHaptic?.('success');
     if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
       ctx.callbacks.onToast(tr('items.monotub.m2'));
     }
@@ -836,6 +846,7 @@ export function interactMonotub(ctx, tubItem) {
       ctx.lastPickupAt = performance.now();
       if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(freshMush.label);
     }
+    unlockAchievement('monotub_master', onToast);
     if (mc.flush >= MONOTUB_MAX_FLUSHES) {
       mc.spent = true;
       mc.fruitingStage = 0;
@@ -857,6 +868,14 @@ export function interactMonotub(ctx, tubItem) {
     }
     if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('monotub_harvest');
     if (ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_harvest');
+    if (ctx && ctx.scene && tubItem.mesh) {
+      spawnCampusFxBurst(ctx.scene, {
+        x: tubItem.mesh.position.x,
+        y: tubItem.mesh.position.y + 0.22,
+        z: tubItem.mesh.position.z
+      }, 0x22c55e, 10);
+    }
+    if (typeof window !== 'undefined') window.triggerCampusHaptic?.('success');
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
   }

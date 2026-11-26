@@ -6,6 +6,7 @@ import { getHeldBoardToolColor } from './chalkboard.js';
 import { getBlockingCampusModal, syncViewportCssVars } from '../ui/dom-helpers.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
 import { isPhotoModeActive, setPhotoMode, togglePhotoMode } from '../ui/photo-mode.js';
+import { getCameraSensitivity } from '../core/camera-settings.js';
 
 const TOUCH_AIM = Object.freeze({ x: 0, y: 0 });
 const TOUCH_DRAG_THRESHOLD = 10;
@@ -244,8 +245,9 @@ export function bindControls(ctx) {
 
   ctx.renderer.domElement.addEventListener('mousemove', function (e) {
     if (ctx.inFps && document.pointerLockElement === ctx.renderer.domElement) {
-      ctx.playerYaw -= e.movementX * 0.0022;
-      ctx.playerPitch = Math.max(-1.35, Math.min(1.35, ctx.playerPitch - e.movementY * 0.0022));
+      const sens = getCameraSensitivity();
+      ctx.playerYaw -= e.movementX * 0.0022 * sens;
+      ctx.playerPitch = Math.max(-1.35, Math.min(1.35, ctx.playerPitch - e.movementY * 0.0022 * sens));
     } else {
       const rect = ctx.renderer.domElement.getBoundingClientRect();
       ctx.pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -382,8 +384,9 @@ export function bindControls(ctx) {
         const dx = t.clientX - lastTX, dy = t.clientY - lastTY;
         if (Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) > TOUCH_DRAG_THRESHOLD) touchMoved = true;
         if (ctx.inFps && touchMoved) {
-          ctx.playerYaw -= dx * 0.0080;
-          ctx.playerPitch = Math.max(-1.35, Math.min(1.35, ctx.playerPitch - dy * 0.0080));
+          const sens = getCameraSensitivity();
+          ctx.playerYaw -= dx * 0.0080 * sens;
+          ctx.playerPitch = Math.max(-1.35, Math.min(1.35, ctx.playerPitch - dy * 0.0080 * sens));
         }
         lastTX = t.clientX; lastTY = t.clientY;
       }

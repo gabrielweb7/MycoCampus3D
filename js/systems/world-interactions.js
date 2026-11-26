@@ -7,7 +7,9 @@
 import { scrollRanking } from '../world/staircase-clock.js';
 import { setBurnerLevel, BURNER_LEVEL_NAMES, cycleBurnerTimer, formatBurnerTimerLabel } from '../items/pressure-cooker.js';
 import { toggleCabinetPart } from '../items/lab-cabinets.js';
-import { petCow } from '../entities/pasture-cows.js';
+import { petCow, interactBeehive } from '../entities/pasture-cows.js';
+import { petLocalCompanion } from '../entities/pets.js';
+import { triggerPettingAnimation } from '../entities/petting-hand.js';
 import { grabSportBall, throwHeldSportBall } from './sports-physics.js';
 import { registerDiscoveredSpecies, triggerMagicCubensisEffect } from './mycoteca.js';
 import { registerPickable } from '../items/item-registry.js';
@@ -332,9 +334,16 @@ export function handleWorldInteraction(ctx) {
   }
   if (ctx.hoveredCow) {
     const msg = petCow(ctx.hoveredCow);
+    if (ctx.scene && ctx.hoveredCow.group) triggerPettingAnimation(ctx.scene, ctx.hoveredCow.group, 1.4);
     if (window.MycoAudio) window.MycoAudio.playClick();
     if (ctx.callbacks && ctx.callbacks.onToast && msg) ctx.callbacks.onToast(msg);
     return true;
+  }
+  if (ctx.hoveredPet) {
+    return petLocalCompanion(ctx);
+  }
+  if (ctx.hoveredBeehive) {
+    return interactBeehive(ctx, ctx.hoveredBeehive);
   }
   if (ctx.hoveredTelescope) {
     setTelescopeZoom(ctx, !ctx.telescopeZoomActive);

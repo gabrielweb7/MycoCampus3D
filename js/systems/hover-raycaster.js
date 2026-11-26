@@ -22,6 +22,8 @@ import { countReadyGrowSlots, growHeldFeedback, growSlotActionLabel } from '../i
 import { canPruneGardenPlant, gardenHitMeshes, gardenState } from '../world/campus-garden.js';
 import { roadSaleStandMeshes, roadStandState, MYCOCOIN_PRICE_PER_PACK } from '../items/dehydration-packaging.js';
 import { getMonotubActionLabel } from '../items/monotub.js';
+import { getLocalCompanionPet } from '../entities/pets.js';
+import { findHoveredBeehive, getBeehiveHoverPrompt } from '../entities/pasture-cows.js';
 import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 import { t } from '../core/i18n.js';
 import { cratePlacementError, findAimedCrate, freeCrateSlot } from './crate-cargo.js';
@@ -29,6 +31,7 @@ import { cratePlacementError, findAimedCrate, freeCrateSlot } from './crate-carg
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
 const _tmpBadgeWorldPos = new THREE.Vector3();
+const _tmpAimAssistPos = new THREE.Vector3();
 const GREENHOUSE_DEV_KEYS = {
   panel: 'actions.hover.gh_dev_panel',
   humidifier: 'actions.hover.gh_dev_humidifier',
@@ -220,6 +223,8 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredBurnerSwitch = null;
   ctx.hoveredBurnerTimer = null;
   ctx.hoveredCow = null;
+  ctx.hoveredPet = null;
+  ctx.hoveredBeehive = null;
   ctx.hoveredSportBall = null;
   ctx.hoveredSinkAction = null;
   ctx.hoveredGrainCooker = null;
@@ -567,6 +572,34 @@ export function updateHoverRay(ctx, customNdc) {
         }
       }
     }
+    // Aim Assist leve no Mobile: facilita acertar itens pequenos (ampolas, bisturi, petri) perto da mira
+    if (!bestSmall && isTouch && ray && ro && rd) {
+      let bestAssistScore = Infinity;
+      for (let i = 0; i < ctx.pickableItems.length; i++) {
+        const item = ctx.pickableItems[i];
+        if (!item || !item.mesh || item.isReadOnly || item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem)) continue;
+        const ud = item.mesh.userData;
+        if (ud.isTable || ud.isHood || ud.isRack || item.fridgeCtrl || item.cookerRef) continue;
+        if (!isCultureAccessibleFromFridge(ctx, item) || isItemInClosedCabinet(ctx, item) || ctx.isHeldByRemote(item.id) || ctx.isItemInsideClosedCooker(item)) continue;
+        if (item.crateParent && (item.crateParent.isReadOnly || ctx.isHeldByRemote(item.crateParent.id))) continue;
+        if (ud.isBlockedPickup && ud.isBlockedPickup(item)) continue;
+        item.mesh.getWorldPosition(_tmpAimAssistPos);
+        const toX = _tmpAimAssistPos.x - ro.x;
+        const toY = _tmpAimAssistPos.y - ro.y;
+        const toZ = _tmpAimAssistPos.z - ro.z;
+        const fwd = toX * rd.x + toY * rd.y + toZ * rd.z;
+        if (fwd < 0.25 || fwd > 3.2) continue;
+        const rayDistSq = ray.distanceSqToPoint(_tmpAimAssistPos);
+        if (rayDistSq > 0.022) continue; // ~0.148m de raio de ímã
+        if (isRayOccludedByStructure(ctx, fwd, { checkWalls: true, ignoreCollider: ud.dynamicCollider })) continue;
+        const score = rayDistSq + fwd * 0.002;
+        if (score < bestAssistScore) {
+          bestAssistScore = score;
+          bestSmall = item;
+          bestSmallHit = { distance: fwd, point: _tmpAimAssistPos.clone(), object: item.mesh };
+        }
+      }
+    }
     ctx.hoveredPickable = bestSmall || bestLarge;
     ctx.hoverHit = bestSmall ? bestSmallHit : bestLargeHit;
     if (!ctx.hoveredPickable && bestBlocked && bestBlockedDist < 3.8) {
@@ -701,6 +734,24 @@ export function updateHoverRay(ctx, customNdc) {
       ctx.hoverHit = cowHit;
       ctx.hoveredCow = cowHit.object.userData.cowObj;
       prompt = t('actions.hover.cow_pet', { name: ctx.hoveredCow.name, health: ctx.hoveredCow.health, mood: ctx.hoveredCow.mood });
+    }
+  }
+  if (!prompt && !ctx.heldItem) {
+    const pet = getLocalCompanionPet();
+    if (pet && pet.group && pet.group.visible) {
+      const pHit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObject(pet.group, true), 4.2, { checkWalls: true });
+      if (pHit) {
+        ctx.hoverHit = pHit;
+        ctx.hoveredPet = pet;
+        prompt = t('misc.pet.hover');
+      }
+    }
+  }
+  if (!prompt) {
+    const hive = findHoveredBeehive(ctx.raycaster, ctx);
+    if (hive) {
+      ctx.hoveredBeehive = hive;
+      prompt = getBeehiveHoverPrompt(hive, ctx.heldItem);
     }
   }
   if (!prompt && !ctx.heldItem && refZ >= 43 && refZ <= 97 && ctx.villageHitMeshes?.length) {

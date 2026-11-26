@@ -10,6 +10,7 @@ import { getAutoQualityConfig, qualityState, resetAutoQuality, saveQualityMode, 
 import { getGroundHeight, clampPosAgainstWalls } from '../engine/physics.js';
 import { updateCampusAuditoriumSlide, setRankingList, cycleDayTimePreset, getFormattedCampusClock } from '../world/staircase-clock.js';
 import { triggerConfettiBurst } from '../entities/confetti.js';
+import { getCameraSensitivity } from '../core/camera-settings.js';
 import { buildAvatarHat, updateCampusPlayers } from '../entities/avatars.js';
 import { createRoundParachuteMesh } from '../entities/vehicles/paraglider.js';
 import { getLabItemGuide } from '../items/item-registry.js';
@@ -331,8 +332,9 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.rotateCampusCamera = function (dx, dy) {
     if (sim.lobbyTourActive) return;
     if (sim.inFps) {
-      sim.playerYaw -= dx * 0.0080;
-      sim.playerPitch = Math.max(-1.35, Math.min(1.35, sim.playerPitch - dy * 0.0080));
+      const sens = getCameraSensitivity();
+      sim.playerYaw -= dx * 0.0080 * sens;
+      sim.playerPitch = Math.max(-1.35, Math.min(1.35, sim.playerPitch - dy * 0.0080 * sens));
     }
   };
 

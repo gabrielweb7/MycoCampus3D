@@ -6,6 +6,7 @@ import { markBladePackEmpty, updateScalpelLabel } from '../items/scalpel.js';
 import { fillSpawnWithSubstrate, getSpawnContainerBaseLabel } from '../items/spawn-containers.js';
 import { updateFalconCultureVisual } from '../items/falcon-tubes.js';
 import { inoculatePetri, updatePetriVisual } from '../items/petri-dish.js';
+import { unlockAchievement } from '../core/achievements.js';
 
 export function handleFlocaoTargetAction(ctx) {
   const target = ctx.hoveredFlocaoTarget;
@@ -318,6 +319,7 @@ export function handleScalpelTargetAction(ctx) {
       if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.lab.petri_transfer_failed'));
       return;
     }
+    if (sterileTransfer && !contamRisk) unlockAchievement('first_clean_culture', ctx.callbacks?.onToast);
     if (ctx.callbacks.onToast) ctx.callbacks.onToast(sterileTransfer
       ? (scalpel.isSporeSample
         ? t('actions.lab.petri_monospore_ok')

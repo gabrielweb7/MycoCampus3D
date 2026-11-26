@@ -10,6 +10,17 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.9.0': {
+    get title() { return t('misc.whats_new.version_title', { ver: '2.9.0' }); },
+    get subtitle() { return t('misc.whats_new.290.subtitle'); },
+    items: [
+      { icon: '🐝', get text() { return t('misc.whats_new.290.i1'); } },
+      { icon: '🐾', get text() { return t('misc.whats_new.290.i2'); } },
+      { icon: '🏅', get text() { return t('misc.whats_new.290.i3'); } },
+      { icon: '🎯', get text() { return t('misc.whats_new.290.i4'); } },
+      { icon: '🌐', get text() { return t('misc.whats_new.290.i5'); } }
+    ]
+  },
   '2.8.3': {
     title: '✨ MycoCampus3D v2.8.3',
     subtitleKey: 'news.283.subtitle',

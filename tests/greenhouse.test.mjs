@@ -425,7 +425,7 @@ test('formatHoverInfo: deduplica nome repetido do item no action e preserva vari
   });
   assert.ok(cake);
   assert.equal(cake.title, '🍂 Bolo Seco Esgotado');
-  assert.equal(cake.params, 'Psilocybe cubensis • 4/4 Flushs • Leve à Caixa de Substrato da Horta');
+  assert.equal(cake.params, 'Psilocybe cubensis • 4/4 Flushs — Leve à Caixa de Substrato da Horta');
   assert.equal(cake.action, '');
 });
 
