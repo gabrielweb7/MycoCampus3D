@@ -62,23 +62,39 @@ export function triggerPettingAnimation(scene, targetGroup, heightOffset = 0.95)
   if (typeof document !== 'undefined') {
     const ov = document.getElementById('petting-hand-overlay');
     if (ov) {
+      const wrap = ov.querySelector('.petting-hand-wrap');
       ov.classList.remove('hidden');
+      if (wrap) {
+        wrap.style.animation = 'none';
+        void wrap.offsetWidth;
+        wrap.style.animation = '';
+      }
       if (hudTimer) clearTimeout(hudTimer);
       hudTimer = setTimeout(() => {
         ov.classList.add('hidden');
         hudTimer = null;
-      }, 1550);
+      }, 1450);
     }
   }
   if (!THREE || !scene || !targetGroup) return;
+  // Remove animação anterior para nunca acumular mãos ao clicar várias vezes
+  while (activeAnimations.length > 0) {
+    const prev = activeAnimations.pop();
+    if (prev?.hand?.parent) prev.hand.parent.remove(prev.hand);
+  }
   const hand = createHandGroup();
+  // Mantém apenas os coraçõezinhos 3D subindo no animal (a mão principal fica em 1ª pessoa na HUD virada para o jogador)
+  for (let ci = 0; ci < hand.children.length; ci++) {
+    const ch = hand.children[ci];
+    if (!hand.userData.hearts || hand.userData.hearts.indexOf(ch) === -1) ch.visible = false;
+  }
   scene.add(hand);
   activeAnimations.push({
     hand,
     targetGroup,
     heightOffset,
     elapsed: 0,
-    duration: 1.65
+    duration: 1.45
   });
 }
 
