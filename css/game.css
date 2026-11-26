@@ -805,27 +805,6 @@ body.device-desktop #btn-mobile-chat-toggle {
   border-color: rgba(52, 211, 153, 0.75);
 }
 
-/* 2. Ação Primária: botão central de interação, maior e com brilho esmeralda */
-#btn-mobile-action {
-  right: 74px;
-  bottom: 4px;
-  width: 74px;
-  height: 74px;
-  min-width: 74px;
-  font-size: 14px;
-  font-weight: 800;
-  background: rgba(16, 185, 129, 0.55);
-  border-color: rgba(52, 211, 153, 0.9);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
-}
-
-#btn-mobile-action.action-active {
-  background: rgba(16, 185, 129, 0.95);
-  border-color: #6ee7b7;
-  transform: scale(0.92);
-  box-shadow: 0 0 28px rgba(52, 211, 153, 0.85);
-}
-
 #mobile-joystick-zone.joystick-sprint {
   outline: 2px solid #f9cc70;
   outline-offset: 3px;
@@ -1410,20 +1389,22 @@ body.device-touch #chat-container {
 
 #myco-item-actions-list {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  width: 100%;
   max-width: 100%;
-  overflow-x: auto;
   padding: 2px;
-  scrollbar-width: thin;
 }
 
 #myco-floating-actions.mobile-context-actions {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   width: min(100%, 360px);
+  margin: 0 auto;
 }
 
 #myco-floating-actions.mobile-context-actions.hidden {
@@ -1437,6 +1418,7 @@ body.device-touch #chat-container {
 }
 
 #myco-floating-actions .myco-context-primary {
+  width: 100%;
   justify-content: center;
   background: #123b35;
   border-color: #5ab79f;
@@ -1449,6 +1431,14 @@ body.device-touch #chat-container {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 .portable-grow-panel {

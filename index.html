@@ -437,7 +437,6 @@
   </div>
   <div id="mobile-actions">
     <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular">⬆️</button>
-    <button id="btn-mobile-action" type="button" class="touch-btn" data-i18n="hud.action" style="display:none">Ação</button>
     <button id="btn-mobile-drop" type="button" class="touch-btn" title="Largar item no chão" style="display:none">⬇️</button>
     <button id="btn-mobile-place" type="button" class="touch-btn" title="Mover ou posicionar item" aria-label="Mover ou posicionar item" style="display:none">📦</button>
     <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
@@ -531,37 +530,37 @@
   <div id="shop-modal"
     class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm">
     <div class="glass-panel rounded-2xl modal-card-lg flex flex-col overflow-hidden max-h-[90dvh]">
-      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60 bg-slate-900/40">
-        <div class="flex items-center gap-2">
-          <span class="text-xl">👑</span>
-          <div>
-            <h2 data-i18n="modal.shop_title" class="text-base font-extrabold text-white">Loja do Campus</h2>
-            <p data-i18n="modal.shop_subtitle" class="text-[11px] text-purple-300">Cosméticos, brinquedos, pets e equipamentos</p>
+      <div class="flex items-center justify-between px-3.5 sm:px-5 py-2.5 sm:py-3.5 border-b border-slate-700/60 bg-slate-900/50">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-xl shrink-0">👑</span>
+          <div class="min-w-0">
+            <h2 data-i18n="modal.shop_title" class="text-sm sm:text-base font-extrabold text-white truncate">Loja do Campus</h2>
+            <p data-i18n="modal.shop_subtitle" class="text-[11px] text-purple-300 truncate">Cosméticos, brinquedos, pets e equipamentos</p>
           </div>
         </div>
-        <button id="btn-close-shop" class="text-slate-300 hover:text-white text-lg font-bold px-2">✕</button>
+        <button id="btn-close-shop" class="text-slate-300 hover:text-white text-lg font-bold px-2 shrink-0">✕</button>
       </div>
       <div
-        class="px-5 py-2.5 bg-purple-950/40 border-b border-purple-500/20 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
-        <div class="flex items-center gap-2 flex-wrap">
+        class="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-purple-950/40 border-b border-purple-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-slate-300 gap-2">
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0">
           <button id="shop-tab-hats" data-i18n="modal.shop_hats"
-            class="px-3 py-1 rounded-lg bg-purple-600 text-white font-bold text-xs transition">🎩 Chapéus</button>
+            class="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold text-xs transition">🎩 Chapéus</button>
           <button id="shop-tab-toys" data-i18n="modal.shop_toys"
-            class="px-3 py-1 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🏂
+            class="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🏂
             Brinquedos</button>
           <button id="shop-tab-pets" data-i18n="modal.shop_pets"
-            class="px-3 py-1 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🐾 Pets</button>
+            class="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🐾 Pets</button>
           <button id="shop-tab-supplies"
-            class="px-3 py-1 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🧪
+            class="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-800/80 text-slate-300 hover:text-white font-bold text-xs transition">🧪
             Equipamentos</button>
         </div>
-        <div class="flex items-center gap-3 font-bold">
-          <span class="text-yellow-300">🪙 <span id="shop-user-coins">250</span> MycoCoins</span>
-          <span class="text-amber-300">⭐ <span id="shop-user-xp">0</span> XP</span>
-          <span class="text-emerald-300">🍄 <span id="shop-user-mushrooms">0</span> Colhidos</span>
+        <div class="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 font-bold text-[11px] sm:text-xs bg-slate-900/50 sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-lg border border-slate-800/70 sm:border-0">
+          <span class="text-yellow-300 whitespace-nowrap">🪙 <span id="shop-user-coins">250</span> <span class="hidden sm:inline">MycoCoins</span></span>
+          <span class="text-amber-300 whitespace-nowrap">⭐ <span id="shop-user-xp">0</span> XP</span>
+          <span class="text-emerald-300 whitespace-nowrap">🍄 <span id="shop-user-mushrooms">0</span> <span data-i18n="ui.shop.harvested_label">Colhidos</span></span>
         </div>
       </div>
-      <div id="shop-grid" class="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+      <div id="shop-grid" class="p-3 sm:p-5 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
         <!-- Rendered dynamically -->
       </div>
     </div>

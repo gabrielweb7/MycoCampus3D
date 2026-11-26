@@ -135,14 +135,15 @@ export function renderShopModal() {
   const tabPets = $('shop-tab-pets');
   const tabSupplies = $('shop-tab-supplies');
   if (tabHats && tabToys) {
-    tabHats.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'hats' ? 'bg-purple-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
-    tabToys.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'toys' ? 'bg-cyan-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+    const baseTab = 'shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg font-bold text-xs transition ';
+    tabHats.className = baseTab + (activeShopTab === 'hats' ? 'bg-purple-600 text-white shadow-sm' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+    tabToys.className = baseTab + (activeShopTab === 'toys' ? 'bg-cyan-600 text-white shadow-sm' : 'bg-slate-800/80 text-slate-300 hover:text-white');
     if (tabPets) {
-      tabPets.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'pets' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+      tabPets.className = baseTab + (activeShopTab === 'pets' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'bg-slate-800/80 text-slate-300 hover:text-white');
       tabPets.onclick = () => { activeShopTab = 'pets'; renderShopModal(); };
     }
     if (tabSupplies) {
-      tabSupplies.className = 'px-3 py-1 rounded-lg font-bold text-xs transition ' + (activeShopTab === 'supplies' ? 'bg-emerald-600 text-white' : 'bg-slate-800/80 text-slate-300 hover:text-white');
+      tabSupplies.className = baseTab + (activeShopTab === 'supplies' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-800/80 text-slate-300 hover:text-white');
       tabSupplies.onclick = () => { activeShopTab = 'supplies'; renderShopModal(); };
     }
     tabHats.onclick = () => { activeShopTab = 'hats'; renderShopModal(); };
@@ -156,12 +157,12 @@ export function renderShopModal() {
 
   if (activeShopTab === 'supplies') {
     const chipBar = document.createElement('div');
-    chipBar.className = 'col-span-full flex flex-wrap gap-1.5 sticky top-0 z-10 pb-2 -mt-1 bg-slate-950/90 backdrop-blur';
+    chipBar.className = 'col-span-full flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar sticky top-0 z-10 py-2 -mt-2 sm:-mt-3 -mx-3 sm:-mx-5 px-3 sm:px-5 bg-slate-900/95 border-b border-slate-800/80 shadow-sm';
     [{ id: 'all', icon: '🛒' }].concat(SHOP_SUPPLY_CATEGORIES).forEach((c) => {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold border transition ' +
-        (activeSupplyCat === c.id ? 'bg-emerald-500 text-slate-950 border-emerald-400' : 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:text-white');
+      chip.className = 'shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] font-bold border transition ' +
+        (activeSupplyCat === c.id ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm' : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:text-white');
       chip.textContent = c.icon + ' ' + t('ui.shop.cat.' + c.id);
       chip.onclick = () => { activeSupplyCat = c.id; renderShopModal(); };
       chipBar.appendChild(chip);
@@ -174,8 +175,8 @@ export function renderShopModal() {
       const items = c.ids.map((id) => supplyById.get(id)).filter(Boolean).sort((a, b) => a.price_coins - b.price_coins);
       if (!items.length) return;
       const head = document.createElement('div');
-      head.className = 'col-span-full text-xs font-extrabold text-emerald-300 uppercase tracking-wide pt-2 border-b border-slate-700/50 pb-1';
-      head.textContent = c.icon + ' ' + t('ui.shop.cat.' + c.id) + ' (' + items.length + ')';
+      head.className = 'col-span-full flex items-center justify-between text-[11px] sm:text-xs font-extrabold text-emerald-300 uppercase tracking-wider pt-2 pb-1.5 border-b border-emerald-500/20';
+      head.innerHTML = `<span>${c.icon} ${escapeHtml(t('ui.shop.cat.' + c.id))}</span><span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-[10px]">${items.length}</span>`;
       grid.appendChild(head);
       items.forEach((s) => supplyEntries.push(s));
       items.forEach((sup) => renderSupplyCard(sup));

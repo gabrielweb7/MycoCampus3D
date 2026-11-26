@@ -885,10 +885,6 @@ export function bootApp() {
   });
   mobilePlacementModeActive = false;
   let currentHoldLabel = '';
-  function refreshMobileAction() {
-    const button = $('btn-mobile-action');
-    if (button) button.style.display = isTouch() && appState.currentUser && appState.inFps ? 'flex' : 'none';
-  }
 
   if (window.location.search.indexOf('preview=1') !== -1) {
     $('campus-lobby')?.classList.add('hidden');
@@ -989,7 +985,6 @@ export function bootApp() {
     },
     onFpsChange: (fps) => {
       updateFpsUi(fps);
-      refreshMobileAction();
       window.MycoCampus = window.MycoCampus || {};
       window.MycoCampus.inGame = !!(appState.currentUser && fps);
       if (appState.currentUser && fps) {
