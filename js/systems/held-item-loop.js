@@ -22,6 +22,7 @@ import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { advanceMixingBowlStir, addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { markBladePackEmpty, updateScalpelLabel, stepScalpels } from '../items/scalpel.js';
 import { shouldHideHeldInPlacementMode } from '../entities/placement-ghost.js';
+import { getHiveSyringeDose, takeHoneyIntoSyringe } from '../entities/bee-ecology.js';
 
 const THREE = window.THREE;
 
@@ -353,16 +354,21 @@ function applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, fin
         ? syringeTarget.cultureCtrl.generation
         : (syringeTarget.cultureCtrl.colonized ? 1 : syrCtrl.generation);
     }
-    addSyringeMix(ctx.heldItem, drawKind, finalD);
+    const honey = finalD * Math.min(1, (targetLiquid?.honeyMl || 0) / Math.max(0.1, targetLiquid?.volMl || 0));
+    addSyringeMix(ctx.heldItem, drawKind, finalD - honey);
+    if (honey > 0) addSyringeMix(ctx.heldItem, 'honey', honey);
   } else if (finalD < -0.01 && syringeTarget && targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
     const injMl = -finalD;
-    const totalMix = scMix ? ((scMix.waterMl || 0) + (scMix.distilledMl || 0) + (scMix.lcMl || 0) + (scMix.pdaMl || 0)) : 0;
+    const totalMix = scMix ? ((scMix.waterMl || 0) + (scMix.distilledMl || 0) + (scMix.lcMl || 0) + (scMix.pdaMl || 0) + (scMix.honeyMl || 0)) : 0;
     if (!syringeTarget.liquidMix) syringeTarget.liquidMix = { waterMl: 0, distilledMl: 0, lcMl: 0, pdaMl: 0 };
     if (totalMix > 0.01) {
       syringeTarget.liquidMix.waterMl += injMl * ((scMix.waterMl || 0) / totalMix);
       syringeTarget.liquidMix.distilledMl += injMl * ((scMix.distilledMl || 0) / totalMix);
       syringeTarget.liquidMix.lcMl += injMl * ((scMix.lcMl || 0) / totalMix);
       syringeTarget.liquidMix.pdaMl += injMl * ((scMix.pdaMl || 0) / totalMix);
+      if (scMix.honeyMl > 0) {
+        targetLiquid.honeyMl = (targetLiquid.honeyMl || 0) + injMl * (scMix.honeyMl / totalMix);
+      }
     } else {
       syringeTarget.liquidMix.waterMl += injMl;
     }
@@ -566,17 +572,24 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     }
 
     if (ctx.heldItem.mesh.userData.isSyringe) {
-      const pumpTarget = ctx.syringePumping?.target.item;
-      const activeSyrItem = pumpTarget?.mesh.userData.liquidCtrl ? pumpTarget : null;
-      const isPuncturing = !!activeSyrItem;
+      const pumpTarget = ctx.syringePumping?.target;
+      const isPuncturing = !!(pumpTarget?.hive || pumpTarget?.item?.mesh?.userData.liquidCtrl);
       if (isPuncturing && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_syringe');
-      if (activeSyrItem) ctx.lastSyringeTargetItem = activeSyrItem;
+      if (isPuncturing) ctx.lastSyringeTargetItem = pumpTarget;
       ctx.syringePunctureProgress += ((isPuncturing ? 1 : 0) - ctx.syringePunctureProgress) * Math.min(1, dt * 10);
       if (ctx.syringePunctureProgress > 0.01 && ctx.lastSyringeTargetItem) {
         const sTgt = ctx.lastSyringeTargetItem;
-        _tmpSyrPort.set(0.036, 0.290, 0).applyEuler(sTgt.mesh.rotation).add(sTgt.mesh.position);
+        let portYaw = 0;
+        if (sTgt.hive) {
+          _tmpSyrPort.set(sTgt.hive.x, sTgt.hive.y - 0.10, sTgt.hive.z + 0.32);
+        } else {
+          const { mesh } = sTgt.item;
+          const portY = mesh.userData.liquidCtrl.syringePortY;
+          _tmpSyrPort.set(portY ? 0 : 0.036, portY ?? 0.290, 0).applyEuler(mesh.rotation).add(mesh.position);
+          portYaw = mesh.rotation.y;
+        }
         const tgtRotX = 0.08 * ctx.syringePunctureProgress;
-        const tgtRotY = ctx.playerYaw * (1 - ctx.syringePunctureProgress) + (sTgt.mesh.rotation.y + Math.PI * 0.5) * ctx.syringePunctureProgress;
+        const tgtRotY = ctx.playerYaw * (1 - ctx.syringePunctureProgress) + (portYaw + Math.PI * 0.5) * ctx.syringePunctureProgress;
         const tgtRotZ = -1.48 * ctx.syringePunctureProgress;
         ctx.heldItem.mesh.rotation.set(tgtRotX, tgtRotY, tgtRotZ);
 
@@ -657,8 +670,9 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
           const dLc = ph.dst.mesh.userData.liquidCtrl;
           amt = Math.min(stepMl, srcLcP.volMl, dLc.maxMl - dLc.volMl);
           if (amt > 0) {
+            const honey = amt * ((srcLcP.honeyMl || 0) / srcLcP.volMl);
             updateContainerVolume(ph.src, srcLcP.volMl - amt);
-            updateContainerVolume(ph.dst, dLc.volMl + amt);
+            updateContainerVolume(ph.dst, dLc.volMl + amt, honey > 0 ? (dLc.honeyMl || 0) + honey : undefined);
             if (ph.dst.pdaMediumCtrl) markPdaVolumeChanged(ph.dst);
           }
         }
@@ -876,6 +890,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     } else if (ctx.syringePumping.target && ctx.syringePumping.target.item &&
       ctx.syringePumping.target.item.mesh &&
       ctx.syringePumping.target.item.mesh.position.distanceTo(ctx.playerPos) > 4.5) {
+      updateSyringeVolume(ctx.heldItem, ctx.heldItem.mesh.userData.syrCtrl.volMl);
       ctx.syringePumping = null;
       if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('misc.held_loop.pump_too_far'));
     }
@@ -887,6 +902,24 @@ export function stepSyringePumping(ctx, dt) {
   const pump = ctx.syringePumping;
   const syringe = ctx.heldItem;
   if (!pump || !syringe?.mesh.userData.isSyringe) return;
+  const hive = pump.target.hive;
+  if (hive) {
+    const available = getHiveSyringeDose(hive, syringe);
+    const hivePresent = !ctx.beehives || ctx.beehives.includes(hive);
+    if (hivePresent && available > 0 && ctx.isPrimaryDown && ctx.hoveredBeehive === hive) {
+      pump.elapsed += dt;
+      const progress = Math.min(1, pump.elapsed / pump.duration);
+      pump.previewVol = Math.round((pump.fromVol + (pump.toVol - pump.fromVol) * progress) * 10) / 10;
+      updateSyringeVolume(syringe, pump.previewVol, true, true);
+      ctx.callbacks?.onHoverPrompt?.(t('misc.held_loop.syringe_drawing', { vol: pump.previewVol.toFixed(1) }));
+      if (progress < 1) return;
+    }
+    if (!hivePresent || !takeHoneyIntoSyringe(ctx, hive, (pump.previewVol ?? pump.fromVol) - pump.fromVol)) {
+      updateSyringeVolume(syringe, syringe.mesh.userData.syrCtrl.volMl);
+    }
+    ctx.syringePumping = null;
+    return;
+  }
   const target = pump.target.item;
   if (!target || target._removedForSync || (!pump.holdMode && !canSyringeTarget(target))) {
     updateSyringeVolume(syringe, pump.fromVol);
@@ -912,6 +945,8 @@ export function stepSyringePumping(ctx, dt) {
     updateSyringeVolume(syringe, finalVol);
     if (targetLiquid && earlyDelta !== 0) {
       updateContainerVolume(syringeTarget, pump.startJarVol - earlyDelta);
+      ctx.queueItemStateSync?.(syringe);
+      ctx.queueItemStateSync?.(syringeTarget);
       ctx.callbacks.onLabStep?.('syringe_use');
     }
     if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
@@ -935,7 +970,7 @@ export function stepSyringePumping(ctx, dt) {
       sourceContam: !!(scDuring && scDuring.sourceContam)
     };
     pump.previewVol = Math.round(curVol * 10) / 10;
-    updateSyringeVolume(syringe, curVol, true);
+    updateSyringeVolume(syringe, curVol, true, pump.target.mode === 'draw' && targetLiquid?.honeyMl > 0.05);
     if (ctx.syringePumping.holdMode && ctx.callbacks.onHoverPrompt) {
       const isDraw = ctx.syringePumping.toVol > ctx.syringePumping.fromVol;
       ctx.callbacks.onHoverPrompt(t(isDraw ? 'misc.held_loop.syringe_drawing' : 'misc.held_loop.syringe_injecting', { vol: curVol.toFixed(1) }));
@@ -946,6 +981,8 @@ export function stepSyringePumping(ctx, dt) {
       updateSyringeVolume(ctx.heldItem, ctx.syringePumping.toVol);
       if (targetLiquid && !(ctx.syringePumping.target.mode === 'inject' && targetSpawn)) {
         updateContainerVolume(syringeTarget, Math.max(0, ctx.syringePumping.startJarVol - finalD));
+        ctx.queueItemStateSync?.(syringe);
+        ctx.queueItemStateSync?.(syringeTarget);
       } else if (targetSpawn) {
         const spTarget = syringeTarget;
         const spCtrl = targetSpawn;

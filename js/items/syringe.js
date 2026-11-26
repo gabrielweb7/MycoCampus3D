@@ -38,6 +38,8 @@ export function getSyringeInjectionDoseMl(target, availableMl) {
   return liquid ? Math.min(avail, Math.floor(Math.max(0, liquid.maxMl - liquid.volMl) * 10 + 1e-8) / 10) : avail;
 }
 
+const syringeMixKeys = { lc: 'lcMl', distilled: 'distilledMl', pda: 'pdaMl', honey: 'honeyMl' };
+
 export function getSyringeMixParts(sc) {
   if (!sc || !sc.mix) return [];
   const parts = [];
@@ -45,6 +47,7 @@ export function getSyringeMixParts(sc) {
   if (sc.mix.distilledMl > 0.05) parts.push(`${sc.mix.distilledMl.toFixed(1)}ml Água Destilada`);
   if (sc.mix.waterMl > 0.05) parts.push(`${sc.mix.waterMl.toFixed(1)}ml Água`);
   if (sc.mix.pdaMl > 0.05) parts.push(`${sc.mix.pdaMl.toFixed(1)}ml Meio PDA`);
+  if (sc.mix.honeyMl > 0.05) parts.push(`${sc.mix.honeyMl.toFixed(1)}ml Mel Natural`);
   return parts;
 }
 
@@ -53,21 +56,22 @@ export function addSyringeMix(item, kind, deltaMl) {
   if (!sc) return;
   if (!sc.mix) sc.mix = { waterMl: 0, distilledMl: 0, lcMl: 0, pdaMl: 0 };
   if (deltaMl > 0) {
-    const key = kind === 'lc' ? 'lcMl' : (kind === 'distilled' ? 'distilledMl' : (kind === 'pda' ? 'pdaMl' : 'waterMl'));
+    const key = syringeMixKeys[kind] || 'waterMl';
     sc.mix[key] = Math.max(0, (sc.mix[key] || 0) + deltaMl);
   } else if (deltaMl < 0) {
-    const total = (sc.mix.waterMl || 0) + (sc.mix.distilledMl || 0) + (sc.mix.lcMl || 0) + (sc.mix.pdaMl || 0);
+    const total = (sc.mix.waterMl || 0) + (sc.mix.distilledMl || 0) + (sc.mix.lcMl || 0) + (sc.mix.pdaMl || 0) + (sc.mix.honeyMl || 0);
     if (total > 0.001) {
       const keep = Math.max(0, (total + deltaMl) / total);
       sc.mix.waterMl *= keep;
       sc.mix.distilledMl *= keep;
       sc.mix.lcMl *= keep;
       sc.mix.pdaMl *= keep;
+      if (sc.mix.honeyMl !== undefined) sc.mix.honeyMl *= keep;
     }
   }
 }
 
-export function updateSyringeVolume(item, newVol, preview = false) {
+export function updateSyringeVolume(item, newVol, preview = false, previewHoney = false) {
   if (!item || !item.mesh || !item.mesh.userData.syrCtrl) return;
   const sc = item.mesh.userData.syrCtrl;
   const clamped = Math.max(0, Math.min(10, Math.round((Number(newVol) || 0) * 10) / 10));
@@ -77,6 +81,7 @@ export function updateSyringeVolume(item, newVol, preview = false) {
     sc.mix.distilledMl = 0;
     sc.mix.lcMl = 0;
     sc.mix.pdaMl = 0;
+    if (sc.mix.honeyMl !== undefined) sc.mix.honeyMl = 0;
     sc.sourceContam = false;
     sc.speciesName = '';
     sc.origin = '';
@@ -93,7 +98,8 @@ export function updateSyringeVolume(item, newVol, preview = false) {
       const m = sc.mix || {};
       const hasLc = (m.lcMl || 0) > 0.05 || (m.pdaMl || 0) > 0.05;
       const hasWater = (m.waterMl || 0) > 0.05 || (m.distilledMl || 0) > 0.05;
-      sc.liqMesh.material.color.setHex(hasLc && hasWater ? 0xfde68a : (hasLc ? 0xfef08a : 0x7dd3fc));
+      const hasHoney = previewHoney || (m.honeyMl || 0) > 0.05;
+      sc.liqMesh.material.color.setHex(hasHoney ? 0xe89428 : (hasLc && hasWater ? 0xfde68a : (hasLc ? 0xfef08a : 0x7dd3fc)));
     }
   }
   sc.plunger.position.y = 0.095 + 0.09 * frac;

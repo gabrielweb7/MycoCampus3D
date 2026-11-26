@@ -785,6 +785,10 @@ export function handlePrimaryAction(ctx, aimNdc) {
       }
       const dstCulture = tgt.item.cultureCtrl;
       const dstLiquid = tgt.item.mesh.userData.liquidCtrl;
+      if (tgt.mode === 'inject' && syrCtrl.mix?.honeyMl > 0.05 && (!dstLiquid || tgt.item.spawnCtrl)) {
+        ctx.callbacks.onToast?.(t('actions.hive.honey_syringe_glass'));
+        return;
+      }
       if (tgt.mode === 'inject' && syrCtrl.mix?.lcMl > 0.05 && dstCulture &&
           !dstCulture.inoculated && !dstCulture.colonized && !dstCulture.contaminated &&
           (dstCulture.hasNutrient === false || dstLiquid?.volMl <= 0)) {

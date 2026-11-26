@@ -13,6 +13,7 @@ import { makeAlcoholSprayBottle, makeH2O2SprayBottle, makeWaterSprayBottle } fro
 import { makeLcNutrientBottle } from '../items/pda-bottle.js';
 import { getPetriMeta, makePetriDish } from '../items/petri-dish.js';
 import { makeBeaker1L, makeLiquidJar800 } from '../items/liquid-culture.js';
+import { makePdaMediaBottle1L } from '../items/pda-mix.js';
 import { makePP5Cup145ml } from '../items/pp5-cup.js';
 import { makeMixingBowl } from '../items/mixing-bowl.js';
 import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
@@ -97,6 +98,12 @@ export function ensureCoreAdminPrefabs() {
     label: 'Frasco Cultura Líquida 800ml',
     category: 'glassware',
     factory: (ctx, opts) => makeLiquidJar800(ctx, opts.id || ('dyn_liquid_culture_' + Date.now().toString(36)), opts.x, opts.y, opts.z, 0)
+  });
+
+  registerItemPrefab('pda_media_bottle', {
+    label: 'Frasco de Vidro 1 L com Tampa',
+    category: 'glassware',
+    factory: (ctx, opts) => makePdaMediaBottle1L(ctx, opts.id || ('dyn_pda_media_bottle_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
   });
 
   registerItemPrefab('pp5_cup', {

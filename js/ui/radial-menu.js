@@ -41,7 +41,7 @@ import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposa
 import { canPruneGardenPlant } from '../world/campus-garden.js';
 import { growDoorActionLabel, growHeldFeedback, growSlotActionLabel, openPortableGrowPanel, toggleGrowDoor } from '../items/portable-grow.js';
 import { cleanItemTitle } from '../entities/hover-3d-badge.js';
-import { getBeehiveInspectInfo } from '../entities/bee-ecology.js';
+import { getBeehiveInspectInfo, getHiveSyringeDose } from '../entities/bee-ecology.js';
 import { getFlowerInspectInfo, interactFlower } from '../world/campus-flowers.js';
 import { canDisposeItemInTrash, getTrashActionLabel, handleTrashDisposal, isContaminatedOrBurned } from '../items/lab-trash.js';
 import { t } from '../core/i18n.js';
@@ -1513,7 +1513,7 @@ function addMobilePrimaryAction(ctx, actions) {
   const liquidPump = syringe?.mode === 'draw' ||
     (syringe?.mode === 'inject' && syringe.item?.mesh?.userData.liquidCtrl && !syringe.item.spawnCtrl);
   const hold = !isPlacing && !!ctx.heldItem && !!(
-    liquidPump || ctx.hoveredFillPot || ctx.hoveredPourTarget ||
+    liquidPump || getHiveSyringeDose(ctx.hoveredBeehive, ctx.heldItem) > 0 || ctx.hoveredFillPot || ctx.hoveredPourTarget ||
     ctx.hoveredSinkAction === 'fill' || ctx.hoveredBowlTarget ||
     ctx.hoveredScalpelTarget?.mode === 'attach_blade_to_scalpel' || ctx.hoveredBoardHit
   );

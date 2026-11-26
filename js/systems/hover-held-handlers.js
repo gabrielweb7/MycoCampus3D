@@ -941,6 +941,12 @@ function handleSyringeHover(ctx, intersectPickableItem, setHoverPrompt) {
   const cand = res.item;
   ctx.hoverHit = res.hit;
 
+  if (sc.mix?.honeyMl > 0.05 && (!cand.mesh.userData.liquidCtrl || cand.spawnCtrl)) {
+    ctx.hoveredSyringeTarget = { item: cand, mode: 'none' };
+    setHoverPrompt(ctx, t('actions.hive.honey_syringe_glass'));
+    return true;
+  }
+
   if (cand.spawnCtrl && cand.spawnCtrl.isPP5 && cand.spawnCtrl.filled && !cand.spawnCtrl.inoculated) {
     if (!cand.spawnCtrl.lidOpen) {
       ctx.hoveredSyringeTarget = { item: cand, mode: 'open' };

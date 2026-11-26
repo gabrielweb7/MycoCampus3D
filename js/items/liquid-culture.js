@@ -151,10 +151,15 @@ export function updateCultureLiquidLabel(item) {
   }
 }
 
-export function updateContainerVolume(item, newVol) {
+export function updateContainerVolume(item, newVol, honeyMl) {
   if (!item || !item.mesh || !item.mesh.userData.liquidCtrl) return;
   const ctrl = item.mesh.userData.liquidCtrl;
   const clamped = Math.max(0, Math.min(ctrl.maxMl, Math.round(newVol * 10) / 10));
+  const previousVol = ctrl.volMl;
+  if (honeyMl === undefined && ctrl.honeyMl > 0) {
+    honeyMl = clamped < previousVol ? ctrl.honeyMl * clamped / previousVol : ctrl.honeyMl;
+  }
+  if (honeyMl !== undefined) ctrl.honeyMl = Math.max(0, Math.min(clamped, honeyMl));
   ctrl.volMl = clamped;
   if (item.cultureCtrl && clamped <= 0) {
     item.cultureCtrl.colonized = false;
@@ -191,6 +196,18 @@ export function updateContainerVolume(item, newVol) {
   } else {
     const sterTag = (ctrl.sterilized || item.sterilized) ? ' • ✅ Estéril' : '';
     item.label = ctrl.baseLabel + ' (' + clamped + 'ml/' + ctrl.maxMl + 'ml' + sterTag + ')';
+  }
+  if (item.pdaMediumCtrl && !item.cultureCtrl) return;
+  const color = ctrl.liqMesh.material?.color;
+  if (ctrl.honeyMl > 0.05) {
+    if (color) {
+      ctrl.honeyBaseColor ??= color.getHex();
+      color.setHex(0xe89428);
+    }
+    item.label += ' • 🍯';
+  } else if (color && ctrl.honeyBaseColor !== undefined) {
+    color.setHex(ctrl.honeyBaseColor);
+    delete ctrl.honeyBaseColor;
   }
 }
 
@@ -266,7 +283,7 @@ export function makeBeaker1L(ctx, id, px, py, pz, initMl) {
   }
   bg.userData.liquidCtrl = {
     volMl: initMl, maxMl: 1000, baseY: 0.012, maxH: 0.20,
-    liqMesh, mycCloud: null, stirBar,
+    liqMesh, mycCloud: null, stirBar, syringePortY: 0.22,
     baseLabel: 'Béquer 1L'
   };
   const item = registerPickable(ctx, id, 'Béquer 1L', bg, px, py, pz, 0, 0.14, 0.24, BEAKER_META);

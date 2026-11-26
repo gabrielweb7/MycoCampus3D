@@ -3,13 +3,15 @@
  */
 
 import { terrainHeight } from '../engine/physics.js';
+import { t } from '../core/i18n.js';
 import { registerPickable } from '../items/item-registry.js';
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { isNaturalSoilSpot } from '../world/nature-plaza.js';
 import { VILLAGE_LOTS, VILLAGE_HOUSE } from '../core/village-layout.js';
 import { triggerCozyHeartBurst } from '../world/cozy-details.js';
 import { firstUnoccludedRayHit } from '../systems/ray-occlusion.js';
-import { updateCultureLiquidLabel } from '../items/liquid-culture.js';
+import { updateContainerVolume } from '../items/liquid-culture.js';
+import { addSyringeMix, updateSyringeVolume } from '../items/syringe.js';
 import { updateLcNutrientLabel } from '../items/pda-bottle.js';
 import {
   CAMPUS_HIVE_CANDIDATES,
@@ -851,6 +853,29 @@ function getHoneyContainerSpace(held) {
   return Infinity;
 }
 
+export function getHiveSyringeDose(hive, held) {
+  const syringe = held?.mesh?.userData?.syrCtrl;
+  if (!syringe || !hive || hive.abandoned || hive.collected || hive.migrating ||
+      hive.buildProgress < 1 || hive.honeyLevel < 35) return 0;
+  return Math.max(0, 10 - syringe.volMl);
+}
+
+export function takeHoneyIntoSyringe(ctx, hive, requestedMl) {
+  const syringe = ctx.heldItem;
+  const added = Math.round(Math.min(requestedMl, getHiveSyringeDose(hive, syringe)) * 10) / 10;
+  if (added <= 0) return false;
+  const from = syringe.mesh.userData.syrCtrl.volMl;
+  addSyringeMix(syringe, 'honey', added);
+  updateSyringeVolume(syringe, from + added);
+  hive.honeyLevel = Math.max(0, hive.honeyLevel - Math.ceil(added * 0.35));
+  ctx.callbacks?.onHoldChange?.(syringe.label);
+  ctx.callbacks?.onToast?.(t('actions.hive.honey_drawn', { ml: added }));
+  if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: hive.x, y: hive.y, z: hive.z + 0.32 }, 0xe89428, 4);
+  ctx.queueItemStateSync?.(syringe);
+  queueBeeEcologySync(ctx, true);
+  return true;
+}
+
 const hiveRayOptions = {
   checkWalls: true,
   acceptHit(hit) {
@@ -881,6 +906,9 @@ export function getBeehiveHoverPrompt(hive, held) {
     return `🐝 Colmeia em construção (${Math.round(hive.buildProgress * 100)}%)`;
   }
   const honeyPct = Math.round(hive.honeyLevel || 0);
+  if (held?.mesh?.userData?.syrCtrl && honeyPct >= 35) {
+    return t(getHiveSyringeDose(hive, held) > 0 ? 'actions.hive.honey_hold_draw' : 'actions.hive.honey_syringe_full');
+  }
   if (honeyPct >= 35 && isHoneyContainer(held)) {
     if (getHoneyContainerSpace(held) <= 0) return '🍯 Recipiente cheio';
     return `🍯 Colher Mel Natural (Colmeia: ${honeyPct}%)`;
@@ -974,6 +1002,25 @@ export function interactBeehive(ctx, hive) {
     return true;
   }
 
+  const syringe = held?.mesh?.userData?.syrCtrl;
+  if (syringe) {
+    if (ctx.syringePumping) return true;
+    const dose = getHiveSyringeDose(hive, held);
+    if (dose <= 0) {
+      onToast?.(t('actions.hive.honey_syringe_full'));
+      return true;
+    }
+    ctx.syringePumping = {
+      target: { hive },
+      fromVol: syringe.volMl,
+      toVol: syringe.volMl + dose,
+      duration: Math.max(0.5, dose / 4.5),
+      elapsed: 0,
+      holdMode: true
+    };
+    return true;
+  }
+
   if (!isHoneyContainer(held)) {
     onToast?.('🍯 Segure um frasco de Cultura Líquida, Béquer, Nutriente CL ou Pote vazio para colher Mel!');
     return true;
@@ -994,32 +1041,23 @@ export function interactBeehive(ctx, hive) {
     const lc = held.mesh.userData.liquidCtrl;
     const previousMl = lc.volMl || 0;
     const nextMl = previousMl + Math.min(100, space);
-    if (held.setVolume) held.setVolume(nextMl);
-    else lc.volMl = nextMl;
-    if (held.cultureCtrl) {
-      held.cultureCtrl.hasNutrient = true;
-      if (!held.cultureCtrl.contaminated && !held.cultureCtrl.colonized && lc.liqMesh?.material?.color) {
-        lc.liqMesh.material.color.setHex(0xf59e0b);
-      }
-      updateCultureLiquidLabel(held);
-    } else {
-      held.label = `${lc.baseLabel || 'Recipiente'} (${Math.round(lc.volMl)}ml • 🍯 Mel Natural)`;
-    }
+    if (held.cultureCtrl) held.cultureCtrl.hasNutrient = true;
+    updateContainerVolume(held, nextMl, (lc.honeyMl || 0) + nextMl - previousMl);
     ctx.callbacks?.onHoldChange?.(held.label);
     const added = Math.round((lc.volMl - previousMl) * 10) / 10;
     onToast?.(`🍯 Mel Natural colhido (+${added}ml).`);
   } else if (held.spawnCtrl && !held.spawnCtrl.filled && !held.spawnCtrl.isBag) {
     held.lcNutrientCtrl = { remainingGrams: 120, maxGrams: 250, isNaturalHoney: true };
-    held.label = '🍯 Pote com Mel Natural (120g • Nutriente CL 4%)';
+    updateLcNutrientLabel(held);
     if (held.mesh && held.mesh.userData) {
       held.mesh.userData.isLcNutrientBottle = true;
-      held.mesh.userData.pickableLabel = held.label;
     }
     ctx.callbacks?.onHoldChange?.(held.label);
     onToast?.('🍯 Pote de vidro preenchido com Mel Natural! (Nutriente CL 4%)');
   }
 
   hive.honeyLevel = Math.max(0, (hive.honeyLevel || 0) - 35);
+  if (ctx.scene) spawnCampusFxBurst(ctx.scene, { x: hive.x, y: hive.y, z: hive.z + 0.32 }, 0xe89428, 4);
   ctx.queueItemStateSync?.(held);
   triggerCozyHeartBurst(hive.x, hive.y + 0.35, hive.z, 0xfacc15);
   queueBeeEcologySync(ctx, true);

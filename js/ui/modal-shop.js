@@ -40,6 +40,7 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_spawn_jar', prefabId: 'spawn_jar', name: 'Vidro 800ml (Spawn)', desc: 'Mais espaço para cultivar grãos inoculados.', price_coins: 70, icon: '🫙' },
   { id: 'sup_spawn_bag', prefabId: 'spawn_bag', name: 'Bag de Cultivo 1,5kg', desc: 'Saco filtrante grande de cultivo e colonização.', price_coins: 85, icon: '🍄' },
   { id: 'sup_lc', prefabId: 'liquid_culture', name: 'Frasco Cultura Líquida 800ml', desc: 'Vidro com tampa de porta autoclavável.', price_coins: 90, icon: '🧪' },
+  { id: 'sup_glass_bottle_1l', prefabId: 'pda_media_bottle', name: 'Frasco de Vidro 1 L com Tampa', desc: 'Frasco graduado vazio. Capacidade de trabalho de 900 ml.', price_coins: 80, icon: '🫙' },
   { id: 'sup_crate', prefabId: 'delivery_crate', name: 'Caixa de Entrega', desc: 'Transporte até 4 pacotes direto para o Drive-Thru.', price_coins: 110, icon: '📤' },
   { id: 'sup_silica', prefabId: 'silica_jar', name: 'Pote com Sílica Gel', desc: 'Conserve até 8 lotes de cogumelos crocantes.', price_coins: 140, icon: '💎' },
   { id: 'sup_grow_tent', prefabId: 'grow_tent', name: 'Grow ESP32', desc: 'Três prateleiras, nove bolos e LED integrado.', price_coins: 620, icon: '🌱' },
@@ -55,7 +56,7 @@ export const SHOP_SUPPLIES = [
 ];
 
 export const SHOP_SUPPLY_CATEGORIES = [
-  { id: 'containers', label: 'Recipientes', icon: '🫙', ids: ['sup_pp5', 'sup_spawn_jar', 'sup_spawn_bag', 'sup_monotub'] },
+  { id: 'containers', label: 'Recipientes', icon: '🫙', ids: ['sup_pp5', 'sup_spawn_jar', 'sup_spawn_bag', 'sup_glass_bottle_1l', 'sup_monotub'] },
   { id: 'substrate', label: 'Substratos', icon: '🌽', ids: ['sup_flocao', 'sup_lc_nutrient'] },
   { id: 'lab', label: 'Laboratório', icon: '🧪', ids: ['sup_petri', 'sup_syringe', 'sup_lc', 'sup_ampoule_case'] },
   { id: 'hygiene', label: 'Higiene & Mofo', icon: '🧴', ids: ['sup_spray', 'sup_water_spray', 'sup_h2o2'] },

@@ -17,7 +17,10 @@ export const LC_NUTRIENT_META = {
 
 export function updateLcNutrientLabel(item) {
   if (!item || !item.lcNutrientCtrl) return;
-  item.label = '🍯 Extrato de Malte / Mel 250g (' + Math.round(item.lcNutrientCtrl.remainingGrams) + 'g restantes • CL 4%)';
+  const grams = Math.round(item.lcNutrientCtrl.remainingGrams);
+  item.label = item.lcNutrientCtrl.isNaturalHoney
+    ? `🍯 Pote com Mel Natural (${grams}g)`
+    : `🍯 Extrato de Malte / Mel 250g (${grams}g restantes • CL 4%)`;
   if (item.mesh && item.mesh.userData) item.mesh.userData.pickableLabel = item.label;
 }
 

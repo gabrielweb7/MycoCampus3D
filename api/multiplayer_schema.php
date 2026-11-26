@@ -254,6 +254,9 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         if (isset($raw['liquid']['sterilized']) && is_bool($raw['liquid']['sterilized'])) {
             $liq['sterilized'] = $raw['liquid']['sterilized'];
         }
+        if (isset($raw['liquid']['honeyMl']) && is_numeric($raw['liquid']['honeyMl']) && is_finite((float)$raw['liquid']['honeyMl'])) {
+            $liq['honeyMl'] = max(0, min($liq['volMl'], round((float)$raw['liquid']['honeyMl'], 1)));
+        }
         $clean['liquid'] = $liq;
     }
     if (isset($raw['sterilized']) && is_bool($raw['sterilized'])) {
@@ -295,7 +298,7 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     }
 
     if ((strpos($itemId, 'beaker_1l_') === 0 || strpos($itemId, 'falcon_') === 0 ||
-        strpos($itemId, 'pda_media_bottle_') === 0 || strpos($itemId, 'pp5_cup_') === 0) &&
+        strpos($itemId, 'pda_media_bottle_') === 0 || strpos($itemId, 'pp5_cup_') === 0 || $isDyn) &&
         isset($raw['pdaMedium']) && is_array($raw['pdaMedium'])) {
         $src = $raw['pdaMedium'];
         $medium = [];
@@ -320,6 +323,15 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
         is_finite((float)$raw['pdaReagent']['remainingGrams'])) {
         $clean['pdaReagent'] = [
             'remainingGrams' => max(0, min(500, (int)round((float)$raw['pdaReagent']['remainingGrams'])))
+        ];
+    }
+
+    if (($isDyn || strpos($itemId, 'lc_nutrient_bottle_') === 0 || strpos($itemId, 'spawn_jar') === 0) &&
+        isset($raw['lcNutrient']) && is_array($raw['lcNutrient']) && isset($raw['lcNutrient']['grams']) &&
+        is_numeric($raw['lcNutrient']['grams']) && is_finite((float)$raw['lcNutrient']['grams'])) {
+        $clean['lcNutrient'] = [
+            'grams' => max(0, min(250, (int)round((float)$raw['lcNutrient']['grams']))),
+            'naturalHoney' => ($raw['lcNutrient']['naturalHoney'] ?? false) === true,
         ];
     }
 
@@ -351,6 +363,10 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
                 if (is_numeric($mv) && is_finite((float)$mv)) {
                     $mix[$mk] = max(0, min(10, round((float)$mv, 1)));
                 }
+            }
+            $honeyMl = $raw['syringe']['mix']['honeyMl'] ?? null;
+            if (is_numeric($honeyMl) && is_finite((float)$honeyMl)) {
+                $mix['honeyMl'] = max(0, min($syr['volMl'], round((float)$honeyMl, 1)));
             }
             $syr['mix'] = $mix;
         }

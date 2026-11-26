@@ -112,7 +112,7 @@ export function updatePdaMediumVisual(item) {
       if (material.emissive) material.emissive.setHex(0x15803d);
       if (typeof material.emissiveIntensity === 'number') material.emissiveIntensity = 0.12;
     } else {
-      material.color.setHex(ctrl.baseColor);
+      material.color.setHex(liquid.honeyMl > 0.05 ? 0xe89428 : ctrl.baseColor);
       if (material.emissive) material.emissive.setHex(ctrl.baseEmissive);
       if (typeof material.emissiveIntensity === 'number') material.emissiveIntensity = ctrl.baseEmissiveIntensity;
     }
@@ -133,7 +133,8 @@ export function updatePdaMediumVisual(item) {
   if (ctrl.powderGrams <= 0) {
     const isSter = !!(ctrl.sterilized || liquid.sterilized || item.sterilized);
     const sterSuffix = isSter ? ' • Estéril' : (liquid.volMl > 0 ? ' • Não Esterilizado' : '');
-    item.label = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml' + sterSuffix + ')';
+    const honeySuffix = liquid.honeyMl > 0.05 ? ' • 🍯' : '';
+    item.label = liquid.baseLabel + ' (' + liquid.volMl + 'ml/' + liquid.maxMl + 'ml' + sterSuffix + ')' + honeySuffix;
     return;
   }
 
@@ -203,7 +204,7 @@ export function makePdaMediaBottle1L(ctx, id, px, py, pz) {
 
   const liquidCtrl = {
     volMl: 0, maxMl: 900, baseY: 0.05, maxH: 0.30,
-    liqMesh: liquid, mycCloud: null, stirBar: null,
+    liqMesh: liquid, mycCloud: null, stirBar: null, syringePortY: 0.37,
     baseLabel: 'Frasco de Meio PDA 1L'
   };
   bottle.userData.liquidCtrl = liquidCtrl;

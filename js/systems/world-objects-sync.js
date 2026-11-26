@@ -17,6 +17,7 @@ import { setPetriLidOpen, updatePetriVisual, PETRI_STACK_SPACING, PETRI_STACK_AL
 import { PP5_STACK_SPACING, PP5_STACK_ALIGNMENT_RADIUS } from '../items/pp5-cup.js';
 import { updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { updatePdaMediumVisual, updatePdaReagentLabel } from '../items/pda-mix.js';
+import { updateLcNutrientLabel } from '../items/pda-bottle.js';
 import { setCultureFridgeDoorOpen } from '../items/culture-fridge.js';
 import { spawnItemFromPrefab } from '../items/item-prefabs.js';
 import { disposeObjectResources } from '../items/item-registry.js';
@@ -244,7 +245,7 @@ function hasPotentiallyReplicableState(item, sim, now) {
   const has = !!(
     item.spawnCtrl || ud.spawnCtrl || ud.petriCtrl || item.fridgeCtrl ||
     ud.liquidCtrl || item.cultureCtrl || ud.cultureCtrl || item.pdaReagentCtrl ||
-    item.pdaMediumCtrl || ud.syrCtrl || item.liquidMix || item.bowlCtrl ||
+    item.pdaMediumCtrl || item.lcNutrientCtrl || ud.syrCtrl || item.liquidMix || item.bowlCtrl ||
     item.scalpelCtrl || item.bladePackCtrl || item.wildMushroomCtrl || item.cookerRef ||
     (meta && typeof meta.serializeState === 'function')
   );
@@ -379,7 +380,10 @@ export function getReplicatedItemState(sim, item) {
   }
   if (item.fridgeCtrl) state.fridge = { doorOpen: !!item.fridgeCtrl.doorOpen };
   const liquid = meshData.liquidCtrl;
-  if (liquid) state.liquid = { volMl: Math.round((liquid.volMl || 0) * 10) / 10, sterilized: !!liquid.sterilized };
+  if (liquid) {
+    state.liquid = { volMl: Math.round((liquid.volMl || 0) * 10) / 10, sterilized: !!liquid.sterilized };
+    if (liquid.honeyMl !== undefined) state.liquid.honeyMl = Math.round(liquid.honeyMl * 10) / 10;
+  }
   if (item.sterilized) state.sterilized = true;
   if (item.foilWrapped) state.foilWrapped = true;
   if (item.microporeSealed) state.microporeSealed = true;
@@ -407,6 +411,12 @@ export function getReplicatedItemState(sim, item) {
   if (item.pdaReagentCtrl) {
     state.pdaReagent = { remainingGrams: Math.round(item.pdaReagentCtrl.remainingGrams || 0) };
   }
+  if (item.lcNutrientCtrl) {
+    state.lcNutrient = {
+      grams: Math.round(item.lcNutrientCtrl.remainingGrams || 0),
+      naturalHoney: !!item.lcNutrientCtrl.isNaturalHoney
+    };
+  }
   if (item.pdaMediumCtrl) {
     state.pdaMedium = {
       powderGrams: Math.round((item.pdaMediumCtrl.powderGrams || 0) * 10) / 10,
@@ -432,7 +442,8 @@ export function getReplicatedItemState(sim, item) {
         waterMl: Math.round((syringe.mix.waterMl || 0) * 10) / 10,
         distilledMl: Math.round((syringe.mix.distilledMl || 0) * 10) / 10,
         lcMl: Math.round((syringe.mix.lcMl || 0) * 10) / 10,
-        pdaMl: Math.round((syringe.mix.pdaMl || 0) * 10) / 10
+        pdaMl: Math.round((syringe.mix.pdaMl || 0) * 10) / 10,
+        ...(syringe.mix.honeyMl !== undefined ? { honeyMl: Math.round(syringe.mix.honeyMl * 10) / 10 } : {})
       } : null
     };
   }
@@ -700,7 +711,16 @@ export function applyReplicatedItemState(sim, item, state) {
   if (typeof state.sterilized === 'boolean') item.sterilized = state.sterilized;
   if (meshData.liquidCtrl && state.liquid && typeof state.liquid.volMl === 'number') {
     if (typeof state.liquid.sterilized === 'boolean') meshData.liquidCtrl.sterilized = state.liquid.sterilized;
-    updateContainerVolume(item, state.liquid.volMl);
+    const savedHoney = state.liquid.honeyMl ?? (meshData.liquidCtrl.honeyMl === undefined ? undefined : 0);
+    updateContainerVolume(item, state.liquid.volMl, savedHoney);
+  }
+  if (state.lcNutrient && typeof state.lcNutrient.grams === 'number' &&
+      (item.lcNutrientCtrl || (state.lcNutrient.naturalHoney && item.spawnCtrl && !item.spawnCtrl.isBag && !item.spawnCtrl.filled))) {
+    item.lcNutrientCtrl ??= { maxGrams: 250 };
+    item.lcNutrientCtrl.remainingGrams = Math.max(0, Math.min(item.lcNutrientCtrl.maxGrams, state.lcNutrient.grams));
+    item.lcNutrientCtrl.isNaturalHoney = !!state.lcNutrient.naturalHoney;
+    meshData.isLcNutrientBottle = true;
+    updateLcNutrientLabel(item);
   }
   if (item.pdaReagentCtrl && state.pdaReagent && typeof state.pdaReagent.remainingGrams === 'number' &&
     Number.isFinite(state.pdaReagent.remainingGrams)) {
@@ -732,7 +752,10 @@ export function applyReplicatedItemState(sim, item, state) {
         waterMl: Math.max(0, Number(state.syringe.mix.waterMl) || 0),
         distilledMl: Math.max(0, Number(state.syringe.mix.distilledMl) || 0),
         lcMl: Math.max(0, Number(state.syringe.mix.lcMl) || 0),
-        pdaMl: Math.max(0, Number(state.syringe.mix.pdaMl) || 0)
+        pdaMl: Math.max(0, Number(state.syringe.mix.pdaMl) || 0),
+        ...(state.syringe.mix.honeyMl !== undefined ? {
+          honeyMl: Math.max(0, Math.min(state.syringe.volMl, Number(state.syringe.mix.honeyMl) || 0))
+        } : {})
       };
     }
     meshData.syrCtrl.sourceContam = !!state.syringe.sourceContam;

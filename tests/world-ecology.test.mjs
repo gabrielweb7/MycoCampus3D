@@ -2,9 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { MathUtils, Vector2 } from '../js/vendor/three.bundle.min.js';
 
 globalThis.window = globalThis.window || {
   THREE: {
+    MathUtils,
+    Vector2,
     Vector3: class {
       constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
       set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
@@ -49,6 +52,8 @@ const {
 const { separateHiveBees } = await import('../js/entities/bee-navigation.js');
 const { findHoveredBeehive, getBeehiveHoverPrompt, interactBeehive } = await import('../js/entities/bee-ecology.js');
 const { findHoveredFlower } = await import('../js/world/campus-flowers.js');
+const { stepSyringePumping } = await import('../js/systems/held-item-loop.js');
+const { getReplicatedItemState, applyReplicatedItemState } = await import('../js/systems/world-objects-sync.js');
 const { updateCelestialSkyDome } = await import('../js/engine/sky-constellations.js');
 const {
   triggerRareBlackGnomeAppearance,
@@ -201,7 +206,7 @@ test('colher mel preserva a colmeia com recipiente cheio e exibe a quantidade qu
   const messages = [];
   const synced = [];
   const hive = { honeyLevel: 80, buildProgress: 1 };
-  const liquidCtrl = { maxMl: 800, volMl: 800 };
+  const liquidCtrl = { maxMl: 800, volMl: 800, baseY: 0, maxH: 0.2, liqMesh: { scale: {}, position: {} } };
   const heldItem = { mesh: { userData: { liquidCtrl } } };
   const ctx = {
     heldItem,
@@ -216,6 +221,7 @@ test('colher mel preserva a colmeia com recipiente cheio e exibe a quantidade qu
   liquidCtrl.volMl = 775;
   assert.equal(interactBeehive(ctx, hive), true);
   assert.equal(liquidCtrl.volMl, 800);
+  assert.equal(liquidCtrl.honeyMl, 25);
   assert.equal(hive.honeyLevel, 45);
   assert.match(messages.at(-1), /\+25ml/);
   assert.deepEqual(synced, [heldItem]);
@@ -227,6 +233,59 @@ test('colher mel preserva a colmeia com recipiente cheio e exibe a quantidade qu
   assert.equal(interactBeehive(ctx, hive), true);
   assert.equal(ctx.heldItem.lcNutrientCtrl.remainingGrams, 250);
   assert.match(messages.at(-1), /\+20g/);
+});
+
+test('seringa aspira mel com prévia animada, conserva o volume ao soltar e transfere para o vidro', () => {
+  const makeSyringe = () => ({
+    id: 'syringe_10ml_a',
+    mesh: { userData: { isSyringe: true, syrCtrl: { volMl: 0, plunger: { position: {} },
+      liqMesh: { scale: {}, position: {}, material: { color: { setHex(value) { this.hex = value; } } } }
+    } } }
+  });
+  const syringe = makeSyringe();
+  const sc = syringe.mesh.userData.syrCtrl;
+  const hive = { honeyLevel: 80, buildProgress: 1 };
+  const ctx = {
+    heldItem: syringe,
+    hoveredBeehive: hive,
+    beehives: [hive],
+    isPrimaryDown: true,
+    callbacks: {},
+    notifyWorldAction() {}
+  };
+  interactBeehive(ctx, hive);
+  stepSyringePumping(ctx, 1);
+  assert.equal(sc.volMl, 0);
+  assert.ok(sc.plunger.position.y > 0.095);
+  assert.equal(sc.liqMesh.material.color.hex, 0xe89428);
+  ctx.isPrimaryDown = false;
+  stepSyringePumping(ctx, 0);
+  assert.equal(ctx.syringePumping, null);
+  assert.equal(sc.volMl, 4.5);
+  assert.equal(sc.mix.honeyMl, 4.5);
+  assert.equal(hive.honeyLevel, 78);
+
+  const restored = makeSyringe();
+  applyReplicatedItemState({ cookerPots: [] }, restored, getReplicatedItemState({}, syringe));
+  assert.equal(restored.mesh.userData.syrCtrl.mix.honeyMl, 4.5);
+
+  const liquid = { volMl: 0, maxMl: 900, baseY: 0, maxH: 0.3, liqMesh: { scale: {}, position: {} } };
+  const bottle = { id: 'pda_media_bottle_1l', mesh: { userData: { liquidCtrl: liquid } } };
+  ctx.hoveredSyringeTarget = { item: bottle, mode: 'inject' };
+  ctx.isPrimaryDown = true;
+  ctx.syringePumping = { target: ctx.hoveredSyringeTarget, fromVol: 4.5, toVol: 0, startJarVol: 0, holdMode: true, duration: 1, elapsed: 0 };
+  stepSyringePumping(ctx, 1);
+  assert.equal(sc.volMl, 0);
+  assert.equal(sc.mix.honeyMl, 0);
+  assert.equal(liquid.volMl, 4.5);
+  assert.equal(liquid.honeyMl, 4.5);
+  assert.equal(getReplicatedItemState({}, bottle).liquid.honeyMl, 4.5);
+
+  ctx.hoveredSyringeTarget = { item: bottle, mode: 'draw' };
+  ctx.syringePumping = { target: ctx.hoveredSyringeTarget, fromVol: 0, toVol: 4.5, startJarVol: 4.5, holdMode: true, duration: 1, elapsed: 0 };
+  stepSyringePumping(ctx, 1);
+  assert.equal(sc.mix.honeyMl, 4.5);
+  assert.equal(liquid.honeyMl, 0);
 });
 
 test('ciclo de pólen (10% por visita), dispersão de sementes, colheita e plantio funcionam', () => {

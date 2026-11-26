@@ -145,6 +145,7 @@ const MC_SHOP_SUPPLIES = [
     'sup_spawn_jar' => ['prefab_id' => 'spawn_jar', 'price_coins' => 70, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_spawn_bag' => ['prefab_id' => 'spawn_bag', 'price_coins' => 85, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_lc' => ['prefab_id' => 'liquid_culture', 'price_coins' => 90, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_glass_bottle_1l' => ['prefab_id' => 'pda_media_bottle', 'price_coins' => 80, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_crate' => ['prefab_id' => 'delivery_crate', 'price_coins' => 110, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_silica' => ['prefab_id' => 'silica_jar', 'price_coins' => 140, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_grow_tent' => ['prefab_id' => 'grow_tent', 'price_coins' => 620, 'req_xp' => 0, 'req_mushrooms' => 0],
