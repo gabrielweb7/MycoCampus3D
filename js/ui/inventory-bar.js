@@ -1,6 +1,10 @@
 import { getLanguage, t } from '../core/i18n.js';
 
-let lastSignature = '';
+let lastActive = -1;
+let lastPending = false;
+let lastLang = '';
+const lastSlotLabels = ['', '', '', ''];
+const scratchLabels = ['', '', '', ''];
 let bar;
 let buttons;
 let nextRender = 0;
@@ -45,20 +49,33 @@ export function renderQuickInventory(ctx) {
   if (now < nextRender) return;
   nextRender = now + 100;
 
-  const labels = inv.slots.map((id, slot) => slot === inv.active
-    ? (ctx.heldItem?.label || '')
-    : (id && ctx.findPickable(id)?.label) || (id ? t('inventory.loading') : ''));
-  const signature = JSON.stringify([inv.active, !!inv.pending, getLanguage(), ...labels]);
-  if (signature === lastSignature) return;
-  lastSignature = signature;
+  const lang = getLanguage();
+  const pendingNow = !!inv.pending;
+  const activeSlot = inv.active;
+  let dirty = activeSlot !== lastActive || pendingNow !== lastPending || lang !== lastLang;
+  let storedCount = 0;
+  for (let slot = 0; slot < inv.slots.length; slot++) {
+    const id = inv.slots[slot];
+    if (id && slot !== activeSlot) storedCount++;
+    const label = slot === activeSlot
+      ? (ctx.heldItem?.label || '')
+      : (id && ctx.findPickable(id)?.label) || (id ? t('inventory.loading') : '');
+    scratchLabels[slot] = label;
+    if (lastSlotLabels[slot] !== label) dirty = true;
+  }
+  if (!dirty) return;
+  lastActive = activeSlot;
+  lastPending = pendingNow;
+  lastLang = lang;
+  for (let slot = 0; slot < inv.slots.length; slot++) lastSlotLabels[slot] = scratchLabels[slot];
 
   bar.setAttribute('aria-label', t('inventory.title'));
-  bar.setAttribute('aria-busy', String(!!inv.pending));
+  bar.setAttribute('aria-busy', String(pendingNow));
   const count = bar.querySelector('#inventory-count');
-  if (count) count.textContent = String(inv.slots.filter((id, slot) => id && slot !== inv.active).length);
+  if (count) count.textContent = String(storedCount);
 
   buttons.forEach((button, slot) => {
-    const rawLabel = labels[slot];
+    const rawLabel = scratchLabels[slot];
     const isSlotActive = slot === inv.active;
     const itemObj = isSlotActive ? ctx.heldItem : (inv.slots[slot] ? ctx.findPickable(inv.slots[slot]) : null);
     const hasItem = !!(isSlotActive ? ctx.heldItem : rawLabel);

@@ -558,6 +558,9 @@ test('colmeia comprável no chão e isca migram rápido para árvore/beiral e Es
   snap = collectEcologyTelemetrySnapshot(ctx);
   assert.equal(snap.gnome.active, true);
   assert.match(snap.gnome.sector, /Estação|Bosque|Corredor|Lateral|Mata/);
+  const liteSnap = collectEcologyTelemetrySnapshot(ctx, { includeRadar: false });
+  assert.equal(liteSnap.cowsCount, 1);
+  assert.equal(liteSnap.radar.cows.length, 0);
   clearRareBlackGnomeForTest();
 });
 

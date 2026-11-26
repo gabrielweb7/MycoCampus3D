@@ -18,7 +18,7 @@ export const CAMPUS_EXPOSURE = 1.07;
 
 const TIER_CONFIGS = {
   desktop: {
-    high:   { ratioCap: 2.00, shadows: true,  soft: true,  shadowExtent: 52, shadowMap: 1536, shadowEvery: 4, far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 4, itemCullDist: 56, lambert: false },
+    high:   { ratioCap: 1.50, shadows: true,  soft: true,  shadowExtent: 40, shadowMap: 1024, shadowEvery: 3, far: 440, aura: true,  weatherParticles: 800, forestScale: 1.00, toneMap: true,  blur: true,  maxLights: 4, itemCullDist: 56, lambert: false },
     medium: { ratioCap: 1.25, shadows: true,  soft: false, shadowExtent: 34, shadowMap: 1024, shadowEvery: 4, far: 280, aura: true,  weatherParticles: 300, forestScale: 0.78, toneMap: true,  blur: true,  maxLights: 3, itemCullDist: 42, lambert: false },
     low:    { fixedRatio: 0.85, shadows: false, soft: false, far: 185, aura: false, weatherParticles: 100, forestScale: 0.56, toneMap: false, blur: false, maxLights: 2, itemCullDist: 30, lambert: true },
     min:    { fixedRatio: 0.65, shadows: false, soft: false, far: 130, aura: false, weatherParticles: 0,   forestScale: 0.38, toneMap: false, blur: false, maxLights: 0, itemCullDist: 22, lambert: true }
@@ -60,18 +60,32 @@ export const qualityState = {
   lastDowngradeAt: 0
 };
 
+const _rendererStringCache = typeof WeakMap === 'function' ? new WeakMap() : null;
+
 function readWebGlRendererString(renderer) {
   try {
     if (!renderer || !renderer.getContext) return '';
+    if (_rendererStringCache && _rendererStringCache.has(renderer)) {
+      return _rendererStringCache.get(renderer);
+    }
     const gl = renderer.getContext();
     if (!gl) return '';
-    const dbg = gl.getExtension && gl.getExtension('WEBGL_debug_renderer_info');
-    if (dbg && gl.getParameter) {
-      return String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
+    let value = '';
+    const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+    const isFirefox = /firefox/i.test(ua);
+    if (isFirefox && gl.getParameter && gl.RENDERER) {
+      value = String(gl.getParameter(gl.RENDERER) || '').toLowerCase();
     }
-    if (gl.getParameter && gl.RENDERER) {
-      return String(gl.getParameter(gl.RENDERER) || '').toLowerCase();
+    if (!value) {
+      const dbg = gl.getExtension && gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbg && gl.getParameter) {
+        value = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
+      } else if (gl.getParameter && gl.RENDERER) {
+        value = String(gl.getParameter(gl.RENDERER) || '').toLowerCase();
+      }
     }
+    if (_rendererStringCache) _rendererStringCache.set(renderer, value);
+    return value;
   } catch (e) {}
   return '';
 }
@@ -280,7 +294,7 @@ export function applyQualityTier(tier, deps) {
   qualityState._shz = 1e9;
   if (scene) {
     setSceneMaterialQuality(scene, !!cfg.lambert);
-    scene.environment = cfg.lambert ? null : getLabEnvironmentMap();
+    scene.environment = cfg.lambert ? null : getLabEnvironmentMap(renderer);
     // Reflexos decorativos do laboratório, com pouca influência na luz difusa do campus.
     scene.environmentIntensity = 0.4;
   }

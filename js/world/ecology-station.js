@@ -47,23 +47,31 @@ function registerStationSurface(ctx, mesh, x, z, w, d, topY, minY = 0) {
   }
 }
 
-export function collectEcologyTelemetrySnapshot(ctx) {
+export function collectEcologyTelemetrySnapshot(ctx, { includeRadar = true } = {}) {
   const beeSum = getBeeEcologySummary(ctx);
   const cows = (ctx && Array.isArray(ctx.pastureCows)) ? ctx.pastureCows : [];
   let cowActive = 0;
   let cowHealthSum = 0;
   let cowHappy = 0;
+  const cowsList = [];
   for (let i = 0; i < cows.length; i++) {
     const c = cows[i];
     if (!c || c.abducted) continue;
     cowActive++;
     cowHealthSum += typeof c.health === 'number' ? c.health : 100;
     if ((c.happyTimer || 0) > 0) cowHappy++;
+    if (includeRadar && c.mesh && c.mesh.position) {
+      cowsList.push({ x: c.mesh.position.x, z: c.mesh.position.z });
+    }
   }
 
-  const wildMushrooms = (ctx && Array.isArray(ctx.wildMushrooms))
-    ? ctx.wildMushrooms.filter((m) => m && m.active).length
-    : 0;
+  let wildMushrooms = 0;
+  const wildArr = ctx && ctx.wildMushrooms;
+  if (Array.isArray(wildArr)) {
+    for (let i = 0; i < wildArr.length; i++) {
+      if (wildArr[i] && wildArr[i].active) wildMushrooms++;
+    }
+  }
 
   const gnome = getRareBlackGnomeTelemetry();
   const sunY = (ctx && typeof ctx.sunElevation === 'number')
@@ -71,28 +79,28 @@ export function collectEcologyTelemetrySnapshot(ctx) {
     : Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2);
   const isNight = sunY < -0.05;
 
-  const cowsList = [];
-  for (let i = 0; i < cows.length; i++) {
-    const c = cows[i];
-    if (!c || c.abducted || !c.mesh || !c.mesh.position) continue;
-    cowsList.push({ x: c.mesh.position.x, z: c.mesh.position.z });
+  const hiveList = [];
+  if (includeRadar && ctx && Array.isArray(ctx.beehives)) {
+    for (let i = 0; i < ctx.beehives.length; i++) {
+      const h = ctx.beehives[i];
+      if (!h || h.collected) continue;
+      hiveList.push({
+        x: h.x,
+        z: h.z,
+        abandoned: !!h.abandoned,
+        extinct: !!h.extinct,
+        resting: !!h.groundResting
+      });
+    }
   }
-  const hiveList = (ctx && Array.isArray(ctx.beehives))
-    ? ctx.beehives.filter((h) => h && !h.collected).map((h) => ({
-      x: h.x,
-      z: h.z,
-      abandoned: !!h.abandoned,
-      extinct: !!h.extinct,
-      resting: !!h.groundResting
-    }))
-    : [];
-  const flowerList = (ctx && Array.isArray(ctx.campusFlowers))
-    ? ctx.campusFlowers.filter((f) => f && !f.removed).slice(0, 80).map((f) => ({
-      x: f.x,
-      z: f.z,
-      stage: f.stage
-    }))
-    : [];
+  const flowerList = [];
+  if (includeRadar && ctx && Array.isArray(ctx.campusFlowers)) {
+    for (let i = 0; i < ctx.campusFlowers.length && flowerList.length < 80; i++) {
+      const f = ctx.campusFlowers[i];
+      if (!f || f.removed) continue;
+      flowerList.push({ x: f.x, z: f.z, stage: f.stage });
+    }
+  }
 
   return {
     ...beeSum,
@@ -546,7 +554,9 @@ export function buildEcologyMonitoringStation(ctx, dx = STATION_CENTER_X, dz = S
     beaconMat,
     screens,
     updateAccum: 1.0,
-    blinkTimer: 0
+    blinkTimer: 0,
+    lastSigs: ['', '', ''],
+    nextScreenIdx: 0
   };
 
   // Desenho inicial das telas
@@ -571,11 +581,12 @@ export function stepEcologyMonitoringStation(ctx, dt) {
 
   stationState.updateAccum += dt;
   stationState.blinkTimer += dt;
-  const refreshRate = dist <= 22 ? 0.85 : 3.5;
+  const isNear = dist <= 24;
+  const refreshRate = isNear ? 0.55 : 3.5;
   if (stationState.updateAccum < refreshRate) return;
   stationState.updateAccum = 0;
 
-  const snap = collectEcologyTelemetrySnapshot(ctx);
+  const snap = collectEcologyTelemetrySnapshot(ctx, { includeRadar: isNear });
   const blinkPhase = Math.floor(stationState.blinkTimer * 2) % 2 === 0;
   const hasGnomeAlert = !!(snap.gnome && snap.gnome.active);
   const hasExtinction = snap.activeHives === 0 && snap.extinctHives > 0;
@@ -596,9 +607,25 @@ export function stepEcologyMonitoringStation(ctx, dt) {
     }
   }
 
-  if (dist <= 24) {
-    for (let i = 0; i < stationState.screens.length; i++) {
-      const sc = stationState.screens[i];
+  if (isNear && stationState.screens.length) {
+    // Intercala no máximo 1 upload de canvas por ciclo e ignora telas sem mudança real
+    const idx = stationState.nextScreenIdx % stationState.screens.length;
+    stationState.nextScreenIdx = (idx + 1) % stationState.screens.length;
+    let sig = '';
+    if (idx === 0) {
+      sig = `${snap.totalFlowers}|${snap.bloomingFlowers}|${snap.sproutingFlowers}|${snap.seedingFlowers}|${snap.avgPollenPct}|${snap.activeHives}|${snap.restingOnGroundHives}|${snap.extinctHives}|${snap.queens}|${snap.workers}|${snap.avgHoneyPct}`;
+    } else if (idx === 1) {
+      sig = `${snap.cowsCount}|${snap.avgCowHealthPct}|${snap.happyCowsCount}|${snap.wildMushroomsCount}|${snap.isNight ? 1 : 0}|${snap.activeHives}|${snap.totalBees}|${snap.totalFlowers}|${Math.floor(getVirtualDayFrac() * 1440)}`;
+    } else {
+      let cowSum = 0;
+      for (let ci = 0; ci < snap.radar.cows.length; ci++) {
+        cowSum += Math.round(snap.radar.cows[ci].x) * 31 + Math.round(snap.radar.cows[ci].z);
+      }
+      sig = `${hasGnomeAlert ? 1 : 0}|${snap.gnome ? snap.gnome.sector : ''}|${snap.gnome ? Math.round(snap.gnome.distToStation || 0) : 0}|${blinkPhase ? 1 : 0}|${snap.radar.hives.length}|${snap.radar.flowers.length}|${cowSum}`;
+    }
+    if (stationState.lastSigs[idx] !== sig) {
+      stationState.lastSigs[idx] = sig;
+      const sc = stationState.screens[idx];
       sc.draw(sc.ctx, sc.canvas.width, sc.canvas.height, snap, blinkPhase);
       sc.tex.needsUpdate = true;
     }

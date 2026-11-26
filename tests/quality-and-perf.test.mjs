@@ -453,3 +453,68 @@ test('Myco Cozy harmoniza materiais opacos uma vez e preserva vidro', () => {
   assert.equal(glass.roughness, 0.1);
   assert.equal(MYCO_PALETTE.mushroomPink, 0xf05aa8);
 });
+
+test('classifyGpu cacheia consulta WebGL e getLabEnvironmentMap usa PMREMGenerator sem gerar mipmap cúbico', async () => {
+  let extCalls = 0;
+  let paramCalls = 0;
+  const cachedRenderer = {
+    getContext() {
+      return {
+        RENDERER: 0x1F01,
+        getExtension(name) {
+          extCalls++;
+          return name === 'WEBGL_debug_renderer_info' ? { UNMASKED_RENDERER_WEBGL: 0x9246 } : null;
+        },
+        getParameter() {
+          paramCalls++;
+          return 'NVIDIA GeForce RTX 4070';
+        }
+      };
+    }
+  };
+  assert.equal(classifyGpu(cachedRenderer, false), 'strong');
+  assert.equal(classifyGpu(cachedRenderer, false), 'strong');
+  assert.equal(classifyGpu(cachedRenderer, false), 'strong');
+  assert.equal(paramCalls, 1);
+  assert.ok(extCalls <= 1);
+
+  const prevThree = globalThis.window.THREE;
+  let pmremCalls = 0;
+  let disposed = 0;
+  globalThis.window.THREE = {
+    ...prevThree,
+    RGBAFormat: 1023,
+    EquirectangularReflectionMapping: 303,
+    LinearFilter: 1006,
+    DataTexture: class {
+      constructor(data, w, h, fmt) {
+        this.data = data;
+        this.w = w;
+        this.h = h;
+        this.fmt = fmt;
+        this.userData = {};
+      }
+    },
+    PMREMGenerator: class {
+      compileEquirectangularShader() {}
+      fromEquirectangular(tex) {
+        pmremCalls++;
+        return { texture: { userData: {}, sourceTex: tex, isPmrem: true } };
+      }
+      dispose() {
+        disposed++;
+      }
+    }
+  };
+  try {
+    const { getLabEnvironmentMap } = await import('../js/engine/lab-env-map.js');
+    const baked1 = getLabEnvironmentMap(cachedRenderer);
+    const baked2 = getLabEnvironmentMap(cachedRenderer);
+    assert.equal(baked1.isPmrem, true);
+    assert.equal(baked1, baked2);
+    assert.equal(pmremCalls, 1);
+    assert.equal(disposed, 1);
+  } finally {
+    globalThis.window.THREE = prevThree;
+  }
+});

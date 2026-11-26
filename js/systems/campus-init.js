@@ -773,6 +773,9 @@ export function initCampus3D(containerId, cbs) {
     resetAutoQuality();
     applyQualityTier(sim, initialTier);
     if (autoConfig) setAutoQualityScale(autoConfig.scale, sim.renderer);
+    if (sim.renderer && typeof sim.renderer.compile === 'function') {
+      try { sim.renderer.compile(sim.scene, sim.camera); } catch (_) {}
+    }
     startAnimationLoop(sim);
     const lobbyEl = document.getElementById('campus-lobby');
     if ((window._pendingEnterFps || (lobbyEl && lobbyEl.classList.contains('hidden'))) && window.setCampusFpsMode) {
