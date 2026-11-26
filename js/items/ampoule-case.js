@@ -9,6 +9,7 @@ import { registerPickable, updateItemBounds } from './item-registry.js';
 import { createCultureLifecycleState } from './culture-lifecycle.js';
 import { escapeHtml, releaseInputForModal } from '../ui/dom-helpers.js';
 import { addSyringeMix, updateSyringeVolume } from './syringe.js';
+import { t } from '../core/i18n.js';
 
 const THREE = typeof window !== 'undefined' ? window.THREE : undefined;
 
@@ -348,7 +349,7 @@ export function takeVialFromAmpouleCase(ctx, caseItem, slotIndex) {
   if (!entry) return null;
   if (ctx && ctx.heldItem) {
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🤲 Esvazie suas mãos antes de retirar uma ampola da maleta.');
+      ctx.callbacks.onToast(t('items.ampouleCase.m1'));
     }
     return null;
   }
@@ -370,7 +371,7 @@ export function takeVialFromAmpouleCase(ctx, caseItem, slotIndex) {
     }
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(vial.label);
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`🧪 Pegou ampola: ${entry.speciesName}! Use a seringa para aspirar a cultura.`);
+      ctx.callbacks.onToast(t('items.ampouleCase.m2', { speciesName: entry.speciesName }));
     }
     queueCaseItem(ctx, caseItem);
     queueCaseItem(ctx, vial);
@@ -391,7 +392,7 @@ export function storeVialInAmpouleCase(ctx, caseItem, vialItem, targetSlotIndex 
   }
   if (slotIdx === -1) {
     if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('💼 A Maleta Porta-Ampolas está cheia (50/50 vagas ocupadas)!');
+      ctx.callbacks.onToast(t('items.ampouleCase.m3'));
     }
     return false;
   }
@@ -433,7 +434,7 @@ export function storeVialInAmpouleCase(ctx, caseItem, vialItem, targetSlotIndex 
       window.MycoAudio.playGlassClink();
     }
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast(`💼 Ampola guardada na vaga #${slotIdx + 1} (${cc.slots[slotIdx].speciesName})!`);
+      ctx.callbacks.onToast(t('items.ampouleCase.m4', { v1: slotIdx + 1, v2: cc.slots[slotIdx].speciesName }));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
   }
@@ -449,22 +450,22 @@ export function drawFromAmpouleCase(ctx, caseItem, slotIndex, requestedMl) {
   const amount = Number(requestedMl);
   const fail = message => { if (cc) cc.lastDrawMessage = message; ctx?.callbacks?.onToast?.(message); return 0; };
   if (!cc?.lidOpen || caseItem._removedForSync || !slot || !sc || !syringe.mesh.userData.isSyringe || ctx.inventory?.pending || ctx.syringePumping) {
-    return fail('💉 Abra a maleta e segure uma seringa disponível.');
+    return fail(t('items.ampouleCase.m5'));
   }
-  if (ctx.isHeldByRemote?.(caseItem.id)) return fail('💼 A maleta está sendo usada por outro jogador.');
+  if (ctx.isHeldByRemote?.(caseItem.id)) return fail(t('items.ampouleCase.m6'));
   if (ctx.playerPos && caseItem.mesh?.position && Math.hypot(
     ctx.playerPos.x - caseItem.mesh.position.x,
     ctx.playerPos.y - caseItem.mesh.position.y,
     ctx.playerPos.z - caseItem.mesh.position.z
-  ) > 4.5) return fail('💼 Aproxime-se da maleta para aspirar.');
-  if (!Number.isInteger(amount) || amount < 1 || amount > AMPOULE_VIAL_MAX_ML) return fail('💉 Escolha uma dose de 1 a 5 ml.');
+  ) > 4.5) return fail(t('items.ampouleCase.m7'));
+  if (!Number.isInteger(amount) || amount < 1 || amount > AMPOULE_VIAL_MAX_ML) return fail(t('items.ampouleCase.m8'));
   if (sc.mix?.lcMl > 0.05 && sc.speciesName && slot.speciesName && sc.speciesName !== slot.speciesName) {
-    return fail('⚠️ Esvazie a seringa antes de trocar de espécie.');
+    return fail(t('items.ampouleCase.m9'));
   }
   const available = Math.max(0, Number(slot.volMl) || 0);
   const room = Math.max(0, 10 - (Number(sc.volMl) || 0));
   const dose = Math.floor((Math.min(amount, available, room) + 1e-8) * 10) / 10;
-  if (dose <= 0) return fail('💉 A ampola está vazia ou não há espaço na seringa.');
+  if (dose <= 0) return fail(t('items.ampouleCase.m10'));
 
   const hadLc = (sc.mix?.lcMl || 0) > 0.05;
   const sourceOrigin = normalizeCultureOrigin(slot.origin);

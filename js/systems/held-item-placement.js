@@ -115,7 +115,7 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
     }
     syncHeldAttachedVisibility(ctx.heldItem, !!error);
     if (ctx.hover3dBadge) hideHover3dBadge(ctx.hover3dBadge);
-    ctx.callbacks.onHoverPrompt?.(error || t('crate.place'));
+    ctx.callbacks.onHoverPrompt?.(error || t('crate.place'), !error);
     return true;
   }
 
@@ -144,7 +144,7 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
       ? (ctx.snapCrateStack ? t('crate.stack_place', { count: ctx.snapCrateStack }) : (isTouch ? '📦 Toque para posicionar: ' : '📦 Clique para posicionar: ') + ctx.heldItem.label)
       : (getPlacementBlockedReason() || '🚫 Local bloqueado (espaço ocupado)'));
   if (ctx.hover3dBadge) hideHover3dBadge(ctx.hover3dBadge);
-  if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt);
+  if (ctx.callbacks.onHoverPrompt) ctx.callbacks.onHoverPrompt(prompt, ctx.placementValid);
   return true;
 }
 

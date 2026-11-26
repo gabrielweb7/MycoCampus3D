@@ -9,6 +9,7 @@ import { isPdaRecipeBalanced, updatePdaMediumVisual } from './pda-mix.js';
 import { contaminatePetri, sterilizePetri, updatePetriVisual } from './petri-dish.js';
 import { updateContainerVolume } from './liquid-culture.js';
 import { updateScalpelLabel } from './scalpel.js';
+import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 const LAB = GAME_CONFIG.lab;
@@ -649,7 +650,7 @@ export function stepPressureCookers(ctx, dt) {
         }
       });
       if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('🔥 A água da panela secou! Tudo queimou lá dentro :(');
+        ctx.callbacks.onToast(t('items.pressureCooker.m1'));
       }
     }
 
@@ -898,7 +899,7 @@ export function stepPressureCookers(ctx, dt) {
             }
           }
           if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('🔥 Você esqueceu o fogo ligado! Tudo na panela queimou :( Jogue fora!');
+            ctx.callbacks.onToast(t('items.pressureCooker.m2'));
           }
         }
       }

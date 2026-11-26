@@ -7,12 +7,8 @@ import { getBlockingCampusModal, syncViewportCssVars } from '../ui/dom-helpers.j
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
 import { isPhotoModeActive, setPhotoMode, togglePhotoMode } from '../ui/photo-mode.js';
 
-export function setPointerFromClient(out, rect, clientX, clientY) {
-  if (rect.width <= 0 || rect.height <= 0 || clientX < rect.left || clientY < rect.top ||
-      clientX > rect.left + rect.width || clientY > rect.top + rect.height) return false;
-  out.set(((clientX - rect.left) / rect.width) * 2 - 1, 1 - ((clientY - rect.top) / rect.height) * 2);
-  return true;
-}
+const TOUCH_AIM = Object.freeze({ x: 0, y: 0 });
+const TOUCH_DRAG_THRESHOLD = 10;
 
 export function bindControls(ctx) {
   // Previne fechamento acidental da aba do navegador durante a sessão de jogo
@@ -156,11 +152,6 @@ export function bindControls(ctx) {
         sc.classList.add('hidden');
       }
     }
-    if (e.code === 'Escape' && window.isCampusRadialMenuOpen && window.isCampusRadialMenuOpen()) {
-      e.preventDefault();
-      window.closeCampusRadialMenu();
-      return;
-    }
     if (e.code === 'F9') {
       e.preventDefault();
       togglePhotoMode();
@@ -263,7 +254,6 @@ export function bindControls(ctx) {
   });
 
   let lastTouchEndAt = 0;
-  const touchAim = ctx.pointerNdc.clone();
 
   ctx.renderer.domElement.addEventListener('mousedown', function (e) {
     if (ctx.lobbyTourActive || ctx.inventory?.pending) return;
@@ -330,11 +320,6 @@ export function bindControls(ctx) {
 
   let touchLookId = null, lastTX = 0, lastTY = 0, touchStartX = 0, touchStartY = 0, touchMoved = false;
   ctx.touchDrawingBoard = false;
-  function setNdcFromTouch(t) {
-    const rect = ctx.renderer.domElement.getBoundingClientRect();
-    ctx.pointerNdc.x = ((t.clientX - rect.left) / rect.width) * 2 - 1;
-    ctx.pointerNdc.y = -((t.clientY - rect.top) / rect.height) * 2 + 1;
-  }
 
   function isUiTouch(el) {
     if (!el || !el.closest) return false;
@@ -395,7 +380,7 @@ export function bindControls(ctx) {
       const t = e.changedTouches[i];
       if (t.identifier === touchLookId) {
         const dx = t.clientX - lastTX, dy = t.clientY - lastTY;
-        if (Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) > 10) touchMoved = true;
+        if (Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) > TOUCH_DRAG_THRESHOLD) touchMoved = true;
         if (ctx.inFps && touchMoved) {
           ctx.playerYaw -= dx * 0.0080;
           ctx.playerPitch = Math.max(-1.35, Math.min(1.35, ctx.playerPitch - dy * 0.0080));
@@ -410,12 +395,10 @@ export function bindControls(ctx) {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === touchLookId) {
-        if (!cancelled && !touchMoved && !ctx.lobbyTourActive) {
-          const rect = ctx.renderer.domElement.getBoundingClientRect();
-          if (setPointerFromClient(touchAim, rect, t.clientX, t.clientY)) {
-            ctx.updateHoverRay(touchAim);
-            ctx.handlePrimaryAction(touchAim);
-          }
+        if (!cancelled && !touchMoved && !ctx.lobbyTourActive &&
+            Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) <= TOUCH_DRAG_THRESHOLD) {
+          ctx.updateHoverRay(TOUCH_AIM);
+          ctx.handlePrimaryAction(TOUCH_AIM);
         }
         touchLookId = null;
       }

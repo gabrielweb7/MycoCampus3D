@@ -23,6 +23,7 @@ import { isAsepticWorkArea } from './laminar-hood.js';
 import { spawnPersistedWildMushroom } from '../systems/world-interactions.js';
 import { createMushroomMeshBySpeciesName, getMushroomVisualProfile } from '../world/mushroom-species.js';
 import { pickContamKind, getContamInfo } from './contaminations.js';
+import { t as tr } from '../core/i18n.js';
 
 const THREE = window.THREE;
 
@@ -424,7 +425,7 @@ export function treatMonotubWithH2O2(ctx, item) {
   const mc = item.monotubCtrl;
   if (!mc.contaminated) {
     if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('✨ Este Monotub está saudável — não precisa de Água Oxigenada.');
+      ctx.callbacks.onToast(tr('items.monotub.m1'));
     }
     return false;
   }
@@ -438,13 +439,13 @@ export function treatMonotubWithH2O2(ctx, item) {
     mc.contamReason = '';
     updateMonotubVisual(item);
     if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🫧 Água Oxigenada 3% dissolveu a teia de Cobweb! O bolo foi salvo!');
+      ctx.callbacks.onToast(tr('items.monotub.m2'));
     }
     if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
   }
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-    ctx.callbacks.onToast(`⚠️ H₂O₂ 3% não elimina ${cInfo.shortLabel} profundo — mantenha fechado e descarte no lixo!`);
+    ctx.callbacks.onToast(tr('items.monotub.m3', { shortLabel: cInfo.shortLabel }));
   }
   return false;
 }
@@ -734,7 +735,7 @@ export function rehydrateMonotubCake(ctx, tubItem) {
   updateMonotubVisual(tubItem);
   if (window.MycoAudio && window.MycoAudio.playSpray) window.MycoAudio.playSpray();
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-    ctx.callbacks.onToast(`💦 Bolo do Monotub 24L reidratado (${Math.round(mc.humidity)}% UR)! O Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES} vai frutificar com força máxima!`);
+    ctx.callbacks.onToast(tr('items.monotub.m4', { v1: Math.round(mc.humidity), flush: mc.flush, MONOTUB_MAX_FLUSHES }));
   }
   ctx?.notifyWorldAction?.();
   return true;
@@ -750,7 +751,7 @@ export function applyMonotubCasing(ctx, tubItem) {
   playAudio('playClick');
   if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-    ctx.callbacks.onToast('🥥 Camada de Casing (Vermiculita + Fibra de Coco) aplicada sobre o Monotub 24L! Retém microclima úmido e acelera a frutificação em +40%!');
+    ctx.callbacks.onToast(tr('items.monotub.m5'));
   }
   if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
   return true;
@@ -768,7 +769,7 @@ export function dunkMonotubAtSink(ctx, tubItem) {
     ctx.callbacks.onHoldChange(tubItem.label);
   }
   if (ctx && ctx.callbacks && ctx.callbacks.onToast) {
-    ctx.callbacks.onToast(`💦 Cold Shock / Dunk realizado no Monotub 24L! Bolo submerso e reidratado profundamente (99% UR) para o Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}!`);
+    ctx.callbacks.onToast(tr('items.monotub.m6', { flush: mc.flush, MONOTUB_MAX_FLUSHES }));
   }
   if (ctx && ctx.notifyWorldAction) ctx.notifyWorldAction();
   return true;
@@ -805,7 +806,7 @@ export function interactMonotub(ctx, tubItem) {
   // 1. Se o bolo está MADURO (fruitingStage === 3): colher o flush!
   if (!mc.spent && !mc.contaminated && mc.fruitingStage === 3) {
     if (held) {
-      if (onToast) onToast('🍄 Libere a mão antes de colher a leva.');
+      if (onToast) onToast(tr('items.monotub.m7'));
       return true;
     }
     playAudio('playMushroomPop');
@@ -841,7 +842,7 @@ export function interactMonotub(ctx, tubItem) {
       mc.growth = 0;
       updateMonotubVisual(tubItem);
       if (onToast) {
-        onToast(`🍂 4º Flush colhido! O bolo do Monotub 24L secou e esgotou os nutrientes. Leve-o para a Caixa de Substrato na Horta lá fora!`);
+        onToast(tr('items.monotub.m8'));
       }
     } else {
       const doneFlush = mc.flush;
@@ -851,7 +852,7 @@ export function interactMonotub(ctx, tubItem) {
       mc.humidity = Math.max(62, (mc.humidity || 90) - 22);
       updateMonotubVisual(tubItem);
       if (onToast) {
-        onToast(`🍄 Flush ${doneFlush}/${MONOTUB_MAX_FLUSHES} colhido${cloneBonusTxt}! Cogumelo fresco na mão (leve à Desidratadora ou tire Esporos). Borrife água (${Math.round(mc.humidity)}% UR)!`);
+        onToast(tr('items.monotub.m9', { doneFlush, MONOTUB_MAX_FLUSHES, cloneBonusTxt, v4: Math.round(mc.humidity) }));
       }
     }
     if (ctx.callbacks && ctx.callbacks.onLabStep) ctx.callbacks.onLabStep('monotub_harvest');
@@ -878,7 +879,7 @@ export function interactMonotub(ctx, tubItem) {
     const jLc = held.mesh.userData.liquidCtrl;
     if (jLc) {
       if (jLc.volMl < 250) {
-        if (onToast) onToast('💧 Garrafão com pouca água (menos de 250 ml)! Encha na pia antes de fazer o Dunk.');
+        if (onToast) onToast(tr('items.monotub.m10'));
         return true;
       }
       updateContainerVolume(held, Math.max(0, jLc.volMl - 250));
@@ -893,7 +894,7 @@ export function interactMonotub(ctx, tubItem) {
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     updateMonotubVisual(tubItem);
     if (onToast) {
-      onToast('📦 Tampa do Monotub 24L aberta! Passe Álcool 70% e seque com Papel Toalha antes de montar.');
+      onToast(tr('items.monotub.m11'));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -904,11 +905,11 @@ export function interactMonotub(ctx, tubItem) {
     if (!mc.lidOpen) {
       mc.lidOpen = true;
       updateMonotubVisual(tubItem);
-      if (onToast) onToast('📦 Tampa aberta! Clique novamente para despejar o Spawn Colonizado.');
+      if (onToast) onToast(tr('items.monotub.m12'));
       return true;
     }
     if (mc.hasSpawn) {
-      if (onToast) onToast('⚠️ Este Monotub 24L já recebeu o Spawn Colonizado! Agora adicione o Substrato Pasteurizado.');
+      if (onToast) onToast(tr('items.monotub.m13'));
       return true;
     }
     const sc = held.spawnCtrl;
@@ -958,11 +959,11 @@ export function interactMonotub(ctx, tubItem) {
     if (!mc.lidOpen) {
       mc.lidOpen = true;
       updateMonotubVisual(tubItem);
-      if (onToast) onToast('📦 Tampa aberta! Clique novamente para adicionar o Substrato Pasteurizado.');
+      if (onToast) onToast(tr('items.monotub.m14'));
       return true;
     }
     if (mc.hasBulk) {
-      if (onToast) onToast('⚠️ Este Monotub 24L já recebeu o Substrato Pasteurizado!');
+      if (onToast) onToast(tr('items.monotub.m15'));
       return true;
     }
     mc.hasBulk = true;
@@ -997,7 +998,7 @@ export function interactMonotub(ctx, tubItem) {
     if (ctx.callbacks && ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(held.label);
     if (onToast) {
       if (mc.rawBulkRisk) {
-        onToast('⚠️ Substrato adicionado CRU direto do Pote! Sem pasteurizar (75–85°C em bag na panela), há alto risco de Trichoderma/Mofo Batom!');
+        onToast(tr('items.monotub.m16'));
       } else {
         onToast(mc.hasSpawn
           ? '🥥 Substrato Pasteurizado adicionado! Agora clique no Monotub para MISTURAR o spawn e o substrato!'
@@ -1017,7 +1018,7 @@ export function interactMonotub(ctx, tubItem) {
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('medium');
     if (onToast) {
-      onToast('🤲 Spawn e Substrato Pasteurizado misturados homogeneamente! Agora clique novamente para NIVELAR o bolo dentro da caixa.');
+      onToast(tr('items.monotub.m17'));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -1025,7 +1026,7 @@ export function interactMonotub(ctx, tubItem) {
 
   // 6. Nivelar o bolo só depois de misturar.
   if (mc.lidOpen && !mc.mixed && (mc.hasSpawn || mc.hasBulk)) {
-    if (onToast) onToast(`📦 ${getMonotubActionLabel(mc)} antes de misturar e nivelar.`);
+    if (onToast) onToast(tr('items.monotub.m18', { v1: getMonotubActionLabel(mc) }));
     return true;
   }
 
@@ -1037,7 +1038,7 @@ export function interactMonotub(ctx, tubItem) {
     if (window.MycoAudio && window.MycoAudio.playClick) window.MycoAudio.playClick();
     if (typeof window !== 'undefined' && window.triggerCampusHaptic) window.triggerCampusHaptic('success');
     if (onToast) {
-      onToast('📏 Bolo perfeitamente NIVELADO e compactado dentro do Monotub 24L! Clique mais uma vez para fechar a tampa e iniciar a colonização.');
+      onToast(tr('items.monotub.m19'));
     }
     if (ctx.notifyWorldAction) ctx.notifyWorldAction();
     return true;
@@ -1049,7 +1050,7 @@ export function interactMonotub(ctx, tubItem) {
   updateMonotubVisual(tubItem);
   if (onToast) {
     if (!mc.lidOpen && mc.leveled && mc.colonization < 100) {
-      onToast('🔒 Tampa fechada com travas e furos de polyfill! O Monotub 24L está colonizando (aguarde 100%).');
+      onToast(tr('items.monotub.m20'));
     } else {
       onToast(mc.lidOpen ? '📦 Tampa do Monotub 24L aberta.' : '📦 Tampa do Monotub 24L fechada.');
     }
@@ -1166,7 +1167,7 @@ export function placeMonotubInLedRackSlot(ctx, slot) {
   if (!held || !held.monotubCtrl || !slot) return false;
   const onToast = ctx.callbacks && ctx.callbacks.onToast;
   if (slot.tubItem && slot.tubItem !== held && slot.tubItem.mesh.position.distanceTo( new THREE.Vector3(slot.x, slot.y, slot.z) ) < 0.32) {
-    if (onToast) onToast('⚠️ Este espaço da Estante LED de Monotubes já está ocupado!');
+    if (onToast) onToast(tr('items.monotub.m21'));
     return true;
   }
 
@@ -1290,7 +1291,7 @@ export function stepMonotubs(ctx, dt) {
           mc.contamReason = 'Trichoderma (tampa deixada aberta antes de 100% colonizado)';
           updateMonotubVisual(item);
           if (ctx.callbacks && ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('🦠 O Monotub 24L contaminou com Trichoderma! Nunca deixe a tampa aberta fora do Fluxo Laminar antes do bolo estar 100% colonizado.');
+            ctx.callbacks.onToast(tr('items.monotub.m22'));
           }
           continue;
         }
@@ -1306,7 +1307,7 @@ export function stepMonotubs(ctx, dt) {
           mc.contamReason = 'Trichoderma (caixa montada sem Álcool 70%)';
           updateMonotubVisual(item);
           if (ctx.callbacks && ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('🦠 O Monotub 24L contaminou com Trichoderma (mofo verde)! Sempre passe Álcool 70% e Papel Toalha na caixa antes de montar.');
+            ctx.callbacks.onToast(tr('items.monotub.m23'));
           }
           continue;
         }
@@ -1320,7 +1321,7 @@ export function stepMonotubs(ctx, dt) {
               : 'Trichoderma (substrato bulk adicionado cru sem pasteurização)';
             updateMonotubVisual(item);
             if (ctx.callbacks && ctx.callbacks.onToast) {
-              ctx.callbacks.onToast('🦠 O Monotub contaminou por causa do substrato bulk CRU! Coloque a mistura no Bag 1,5kg e pasteurize antes de usar.');
+              ctx.callbacks.onToast(tr('items.monotub.m24'));
             }
             continue;
           }
@@ -1329,7 +1330,7 @@ export function stepMonotubs(ctx, dt) {
         if (Math.floor(mc.colonization) !== prevCol) {
           updateMonotubVisual(item);
           if (mc.colonization >= 100 && ctx.callbacks && ctx.callbacks.onToast) {
-            ctx.callbacks.onToast(`✅ ${item.label}`);
+            ctx.callbacks.onToast(tr('items.monotub.m25', { label: item.label }));
           }
         }
       }
@@ -1351,7 +1352,7 @@ export function stepMonotubs(ctx, dt) {
             mc.contamReason = 'Trichoderma (casing aplicado cru sem pasteurização)';
             updateMonotubVisual(item);
             if (ctx.callbacks && ctx.callbacks.onToast) {
-              ctx.callbacks.onToast('🦠 O Casing não pasteurizado contaminou o Monotub com Trichoderma! Pasteurize coco/vermiculita em bag antes de usar como casing.');
+              ctx.callbacks.onToast(tr('items.monotub.m26'));
             }
             continue;
           }
@@ -1371,7 +1372,7 @@ export function stepMonotubs(ctx, dt) {
             mc.fruitingStage++;
             updateMonotubVisual(item);
             if (mc.fruitingStage === 3 && ctx.callbacks && ctx.callbacks.onToast) {
-              ctx.callbacks.onToast(`🍄 Monotub 24L (${mc.speciesName || 'Cubensis'}) atingiu maturação no Flush ${mc.flush}/${MONOTUB_MAX_FLUSHES}! Clique para colher!`);
+              ctx.callbacks.onToast(tr('items.monotub.m27', { v1: mc.speciesName || 'Cubensis', flush: mc.flush, MONOTUB_MAX_FLUSHES }));
             }
           } else if (Math.floor(mc.growth / 10) !== Math.floor(prevG / 10)) {
             updateMonotubVisual(item);

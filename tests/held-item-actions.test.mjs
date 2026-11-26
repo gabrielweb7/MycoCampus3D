@@ -95,15 +95,52 @@ test('volume fracionário do frasco é preservado no estado replicado', () => {
   assert.equal(getReplicatedItemState({ cookerPots: [] }, flask).liquid.volMl, 103.6);
 });
 
-test('toque usa coordenadas relativas ao canvas, inclusive fora da mira central', async () => {
-  const { setPointerFromClient } = await import('../js/systems/input-controller.js');
-  const point = new THREE.Vector2();
-  const rect = { left: 32, top: 100, width: 240, height: 220 };
-  assert.equal(setPointerFromClient(point, rect, 72, 155), true);
-  assert.ok(Math.abs(point.x + 2 / 3) < 1e-9);
-  assert.equal(point.y, 0.5);
-  assert.equal(setPointerFromClient(point, rect, 28, 155), false);
-  assert.equal(setPointerFromClient(point, { ...rect, width: 0 }, 32, 155), false);
+test('toque fora do centro aciona a mira central e arrastar só gira a câmera', async () => {
+  const { bindControls } = await import('../js/systems/input-controller.js');
+  const listeners = new Map();
+  const canvas = { addEventListener() {}, closest: () => null };
+  const actions = [];
+  const ctx = {
+    inFps: true, playerYaw: 0, playerPitch: 0,
+    pointerNdc: new THREE.Vector2(-0.6, 0.5),
+    renderer: { domElement: canvas },
+    updateHoverRay: ({ x, y }) => actions.push(['hover', x, y]),
+    handlePrimaryAction: ({ x, y }) => actions.push(['action', x, y])
+  };
+  const previousDocument = globalThis.document;
+  const previousAddEventListener = window.addEventListener;
+  globalThis.document = { addEventListener() {} };
+  window.addEventListener = (type, listener) => listeners.set(type, listener);
+  try {
+    bindControls(ctx);
+    const send = (type, touch) => listeners.get(type)({
+      changedTouches: [touch],
+      touches: type === 'touchstart' || type === 'touchmove' ? [touch] : []
+    });
+    const tap = { identifier: 1, clientX: 22, clientY: 153, target: canvas };
+    send('touchstart', tap);
+    send('touchend', tap);
+    assert.deepEqual(actions, [['hover', 0, 0], ['action', 0, 0]]);
+    assert.deepEqual(ctx.pointerNdc.toArray(), [-0.6, 0.5]);
+
+    const moved = { ...tap, clientX: 72 };
+    send('touchstart', tap);
+    send('touchmove', moved);
+    send('touchend', moved);
+    assert.notEqual(ctx.playerYaw, 0);
+
+    send('touchstart', tap);
+    send('touchcancel', tap);
+    const uiTap = { ...tap, target: { closest: selector => selector === 'button' } };
+    send('touchstart', uiTap);
+    send('touchend', uiTap);
+    assert.equal(actions.length, 2);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousAddEventListener === undefined) delete window.addEventListener;
+    else window.addEventListener = previousAddEventListener;
+  }
 });
 
 test('repique de grão conserva origem e clones antigos não são inferidos pela geração', async () => {

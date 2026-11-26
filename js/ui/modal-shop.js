@@ -2,6 +2,7 @@
  * MycoCampus3D — Loja de Cosméticos (Chapéus & Brinquedos)
  */
 import { appState } from '../core/state.js';
+import { t } from '../core/i18n.js';
 import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
 import { preserveNewerPetState } from '../services/pets.js';
@@ -50,11 +51,26 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_ampoule_case', prefabId: 'ampoule_case', name: 'Maleta Porta-Ampolas 5ML (50 Vagas)', desc: '24 espécies (Cubensis, Comestíveis e Raras) já colonizadas em cultura líquida + 26 vagas extras (máx. 50).', price_coins: 1000, req_xp: 1000, req_mushrooms: 100, icon: '💼' }
 ];
 
+export const SHOP_SUPPLY_CATEGORIES = [
+  { id: 'containers', label: 'Recipientes', icon: '🫙', ids: ['sup_pp5', 'sup_spawn_jar', 'sup_spawn_bag', 'sup_monotub'] },
+  { id: 'substrate', label: 'Substratos', icon: '🌽', ids: ['sup_flocao', 'sup_lc_nutrient'] },
+  { id: 'lab', label: 'Laboratório', icon: '🧪', ids: ['sup_petri', 'sup_syringe', 'sup_lc', 'sup_ampoule_case'] },
+  { id: 'hygiene', label: 'Higiene & Mofo', icon: '🧴', ids: ['sup_spray', 'sup_water_spray', 'sup_h2o2'] },
+  { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust'] },
+  { id: 'post', label: 'Pós-colheita', icon: '📦', ids: ['sup_dehydrator', 'sup_silica', 'sup_mylar', 'sup_crate'] },
+  { id: 'furniture', label: 'Bancadas', icon: '🛠️', ids: ['sup_table'] }
+];
+
+let activeSupplyCat = 'all';
+
 let activeShopTab = 'hats';
 
 events.on('pets:changed', () => {
   if (activeShopTab === 'pets' && !$('shop-modal')?.classList.contains('hidden')) renderShopModal();
 });
+
+const nm = (kind, item, field) => t(`ui.shop.${kind}.${item.id}.${field}`);
+const coinsTxt = (n) => t('ui.shop.coins', { n });
 
 function toast3D(msg) {
   if (window.showCampusToast) window.showCampusToast(msg);
@@ -63,7 +79,7 @@ function toast3D(msg) {
 window.toggleCampusSnowboard = function () {
   const unlocked = (appState.currentUser && appState.currentUser.unlocked_hats) || [];
   if (unlocked.indexOf('snowboard') === -1) {
-    toast3D('🔒 Desbloqueie o Snowboard na 👑 Loja -> 🏂 Brinquedos!');
+    toast3D(t('ui.shop.lockedSnowboard'));
     return;
   }
   const next = !(window.isCampusSnowboardActive && window.isCampusSnowboardActive());
@@ -71,13 +87,13 @@ window.toggleCampusSnowboard = function () {
   if (window.setCampusSnowboard) window.setCampusSnowboard(next);
   if (window.syncCampusUserProgress) window.syncCampusUserProgress({ equipped_toy: next ? 'snowboard' : '' });
   if (window.MycoAudio) window.MycoAudio.playClick();
-  toast3D(next ? '🏂 Snowboard ativado! Olhe para baixo para ver nos seus pés!' : '🏂 Snowboard guardado!');
+  toast3D(next ? t('ui.shop.snowboardOn') : t('ui.shop.snowboardOff'));
 };
 
 window.toggleCampusParaglider = function () {
   const unlocked = (appState.currentUser && appState.currentUser.unlocked_hats) || [];
   if (unlocked.indexOf('paraglider') === -1) {
-    toast3D('🔒 Desbloqueie o Paraglider na 👑 Loja -> 🏂 Brinquedos!');
+    toast3D(t('ui.shop.lockedParaglider'));
     return;
   }
   const next = !(window.isCampusParagliderActive && window.isCampusParagliderActive());
@@ -85,7 +101,7 @@ window.toggleCampusParaglider = function () {
   if (window.setCampusParaglider) window.setCampusParaglider(next);
   if (window.syncCampusUserProgress) window.syncCampusUserProgress({ equipped_toy: next ? 'paraglider' : '' });
   if (window.MycoAudio) window.MycoAudio.playClick();
-  toast3D(next ? '🪂 Paraglider ativado! Salte de uma montanha e entre nas correntes de ar!' : '🪂 Paraglider guardado!');
+  toast3D(next ? t('ui.shop.paragliderOn') : t('ui.shop.paragliderOff'));
 };
 
 export function renderShopModal() {
@@ -108,7 +124,10 @@ export function renderShopModal() {
   const coinUnlockedKey = user && user.id ? ('myco_coin_unlocked_items_u' + user.id) : 'myco_coin_unlocked_items';
   try {
     const rawC = localStorage.getItem(coinUnlockedKey);
-    if (rawC) coinUnlocked = JSON.parse(rawC) || [];
+    if (rawC) {
+      const parsedC = JSON.parse(rawC);
+      coinUnlocked = Array.isArray(parsedC) ? parsedC : [];
+    }
   } catch (e) {}
 
   const tabHats = $('shop-tab-hats');
@@ -136,16 +155,41 @@ export function renderShopModal() {
   }
 
   if (activeShopTab === 'supplies') {
-    SHOP_SUPPLIES.forEach((sup) => {
+    const chipBar = document.createElement('div');
+    chipBar.className = 'col-span-full flex flex-wrap gap-1.5 sticky top-0 z-10 pb-2 -mt-1 bg-slate-950/90 backdrop-blur';
+    [{ id: 'all', icon: '🛒' }].concat(SHOP_SUPPLY_CATEGORIES).forEach((c) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold border transition ' +
+        (activeSupplyCat === c.id ? 'bg-emerald-500 text-slate-950 border-emerald-400' : 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:text-white');
+      chip.textContent = c.icon + ' ' + t('ui.shop.cat.' + c.id);
+      chip.onclick = () => { activeSupplyCat = c.id; renderShopModal(); };
+      chipBar.appendChild(chip);
+    });
+    grid.appendChild(chipBar);
+    const supplyById = new Map(SHOP_SUPPLIES.map((s) => [s.id, s]));
+    const supplyEntries = [];
+    SHOP_SUPPLY_CATEGORIES.forEach((c) => {
+      if (activeSupplyCat !== 'all' && activeSupplyCat !== c.id) return;
+      const items = c.ids.map((id) => supplyById.get(id)).filter(Boolean).sort((a, b) => a.price_coins - b.price_coins);
+      if (!items.length) return;
+      const head = document.createElement('div');
+      head.className = 'col-span-full text-xs font-extrabold text-emerald-300 uppercase tracking-wide pt-2 border-b border-slate-700/50 pb-1';
+      head.textContent = c.icon + ' ' + t('ui.shop.cat.' + c.id) + ' (' + items.length + ')';
+      grid.appendChild(head);
+      items.forEach((s) => supplyEntries.push(s));
+      items.forEach((sup) => renderSupplyCard(sup));
+    });
+    function renderSupplyCard(sup) {
       const reqXp = sup.req_xp || 0;
       const reqMush = sup.req_mushrooms || 0;
       const hasCoins = userCoins >= sup.price_coins;
       const hasXp = userXp >= reqXp;
       const hasMush = userMush >= reqMush;
       const canBuy = hasCoins && hasXp && hasMush;
-      const reqLine = `🪙 ${sup.price_coins} MycoCoins` +
+      const reqLine = `🪙 ${coinsTxt(sup.price_coins)}` +
         (reqXp > 0 ? ` • ⭐ ${reqXp} XP` : '') +
-        (reqMush > 0 ? ` • 🍄 ${reqMush} cogumelos` : '');
+        (reqMush > 0 ? ` • 🍄 ${t('ui.shop.mushrooms', { n: reqMush })}` : '');
       const card = document.createElement('div');
       card.className = 'glass-panel rounded-xl p-3 flex flex-col justify-between border border-emerald-500/35';
       card.innerHTML =
@@ -153,8 +197,8 @@ export function renderShopModal() {
           `<div class="flex items-center gap-2">` +
             `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">${sup.icon}</span>` +
             `<div>` +
-              `<div class="font-bold text-white text-xs">${escapeHtml(sup.name)}</div>` +
-              `<div class="text-[11px] text-slate-400">${escapeHtml(sup.desc)}</div>` +
+              `<div class="font-bold text-white text-xs">${escapeHtml(nm('sup', sup, 'name'))}</div>` +
+              `<div class="text-[11px] text-slate-400">${escapeHtml(nm('sup', sup, 'desc'))}</div>` +
             `</div>` +
           `</div>` +
           `<div class="pt-1 text-[11px] font-bold text-yellow-300">${reqLine}</div>` +
@@ -165,7 +209,7 @@ export function renderShopModal() {
       btn.type = 'button';
       if (canBuy) {
         btn.className = 'w-full py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow transition';
-        btn.textContent = `🛒 Comprar & Entregar (🪙 ${sup.price_coins})`;
+        btn.textContent = t('ui.shop.buyDeliver', { price: sup.price_coins });
         btn.onclick = async () => {
           btn.disabled = true;
           try {
@@ -173,27 +217,27 @@ export function renderShopModal() {
               const userId = appState.currentUser.id;
               const delivery = window.getCampusShopDeliveryPose?.(sup.prefabId);
               if (!delivery) {
-                toast3D('⚠️ Aguarde o campus carregar e entre no jogo para receber a entrega.');
+                toast3D(t('ui.shop.waitCampus'));
                 btn.disabled = false;
                 return;
               }
               if (window.flushCampusMycoCoins) await window.flushCampusMycoCoins();
               if (appState.currentUser?.id !== userId) return;
               if (pendingCoinOperations(userId).length) {
-                toast3D('⌛ Aguarde a sincronização das moedas e tente novamente.');
+                toast3D(t('ui.shop.waitCoinSync'));
                 btn.disabled = false;
                 return;
               }
               const buyRes = await orderShopSupply(sup.id, delivery);
               if (!buyRes?.ok) {
-                toast3D((buyRes?.pending ? '⌛ ' : '❌ ') + (buyRes?.error || 'Não foi possível concluir a compra no servidor.'));
+                toast3D((buyRes?.pending ? '⌛ ' : '❌ ') + (buyRes?.error || t('ui.shop.buyFailed')));
                 btn.disabled = false;
                 return;
               }
             } else {
               const spawned = window.spawnCampusShopItem ? window.spawnCampusShopItem(sup.prefabId) : null;
               if (!spawned) {
-                toast3D('⚠️ Entre no Campus 3D para receber sua entrega!');
+                toast3D(t('ui.shop.enterCampus'));
                 btn.disabled = false;
                 return;
               }
@@ -204,10 +248,10 @@ export function renderShopModal() {
             $('shop-modal')?.classList.add('hidden');
             events.emit('sync:now');
             toast3D(appState.currentUser
-              ? `📦 ${sup.name}: compra confirmada. A entrega está sendo sincronizada no campus.`
-              : `📦 ${sup.name} entregue bem à sua frente!`);
+              ? t('ui.shop.purchaseConfirmed', { name: nm('sup', sup, 'name') })
+              : t('ui.shop.delivered', { name: nm('sup', sup, 'name') }));
           } catch (e) {
-            toast3D('❌ ' + (e.message || 'Erro ao comprar insumo.'));
+            toast3D('❌ ' + (e.message || t('ui.shop.supplyError')));
             btn.disabled = false;
           }
         };
@@ -215,21 +259,22 @@ export function renderShopModal() {
         btn.disabled = true;
         btn.className = 'w-full py-1.5 rounded-lg bg-slate-800/80 text-slate-500 font-semibold text-xs border border-slate-700/40';
         const missing = [];
-        if (!hasCoins) missing.push(`${sup.price_coins - userCoins} MycoCoins`);
+        if (!hasCoins) missing.push(coinsTxt(sup.price_coins - userCoins));
         if (!hasXp) missing.push(`${reqXp - userXp} XP`);
-        if (!hasMush) missing.push(`${reqMush - userMush} cogumelos`);
-        btn.textContent = `🔒 Faltam ${missing.join(' + ')}`;
+        if (!hasMush) missing.push(t('ui.shop.mushrooms', { n: reqMush - userMush }));
+        btn.textContent = t('ui.shop.missing', { list: missing.join(' + ') });
       }
       btnWrap.appendChild(btn);
       card.appendChild(btnWrap);
       grid.appendChild(card);
-    });
+    }
     return;
   }
 
   const list = activeShopTab === 'toys' ? COSMETIC_TOYS : COSMETIC_HATS;
   list.forEach((item) => {
     const isToy = activeShopTab === 'toys';
+    const kindKey = isToy ? 'toy' : 'hat';
     const isEquipped = isToy ? (item.id === 'paraglider' ? paragliderOn : snowboardOn) : (currentHat === item.id);
     const isUnlocked = unlocked.indexOf(item.id) !== -1 || coinUnlocked.indexOf(item.id) !== -1 || (!isToy && item.id === 'default');
     const canUnlockByXp = userXp >= item.req_xp && userMush >= item.req_mushrooms;
@@ -246,14 +291,14 @@ export function renderShopModal() {
       `<div class="flex items-center gap-2">` +
         `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">${item.icon}</span>` +
         `<div>` +
-          `<div class="font-bold text-white text-xs">${escapeHtml(item.name)}</div>` +
-          `<div class="text-[11px] text-slate-400">${escapeHtml(item.desc)}</div>` +
+          `<div class="font-bold text-white text-xs">${escapeHtml(nm(kindKey, item, 'name'))}</div>` +
+          `<div class="text-[11px] text-slate-400">${escapeHtml(nm(kindKey, item, 'desc'))}</div>` +
         `</div>` +
       `</div>` +
       `<div class="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-300 font-semibold">` +
-        (item.price_coins > 0 ? `<span class="text-yellow-300 font-bold">🪙 ${item.price_coins} MycoCoins</span>` : '') +
-        (item.req_xp > 0 ? `<span class="text-amber-300">• ⭐ ${item.req_xp} XP</span>` : `<span class="text-emerald-300">Grátis</span>`) +
-        (item.req_mushrooms > 0 ? `<span class="text-emerald-300">• 🍄 ${item.req_mushrooms} colheitas</span>` : '') +
+        (item.price_coins > 0 ? `<span class="text-yellow-300 font-bold">🪙 ${coinsTxt(item.price_coins)}</span>` : '') +
+        (item.req_xp > 0 ? `<span class="text-amber-300">• ⭐ ${item.req_xp} XP</span>` : `<span class="text-emerald-300">${t('ui.shop.free')}</span>`) +
+        (item.req_mushrooms > 0 ? `<span class="text-emerald-300">• 🍄 ${t('ui.shop.harvests', { n: item.req_mushrooms })}</span>` : '') +
       `</div>`;
     card.appendChild(top);
 
@@ -263,17 +308,17 @@ export function renderShopModal() {
     if (isEquipped) {
       const unequipBtn = document.createElement('button');
       unequipBtn.className = 'w-full py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition';
-      unequipBtn.textContent = isToy ? (`❌ Desativar ${item.id === 'paraglider' ? 'Paraglider' : 'Snowboard'}`) : '❌ Desativar Chapéu';
+      unequipBtn.textContent = isToy ? t('ui.shop.deactivate', { name: t(item.id === 'paraglider' ? 'ui.shop.name.paraglider' : 'ui.shop.name.snowboard') }) : t('ui.shop.deactivateHat');
       unequipBtn.onclick = async () => {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (isToy) {
           if (item.id === 'paraglider') {
             if (window.setCampusParaglider) window.setCampusParaglider(false);
-            toast3D('🪂 Paraglider guardado!');
+            toast3D(t('ui.shop.paragliderOff'));
           } else {
             if (window.setCampusSnowboard) window.setCampusSnowboard(false);
             if (window.setCampusParaglider) window.setCampusParaglider(false);
-            toast3D('🏂 Snowboard guardado!');
+            toast3D(t('ui.shop.snowboardOff'));
           }
           renderShopModal();
         } else {
@@ -293,18 +338,18 @@ export function renderShopModal() {
     } else if (isUnlocked) {
       const equipBtn = document.createElement('button');
       equipBtn.className = 'w-full py-1.5 rounded-lg ' + (isToy ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-purple-600 hover:bg-purple-500') + ' text-white font-bold text-xs shadow transition';
-      equipBtn.textContent = isToy ? (item.id === 'paraglider' ? '🪂 Ativar Paraglider' : '🏂 Ativar Snowboard') : 'Equipar';
+      equipBtn.textContent = isToy ? (item.id === 'paraglider' ? t('ui.shop.activateParaglider') : t('ui.shop.activateSnowboard')) : t('ui.shop.equip');
       equipBtn.onclick = async () => {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (isToy) {
           if (item.id === 'paraglider') {
             if (window.setCampusSnowboard) window.setCampusSnowboard(false);
             if (window.setCampusParaglider) window.setCampusParaglider(true);
-            toast3D('🪂 Paraglider ativado! Salte de uma montanha e pegue as correntes de ar! (P para alternar)');
+            toast3D(t('ui.shop.paragliderEquipped'));
           } else {
             if (window.setCampusParaglider) window.setCampusParaglider(false);
             if (window.setCampusSnowboard) window.setCampusSnowboard(true);
-            toast3D('🏂 Snowboard ativado! Olhe para baixo para ver nos seus pés ou suba a montanha! (B para alternar)');
+            toast3D(t('ui.shop.snowboardEquipped'));
           }
           renderShopModal();
         } else {
@@ -325,8 +370,8 @@ export function renderShopModal() {
       const buyBtn = document.createElement('button');
       buyBtn.className = 'w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow transition';
       buyBtn.textContent = canUnlockByCoins && !canUnlockByXp
-        ? `🪙 Comprar (${item.price_coins} MycoCoins)`
-        : '🎉 Desbloquear';
+        ? t('ui.shop.buyCoins', { price: item.price_coins })
+        : t('ui.shop.unlock');
       buyBtn.onclick = async () => {
         try {
           if (window.MycoAudio) window.MycoAudio.playClick();
@@ -359,16 +404,16 @@ export function renderShopModal() {
               if (item.id === 'paraglider') {
                 if (window.setCampusSnowboard) window.setCampusSnowboard(false);
                 if (window.setCampusParaglider) window.setCampusParaglider(true);
-                toast3D('🪂 Paraglider comprado com MycoCoins! Vá para as 🏔️ Montanhas e salte!');
+                toast3D(t('ui.shop.paragliderBoughtCoins'));
               } else {
                 if (window.setCampusParaglider) window.setCampusParaglider(false);
                 if (window.setCampusSnowboard) window.setCampusSnowboard(true);
-                toast3D('🏂 Snowboard comprado com MycoCoins e ativado!');
+                toast3D(t('ui.shop.snowboardBoughtCoins'));
               }
             } else {
               if (appState.currentUser) appState.currentUser.current_hat = item.id;
               if (window.setLocalAvatarHat) window.setLocalAvatarHat(item.id);
-              toast3D(`👑 ${item.name} comprado com 🪙 ${item.price_coins} MycoCoins e equipado!`);
+              toast3D(t('ui.shop.hatBought', { name: nm('hat', item, 'name'), price: item.price_coins }));
             }
             if (window.playCampusEmote) window.playCampusEmote('cheer');
             updateUserHud();
@@ -383,11 +428,11 @@ export function renderShopModal() {
               if (item.id === 'paraglider') {
                 if (window.setCampusSnowboard) window.setCampusSnowboard(false);
                 if (window.setCampusParaglider) window.setCampusParaglider(true);
-                toast3D('🪂 Paraglider desbloqueado! Vá para as 🏔️ Montanhas no 🗺️ Mapa e salte!');
+                toast3D(t('ui.shop.paragliderUnlocked'));
               } else {
                 if (window.setCampusParaglider) window.setCampusParaglider(false);
                 if (window.setCampusSnowboard) window.setCampusSnowboard(true);
-                toast3D('🏂 Snowboard desbloqueado e ativado! Suba a montanha no 🗺️ Mapa!');
+                toast3D(t('ui.shop.snowboardUnlocked'));
               }
             } else if (window.setLocalAvatarHat) {
               window.setLocalAvatarHat(item.id);
@@ -400,7 +445,7 @@ export function renderShopModal() {
       };
       btnWrap.appendChild(buyBtn);
     } else {
-      btnWrap.innerHTML = '<button disabled class="w-full py-1.5 rounded-lg bg-slate-800/80 text-slate-500 font-semibold text-xs border border-slate-700/40">🔒 Bloqueado</button>';
+      btnWrap.innerHTML = '<button disabled class="w-full py-1.5 rounded-lg bg-slate-800/80 text-slate-500 font-semibold text-xs border border-slate-700/40">' + t('ui.shop.locked') + '</button>';
     }
 
     card.appendChild(btnWrap);

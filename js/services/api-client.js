@@ -3,6 +3,7 @@
  * Preserva o contrato exato de autenticação (user_id + token no payload JSON) e aplica timeout de rede.
  */
 import { appState } from '../core/state.js';
+import { t } from '../core/i18n.js';
 import { events } from '../core/events.js';
 
 const DEFAULT_API_TIMEOUT_MS = 12000;
@@ -34,7 +35,7 @@ export async function apiGet(url, opts = {}) {
     }
   } catch (err) {
     if (err && err.name === 'AbortError') {
-      return { ok: false, timeout: true, error: 'Tempo limite da requisição excedido.' };
+      return { ok: false, timeout: true, error: t('misc.api.timeout') };
     }
     throw err;
   } finally {
@@ -73,10 +74,10 @@ export async function apiPost(url, payload = {}, withAuth = false, opts = {}) {
         appState.currentUser?.id === userId && appState.sessionId === sessionId) {
       events.emit('auth:expired', json.error);
     }
-    return json || { ok: false, error: 'Resposta inválida do servidor.' };
+    return json || { ok: false, error: t('misc.api.invalid') };
   } catch (err) {
     if (err && err.name === 'AbortError') {
-      return { ok: false, timeout: true, error: 'Tempo limite da requisição excedido.' };
+      return { ok: false, timeout: true, error: t('misc.api.timeout') };
     }
     throw err;
   } finally {

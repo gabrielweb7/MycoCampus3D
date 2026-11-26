@@ -17,7 +17,7 @@ import { setHeldTwoHandedGhost } from './interaction-system.js';
 import { applyQualityTier } from './game-loop.js';
 import * as worldSync from './world-sync.js';
 import * as adminEditor from './admin-editor.js';
-import { openRadialMenu, closeRadialMenu, isRadialMenuOpen, triggerFloatingAction, inspectItemToast } from '../ui/radial-menu.js';
+import { openRadialMenu, triggerFloatingAction, inspectItemToast } from '../ui/radial-menu.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
 
 const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
@@ -412,8 +412,6 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
     }
   };
   window.openCampusRadialMenu = function () { openRadialMenu(sim); };
-  window.closeCampusRadialMenu = closeRadialMenu;
-  window.isCampusRadialMenuOpen = isRadialMenuOpen;
   window.triggerCampusFloatingAction = triggerFloatingAction;
 
   window.MycoCampus = window.MycoCampus || {};

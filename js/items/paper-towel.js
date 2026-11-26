@@ -5,6 +5,7 @@
 
 import { registerPickable } from './item-registry.js';
 import { spawnSprayParticles } from './alcohol-spray.js';
+import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 
@@ -66,7 +67,7 @@ export function wipeWithPaperTowel(ctx, wipeInfo) {
   if (ctx && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_wipe');
   if (!wipeInfo || !wipeInfo.target) {
     if (ctx.callbacks && ctx.callbacks.onToast) {
-      ctx.callbacks.onToast('🧻 Aponte para o Fluxo Laminar ou item com Álcool 70% para secar.');
+      ctx.callbacks.onToast(t('items.paperTowel.m1'));
     }
     return;
   }
@@ -81,7 +82,7 @@ export function wipeWithPaperTowel(ctx, wipeInfo) {
     const wasActive = ctx.hoodSanitizedUntil > Date.now();
     if (!hadWet && !wasActive) {
       if (ctx.callbacks && ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('⚠️ Passe primeiro o Álcool 70% no Fluxo Laminar antes de secar com papel.');
+        ctx.callbacks.onToast(t('items.paperTowel.m2'));
       }
       return;
     }

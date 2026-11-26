@@ -4,6 +4,7 @@
 
 import { makeBox } from '../engine/textures.js';
 import { registerPickable } from './item-registry.js';
+import { t } from '../core/i18n.js';
 
 const THREE = window.THREE;
 
@@ -226,13 +227,13 @@ export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}
         ctx.glovesExpired = false;
         ctx.glovesUntil = performance.now() + 160000;
         if (ctx.callbacks && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🧤🧴 Você borrifou Álcool 70% nas suas Luvas Pretas! Esterilidade das mãos renovada por 160s!');
+          ctx.callbacks.onToast(t('items.alcoholSpray.m1'));
         }
         if (ctx.notifyWorldAction) ctx.notifyWorldAction();
         return;
       }
       if (ctx.callbacks && ctx.callbacks.onToast) {
-        ctx.callbacks.onToast('🧴 Aponte para o Fluxo Laminar, bancada ou item próximo para borrifar Álcool 70%.');
+        ctx.callbacks.onToast(t('items.alcoholSpray.m2'));
       }
     }
     return;
@@ -286,7 +287,7 @@ export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}
   if (window.MycoAudio) window.MycoAudio.playClick();
   if (ctx.callbacks && ctx.callbacks.onToast && (!st.alcoholWet || extraWet > 0)) {
     const extraTxt = extraWet > 0 ? ` (+${extraWet} ao redor)` : '';
-    ctx.callbacks.onToast(`🧻 Álcool 70% aplicado em ${label}${extraTxt}! Agora seque com Papel Toalha.`);
+    ctx.callbacks.onToast(t('items.alcoholSpray.m3', { label, extraTxt }));
   }
 }
 

@@ -1,3 +1,8 @@
+import extraUi from './i18n-extra/ui.js';
+import extraActions from './i18n-extra/actions.js';
+import extraContent from './i18n-extra/content.js';
+import extraItems from './i18n-extra/items.js';
+import extraMisc from './i18n-extra/misc.js';
 /**
  * MycoCampus3D — Sistema Multi-Idioma (i18n) Automático & Configurável
  * Suporta Português (pt-BR), Inglês (en) e Espanhol (es).
@@ -48,7 +53,6 @@ export const TRANSLATIONS = {
     'catalog.lettuce': "Alface Crespa Orgânica",
     'catalog.tomato': "Tomateiro Orgânico",
     'catalog.substrate': "Caixa de Substrato da Horta",
-    'hud.catalog': "Catálogo 3D",
     'stand.npc_examining': "Deixa eu ver esses cogumelos…",
     'crate.stack_place': 'Empilhar caixa ({count}/4)',
     'grow.bag_place': "Pronta para colocar no grow",
@@ -75,6 +79,11 @@ export const TRANSLATIONS = {
     'agenda.copied': "Convite copiado. Quem abrir o link entra pelo ponto de encontro depois de fazer login.",
     'grow.panel': 'Abrir painel ESP32',
     'grow.carry': 'Pegar grow',
+    'grow.close_door': 'Fechar grow',
+    'grow.open_door': 'Abrir grow',
+    'grow.door_closed': 'Porta fechada',
+    'grow.door_open': 'Porta aberta',
+    'grow.open_to_access': 'Abra o grow para acessar as prateleiras.',
     'grow.subtitle': 'Controlador ESP32 · LED, umidade e renovação do ar',
     'grow.humidity': 'Umidade (UR)',
     'grow.air': 'Renovação do ar',
@@ -208,6 +217,10 @@ export const TRANSLATIONS = {
 
     'hud.fps_hint': 'WASD anda • Shift corre • Ctrl agacha • Espaço pula • R gira • Clique interage',
     'hud.interact': 'Interagir',
+    'hud.action': 'Ação',
+    'hud.confirm_place': 'Confirmar posição',
+    'hud.pick_aimed': 'Pegar {item}',
+    'hud.harvest_aimed': 'Colher {item}',
     'hud.in_hand': 'Em Mãos',
     'hud.drop': '⬇️ Largar',
     'hud.place': '📦 Posicionar',
@@ -344,7 +357,6 @@ export const TRANSLATIONS = {
     'catalog.lettuce': "Organic Loose-Leaf Lettuce",
     'catalog.tomato': "Organic Tomato Plant",
     'catalog.substrate': "Garden Substrate Box",
-    'hud.catalog': "3D Catalog",
     'stand.npc_examining': "Let me have a look at these mushrooms…",
     'crate.stack_place': 'Stack crate ({count}/4)',
     'grow.bag_place': "Ready to place in the grow tent",
@@ -371,6 +383,11 @@ export const TRANSLATIONS = {
     'agenda.copied': "Invite copied. Friends who sign in from the link arrive at the meeting point.",
     'grow.panel': 'Open ESP32 panel',
     'grow.carry': 'Pick up grow tent',
+    'grow.close_door': 'Close grow tent',
+    'grow.open_door': 'Open grow tent',
+    'grow.door_closed': 'Door closed',
+    'grow.door_open': 'Door open',
+    'grow.open_to_access': 'Open the grow tent to access the shelves.',
     'grow.subtitle': 'ESP32 controller · LED, humidity and air renewal',
     'grow.humidity': 'Humidity (RH)',
     'grow.air': 'Air renewal',
@@ -504,6 +521,10 @@ export const TRANSLATIONS = {
 
     'hud.fps_hint': 'WASD move • Shift sprint • Ctrl crouch • Space jump • R rotate • Click interact',
     'hud.interact': 'Interact',
+    'hud.action': 'Action',
+    'hud.confirm_place': 'Confirm placement',
+    'hud.pick_aimed': 'Pick up {item}',
+    'hud.harvest_aimed': 'Harvest {item}',
     'hud.in_hand': 'In Hand',
     'hud.drop': '⬇️ Drop',
     'hud.place': '📦 Place',
@@ -640,7 +661,6 @@ export const TRANSLATIONS = {
     'catalog.lettuce': "Lechuga crespa orgánica",
     'catalog.tomato': "Tomatera orgánica",
     'catalog.substrate': "Caja de sustrato del huerto",
-    'hud.catalog': "Catálogo 3D",
     'stand.npc_examining': "Voy a mirar estos hongos…",
     'crate.stack_place': 'Apilar caja ({count}/4)',
     'grow.bag_place': "Lista para colocar en el grow",
@@ -667,6 +687,11 @@ export const TRANSLATIONS = {
     'agenda.copied': "Invitación copiada. Quien abra el enlace llegará al punto de encuentro al iniciar sesión.",
     'grow.panel': 'Abrir panel ESP32',
     'grow.carry': 'Recoger grow',
+    'grow.close_door': 'Cerrar grow',
+    'grow.open_door': 'Abrir grow',
+    'grow.door_closed': 'Puerta cerrada',
+    'grow.door_open': 'Puerta abierta',
+    'grow.open_to_access': 'Abre el grow para acceder a los estantes.',
     'grow.subtitle': 'Controlador ESP32 · LED, humedad y renovación del aire',
     'grow.humidity': 'Humedad (HR)',
     'grow.air': 'Renovación del aire',
@@ -800,6 +825,10 @@ export const TRANSLATIONS = {
 
     'hud.fps_hint': 'WASD caminar • Shift correr • Ctrl agacharse • Espacio saltar • R girar • Clic interactuar',
     'hud.interact': 'Interactuar',
+    'hud.action': 'Acción',
+    'hud.confirm_place': 'Confirmar posición',
+    'hud.pick_aimed': 'Recoger {item}',
+    'hud.harvest_aimed': 'Recolectar {item}',
     'hud.in_hand': 'En Mano',
     'hud.drop': '⬇️ Soltar',
     'hud.place': '📦 Colocar',
@@ -906,6 +935,10 @@ export const TRANSLATIONS = {
     'modal.greenhouse_title': '🍄 Invernadero Climatizado'
   }
 };
+
+for (const extra of [extraUi, extraActions, extraContent, extraItems, extraMisc]) {
+  for (const lang of SUPPORTED_LANGS) Object.assign(TRANSLATIONS[lang], extra[lang] || {});
+}
 
 let currentLang = 'pt-BR';
 

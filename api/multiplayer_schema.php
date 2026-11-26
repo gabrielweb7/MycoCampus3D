@@ -474,12 +474,16 @@ function mp_clean_item_state(string $itemId, $raw): ?string {
     }
 
     if (isset($raw['custom']) && is_array($raw['custom'])) {
+        $batchId = $raw['custom']['batchId'] ?? null;
+        if ($batchId !== null && (!is_string($batchId) || !preg_match('/^dried_batch_[a-z0-9_]{2,40}$/D', $batchId))) {
+            unset($raw['custom']['batchId']);
+        }
         if (array_key_exists('grow', $raw['custom'])) {
             $grow = $raw['custom']['grow'];
             unset($raw['custom']['grow']);
             if ($isDyn && is_array($grow)) {
                 $validGrow = [];
-                foreach (['auto', 'led', 'humidifier', 'exhaust', 'mistOn', 'fanOn'] as $key) {
+                foreach (['auto', 'led', 'humidifier', 'exhaust', 'mistOn', 'fanOn', 'doorClosed'] as $key) {
                     if (isset($grow[$key]) && is_bool($grow[$key])) $validGrow[$key] = $grow[$key];
                 }
                 if (isset($grow['slots']) && is_array($grow['slots'])) {

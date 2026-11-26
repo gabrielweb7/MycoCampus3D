@@ -1,3 +1,4 @@
+import { t } from '../core/i18n.js';
 /**
  * MycoCampus3D — Verificador Automático de Atualização do APK Android
  *
@@ -81,18 +82,18 @@ function showApkUpdateModal({ installed, remote }) {
 
   const laterBtnHtml = remote.mandatory
     ? ''
-    : `<button id="btn-apk-update-later" type="button" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700">Lembrar depois</button>`;
+    : `<button id="btn-apk-update-later" type="button" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700">${t('misc.apk.later')}</button>`;
 
   modal.innerHTML = `
     <div class="w-full max-w-sm rounded-2xl bg-slate-900 border border-emerald-500/45 shadow-2xl p-5 space-y-4 text-slate-100">
       <div class="space-y-1 text-center">
         <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/35 text-emerald-300 text-xs font-bold">
-          📲 Atualização do App Disponível
+          📲 ${t('misc.apk.available')}
         </div>
-        <h2 class="text-lg font-extrabold text-white pt-1">Novo APK do MycoCampus3D</h2>
+        <h2 class="text-lg font-extrabold text-white pt-1">${t('misc.apk.newApk')}</h2>
         <p class="text-xs text-slate-300">
-          Sua versão: <span class="font-semibold text-slate-200">v${escapeHtml(installed.versionName)} (${installed.versionCode})</span>
-          → Nova: <span class="font-bold text-emerald-300">v${escapeHtml(remote.versionName)} (${remote.versionCode})</span>
+          ${t('misc.apk.yourVersion')} <span class="font-semibold text-slate-200">v${escapeHtml(installed.versionName)} (${installed.versionCode})</span>
+          → ${t('misc.apk.newLabel')} <span class="font-bold text-emerald-300">v${escapeHtml(remote.versionName)} (${remote.versionCode})</span>
         </p>
       </div>
 
@@ -104,17 +105,17 @@ function showApkUpdateModal({ installed, remote }) {
           target="_blank"
           rel="noopener noreferrer"
           class="block w-full text-center py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold shadow-lg">
-          ⬇️ Baixar Atualização (.apk)
+          ⬇️ ${t('misc.apk.download')}
         </a>
         <button id="btn-apk-copy-link" type="button"
           class="w-full py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-sky-300 text-xs font-semibold border border-slate-700/80">
-          🔗 Copiar link de download
+          🔗 ${t('misc.apk.copyLink')}
         </button>
         ${laterBtnHtml}
       </div>
 
       <p class="text-[11px] text-slate-400 text-center leading-snug">
-        Depois de baixar, abra o arquivo <strong>MycoCampus3D.apk</strong> para atualizar mantendo seu login e progresso.
+        ${t('misc.apk.afterDownload')}
       </p>
     </div>
   `;
@@ -127,7 +128,7 @@ function showApkUpdateModal({ installed, remote }) {
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(remote.apkUrl);
-          copyBtn.textContent = '✅ Link copiado!';
+          copyBtn.textContent = '✅ ' + t('misc.apk.copied');
         } else {
           copyBtn.textContent = remote.apkUrl;
         }

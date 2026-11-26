@@ -10,6 +10,7 @@ import { $, showFloatingToast } from '../ui/dom-helpers.js';
 import { applySlideTo3D } from '../ui/hud-lobby.js';
 import { markPendingAutoUpdateNotice } from '../ui/whats-new-modal.js';
 import { forceCacheBustReload } from '../core/version-updater.js';
+import { t } from '../core/i18n.js';
 import { getLocalPetPose, updateRemotePets } from '../entities/pets.js';
 
 export async function syncMultiplayer(forceHeldState = false) {
@@ -82,7 +83,7 @@ export async function syncMultiplayer(forceHeldState = false) {
     if (data && data.kicked) {
       if (appState.syncTimer) clearInterval(appState.syncTimer);
       appState.syncTimer = null;
-      alert(data.error || 'Você foi desconectado pelo Administrador.');
+      alert(data.error || t('misc.mp.kicked'));
       window.location.reload();
       return false;
     }
@@ -97,7 +98,7 @@ export async function syncMultiplayer(forceHeldState = false) {
           data.force_teleport.z,
           data.force_teleport.yaw
         );
-        showFloatingToast('🧲 Você foi teletransportado pelo Administrador Master!');
+        showFloatingToast('🧲 ' + t('misc.mp.teleported'));
       }
 
       if (data.app_version && window.MYCO_VERSION && data.app_version !== window.MYCO_VERSION && !window._reloadingVersion) {
@@ -106,7 +107,7 @@ export async function syncMultiplayer(forceHeldState = false) {
           delayMs: 1200,
           onBeforeReload: (nextVer) => {
             markPendingAutoUpdateNotice(nextVer);
-            showFloatingToast(`🔄 Nova versão v${nextVer} disponível! Limpando cache e atualizando...`);
+            showFloatingToast('🔄 ' + t('misc.mp.newVersion', {ver:nextVer}));
           }
         });
         if (reloaded || !isCurrent()) return false;
@@ -165,7 +166,7 @@ export async function syncMultiplayer(forceHeldState = false) {
       if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;
       if (typeof data.board_last_id === 'number' && data.board_last_id > appState.boardLastId) appState.boardLastId = data.board_last_id;
       if (appState.syncFailures >= 3 && !globalThis.document?.hidden) {
-        showFloatingToast('✅ Conexão com o campus restabelecida.', 3000);
+        showFloatingToast('✅ ' + t('misc.mp.restored'), 3000);
       }
       appState.syncFailures = 0;
       return true;
@@ -176,7 +177,7 @@ export async function syncMultiplayer(forceHeldState = false) {
     if (!isCurrent()) return false;
     appState.syncFailures++;
     if (appState.syncFailures === 3 && !globalThis.document?.hidden) {
-      showFloatingToast('⚠️ Conexão instável. Tentando sincronizar novamente…', 4500);
+      showFloatingToast('⚠️ ' + t('misc.mp.unstable'), 4500);
     }
     if (firstSync) appState.isInitialSync = true;
     if (chatToSend && !appState.pendingChatMsg) appState.pendingChatMsg = chatToSend;

@@ -14,6 +14,7 @@ import {
   isCultureIncubationTemperatureSuitable,
   stepCultureShelfLife
 } from './culture-lifecycle.js';
+import { t as tr } from '../core/i18n.js';
 
 const THREE = window.THREE;
 const PETRI_SIDE_RADIUS = 0.06;
@@ -414,7 +415,7 @@ export function stepPetriCultures(ctx, dt) {
         if (!ctrl.sporeContaminated) {
           ctrl.sporeContaminated = true;
           if (ctx.callbacks && ctx.callbacks.onToast) {
-            ctx.callbacks.onToast('⚠️ Carimbo de Esporos aberto fora do Fluxo Laminar! Esporos de mofo do ar caíram sobre a amostra.');
+            ctx.callbacks.onToast(tr('items.petriDish.m1'));
           }
         }
         continue;
@@ -426,7 +427,7 @@ export function stepPetriCultures(ctx, dt) {
       ctrl.contaminated = true;
       ctrl.expired = false;
       updatePetriVisual(item);
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast('🦠 A placa aberta fora do Fluxo Laminar foi contaminada.');
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast(tr('items.petriDish.m2'));
       ctx.notifyWorldAction();
       continue;
     }
@@ -447,7 +448,7 @@ export function stepPetriCultures(ctx, dt) {
         ctrl.contaminated = true;
         updatePetriVisual(item);
         if (ctx.callbacks && ctx.callbacks.onToast) {
-          ctx.callbacks.onToast('🦠 Contaminação surgiu durante a colonização! Use luvas, álcool 70%, fluxo laminar e parafilme.');
+          ctx.callbacks.onToast(tr('items.petriDish.m3'));
         }
         ctx.notifyWorldAction();
         continue;
@@ -468,7 +469,7 @@ export function stepPetriCultures(ctx, dt) {
       if (lifeStep === 2) {
         ctrl.mode = 'contam';
         updatePetriVisual(item);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast('🕒 Uma cultura venceu: descarte a placa ou prepare uma nova transferência.');
+        if (ctx.callbacks.onToast) ctx.callbacks.onToast(tr('items.petriDish.m4'));
         ctx.notifyWorldAction();
       } else if (ctrl.refrigerated !== ctrl.lastRenderedRefrigerated || lifeStep === 1) {
         updatePetriVisual(item);
