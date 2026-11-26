@@ -411,6 +411,14 @@ test('formatHoverInfo: deduplica nome repetido do item no action e preserva vari
   assert.ok(info);
   assert.ok(info.title.includes('\uFE0F'), 'deve preservar \\uFE0F para emoji colorido no iOS/Android');
   assert.equal(info.action, 'Abrir', 'não deve repetir o título Armário de 2 Alturas na linha de ação');
+
+  const mush = formatHoverInfo('🍄 Colher Cantarelo Dourado (Cantharellus cibarius) (+25 XP • +1 Cogu)', {
+    label: 'Cantarelo Dourado (Cantharellus cibarius)'
+  });
+  assert.ok(mush);
+  assert.equal(mush.title, '🍄 Cantarelo Dourado');
+  assert.equal(mush.params, 'Cantharellus cibarius • +25 XP • +1 Cogu');
+  assert.equal(mush.action, 'Colher');
 });
 
 test('10 Novas Mecânicas de Imersão: Break & Shake, Flambagem na Lamparina, Microscópio 1000x, Casing, Dunk e Pote c/ Sílica Gel', () => {

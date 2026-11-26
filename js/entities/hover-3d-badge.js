@@ -93,38 +93,45 @@ export function formatHoverInfo(prompt, targetObj) {
   let params = '';
   let action = prompt.trim();
 
-  // 1. Extrai primeiro bloco de parênteses balanceado (suporta parênteses aninhados)
-  let parenOuter = null;
-  const openIdx = action.indexOf('(');
-  if (openIdx !== -1) {
+  // 1. Extrai TODOS os blocos de parênteses balanceados antes de dividir por " • " / " — "
+  const parenOuters = [];
+  const paramParts = [];
+  while (true) {
+    const openIdx = action.indexOf('(');
+    if (openIdx === -1) break;
     let depth = 0;
+    let closeIdx = -1;
     for (let i = openIdx; i < action.length; i++) {
       if (action[i] === '(') depth++;
       else if (action[i] === ')') {
         depth--;
         if (depth === 0) {
-          parenOuter = action.slice(openIdx, i + 1);
-          params = action.slice(openIdx + 1, i).trim();
-          action = (action.slice(0, openIdx) + action.slice(i + 1)).replace(/\s{2,}/g, ' ').trim();
+          closeIdx = i;
           break;
         }
       }
     }
+    if (closeIdx === -1) break;
+    const outer = action.slice(openIdx, closeIdx + 1);
+    const inner = action.slice(openIdx + 1, closeIdx).trim();
+    parenOuters.push(outer);
+    if (inner) paramParts.push(inner);
+    action = (action.slice(0, openIdx) + action.slice(closeIdx + 1)).replace(/\s{2,}/g, ' ').trim();
   }
 
   // 2. Extrai traço separador " — " ou " • "
   if (action.includes(' — ')) {
     const parts = action.split(' — ');
     action = parts[0].trim();
-    params = params ? (params + ' • ' + parts.slice(1).join(' • ').trim()) : parts.slice(1).join(' • ').trim();
+    const extra = parts.slice(1).map((p) => p.trim()).filter(Boolean);
+    paramParts.push(...extra);
   } else if (action.includes(' • ')) {
     const parts = action.split(' • ');
     action = parts[0].trim();
-    const extraParams = parts.slice(1).join(' • ').trim();
-    if (extraParams) {
-      params = params ? (params + ' • ' + extraParams) : extraParams;
-    }
+    const extra = parts.slice(1).map((p) => p.trim()).filter(Boolean);
+    paramParts.push(...extra);
   }
+  params = paramParts.join(' • ');
 
   // 3. Define título com base no alvo ou ação (preservando emoji completo com \uFE0F!)
   const emojiMatch = prompt.trim().match(LEADING_EMOJI_RE);
@@ -143,8 +150,12 @@ export function formatHoverInfo(prompt, targetObj) {
   if (params) {
     if (title.includes(params)) {
       params = '';
-    } else if (parenOuter && title.includes(parenOuter)) {
-      title = title.replace(parenOuter, '').replace(/\s+•.*$/, '').trim();
+    } else {
+      for (const po of parenOuters) {
+        if (title.includes(po)) {
+          title = title.replace(po, '').replace(/\s+•.*$/, '').trim();
+        }
+      }
     }
   }
 
@@ -153,18 +164,35 @@ export function formatHoverInfo(prompt, targetObj) {
   const cleanTitle = stripEmojis(title);
   const cleanTitleNoParen = cleanTitle.replace(/\s*\([^)]+\)/g, '').trim();
 
-  // Remove duplicação do nome do objeto dentro da linha de ação (ex: "Abrir Armário de 2 Alturas" -> "Abrir")
+  // Remove duplicação do nome do objeto dentro da linha de ação (em qualquer posição, ex: "Colher Cantarelo Dourado" -> "Colher")
   if (cleanTitleNoParen && cleanAction.length > cleanTitleNoParen.length) {
     const escapedTitle = cleanTitleNoParen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const trailingTitleRe = new RegExp(`(?:\\s+(?:em|no|na|do|da|de|para|com))?\\s*${escapedTitle}$`, 'i');
-    if (trailingTitleRe.test(cleanAction)) {
-      cleanAction = cleanAction.replace(trailingTitleRe, '').trim();
+    const dupTitleRe = new RegExp(`(?:\\s+(?:em|no|na|do|da|de|para|com|in|on|at|the|en|el|la|del))?\\s*${escapedTitle}(?=\\s|$)`, 'i');
+    if (dupTitleRe.test(cleanAction)) {
+      cleanAction = cleanAction.replace(dupTitleRe, '').replace(/\s{2,}/g, ' ').trim();
     }
+  }
+
+  // Deduplica segmentos repetidos em params e remove se repetir o próprio título
+  if (params) {
+    const seenParams = new Set();
+    const cleanLower = cleanTitleNoParen.toLowerCase();
+    params = params
+      .split(' • ')
+      .map((p) => p.trim())
+      .filter((p) => {
+        if (!p) return false;
+        const low = p.toLowerCase();
+        if (low === cleanLower || seenParams.has(low)) return false;
+        seenParams.add(low);
+        return true;
+      })
+      .join(' • ');
   }
 
   if (
     !cleanAction ||
-    /^Pegar\b/i.test(cleanAction) ||
+    /^(?:Pegar|Pick(?:\s+up)?|Recoger)\b/i.test(cleanAction) ||
     cleanAction.toLowerCase() === cleanTitle.toLowerCase() ||
     cleanAction.toLowerCase() === cleanTitleNoParen.toLowerCase()
   ) {
