@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { ExtrudeGeometry, LatheGeometry, Shape, ShapeGeometry } from '../js/vendor/three.bundle.min.js';
 
 const store = {};
 globalThis.localStorage = {
@@ -80,6 +81,10 @@ globalThis.window = {
     BufferGeometry: fakeGeom,
     BufferAttribute: class {},
     CylinderGeometry: fakeGeom,
+    ExtrudeGeometry,
+    LatheGeometry,
+    Shape,
+    ShapeGeometry,
     BoxGeometry: fakeGeom,
     SphereGeometry: fakeGeom,
     ConeGeometry: fakeGeom,

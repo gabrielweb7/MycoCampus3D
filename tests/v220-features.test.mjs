@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { ExtrudeGeometry, Shape, ShapeGeometry } from '../js/vendor/three.bundle.min.js';
 
 class MockVec3 {
   constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
@@ -75,6 +76,9 @@ globalThis.window = {
     IcosahedronGeometry: MockGeo,
     RingGeometry: MockGeo,
     LatheGeometry: MockGeo,
+    ExtrudeGeometry,
+    Shape,
+    ShapeGeometry,
     TubeGeometry: MockGeo,
     CatmullRomCurve3: class { constructor(pts) { this.points = pts || []; } },
     MeshStandardMaterial: MockMat,

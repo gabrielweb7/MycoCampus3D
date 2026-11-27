@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.10.9] - 2026-11-26
+
+- Oito modelos 3D de laboratório ganharam formas low-poly, bordas chanfradas e cores foscas: agitador, balança, microscópio, desidratadora, seladora e três borrifadores.
+- O visor do catálogo usa iluminação mais suave e um fundo limpo para realçar os modelos e recipientes transparentes.
+
 ## [v2.10.8] - 2026-11-26
 
 - Equipamentos adicionados durante a partida respeitam o limite de luzes da cena. Caixas comerciais e pacotes exigem menos chamadas de desenho.

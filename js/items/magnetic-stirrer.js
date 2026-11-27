@@ -2,7 +2,7 @@
  * Agitador Magnetico MYCO-MAG (MycoCampus3D)
  */
 
-import { makeBox } from '../engine/textures.js';
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { isPdaRecipeBalanced, PDA_MIX_TIME_SECONDS, updatePdaMediumVisual } from './pda-mix.js';
 import { t } from '../core/i18n.js';
@@ -20,22 +20,23 @@ export const MAGNETIC_STIRRER_META = {
 
 export function makeMagneticStirrer(ctx, id, px, py, pz) {
   const sg = new THREE.Group();
-  const baseMat = new THREE.MeshStandardMaterial({ color: 0xe6d4aa, roughness: 0.67, metalness: 0.08 });
-  const plateMat = new THREE.MeshStandardMaterial({ color: 0xd9edf0, metalness: 0.28, roughness: 0.38 });
-  const body = makeBox(0.30, 0.078, 0.28, baseMat, { roughness: 0.35 });
-  body.position.set(0, 0.039, -0.04);
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0xe9d9bd, roughness: 0.68 });
+  const body = makeChamferedBox(0.30, 0.062, 0.28, 0.008, 0xe1c99e);
+  body.position.set(0, 0.048, -0.04);
+  const foot = makeChamferedBox(0.294, 0.023, 0.274, 0.005, 0x73806a);
+  foot.position.set(0, 0.012, -0.04);
   const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.118, 0.018, 24), plateMat);
   plate.position.set(0, 0.088, -0.04);
-  const plateRim = new THREE.Mesh(new THREE.TorusGeometry(0.116, 0.006, 8, 24), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7 }));
+  const plateRim = new THREE.Mesh(new THREE.TorusGeometry(0.116, 0.004, 4, 16), new THREE.MeshStandardMaterial({ color: 0x9d927c, roughness: 0.75 }));
   plateRim.rotation.x = Math.PI / 2; plateRim.position.set(0, 0.082, -0.04);
 
   const pCan = document.createElement('canvas'); pCan.width = 256; pCan.height = 96;
   const pCtx = pCan.getContext('2d');
-  pCtx.fillStyle = '#215653'; pCtx.fillRect(0, 0, 256, 96);
+  pCtx.fillStyle = '#586753'; pCtx.fillRect(0, 0, 256, 96);
   pCtx.fillStyle = '#ffffff'; pCtx.font = 'bold 18px system-ui, sans-serif';
-  pCtx.textAlign = 'center'; pCtx.fillText('IKA • MYCO-MAG SH-2', 128, 22);
+  pCtx.textAlign = 'center'; pCtx.fillText('MYCO-MAG', 128, 22);
   pCtx.font = 'bold 12px system-ui, sans-serif';
-  pCtx.fillStyle = '#c6ede4';
+  pCtx.fillStyle = '#f1dec0';
   pCtx.fillText('STIRRING', 56, 84);
   pCtx.fillText('POWER', 128, 84);
   pCtx.fillText('HEATING', 200, 84);
@@ -47,10 +48,12 @@ export function makeMagneticStirrer(ctx, id, px, py, pz) {
 
   function makeRotaryKnob(kx) {
     const kg = new THREE.Group();
-    const kBase = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.021, 0.016, 16), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }));
-    const kCap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.006, 16), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.2 }));
+    const kBase = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.026, 0.016, 10), new THREE.MeshStandardMaterial({ color: 0xaa583b, roughness: 0.68 }));
+    const kCap = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.021, 0.006, 10), new THREE.MeshStandardMaterial({ color: 0xd98762, roughness: 0.72 }));
     kCap.position.y = 0.010;
-    kg.add(kBase, kCap);
+    const marker = makeChamferedBox(0.003, 0.002, 0.009, 0.0005, 0xf0dec1);
+    marker.position.set(0, 0.014, -0.01);
+    kg.add(kBase, kCap, marker);
     kg.rotation.x = Math.PI / 2 - 1.15;
     kg.position.set(kx, 0.056, 0.135);
     return kg;
@@ -63,7 +66,7 @@ export function makeMagneticStirrer(ctx, id, px, py, pz) {
   ledBezel.position.set(0, 0.052, 0.139);
   const powerLed = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 10), ledMat);
   powerLed.position.set(0, 0.056, 0.145);
-  sg.add(body, plate, plateRim, frontPanel, knob1, knob2, ledBezel, powerLed);
+  sg.add(body, foot, plate, plateRim, frontPanel, knob1, knob2, ledBezel, powerLed);
 
   const stirSurf = { minX: px - 0.13, maxX: px + 0.13, minZ: pz - 0.16, maxZ: pz + 0.08, topY: py + 0.098 };
   ctx.supportSurfaces.push(stirSurf);

@@ -11,6 +11,7 @@
 
 import { getCultureOriginLabel } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { updateScalpelLabel } from './scalpel.js';
@@ -241,20 +242,28 @@ export function stepAlcoholLamps(ctx, dt) {
 // ============================================================================
 export function makeLabMicroscope(ctx, id, px, py, pz) {
   const g = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.32, metalness: 0.25 });
-  const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.72 });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe6cca6, roughness: 0.72 });
+  const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x626e58, roughness: 0.76 });
   const lensMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.55, roughness: 0.1 });
 
-  const base = makeBox(0.18, 0.032, 0.22, darkMetalMat);
+  const base = makeChamferedBox(0.18, 0.032, 0.22, 0.008, darkMetalMat);
   base.position.y = 0.016;
   const lightWell = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.018, 14), lensMat);
   lightWell.position.set(0, 0.038, 0.03);
 
-  const arm = makeBox(0.042, 0.24, 0.045, bodyMat);
-  arm.position.set(0, 0.14, -0.065);
-  arm.rotation.x = 0.15;
+  const arm = makeChamferedBox(0.055, 0.155, 0.061, 0.012, bodyMat);
+  arm.position.set(0, 0.109, -0.066);
+  arm.rotation.x = -0.16;
+  const shoulder = makeChamferedBox(0.064, 0.125, 0.065, 0.014, bodyMat);
+  shoulder.position.set(0, 0.207, -0.064);
+  shoulder.rotation.x = 0.46;
+  const focus = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.027, 0.012, 12), darkMetalMat);
+  focus.rotation.z = Math.PI / 2;
+  focus.position.set(0.033, 0.108, -0.061);
+  const oppositeFocus = focus.clone();
+  oppositeFocus.position.x *= -1;
 
-  const stage = makeBox(0.13, 0.012, 0.12, darkMetalMat);
+  const stage = makeChamferedBox(0.13, 0.012, 0.12, 0.004, 0x464740);
   stage.position.set(0, 0.13, 0.025);
 
   // Lâmina de vidro com lamínula em cima do estágio!
@@ -269,13 +278,17 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
   const glassSlide = makeBox(0.075, 0.004, 0.026, slideMat, { noShadow: true });
   glassSlide.position.set(0, 0.138, 0.025);
 
-  const head = makeBox(0.08, 0.065, 0.11, bodyMat);
+  const head = makeChamferedBox(0.09, 0.065, 0.11, 0.013, bodyMat);
   head.position.set(0, 0.26, -0.01);
 
+  const scopeGlass = new THREE.MeshStandardMaterial({ color: 0x334640, roughness: 0.38 });
   [-0.022, 0.022].forEach((ox) => {
-    const eyepiece = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.075, 12), darkMetalMat);
+    const eyepiece = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.013, 0.062, 10), darkMetalMat);
     eyepiece.position.set(ox, 0.31, 0.035);
     eyepiece.rotation.x = -0.55;
+    const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.002, 10), scopeGlass);
+    glass.position.y = 0.032;
+    eyepiece.add(glass);
     g.add(eyepiece);
   });
 
@@ -283,12 +296,12 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
   const revolver = new THREE.Group();
   revolver.position.set(0, 0.22, 0.025);
   [-0.02, 0, 0.02].forEach((ox, idx) => {
-    const objLens = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.009, 0.038 + idx * 0.006, 10), darkMetalMat);
+    const objLens = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.009, 0.038 + idx * 0.006, 10), bodyMat);
     objLens.position.set(ox, -0.02, 0);
     revolver.add(objLens);
   });
 
-  g.add(base, lightWell, arm, stage, glassSlide, head, revolver);
+  g.add(base, lightWell, arm, shoulder, focus, oppositeFocus, stage, glassSlide, head, revolver);
   g.userData.isMicroscope = true;
 
   const item = registerPickable(

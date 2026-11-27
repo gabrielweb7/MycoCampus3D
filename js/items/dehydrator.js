@@ -210,23 +210,32 @@ export function getDehydratorActionLabel(item) {
 export function makeDehydrator(ctx, id, px, py, pz) {
   const g = new THREE.Group();
   const base = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.18, 0.19, 0.07, 16),
-    new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.3 })
+    new THREE.LatheGeometry([
+      new THREE.Vector2(0, 0), new THREE.Vector2(0.178, 0), new THREE.Vector2(0.19, 0.012),
+      new THREE.Vector2(0.19, 0.058), new THREE.Vector2(0.177, 0.07), new THREE.Vector2(0, 0.07)
+    ], 16),
+    new THREE.MeshStandardMaterial({ color: 0xbb6d50, roughness: 0.78, flatShading: true })
   );
-  base.position.y = 0.035;
   const chamber = new THREE.Mesh(
     new THREE.CylinderGeometry(0.165, 0.165, 0.18, 16),
-    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.38, roughness: 0.15, depthWrite: false })
+    new THREE.MeshStandardMaterial({ color: 0x9cb6bf, transparent: true, opacity: 0.23, roughness: 0.3, depthWrite: false })
   );
   chamber.position.y = 0.16;
   const lid = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.175, 0.175, 0.03, 16),
-    new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.35 })
+    new THREE.CylinderGeometry(0.142, 0.175, 0.026, 16),
+    new THREE.MeshStandardMaterial({ color: 0x8b9ea7, roughness: 0.67, flatShading: true })
   );
-  lid.position.y = 0.265;
+  lid.position.y = 0.263;
+  const sage = new THREE.MeshStandardMaterial({ color: 0x71826a, roughness: 0.8, flatShading: true });
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.048, 0.015, 10), sage);
+  handle.position.y = 0.283;
+  const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.021, 0.010, 10), sage);
+  bezel.rotation.x = Math.PI / 2;
+  bezel.position.set(0, 0.037, 0.19);
   const ledMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
   const led = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), ledMat);
-  led.position.set(0, 0.04, 0.186);
+  led.position.set(0, 0.037, 0.198);
+  led.scale.setScalar(0.64);
 
   const heatGlowMat = new THREE.MeshStandardMaterial({
     color: 0xf97316,
@@ -241,11 +250,19 @@ export function makeDehydrator(ctx, id, px, py, pz) {
   heatRing.position.y = 0.075;
 
   // 2 bandejas perfuradas internas + ventoinha giratória no topo
-  const trayMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.65, roughness: 0.35, transparent: true, opacity: 0.72 });
+  const trayMat = new THREE.MeshStandardMaterial({ color: 0xc3cbd0, roughness: 0.72, flatShading: true });
   const rack1 = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.145, 0.006, 16), trayMat);
   rack1.position.y = 0.105;
   const rack2 = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.145, 0.006, 16), trayMat);
   rack2.position.y = 0.175;
+  const rackRim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.162, 0.005, 4, 16),
+    new THREE.MeshStandardMaterial({ color: 0x8399a3, roughness: 0.68 })
+  );
+  rackRim.rotation.x = Math.PI / 2;
+  rackRim.position.y = rack1.position.y;
+  const upperRim = rackRim.clone();
+  upperRim.position.y = rack2.position.y;
   const fanGroup = new THREE.Group();
   fanGroup.position.y = 0.242;
   const fanMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
@@ -275,7 +292,7 @@ export function makeDehydrator(ctx, id, px, py, pz) {
     mushGroup.add(sub);
   });
 
-  g.add(base, heatRing, rack1, rack2, fanGroup, chamber, lid, led, mushGroup);
+  g.add(base, heatRing, rack1, rack2, rackRim, upperRim, fanGroup, chamber, lid, handle, bezel, led, mushGroup);
 
   const item = registerPickable(ctx, id, 'Desidratadora de Cogumelos • Desligada', g, px, py, pz, 0, 0.20, 0.28, DEHYDRATOR_META);
   item.dehydratorCtrl = {

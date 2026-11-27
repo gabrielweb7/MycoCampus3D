@@ -3,7 +3,7 @@
  */
 
 import { GAME_CONFIG } from '../core/config.js';
-import { makeBox } from '../engine/textures.js';
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied, getItemWeightGrams, makeRoundedRectShape } from './item-registry.js';
 
 export const PRECISION_SCALE_META = {
@@ -29,10 +29,10 @@ export function createPrecisionScale(ctx, id, sx, sy, sz) {
     scaleBodyGeometry.translate(0, 0.005, 0);
     scaleBodyGeometry.userData.shared = true;
   }
-  const body = new THREE.Mesh(scaleBodyGeometry, new THREE.MeshStandardMaterial({ color: 0x256763, roughness: 0.67 }));
+  const body = new THREE.Mesh(scaleBodyGeometry, new THREE.MeshStandardMaterial({ color: 0x759784, roughness: 0.67 }));
   body.castShadow = true;
   body.receiveShadow = true;
-  const pan = makeBox(0.28, 0.016, 0.26, 0xd9edf0, { metalness: 0.28, roughness: 0.38 });
+  const pan = makeChamferedBox(0.28, 0.016, 0.26, 0.004, 0xead9bb);
   pan.position.set(0, 0.073, -0.04);
   const lcdC = document.createElement('canvas'); lcdC.width = 256; lcdC.height = 96;
   const lcdCtx = lcdC.getContext('2d');
@@ -41,9 +41,11 @@ export function createPrecisionScale(ctx, id, sx, sy, sz) {
   const lcdScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.068), new THREE.MeshBasicMaterial({ map: lcdTex, toneMapped: false }));
   lcdScreen.position.set(-0.042, 0.066, 0.132);
   lcdScreen.rotation.x = -Math.PI / 2;
-  const tareBtn = makeBox(0.06, 0.012, 0.052, 0xf5bf69, { noShadow: true });
+  const tareBtn = makeChamferedBox(0.06, 0.012, 0.052, 0.004, 0xe9a35c);
   tareBtn.position.set(0.094, 0.069, 0.132);
-  sg.add(body, pan, lcdScreen, tareBtn);
+  const trim = makeChamferedBox(0.32, 0.018, 0.38, 0.004, 0xd9c4a1);
+  trim.position.y = 0.009;
+  sg.add(body, trim, pan, lcdScreen, tareBtn);
 
   const scSurf = { minX: sx - 0.15, maxX: sx + 0.15, minZ: sz - 0.18, maxZ: sz + 0.10, topY: sy + 0.082 };
   ctx.supportSurfaces.push(scSurf);

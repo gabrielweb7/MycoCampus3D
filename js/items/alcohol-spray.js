@@ -2,7 +2,7 @@
  * Borrifador Alcool 70%, Particulas de Spray e Higienizacao Universal 3x (MycoCampus3D)
  */
 
-import { makeBox } from '../engine/textures.js';
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { registerPickable } from './item-registry.js';
 import { getHoodSanitationContext } from './laminar-hood.js';
 import { t } from '../core/i18n.js';
@@ -36,30 +36,55 @@ export const WATER_SPRAY_META = {
   connections: ['monotub', 'greenhouse_slot', 'distilled_jug', 'lab_sink']
 };
 
+function makeSprayModel(bodyColor, accent, withProxy = true) {
+  const group = new THREE.Group();
+  const cream = new THREE.MeshStandardMaterial({ color: 0xead6b7, roughness: 0.76 });
+  const trim = new THREE.MeshStandardMaterial({ color: accent, roughness: 0.76, flatShading: true });
+  const profile = [
+    [0, 0], [0.048, 0], [0.059, 0.013], [0.059, 0.137],
+    [0.053, 0.155], [0.027, 0.181], [0.024, 0.205], [0, 0.205]
+  ].map(([radius, y]) => new THREE.Vector2(radius, y));
+  const bottle = new THREE.Mesh(new THREE.LatheGeometry(profile, 12, Math.PI / 12),
+    new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.75, flatShading: true }));
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(0.060, 0.060, 0.047, 12, 1, true, Math.PI / 12), cream);
+  label.position.y = 0.079;
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.060, 0.060, 0.009, 12, 1, true, Math.PI / 12), trim);
+  stripe.position.y = 0.051;
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.029, 0.026, 12), trim);
+  collar.position.y = 0.195;
+
+  const nozzle = makeChamferedBox(0.044, 0.040, 0.077, 0.009, cream);
+  nozzle.position.set(0, 0.23, 0.025);
+  const tip = makeChamferedBox(0.034, 0.028, 0.010, 0.004, trim);
+  tip.position.z = 0.039;
+  nozzle.add(tip);
+  const trigger = makeChamferedBox(0.015, 0.047, 0.017, 0.004, trim);
+  trigger.rotation.x = -0.34;
+  trigger.position.set(0, 0.207, 0.042);
+
+  const drop = new THREE.Shape();
+  drop.moveTo(0, 0.013);
+  drop.quadraticCurveTo(0.018, -0.008, 0, -0.011);
+  drop.quadraticCurveTo(-0.018, -0.008, 0, 0.013);
+  const emblem = new THREE.Mesh(new THREE.ShapeGeometry(drop, 4), trim);
+  emblem.position.set(0, 0.080, 0.061);
+  group.add(bottle, label, stripe, collar, nozzle, trigger, emblem);
+
+  if (withProxy) {
+    // Volume invisível para facilitar a seleção com mouse e toque.
+    const hitProxy = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.11, 0.11, 0.28, 8),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    hitProxy.visible = false;
+    hitProxy.position.y = 0.14;
+    group.add(hitProxy);
+  }
+  return { group, nozzle, trigger };
+}
+
 export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
-  const ag = new THREE.Group();
-  const bottle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.055, 0.062, 0.18, 16),
-    new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, roughness: 0.25 })
-  );
-  bottle.position.y = 0.09;
-  const neck = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.022, 0.036, 0.05, 12),
-    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 })
-  );
-  neck.position.y = 0.205;
-  const nozzle = makeBox(0.028, 0.028, 0.08, 0xf8fafc, { noShadow: true });
-  nozzle.position.set(0, 0.235, 0.025);
-  const trig = makeBox(0.012, 0.045, 0.018, 0x0284c7, { noShadow: true });
-  trig.position.set(0, 0.212, 0.042);
-  // Hitbox invisível ampliada para facilitar clique/toque no borrifador
-  const hitProxy = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.11, 0.11, 0.28, 8),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
-  );
-  hitProxy.visible = false;
-  hitProxy.position.y = 0.14;
-  ag.add(bottle, neck, nozzle, trig, hitProxy);
+  const { group: ag, nozzle, trigger: trig } = makeSprayModel(0xd9876a, 0x667e68);
   ag.userData.isAlcoholSpray = true;
   ag.userData.sprayTrig = trig;
   ag.userData.sprayNozzle = nozzle;
@@ -79,60 +104,14 @@ export const H2O2_SPRAY_META = {
 };
 
 export function makeH2O2SprayBottle(ctx, id, px, py, pz) {
-  const ag = new THREE.Group();
-  const bottle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.052, 0.058, 0.17, 16),
-    new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.35 })
-  );
-  bottle.position.y = 0.085;
-  const band = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.054, 0.055, 0.065, 16),
-    new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.4 })
-  );
-  band.position.y = 0.095;
-  const neck = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.020, 0.032, 0.045, 12),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 })
-  );
-  neck.position.y = 0.19;
-  const nozzle = makeBox(0.026, 0.026, 0.072, 0xffffff, { noShadow: true });
-  nozzle.position.set(0, 0.218, 0.022);
-  const trig = makeBox(0.011, 0.040, 0.016, 0x0284c7, { noShadow: true });
-  trig.position.set(0, 0.198, 0.038);
-  ag.add(bottle, band, neck, nozzle, trig);
+  const { group: ag, trigger: trig } = makeSprayModel(0xdfcc9e, 0x847099, false);
   ag.userData.isH2O2Spray = true;
   ag.userData.sprayTrig = trig;
   return registerPickable(ctx, id, '🫧 Borrifador Água Oxigenada 3% (H₂O₂)', ag, px, py, pz, Math.PI / 2, 0.12, 0.25, H2O2_SPRAY_META);
 }
 
 export function makeWaterSprayBottle(ctx, id, px, py, pz) {
-  const wg = new THREE.Group();
-  const bottle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.055, 0.062, 0.18, 16),
-    new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.72, roughness: 0.18 })
-  );
-  bottle.position.y = 0.09;
-  const band = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.058, 0.058, 0.048, 16),
-    new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.35 })
-  );
-  band.position.y = 0.095;
-  const neck = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.022, 0.036, 0.05, 12),
-    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 })
-  );
-  neck.position.y = 0.205;
-  const nozzle = makeBox(0.028, 0.028, 0.08, 0x38bdf8, { noShadow: true });
-  nozzle.position.set(0, 0.235, 0.025);
-  const trig = makeBox(0.012, 0.045, 0.018, 0xf8fafc, { noShadow: true });
-  trig.position.set(0, 0.212, 0.042);
-  const hitProxy = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.11, 0.11, 0.28, 8),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
-  );
-  hitProxy.visible = false;
-  hitProxy.position.y = 0.14;
-  wg.add(bottle, band, neck, nozzle, trig, hitProxy);
+  const { group: wg, nozzle, trigger: trig } = makeSprayModel(0x79aeb8, 0x537389);
   wg.userData.isWaterSpray = true;
   wg.userData.sprayTrig = trig;
   wg.userData.sprayNozzle = nozzle;

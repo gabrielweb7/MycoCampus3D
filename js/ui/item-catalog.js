@@ -129,22 +129,17 @@ function createViewer() {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x273030, 0.055);
   const camera = new THREE.PerspectiveCamera(37, 1, 0.05, 48);
   const pivot = new THREE.Group();
-  scene.add(pivot, new THREE.HemisphereLight(0xe4f1eb, 0x969181, 1.1));
-  const key = new THREE.DirectionalLight(0xfff1d8, 1.65);
+  scene.add(pivot, new THREE.HemisphereLight(0xfff3e0, 0x807981, 0.54));
+  const key = new THREE.DirectionalLight(0xffedda, 0.95);
   key.position.set(-3.8, 6, 4.5);
-  const edge = new THREE.DirectionalLight(0xa2dcd9, 1.7);
+  const edge = new THREE.DirectionalLight(0xe1edff, 0.48);
   edge.position.set(4, 5, -5);
   scene.add(key, edge);
 
-  const grid = new THREE.GridHelper(80, 80, 0x738983, 0x516360);
-  grid.material.transparent = true;
-  grid.material.opacity = 0.28;
-  scene.add(grid);
   const disk = new THREE.Mesh(new THREE.CylinderGeometry(1.68, 1.71, 0.115, 64),
-    new THREE.MeshStandardMaterial({ color: 0x414d4b, roughness: 0.86, metalness: 0.08 }));
+    new THREE.MeshStandardMaterial({ color: 0x3b514b, roughness: 0.9 }));
   scene.add(disk);
   const accent = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.011, 5, 80),
     new THREE.MeshBasicMaterial({ color: 0x83a598, transparent: true, opacity: 0.6 }));
@@ -217,7 +212,6 @@ function createViewer() {
     holder.add(model);
     pivot.add(holder);
     const groundY = -dimensions.y * scale / 2 - 0.018;
-    grid.position.y = groundY - 0.135;
     disk.position.y = groundY - 0.06;
     accent.position.y = groundY + 0.002;
     ready = true;
