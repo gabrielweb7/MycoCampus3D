@@ -62,6 +62,8 @@ export function createHeatSealer(ctx, id, px, py, pz) {
   const item = registerPickable(ctx, id, 'Seladora Térmica de Bags', sealerGroup, px, py, pz, Math.PI / 2, 0.28, 0.28, HEAT_SEALER_META);
   let sealTimer = null;
   item.sealerCtrl = {
+    lever: hinge,
+    openAngle: LEVER_OPEN_ANGLE,
     triggerSealAnimation: () => {
       hinge.rotation.z = 0;
       ledMat.emissive.setHex(0xef4444);

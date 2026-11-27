@@ -471,9 +471,16 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
 
   // 1. Liner preto na parte inferior (como na Foto 1)
   const linerH = 0.095;
-  const linerBox = makeChamferedBox(W + 0.004, linerH, D + 0.004, 0.009, A.blackLinerMat);
-  linerBox.position.y = linerH * 0.5;
-  group.add(linerBox);
+  const linerFloor = makeChamferedBox(W - 0.014, 0.014, D - 0.014, 0.005, A.blackLinerMat);
+  linerFloor.position.y = 0.007;
+  group.add(linerFloor);
+  for (const side of [-1, 1]) {
+    const end = makeChamferedBox(W - 0.012, linerH, 0.012, 0.004, A.blackLinerMat);
+    end.position.set(0, linerH * 0.5, side * (D * 0.5 - 0.008));
+    const wall = makeChamferedBox(0.012, linerH, D - 0.032, 0.004, A.blackLinerMat);
+    wall.position.set(side * (W * 0.5 - 0.008), linerH * 0.5, 0);
+    group.add(end, wall);
+  }
 
   // 2. Corpo transparente de 24L (paredes translúcidas)
   const bodyWallF = makeBox(W, H, 0.006, A.clearPlasticMat, { noShadow: true });
@@ -506,11 +513,16 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
     [-W * 0.5 - 0.008, 0.18, 0],
     [W * 0.5 + 0.008, 0.18, 0]
   ];
+  const collarGeo = new THREE.TorusGeometry(0.016, 0.003, 5, 10);
+  const collarMat = new THREE.MeshStandardMaterial({ color: 0x829e94, roughness: 0.62 });
   for (let pi = 0; pi < plugCoords.length; pi++) {
     const pc = plugCoords[pi];
     const plug = new THREE.Mesh(A.polyfillGeo, A.polyfillMat);
     plug.position.set(pc[0], pc[1], pc[2]);
-    group.add(plug);
+    const collar = new THREE.Mesh(collarGeo, collarMat);
+    collar.position.copy(plug.position);
+    if (pc[2] === 0) collar.rotation.y = Math.PI / 2;
+    group.add(plug, collar);
   }
 
   // 5. Tampa transparente articulada
@@ -527,6 +539,9 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
     rail.position.set(0, 0.009, side > 0 ? D : 0);
     lidPivot.add(end, rail);
   }
+  const pullTab = makeChamferedBox(0.099, 0.012, 0.026, 0.005, trimMat);
+  pullTab.position.set(0, 0.009, D + 0.012);
+  lidPivot.add(pullTab);
   group.add(lidPivot);
   group.userData.firstPersonSideGrip = { x: W * 0.46, y: 0.078, z: D * 0.5 + 0.013 };
 

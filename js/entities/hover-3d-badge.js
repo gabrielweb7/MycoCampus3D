@@ -5,6 +5,8 @@
  * eliminando poluição e sobreposição de textos 2D na HUD.
  */
 
+import { getCanonicalItemTitle, getItemFamily } from '../items/item-titles.js';
+
 const THREE = window.THREE;
 const _tmpBadgeProj = THREE ? new THREE.Vector3() : null;
 
@@ -68,10 +70,11 @@ function roundRect(ctx, x, y, w, h, r) {
 export function cleanItemTitle(rawTitle) {
   let s = String(rawTitle || '').trim();
   if (!s) return '';
+  s = s.split(/\s+[•—]\s+/)[0].trim();
   // Remove parênteses de estado/esterilização/progresso/flush ANTES de dividir por " • " ou " — "
   s = s.replace(/\s*\((?:[^)]*(?:esteril|steril|pront|ready|vazi|empty|chei|full|vencid|expir|contam|mofo|mold|seco|dry|umid|wet|inocul|coloniz|incub|crescen|growing|frutific|fruiting|ativo|active|deslig|off|ligad|on|flush|oleada|esgotad|spent|\d+%|\d+\/\d+|\d+\s*ml|\d+\s*g\b|[•—])[^)]*)\)/gi, '').trim();
   // Remove sufixos após " • " ou " — "
-  s = s.split(/\s+[•—]\s+/)[0].trim();
+  s = s.replace(/\s*\((?:[^()]|\([^()]*\))*\d+\s*(?:°[CF]|dias)\b[^()]*\)/gi, '').trim();
   // Fecha/remove eventual "(" que tenha ficado aberto após corte
   s = s.replace(/\s*\([^)]*$/, '').trim();
   // Remove sufixos soltos após o nome base
@@ -82,11 +85,18 @@ export function cleanItemTitle(rawTitle) {
   return s.replace(/\s{2,}/g, ' ').trim();
 }
 
+export function getDisplayItemTitle(item, fallback = '') {
+  return getCanonicalItemTitle(getItemFamily(item)) || cleanItemTitle(item?.label || fallback);
+}
+
 /**
  * Converte um prompt textual e objeto alvo em título, parâmetros e ação formatados.
  */
 export function formatHoverInfo(prompt, targetObj) {
   if (!prompt) return null;
+  if (targetObj?.mesh && targetObj.label) {
+    return { title: getDisplayItemTitle(targetObj), params: '', action: '' };
+  }
 
   const LEADING_EMOJI_RE = /^(?:[\p{Extended_Pictographic}\u2600-\u27BF][\uFE0E\uFE0F]?(?:\u200D[\p{Extended_Pictographic}\u2600-\u27BF][\uFE0E\uFE0F]?)*)/u;
   const stripEmojis = (s) => String(s || '').replace(/^[\s\p{Extended_Pictographic}\uFE0E\uFE0F\u200D\u2600-\u27BF•\-–—:]+/gu, '').trim();

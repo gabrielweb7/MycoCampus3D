@@ -40,7 +40,7 @@ import { diagnoseItemPedagogy } from '../core/cultivation-tracks.js';
 import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposal.js';
 import { canPruneGardenPlant } from '../world/campus-garden.js';
 import { growDoorActionLabel, growHeldFeedback, growSlotActionLabel, openPortableGrowPanel, toggleGrowDoor } from '../items/portable-grow.js';
-import { cleanItemTitle } from '../entities/hover-3d-badge.js';
+import { getDisplayItemTitle } from '../entities/hover-3d-badge.js';
 import { getBeehiveInspectInfo, getHiveSyringeDose } from '../entities/bee-ecology.js';
 import { getFlowerInspectInfo, interactFlower } from '../world/campus-flowers.js';
 import { canDisposeItemInTrash, getTrashActionLabel, handleTrashDisposal, isContaminatedOrBurned } from '../items/lab-trash.js';
@@ -297,7 +297,7 @@ export function showItemStatusCard(item, ctx) {
   if (!card || !bodyEl) return;
 
   const rawTitle = item.label || t('actions.common.item');
-  const title = cleanItemTitle(rawTitle) || rawTitle;
+  const title = getDisplayItemTitle(item, rawTitle) || rawTitle;
   const icon = (item.meta && item.meta.icon) || (item.mesh && item.mesh.userData && item.mesh.userData.isTray ? '📥' : '🔍');
   if (titleEl) titleEl.textContent = title;
   if (iconEl) iconEl.textContent = icon;
@@ -1539,7 +1539,7 @@ function addAimPrimaryAction(ctx, actions, touch) {
     const species = wildMushroom.capMesh?.userData.speciesName;
     if (species) label = t('hud.harvest_aimed', { item: species });
   } else if (!ctx.heldItem && target?.label === prompt) {
-    label = t('hud.pick_aimed', { item: prompt });
+    label = t('hud.pick_aimed', { item: getDisplayItemTitle(target, prompt) });
     const pick = actions.findIndex(action => action.id === 'move_' + target.id);
     if (pick >= 0) {
       const action = actions.splice(pick, 1)[0];

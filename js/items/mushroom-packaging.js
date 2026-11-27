@@ -4,7 +4,7 @@
 
 import { makeChamferedBox } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
-import { getCachedCanvasTexture, registerPickable, disposeObjectResources, getItemWeightGrams, mergeStaticGeos } from './item-registry.js';
+import { getCachedCanvasTexture, makeRoundedRectShape, registerPickable, disposeObjectResources, getItemWeightGrams, mergeStaticGeos } from './item-registry.js';
 import { CRATE_WIDTH, CRATE_HEIGHT, CRATE_DEPTH, cratePackMask, freeCrateSlot } from '../systems/crate-cargo.js';
 import { t } from '../core/i18n.js';
 import {
@@ -33,42 +33,28 @@ function mergePackagingParts(group, material) {
 
 export function createMushroomPackVisual(filled, sealed) {
   const wrap = new THREE.Group();
-  const trayMat = new THREE.MeshStandardMaterial({ color: 0xe6d6b9, roughness: 0.65 });
+  const trayMat = new THREE.MeshStandardMaterial({ color: 0xd6c3a3, roughness: 0.72 });
+  const edgeMat = new THREE.MeshStandardMaterial({ color: 0x79988b, roughness: 0.63 });
   const filmMat = new THREE.MeshStandardMaterial({
     color: 0xe0f2fe,
     transparent: true,
-    opacity: 0.42,
-    roughness: 0.12,
+    opacity: 0.20,
+    roughness: 0.33,
     depthWrite: false
   });
-  const labelTex = getCachedCanvasTexture('myco_pack_label_v2', 256, 256, (lctx) => {
-    lctx.fillStyle = '#ffffff';
-    lctx.fillRect(0, 0, 256, 256);
-    lctx.strokeStyle = '#16a34a';
-    lctx.lineWidth = 6;
-    lctx.strokeRect(6, 6, 244, 244);
-
-    lctx.fillStyle = '#dc2626';
+  const labelTex = getCachedCanvasTexture('myco_pack_label_v3', 256, 128, (lctx) => {
+    lctx.fillStyle = '#eee2c9';
+    lctx.fillRect(0, 0, 256, 128);
+    lctx.fillStyle = '#b96c52';
     lctx.beginPath();
-    lctx.arc(128, 56, 26, Math.PI, 0);
+    lctx.arc(50, 66, 27, Math.PI, 0);
     lctx.fill();
-    lctx.fillStyle = '#fef3c7';
-    lctx.fillRect(118, 56, 20, 18);
-
-    lctx.fillStyle = '#16a34a';
-    lctx.fillRect(12, 86, 232, 86);
-    lctx.fillStyle = '#ffffff';
-    lctx.font = 'bold 28px system-ui, sans-serif';
-    lctx.textAlign = 'center';
-    lctx.fillText('MycoCampus', 128, 122);
-    lctx.fillStyle = '#fef08a';
-    lctx.font = 'bold 21px system-ui, sans-serif';
-    lctx.fillText('COGUMELOS SECOS', 128, 156);
-
-    lctx.fillStyle = '#0f172a';
-    for (let bx = 42; bx < 214; bx += 8) {
-      lctx.fillRect(bx, 190, (bx % 16 === 0) ? 4 : 2, 42);
-    }
+    lctx.fillRect(45, 65, 10, 22);
+    lctx.fillStyle = '#3a5148';
+    lctx.font = 'bold 23px system-ui, sans-serif';
+    lctx.fillText('MycoCampus', 84, 59);
+    lctx.font = 'bold 15px system-ui, sans-serif';
+    lctx.fillText('COGUMELOS SECOS', 84, 85);
   });
   const labelMat = new THREE.MeshStandardMaterial({ map: labelTex, roughness: 0.35 });
 
@@ -91,7 +77,8 @@ export function createMushroomPackVisual(filled, sealed) {
     st.rotation.z = (i - 2.5) * 0.22;
     st.position.set(ox, 0.022, oz + 0.008);
     const cp = new THREE.Mesh(cGeo, capMat);
-    cp.position.set(ox, 0.026, oz - 0.012);
+    cp.scale.y = 0.70;
+    cp.position.set(ox, 0.023, oz - 0.010);
     contentsGroup.add(st, cp);
   }
   mergePackagingParts(contentsGroup, stemMat);
@@ -99,32 +86,41 @@ export function createMushroomPackVisual(filled, sealed) {
   contentsGroup.visible = Boolean(filled);
   wrap.add(contentsGroup);
 
-  const film = makeBox(0.142, 0.026, 0.172, filmMat, { noShadow: true });
-  film.position.y = 0.025;
-  wrap.add(film);
+  const rimShape = makeRoundedRectShape(0.145, 0.175, 0.014);
+  rimShape.holes.push(makeRoundedRectShape(0.113, 0.139, 0.012));
+  const rimGeo = new THREE.ExtrudeGeometry(rimShape, { depth: 0.005, bevelEnabled: false, curveSegments: 3 });
+  rimGeo.rotateX(-Math.PI / 2);
+  const rim = new THREE.Mesh(rimGeo, edgeMat);
+  rim.position.y = 0.014;
+  wrap.add(rim);
 
-  const labelSticker = makeBox(0.075, 0.003, 0.085, labelMat, { noShadow: true });
-  labelSticker.position.set(0, 0.039, 0);
+  const film = makeChamferedBox(0.125, 0.024, 0.149, 0.008, filmMat);
+  film.position.y = 0.031;
+  film.castShadow = false;
+  film.visible = Boolean(sealed);
+  const labelSticker = new THREE.Mesh(new THREE.PlaneGeometry(0.103, 0.042), labelMat);
+  labelSticker.rotation.x = -Math.PI / 2;
+  labelSticker.position.set(0, 0.044, 0.043);
   labelSticker.visible = Boolean(sealed);
   wrap.add(labelSticker);
 
-  const openCollarMesh = makeBox(0.140, 0.022, 0.012, filmMat, { noShadow: true });
-  openCollarMesh.position.set(0, 0.044, -0.078);
-  openCollarMesh.rotation.x = -0.35;
+  const openCollarMesh = makeChamferedBox(0.135, 0.014, 0.030, 0.004, edgeMat);
+  openCollarMesh.position.set(0, 0.030, -0.071);
+  openCollarMesh.rotation.x = 0.50;
   openCollarMesh.visible = !sealed;
   wrap.add(openCollarMesh);
 
-  const sealStripMesh = makeBox(0.144, 0.008, 0.015, new THREE.MeshStandardMaterial({
-    color: 0x16a34a,
-    emissive: 0x059669,
-    emissiveIntensity: 0.35,
-    roughness: 0.25
-  }));
-  sealStripMesh.position.set(0, 0.036, -0.076);
+  const sealStripMesh = new THREE.Group();
+  const seamMat = new THREE.MeshStandardMaterial({ color: 0x57766d, roughness: 0.57 });
+  for (const z of [-0.073, -0.066]) {
+    const seam = makeChamferedBox(0.129, 0.003, 0.0035, 0.0008, seamMat);
+    seam.position.set(0, 0.036, z);
+    sealStripMesh.add(seam);
+  }
   sealStripMesh.visible = Boolean(sealed);
-  wrap.add(sealStripMesh);
+  wrap.add(film, sealStripMesh);
 
-  return { wrap, contentsGroup, sealStripMesh, labelSticker, openCollarMesh };
+  return { wrap, contentsGroup, film, sealStripMesh, labelSticker, openCollarMesh };
 }
 
 export function updateMushroomBagVisual(item) {
@@ -133,12 +129,8 @@ export function updateMushroomBagVisual(item) {
   if (bc.contentsMesh) bc.contentsMesh.visible = bc.filled;
   if (bc.labelSticker) bc.labelSticker.visible = bc.sealed;
   if (bc.openCollarMesh) bc.openCollarMesh.visible = !bc.sealed;
-  if (bc.sealStripMesh) {
-    bc.sealStripMesh.visible = bc.sealed;
-    if (bc.sealStripMesh.material && bc.sealStripMesh.material.color) {
-      bc.sealStripMesh.material.color.setHex(bc.sealed ? 0x16a34a : 0x64748b);
-    }
-  }
+  if (bc.film) bc.film.visible = bc.sealed;
+  if (bc.sealStripMesh) bc.sealStripMesh.visible = bc.sealed;
   const spTag = bc.speciesName ? ` • ${bc.speciesName}` : '';
   if (bc.sealed) {
     item.label = `📦 Pacote Selado de Cogumelos (${bc.grams}g Crocantes${spTag} • Pronto p/ Caixote!)`;
@@ -154,6 +146,7 @@ export function makeMushroomBag(ctx, id, px, py, pz, opts = {}) {
   const vis = createMushroomPackVisual(opts.filled, opts.sealed);
   const g = vis.wrap;
   g.userData.isMushroomBag = true;
+  g.userData.firstPersonGrip = { x: 0.057, y: 0.017, z: 0.068 };
 
   const item = registerPickable(
     ctx,
@@ -203,6 +196,7 @@ export function makeMushroomBag(ctx, id, px, py, pz, opts = {}) {
     grams: opts.filled ? (opts.grams || 10) : 0,
     speciesName: opts.speciesName || '',
     contentsMesh: vis.contentsGroup,
+    film: vis.film,
     sealStripMesh: vis.sealStripMesh,
     labelSticker: vis.labelSticker,
     openCollarMesh: vis.openCollarMesh,
@@ -277,6 +271,7 @@ export function sealMushroomBag(ctx, bagItem) {
   }
   bc.sealed = true;
   updateMushroomBagVisual(bagItem);
+  ctx?.queueItemStateSync?.(bagItem);
   if (ctx && ctx.hoveredHeatSealerObj && ctx.hoveredHeatSealerObj.sealerCtrl) {
     ctx.hoveredHeatSealerObj.sealerCtrl.triggerSealAnimation();
   } else if (ctx && ctx.pickableItems && bagItem.mesh) {

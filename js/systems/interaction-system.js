@@ -668,6 +668,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       if (canSealSpawnBag(target)) {
         target.spawnCtrl.sealed = true;
         target.spawnCtrl.updateVisual();
+        ctx.queueItemStateSync?.(target);
         if (ctx.hoveredHeatSealerObj && ctx.hoveredHeatSealerObj.sealerCtrl) {
           ctx.hoveredHeatSealerObj.sealerCtrl.triggerSealAnimation();
         } else if (ctx.pickableItems && target.mesh) {

@@ -25,12 +25,14 @@ export function makeCookerBase(ctx, id, px, py, pz) {
     color: 0xb5b2a5, metalness: 0.44, roughness: 0.43
   });
 
-  // Aro lateral ~4cm de altura (0.042m) e diametro menor que a panela (r = 0.195m)
-  const sideRing = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.195, 0.195, 0.042, 24, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xb5b2a5, metalness: 0.44, roughness: 0.43, side: THREE.DoubleSide })
-  );
-  sideRing.position.y = 0.021;
+  // Raised runners leave space for steam beneath the plate.
+  const footGeo = new THREE.CylinderGeometry(0.018, 0.022, 0.035, 8);
+  for (let index = 0; index < 4; index++) {
+    const angle = (index + 0.5) * Math.PI / 2;
+    const foot = new THREE.Mesh(footGeo, aluMat);
+    foot.position.set(Math.cos(angle) * 0.16, 0.0175, Math.sin(angle) * 0.16);
+    bg.add(foot);
+  }
 
   const plateShape = new THREE.Shape();
   plateShape.absarc(0, 0, 0.195, 0, Math.PI * 2, false);
@@ -46,8 +48,8 @@ export function makeCookerBase(ctx, id, px, py, pz) {
   plateGeo.rotateX(-Math.PI / 2);
   const topDisc = new THREE.Mesh(plateGeo, aluMat);
   topDisc.position.y = 0.034;
-  bg.add(sideRing, topDisc);
-  bg.userData.firstPersonGrip = { x: 0.07, y: 0.015, z: 0.197 };
+  bg.add(topDisc);
+  bg.userData.firstPersonGrip = { x: 0.07, y: 0.033, z: 0.18 };
   bg.userData.isCookerBase = true;
   return registerPickable(ctx, id, 'Base Perfurada da Panela (4cm)', bg, px, py, pz, 0, 0.21, 0.05, COOKER_BASE_META);
 }

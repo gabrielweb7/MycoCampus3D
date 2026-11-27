@@ -17,12 +17,22 @@ const spinButton = byId('auto-spin');
 const zoomOut = byId('zoom-out');
 const zoomIn = byId('zoom-in');
 const resetButton = byId('reset-camera');
+const partButton = byId('toggle-part');
 const controls = [spinButton, zoomOut, zoomIn, resetButton];
 const symbols = { equipment: '⚙', tools: '⚒', containers: '▣', cultivation: '🧫', furniture: '▤', garden: '🌱', cosmetics: '✧', mushrooms: '🍄', other: '◇' };
 
 let viewer;
 let entries = [];
 let selected;
+let activeView;
+let partOpen = false;
+
+function updatePartButton() {
+  partButton.hidden = !activeView?.setOpen;
+  if (!partButton.hidden) {
+    partButton.textContent = t('catalog.' + (partOpen ? 'close_' : 'open_') + activeView.part);
+  }
+}
 
 function normalize(value) {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase();
@@ -49,17 +59,23 @@ function choose(entry) {
   detail.textContent = entry?.detail ?? '';
 
   viewer?.clear();
+  activeView = null;
+  partOpen = false;
   setStatus(!viewer ? t('catalog.webgl') : '');
   let ready = false;
   if (viewer && entry) {
     try {
-      viewer.show(entry.model());
+      const view = entry.view();
+      view.setOpen?.(false);
+      viewer.show(view.model);
+      activeView = view;
       ready = true;
     } catch (error) {
       console.error('Catálogo: erro ao carregar o modelo', entry.id, error);
       setStatus(t('catalog.unavailable'));
     }
   }
+  updatePartButton();
   for (const button of controls) button.disabled = !ready;
 }
 
@@ -196,7 +212,7 @@ function createViewer() {
     refreshCamera();
   }
 
-  function show(original) {
+  function show(original, keepCamera = false) {
     const model = copyModel(original, true);
     if (!model) throw new Error('Modelo vazio');
     model.position.set(0, 0, 0);
@@ -210,12 +226,16 @@ function createViewer() {
     holder.scale.setScalar(scale);
     holder.position.copy(bounds.getCenter(new THREE.Vector3())).multiplyScalar(-scale);
     holder.add(model);
+    pivot.clear();
     pivot.add(holder);
     const groundY = -dimensions.y * scale / 2 - 0.018;
     disk.position.y = groundY - 0.06;
     accent.position.y = groundY + 0.002;
     ready = true;
-    reset();
+    if (keepCamera) {
+      setSpin(false);
+      refreshCamera();
+    } else reset();
   }
 
   new ResizeObserver(resize).observe(stage);
@@ -326,3 +346,10 @@ setTimeout(() => {
 
 search.addEventListener('input', filterEntries);
 category.addEventListener('change', filterEntries);
+partButton.addEventListener('click', () => {
+  if (!activeView?.setOpen) return;
+  partOpen = !partOpen;
+  activeView.setOpen(partOpen);
+  viewer.show(activeView.model, true);
+  updatePartButton();
+});

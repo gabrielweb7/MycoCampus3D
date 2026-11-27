@@ -413,6 +413,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.updateCampusAuditoriumSlide = updateCampusAuditoriumSlide;
   window.triggerCampusRainbow = triggerCampusRainbow;
   window.dropCampusHeldItem = sim.dropHeldItem;
+  window.getCampusHeldItem = () => sim.heldItem;
   window.toggleCampusHeldPlacement = sim.toggleHeldItemPlacement;
   window.inspectCampusHeldItem = function () {
     if (sim.heldItem) inspectItemToast(sim, sim.heldItem);

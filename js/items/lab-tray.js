@@ -19,10 +19,10 @@ export const LAB_TRAY_META = {
 export function makeLabTray(ctx, id, label, px, py, pz) {
   const tg = new THREE.Group();
   const steelMat = new THREE.MeshStandardMaterial({
-    color: 0x74866e, metalness: 0.08, roughness: 0.68
+    color: 0x809497, metalness: 0.27, roughness: 0.52
   });
   const innerSteelMat = new THREE.MeshStandardMaterial({
-    color: 0xe2c69e, metalness: 0.13, roughness: 0.67
+    color: 0xc1cac7, metalness: 0.24, roughness: 0.51
   });
 
   const baseShape = makeRoundedRectShape(0.38, 0.26, 0.032);

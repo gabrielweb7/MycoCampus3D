@@ -4,7 +4,7 @@
 
 import { t } from '../core/i18n.js';
 import { getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
-import { makePouchGeometry } from './lab-prop-shapes.js';
+import { makeChamferedGeometry, makePouchGeometry } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
 import { bindPngTexture, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { isAsepticWorkArea } from './laminar-hood.js';
@@ -268,6 +268,7 @@ export function updateSpawnVisual(item) {
     }
   }
   if (sc.sealBand) sc.sealBand.visible = !!sc.sealed;
+  if (sc.openMouth) sc.openMouth.visible = !sc.sealed;
   if (sc.mycOverlay) {
     if (sc.contaminated && !sc.contamKind) {
       sc.contamKind = pickContamKind(sc.isPP5 ? 'pp5' : 'spawn');
@@ -415,7 +416,8 @@ function getSpawnSharedAssets() {
     bagOuterGeo: makePouchGeometry(0.24, 0.36, 0.18),
     bagFilterGeo: new THREE.BoxGeometry(0.09, 0.09, 0.012),
     bagPortGeo: new THREE.BoxGeometry(0.036, 0.036, 0.016),
-    bagSealGeo: new THREE.BoxGeometry(0.23, 0.016, 0.19),
+    bagSealGeo: makeChamferedGeometry(0.225, 0.012, 0.055, 0.003),
+    bagSealLineGeo: new THREE.BoxGeometry(0.210, 0.0015, 0.0025),
     bagBlockGeo: new THREE.BoxGeometry(0.215, 0.215, 0.155),
     bagMycGeo: new THREE.BoxGeometry(0.222, 0.22, 0.162),
     jarGlassMat: new THREE.MeshStandardMaterial({ color: 0x9ebdb9, transparent: true, opacity: 0.39, roughness: 0.22, metalness: 0.1, depthWrite: false }),
@@ -429,7 +431,8 @@ function getSpawnSharedAssets() {
     bagFilmEmptyMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.28, roughness: 0.2, depthWrite: false }),
     bagFilterMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }),
     bagPortMat: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 }),
-    bagSealMat: new THREE.MeshStandardMaterial({ color: 0xca865c, roughness: 0.48 }),
+    bagSealMat: new THREE.MeshStandardMaterial({ color: 0x9fb8ad, roughness: 0.63 }),
+    bagSealLineMat: new THREE.MeshStandardMaterial({ color: 0x658b7d, roughness: 0.70 }),
     bagGrainMat,
     bagWheatMat,
     jarWheatMat,
@@ -510,9 +513,20 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
   injPort.position.set(0, 0.11, 0.094);
   const sealBand = new THREE.Mesh(A.bagSealGeo, A.bagSealMat);
   sealBand.receiveShadow = true;
-  sealBand.position.y = 0.355;
+  sealBand.position.y = 0.359;
   sealBand.visible = !!filled;
-  bg.add(outer, filterPatch, injPort, sealBand);
+  const openMouth = new THREE.Group();
+  for (const side of [-1, 1]) {
+    const stitch = new THREE.Mesh(A.bagSealLineGeo, A.bagSealLineMat);
+    stitch.position.set(0, 0.0065, side * 0.009);
+    sealBand.add(stitch);
+    const lip = new THREE.Mesh(A.bagSealGeo, A.bagSealMat);
+    lip.scale.z = 0.35;
+    lip.position.set(0, 0.356, side * 0.026);
+    lip.rotation.x = side * 0.30;
+    openMouth.add(lip);
+  }
+  bg.add(outer, filterPatch, injPort, openMouth, sealBand);
   bg.userData.firstPersonGrip = { x: 0.062, y: 0.113, z: 0.100 };
   const block = new THREE.Mesh(A.bagBlockGeo, A.bagGrainMat);
   block.castShadow = true;
@@ -539,6 +553,7 @@ export function makeSpawnBag1500(ctx, id, filled, px, py, pz) {
     substrateKind: filled ? 'corn' : '',
     fillMesh: block,
     sealBand,
+    openMouth,
     minSterilizeMin: 120, // 2h minimo para milho de pipoca
     sterilizeProgress: filled ? 100 : 0,
     baseLabel: getSpawnContainerBaseLabel(true, false, 'corn', !!filled),

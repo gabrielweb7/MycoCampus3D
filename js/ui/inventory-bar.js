@@ -1,4 +1,5 @@
 import { getLanguage, t } from '../core/i18n.js';
+import { getDisplayItemTitle } from '../entities/hover-3d-badge.js';
 
 let lastActive = -1;
 let lastPending = false;
@@ -58,8 +59,8 @@ export function renderQuickInventory(ctx) {
     const id = inv.slots[slot];
     if (id && slot !== activeSlot) storedCount++;
     const label = slot === activeSlot
-      ? (ctx.heldItem?.label || '')
-      : (id && ctx.findPickable(id)?.label) || (id ? t('inventory.loading') : '');
+      ? getDisplayItemTitle(ctx.heldItem)
+      : (id && getDisplayItemTitle(ctx.findPickable(id))) || (id ? t('inventory.loading') : '');
     scratchLabels[slot] = label;
     if (lastSlotLabels[slot] !== label) dirty = true;
   }

@@ -56,7 +56,7 @@ export function buildLabTrashBin(ctx, px, py, pz, id = 'lab_trash_01') {
   const labelMat = new THREE.MeshBasicMaterial({ map: labelTex });
 
   // Corpo inox levemente cônico
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.155, 0.54, 16), bodyMat);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.155, 0.54, 16, 1, true), bodyMat);
   body.position.y = 0.30;
   body.castShadow = true;
   body.receiveShadow = true;
@@ -77,9 +77,9 @@ export function buildLabTrashBin(ctx, px, py, pz, id = 'lab_trash_01') {
   rim.position.y = 0.57;
   const liner = new THREE.Mesh(new THREE.CylinderGeometry(0.172, 0.150, 0.50, 24, 1, true), bagMat);
   liner.position.y = 0.31;
-  const inner = new THREE.Mesh(new THREE.CircleGeometry(0.17, 24), new THREE.MeshBasicMaterial({ color: 0x020617 }));
+  const inner = new THREE.Mesh(new THREE.CircleGeometry(0.151, 24), new THREE.MeshBasicMaterial({ color: 0x020617 }));
   inner.rotation.x = -Math.PI / 2;
-  inner.position.y = 0.52;
+  inner.position.y = 0.06;
 
   // Tampa articulada atrás, entreaberta
   const lidPivot = new THREE.Group();
@@ -118,6 +118,7 @@ export function buildLabTrashBin(ctx, px, py, pz, id = 'lab_trash_01') {
   tg.userData.updateBounds = updateItemBounds;
 
   const item = registerPickable(ctx, id, 'Lixo (Lixeira do Laboratório)', tg, px, py, pz, 0, 0.22, 0.58, LAB_TRASH_META);
+  item.trashLid = lidPivot;
 
   if (ctx.labTrashMeshes) ctx.labTrashMeshes.push(hitMesh);
   if (ctx.solidColliders) {

@@ -9,6 +9,8 @@ import { buildSnowboardRig } from '../entities/vehicles/snowboard.js';
 import { createParagliderWingMesh } from '../entities/vehicles/paraglider.js';
 import { registerPickable } from '../items/item-registry.js';
 import { listItemPrefabs, spawnItemFromPrefab } from '../items/item-prefabs.js';
+import { getCanonicalItemTitle, getItemFamily } from '../items/item-titles.js';
+import { getCatalogPreview } from './item-catalog-preview.js';
 import { ensureCoreAdminPrefabs } from '../systems/admin-editor.js';
 import { COSMETIC_HATS, COSMETIC_TOYS } from './modal-shop.js';
 import { t } from '../core/i18n.js';
@@ -19,7 +21,7 @@ const GROUPS = {
   containers: ['glassware', 'container', 'containers', 'storage', 'packaging', 'tray', 'storage_jar', 'storage_case', 'spawn_container', 'tube', 'carrier', 'mixing', 'water_source'],
   cultivation: ['spawn', 'substrate', 'culture', 'reagent', 'ingredient', 'specimen', 'spent_substrate', 'nutrient', 'culture_liquid', 'liquid_culture', 'solid_culture', 'culture_plate', 'dried_harvest'],
   furniture: ['furniture', 'support'],
-  garden: ['produce'],
+  garden: ['produce', 'gardening'],
   cosmetics: [],
   mushrooms: []
 };
@@ -55,44 +57,70 @@ export function getCatalogEntries() {
   const context = makeCatalogContext();
   const entries = new Map();
 
-  function add(id, label, category, getModel, detail = '', keywords = '') {
+  function add(id, label, category, getView, detail = '', keywords = '') {
     const name = modelLabel(label);
-    const key = category + ':' + name.toLocaleLowerCase('pt-BR') + (category === 'mushrooms' ? ':' + detail : '');
-    if (!name || entries.has(key)) return;
-    let model;
-    entries.set(key, { id, name, category, detail, keywords, model: () => (model ||= getModel()) });
+    if (!name || entries.has(id)) return;
+    let view;
+    entries.set(id, { id, name, category, detail, keywords, model: () => (view ||= getView()).model,
+      view: () => (view ||= getView()) });
+  }
+
+  function addItem(id, label, category, makeItem, detail = '', keywords = '') {
+    add(id, getCanonicalItemTitle(id) || label, category, () => {
+      const item = makeItem();
+      return getCatalogPreview(item);
+    }, detail, keywords);
+  }
+
+  function addStatic(id, label, category, makeModel, detail = '') {
+    add(id, label, category, () => ({ model: makeModel() }), detail);
   }
 
   ensureCoreAdminPrefabs();
+  const meshItems = new Map();
+  try {
+    createProceduralTextures();
+    buildCampusWingsAndEquipment(context, { includeOutdoor: false });
+  } catch (error) {
+    console.error('Catálogo: erro ao montar itens fixos do campus.', error);
+  }
+  for (const item of context.pickableItems) {
+    if (!item.mesh) continue;
+    const family = getItemFamily(item);
+    if (!meshItems.has(family)) meshItems.set(family, []);
+    meshItems.get(family).push(item);
+  }
   for (const def of listItemPrefabs()) {
-    add(def.prefabId, def.label, groupFor(def.category),
-      () => spawnItemFromPrefab(context, def.prefabId, { id: 'preview_' + def.prefabId }).mesh);
+    const copies = meshItems.get(def.prefabId) || [];
+    addItem(def.prefabId, def.label, groupFor(copies[0]?.meta?.category || def.category),
+      () => spawnItemFromPrefab(context, def.prefabId, { id: 'preview_' + def.prefabId }),
+      copies[0]?.meta?.purpose || '', def.label);
   }
 
   const garden = createGardenModels(THREE);
-  add('organic_basket', t('catalog.basket'), 'garden', () => makeOrganicGardenBasket(context, 0, 0, 0, 'preview_basket').mesh);
-  add('lettuce', t('catalog.lettuce'), 'garden', garden.makeLettuce);
-  add('tomato', t('catalog.tomato'), 'garden', () => {
+  addStatic('organic_basket', t('catalog.basket'), 'garden', () => makeOrganicGardenBasket(context, 0, 0, 0, 'preview_basket').mesh);
+  addStatic('lettuce', t('catalog.lettuce'), 'garden', garden.makeLettuce);
+  addStatic('tomato', t('catalog.tomato'), 'garden', () => {
     const { stake, foliage } = garden.makeTomato();
     const plant = new THREE.Group();
     plant.add(stake, foliage);
     return plant;
   });
-  add('substrate_box', t('catalog.substrate'), 'garden', () => {
+  addStatic('substrate_box', t('catalog.substrate'), 'garden', () => {
     const { group, fill } = makeSubstrateBox(THREE, 1.35, 0.68, 1.15);
     fill.position.y = 0.45;
     return group;
   });
 
   for (const { id, name } of COSMETIC_HATS) {
-    add(id, name, 'cosmetics', () => {
+    addStatic(id, name, 'cosmetics', () => {
       const hat = new THREE.Group();
       buildAvatarHat(id, new THREE.MeshStandardMaterial({ color: 0xe59982 }), hat);
       return hat;
     });
   }
   for (const { id, name } of COSMETIC_TOYS) {
-    add(id, name, 'cosmetics', () => {
+    addStatic(id, name, 'cosmetics', () => {
       if (id.includes('snowboard')) {
         let board;
         buildSnowboardRig({ scene: context.scene, getSnowboardGroup: () => board, setSnowboardGroup: (value) => { board = value; } });
@@ -102,18 +130,12 @@ export function getCatalogEntries() {
     });
   }
   for (const species of MUSHROOM_SPECIES_CATALOG) {
-    add(species.scientific, species.common, 'mushrooms', () => createMushroomMeshBySpeciesName(species.scientific), species.scientific);
+    addStatic(species.scientific, species.common, 'mushrooms', () => createMushroomMeshBySpeciesName(species.scientific), species.scientific);
   }
 
-  try {
-    createProceduralTextures();
-    buildCampusWingsAndEquipment(context, { includeOutdoor: false });
-  } catch (error) {
-    console.error('Catálogo: erro ao montar itens fixos do campus.', error);
-  }
-  for (const item of context.pickableItems) {
-    if (!item.mesh) continue;
-    add(item.id, item.label, groupFor(item.meta?.category), () => item.mesh, item.meta?.purpose);
+  for (const [family, copies] of meshItems) {
+    const item = copies.find(copy => copy.id === family) || copies[0];
+    addItem(family, item.label, groupFor(item.meta?.category), () => item, item.meta?.purpose);
   }
 
   return [...entries.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));

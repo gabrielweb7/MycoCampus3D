@@ -2,6 +2,14 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.2] - 2026-11-27
+
+- O catálogo agrupa cópias e estados de um mesmo objeto. Capacidades, cores e componentes distintos continuam identificados pelo nome. O jogo exibe nomes estáveis na mira, na mão e na mochila.
+- O visor permite abrir e fechar tampas, portas e a alavanca da seladora com mouse, toque ou teclado.
+- A Monotub tem um interior oco, um puxador na tampa e aros nos filtros. A base perfurada ganhou quatro apoios, a bandeja ganhou acabamento de inox, a desidratadora exibe a tampa e as bandejas internas separadamente e a lixeira tem fundo visível ao abrir.
+- A embalagem Mylar selada tem visor transparente, etiqueta menor e duas marcas de selagem. O catálogo permite comparar as duas aparências, e o caixote exibe o mesmo pacote selado.
+- O saco de cultivo mostra duas abas quando aberto e uma costura estreita quando selado. As duas versões também aparecem na prévia do catálogo.
+
 ## [v2.11.1] - 2026-11-27
 
 - As 260 entradas do catálogo exibem modelos atualizados desde o início do redesenho. Esta versão completa as 24 entradas que faltavam, incluindo ampola vazia, equipamentos do grow, acessórios e espécies do bosque.

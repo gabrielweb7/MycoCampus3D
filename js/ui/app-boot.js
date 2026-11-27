@@ -4,7 +4,7 @@
 import { bindQuickInventory } from './inventory-bar.js';
 import { getCameraSensitivity, setCameraSensitivity } from '../core/camera-settings.js';
 import { unlockAchievement } from '../core/achievements.js';
-import { cleanItemTitle } from '../entities/hover-3d-badge.js';
+import { getDisplayItemTitle } from '../entities/hover-3d-badge.js';
 import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
 import { forceCacheBustReload, isValidSemver } from '../core/version-updater.js';
 import { markPendingAutoUpdateNotice } from './whats-new-modal.js';
@@ -923,7 +923,7 @@ export function bootApp() {
       const heldName = $('held-item-bar-name');
       if (heldBar && heldName) {
         if (label && appState.currentUser) {
-          const cleanLabel = cleanItemTitle(label) || label;
+          const cleanLabel = getDisplayItemTitle(window.getCampusHeldItem?.(), label) || label;
           heldName.textContent = cleanLabel;
           heldName.title = cleanLabel;
           heldBar.classList.remove('hidden');

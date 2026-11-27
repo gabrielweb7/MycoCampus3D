@@ -292,7 +292,13 @@ export function makeDehydrator(ctx, id, px, py, pz) {
     mushGroup.add(sub);
   });
 
-  g.add(base, heatRing, rack1, rack2, rackRim, upperRim, fanGroup, chamber, lid, handle, bezel, led, mushGroup);
+  const cover = new THREE.Group();
+  cover.position.y = lid.position.y;
+  for (const part of [lid, handle, fanGroup]) {
+    part.position.y -= cover.position.y;
+    cover.add(part);
+  }
+  g.add(base, heatRing, rack1, rack2, rackRim, upperRim, chamber, cover, bezel, led, mushGroup);
 
   const item = registerPickable(ctx, id, 'Desidratadora de Cogumelos • Desligada', g, px, py, pz, 0, 0.20, 0.28, DEHYDRATOR_META);
   item.dehydratorCtrl = {
@@ -307,6 +313,7 @@ export function makeDehydrator(ctx, id, px, py, pz) {
     mushMat,
     ledMat,
     heatGlowMat,
+    cover,
     fanGroup
   };
   ctx.dehydrators = ctx.dehydrators || [];
