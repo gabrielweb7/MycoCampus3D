@@ -7,6 +7,7 @@ import { makeChamferedBox } from './lab-prop-shapes.js';
 import { registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
+const LEVER_OPEN_ANGLE = 0.34;
 
 export const HEAT_SEALER_META = {
   category: 'equipment',
@@ -25,22 +26,26 @@ export function createHeatSealer(ctx, id, px, py, pz) {
   bed.position.set(0, 0.074, 0.02);
   const heatStrip = makeBox(0.42, 0.008, 0.014, new THREE.MeshStandardMaterial({ color: 0x423b38, emissive: 0x000000, roughness: 0.3 }));
   heatStrip.position.set(0, 0.082, 0.02);
-  const sealerArm = makeChamferedBox(0.44, 0.026, 0.049, 0.007, 0x9b7ea4);
+  const sealerArm = makeChamferedBox(0.44, 0.029, 0.059, 0.008, 0x9b7ea4);
   const hinge = new THREE.Group();
   hinge.position.set(-0.202, 0.095, 0.02);
-  hinge.rotation.z = 0.14;
+  hinge.rotation.z = LEVER_OPEN_ANGLE;
   sealerArm.position.x = 0.202;
   hinge.add(sealerArm);
-  const mount = makeChamferedBox(0.05, 0.04, 0.059, 0.006, 0x705979);
-  mount.position.set(-0.202, 0.085, 0.02);
-  const grip = makeChamferedBox(0.11, 0.018, 0.054, 0.006, 0xea9d60);
-  grip.position.set(0.151, 0.018, 0);
+  const mount = makeChamferedBox(0.063, 0.056, 0.078, 0.011, 0x705979);
+  mount.position.set(-0.195, 0.091, 0.02);
+  const pivotCap = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.022, 0.084, 10),
+    new THREE.MeshStandardMaterial({ color: 0xe5cca4, roughness: 0.68 }));
+  pivotCap.rotation.x = Math.PI / 2;
+  pivotCap.position.copy(hinge.position);
+  const grip = makeChamferedBox(0.113, 0.032, 0.076, 0.010, 0xea9d60);
+  grip.position.set(0.151, 0.023, 0);
   sealerArm.add(grip);
   const ledMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x7f1d1d, emissiveIntensity: 0.3, roughness: 0.3 });
   const sealerLed = makeBox(0.022, 0.022, 0.022, ledMat, { noShadow: true });
   sealerLed.position.set(0.18, 0.085, 0.06);
-  sealerGroup.add(sealerBase, bed, heatStrip, mount, hinge, sealerLed);
-  const item = registerPickable(ctx, id, 'Seladora Térmica de Bags', sealerGroup, px, py, pz, Math.PI / 2, 0.28, 0.18, HEAT_SEALER_META);
+  sealerGroup.add(sealerBase, bed, heatStrip, mount, pivotCap, hinge, sealerLed);
+  const item = registerPickable(ctx, id, 'Seladora Térmica de Bags', sealerGroup, px, py, pz, Math.PI / 2, 0.28, 0.28, HEAT_SEALER_META);
   let sealTimer = null;
   item.sealerCtrl = {
     triggerSealAnimation: () => {
@@ -51,7 +56,7 @@ export function createHeatSealer(ctx, id, px, py, pz) {
       heatStrip.material.emissiveIntensity = 1.8;
       if (sealTimer) clearTimeout(sealTimer);
       sealTimer = setTimeout(() => {
-        hinge.rotation.z = 0.14;
+        hinge.rotation.z = LEVER_OPEN_ANGLE;
         ledMat.emissive.setHex(0x7f1d1d);
         ledMat.emissiveIntensity = 0.3;
         heatStrip.material.emissive.setHex(0x000000);

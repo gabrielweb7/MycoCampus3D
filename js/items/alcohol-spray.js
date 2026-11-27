@@ -2,7 +2,7 @@
  * Borrifador Alcool 70%, Particulas de Spray e Higienizacao Universal 3x (MycoCampus3D)
  */
 
-import { makeChamferedBox } from './lab-prop-shapes.js';
+import { makeChamferedBox, makeSideProfile } from './lab-prop-shapes.js';
 import { registerPickable } from './item-registry.js';
 import { getHoodSanitationContext } from './laminar-hood.js';
 import { t } from '../core/i18n.js';
@@ -53,14 +53,19 @@ function makeSprayModel(bodyColor, accent, withProxy = true) {
   const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.029, 0.026, 12), trim);
   collar.position.y = 0.195;
 
-  const nozzle = makeChamferedBox(0.044, 0.040, 0.077, 0.009, cream);
-  nozzle.position.set(0, 0.23, 0.025);
-  const tip = makeChamferedBox(0.034, 0.028, 0.010, 0.004, trim);
-  tip.position.z = 0.039;
+  const nozzle = makeSideProfile([
+    [-0.035, 0.037], [0.057, 0.037], [0.067, 0.026], [0.066, 0.004],
+    [0.035, 0.002], [0.011, -0.013], [-0.016, -0.013], [-0.035, 0.009]
+  ], 0.048, 0.005, cream);
+  nozzle.position.y = 0.211;
+  const tip = makeChamferedBox(0.038, 0.035, 0.020, 0.005, trim);
+  tip.position.set(0, 0.019, 0.068);
   nozzle.add(tip);
-  const trigger = makeChamferedBox(0.015, 0.047, 0.017, 0.004, trim);
-  trigger.rotation.x = -0.34;
-  trigger.position.set(0, 0.207, 0.042);
+  const trigger = makeSideProfile([
+    [-0.015, 0.008], [0.003, 0.008], [0.008, -0.017],
+    [0.027, -0.055], [0.021, -0.063], [0.009, -0.058], [-0.006, -0.027]
+  ], 0.023, 0.003, trim);
+  trigger.position.set(0, 0.215, 0.042);
 
   const drop = new THREE.Shape();
   drop.moveTo(0, 0.013);

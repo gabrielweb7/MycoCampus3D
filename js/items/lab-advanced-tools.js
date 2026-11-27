@@ -11,7 +11,7 @@
 
 import { getCultureOriginLabel } from '../core/culture-origin.js';
 import { makeBox } from '../engine/textures.js';
-import { makeChamferedBox } from './lab-prop-shapes.js';
+import { makeChamferedBox, makeSideProfile } from './lab-prop-shapes.js';
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { disposeObjectResources, getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { updateScalpelLabel } from './scalpel.js';
@@ -251,20 +251,24 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
   const lightWell = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.018, 14), lensMat);
   lightWell.position.set(0, 0.038, 0.03);
 
-  const arm = makeChamferedBox(0.055, 0.155, 0.061, 0.012, bodyMat);
-  arm.position.set(0, 0.109, -0.066);
-  arm.rotation.x = -0.16;
-  const shoulder = makeChamferedBox(0.064, 0.125, 0.065, 0.014, bodyMat);
-  shoulder.position.set(0, 0.207, -0.064);
-  shoulder.rotation.x = 0.46;
-  const focus = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.027, 0.012, 12), darkMetalMat);
+  const plinth = makeChamferedBox(0.177, 0.011, 0.216, 0.003, bodyMat);
+  plinth.position.y = 0.006;
+  const arm = makeSideProfile([
+    [-0.069, 0.028], [-0.112, 0.068], [-0.124, 0.125], [-0.121, 0.177],
+    [-0.099, 0.228], [-0.064, 0.261], [0.000, 0.272], [0.010, 0.225],
+    [-0.043, 0.216], [-0.066, 0.194], [-0.078, 0.159], [-0.075, 0.120],
+    [-0.055, 0.079], [-0.023, 0.035]
+  ], 0.072, 0.008, bodyMat);
+  const focus = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.034, 0.018, 10), darkMetalMat);
   focus.rotation.z = Math.PI / 2;
-  focus.position.set(0.033, 0.108, -0.061);
+  focus.position.set(0.041, 0.107, -0.089);
   const oppositeFocus = focus.clone();
   oppositeFocus.position.x *= -1;
 
   const stage = makeChamferedBox(0.13, 0.012, 0.12, 0.004, 0x464740);
   stage.position.set(0, 0.13, 0.025);
+  const stageBracket = makeChamferedBox(0.054, 0.025, 0.070, 0.006, darkMetalMat);
+  stageBracket.position.set(0, 0.116, -0.063);
 
   // Lâmina de vidro com lamínula em cima do estágio!
   const slideMat = new THREE.MeshStandardMaterial({
@@ -282,12 +286,12 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
   head.position.set(0, 0.26, -0.01);
 
   const scopeGlass = new THREE.MeshStandardMaterial({ color: 0x334640, roughness: 0.38 });
-  [-0.022, 0.022].forEach((ox) => {
-    const eyepiece = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.013, 0.062, 10), darkMetalMat);
+  [-0.025, 0.025].forEach((ox) => {
+    const eyepiece = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.016, 0.056, 10), darkMetalMat);
     eyepiece.position.set(ox, 0.31, 0.035);
     eyepiece.rotation.x = -0.55;
-    const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.002, 10), scopeGlass);
-    glass.position.y = 0.032;
+    const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.002, 10), scopeGlass);
+    glass.position.y = 0.029;
     eyepiece.add(glass);
     g.add(eyepiece);
   });
@@ -301,7 +305,7 @@ export function makeLabMicroscope(ctx, id, px, py, pz) {
     revolver.add(objLens);
   });
 
-  g.add(base, lightWell, arm, shoulder, focus, oppositeFocus, stage, glassSlide, head, revolver);
+  g.add(base, plinth, lightWell, arm, focus, oppositeFocus, stageBracket, stage, glassSlide, head, revolver);
   g.userData.isMicroscope = true;
 
   const item = registerPickable(
