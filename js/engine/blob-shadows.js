@@ -19,11 +19,11 @@ function ensureDummy() {
 export function createBlobShadows(scene) {
   if (!THREE || !scene || !THREE.InstancedMesh) return null;
 
-  const tex = getCachedCanvasTexture('myco_blob_shadow_v1', 64, 64, (bctx) => {
+  const tex = getCachedCanvasTexture('myco_blob_shadow_v2', 64, 64, (bctx) => {
     const grad = bctx.createRadialGradient(32, 32, 2, 32, 32, 30);
-    grad.addColorStop(0.0, 'rgba(15, 23, 42, 0.52)');
-    grad.addColorStop(0.55, 'rgba(15, 23, 42, 0.24)');
-    grad.addColorStop(1.0, 'rgba(15, 23, 42, 0.0)');
+    grad.addColorStop(0.0, 'rgba(56, 52, 43, 0.46)');
+    grad.addColorStop(0.55, 'rgba(56, 52, 43, 0.20)');
+    grad.addColorStop(1.0, 'rgba(56, 52, 43, 0.0)');
     bctx.fillStyle = grad;
     bctx.fillRect(0, 0, 64, 64);
   });

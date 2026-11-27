@@ -3,6 +3,7 @@
  */
 
 import { makeChamferedBox } from './lab-prop-shapes.js';
+import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 
 const THREE = window.THREE;
@@ -17,9 +18,9 @@ export const STAINLESS_TABLE_META = {
 };
 
 export function addMovableStainlessTable(ctx, id, label, tx, floorY, tz, tw, th, td) {
-  const inoxMat = new THREE.MeshStandardMaterial({ color: 0xbec2b6, metalness: 0.37, roughness: 0.44 });
-  const legMat = new THREE.MeshStandardMaterial({ color: 0x72836c, metalness: 0.10, roughness: 0.65 });
-  const footMat = new THREE.MeshStandardMaterial({ color: 0xddc6a4, roughness: 0.72 });
+  const inoxMat = new THREE.MeshStandardMaterial({ color: palette.benchSteel, metalness: 0.25, roughness: 0.56 });
+  const legMat = new THREE.MeshStandardMaterial({ color: palette.petrol, metalness: 0.10, roughness: 0.65 });
+  const footMat = new THREE.MeshStandardMaterial({ color: palette.linen, roughness: 0.72 });
   const tg = new THREE.Group();
   const top = makeChamferedBox(tw - 0.037, 0.018, td - 0.037, 0.005, inoxMat);
   const edge = makeChamferedBox(tw, 0.055, td, 0.016, footMat);

@@ -3,6 +3,7 @@
  */
 
 import { makeBox } from '../engine/textures.js';
+import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { makeChamferedBox } from './lab-prop-shapes.js';
 import { makeRoundedRectShape, registerPickable } from './item-registry.js';
 
@@ -51,7 +52,7 @@ export function createHeatSealer(ctx, id, px, py, pz) {
     depth: 0.045, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 1, curveSegments: 3
   });
   handleGeo.translate(0, 0, -0.0225);
-  const grip = new THREE.Mesh(handleGeo, new THREE.MeshStandardMaterial({ color: 0xb49ab9, roughness: 0.74 }));
+  const grip = new THREE.Mesh(handleGeo, new THREE.MeshStandardMaterial({ color: palette.lilac, roughness: 0.74 }));
   grip.position.set(0.055, 0.038, 0);
   sealerArm.add(grip);
   const ledMat = new THREE.MeshStandardMaterial({ color: 0x81c0ab, emissive: 0x27635c, emissiveIntensity: 0.3, roughness: 0.3 });

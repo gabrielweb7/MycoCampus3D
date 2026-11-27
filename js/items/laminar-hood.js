@@ -4,6 +4,7 @@
 
 import { makeChamferedBox } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
+import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { addMovableStainlessTable } from './stainless-table.js';
 import { buildBenchCabinets, buildBenchLedSwitch } from './lab-cabinets.js';
@@ -70,7 +71,7 @@ export function addWallLabBench(ctx, bx, bz, bw, bd, opts) {
     const ez1 = Math.abs(z1 - B.z1) < eps ? 0.02 : 0;
     const pw = (x1 - x0) + ex0 + ex1;
     const pd = (z1 - z0) + ez0 + ez1;
-    const piece = makeBox(pw, 0.06, pd, 0x6e8794, { roughness: 0.58, metalness: 0.28 });
+    const piece = makeBox(pw, 0.06, pd, palette.benchSteel, { roughness: 0.58, metalness: 0.25 });
     piece.position.set((x0 - ex0 + x1 + ex1) / 2, 0.14 + 0.85, (z0 - ez0 + z1 + ez1) / 2);
     scene.add(piece);
     const surf = { minX: x0, maxX: x1, minZ: z0, maxZ: z1, topY: 1.02 };
@@ -99,9 +100,9 @@ export function addWallLabBench(ctx, bx, bz, bw, bd, opts) {
       buildBenchLedSwitch(ctx, bx - bw / 2 + 0.012, 1.48, bz, bx, bz);
     }
   } else {
-    const cab = makeBox(bw, 0.82, bd, 0xe2e8f0, { roughness: 0.55 });
+    const cab = makeBox(bw, 0.82, bd, palette.linen, { roughness: 0.62 });
     cab.position.set(bx, 0.14 + 0.41, bz);
-    const trim = makeBox(bw + 0.02, 0.72, bd + 0.02, 0x0284c7, { roughness: 0.5 });
+    const trim = makeBox(bw + 0.02, 0.72, bd + 0.02, palette.sage, { roughness: 0.64 });
     trim.position.set(bx, 0.14 + 0.36, bz);
     scene.add(trim, cab);
   }

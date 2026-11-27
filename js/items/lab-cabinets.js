@@ -26,13 +26,13 @@ let _sharedCabMats = null;
 function getSharedCabMats() {
   if (_sharedCabMats) return _sharedCabMats;
   _sharedCabMats = {
-    carcass: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5, metalness: 0.1 }),
-    inside: new THREE.MeshStandardMaterial({ color: 0xdbe4ee, roughness: 0.65 }),
-    drawerLiner: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.82, metalness: 0.08 }),
-    steel: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.26 }),
-    dark: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6, metalness: 0.2 }),
-    blue: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.5 }),
-    handle: new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.95, roughness: 0.18 }),
+    carcass: new THREE.MeshStandardMaterial({ color: 0xd4c8b4, roughness: 0.62, metalness: 0.1 }),
+    inside: new THREE.MeshStandardMaterial({ color: 0xe0d6c3, roughness: 0.65 }),
+    drawerLiner: new THREE.MeshStandardMaterial({ color: 0x4c635e, roughness: 0.82, metalness: 0.08 }),
+    steel: new THREE.MeshStandardMaterial({ color: 0xa5b4ae, metalness: 0.40, roughness: 0.48 }),
+    dark: new THREE.MeshStandardMaterial({ color: 0x43534d, roughness: 0.6, metalness: 0.2 }),
+    blue: new THREE.MeshStandardMaterial({ color: 0x6f9285, roughness: 0.59 }),
+    handle: new THREE.MeshStandardMaterial({ color: 0x819994, metalness: 0.41, roughness: 0.44 }),
     glass: new THREE.MeshStandardMaterial({
       color: 0x7dd3fc, transparent: true, opacity: 0.26, roughness: 0.08, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide
     }),

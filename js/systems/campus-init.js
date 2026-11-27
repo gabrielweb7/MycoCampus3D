@@ -14,7 +14,7 @@ import { createCelestialSkyDome } from '../engine/sky-constellations.js';
 import { createSkyGradientDome } from '../engine/sky-gradient.js';
 import { createRainPuddles } from '../engine/rain-puddles.js';
 import { createBlobShadows } from '../engine/blob-shadows.js';
-import { applyMycoCozyStyle } from '../engine/visual-style.js';
+import { applyMycoCozyStyle, MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { buildNatureWorld, buildPlaza, nightLampGlows } from '../world/nature-plaza.js';
 import { isChristmasSeason } from '../core/season.js';
 import { buildChristmasPlaza } from '../world/christmas-plaza.js';
@@ -688,10 +688,10 @@ export function initCampus3D(containerId, cbs) {
     sim.controls.maxDistance = 65;
     sim.controls.target.set(0, 4.5, -14);
 
-    const hemi = new THREE.HemisphereLight(0xd9f4ff, 0x548455, 0.58);
+    const hemi = new THREE.HemisphereLight(palette.daylightFill, palette.bounce, 0.48);
     sim.scene.add(hemi);
     sim.envHemi = hemi;
-    const sun = new THREE.DirectionalLight(0xfff0ce, 1.02);
+    const sun = new THREE.DirectionalLight(palette.daylight, 0.81);
     sun.position.set(45, 65, 38);
     sun.castShadow = true;
     const shSize = touch ? 768 : camCfg.desktopShadowSize;

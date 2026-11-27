@@ -3,6 +3,7 @@
  */
 
 import { GAME_CONFIG } from '../core/config.js';
+import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { makeChamferedBox } from './lab-prop-shapes.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied, getItemWeightGrams, makeRoundedRectShape } from './item-registry.js';
 
@@ -29,7 +30,7 @@ export function createPrecisionScale(ctx, id, sx, sy, sz) {
     scaleBodyGeometry.translate(0, 0.005, 0);
     scaleBodyGeometry.userData.shared = true;
   }
-  const body = new THREE.Mesh(scaleBodyGeometry, new THREE.MeshStandardMaterial({ color: 0x759784, roughness: 0.67 }));
+  const body = new THREE.Mesh(scaleBodyGeometry, new THREE.MeshStandardMaterial({ color: palette.sage, roughness: 0.67 }));
   body.castShadow = true;
   body.receiveShadow = true;
   const pan = makeChamferedBox(0.28, 0.016, 0.26, 0.004, 0xead9bb);

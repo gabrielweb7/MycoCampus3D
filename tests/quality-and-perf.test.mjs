@@ -499,6 +499,7 @@ test('Myco Cozy harmoniza materiais opacos uma vez e preserva vidro', () => {
   assert.equal(first.meshes, 3);
   assert.equal(second.materials, 0);
   assert.equal(opaque.roughness, 0.56);
+  assert.equal(opaque.color.last, undefined, 'preserva a cor definida pelo modelo');
   assert.equal(opaque.dithering, true);
   assert.equal(glass.roughness, 0.1);
   assert.equal(MYCO_PALETTE.mushroomPink, 0xf05aa8);

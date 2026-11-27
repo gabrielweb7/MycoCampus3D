@@ -7,33 +7,34 @@ import { updateCelestialSkyDome } from './sky-constellations.js';
 import { stepRainPuddles } from './rain-puddles.js';
 import { getAuroraStrength, stepSkyGradientDome } from './sky-gradient.js';
 import { stepCozyDetails } from '../world/cozy-details.js';
+import { MYCO_PALETTE as palette } from './visual-style.js';
 
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
 const _Obj3DCtor = THREE && THREE.Object3D ? THREE.Object3D : null;
 
-const _cSkyDay = _ColorCtor ? new _ColorCtor(0x52c8fa) : null;
-const _cSkySunset = _ColorCtor ? new _ColorCtor(0xf97316) : null;
+const _cSkyDay = _ColorCtor ? new _ColorCtor(palette.sky) : null;
+const _cSkySunset = _ColorCtor ? new _ColorCtor(0xd99d78) : null;
 const _cSkyNight = _ColorCtor ? new _ColorCtor(0x0b102b) : null;
 const _cSkyWork = _ColorCtor ? new _ColorCtor() : null;
 const _cPartly = _ColorCtor ? new _ColorCtor(0x93c5fd) : null;
 const _cOvercast = _ColorCtor ? new _ColorCtor(0x94a3b8) : null;
 const _cRain = _ColorCtor ? new _ColorCtor(0x475569) : null;
 const _cSnow = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
-const _cSunDay = _ColorCtor ? new _ColorCtor(0xfff1d2) : null;
-const _cSunSet = _ColorCtor ? new _ColorCtor(0xfb923c) : null;
-const _cSunNight = _ColorCtor ? new _ColorCtor(0xa5b4fc) : null;
+const _cSunDay = _ColorCtor ? new _ColorCtor(palette.daylight) : null;
+const _cSunSet = _ColorCtor ? new _ColorCtor(0xffceaa) : null;
+const _cSunNight = _ColorCtor ? new _ColorCtor(0xb3c3df) : null;
 const _cCloudRain = _ColorCtor ? new _ColorCtor(0x64748b) : null;
 const _cCloudOvercast = _ColorCtor ? new _ColorCtor(0xcbd5e1) : null;
 const _cCloudWhite = _ColorCtor ? new _ColorCtor(0xffffff) : null;
 const _cSunSunsetGlow = _ColorCtor ? new _ColorCtor(0xfdba74) : null;
 const _cSnowWhite = _ColorCtor ? new _ColorCtor(0xf1f5f9) : null;
-const _cHemiSkyDay = _ColorCtor ? new _ColorCtor(0xe0f7ff) : null;
-const _cHemiSkySet = _ColorCtor ? new _ColorCtor(0xfed7aa) : null;
-const _cHemiSkyNight = _ColorCtor ? new _ColorCtor(0x818cf8) : null;
-const _cHemiGndDay = _ColorCtor ? new _ColorCtor(0x5a8e58) : null;
-const _cHemiGndSet = _ColorCtor ? new _ColorCtor(0x6e477c) : null;
-const _cHemiGndNight = _ColorCtor ? new _ColorCtor(0x241e42) : null;
+const _cHemiSkyDay = _ColorCtor ? new _ColorCtor(palette.daylightFill) : null;
+const _cHemiSkySet = _ColorCtor ? new _ColorCtor(0xf3ddcc) : null;
+const _cHemiSkyNight = _ColorCtor ? new _ColorCtor(0x9caecb) : null;
+const _cHemiGndDay = _ColorCtor ? new _ColorCtor(palette.bounce) : null;
+const _cHemiGndSet = _ColorCtor ? new _ColorCtor(0x887666) : null;
+const _cHemiGndNight = _ColorCtor ? new _ColorCtor(0x555961) : null;
 const _cloudDummy = _Obj3DCtor ? new _Obj3DCtor() : null;
 
 let lastSnowMix = -1;
@@ -227,25 +228,25 @@ export function updateDynamicEnvironment(dt, env, precipitationDt = dt) {
 
   if (env.envSun) {
     env.envSun.position.set(sunX * 75, Math.max(8, sunY * 75 + 12), 38);
-    if (sunY > 0.22) env.envSun.color.copy(_cSunDay);
-    else if (sunY > -0.15) env.envSun.color.copy(_cSunSet);
-    else env.envSun.color.copy(_cSunNight);
+    if (sunY >= 0.22) env.envSun.color.copy(_cSunDay);
+    else if (sunY >= 0) env.envSun.color.copy(_cSunSet).lerp(_cSunDay, sunY / 0.22);
+    else env.envSun.color.copy(_cSunSet).lerp(_cSunNight, Math.min(1, -sunY / 0.22));
     const cloudDim = Math.max(0.48, 1 - 0.12 * wb.partly - 0.28 * wb.overcast - 0.48 * wb.rain - 0.22 * wb.snow);
-    env.envSun.intensity = Math.max(0.20, sunY * 0.56 + 0.32) * cloudDim;
+    env.envSun.intensity = Math.max(0.16, sunY * 0.50 + 0.31) * cloudDim;
   }
   if (env.envHemi) {
-    env.envHemi.intensity = Math.max(0.36, sunY * 0.15 + 0.36);
+    env.envHemi.intensity = Math.max(0.36, sunY * 0.12 + 0.40);
     if (_cHemiSkyDay && _cHemiGndDay) {
       env.envHemi.color.copy(_cHemiSkyDay);
       env.envHemi.groundColor.copy(_cHemiGndDay);
-      if (sunY < 0.22 && sunY > -0.18) {
-        const sT = Math.max(0, Math.min(1, 1 - Math.abs(sunY - 0.03) / 0.21));
+      if (sunY < 0.22 && sunY >= 0) {
+        const sT = 1 - sunY / 0.22;
         env.envHemi.color.lerp(_cHemiSkySet, sT);
         env.envHemi.groundColor.lerp(_cHemiGndSet, sT);
-      } else if (sunY <= -0.18) {
-        const nT = Math.min(1, (-sunY - 0.18) / 0.25);
-        env.envHemi.color.lerp(_cHemiSkyNight, nT);
-        env.envHemi.groundColor.lerp(_cHemiGndNight, nT);
+      } else if (sunY < 0) {
+        const nT = Math.min(1, -sunY / 0.36);
+        env.envHemi.color.copy(_cHemiSkySet).lerp(_cHemiSkyNight, nT);
+        env.envHemi.groundColor.copy(_cHemiGndSet).lerp(_cHemiGndNight, nT);
       }
     }
   }

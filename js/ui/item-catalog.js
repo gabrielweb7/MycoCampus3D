@@ -1,6 +1,7 @@
 import THREE from '../vendor/three-global.js';
 import { getCatalogEntries } from './item-catalog-models.js';
 import { initI18n, t } from '../core/i18n.js';
+import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 
 initI18n();
 document.title = t('catalog.title') + ' · MycoCampus3D';
@@ -143,19 +144,21 @@ function copyModel(source, root = false) {
 
 function createViewer() {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.98;
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(37, 1, 0.05, 48);
   const pivot = new THREE.Group();
-  scene.add(pivot, new THREE.HemisphereLight(0xfff3e0, 0x807981, 0.54));
-  const key = new THREE.DirectionalLight(0xffedda, 0.95);
+  scene.add(pivot, new THREE.HemisphereLight(palette.daylightFill, palette.bounce, 0.54));
+  const key = new THREE.DirectionalLight(palette.daylight, 0.75);
   key.position.set(-3.8, 6, 4.5);
-  const edge = new THREE.DirectionalLight(0xe1edff, 0.48);
+  const edge = new THREE.DirectionalLight(0xcbe0da, 0.33);
   edge.position.set(4, 5, -5);
   scene.add(key, edge);
 
   const disk = new THREE.Mesh(new THREE.CylinderGeometry(1.68, 1.71, 0.115, 64),
-    new THREE.MeshStandardMaterial({ color: 0x3b514b, roughness: 0.9 }));
+    new THREE.MeshStandardMaterial({ color: palette.petrol, roughness: 0.9 }));
   scene.add(disk);
   const accent = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.011, 5, 80),
     new THREE.MeshBasicMaterial({ color: 0x83a598, transparent: true, opacity: 0.6 }));

@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.3] - 2026-11-27
+
+- Laboratórios, bancadas, estantes, paredes, piso, persianas, praça e vila compartilham uma paleta botânica com creme, verde sálvia, terracota e madeira clara. Tampos de inox mais escuros destacam bandejas e ferramentas.
+- A luz de preenchimento preserva os tons dos materiais ao longo do dia. As sombras solares ficaram mais leves e os modos móveis de menor qualidade mantêm as sombras de contato sem ativar mapas de sombra.
+- Catálogo e HUD usam tons mais próximos da cena, com fundo escuro e texto legível.
+
 ## [v2.11.2] - 2026-11-27
 
 - O catálogo agrupa cópias e estados de um mesmo objeto. Capacidades, cores e componentes distintos continuam identificados pelo nome. O jogo exibe nomes estáveis na mira, na mão e na mochila.

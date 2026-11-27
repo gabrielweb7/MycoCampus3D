@@ -5,8 +5,8 @@ import { buildGardenTap, buildLabSink } from '../items/lab-sink.js';
 
 const THREE = window.THREE;
 const PALETTES = [
-  [0xffd9aa, 0xb85946], [0xd7e7ec, 0x4b6997], [0xf6d9e0, 0x956080],
-  [0xe1e9bc, 0x62764d], [0xf4dfbb, 0x8b5c46]
+  [0xe9d5b8, 0xb87965], [0xd5e0d4, 0x5b7c73], [0xe6d5dd, 0x91798e],
+  [0xdce0bc, 0x6e8058], [0xeee0c5, 0x94745c]
 ];
 const FLOOR_Y = 0.10;
 const EAVES_Y = 3.02;

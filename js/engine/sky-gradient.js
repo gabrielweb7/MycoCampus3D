@@ -6,12 +6,12 @@
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
 
-const _cTopDay = _ColorCtor ? new _ColorCtor(0x1b64d8) : null;
-const _cTopSunset = _ColorCtor ? new _ColorCtor(0x6b21a8) : null;
+const _cTopDay = _ColorCtor ? new _ColorCtor(0x578bb6) : null;
+const _cTopSunset = _ColorCtor ? new _ColorCtor(0x796b9b) : null;
 const _cTopNight = _ColorCtor ? new _ColorCtor(0x050922) : null;
 
-const _cHorDay = _ColorCtor ? new _ColorCtor(0x8de0ff) : null;
-const _cHorSunset = _ColorCtor ? new _ColorCtor(0xfb923c) : null;
+const _cHorDay = _ColorCtor ? new _ColorCtor(0xb5d1d6) : null;
+const _cHorSunset = _ColorCtor ? new _ColorCtor(0xdfa47e) : null;
 const _cHorNight = _ColorCtor ? new _ColorCtor(0x1e1b4b) : null;
 
 const _cRainTint = _ColorCtor ? new _ColorCtor(0x475569) : null;

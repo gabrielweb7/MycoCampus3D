@@ -320,7 +320,7 @@ export function buildCampusWingsAndEquipment(ctx, { includeOutdoor = true } = {}
 
   // ALA LESTE (Direita) — 2 blocos de 2 andares (x: 14..24)
   // Leste-Norte: SALA DE DESIDRATAÇÃO, EMBALAGEM & EXPEDIÇÃO (+ Pasteurização e Estante LED de Monotubes)
-  buildCampusBuildingWing(ctx, { cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta da Sala de Desidratação', doorSign: '♨️ DESIDRATAÇÃO', style: 'brick', connectNorth2F: true, connectSouth2F: true, boardIndex: 2 });
+  buildCampusBuildingWing(ctx, { cx: 19, cz: -7, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta da Sala de Desidratação', doorSign: '♨️ DESIDRATAÇÃO', style: 'brick', labInterior: true, brickAccent: true, connectNorth2F: true, connectSouth2F: true, boardIndex: 2 });
   buildCampusBuildingWing(ctx, { cx: 19, cz: 8, width: 10, depth: 11.6, faceDir: -1, doorLabel: 'Porta da Estufa', doorSign: '🍄 ESTUFA', style: 'wood', connectNorth2F: true, boardIndex: 3 });
 
   createBanner(scene, 13.85, 5.1, -11.6, -Math.PI / 2, '#d97706', '♨️');

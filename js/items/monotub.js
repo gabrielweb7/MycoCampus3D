@@ -17,6 +17,7 @@
 import { calculateHarvestYieldGrams, getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { makeChamferedBox } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
+import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { bindPngTexture, getCachedCanvasTexture, getItemKindId, registerPickable, updateItemBounds } from './item-registry.js';
 import { getSanitizationStatus } from './alcohol-spray.js';
@@ -1113,8 +1114,8 @@ export function buildMonotubLedRack(ctx, rx = 15.3, rz = -5.2) {
   monotubRackHitMeshes.length = 0;
 
   const rackGroup = new THREE.Group();
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.65, roughness: 0.32 });
-  const shelfMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.45, roughness: 0.42 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: palette.petrol, metalness: 0.24, roughness: 0.57 });
+  const shelfMat = new THREE.MeshStandardMaterial({ color: palette.benchSteel, metalness: 0.26, roughness: 0.55 });
   const ledStripMat = new THREE.MeshStandardMaterial({
     color: 0xe0f2fe,
     emissive: 0x38bdf8,

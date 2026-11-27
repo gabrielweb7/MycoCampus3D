@@ -280,16 +280,16 @@ function renderBadgeTexture(badgeState, title, params, action) {
 
   // Fundo escuro nítido ajustado exatamente ao conteúdo (largura e altura)
   ctx.save();
-  ctx.fillStyle = 'rgba(8, 13, 24, 0.95)';
+  ctx.fillStyle = 'rgba(33, 54, 52, 0.97)';
   roundRect(ctx, boxX, 8, boxW, boxH, 20);
   ctx.fill();
 
   const grad = ctx.createLinearGradient(boxX, 8, boxX + boxW, 8 + boxH);
-  grad.addColorStop(0, 'rgba(52, 211, 153, 0.95)');
-  grad.addColorStop(1, 'rgba(56, 189, 248, 0.95)');
+  grad.addColorStop(0, 'rgba(171, 217, 190, 0.95)');
+  grad.addColorStop(1, 'rgba(122, 167, 151, 0.95)');
   ctx.strokeStyle = grad;
   ctx.lineWidth = 2.8;
-  ctx.shadowColor = 'rgba(56, 189, 248, 0.45)';
+  ctx.shadowColor = 'rgba(134, 188, 161, 0.42)';
   ctx.shadowBlur = 8;
   ctx.stroke();
   ctx.restore();
@@ -309,7 +309,7 @@ function renderBadgeTexture(badgeState, title, params, action) {
   // Linha 2: Parâmetros / Estado (Azul-ciano claro de alto contraste)
   if (paramLines.length) {
     yCursor += 2;
-    ctx.fillStyle = '#7dd3fc';
+    ctx.fillStyle = '#b5e2ca';
     ctx.font = `600 19px ${FONT_STACK}`;
     for (let i = 0; i < paramLines.length; i++) {
       ctx.fillText(paramLines[i], w / 2, yCursor, maxTextW);

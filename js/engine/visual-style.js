@@ -17,12 +17,27 @@ export const MYCO_PALETTE = Object.freeze({
   mushroomCoral: 0xff786e,
   mushroomGold: 0xf7b84b,
   mushroomViolet: 0xa56bea,
-  sky: 0x48bde8,
+  sky: 0x8bb9c8,
   stone: 0x8b91a8,
-  ink: 0x27324a
+  ink: 0x27324a,
+  plaster: 0xefe6d7,
+  linen: 0xded6c6,
+  floor: 0xa69d8f,
+  petrol: 0x526d69,
+  sage: 0x85a698,
+  benchSteel: 0x708780,
+  lilac: 0xac96b5,
+  woodHoney: 0xc89a6d,
+  terracotta: 0xbc806c,
+  leaf: 0x54845b,
+  leafLight: 0x7f9e63,
+  daylight: 0xfff3df,
+  daylightFill: 0xf3f0e5,
+  bounce: 0x9a927e,
+  roomLight: 0xfff4e3
 });
 
-const STYLE_MARK = 'mycoCozyV1';
+const STYLE_MARK = 'mycoCozyV2';
 
 function harmonizeStandardMaterial(material) {
   if (!material || !material.isMeshStandardMaterial || material.userData?.[STYLE_MARK]) return false;
@@ -35,30 +50,6 @@ function harmonizeStandardMaterial(material) {
 
   if ((material.metalness || 0) < 0.36) {
     material.roughness = Math.max(0.56, Math.min(0.9, material.roughness ?? 0.72));
-    if (material.color) {
-      const hsl = { h: 0, s: 0, l: 0 };
-      material.color.getHSL(hsl);
-      if (hsl.s > 0.08) {
-        // A direção anterior era deliberadamente sutil e quase invisível no
-        // jogo real. Aumentar saturação/luz aqui afeta campus e itens de forma
-        // clara, sem textura extra nem custo de shader.
-        let saturation = Math.min(1, hsl.s * 1.24 + 0.045);
-        let lightness = Math.min(0.9, hsl.l * 1.075 + 0.012);
-        // Verdes ganham o aspecto vivo das referências; marrons ficam mais
-        // quentes e cremosos em vez de escuros/cinzentos.
-        if (hsl.h > 0.22 && hsl.h < 0.47) {
-          saturation = Math.min(0.9, saturation + 0.08);
-          lightness = Math.min(0.68, lightness + 0.035);
-        } else if (hsl.h < 0.13 || hsl.h > 0.96) {
-          lightness = Math.min(0.74, lightness + 0.025);
-        }
-        material.color.setHSL(hsl.h, saturation, lightness);
-      } else if (hsl.l > 0.18 && hsl.l < 0.78) {
-        // Cinzas médios deixam o laboratório pesado; elevá-los aproxima inox,
-        // concreto e plástico do acabamento limpo e fofo desejado.
-        material.color.setHSL(hsl.h, hsl.s, Math.min(0.82, hsl.l * 1.12 + 0.025));
-      }
-    }
   } else {
     // Metal limpo e levemente acetinado: mantém equipamentos legíveis sem o
     // ruído e os highlights duros de uma superfície espelhada.
@@ -88,6 +79,6 @@ export function applyMycoCozyStyle(scene) {
     }
   });
   scene.userData = scene.userData || {};
-  scene.userData.mycoCozyStyle = { meshes, materials, version: 1 };
+  scene.userData.mycoCozyStyle = { meshes, materials, version: 2 };
   return scene.userData.mycoCozyStyle;
 }

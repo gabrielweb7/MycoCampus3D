@@ -14,7 +14,7 @@ function getThree() {
 }
 
 export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
-export const CAMPUS_EXPOSURE = 1.07;
+export const CAMPUS_EXPOSURE = 0.98;
 
 const TIER_CONFIGS = {
   desktop: {
@@ -274,8 +274,10 @@ export function applyQualityTier(tier, deps) {
       cam.near = 1;
       cam.far = 160;
       cam.updateProjectionMatrix();
-      envSun.shadow.bias = -0.0007;
-      if (envSun.shadow.normalBias !== undefined) envSun.shadow.normalBias = 0.025;
+      envSun.shadow.bias = -0.00055;
+      if (envSun.shadow.normalBias !== undefined) envSun.shadow.normalBias = 0.018;
+      if (envSun.shadow.intensity !== undefined) envSun.shadow.intensity = 0.76;
+      if (envSun.shadow.radius !== undefined) envSun.shadow.radius = cfg.soft ? 1.7 : 1;
       const ms = cfg.shadowMap || (isTouchDevice ? 768 : 1536);
       if (envSun.shadow.mapSize && envSun.shadow.mapSize.x !== ms) {
         envSun.shadow.mapSize.set(ms, ms);

@@ -2,6 +2,7 @@
  * MycoCampus3D — Construtor de Prédios Universitários (2 Andares, Persianas, Portas & Lousas)
  */
 import { makeBox, brickMat, woodMat, registerSnowable } from '../engine/textures.js';
+import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { makeChamferedBox, makeSideProfile } from '../items/lab-prop-shapes.js';
 import { addWalkableSlab, addSolidWall } from '../engine/physics.js';
 import { nightLampGlows } from './nature-plaza.js';
@@ -12,9 +13,9 @@ let sharedBlindMats = null;
 function getBlindMats() {
   if (!sharedBlindMats) {
     sharedBlindMats = {
-      headMat: new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.72, roughness: 0.26 }),
-      slatMat: new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.54, roughness: 0.30, side: THREE.DoubleSide }),
-      tapeMat: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.65 }),
+      headMat: new THREE.MeshStandardMaterial({ color: palette.petrol, metalness: 0.20, roughness: 0.54 }),
+      slatMat: new THREE.MeshStandardMaterial({ color: palette.linen, metalness: 0.12, roughness: 0.65, side: THREE.DoubleSide }),
+      tapeMat: new THREE.MeshStandardMaterial({ color: palette.plaster, roughness: 0.65 }),
       wandMat: new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.72, roughness: 0.15 }),
       cordMat: new THREE.MeshBasicMaterial({ color: 0xf1f5f9 }),
       knobMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }),
@@ -28,8 +29,8 @@ let sharedBuildingMats = null;
 function getBuildingMats() {
   if (!sharedBuildingMats) {
     const glassMat = new THREE.MeshStandardMaterial({
-      color: 0xbae6fd,
-      emissive: 0xfde68a,
+      color: 0xabc5bd,
+      emissive: 0xe8cf9d,
       emissiveIntensity: 0.0,
       transparent: true,
       opacity: 0.32,
@@ -42,12 +43,12 @@ function getBuildingMats() {
     nightLampGlows.push(glassMat);
     sharedBuildingMats = {
       glassMat,
-      fixMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.4, roughness: 0.4 }),
-      fndeBlue: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42 }),
-      fndeWhite: new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.35, roughness: 0.3 }),
-      fndeDark: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65 }),
-      chairLegMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.45, roughness: 0.28 }),
-      frameMat: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.35 })
+      fixMat: new THREE.MeshStandardMaterial({ color: palette.linen, metalness: 0.20, roughness: 0.57 }),
+      fndeBlue: new THREE.MeshStandardMaterial({ color: palette.petrol, roughness: 0.62 }),
+      fndeWhite: new THREE.MeshStandardMaterial({ color: palette.woodHoney, roughness: 0.69 }),
+      fndeDark: new THREE.MeshStandardMaterial({ color: palette.petrol, roughness: 0.65 }),
+      chairLegMat: new THREE.MeshStandardMaterial({ color: palette.sage, metalness: 0.19, roughness: 0.55 }),
+      frameMat: new THREE.MeshStandardMaterial({ color: palette.petrol, roughness: 0.58, metalness: 0.20 })
     };
   }
   return sharedBuildingMats;
@@ -176,20 +177,20 @@ export function buildCampusBuildingWing(ctx, opts) {
   const zN = cz - d / 2;
   const zS = cz + d / 2;
 
-  addWalkableSlab(scene, walkableFloors, cx, yFloor1, cz, w + 0.4, 0.14, d + 0.4, 0x475569, { roughness: 0.7 });
-  addWalkableSlab(scene, walkableFloors, cx, yFloor2, cz, w + 0.35, 0.24, d + 0.35, 0x334155, { roughness: 0.55 });
+  addWalkableSlab(scene, walkableFloors, cx, yFloor1, cz, w + 0.4, 0.14, d + 0.4, palette.floor, { roughness: 0.77 });
+  addWalkableSlab(scene, walkableFloors, cx, yFloor2, cz, w + 0.35, 0.24, d + 0.35, 0x9e998e, { roughness: 0.73 });
 
-  const roofSlab = makeBox(w + 0.6, 0.32, d + 0.6, 0x94a3b8, { roughness: 0.5, uniqueMat: true });
+  const roofSlab = makeBox(w + 0.6, 0.32, d + 0.6, palette.linen, { roughness: 0.65, uniqueMat: true });
   roofSlab.position.set(cx, yFloor2 + h2 + 0.16, cz);
   registerSnowable(roofSlab.material);
   roofZones.push({ minX: cx - w / 2 - 0.5, maxX: cx + w / 2 + 0.5, minZ: cz - d / 2 - 0.5, maxZ: cz + d / 2 + 0.5, roofY: yFloor2 + h2 + 0.32 });
   scene.add(roofSlab);
-  const parapet = makeBox(w + 0.72, 0.42, d + 0.72, 0x64748b, { roughness: 0.5 });
+  const parapet = makeBox(w + 0.72, 0.42, d + 0.72, palette.petrol, { roughness: 0.63 });
   parapet.position.set(cx, yFloor2 + h2 + 0.43, cz);
   scene.add(parapet);
 
   [[frontX, zN], [frontX, zS], [backX, zN], [backX, zS]].forEach((pp) => {
-    const col = makeBox(0.45, totalH + 0.35, 0.45, 0x1e293b, { roughness: 0.5 });
+    const col = makeBox(0.45, totalH + 0.35, 0.45, palette.petrol, { roughness: 0.63 });
     col.position.set(pp[0], yFloor1 + totalH / 2, pp[1]);
     scene.add(col);
   });
@@ -207,7 +208,7 @@ export function buildCampusBuildingWing(ctx, opts) {
   if (opts.connectNorth2F) {
     addSolidWall(scene, wallSegments, wallMinX, zN, cx - 1.6, zN, yFloor2, h2, 0.28, brickMat(1, 1));
     addSolidWall(scene, wallSegments, cx + 1.6, zN, wallMaxX, zN, yFloor2, h2, 0.28, brickMat(1, 1));
-    const headerN = makeBox(3.2, 0.7, 0.28, 0x334155);
+    const headerN = makeBox(3.2, 0.7, 0.28, palette.petrol);
     headerN.position.set(cx, yFloor2 + h2 - 0.35, zN);
     scene.add(headerN);
   } else {
@@ -218,13 +219,13 @@ export function buildCampusBuildingWing(ctx, opts) {
   if (opts.labInterior) {
     // Revestimento interno em duas faixas. O tijolo continua visível pelo lado de fora.
     const panels = [
-      [d, backX + dir * 0.145, cz, dir * Math.PI / 2],
       [w, cx, zN + 0.145, 0],
       [w, cx, zS - 0.145, Math.PI]
     ];
+    if (!opts.brickAccent) panels.push([d, backX + dir * 0.145, cz, dir * Math.PI / 2]);
     const finish = [
-      [1.48, 0.74, 0x52958e],
-      [h1 - 1.48, (h1 + 1.48) * 0.5, 0xe6d8bd]
+      [1.14, 0.57, palette.sage],
+      [h1 - 1.14, (h1 + 1.14) * 0.5, palette.plaster]
     ];
     for (const [height, centerY, color] of finish) {
       const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
@@ -241,7 +242,7 @@ export function buildCampusBuildingWing(ctx, opts) {
   if (opts.connectSouth2F) {
     addSolidWall(scene, wallSegments, wallMinX, zS, cx - 1.6, zS, yFloor2, h2, 0.28, brickMat(1, 1));
     addSolidWall(scene, wallSegments, cx + 1.6, zS, wallMaxX, zS, yFloor2, h2, 0.28, brickMat(1, 1));
-    const headerS = makeBox(3.2, 0.7, 0.28, 0x334155);
+    const headerS = makeBox(3.2, 0.7, 0.28, palette.petrol);
     headerS.position.set(cx, yFloor2 + h2 - 0.35, zS);
     scene.add(headerS);
   } else {
@@ -250,20 +251,20 @@ export function buildCampusBuildingWing(ctx, opts) {
 
   addSolidWall(scene, wallSegments, frontX, zN, frontX, zS, yFloor2, h2 - 0.1, 0.14, glassMat, { noShadow: true });
   for (let m = -2; m <= 2; m++) {
-    const mullion = makeBox(0.18, h2 - 0.1, 0.12, 0x0f172a);
+    const mullion = makeBox(0.18, h2 - 0.1, 0.12, palette.petrol);
     mullion.position.set(frontX, yFloor2 + (h2 - 0.1) / 2, cz + m * (d / 5));
     scene.add(mullion);
   }
   createVenetianBlind(ctx, frontX - dir * 0.11, yFloor2 + h2 - 0.14, cz - d * 0.24, d * 0.45, h2 - 0.26, dir, cz);
   createVenetianBlind(ctx, frontX - dir * 0.11, yFloor2 + h2 - 0.14, cz + d * 0.24, d * 0.45, h2 - 0.26, dir, cz);
 
-  const ceilPlaster1 = makeBox(w - 0.1, 0.02, d - 0.1, 0xe2e8f0, { roughness: 0.7, noShadow: true });
+  const ceilPlaster1 = makeBox(w - 0.1, 0.02, d - 0.1, palette.plaster, { roughness: 0.7, noShadow: true });
   ceilPlaster1.position.set(cx, 3.55, cz);
   scene.add(ceilPlaster1);
 
   const fixMat = BLD.fixMat;
   function createFloorLighting(floorY, floorH, swX, swY, swZ, swRotY) {
-    const fTubeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfffbeb, emissiveIntensity: 0.85, roughness: 0.35 });
+    const fTubeMat = new THREE.MeshStandardMaterial({ color: palette.linen, emissive: palette.roomLight, emissiveIntensity: 0.85, roughness: 0.45 });
     const ceilY = floorY < 1.0 ? 3.51 : (floorY + floorH - 0.04);
     [-2.0, 2.0].forEach((lx) => {
       [-2.8, 2.8].forEach((lz) => {
@@ -279,7 +280,7 @@ export function buildCampusBuildingWing(ctx, opts) {
       });
     });
 
-    const fLight = new THREE.PointLight(0xfffbeb, 1.35, 16, 1.85);
+    const fLight = new THREE.PointLight(palette.roomLight, 1.35, 16, 1.85);
     fLight.position.set(cx, ceilY - 0.55, cz);
     scene.add(fLight);
 
@@ -509,7 +510,7 @@ export function buildCampusBuildingWing(ctx, opts) {
   const doorPivot = new THREE.Group();
   doorPivot.position.set(frontX, yFloor1, cz - doorHalfW + 0.04);
   const leafW = (doorHalfW - 0.04) * 2;
-  const doorGlass = makeBox(0.036, doorH - 0.17, leafW - 0.15, 0x0f766e, { transparent: true, opacity: 0.58, roughness: 0.15, noShadow: true });
+  const doorGlass = makeBox(0.036, doorH - 0.17, leafW - 0.15, 0x7ca69b, { transparent: true, opacity: 0.32, roughness: 0.19, noShadow: true });
   doorGlass.position.set(0, doorH / 2 - 0.01, leafW / 2);
   const stL = new THREE.Mesh(new THREE.BoxGeometry(0.11, doorH, 0.08), frameMat);
   stL.position.set(0, doorH / 2, 0.04);

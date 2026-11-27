@@ -39,9 +39,9 @@ export function createProceduralTextures() {
   const bc = document.createElement('canvas');
   bc.width = 256; bc.height = 256;
   const bctx = bc.getContext('2d');
-  bctx.fillStyle = '#9e9589';
+  bctx.fillStyle = '#cbab96';
   bctx.fillRect(0, 0, 256, 256);
-  const brickPalette = ['#8c4632', '#7a3b29', '#994e38', '#6f3424', '#85422f'];
+  const brickPalette = ['#b77d68', '#b17a66', '#bf8772', '#aa7563', '#b57e6c'];
   const rows = 8, cols = 4, bh = 256 / rows, bw = 256 / cols;
   for (let r = 0; r < rows; r++) {
     const off = (r % 2) * (bw / 2);
@@ -59,9 +59,9 @@ export function createProceduralTextures() {
   const pc = document.createElement('canvas');
   pc.width = 256; pc.height = 256;
   const pctx = pc.getContext('2d');
-  pctx.fillStyle = '#8b8175';
+  pctx.fillStyle = '#a69a86';
   pctx.fillRect(0, 0, 256, 256);
-  const pavePalette = ['#bfb1a0', '#b2a392', '#c8bba9', '#a89a8a'];
+  const pavePalette = ['#c2b49d', '#bdb19d', '#c8b9a5', '#b7aa97'];
   for (let pr = 0; pr < 16; pr++) {
     const poff = (pr % 2) * 16;
     for (let pcCol = -1; pcCol < 9; pcCol++) {
@@ -79,9 +79,9 @@ export function createProceduralTextures() {
   const wc = document.createElement('canvas');
   wc.width = 128; wc.height = 128;
   const wctx = wc.getContext('2d');
-  wctx.fillStyle = '#6b4226';
+  wctx.fillStyle = '#9d7755';
   wctx.fillRect(0, 0, 128, 128);
-  const woodCols = ['#8b5a2b', '#7a4b22', '#966332', '#6f421d'];
+  const woodCols = ['#c69a73', '#bc9069', '#c69c78', '#b88c66'];
   for (let i = 0; i < 8; i++) {
     wctx.fillStyle = woodCols[i % woodCols.length];
     wctx.fillRect(i * 16 + 1, 0, 14, 128);

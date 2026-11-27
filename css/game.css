@@ -1063,7 +1063,14 @@ body.device-desktop #btn-mobile-chat-toggle {
   text-align: center;
 }
 
+#hud-top-bar > .glass-panel,
+#held-item-bar {
+  background-color: rgba(33, 54, 52, 0.96);
+  border-color: rgba(174, 207, 189, 0.34);
+}
+
 #held-item-bar-name {
+  color: #d4eee1;
   overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-box-orient: vertical;

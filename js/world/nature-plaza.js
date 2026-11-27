@@ -2,6 +2,7 @@
  * MycoCampus3D — Mundo Natural, Floresta InstancedMesh, Cogumelos Silvestres & Praça Central
  */
 import { makeBox, getTextures, getGroundTextures } from '../engine/textures.js';
+import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { terrainHeight } from '../engine/physics.js';
 import { villageDistance } from '../core/village-layout.js';
 import { createMushroomMeshBySpeciesName } from './mushroom-species.js';
@@ -179,7 +180,7 @@ function buildForestSectors(scene, solidColliders, treePositions) {
   const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, flatShading: true });
   const dummy = new THREE.Object3D();
   const color = new THREE.Color();
-  const layers = [0x1b7750, 0x259451, 0x389f55, 0x4cab63];
+  const layers = [0x426f57, 0x4d805e, 0x618b62, 0x799965];
 
   function addBatch(name, geometry, material, count, receiveShadow) {
     if (!count) return null;
@@ -230,8 +231,8 @@ function buildForestSectors(scene, solidColliders, treePositions) {
           dummy.scale.set(radius * s, radius * 0.82 * s, radius * s);
           dummy.updateMatrix();
           crowns.setMatrixAt(crownIdx, dummy.matrix);
-          color.setHex(grove ? (ci % 2 ? 0x8aa04a : 0x587437) :
-            (ci % 2 ? 0x62c55c : (i % 10 === 0 ? 0xf2b84b : 0x35a854)));
+          color.setHex(grove ? (ci % 2 ? 0x8a9b5a : 0x667e4d) :
+            (ci % 2 ? palette.leafLight : (i % 10 === 0 ? 0xdab064 : palette.leaf)));
           crowns.setColorAt(crownIdx++, color);
         }
       }
@@ -255,9 +256,9 @@ function getSharedBedAssets() {
   const flowerCols = [0xf472b6, 0xc084fc, 0x38bdf8, 0xfb923c, 0xfacc15];
   sharedBedAssets = {
     curbGeo: new THREE.CylinderGeometry(1, 1, 0.22, 24),
-    curbMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.75 }),
+    curbMat: new THREE.MeshStandardMaterial({ color: palette.linen, roughness: 0.75 }),
     grassGeo: new THREE.CylinderGeometry(1, 1, 0.24, 24),
-    grassMat: new THREE.MeshStandardMaterial({ color: 0x3b8c3b, roughness: 0.9 }),
+    grassMat: new THREE.MeshStandardMaterial({ color: palette.leaf, roughness: 0.9 }),
     trunkGeo: new THREE.CylinderGeometry(0.16, 0.28, 1.55, 8),
     rootGeo: new THREE.ConeGeometry(0.11, 0.42, 6),
     branchGeo: new THREE.CylinderGeometry(0.07, 0.11, 0.85, 6),
@@ -268,11 +269,11 @@ function getSharedBedAssets() {
     stemGeo: new THREE.CylinderGeometry(0.018, 0.022, 0.24, 6),
     centerGeo: new THREE.SphereGeometry(0.045, 7, 5),
     petalGeo: new THREE.SphereGeometry(0.055, 6, 5),
-    trunkMat: new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.88 }),
-    leafDarkMat: new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.72 }),
-    leafBrightMat: new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.68 }),
-    potMat: new THREE.MeshStandardMaterial({ color: 0xc26a3b, roughness: 0.75 }),
-    rimMat: new THREE.MeshStandardMaterial({ color: 0xd97742, roughness: 0.7 }),
+    trunkMat: new THREE.MeshStandardMaterial({ color: 0xa77c55, roughness: 0.88 }),
+    leafDarkMat: new THREE.MeshStandardMaterial({ color: palette.leaf, roughness: 0.72 }),
+    leafBrightMat: new THREE.MeshStandardMaterial({ color: palette.leafLight, roughness: 0.68 }),
+    potMat: new THREE.MeshStandardMaterial({ color: palette.terracotta, roughness: 0.75 }),
+    rimMat: new THREE.MeshStandardMaterial({ color: 0xc79678, roughness: 0.7 }),
     stemMat: new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.65 }),
     centerMat: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 }),
     petalMats: flowerCols.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55 }))
@@ -426,7 +427,7 @@ export function createBench(scene, seatMeshes, x, z, rotY) {
     const wTex = new THREE.CanvasTexture(wc);
     wTex.wrapS = wTex.wrapT = THREE.RepeatWrapping;
     benchWoodMat = new THREE.MeshStandardMaterial({ map: wTex, roughness: 0.38, metalness: 0.06 });
-    benchFrameMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.30, metalness: 0.78 });
+    benchFrameMat = new THREE.MeshStandardMaterial({ color: palette.petrol, roughness: 0.55, metalness: 0.27 });
   }
 
   const g = new THREE.Group();

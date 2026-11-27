@@ -40,9 +40,9 @@ export function addStoragePortaPalletRack(ctx, rx, rz, totalLen, depth, rotY) {
   rg.position.set(rx, floorY, rz);
   rg.rotation.y = rotY || 0;
 
-  const blueMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.34, metalness: 0.48 });
-  const orangeMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.32, metalness: 0.42 });
-  const darkFootMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6, metalness: 0.4 });
+  const blueMat = new THREE.MeshStandardMaterial({ color: 0x526d69, roughness: 0.58, metalness: 0.24 });
+  const orangeMat = new THREE.MeshStandardMaterial({ color: 0xbc806c, roughness: 0.59, metalness: 0.19 });
+  const darkFootMat = new THREE.MeshStandardMaterial({ color: 0x414e49, roughness: 0.63, metalness: 0.16 });
 
   const halfL = totalLen / 2;
   const halfD = depth / 2;
@@ -131,7 +131,7 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
   const isSawdust = kind === 'sawdust';
   const isCoco = kind === 'coco';
   const isGrain = kind === 'grain' || kind === 'corn' || isWheat || isSorghum;
-  const bagColor = isWheat ? 0xeab308 : (isSorghum ? 0x991b1b : (isGrain ? 0xd97706 : (isVerm ? 0xb45309 : (isSawdust ? 0xc2955a : 0x5c3a21))));
+  const bagColor = isWheat ? 0xd3b76d : (isSorghum ? 0xb37071 : (isGrain ? 0xc8975d : (isVerm ? 0xbd8264 : (isSawdust ? 0xc4a077 : 0x8f6b55))));
   const bag = makePouch(0.30, 0.42, 0.22,
     new THREE.MeshStandardMaterial({ color: bagColor, roughness: 0.88, flatShading: true }));
   bag.position.y = 0.21;
