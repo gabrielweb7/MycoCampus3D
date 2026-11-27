@@ -51,8 +51,15 @@ function buildModule(kind) {
   const THREE = window.THREE;
   const group = new THREE.Group();
   const dark = material(0x252a2d);
-  const shell = material(kind === 'grow_humidifier' ? 0xe8e0ce : 0x454c50, { metalness: 0.18 });
+  const shell = material(kind === 'grow_humidifier' ? 0xf0dfc7 : 0x839995, { metalness: 0.12 });
   if (kind === 'grow_humidifier') {
+    const outlet = new THREE.Mesh(new THREE.TorusGeometry(0.044, 0.011, 5, 12), shell);
+    outlet.rotation.x = -Math.PI / 2;
+    outlet.position.set(0, 0.308, 0);
+    const opening = new THREE.Mesh(new THREE.CircleGeometry(0.042, 12), dark);
+    opening.rotation.copy(outlet.rotation);
+    opening.position.set(0, 0.306, 0);
+    group.add(outlet, opening);
     const water = new THREE.Mesh(new THREE.CylinderGeometry(0.162, 0.165, 0.13, 14), material(0x71cbd5));
     water.position.y = 0.165;
     group.add(water);
@@ -80,10 +87,20 @@ function buildModule(kind) {
   const rotor = new THREE.Group();
   rotor.position.set(0, 0.18, 0.165);
   if (kind === 'grow_exhaust') {
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.111, 0.009, 5, 14), shell);
+    rim.position.copy(rotor.position);
+    rim.position.z += 0.014;
+    group.add(rim);
+    const vaneGeo = new THREE.SphereGeometry(1, 6, 4);
+    const vaneMat = material(0x435f60, { flatShading: true });
     for (let i = 0; i < 5; i++) {
       const blade = new THREE.Group();
       blade.rotation.z = i * 2 * Math.PI / 5;
-      box(blade, dark, 0.035, 0.095, 0.012, 0.015, 0.045, 0);
+      const vane = new THREE.Mesh(vaneGeo, vaneMat);
+      vane.scale.set(0.028, 0.053, 0.009);
+      vane.position.set(0.018, 0.047, 0);
+      vane.rotation.z = -0.35;
+      blade.add(vane);
       rotor.add(blade);
     }
     group.add(rotor);
@@ -278,6 +295,7 @@ export function makeGrowShopItem(ctx, opts, kind) {
   const id = opts.id || ('dyn_' + kind + '_' + Date.now().toString(36));
   if (kind !== 'grow_tent') {
     const { group } = buildModule(kind);
+    group.userData.firstPersonGrip = { x: 0.105, y: 0.076, z: 0.117 };
     const item = registerPickable(ctx, id, opts.label || GROW_PREFABS[kind], group, opts.x, opts.y, opts.z, opts.ry, 0.18, 0.34);
     item.growModule = kind;
     return item;

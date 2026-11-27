@@ -143,7 +143,7 @@ export function createGardenModels(THREE) {
 export function makeSubstrateBox(THREE, width, height, depth) {
   const group = new THREE.Group();
   const fill = new THREE.Group();
-  const wood = [0xca812b, 0xe5a139, 0xd89131, 0xf4b94d].map((color) => matte(THREE, color));
+  const wood = [0xb88259, 0xc79b70, 0xba9167, 0xdbb18b].map((color) => matte(THREE, color));
   const metal = matte(THREE, 0x725337);
   const soilColors = [0x493020, 0x5e3d28, 0x6c4630, 0x8f6941].map((color) => matte(THREE, color, { flatShading: true }));
   const sprout = matte(THREE, 0x567729, { side: THREE.DoubleSide });
@@ -158,7 +158,10 @@ export function makeSubstrateBox(THREE, width, height, depth) {
   }
 
   board(width - 0.1, 0.08, depth - 0.1, 0, 0.05, 0, wood[0]);
+  const trim = matte(THREE, 0x789986);
   for (const side of [-1, 1]) {
+    board(width - 0.04, 0.045, 0.09, 0, height - 0.032, side * (depth / 2 - 0.048), trim);
+    board(0.09, 0.045, depth - 0.18, side * (width / 2 - 0.063), height - 0.032, 0, trim);
     for (let row = 0; row < 3; row++) {
       const y = 0.06 + boardHeight * (row + 0.5);
       board(width - 0.05, boardHeight - 0.009, 0.055, 0, y, side * (depth / 2 - 0.05), wood[row]);

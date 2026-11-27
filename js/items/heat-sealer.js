@@ -4,7 +4,7 @@
 
 import { makeBox } from '../engine/textures.js';
 import { makeChamferedBox } from './lab-prop-shapes.js';
-import { registerPickable } from './item-registry.js';
+import { makeRoundedRectShape, registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
 const LEVER_OPEN_ANGLE = 0.34;
@@ -38,13 +38,27 @@ export function createHeatSealer(ctx, id, px, py, pz) {
     new THREE.MeshStandardMaterial({ color: 0xe5cca4, roughness: 0.68 }));
   pivotCap.rotation.x = Math.PI / 2;
   pivotCap.position.copy(hinge.position);
-  const grip = makeChamferedBox(0.113, 0.032, 0.076, 0.010, 0xea9d60);
-  grip.position.set(0.151, 0.023, 0);
+  const outline = new THREE.Shape();
+  outline.moveTo(-0.153, -0.027);
+  outline.lineTo(0.148, -0.027);
+  outline.lineTo(0.137, 0.009);
+  outline.lineTo(0.098, 0.035);
+  outline.lineTo(-0.095, 0.035);
+  outline.lineTo(-0.145, 0.005);
+  outline.closePath();
+  outline.holes.push(makeRoundedRectShape(0.176, 0.030, 0.010));
+  const handleGeo = new THREE.ExtrudeGeometry(outline, {
+    depth: 0.045, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 1, curveSegments: 3
+  });
+  handleGeo.translate(0, 0, -0.0225);
+  const grip = new THREE.Mesh(handleGeo, new THREE.MeshStandardMaterial({ color: 0xb49ab9, roughness: 0.74 }));
+  grip.position.set(0.055, 0.038, 0);
   sealerArm.add(grip);
-  const ledMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x7f1d1d, emissiveIntensity: 0.3, roughness: 0.3 });
+  const ledMat = new THREE.MeshStandardMaterial({ color: 0x81c0ab, emissive: 0x27635c, emissiveIntensity: 0.3, roughness: 0.3 });
   const sealerLed = makeBox(0.022, 0.022, 0.022, ledMat, { noShadow: true });
   sealerLed.position.set(0.18, 0.085, 0.06);
   sealerGroup.add(sealerBase, bed, heatStrip, mount, pivotCap, hinge, sealerLed);
+  sealerGroup.userData.firstPersonSideGrip = { x: 0.194, y: 0.031, z: 0.068 };
   const item = registerPickable(ctx, id, 'Seladora Térmica de Bags', sealerGroup, px, py, pz, Math.PI / 2, 0.28, 0.28, HEAT_SEALER_META);
   let sealTimer = null;
   item.sealerCtrl = {
@@ -57,7 +71,7 @@ export function createHeatSealer(ctx, id, px, py, pz) {
       if (sealTimer) clearTimeout(sealTimer);
       sealTimer = setTimeout(() => {
         hinge.rotation.z = LEVER_OPEN_ANGLE;
-        ledMat.emissive.setHex(0x7f1d1d);
+        ledMat.emissive.setHex(0x27635c);
         ledMat.emissiveIntensity = 0.3;
         heatStrip.material.emissive.setHex(0x000000);
         heatStrip.material.emissiveIntensity = 0;

@@ -58,10 +58,13 @@ let sharedAmpouleAssets = null;
 function getAmpouleAssets() {
   if (sharedAmpouleAssets || !THREE) return sharedAmpouleAssets;
   sharedAmpouleAssets = {
-    vialGlassGeo: new THREE.CylinderGeometry(0.010, 0.010, 0.028, 12),
+    vialGlassGeo: new THREE.LatheGeometry([
+      [0, -0.014], [0.008, -0.014], [0.010, -0.012], [0.010, 0.010],
+      [0.009, 0.014], [0.0068, 0.016]
+    ].map(([r, y]) => new THREE.Vector2(r, y)), 12),
     vialNeckGeo: new THREE.CylinderGeometry(0.0068, 0.009, 0.005, 10),
     vialCrimpGeo: new THREE.CylinderGeometry(0.0085, 0.0085, 0.0045, 12),
-    vialCapGeo: new THREE.CylinderGeometry(0.0092, 0.0092, 0.0042, 12),
+    vialCapGeo: new THREE.CylinderGeometry(0.0081, 0.0094, 0.0042, 10),
     vialLiqGeo: new THREE.CylinderGeometry(0.0084, 0.0084, 0.022, 10),
     vialMycGeo: new THREE.SphereGeometry(0.0062, 8, 6),
     glassMat: new THREE.MeshStandardMaterial({
@@ -73,7 +76,7 @@ function getAmpouleAssets() {
       depthWrite: false
     }),
     crimpMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.22 }),
-    orangeCapMat: new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.38 }),
+    vialCapMat: new THREE.MeshStandardMaterial({ color: 0x8cbcaf, roughness: 0.58 }),
     caseBodyMat: new THREE.MeshStandardMaterial({ color: 0x73856a, roughness: 0.62, metalness: 0.15 }),
     caseFoamMat: new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.92 }),
     caseWellMat: new THREE.MeshBasicMaterial({ color: 0x020617 }),
@@ -96,7 +99,7 @@ export function buildVial3mlMeshGroup(opts = {}) {
   neck.position.y = 0.0305;
   const crimp = new THREE.Mesh(A.vialCrimpGeo, A.crimpMat);
   crimp.position.y = 0.035;
-  const cap = new THREE.Mesh(A.vialCapGeo, A.orangeCapMat);
+  const cap = new THREE.Mesh(A.vialCapGeo, A.vialCapMat);
   cap.position.y = 0.039;
 
   const isContam = !!opts.contaminated;
@@ -230,6 +233,7 @@ export function makeVial3ml(ctx, id, px, py, pz, opts = {}) {
 
   const built = buildVial3mlMeshGroup({ contaminated });
   const vg = built.vg;
+  vg.userData.firstPersonGrip = { x: 0.007, y: 0.015, z: 0.010 };
   vg.userData.liquidCtrl = {
     volMl,
     maxMl: AMPOULE_VIAL_MAX_ML,

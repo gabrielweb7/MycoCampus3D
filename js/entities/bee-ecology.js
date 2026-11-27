@@ -1107,6 +1107,13 @@ export function makeStarterBeehiveItem(ctx, id, x, y, z, opts = {}) {
   crateBase.scale.set(1.9, 1.4, 3.6);
   crateBase.position.y = 0.028;
   g.add(crateBase);
+  const railGeo = new THREE.BoxGeometry(0.065, 0.055, 0.39);
+  for (const side of [-1, 1]) {
+    const rail = new THREE.Mesh(railGeo, a.hiveWoodMat);
+    rail.position.set(side * 0.17, 0.074, 0);
+    g.add(rail);
+  }
+  g.userData.firstPersonGrip = { x: 0.17, y: 0.08, z: 0.18 };
   g.userData.isStarterBeehive = true;
   markSubtreeDynamic(g);
 
@@ -1162,6 +1169,11 @@ export function makeBeeBaitItem(ctx, id, x, y, z, opts = {}) {
   twig.scale.set(0.9, 0.55, 0.4);
   twig.position.set(0.06, 0.12, 0.03);
   g.add(saucer, honeyPool, flowerDot, twig);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.106, 0.013, 5, 12), a.hiveWoodMat);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.073;
+  g.add(rim);
+  g.userData.firstPersonGrip = { x: 0.07, y: 0.033, z: 0.085 };
   g.userData.isBeeBait = true;
   markSubtreeDynamic(g);
 

@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.1] - 2026-11-27
+
+- As 260 entradas do catálogo exibem modelos atualizados desde o início do redesenho. Esta versão completa as 24 entradas que faltavam, incluindo ampola vazia, equipamentos do grow, acessórios e espécies do bosque.
+- A seladora tem alça vazada e encaixe para as duas mãos. O jato dos três borrifadores sai da abertura visível do bico. Ampola, sachê, porções desidratadas e itens do apiário têm pontos de pegada próprios.
+- As pranchas de referência da [coleção](assets/catalog-remaining-models-concept.png) e do [borrifador e da seladora](assets/spray-sealer-turnaround.png) acompanham os modelos.
+
 ## [v2.11.0] - 2026-11-27
 
 - Catálogo com novos modelos low-poly para equipamentos, recipientes, utensílios, embalagens e espécies. Mãos em primeira pessoa mais visíveis e pegadas adaptadas a ferramentas, recipientes e objetos de duas mãos.

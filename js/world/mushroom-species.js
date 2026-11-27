@@ -393,14 +393,27 @@ function makeSpeciesMushroomMesh(spec) {
   let cap = null;
   if (shape === 'lions_mane' || shape === 'lobed') {
     cap = new THREE.Mesh(geos.dodeca, capMat);
-    cap.scale.setScalar(s * 1.15);
+    const mane = shape === 'lions_mane';
+    const woody = spec.scientific.startsWith('Inonotus');
+    cap.scale.set(s * 1.12, s * (woody ? 0.74 : 0.90), s);
     cap.position.y = s * 1.05;
     for (let i = 0; i < 4; i++) {
-      const tuft = new THREE.Mesh(geos.dodeca, capMat);
+      const tuft = new THREE.Mesh(woody || mane ? geos.dodeca : geos.wave, woody ? stemMat : capMat);
       const a = (i / 4) * Math.PI * 2;
-      tuft.scale.set(s * 0.57, s * (shape === 'lions_mane' ? 0.82 : 0.54), s * 0.57);
-      tuft.position.set(Math.cos(a) * s * 0.55, s * 0.85, Math.sin(a) * s * 0.55);
+      tuft.scale.set(s * 0.70, s * (mane ? 0.82 : 0.54), s * 0.57);
+      tuft.position.set(Math.cos(a) * s * 0.64, s * 0.82, Math.sin(a) * s * 0.64);
+      tuft.rotation.set(0.25, a, (i % 2 ? -1 : 1) * 0.36);
       g.add(tuft);
+    }
+    if (mane) {
+      for (let i = 0; i < 9; i++) {
+        const angle = i * Math.PI * 2 / 9;
+        const tooth = new THREE.Mesh(geos.cone7, stemMat);
+        tooth.scale.set(s * 0.19, s * (0.73 + 0.22 * (i % 2)), s * 0.18);
+        tooth.position.set(s * 0.87 * Math.cos(angle), s * 0.56, s * 0.87 * Math.sin(angle));
+        tooth.rotation.z = Math.PI;
+        g.add(tooth);
+      }
     }
     g.add(cap);
   } else if (shape === 'shelf') {
@@ -519,23 +532,36 @@ function makeSpeciesMushroomMesh(spec) {
     cap.position.y = s * 3.15;
     g.add(st, ring, cap);
   } else if (shape === 'cordyceps') {
-    for (let i = 0; i < 3; i++) {
-      const club = new THREE.Mesh(geos.cylClub, capMat);
-      club.scale.set(s * 0.24, s * (2.2 + i * 0.25), s * 0.24);
-      club.position.set((i - 1) * s * 0.42, s * 1.1, 0);
-      club.rotation.z = (i - 1) * 0.14;
-      g.add(club);
-      if (i === 1) cap = club;
+    const finger = spec.scientific.startsWith('Xylaria');
+    for (let i = 0; i < (finger ? 4 : 6); i++) {
+      const angle = i * 2.4;
+      const height = s * (1.45 + 0.8 * seededRand(variation.seed + i * 17));
+      const base = new THREE.Group();
+      base.position.set(s * Math.cos(angle) * 0.43, 0, s * Math.sin(angle) * 0.42);
+      base.rotation.set(Math.sin(angle) * 0.18, 0, -Math.cos(angle) * 0.22);
+      const stalk = new THREE.Mesh(geos.cylClub, stemMat);
+      stalk.position.y = height * 0.34;
+      stalk.scale.set(s * 0.17, height * 0.68, s * 0.17);
+      const club = new THREE.Mesh(geos.dodeca, capMat);
+      club.scale.set(s * (finger ? 0.32 : 0.24), height * 0.29, s * 0.24);
+      club.position.y = height * 0.75;
+      base.add(stalk, club);
+      g.add(base);
+      if (i === 0) cap = club;
     }
   } else if (shape === 'earthstar') {
     cap = new THREE.Mesh(geos.dodeca, stemMat);
-    cap.scale.setScalar(s * 0.65);
+    cap.scale.set(s * 0.66, s * 0.74, s * 0.66);
     cap.position.y = s * 0.70;
     g.add(cap);
+    const pore = new THREE.Mesh(geos.cylClub, capMat);
+    pore.scale.set(s * 0.12, s * 0.10, s * 0.12);
+    pore.position.y = s * 1.40;
+    g.add(pore);
     for (let i = 0; i < 7; i++) {
       const angle = i * Math.PI * 2 / 7;
       const point = new THREE.Mesh(geos.cone7, capMat);
-      point.scale.set(s * 0.37, s * 1.3, s * 0.24);
+      point.scale.set(s * 0.46, s * 1.40, s * 0.18);
       point.position.set(Math.sin(angle) * s * 0.56, s * 0.22, Math.cos(angle) * s * 0.56);
       point.rotation.set(Math.PI * 0.37, angle, 0, 'YXZ');
       g.add(point);

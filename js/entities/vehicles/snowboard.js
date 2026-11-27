@@ -1,3 +1,28 @@
+let deckGeometry;
+export function getSnowboardDeckGeometry() {
+  if (deckGeometry) return deckGeometry;
+  const outline = new THREE.Shape();
+  outline.moveTo(-0.15, -0.58);
+  outline.quadraticCurveTo(-0.17, -0.86, 0, -0.86);
+  outline.quadraticCurveTo(0.17, -0.86, 0.15, -0.58);
+  outline.quadraticCurveTo(0.128, 0, 0.15, 0.58);
+  outline.quadraticCurveTo(0.17, 0.86, 0, 0.86);
+  outline.quadraticCurveTo(-0.17, 0.86, -0.15, 0.58);
+  outline.quadraticCurveTo(-0.128, 0, -0.15, -0.58);
+  deckGeometry = new THREE.ExtrudeGeometry(outline, { depth: 0.022, bevelEnabled: false, curveSegments: 5 });
+  deckGeometry.rotateX(-Math.PI / 2);
+  const position = deckGeometry.attributes.position;
+  const uv = deckGeometry.attributes.uv;
+  for (let i = 0; i < position.count; i++) {
+    const z = position.getZ(i);
+    position.setY(i, position.getY(i) + 1.6 * Math.max(0, Math.abs(z) - 0.62) ** 2);
+    uv.setXY(i, 0.5 + z / 1.73, 0.5 + position.getX(i) / 0.33);
+  }
+  deckGeometry.computeVertexNormals();
+  deckGeometry.userData.shared = true;
+  return deckGeometry;
+}
+
 export function buildSnowboardRig(ctx) {
   if (ctx.getSnowboardGroup()) return;
   var snowboardGroup = new THREE.Group();
@@ -7,9 +32,9 @@ export function buildSnowboardRig(ctx) {
   sbCanvas.width = 256; sbCanvas.height = 64;
   var sbx = sbCanvas.getContext('2d');
   var grd = sbx.createLinearGradient(0, 0, 256, 64);
-  grd.addColorStop(0, '#06b6d4');
-  grd.addColorStop(0.5, '#6366f1');
-  grd.addColorStop(1, '#ec4899');
+  grd.addColorStop(0, '#84c5b5');
+  grd.addColorStop(0.5, '#708da4');
+  grd.addColorStop(1, '#ba8ca4');
   sbx.fillStyle = grd;
   sbx.fillRect(0, 0, 256, 64);
   sbx.fillStyle = 'rgba(15, 23, 42, 0.72)';
@@ -26,17 +51,9 @@ export function buildSnowboardRig(ctx) {
   var pantMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
 
   // Prancha principal
-  var deck = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.028, 1.38), deckMat);
+  var deck = new THREE.Mesh(getSnowboardDeckGeometry(), deckMat);
   deck.position.y = 0.02;
   deck.castShadow = true;
-
-  // Bicos levantados (rocker frontal e traseiro)
-  var nose = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.024, 0.24), deckMat);
-  nose.position.set(0, 0.055, -0.76);
-  nose.rotation.x = 0.34;
-  var tail = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.024, 0.24), deckMat);
-  tail.position.set(0, 0.055, 0.76);
-  tail.rotation.x = -0.34;
 
   // Fixações e botas em posição lateral de snowboarder
   [-0.28, 0.28].forEach(function (fz, idx) {
@@ -55,7 +72,7 @@ export function buildSnowboardRig(ctx) {
     snowboardGroup.add(binding, boot, shin);
   });
 
-  snowboardGroup.add(deck, nose, tail);
+  snowboardGroup.add(deck);
   snowboardGroup.visible = false;
   ctx.scene.add(snowboardGroup);
   ctx.setSnowboardGroup(snowboardGroup);

@@ -750,14 +750,23 @@ export function makeDriedMushroomBatch(ctx, id, speciesName, px, py, pz, grams =
   const stemMat = new THREE.MeshStandardMaterial({ color: 0xd6d3d1, roughness: 0.85 });
   const capMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.65 });
   const wGrams = Number(grams) || 10;
+  const stemGeo = new THREE.CylinderGeometry(0.006, 0.009, 0.062, 7);
+  const capGeo = new THREE.LatheGeometry([
+    [0, -0.006], [0.020, -0.004], [0.026, 0], [0.018, 0.010], [0.007, 0.014], [0, 0.014]
+  ].map(([r, y]) => new THREE.Vector2(r, y)), 9);
   for (let i = -1; i <= 1; i++) {
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.011, 0.07, 8), stemMat);
-    stem.position.set(i * 0.032, 0.02, 0);
-    stem.rotation.z = i * 0.25;
-    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.026, 0.022, 10), capMat);
-    cap.position.set(i * 0.04, 0.055, 0);
-    g.add(stem, cap);
+    const specimen = new THREE.Group();
+    const stem = new THREE.Mesh(stemGeo, stemMat);
+    stem.position.y = 0.031;
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = 0.06;
+    cap.scale.z = 0.76;
+    specimen.add(stem, cap);
+    specimen.rotation.set(0.72, i * 0.28, i * 0.21);
+    specimen.position.set(i * 0.029, 0.006, -0.015);
+    g.add(specimen);
   }
+  g.userData.firstPersonGrip = { x: 0.019, y: 0.014, z: 0.014 };
   g.userData.isDriedMushroomBatch = true;
   const sp = speciesName || 'Psilocybe cubensis';
   const item = registerPickable(

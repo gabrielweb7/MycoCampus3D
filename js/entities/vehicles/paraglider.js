@@ -3,9 +3,18 @@ import { terrainHeight } from '../../engine/physics.js';
 export function createParagliderWingMesh(scale) {
   var wg = new THREE.Group();
   var s = scale || 1;
-  var panelColors = [0xec4899, 0x8b5cf6, 0x3b82f6, 0x06b6d4, 0xfacc15, 0xf97316, 0xef4444];
+  var panelColors = [0x9b758e, 0xdd9c92, 0xe5bc85, 0xeae2c5, 0x99c3b1, 0x75a7ad, 0x747e9c];
   var spanCount = panelColors.length;
   var segW = 0.56 * s;
+  const profile = new THREE.Shape();
+  profile.moveTo(-0.67, 0);
+  profile.quadraticCurveTo(-0.72, 0.16, -0.45, 0.17);
+  profile.quadraticCurveTo(0.12, 0.17, 0.67, -0.045);
+  profile.quadraticCurveTo(0.1, 0.034, -0.67, 0);
+  const cellGeometry = new THREE.ExtrudeGeometry(profile, { depth: segW / s, bevelEnabled: false, curveSegments: 4 });
+  cellGeometry.translate(0, 0, -segW / s / 2);
+  cellGeometry.rotateY(-Math.PI / 2);
+  cellGeometry.scale(s, s, s);
   for (var i = 0; i < spanCount; i++) {
     var offset = i - (spanCount - 1) / 2;
     var arcX = offset * segW * 0.92;
@@ -14,7 +23,7 @@ export function createParagliderWingMesh(scale) {
     var cellMat = new THREE.MeshStandardMaterial({
       color: panelColors[i], roughness: 0.45, metalness: 0.05, side: THREE.DoubleSide
     });
-    var cell = new THREE.Mesh(new THREE.BoxGeometry(segW, 0.08 * s, 1.35 * s), cellMat);
+    var cell = new THREE.Mesh(cellGeometry, cellMat);
     cell.position.set(arcX, 2.55 * s + arcY, 0);
     cell.rotation.z = tiltZ;
     wg.add(cell);

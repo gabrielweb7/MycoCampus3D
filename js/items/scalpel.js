@@ -13,9 +13,9 @@ let sharedScalpelAssets = null;
 function getScalpelSharedAssets() {
   if (sharedScalpelAssets) return sharedScalpelAssets;
   const bladeTex = getCachedCanvasTexture('scalpel_blade_pack_24', 128, 64, (pctx) => {
-    pctx.fillStyle = '#db2777'; pctx.fillRect(0, 0, 128, 64);
-    pctx.fillStyle = '#1e3a8a'; pctx.fillRect(88, 0, 40, 64);
-    pctx.fillStyle = '#ffffff'; pctx.font = 'bold 14px sans-serif';
+    pctx.fillStyle = '#e8e6dc'; pctx.fillRect(0, 0, 128, 64);
+    pctx.fillStyle = '#78aaa0'; pctx.fillRect(94, 0, 34, 64);
+    pctx.fillStyle = '#43485c'; pctx.font = 'bold 14px sans-serif';
     pctx.fillText('LÂMINA #24', 8, 28);
     pctx.font = 'bold 11px sans-serif';
     pctx.fillText('ESTÉRIL', 14, 48);
@@ -176,6 +176,14 @@ export function makeScalpelBladePack(ctx, id, px, py, pz) {
   const pg = new THREE.Group();
   const pack = new THREE.Mesh(A.packGeo, new THREE.MeshStandardMaterial({ map: A.bladeTex, roughness: 0.35 }));
   pack.position.y = 0.004;
+  const seamGeometry = new THREE.BoxGeometry(0.028, 0.0015, 0.0018);
+  const seamMaterial = new THREE.MeshStandardMaterial({ color: 0xb1bab8, roughness: 0.58 });
+  for (const z of [-0.039, -0.036, 0.036, 0.039]) {
+    const seam = new THREE.Mesh(seamGeometry, seamMaterial);
+    seam.position.set(0, 0.002, z);
+    pack.add(seam);
+  }
+  pg.userData.firstPersonGrip = { x: 0.01, y: 0.002, z: 0.03 };
   const packHitbox = new THREE.Mesh(A.packHitGeo, A.hitMat);
   packHitbox.visible = false;
   packHitbox.position.y = 0.014;

@@ -6,6 +6,7 @@
 import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { createParagliderWingMesh, createRoundParachuteMesh } from './vehicles/paraglider.js';
+import { getSnowboardDeckGeometry } from './vehicles/snowboard.js';
 import { makeChamferedGeometry } from '../items/lab-prop-shapes.js';
 import { applyAvatarSkin } from './avatar-skins.js';
 
@@ -32,11 +33,9 @@ function getSharedAvatarAssets() {
     palmGeo: makeChamferedGeometry(0.105, 0.116, 0.11, 0.021),
     shoeGeo: makeChamferedGeometry(0.154, 0.082, 0.213, 0.019),
     faceGeo: new THREE.PlaneGeometry(0.32, 0.30),
-    sbDeckGeo: new THREE.BoxGeometry(0.24, 0.024, 0.92),
-    sbTipGeo: new THREE.BoxGeometry(0.22, 0.022, 0.16),
+    sbDeckGeo: getSnowboardDeckGeometry(),
     sbBindGeo: new THREE.BoxGeometry(0.17, 0.035, 0.12),
     sbDeckMat: new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.25, metalness: 0.15 }),
-    sbTipMat: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 }),
     sbBindMat: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.55 })
   };
   Object.keys(sharedAvatarAssets).forEach((k) => {
@@ -50,17 +49,12 @@ function createRemoteSnowboardMesh() {
   const remoteSb = new THREE.Group();
   const rDeck = new THREE.Mesh(A.sbDeckGeo, A.sbDeckMat);
   rDeck.position.y = 0.025;
-  const rNose = new THREE.Mesh(A.sbTipGeo, A.sbTipMat);
-  rNose.position.set(0, 0.048, -0.51);
-  rNose.rotation.x = 0.36;
-  const rTail = new THREE.Mesh(A.sbTipGeo, A.sbTipMat);
-  rTail.position.set(0, 0.048, 0.51);
-  rTail.rotation.x = -0.36;
+  rDeck.scale.set(0.80, 0.8, 0.70);
   const rBindF = new THREE.Mesh(A.sbBindGeo, A.sbBindMat);
   rBindF.position.set(0, 0.048, -0.20);
   const rBindB = new THREE.Mesh(A.sbBindGeo, A.sbBindMat);
   rBindB.position.set(0, 0.048, 0.20);
-  remoteSb.add(rDeck, rNose, rTail, rBindF, rBindB);
+  remoteSb.add(rDeck, rBindF, rBindB);
   remoteSb.rotation.y = -0.28;
   return remoteSb;
 }
@@ -214,7 +208,8 @@ export function buildAvatarHat(hatId, hatMat, hatGroup) {
     const capMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 });
     const skull = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), capMat);
     skull.position.set(0, 0.22, 0);
-    const board = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.03, 0.56), capMat);
+    capMat.color.setHex(0x53465f);
+    const board = new THREE.Mesh(makeChamferedGeometry(0.56, 0.034, 0.56, 0.009), capMat);
     board.position.set(0, 0.35, 0);
     board.rotation.y = Math.PI / 4;
     const button = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.02, 12), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.7 }));
@@ -222,6 +217,11 @@ export function buildAvatarHat(hatId, hatMat, hatGroup) {
     const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.035, 0.25, 8), new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 }));
     tassel.position.set(0.24, 0.24, 0.12);
     tassel.rotation.z = -0.3;
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.27, 6), tassel.material);
+    cord.rotation.set(0, 0, -Math.PI / 2);
+    cord.position.set(0.135, 0.373, 0);
+    tassel.position.set(0.291, 0.25, 0);
+    hatGroup.add(cord);
     hatGroup.add(skull, board, button, tassel);
   } else if (id === 'flower_crown') {
     const vineMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.7 });
@@ -229,12 +229,27 @@ export function buildAvatarHat(hatId, hatMat, hatGroup) {
     vine.rotation.x = Math.PI / 2;
     vine.position.set(0, 0.24, 0);
     hatGroup.add(vine);
-    const flowerCols = [0xf43f5e, 0xfacc15, 0x38bdf8, 0xa855f7, 0xffedd5, 0xf97316];
+    const flowerCols = [0xde919b, 0xe7bd76, 0xa7b9d7, 0xc1a0c8, 0xffe8d1, 0xe4a182];
+    const petalGeo = new THREE.SphereGeometry(1, 6, 4);
+    const pollenMat = new THREE.MeshStandardMaterial({ color: 0xd49b5c, roughness: 0.79 });
     for (let fi = 0; fi < 6; fi++) {
       const ang = (fi / 6) * Math.PI * 2;
       const fMat = new THREE.MeshStandardMaterial({ color: flowerCols[fi], roughness: 0.35 });
-      const fMesh = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), fMat);
+      const fMesh = new THREE.Group();
+      fMesh.rotation.y = Math.PI / 2 - ang;
       fMesh.position.set(Math.cos(ang) * 0.24, 0.25, Math.sin(ang) * 0.24);
+      for (let p = 0; p < 5; p++) {
+        const a = p * 2 * Math.PI / 5;
+        const petal = new THREE.Mesh(petalGeo, fMat);
+        petal.position.set(Math.cos(a) * 0.035, Math.sin(a) * 0.035, 0);
+        petal.scale.set(0.031, 0.022, 0.017);
+        petal.rotation.z = a;
+        fMesh.add(petal);
+      }
+      const center = new THREE.Mesh(petalGeo, pollenMat);
+      center.scale.set(0.021, 0.021, 0.014);
+      center.position.z = 0.013;
+      fMesh.add(center);
       hatGroup.add(fMesh);
     }
   } else if (id === 'beret') {
@@ -249,6 +264,12 @@ export function buildAvatarHat(hatId, hatMat, hatGroup) {
   } else {
     const defHat = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), hatMat);
     defHat.position.set(0, 0.24, 0); defHat.castShadow = true;
+    defHat.scale.set(1, 0.94, 1.05);
+    const lining = new THREE.Mesh(new THREE.CylinderGeometry(0.338, 0.310, 0.025, 16),
+      new THREE.MeshStandardMaterial({ color: 0xead2b1, roughness: 0.82 }));
+    lining.scale.z = 1.05;
+    lining.position.y = 0.175;
+    hatGroup.add(lining);
     const spotMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.7 });
     [[0, 0.56, 0.08], [-0.18, 0.45, -0.15], [0.18, 0.45, -0.15], [-0.16, 0.44, 0.16], [0.16, 0.44, 0.16]].forEach(function (sp) {
       const dot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), spotMat);

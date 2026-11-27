@@ -58,8 +58,12 @@ function makeSprayModel(bodyColor, accent, withProxy = true) {
     [0.035, 0.002], [0.011, -0.013], [-0.016, -0.013], [-0.035, 0.009]
   ], 0.048, 0.005, cream);
   nozzle.position.y = 0.211;
-  const tip = makeChamferedBox(0.038, 0.035, 0.020, 0.005, trim);
+  const tip = makeChamferedBox(0.038, 0.035, 0.020, 0.005, cream);
   tip.position.set(0, 0.019, 0.068);
+  const opening = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.0015, 9), trim);
+  opening.rotation.x = Math.PI / 2;
+  opening.position.z = 0.010;
+  tip.add(opening);
   nozzle.add(tip);
   const trigger = makeSideProfile([
     [-0.015, 0.008], [0.003, 0.008], [0.008, -0.017],
@@ -85,11 +89,12 @@ function makeSprayModel(bodyColor, accent, withProxy = true) {
     hitProxy.position.y = 0.14;
     group.add(hitProxy);
   }
+  group.userData.sprayOutlet = opening;
   return { group, nozzle, trigger };
 }
 
 export function makeAlcoholSprayBottle(ctx, id, px, py, pz) {
-  const { group: ag, nozzle, trigger: trig } = makeSprayModel(0xd9876a, 0x667e68);
+  const { group: ag, nozzle, trigger: trig } = makeSprayModel(0xd69c91, 0x87a491);
   ag.userData.isAlcoholSpray = true;
   ag.userData.sprayTrig = trig;
   ag.userData.sprayNozzle = nozzle;
@@ -175,8 +180,8 @@ const _UP = new THREE.Vector3(0, 1, 0);
 
 function aimSprayParticles(ctx, hitPoint) {
   const mesh = ctx.heldItem?.mesh;
-  if (mesh && (mesh.userData.isAlcoholSpray || mesh.userData.isWaterSpray || mesh.userData.isH2O2Spray)) {
-    _spOrigin.set(0, 0.230, 0.078).applyEuler(mesh.rotation).add(mesh.position);
+  if (mesh?.userData.sprayOutlet) {
+    mesh.userData.sprayOutlet.getWorldPosition(_spOrigin);
   } else {
     _spOrigin.set(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
   }
@@ -184,13 +189,13 @@ function aimSprayParticles(ctx, hitPoint) {
   else _spDir.set(0, 0, -1).applyEuler(ctx.camera.rotation);
 }
 
-export function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, speed, size, life) {
+export function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, speed, size, life, originWidth = 0.08) {
   const spArr = new Float32Array(count * 3);
   const spVel = new Float32Array(count * 3);
   for (let si = 0; si < count; si++) {
-    spArr[si * 3] = origin.x + (Math.random() - 0.5) * 0.08;
-    spArr[si * 3 + 1] = origin.y + (Math.random() - 0.5) * 0.08;
-    spArr[si * 3 + 2] = origin.z + (Math.random() - 0.5) * 0.08;
+    spArr[si * 3] = origin.x + (Math.random() - 0.5) * originWidth;
+    spArr[si * 3 + 1] = origin.y + (Math.random() - 0.5) * originWidth;
+    spArr[si * 3 + 2] = origin.z + (Math.random() - 0.5) * originWidth;
     spVel[si * 3] = dir.x * speed + (Math.random() - 0.5) * spread;
     spVel[si * 3 + 1] = dir.y * speed + (Math.random() - 0.5) * spread;
     spVel[si * 3 + 2] = dir.z * speed + (Math.random() - 0.5) * spread;
@@ -215,7 +220,7 @@ export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}
   }
 
   aimSprayParticles(ctx, sprayInfo?.hitPoint);
-  spawnSprayParticles(ctx, 0xe0f2fe, 30, _spOrigin, _spDir, 0.95, 2.5, 0.032, 0.45);
+  spawnSprayParticles(ctx, 0xe0f2fe, 30, _spOrigin, _spDir, 0.95, 2.5, 0.032, 0.45, 0.006);
 
   if (!sprayInfo || !sprayInfo.target) {
     if (sanitizeGloves || !ctx.hoveredGreenhouseSlot) {
@@ -307,7 +312,7 @@ export function fireH2O2Spray(ctx, sprayInfo) {
     ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
   }
   aimSprayParticles(ctx, sprayInfo?.hitPoint);
-  spawnSprayParticles(ctx, 0xf8fafc, 28, _spOrigin, _spDir, 0.9, 2.4, 0.035, 0.5);
+  spawnSprayParticles(ctx, 0xf8fafc, 28, _spOrigin, _spDir, 0.9, 2.4, 0.035, 0.5, 0.006);
   if (sprayInfo && sprayInfo.hitPoint) {
     const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);
     spawnSprayParticles(ctx, 0xffffff, 24, bp, _UP, 1.4, 0.55, 0.045, 0.65);
@@ -322,7 +327,7 @@ export function fireWaterSpray(ctx, sprayInfo) {
   }
   if (ctx && ctx.camera && ctx.scene) {
     aimSprayParticles(ctx, sprayInfo?.hitPoint);
-    spawnSprayParticles(ctx, 0x7dd3fc, 28, _spOrigin, _spDir, 1.05, 2.1, 0.028, 0.5);
+    spawnSprayParticles(ctx, 0x7dd3fc, 28, _spOrigin, _spDir, 1.05, 2.1, 0.028, 0.5, 0.006);
   }
   if (sprayInfo && sprayInfo.hitPoint && ctx && ctx.scene) {
     const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);
