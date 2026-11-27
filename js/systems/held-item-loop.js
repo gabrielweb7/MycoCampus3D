@@ -22,6 +22,7 @@ import { wipeWithPaperTowel } from '../items/paper-towel.js';
 import { advanceMixingBowlStir, addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
 import { markBladePackEmpty, updateScalpelLabel, stepScalpels } from '../items/scalpel.js';
 import { shouldHideHeldInPlacementMode } from '../entities/placement-ghost.js';
+import { alignHeldHands, fitHandHorizontally, frameHeldItem } from '../entities/first-person-grip.js';
 import { getHiveSyringeDose, takeHoneyIntoSyringe } from '../entities/bee-ecology.js';
 
 const THREE = window.THREE;
@@ -406,22 +407,27 @@ function applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, fin
 }
 
 export function stepHeldItemAndSyringe(ctx, dt, now) {
-  const isTwoHanded = !!(ctx.heldItem && ctx.heldItem.mesh.userData.twoHanded);
-
   if (ctx.heldItem) {
     const reachZ = ctx.fpsArmGroup ? ctx.armReach * 0.16 : 0;
     const reachY = ctx.fpsArmGroup ? ctx.armReach * 0.06 : 0;
     const ud = ctx.heldItem.mesh && ctx.heldItem.mesh.userData;
+    const isTwoHanded = !!(ud.twoHanded || ud.firstPersonSideGrip);
     if (ctx.heldItem.fridgeCtrl || (ud && ud.isCultureFridge)) {
       _tmpHandLocal.set(0, -1.05, -2.05);
     } else if (ud && ud.isHood) {
       _tmpHandLocal.set(0, -0.78, -1.48);
     } else if (ud && ud.isTable) {
       _tmpHandLocal.set(0, -0.65, -1.35);
+    } else if (ud.isTray && ud.firstPersonSideGrip) {
+      _tmpHandLocal.set(0, -0.255, -0.65);
+    } else if (!ud.twoHanded && ud.firstPersonSideGrip) {
+      _tmpHandLocal.set(0, -0.33, -0.76);
     } else if (isTwoHanded) {
       _tmpHandLocal.set(0, -0.48, -0.95);
     } else if (ud && ud.isTray) {
       _tmpHandLocal.set(0.14, -0.26 + reachY, -0.58 - reachZ);
+    } else if (ctx.heldItem.organicBasketCtrl) {
+      _tmpHandLocal.set(0.23, -0.44, -0.57);
     } else if (ctx.heldItem.wildMushroomCtrl) {
       if (ctx.heldItem.wildMushroomCtrl.bodyGroup) {
         ctx.heldItem.wildMushroomCtrl.bodyGroup.rotation.z = 0;
@@ -431,6 +437,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     } else {
       _tmpHandLocal.set(0.30, -0.22 + reachY, -0.58 - reachZ);
     }
+    frameHeldItem(ctx.camera, ctx.heldItem.mesh, _tmpHandLocal);
     _tmpHandPos.copy(_tmpHandLocal).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
     ctx.heldItem.mesh.position.copy(_tmpHandPos);
     if (ctx.heldItem.id.indexOf('chalk_') === 0) {
@@ -440,7 +447,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.heldItem.mesh.rotation.order = 'YXZ';
       ctx.heldItem.mesh.rotation.set(ctx.playerPitch + Math.PI / 2, ctx.playerYaw, 0);
     } else if (ctx.heldItem.mesh.userData.isThermometer) {
-      _tmpHandLocal.set(0.24, -0.22 + reachY, -0.46 - reachZ);
+      _tmpHandLocal.set(fitHandHorizontally(ctx.camera, 0.24), -0.22 + reachY, -0.46 - reachZ);
       _tmpHandPos.copy(_tmpHandLocal).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
       ctx.heldItem.mesh.position.copy(_tmpHandPos);
       ctx.heldItem.mesh.rotation.order = 'YXZ';
@@ -450,7 +457,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       const spUd = ctx.heldItem.mesh.userData;
       const squeezing = spUd.sprayAnimUntil && spUd.sprayAnimUntil > now;
       ctx.heldItem.mesh.rotation.order = 'YXZ';
-      ctx.heldItem.mesh.rotation.set(-ctx.playerPitch * 0.45 + (squeezing ? 0.08 : 0), ctx.playerYaw + Math.PI, 0);
+      ctx.heldItem.mesh.rotation.set(-ctx.playerPitch * 0.85 + (squeezing ? 0.08 : 0), ctx.playerYaw + Math.PI, -0.08);
       if (spUd.sprayTrig) {
         spUd.sprayTrig.position.z = squeezing ? 0.032 : 0.042;
       }
@@ -473,7 +480,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         if (stirBowl.bowlCtrl && stirBowl.bowlCtrl.mixMesh) stirBowl.bowlCtrl.mixMesh.rotation.y += dt * 9;
         if (isHoldingStir && ctx.triggerLocalAvatarAction) ctx.triggerLocalAvatarAction('fx_mix');
       } else {
-        ctx.heldItem.mesh.rotation.set(-0.15, ctx.playerYaw, 0);
+        ctx.heldItem.mesh.rotation.set(ctx.playerPitch + 0.12, ctx.playerYaw + 0.22, -0.06);
       }
     } else if (ctx.sinkFilling && ctx.sinkFilling.item === ctx.heldItem && ctx.sinkFilling.sink && ctx.sinkFilling.sink.nozzleWorld) {
       const sk = ctx.sinkFilling.sink;
@@ -508,7 +515,23 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.heldItem.mesh.rotation.set(-0.85, ctx.playerYaw, -0.35);
     } else {
       ctx.heldItem.mesh.rotation.order = 'YXZ';
-      ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw, 0);
+      if (ud.isSyringe) {
+        ctx.heldItem.mesh.rotation.set(ctx.playerPitch * 0.45, ctx.playerYaw + 2.08, 0.21);
+      } else if (ud.isScalpel) {
+        ctx.heldItem.mesh.rotation.set(ctx.playerPitch + 0.08, ctx.playerYaw + 0.62, -0.06);
+      } else if (ud.isHood) {
+        ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw - Math.PI / 2, 0);
+      } else if (ud.isPaperTowel && now - ud.wipeStartedAt < 210) {
+        const phase = (now - ud.wipeStartedAt) / 210;
+        const reach = Math.sin(phase * Math.PI);
+        _tmpHandLocal.x -= Math.sin(phase * Math.PI * 2) * 0.07 * reach;
+        _tmpHandLocal.z -= 0.14 * reach;
+        _tmpHandPos.copy(_tmpHandLocal).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
+        ctx.heldItem.mesh.position.copy(_tmpHandPos);
+        ctx.heldItem.mesh.rotation.set(0.63 * reach, ctx.playerYaw + 0.23, -0.22 * reach);
+      } else {
+        ctx.heldItem.mesh.rotation.set(0, ctx.playerYaw + (isTwoHanded || ud.isTray ? 0 : 0.23), 0);
+      }
     }
 
     // Esconde o item segurado (e tampa/conteúdo acoplado) no modo posicionamento [G] para exibir só o fantasma
@@ -588,9 +611,12 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
           _tmpSyrPort.set(portY ? 0 : 0.036, portY ?? 0.290, 0).applyEuler(mesh.rotation).add(mesh.position);
           portYaw = mesh.rotation.y;
         }
-        const tgtRotX = 0.08 * ctx.syringePunctureProgress;
-        const tgtRotY = ctx.playerYaw * (1 - ctx.syringePunctureProgress) + (portYaw + Math.PI * 0.5) * ctx.syringePunctureProgress;
-        const tgtRotZ = -1.48 * ctx.syringePunctureProgress;
+        const rotation = ctx.heldItem.mesh.rotation;
+        const k = ctx.syringePunctureProgress;
+        const yawDelta = Math.atan2(Math.sin(portYaw + Math.PI * 0.5 - rotation.y), Math.cos(portYaw + Math.PI * 0.5 - rotation.y));
+        const tgtRotX = THREE.MathUtils.lerp(rotation.x, 0.08, k);
+        const tgtRotY = rotation.y + yawDelta * k;
+        const tgtRotZ = THREE.MathUtils.lerp(rotation.z, -1.48, k);
         ctx.heldItem.mesh.rotation.set(tgtRotX, tgtRotY, tgtRotZ);
 
         _tmpSyrOff.set(0.12, 0.022, 0).applyEuler(ctx.heldItem.mesh.rotation);
@@ -600,11 +626,6 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
         ctx.heldItem.mesh.position.copy(_tmpHandPos);
 
         if (ctx.fpsArmGroup) {
-          ctx.fpsArmGroup.position.set(
-            0.32 - 0.04 * ctx.syringePunctureProgress,
-            -0.28 - 0.04 * ctx.syringePunctureProgress,
-            -0.42 - 0.04 * ctx.syringePunctureProgress
-          );
           ctx.fpsArmGroup.rotation.set(
             0.18 + 0.14 * ctx.syringePunctureProgress,
             -0.14 + 0.04 * ctx.syringePunctureProgress,
@@ -706,6 +727,8 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
       ctx.pourHold = null;
     }
   }
+
+  if (ctx.heldItem) alignHeldHands(ctx, ctx.heldItem);
 
   if (ctx.isPrimaryDown && !ctx.placementMode && ctx.heldItem && ctx.heldItem.mesh) {
     if (ctx.heldItem.mesh.userData.isAlcoholSpray && ctx.hoveredSprayTarget?.target && now - (ctx._lastSprayLoopAt || 0) >= 260) {

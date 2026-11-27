@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.0] - 2026-11-27
+
+- Catálogo com novos modelos low-poly para equipamentos, recipientes, utensílios, embalagens e espécies. Mãos em primeira pessoa mais visíveis e pegadas adaptadas a ferramentas, recipientes e objetos de duas mãos.
+- A ação disponível vem antes de Posicionar e Inspecionar. Pegar equipa o item e Mover abre a prévia. Os mesmos controles aparecem por toque no celular.
+- O suporte Falcon encaixa os tubos em vagas individuais. A bandeja e a panela usam duas mãos, o papel-toalha se move ao secar e as partículas dos borrifadores saem do bico.
+- A loja de skins tem três opções gratuitas, dez compráveis com MycoCoins e um jaleco gratuito para professor e admin. A skin ativa aparece na loja e é salva separadamente do chapéu.
+
 ## [v2.10.9] - 2026-11-26
 
 - Oito modelos 3D de laboratório ganharam formas low-poly, bordas chanfradas e cores foscas: agitador, balança, microscópio, desidratadora, seladora e três borrifadores.

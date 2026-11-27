@@ -2,24 +2,32 @@
  * Estantes Porta-Pallet e Insumos do Deposito (Sacos 5kg, Luvas, Fitas, Aluminio)
  */
 
+import { makeChamferedBox, makePouch } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
 import { getCachedCanvasTexture, registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
+
+function makeTapeGeometry(innerRadius, outerRadius, height) {
+  const bottom = -height / 2;
+  const top = height / 2;
+  const profile = [[innerRadius, bottom], [outerRadius, bottom], [outerRadius, top], [innerRadius, top], [innerRadius, bottom]];
+  return new THREE.LatheGeometry(profile.map(([radius, y]) => new THREE.Vector2(radius, y)), 16);
+}
 
 let sharedRackAssets = null;
 function getRackSharedAssets() {
   if (sharedRackAssets) return sharedRackAssets;
   sharedRackAssets = {
     lblGeo: new THREE.PlaneGeometry(0.24, 0.12),
-    microOuterGeo: new THREE.CylinderGeometry(0.055, 0.055, 0.032, 18),
-    microCoreGeo: new THREE.CylinderGeometry(0.036, 0.036, 0.034, 14),
-    paraOuterGeo: new THREE.CylinderGeometry(0.055, 0.055, 0.055, 18),
-    paraCoreGeo: new THREE.CylinderGeometry(0.036, 0.036, 0.057, 14),
-    microOuterMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6 }),
+    microOuterGeo: makeTapeGeometry(0.034, 0.055, 0.032),
+    microCoreGeo: makeTapeGeometry(0.029, 0.037, 0.034),
+    paraOuterGeo: makeTapeGeometry(0.034, 0.055, 0.055),
+    paraCoreGeo: makeTapeGeometry(0.029, 0.037, 0.057),
+    microOuterMat: new THREE.MeshStandardMaterial({ color: 0xe8d8bb, roughness: 0.73 }),
     microCoreMat: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.5 }),
     paraOuterMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6 }),
-    paraCoreMat: new THREE.MeshStandardMaterial({ color: 0x7c3aed, roughness: 0.5 })
+    paraCoreMat: new THREE.MeshStandardMaterial({ color: 0xa490b8, roughness: 0.66 })
   };
   Object.keys(sharedRackAssets).forEach((k) => { sharedRackAssets[k].userData.shared = true; });
   return sharedRackAssets;
@@ -124,7 +132,8 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
   const isCoco = kind === 'coco';
   const isGrain = kind === 'grain' || kind === 'corn' || isWheat || isSorghum;
   const bagColor = isWheat ? 0xeab308 : (isSorghum ? 0x991b1b : (isGrain ? 0xd97706 : (isVerm ? 0xb45309 : (isSawdust ? 0xc2955a : 0x5c3a21))));
-  const bag = makeBox(0.30, 0.42, 0.22, bagColor, { roughness: 0.85 });
+  const bag = makePouch(0.30, 0.42, 0.22,
+    new THREE.MeshStandardMaterial({ color: bagColor, roughness: 0.88, flatShading: true }));
   bag.position.y = 0.21;
   const variantKey = isWheat ? 'wheat' : (isSorghum ? 'sorghum' : (isGrain ? 'grain' : (isVerm ? 'vermiculite' : (isSawdust ? 'sawdust' : 'coco'))));
   const lblTex = getCachedCanvasTexture(`substrate_bag_lbl_${variantKey}`, 256, 128, (sctx) => {
@@ -144,8 +153,11 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
     A.lblGeo,
     new THREE.MeshBasicMaterial({ map: lblTex })
   );
-  lbl.position.set(0, 0.24, 0.112);
-  sg.add(bag, lbl);
+  lbl.position.set(0, 0.18, 0.112);
+  const seam = makeChamferedBox(0.286, 0.025, 0.071, 0.007, 0xc5ac7b);
+  seam.position.y = 0.404;
+  sg.add(bag, lbl, seam);
+  sg.userData.firstPersonGrip = { x: 0.075, y: 0.132, z: 0.116 };
   const label = isWheat
     ? 'Saco de Trigo em Grão 5kg'
     : (isSorghum
@@ -178,13 +190,18 @@ export function makeSubstrateBag5kg(ctx, id, kind, px, py, pz) {
 
 export function makeGlovesBox(ctx, id, px, py, pz) {
   const gg = new THREE.Group();
-  const box = makeBox(0.24, 0.12, 0.13, 0x0284c7, { roughness: 0.45 });
+  const box = makeChamferedBox(0.24, 0.12, 0.13, 0.013, 0xa38bb0);
   box.position.y = 0.06;
-  const slot = makeBox(0.12, 0.008, 0.05, 0xe0f2fe, { noShadow: true });
-  slot.position.set(0, 0.122, 0);
-  const strip = makeBox(0.242, 0.04, 0.132, 0xf8fafc, { noShadow: true });
-  strip.position.y = 0.085;
-  gg.add(box, slot, strip);
+  const rim = makeChamferedBox(0.139, 0.011, 0.054, 0.004, 0x71816a);
+  rim.position.y = 0.122;
+  const slot = makeChamferedBox(0.114, 0.008, 0.037, 0.003, 0x544962);
+  slot.position.y = 0.126;
+  const glove = new THREE.Mesh(new THREE.SphereGeometry(0.030, 8, 5),
+    new THREE.MeshStandardMaterial({ color: 0xb69ad3, roughness: 0.72, flatShading: true }));
+  glove.position.set(0.020, 0.131, 0.012);
+  glove.scale.set(1, 0.28, 0.68);
+  gg.add(box, rim, slot, glove);
+  gg.userData.firstPersonGrip = { x: 0.067, y: 0.031, z: 0.074 };
   return registerPickable(ctx, id, 'Caixa de Luvas Nitrílicas Estéreis', gg, px, py, pz, 0, 0.18, 0.14, {
     category: 'ppe',
     purpose: 'Equipamento de proteção individual para manipulação asséptica',
@@ -209,7 +226,11 @@ export function makeTapeRoll(ctx, id, kind, px, py, pz) {
     isMicro ? A.microCoreMat : A.paraCoreMat
   );
   core.position.y = outer.position.y;
-  tg.add(outer, core);
+  const looseEnd = makeChamferedBox(0.028, 0.003, 0.029, 0.0008, outer.material);
+  looseEnd.position.set(0.035, outer.position.y * 1.45, 0.045);
+  looseEnd.rotation.set(-0.44, 0.42, 0);
+  tg.add(outer, core, looseEnd);
+  tg.userData.firstPersonGrip = { x: 0.012, y: outer.position.y, z: 0.060 };
   tg.userData.isMicropore = isMicro;
   tg.userData.isParafilm = !isMicro;
   const lbl = isMicro ? 'Rolo de Fita Micropore (Troca Gasosa)' : 'Rolo de Parafilm M (Vedação Petri)';
@@ -225,11 +246,16 @@ export function makeTapeRoll(ctx, id, kind, px, py, pz) {
 
 export function makeFoilRoll(ctx, id, px, py, pz) {
   const fg = new THREE.Group();
-  const box = makeBox(0.32, 0.065, 0.065, 0xdc2626, { roughness: 0.45 });
+  const box = makeChamferedBox(0.32, 0.065, 0.065, 0.008, 0xa882a1);
   box.position.y = 0.0325;
-  const band = makeBox(0.322, 0.025, 0.067, 0xfef08a, { noShadow: true });
+  const band = makeChamferedBox(0.314, 0.025, 0.066, 0.005, 0xd9c2a5);
   band.position.y = 0.04;
-  fg.add(box, band);
+  const foil = makeChamferedBox(0.28, 0.003, 0.048, 0.001,
+    new THREE.MeshStandardMaterial({ color: 0xb8bcc0, roughness: 0.37, metalness: 0.45 }));
+  foil.position.set(0, 0.055, -0.035);
+  foil.rotation.x = -0.43;
+  fg.add(box, band, foil);
+  fg.userData.firstPersonGrip = { x: 0.072, y: 0.019, z: 0.045 };
   fg.userData.isFoilRoll = true;
   return registerPickable(ctx, id, 'Papel Alumínio (Autoclave)', fg, px, py, pz, 0, 0.18, 0.08, {
     category: 'consumable',

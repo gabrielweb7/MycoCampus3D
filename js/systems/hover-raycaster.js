@@ -3,7 +3,7 @@
  * Responsavel por identificar alvos sob a mira/cursor e atualizar o prompt contextual do HUD.
  */
 
-import { cancelHeldItemPlacement, updateHeldItemPlacementPreview } from './held-item-placement.js';
+import { cancelHeldItemPlacement, findAimedHeldPlacement, updateHeldItemPlacementPreview } from './held-item-placement.js';
 import { resolveHeldItemHover } from './hover-held-handlers.js';
 import { isRayOccludedByStructure, firstUnoccludedRayHit } from './ray-occlusion.js';
 import { isSeatOccupied } from './world-interactions.js';
@@ -167,7 +167,7 @@ export function syncHover3dBadge(ctx, prompt) {
 }
 
 function setHoverPrompt(ctx, prompt, contextual = true) {
-  ctx.mobileAimPrompt = contextual ? prompt : '';
+  ctx.aimActionPrompt = contextual ? prompt : '';
   if (ctx.callbacks && ctx.callbacks.onHoverPrompt) {
     ctx.callbacks.onHoverPrompt(prompt, contextual);
   }
@@ -201,7 +201,7 @@ function intersectPickableItem(raycaster, item) {
 
 export function updateHoverRay(ctx, customNdc) {
   if (!ctx.heldItem && ctx.placementMode) cancelHeldItemPlacement(ctx);
-  ctx.mobileAimPrompt = '';
+  ctx.aimActionPrompt = '';
   ctx.hoverHit = null;
   ctx.hoveredPickable = null;
   ctx.hoveredGrowSlot = null;
@@ -300,6 +300,9 @@ export function updateHoverRay(ctx, customNdc) {
     setHoverPrompt,
     updateHeldItemPlacementPreview
   })) {
+    if (!ctx.placementMode && !ctx.aimActionPrompt && findAimedHeldPlacement(ctx, rayNdc)) {
+      setHoverPrompt(ctx, t('hud.place_aimed'));
+    }
     return;
   }
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
@@ -308,7 +311,8 @@ export function updateHoverRay(ctx, customNdc) {
     if (crate) {
       ctx.hoveredCratePlacement = crate;
       const slot = freeCrateSlot(crate, ctx.heldItem);
-      setHoverPrompt(ctx, cratePlacementError(crate, ctx.heldItem, slot) || t('crate.place'));
+      const error = cratePlacementError(crate, ctx.heldItem, slot);
+      setHoverPrompt(ctx, error || t('crate.place'), !error);
       return;
     }
   }
@@ -911,7 +915,11 @@ export function updateHoverRay(ctx, customNdc) {
         : t('actions.hover.road_stand_empty');
     }
   }
-  const hasAimTarget = !!prompt;
+  let hasAimTarget = !!prompt;
+  if (ctx.heldItem && !ctx.placementMode && (!prompt || ctx.hoveredPickable)) {
+    hasAimTarget = !!findAimedHeldPlacement(ctx, rayNdc);
+    if (hasAimTarget) prompt = t('hud.place_aimed');
+  }
   if (!prompt && ctx.heldItem) {
     const held = ctx.heldItem;
     const isTouch = ctx.isTouchDevice?.();

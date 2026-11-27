@@ -48,15 +48,15 @@ function makeTrashLabelTexture() {
 
 export function buildLabTrashBin(ctx, px, py, pz, id = 'lab_trash_01') {
   const tg = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.28 });
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.4, roughness: 0.55 });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb66c53, metalness: 0.12, roughness: 0.73 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x745748, metalness: 0.12, roughness: 0.67 });
   const bagMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.8, side: THREE.DoubleSide });
-  const lidMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.22 });
+  const lidMat = new THREE.MeshStandardMaterial({ color: 0xe7cca4, metalness: 0.10, roughness: 0.69 });
   const labelTex = makeTrashLabelTexture();
   const labelMat = new THREE.MeshBasicMaterial({ map: labelTex });
 
   // Corpo inox levemente cônico
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.155, 0.54, 28), bodyMat);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.155, 0.54, 16), bodyMat);
   body.position.y = 0.30;
   body.castShadow = true;
   body.receiveShadow = true;
@@ -85,7 +85,7 @@ export function buildLabTrashBin(ctx, px, py, pz, id = 'lab_trash_01') {
   const lidPivot = new THREE.Group();
   lidPivot.position.set(0, 0.575, -0.185);
   lidPivot.rotation.x = -1.05;
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.196, 0.196, 0.014, 28), lidMat);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.176, 0.196, 0.025, 16), lidMat);
   lid.position.set(0, 0, 0.185);
   const lidKnob = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 8), darkMat);
   lidKnob.position.set(0, 0.016, 0.185);
@@ -110,7 +110,9 @@ export function buildLabTrashBin(ctx, px, py, pz, id = 'lab_trash_01') {
   hitMesh.position.y = 0.33;
   hitMesh.userData.isLabTrash = true;
 
-  tg.add(body, base, band1, band2, rim, liner, inner, lidPivot, hitMesh);
+  const tread = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.023, 0.061), lidMat);
+  tread.position.set(0, 0.037, 0.161);
+  tg.add(body, base, band1, band2, rim, liner, inner, lidPivot, tread, hitMesh);
   tg.userData.isTrash = true;
   tg.userData.tableDims = { w: 0.40, h: 0.58, d: 0.40, surfOffset: 0 };
   tg.userData.updateBounds = updateItemBounds;

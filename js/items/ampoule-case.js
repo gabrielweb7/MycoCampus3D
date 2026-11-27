@@ -4,6 +4,7 @@
  * extração direta c/ Seringa 10ml e organização por modal interativo.
  */
 
+import { makeChamferedBox, makeSideProfile } from './lab-prop-shapes.js';
 import { getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
 import { registerPickable, updateItemBounds } from './item-registry.js';
 import { createCultureLifecycleState } from './culture-lifecycle.js';
@@ -73,11 +74,11 @@ function getAmpouleAssets() {
     }),
     crimpMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.22 }),
     orangeCapMat: new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.38 }),
-    caseBodyMat: new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.62, metalness: 0.15 }),
+    caseBodyMat: new THREE.MeshStandardMaterial({ color: 0x73856a, roughness: 0.62, metalness: 0.15 }),
     caseFoamMat: new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.92 }),
     caseWellMat: new THREE.MeshBasicMaterial({ color: 0x020617 }),
     wellGeo: new THREE.CylinderGeometry(0.0108, 0.0108, 0.004, 10),
-    latchMat: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.25 })
+    latchMat: new THREE.MeshStandardMaterial({ color: 0xd08555, roughness: 0.45, metalness: 0.25 })
   };
   Object.keys(sharedAmpouleAssets).forEach((k) => {
     const v = sharedAmpouleAssets[k];
@@ -679,7 +680,7 @@ export function makeAmpouleCase(ctx, id, px, py, pz, opts = {}) {
   const D = 0.21;
 
   // Base rígida preta + espuma furada com 50 poços (10 cols x 5 rows)
-  const baseBox = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), A.caseBodyMat);
+  const baseBox = makeChamferedBox(W, H, D, 0.008, A.caseBodyMat);
   baseBox.position.y = H * 0.5;
   const foamBox = new THREE.Mesh(new THREE.BoxGeometry(W - 0.018, 0.014, D - 0.018), A.caseFoamMat);
   foamBox.position.y = H - 0.004;
@@ -687,7 +688,7 @@ export function makeAmpouleCase(ctx, id, px, py, pz, opts = {}) {
 
   // Travas frontais + dobradiças traseiras estilizadas (iguais à maleta Pelican das fotos)
   [-0.10, -0.055, 0.055, 0.10].forEach((lx) => {
-    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.028, 0.012), A.latchMat);
+    const latch = makeChamferedBox(0.022, 0.030, 0.013, 0.003, A.latchMat);
     latch.position.set(lx, H * 0.62, D * 0.5 + 0.004);
     root.add(latch);
   });
@@ -705,6 +706,19 @@ export function makeAmpouleCase(ctx, id, px, py, pz, opts = {}) {
   const lidTop = new THREE.Mesh(new THREE.BoxGeometry(W, 0.008, D), A.caseBodyMat);
   lidTop.position.set(0, lidHeight + 0.004, D * 0.5);
   lidPivot.add(lidTop);
+  const handle = makeSideProfile([
+    [-0.058, 0], [-0.044, 0.033], [0.044, 0.033], [0.058, 0],
+    [0.042, 0], [0.034, 0.020], [-0.034, 0.020], [-0.042, 0]
+  ], 0.020, 0.003, A.caseBodyMat);
+  handle.rotation.y = Math.PI / 2;
+  handle.position.set(0, lidHeight + 0.007, D * 0.5);
+  lidPivot.add(handle);
+  root.userData.firstPersonGrip = { x: 0.092, y: 0.035, z: 0.111 };
+  for (const x of [-0.149, 0.149]) for (const z of [0.013, D - 0.013]) {
+    const guard = makeChamferedBox(0.034, 0.014, 0.026, 0.004, 0xdcc39b);
+    guard.position.set(x, lidHeight, z);
+    lidPivot.add(guard);
+  }
   for (const side of [-1, 1]) {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(0.008, lidHeight, D), A.caseBodyMat);
     wall.position.set(side * (W * 0.5 - 0.004), lidHeight * 0.5, D * 0.5);
@@ -752,7 +766,7 @@ export function makeAmpouleCase(ctx, id, px, py, pz, opts = {}) {
     pz,
     opts.ry || 0,
     0.20,
-    0.096,
+    0.135,
     getAmpouleCaseMeta()
   );
   item.caseCtrl = {

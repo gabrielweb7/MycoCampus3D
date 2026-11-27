@@ -432,6 +432,23 @@ function findClosestItemSupportHit(ctx, raycaster, heldItem, maxDist, origin) {
   return { hit: bestHit, item: bestItem, dist: bestDist };
 }
 
+function snapToFalconSlot(ctx, surface, point, out) {
+  const rack = surface.ownerItem?.mesh;
+  if (!rack || !surface.falconSlots || !ctx.heldItem?.mesh.userData.isFalconTube) return false;
+  let nearestSq = Infinity;
+  for (const slot of surface.falconSlots) {
+    rack.localToWorld(_tmpPlaceCenter.copy(slot));
+    const dx = _tmpPlaceCenter.x - point.x;
+    const dz = _tmpPlaceCenter.z - point.z;
+    const distanceSq = dx * dx + dz * dz;
+    if (distanceSq < nearestSq) {
+      nearestSq = distanceSq;
+      out.copy(_tmpPlaceCenter);
+    }
+  }
+  return Number.isFinite(nearestSq);
+}
+
 export function findPlacementTarget(ctx, customNdc) {
   var heldItem = ctx.heldItem;
   var cookerPots = ctx.cookerPots;
@@ -556,10 +573,12 @@ export function findPlacementTarget(ctx, customNdc) {
   }
 
   if (bestSupportHit && bestSupportSurf) {
+    if (snapToFalconSlot(ctx, bestSupportSurf, bestSupportHit.point, _tmpPlacePt)) return _tmpPlacePt;
     return clampPointToSurfaceXZ(bestSupportHit.point.x, bestSupportHit.point.z, bestSupportSurf, bestSupportSurf.topY, _tmpPlacePt);
   }
 
   // 1b. Interseção matemática com plano e volume de suportes (inclusive bordas/saias frontais de mesas e cômodas)
+  var bestFallbackSurface = null;
   for (var i = 0; i < supportSurfaces.length; i++) {
     var s = supportSurfaces[i];
     if (isSurfaceOwnerHeld(ctx, s)) continue;
@@ -578,6 +597,7 @@ export function findPlacementTarget(ctx, customNdc) {
         var hz = origin.z + dir.z * tPlane;
         if (isPointInBoundsXZ(hx, hz, s, 0.14)) {
           bestT = tPlane;
+          bestFallbackSurface = s;
           bestPt = clampPointToSurfaceXZ(hx, hz, s, s.topY, _tmpBestPt);
         }
       }
@@ -601,11 +621,15 @@ export function findPlacementTarget(ctx, customNdc) {
       var boxHitZ = origin.z + dir.z * Math.max(0.05, tmin);
       if (isPointInBoundsXZ(boxHitX, boxHitZ, s, 0.14)) {
         bestT = tmin;
+        bestFallbackSurface = s;
         bestPt = clampPointToSurfaceXZ(boxHitX, boxHitZ, s, s.topY, _tmpBestPt);
       }
     }
   }
-  if (bestPt) return _tmpPlacePt.copy(bestPt);
+  if (bestPt) {
+    if (snapToFalconSlot(ctx, bestFallbackSurface, bestPt, _tmpPlacePt)) return _tmpPlacePt;
+    return _tmpPlacePt.copy(bestPt);
+  }
 
   // 2. Piso / terreno
   for (var t = 0.45; t <= 5.0; t += 0.08) {

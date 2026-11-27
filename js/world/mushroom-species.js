@@ -172,8 +172,9 @@ function makeFacetedCap(profile, segments, wave = 0, pockets = false) {
       const wobble = Math.cos(angle * 3) * wave * radius * radius;
       positions.push(Math.cos(angle) * r, y + wobble, Math.sin(angle) * r);
       const underside = ring >= profile.length - 2;
-      const value = (hollow ? 0.48 : underside ? 0.70 : 0.94) + Math.sin(side * 2.4 + ring) * 0.055;
-      colors.push(value, value * 0.98, value * 0.94);
+      const edge = !underside && radius > 0.86;
+      const value = (hollow ? 0.48 : underside ? 0.60 : edge ? 0.99 : 0.82) + Math.sin(side * 2.4 + ring) * 0.075;
+      colors.push(value, value * (edge ? 1.01 : 0.96), value * (underside ? 0.87 : 0.92));
       if (ring === 0) continue;
       const i = ring * segments + side;
       const j = ring * segments + ((side + 1) % segments);
@@ -208,7 +209,12 @@ function getSpeciesVariation(spec) {
 function getMushroomSharedGeos() {
   if (sharedSpeciesGeos) return sharedSpeciesGeos;
   sharedSpeciesGeos = {
-    cylStem: new THREE.CylinderGeometry(0.75, 1.0, 1.0, 8),
+    cylStem: new THREE.LatheGeometry(
+      [[0, -0.5], [0.84, -0.5], [1, -0.38], [0.80, 0.05], [0.73, 0.32], [0.77, 0.5], [0, 0.5]]
+        .map(([r, y]) => new THREE.Vector2(r, y)), 7),
+    stemFlared: new THREE.LatheGeometry(
+      [[0, -0.5], [0.78, -0.5], [1, -0.34], [0.86, -0.08], [0.62, 0.27], [0.62, 0.5], [0, 0.5]]
+        .map(([r, y]) => new THREE.Vector2(r, y)), 9),
     cylFan: new THREE.CylinderGeometry(1.0, 0.36, 1.0, 10),
     cylFunnel: new THREE.CylinderGeometry(1.0, 0.38, 1.0, 10, 1, true),
     cylClub: new THREE.CylinderGeometry(1.0, 0.67, 1.0, 7),
@@ -217,6 +223,7 @@ function getMushroomSharedGeos() {
     saucer: makeFacetedCap(CAP_PROFILES.saucer, 12, 0.05),
     bell: makeFacetedCap(CAP_PROFILES.bell, 10),
     cup: makeFacetedCap(CAP_PROFILES.bowl, 10, 0.08),
+    funnelCap: makeFacetedCap(CAP_PROFILES.bowl, 12, 0.16),
     wave: makeFacetedCap(CAP_PROFILES.saddle, 12, 0.21),
     conical: makeFacetedCap(CAP_PROFILES.conical, 10, 0.06),
     morel: makeFacetedCap(CAP_PROFILES.morel, 12, 0, true),
@@ -399,10 +406,10 @@ function makeSpeciesMushroomMesh(spec) {
   } else if (shape === 'shelf') {
     for (let i = 0; i < 6; i++) {
       const fanW = 1.05 - (i % 3) * 0.18;
-      const fan = new THREE.Mesh(geos.saucer, shadedCapMat);
-      fan.scale.set(s * fanW * variation.capWidth, s * 0.47, s * fanW * 0.76);
-      fan.position.set(((i % 3) - 1) * s * 0.48, s * (0.35 + i * 0.24), Math.floor(i / 3) * s * 0.34);
-      fan.rotation.x = 0.26;
+      const fan = new THREE.Mesh(geos.wave, shadedCapMat);
+      fan.scale.set(s * fanW * variation.capWidth, s * 0.40, s * fanW * 0.76);
+      fan.position.set(((i % 3) - 1) * s * 0.48, s * (0.30 + i * 0.31), Math.floor(i / 3) * s * 0.38);
+      fan.rotation.x = 0.23 + (i % 3) * 0.06;
       fan.rotation.z = ((i % 2) - 0.5) * 0.22;
       g.add(fan);
       if (i === 0) cap = fan;
@@ -411,17 +418,20 @@ function makeSpeciesMushroomMesh(spec) {
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
       const r = i === 0 ? 0 : s * 0.48;
+      const height = s * (1.8 + seededRand(variation.seed + i * 11) * 0.75);
+      const lean = (i === 0 ? 0 : 0.15) * Math.cos(a);
       const st = new THREE.Mesh(geos.cylStem, stemMat);
-      st.scale.set(s * 0.15, s * 2.4, s * 0.15);
-      st.position.set(Math.cos(a) * r, s * 1.2, Math.sin(a) * r);
+      st.scale.set(s * 0.15, height, s * 0.15);
+      st.position.set(Math.cos(a) * r, height * 0.50, Math.sin(a) * r);
+      st.rotation.z = -lean;
       const cp = new THREE.Mesh(geos.bell, shadedCapMat);
-      cp.scale.setScalar(s * 0.42);
-      cp.position.set(Math.cos(a) * r, s * 2.35, Math.sin(a) * r);
+      cp.scale.setScalar(s * (0.36 + height / s * 0.035));
+      cp.position.set(Math.cos(a) * r + lean * height * 0.48, height * 0.99, Math.sin(a) * r);
       g.add(st, cp);
       if (i === 0) cap = cp;
     }
   } else if (shape === 'king_oyster') {
-    const st = new THREE.Mesh(geos.cylStem, stemMat);
+    const st = new THREE.Mesh(geos.stemFlared, stemMat);
     st.scale.set(s * 0.72, s * 1.9, s * 0.72);
     st.position.y = s * 0.95;
     cap = new THREE.Mesh(geos.dome, shadedCapMat);
@@ -469,7 +479,7 @@ function makeSpeciesMushroomMesh(spec) {
       const st = new THREE.Mesh(geos.cylClub, capMat);
       st.scale.set(s * 0.36 * fSc, s * 1.45 * fSc, s * 0.36 * fSc);
       st.position.set(fx, s * 0.72 * fSc, fz);
-      const fn = new THREE.Mesh(geos.cup, shadedCapMat);
+      const fn = new THREE.Mesh(geos.funnelCap, shadedCapMat);
       fn.scale.set(s * 0.95 * fSc, s * 0.52 * fSc, s * 0.95 * fSc);
       fn.position.set(fx, s * 1.60 * fSc, fz);
       fn.rotation.z = (i === 0 ? 0 : Math.cos(ang)) * 0.16;
@@ -483,7 +493,17 @@ function makeSpeciesMushroomMesh(spec) {
       br.scale.set(s * 0.20, s * 1.9, s * 0.20);
       br.position.set(Math.cos(a) * s * 0.32, s * 0.95, Math.sin(a) * s * 0.32);
       br.rotation.set(Math.sin(a) * 0.28, 0, -Math.cos(a) * 0.28);
-      g.add(br);
+      const fork = new THREE.Mesh(geos.cylStem, capMat);
+      fork.rotation.z = i % 2 === 0 ? -0.55 : 0.55;
+      // The stem is scaled along its length, so keep the fork independent of that scale.
+      const forkPivot = new THREE.Group();
+      forkPivot.position.copy(br.position);
+      forkPivot.rotation.copy(br.rotation);
+      forkPivot.scale.setScalar(s);
+      fork.position.set(i % 2 === 0 ? 0.23 : -0.23, 0.75, 0);
+      fork.scale.set(0.115, 0.63, 0.115);
+      forkPivot.add(fork);
+      g.add(br, forkPivot);
       if (i === 0) cap = br;
     }
   } else if (shape === 'parasol') {
@@ -522,13 +542,14 @@ function makeSpeciesMushroomMesh(spec) {
     }
   } else if (shape === 'puffball') {
     cap = new THREE.Mesh(geos.dodeca, capMat);
-    cap.scale.setScalar(s * 0.95);
-    cap.position.y = s * 0.88;
+    cap.scale.set(s * variation.capWidth, s * variation.capHeight, s * variation.capDepth);
+    cap.position.y = s * variation.capHeight * 0.90;
     g.add(cap);
-    for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * Math.PI * 2;
+    const companions = spec.scientific.startsWith('Calvatia') ? 0 : 2 + variation.seed % 3;
+    for (let i = 0; i < companions; i++) {
+      const a = i / companions * Math.PI * 2;
       const mini = new THREE.Mesh(geos.dodeca, capMat);
-      mini.scale.setScalar(s * 0.42);
+      mini.scale.setScalar(s * (0.27 + seededRand(variation.seed + i * 13) * 0.18));
       mini.position.set(Math.cos(a) * s * 0.72, s * 0.38, Math.sin(a) * s * 0.72);
       g.add(mini);
     }
@@ -558,6 +579,11 @@ function makeSpeciesMushroomMesh(spec) {
     cap.rotation.z = -variation.lean;
     g.add(stem, cap);
     if (shape === 'amanita_dots') {
+      const collar = new THREE.Mesh(geos.cylVeil, stemMat);
+      collar.scale.set(s * 0.49, s * 0.27, s * 0.49);
+      collar.position.set(stem.position.x * 1.4, stemLength * 0.71, 0);
+      collar.rotation.z = stem.rotation.z;
+      g.add(collar);
       const dotMat = getCachedSpeciesMat(0xffffff, 0.5, 0, 0, 0, false, true);
       for (let di = 0; di < 5; di++) {
         const a = (di / 5) * Math.PI * 2;

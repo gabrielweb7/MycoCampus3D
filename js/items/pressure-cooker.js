@@ -4,6 +4,7 @@
 
 import { GAME_CONFIG } from '../core/config.js';
 import { makeBox } from '../engine/textures.js';
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { isPdaRecipeBalanced, updatePdaMediumVisual } from './pda-mix.js';
 import { contaminatePetri, sterilizePetri, updatePetriVisual } from './petri-dish.js';
@@ -201,16 +202,16 @@ function stepSteamEmitter(emitter, dt, steamFactor) {
 }
 
 export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py, pz) {
-  const steelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20 });
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.55, metalness: 0.2 });
-  const redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.35 });
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0xb5aea0, metalness: 0.38, roughness: 0.49, flatShading: true });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x647761, roughness: 0.73 });
+  const redMat = new THREE.MeshStandardMaterial({ color: 0xc06e50, roughness: 0.62 });
 
   const potGroup = new THREE.Group();
-  const potWallMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.88, roughness: 0.20, side: THREE.DoubleSide });
-  const potBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.23, 0.36, 22, 1, true), potWallMat);
+  const potWallMat = new THREE.MeshStandardMaterial({ color: 0xaaa89a, metalness: 0.32, roughness: 0.51, side: THREE.DoubleSide, flatShading: true });
+  const potBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.23, 0.36, 16, 1, true), potWallMat);
   potBody.position.y = 0.18; potBody.castShadow = true;
-  const potBase = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.03, 22), darkMat);
-  potBase.position.y = 0.015;
+  const potBase = new THREE.Mesh(new THREE.CylinderGeometry(0.244, 0.230, 0.060, 16), darkMat);
+  potBase.position.y = 0.030;
   const potBottomIn = new THREE.Mesh(new THREE.CircleGeometry(0.22, 22), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.75, roughness: 0.35 }));
   potBottomIn.rotation.x = -Math.PI / 2; potBottomIn.position.y = 0.034;
   const potRim = new THREE.Mesh(new THREE.TorusGeometry(0.242, 0.018, 10, 24), steelMat);
@@ -224,13 +225,18 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   waterMesh.position.y = 0.04;
   waterMesh.userData.ignoreRay = true;
 
+  const handleX = 0.275;
+  const handleY = 0.29;
   [-1, 1].forEach(function (side) {
-    const hdl = makeBox(0.09, 0.065, 0.11, darkMat, { noShadow: true });
-    hdl.position.set(side * 0.275, 0.29, 0);
-    potGroup.add(hdl);
+    const hdl = makeChamferedBox(0.09, 0.063, 0.121, 0.011, darkMat);
+    hdl.position.set(side * handleX, handleY, 0);
+    const socket = makeChamferedBox(0.036, 0.074, 0.134, 0.008, 0xd9be97);
+    socket.position.set(side * 0.238, handleY, 0);
+    potGroup.add(socket, hdl);
   });
   potGroup.add(potBody, potBase, potBottomIn, potRim, waterMesh);
   potGroup.userData.twoHanded = true;
+  potGroup.userData.firstPersonSideGrip = { x: handleX, y: handleY - 0.027, z: 0.056 };
 
   const potMeta = Object.assign({}, PRESSURE_COOKER_META, {
     getWeightGrams: function () {
@@ -240,11 +246,11 @@ export function createPressureCookerPair(ctx, potId, lidId, labelSuffix, px, py,
   const potItem = registerPickable(ctx, potId, 'Panela de Pressão 20L', potGroup, px, py, pz, 0, 0.30, 0.42, potMeta);
 
   const lidGroup = new THREE.Group();
-  const lidRim = new THREE.Mesh(new THREE.CylinderGeometry(0.248, 0.256, 0.045, 22), steelMat);
+  const lidRim = new THREE.Mesh(new THREE.CylinderGeometry(0.248, 0.256, 0.045, 16), steelMat);
   lidRim.position.y = 0.022;
-  const lidDome = new THREE.Mesh(new THREE.SphereGeometry(0.242, 22, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), steelMat);
+  const lidDome = new THREE.Mesh(new THREE.SphereGeometry(0.242, 16, 6, 0, Math.PI * 2, 0, Math.PI * 0.42), steelMat);
   lidDome.scale.set(1, 0.36, 1); lidDome.position.y = 0.025;
-  const weight = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.055, 12), darkMat);
+  const weight = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.035, 0.055, 10), redMat);
   weight.position.y = 0.13;
   const weightTop = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.014, 12), redMat);
   weightTop.position.y = 0.16;
@@ -344,19 +350,19 @@ export function updateCookerWaterVisual(cp) {
 export function makeElectricBurner(ctx, id, px, py, pz) {
   const bg = new THREE.Group();
   const footGeo = new THREE.CylinderGeometry(0.022, 0.026, 0.012, 10);
-  const footMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.9 });
+  const footMat = new THREE.MeshStandardMaterial({ color: 0xd7be99, roughness: 0.82 });
   [[-0.22, -0.24], [0.22, -0.24], [-0.22, 0.24], [0.22, 0.24]].forEach(function (fp) {
     const ft = new THREE.Mesh(footGeo, footMat);
     ft.position.set(fp[0], 0.006, fp[1]);
     bg.add(ft);
   });
 
-  const body = makeBox(0.54, 0.068, 0.58, 0x0f172a, { metalness: 0.55, roughness: 0.22 });
+  const body = makeChamferedBox(0.54, 0.068, 0.58, 0.019, 0x9a81a2);
   body.position.y = 0.044;
   bg.add(body);
 
   const reflectorMat = new THREE.MeshStandardMaterial({
-    color: 0xdbeafe, emissive: 0xff4500, emissiveIntensity: 0, metalness: 0.88, roughness: 0.2
+    color: 0xe1caa6, emissive: 0xff4500, emissiveIntensity: 0, metalness: 0.88, roughness: 0.2
   });
   const reflector = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.185, 0.012, 28), reflectorMat);
   reflector.position.set(0, 0.077, -0.02);
@@ -370,7 +376,7 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   bg.add(cross1, cross2);
 
   const coilMat = new THREE.MeshStandardMaterial({
-    color: 0x64748b, emissive: 0xff2a00, emissiveIntensity: 0.0, metalness: 0.55, roughness: 0.35
+    color: 0x423b38, emissive: 0xff2a00, emissiveIntensity: 0.0, metalness: 0.55, roughness: 0.35
   });
   const coilGroup = new THREE.Group();
   coilGroup.position.set(0, 0.084, -0.02);
@@ -391,7 +397,7 @@ export function makeElectricBurner(ctx, id, px, py, pz) {
   const knobGroup = new THREE.Group();
   knobGroup.position.set(0.14, 0.044, 0.296);
   const knobBase = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.032, 0.035, 0.028, 16),
+    new THREE.CylinderGeometry(0.032, 0.038, 0.028, 10),
     new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.2 })
   );
   knobBase.rotation.x = Math.PI / 2;

@@ -11,8 +11,6 @@ import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
 import { getItemGroundHeight } from '../engine/physics.js';
 import { drawThermoScreen } from '../entities/thermo-laser.js';
 import {
-  clampPointToSurfaceXZ,
-  findPlacementTarget,
   isPlacementBlocked,
   getPlacementBlockedReason
 } from '../entities/placement-ghost.js';
@@ -20,6 +18,7 @@ import {
   beginHeldItemPlacement,
   cancelHeldItemPlacement,
   commitHeldItemPlacement,
+  findAimedHeldPlacement,
   placeHeldInCrate,
   setHeldTwoHandedGhost,
   updateHeldItemPlacementPreview
@@ -28,7 +27,7 @@ import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWildHarvest, handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { removeCrateCargo } from './crate-cargo.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, getItemKindId, hasPdaContents, isPointInBoundsXZ } from '../items/item-registry.js';
+import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, getItemKindId, hasPdaContents } from '../items/item-registry.js';
 import { discardHeldLiquid } from './liquid-disposal.js';
 import { triggerSinkStream } from '../items/lab-sink.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
@@ -103,7 +102,8 @@ export function toggleHeldGloves(ctx) {
   ctx.glovesExpired = false;
   ctx.glovesUntil = shouldWear ? (performance.now() + 160000) : 0;
   if (ctx.fpsArmGroup && ctx.fpsArmGroup.userData && ctx.fpsArmGroup.userData.handMat) {
-    ctx.fpsArmGroup.userData.handMat.color.setHex(ctx.wearingGloves ? 0x09090b : 0xfde68a);
+    if (ctx.wearingGloves) ctx.fpsArmGroup.userData.handMat.color.setHex(0x09090b);
+    else ctx.fpsArmGroup.userData.handMat.color.set(ctx.fpsArmGroup.userData.skinColor || '#fde68a');
     ctx.fpsArmGroup.userData.handMat.roughness = ctx.wearingGloves ? 0.35 : 0.65;
   }
   if (window.MycoAudio) window.MycoAudio.playClick();
@@ -175,69 +175,14 @@ export function setMeshGhostOpacity(root, active) {
   });
 }
 
-const RING_OFFSETS = [0.12, 0.22, 0.34, 0.48, 0.64];
-const RING_ANGLES = 12;
-
-function findSupportSurfaceAtPoint(ctx, pt) {
-  if (!ctx || !pt) return null;
-  let best = null;
-  if (ctx.supportSurfaces) {
-    for (let i = 0; i < ctx.supportSurfaces.length; i++) {
-      const ss = ctx.supportSurfaces[i];
-      if (!ss || (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.dynamicSurface === ss)) continue;
-      if (ss.ownerItem && ss.ownerItem === ctx.heldItem) continue;
-      if (Math.abs(pt.y - ss.topY) <= 0.08 && isPointInBoundsXZ(pt.x, pt.z, ss, 0.14)) {
-        if (!best || ss.topY > best.topY) best = ss;
-      }
-    }
-  }
-  return best;
-}
-
-function findFreeSpotOnSurface(ctx, surf, anchorPt, outPt) {
-  if (!surf || !outPt) return false;
-  clampPointToSurfaceXZ(anchorPt.x, anchorPt.z, surf, surf.topY, outPt);
-  if (!isPlacementBlocked(ctx.entityCtx, outPt)) return true;
-
-  for (let ri = 0; ri < RING_OFFSETS.length; ri++) {
-    const rad = RING_OFFSETS[ri];
-    for (let ai = 0; ai < RING_ANGLES; ai++) {
-      const a = (ai / RING_ANGLES) * Math.PI * 2;
-      clampPointToSurfaceXZ(anchorPt.x + Math.cos(a) * rad, anchorPt.z + Math.sin(a) * rad, surf, surf.topY, outPt);
-      if (!isPlacementBlocked(ctx.entityCtx, outPt)) return true;
-    }
-  }
-  return false;
-}
-
 function tryPlaceHeldOnAimedSurface(ctx, aimNdc) {
-  if (!ctx.heldItem) return false;
-  aimNdc ||= ctx.inFps ? _vZero2 : ctx.pointerNdc;
-  if (!aimNdc) return false;
-  const aimPt = findPlacementTarget(ctx.entityCtx, aimNdc);
-  const dAim = Math.hypot(aimPt.x - ctx.playerPos.x, aimPt.z - ctx.playerPos.z);
-  if (dAim > 4.4 || Math.abs(aimPt.y - ctx.playerPos.y) > 2.6) return false;
-
-  if (ctx.snapClosePot || ctx.snapPetriStack) {
-    if (!isPlacementBlocked(ctx.entityCtx, aimPt)) {
-      const label = ctx.heldItem.label || t('actions.common.item');
-      if (!commitHeldItemPlacement(ctx, aimPt, !!ctx.snapClosePot)) return false;
-      if (window.MycoAudio) window.MycoAudio.playClick();
-      if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.interact.placed_item', { label }));
-      return true;
-    }
-  }
-
-  const ss = findSupportSurfaceAtPoint(ctx, aimPt);
-  if (!ss || ss.topY <= ctx.playerPos.y + 0.04) return false;
-
-  const candPt = _tmpDropPt;
-  if (!findFreeSpotOnSurface(ctx, ss, aimPt, candPt)) return false;
-
+  const placement = findAimedHeldPlacement(ctx, aimNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc));
+  if (!placement) return false;
+  const { point, snapped } = placement;
   const label = ctx.heldItem.label || t('actions.common.item');
-  if (!commitHeldItemPlacement(ctx, candPt, false)) return false;
+  if (!commitHeldItemPlacement(ctx, point, snapped && !!ctx.snapClosePot)) return false;
   if (window.MycoAudio) window.MycoAudio.playClick();
-  if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.interact.placed_surface', { label }));
+  if (ctx.callbacks.onToast) ctx.callbacks.onToast(t(snapped ? 'actions.interact.placed_item' : 'actions.interact.placed_surface', { label }));
   return true;
 }
 
@@ -1206,9 +1151,8 @@ export function handlePrimaryAction(ctx, aimNdc) {
     }
     if (!ctx.adminEditMode && ctx.heldItem.deliveryCrateCtrl && handleWildHarvest(ctx)) return true;
     if (ctx.hoveredCratePlacement) return placeHeldInCrate(ctx, ctx.hoveredCratePlacement);
-    if (!ctx.placementMode && tryPlaceHeldOnAimedSurface(ctx, aimNdc)) {
-      return;
-    }
+    if (!ctx.placementMode && tryPlaceHeldOnAimedSurface(ctx, aimNdc)) return;
+    if (!ctx.placementMode && ctx.heldItem?.mesh.userData.isAlcoholSpray) fireAlcoholSpray(ctx, null);
     return;
   }
   if (!ctx.adminEditMode && ctx.hoveredRoadSaleStand) {

@@ -39,8 +39,8 @@ export function createGardenModels(THREE) {
   const leafOptions = { side: THREE.DoubleSide, vertexColors: true, flatShading: true };
   const lettuceLeaf = leafGeometry(THREE, 0.52, 0.52, false);
   const tomatoLeaf = leafGeometry(THREE, 0.35, -0.32, true);
-  const lettuce = [0x4d841c, 0x78a923, 0xaed229, 0xc4de44].map((color) => matte(THREE, color, leafOptions));
-  const tomato = [0x537f24, 0x6b992b].map((color) => matte(THREE, color, leafOptions));
+  const lettuce = [0x54723d, 0x81924d, 0xa4ad61, 0xbfc776].map((color) => matte(THREE, color, leafOptions));
+  const tomato = [0x617a45, 0x779151].map((color) => matte(THREE, color, leafOptions));
   const bamboo = matte(THREE, 0xc88e42);
   const twine = matte(THREE, 0xa9753a);
   const stem = matte(THREE, 0x477323);
@@ -48,7 +48,7 @@ export function createGardenModels(THREE) {
   const knot = new THREE.TorusGeometry(0.018, 0.004, 5, 9);
   knot.rotateX(Math.PI / 2);
   const fruitGeometry = new THREE.SphereGeometry(1, 9, 6);
-  const ripe = matte(THREE, 0xe53d21, { flatShading: true, roughness: 0.42 });
+  const ripe = matte(THREE, 0xd16b4c, { flatShading: true, roughness: 0.55 });
   const green = matte(THREE, 0x8fad30, { flatShading: true });
   const calyxPoints = Array.from({ length: 10 }, (_, i) => {
     const a = i * Math.PI / 5;
@@ -224,7 +224,7 @@ export function makeSubstrateBox(THREE, width, height, depth) {
 
 export function makeGardenBasketModel(THREE) {
   const group = new THREE.Group();
-  const wicker = [0xa86a34, 0xc58b48, 0xd6a45f].map(color => matte(THREE, color));
+  const wicker = [0xa67b54, 0xbf9163, 0xd5b17d].map(color => matte(THREE, color));
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.268, 0.254, 0.035, 20), wicker[0]);
   base.scale.z = 0.71;
   base.position.y = 0.028;

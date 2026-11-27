@@ -46,9 +46,9 @@ export function getFlowerSharedAssets() {
     flowerSeedPodGeo: new THREE.SphereGeometry(0.055, 7, 6),
     flowerSeedPodMat: new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xf59e0b, emissiveIntensity: 0.42, roughness: 0.35 }),
     seedPackBodyGeo: new THREE.BoxGeometry(0.11, 0.145, 0.028),
-    seedPackBodyMat: new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.72 }),
+    seedPackBodyMat: new THREE.MeshStandardMaterial({ color: 0xc97858, roughness: 0.72 }),
     seedPackTrimGeo: new THREE.BoxGeometry(0.114, 0.028, 0.032),
-    seedPackTrimMat: new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.58 })
+    seedPackTrimMat: new THREE.MeshStandardMaterial({ color: 0xe3c194, roughness: 0.58 })
   });
   return flowerSharedAssets;
 }

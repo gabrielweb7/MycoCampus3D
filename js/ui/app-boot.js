@@ -179,38 +179,6 @@ function bindModalsAndToolbar() {
     try { await logoutCampus(); } finally { btnLogout.disabled = false; }
   };
 
-  const heldDropBtn = $('btn-held-drop');
-  if (heldDropBtn) {
-    heldDropBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (mobilePlacementModeActive) {
-        if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
-      } else {
-        if (window.dropCampusHeldItem) window.dropCampusHeldItem();
-      }
-    };
-  }
-  const heldPlaceBtn = $('btn-held-place');
-  if (heldPlaceBtn) {
-    heldPlaceBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (mobilePlacementModeActive) {
-        if (window.setCampusMobilePrimary) {
-          window.setCampusMobilePrimary(true);
-          window.setCampusMobilePrimary(false);
-        }
-      } else {
-        if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
-      }
-    };
-  }
-  const heldRotateBtn = $('btn-held-rotate');
-  if (heldRotateBtn) {
-    heldRotateBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (window.rotateCampusHeldItem) window.rotateCampusHeldItem();
-    };
-  }
   const btnCloseStatus = $('btn-close-status');
   if (btnCloseStatus) {
     btnCloseStatus.onclick = (e) => {
@@ -906,7 +874,6 @@ export function bootApp() {
     if (!document.hidden) checkServerAppVersion();
   });
   mobilePlacementModeActive = false;
-  let currentHoldLabel = '';
 
   if (window.location.search.indexOf('preview=1') !== -1) {
     $('campus-lobby')?.classList.add('hidden');
@@ -952,7 +919,6 @@ export function bootApp() {
     onToast: (msg) => showFloatingToast(msg, 3500),
     onNearScreen: () => { $('prof-toolbar')?.classList.add('hidden'); },
     onHoldChange: (label) => {
-      currentHoldLabel = label || '';
       const heldBar = $('held-item-bar');
       const heldName = $('held-item-bar-name');
       if (heldBar && heldName) {
@@ -965,50 +931,9 @@ export function bootApp() {
           heldBar.classList.add('hidden');
         }
       }
-      const dropBtn = $('btn-mobile-drop');
-      if (dropBtn) dropBtn.style.display = (label && isTouch() && !mobilePlacementModeActive) ? 'flex' : 'none';
-      const rotBtn = $('btn-mobile-rotate');
-      if (rotBtn) rotBtn.style.display = (label && isTouch() && mobilePlacementModeActive) ? 'flex' : 'none';
-      const heldRot = $('btn-held-rotate');
-      if (heldRot) heldRot.style.display = (label && !isTouch() && mobilePlacementModeActive) ? 'inline-flex' : 'none';
-      const placeBtn = $('btn-mobile-place');
-      if (placeBtn) {
-        placeBtn.style.display = (label && isTouch()) ? 'flex' : 'none';
-        placeBtn.textContent = mobilePlacementModeActive ? '✖️' : '📦';
-        placeBtn.title = mobilePlacementModeActive
-          ? 'Cancelar posicionamento'
-          : 'Posicionar item';
-        placeBtn.classList.toggle('placement-active', mobilePlacementModeActive);
-      }
     },
     onPlacementModeChange: (active) => {
       mobilePlacementModeActive = active;
-      const dropBtn = $('btn-mobile-drop');
-      if (dropBtn) dropBtn.style.display = (currentHoldLabel && isTouch() && !active) ? 'flex' : 'none';
-      const rotBtn = $('btn-mobile-rotate');
-      if (rotBtn) rotBtn.style.display = (currentHoldLabel && isTouch() && active) ? 'flex' : 'none';
-      const heldRot = $('btn-held-rotate');
-      if (heldRot) heldRot.style.display = (currentHoldLabel && !isTouch() && active) ? 'inline-flex' : 'none';
-      const placeBtn = $('btn-mobile-place');
-      if (placeBtn) {
-        placeBtn.textContent = active ? '✖️' : '📦';
-        placeBtn.title = active
-          ? 'Cancelar posicionamento'
-          : 'Posicionar item';
-        placeBtn.classList.toggle('placement-active', active);
-      }
-      const heldPlace = $('btn-held-place');
-      const heldDrop = $('btn-held-drop');
-      if (heldPlace) {
-        heldPlace.innerHTML = active
-          ? '<span class="hidden sm:inline bg-slate-900/80 text-emerald-300 px-1 py-0.2 rounded text-[10px] font-mono border border-emerald-500/30">[Clique]</span> ✅ Confirmar'
-          : '<span class="hidden sm:inline bg-slate-900/80 text-emerald-300 px-1 py-0.2 rounded text-[10px] font-mono border border-emerald-500/30">[G]</span> 📦 Posicionar';
-      }
-      if (heldDrop) {
-        heldDrop.innerHTML = active
-          ? '<span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[Esc]</span> ✕ Cancelar'
-          : '<span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[X]</span> ⬇️ Largar';
-      }
     },
     onFpsChange: (fps) => {
       updateFpsUi(fps);

@@ -142,9 +142,9 @@ function buildTent() {
   const group = new THREE.Group();
   group.userData.visibleInPlacement = true;
   itemRoot.add(group);
-  const cloth = material(0x777674, { roughness: 0.96 });
-  const piping = material(0x687d3b, { roughness: 0.88 });
-  const seam = material(0xc6ad71, { roughness: 0.9 });
+  const cloth = material(0x8d9b7b, { roughness: 0.96 });
+  const piping = material(0xd7bd91, { roughness: 0.88 });
+  const seam = material(0xe0c9a4, { roughness: 0.9 });
   const lining = material(0xd7d1c4, { roughness: 0.56, metalness: 0.17, emissive: 0xcdb890, emissiveIntensity: 0.12 });
   const steel = material(0x55534d, { roughness: 0.46, metalness: 0.28 });
   const floor = material(0x8d897f);
@@ -167,7 +167,7 @@ function buildTent() {
     box(group, cloth, 0.047, 2.16, 0.76, side * 0.565, 1.18, -0.018);
     box(group, lining, 0.017, 2.1, 0.70, side * 0.534, 1.18, -0.01);
     for (const z of [-0.30, 0.28]) {
-      box(group, floor, 0.105, 0.07, 0.105, side * 0.47, 0.035, z);
+      box(group, seam, 0.105, 0.07, 0.105, side * 0.47, 0.035, z);
     }
     box(group, steel, 0.023, 2.02, 0.022, side * 0.503, 1.17, -0.301);
   }
@@ -177,6 +177,9 @@ function buildTent() {
   const binding = frontFrame(THREE, piping, 1.181, 2.255, 0.021, 0.011);
   binding.position.set(0, 1.179, 0.391);
   group.add(binding);
+  for (const x of [-0.545, 0.545]) {
+    for (const y of [0.128, 2.219]) box(group, seam, 0.103, 0.083, 0.057, x, y, 0.386);
+  }
   const zipper = frontFrame(THREE, floor, 1.041, 2.108, 0.011, 0.008);
   zipper.position.set(0, 1.178, 0.393);
   group.add(zipper);

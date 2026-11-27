@@ -149,10 +149,10 @@ function getSyringeAssets() {
       thumbGeo,
       hubGeo: new THREE.CylinderGeometry(0.006, 0.009, 0.018, 10),
       needleGeo: new THREE.CylinderGeometry(0.0016, 0.001, 0.058, 8),
-      barrelMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.36, roughness: 0.12, depthWrite: false }),
-      stopperMat: new THREE.MeshStandardMaterial({ color: 0x1e293b }),
-      rodMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }),
-      hubMat: new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.35 }),
+      barrelMat: new THREE.MeshStandardMaterial({ color: 0xbcd0c7, transparent: true, opacity: 0.39, roughness: 0.12, depthWrite: false }),
+      stopperMat: new THREE.MeshStandardMaterial({ color: 0x596f60 }),
+      rodMat: new THREE.MeshStandardMaterial({ color: 0xe4d5b8, roughness: 0.35 }),
+      hubMat: new THREE.MeshStandardMaterial({ color: 0xca835b, roughness: 0.56 }),
       needleMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 })
     };
     Object.keys(sharedSyrAssets).forEach((k) => {

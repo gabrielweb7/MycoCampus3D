@@ -24,7 +24,6 @@ import { updateMushroomBagVisual } from '../items/mushroom-packaging.js';
 import {
   handlePrimaryAction,
   pickHoveredItemForMove,
-  dropHeldItem,
   setHeldTwoHandedGhost,
   eatHeldMushroom,
   toggleHeldGloves,
@@ -35,7 +34,7 @@ import { breakAndShakeSpawn, canReceiveSpawnForFruiting, getSpawnSubstrateDispla
 import { interactSilicaStorageJar, interactLabMicroscope } from '../items/lab-advanced-tools.js';
 import { toggleAmpouleCaseLid, openAmpouleCaseModal } from '../items/ampoule-case.js';
 import { handleWorldInteraction } from '../systems/world-interactions.js';
-import { cancelHeldItemPlacement } from '../systems/held-item-placement.js';
+import { cancelHeldItemPlacement, toggleHeldItemPlacement } from '../systems/held-item-placement.js';
 import { escapeHtml } from './dom-helpers.js';
 import { diagnoseItemPedagogy } from '../core/cultivation-tracks.js';
 import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposal.js';
@@ -911,6 +910,7 @@ function buildHeldItemActions(ctx) {
       actions.push({
         id: 'open_aimed_petri_' + plate.id,
         icon: '🧫',
+        primary: true,
         label: t('actions.radial.open_aimed_petri'),
         run: () => { if (!plate.mesh.userData.petriCtrl.lidOpen) togglePetriLid(ctx, plate); }
       });
@@ -918,6 +918,7 @@ function buildHeldItemActions(ctx) {
       actions.push({
         id: 'open_aimed_pp5_' + plate.id,
         icon: '🥣',
+        primary: true,
         label: t('actions.radial.open_aimed_pp5'),
         run: () => { if (!plate.spawnCtrl.lidOpen) togglePP5Lid(ctx, plate); }
       });
@@ -927,6 +928,7 @@ function buildHeldItemActions(ctx) {
       actions.push({
         id: 'open_aimed_monotub_' + tub.id,
         icon: '📦',
+        primary: true,
         label: t('actions.radial.open_aimed_monotub'),
         run: () => { if (ctx.hoveredMonotubTarget === tub && !tub.monotubCtrl.lidOpen) interactMonotub(ctx, tub); }
       });
@@ -937,7 +939,7 @@ function buildHeldItemActions(ctx) {
         id: 'aimed_fridge_door_' + fridge.id + '_' + fridge.fridgeCtrl.doorOpen,
         icon: '🧊',
         label: t(fridge.fridgeCtrl.doorOpen ? 'actions.radial.close_fridge' : 'actions.radial.open_fridge'),
-        primary: ctx.hoveredPickable === fridge,
+        primary: !fridge.fridgeCtrl.doorOpen || ctx.hoveredPickable === fridge,
         run: () => {
           toggleCultureFridgeDoor(fridge);
           ctx.queueWorldStateChange(fridge.id, fridge.fridgeCtrl.doorOpen ? 1 : 0);
@@ -956,13 +958,6 @@ function buildHeldItemActions(ctx) {
     }
   }
   if (actions.length > 3) actions.length = 3;
-  actions.push({
-    id: 'held_inspect_' + held.id,
-    icon: '🔍',
-    key: 'I',
-    label: t('actions.radial.inspect'),
-    run: () => inspectItemToast(ctx, held)
-  });
   for (const action of actions) {
     const run = action.run;
     action.run = () => { if (ctx.heldItem === held) run(); };
@@ -1422,7 +1417,7 @@ function buildContextActions(ctx) {
       key: 'G',
       label: t('actions.radial.move'),
       run: () => {
-        if (ctx.pickHoveredItemForMove) ctx.pickHoveredItemForMove(target, !!ctx.adminEditMode);
+        if (ctx.pickHoveredItemForMove) ctx.pickHoveredItemForMove(target, false);
       }
     });
     actions.push({
@@ -1483,10 +1478,46 @@ export function assignActionShortcuts(actions) {
 
 export function getFloatingActionsPreview(ctx) {
   if (!ctx) return [];
-  return assignActionShortcuts(buildContextActions(ctx));
+  const touch = !!ctx.isTouchDevice?.();
+  const held = ctx.heldItem;
+  const placing = !!(ctx.placementMode && held);
+  const actions = placing ? [] : buildContextActions(ctx);
+  if (touch || held) addAimPrimaryAction(ctx, actions, touch);
+  if (placing) {
+    actions.push(
+      { id: 'rotate_held', key: 'R', label: t('hud.rotate_held'), run: () => window.rotateCampusHeldItem?.() },
+      { id: 'cancel_placement', key: 'G', label: t('hud.cancel_placement'), run: () => cancelHeldItemPlacement(ctx) }
+    );
+  } else if (held) {
+    actions.push(
+      {
+        id: 'position_held_' + held.id, key: 'G', label: t('hud.position_held'),
+        run: () => { if (ctx.heldItem === held) toggleHeldItemPlacement(ctx); }
+      },
+      {
+        id: 'held_inspect_' + held.id, icon: '🔍', key: 'I', label: t('actions.radial.inspect'),
+        run: () => { if (ctx.heldItem === held) inspectItemToast(ctx, held); }
+      }
+    );
+  } else if (ctx.hoveredPickable && !ctx.hoveredPickable.isReadOnly) {
+    const target = ctx.hoveredPickable;
+    const pick = actions.findIndex(action => action.key === 'G');
+    if (pick >= 0) {
+      const pickup = actions[pick];
+      actions.splice(pick + 1, 0, {
+        id: 'reposition_' + target.id, key: 'Q', label: t('hud.move_aimed'),
+        run: () => {
+          if (ctx.heldItem || ctx.hoveredPickable !== target) return;
+          pickup.run();
+          if (ctx.heldItem === target && !ctx.placementMode) toggleHeldItemPlacement(ctx);
+        }
+      });
+    }
+  }
+  return assignActionShortcuts(actions);
 }
 
-function addMobilePrimaryAction(ctx, actions) {
+function addAimPrimaryAction(ctx, actions, touch) {
   const existing = actions.findIndex(action => action.primary);
   if (existing >= 0) {
     if (existing > 0) actions.unshift(actions.splice(existing, 1)[0]);
@@ -1495,11 +1526,15 @@ function addMobilePrimaryAction(ctx, actions) {
   const isPlacing = !!(ctx.placementMode && ctx.heldItem);
   const prompt = isPlacing
     ? (ctx.placementValid ? t('hud.confirm_place') : '')
-    : ctx.mobileAimPrompt;
-  if (!prompt) return;
+    : ctx.aimActionPrompt || (ctx.heldItem?.mesh?.userData.isAlcoholSpray ? t('hud.spray_held') : '');
+  if (!prompt) {
+    if (ctx.heldItem && actions[0] && !actions[0].key) actions[0].primary = true;
+    return;
+  }
   const target = ctx.hoveredPickable;
   const wildMushroom = ctx.hoveredMushroom;
   let label = prompt;
+  if (ctx.heldItem?.mesh?.userData.isAlcoholSpray && ctx.hoveredSprayTarget?.target) label = t('hud.spray_held');
   if (!ctx.heldItem && wildMushroom) {
     const species = wildMushroom.capMesh?.userData.speciesName;
     if (species) label = t('hud.harvest_aimed', { item: species });
@@ -1515,7 +1550,7 @@ function addMobilePrimaryAction(ctx, actions) {
   const syringe = ctx.hoveredSyringeTarget;
   const liquidPump = syringe?.mode === 'draw' ||
     (syringe?.mode === 'inject' && syringe.item?.mesh?.userData.liquidCtrl && !syringe.item.spawnCtrl);
-  const hold = !isPlacing && !!ctx.heldItem && !!(
+  const hold = touch && !isPlacing && !!ctx.heldItem && !!(
     liquidPump || getHiveSyringeDose(ctx.hoveredBeehive, ctx.heldItem) > 0 || ctx.hoveredFillPot || ctx.hoveredPourTarget ||
     ctx.hoveredSinkAction === 'fill' || ctx.hoveredBowlTarget ||
     ctx.hoveredScalpelTarget?.mode === 'attach_blade_to_scalpel' || ctx.hoveredBoardHit
@@ -1565,7 +1600,7 @@ export function syncFloatingActions(ctx) {
   const touch = !!ctx?.isTouchDevice?.();
   if (mobileHold && (!touch || !ctx.inFps || ctx.lobbyTourActive || ctx.inventory?.pending || !ctx.isPrimaryDown)) releaseMobileHold();
   if (mobileHold) return;
-  if (!ctx || !ctx.inFps || ctx.lobbyTourActive || (!touch && ctx.placementMode) || ctx.inventory?.pending) {
+  if (!ctx || !ctx.inFps || ctx.lobbyTourActive || ctx.inventory?.pending) {
     if (barEl) barEl.classList.add('hidden');
     currentActions = [];
     lastSignature = '';
@@ -1573,10 +1608,7 @@ export function syncFloatingActions(ctx) {
   }
 
   if (ctx.placementMode && !ctx.heldItem) cancelHeldItemPlacement(ctx);
-  const isPlacing = !!(ctx.placementMode && ctx.heldItem);
-  const actions = isPlacing ? [] : buildContextActions(ctx);
-  if (touch) addMobilePrimaryAction(ctx, actions);
-  assignActionShortcuts(actions);
+  const actions = getFloatingActionsPreview(ctx);
   if (!actions.length) {
     if (barEl && !barEl.classList.contains('hidden')) {
       barEl.classList.add('hidden');
@@ -1587,7 +1619,7 @@ export function syncFloatingActions(ctx) {
   }
 
   const sig = (touch ? 'touch:' : '') + actions.map(action =>
-    `${action.id}:${action.key || ''}:${touch ? action.label : ''}:${Number(!!action.hold)}`).join('|');
+    `${action.id}:${action.key || ''}:${action.label}:${Number(!!action.primary)}:${Number(!!action.hold)}`).join('|');
   currentActions = actions;
   if (sig === lastSignature && barEl && !barEl.classList.contains('hidden')) return;
   lastSignature = sig;
@@ -1613,6 +1645,7 @@ export function syncFloatingActions(ctx) {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'myco-float-chip';
+    if (act.primary) chip.classList.add('myco-context-primary');
     if (!touch && act.key) {
       const key = document.createElement('span');
       key.className = 'myco-float-key';
@@ -1635,7 +1668,6 @@ export function syncFloatingActions(ctx) {
       if (!act.hold) getAction()?.run();
     });
     if (hasPrimary && idx === 0) {
-      chip.classList.add('myco-context-primary');
       barEl.appendChild(chip);
     } else {
       (secondary || barEl).appendChild(chip);
@@ -1654,10 +1686,9 @@ export function triggerFloatingAction(index) {
 
 export function triggerFloatingActionByCode(code) {
   if (!code) return false;
-  const normalized = code === 'KeyQ' ? 'KeyG' : code;
   for (let i = 0; i < currentActions.length; i++) {
     const act = currentActions[i];
-    if (act && act.code === normalized) {
+    if (act && act.code === code) {
       act.run();
       return true;
     }

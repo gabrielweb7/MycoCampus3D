@@ -173,6 +173,17 @@ const _spOrigin = new THREE.Vector3();
 const _spDir = new THREE.Vector3();
 const _UP = new THREE.Vector3(0, 1, 0);
 
+function aimSprayParticles(ctx, hitPoint) {
+  const mesh = ctx.heldItem?.mesh;
+  if (mesh && (mesh.userData.isAlcoholSpray || mesh.userData.isWaterSpray || mesh.userData.isH2O2Spray)) {
+    _spOrigin.set(0, 0.230, 0.078).applyEuler(mesh.rotation).add(mesh.position);
+  } else {
+    _spOrigin.set(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
+  }
+  if (hitPoint) _spDir.copy(hitPoint).sub(_spOrigin).normalize();
+  else _spDir.set(0, 0, -1).applyEuler(ctx.camera.rotation);
+}
+
 export function spawnSprayParticles(ctx, colorHex, count, origin, dir, spread, speed, size, life) {
   const spArr = new Float32Array(count * 3);
   const spVel = new Float32Array(count * 3);
@@ -203,9 +214,8 @@ export function fireAlcoholSpray(ctx, sprayInfo, { sanitizeGloves = false } = {}
     ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
   }
 
-  const spOrigin = _spOrigin.set(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
-  const spDir = _spDir.set(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
-  spawnSprayParticles(ctx, 0xe0f2fe, 30, spOrigin, spDir, 0.95, 2.5, 0.032, 0.45);
+  aimSprayParticles(ctx, sprayInfo?.hitPoint);
+  spawnSprayParticles(ctx, 0xe0f2fe, 30, _spOrigin, _spDir, 0.95, 2.5, 0.032, 0.45);
 
   if (!sprayInfo || !sprayInfo.target) {
     if (sanitizeGloves || !ctx.hoveredGreenhouseSlot) {
@@ -296,9 +306,8 @@ export function fireH2O2Spray(ctx, sprayInfo) {
   if (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData) {
     ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
   }
-  const spOrigin = _spOrigin.set(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
-  const spDir = _spDir.set(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
-  spawnSprayParticles(ctx, 0xf8fafc, 28, spOrigin, spDir, 0.9, 2.4, 0.035, 0.5);
+  aimSprayParticles(ctx, sprayInfo?.hitPoint);
+  spawnSprayParticles(ctx, 0xf8fafc, 28, _spOrigin, _spDir, 0.9, 2.4, 0.035, 0.5);
   if (sprayInfo && sprayInfo.hitPoint) {
     const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);
     spawnSprayParticles(ctx, 0xffffff, 24, bp, _UP, 1.4, 0.55, 0.045, 0.65);
@@ -312,9 +321,8 @@ export function fireWaterSpray(ctx, sprayInfo) {
     ctx.heldItem.mesh.userData.sprayAnimUntil = performance.now() + 160;
   }
   if (ctx && ctx.camera && ctx.scene) {
-    const spOrigin = _spOrigin.set(0.24, -0.03, -0.60).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
-    const spDir = _spDir.set(0, 0, -1).applyEuler(ctx.camera.rotation).normalize();
-    spawnSprayParticles(ctx, 0x7dd3fc, 28, spOrigin, spDir, 1.05, 2.1, 0.028, 0.5);
+    aimSprayParticles(ctx, sprayInfo?.hitPoint);
+    spawnSprayParticles(ctx, 0x7dd3fc, 28, _spOrigin, _spDir, 1.05, 2.1, 0.028, 0.5);
   }
   if (sprayInfo && sprayInfo.hitPoint && ctx && ctx.scene) {
     const bp = sprayInfo.hitPoint.clone ? sprayInfo.hitPoint.clone() : new THREE.Vector3(sprayInfo.hitPoint.x, sprayInfo.hitPoint.y, sprayInfo.hitPoint.z);

@@ -12,6 +12,7 @@ import { updateCampusAuditoriumSlide, setRankingList, cycleDayTimePreset, getFor
 import { triggerConfettiBurst } from '../entities/confetti.js';
 import { getCameraSensitivity } from '../core/camera-settings.js';
 import { buildAvatarHat, updateCampusPlayers } from '../entities/avatars.js';
+import { applyAvatarSkin, getAvatarSkin } from '../entities/avatar-skins.js';
 import { createRoundParachuteMesh } from '../entities/vehicles/paraglider.js';
 import { getLabItemGuide } from '../items/item-registry.js';
 import { setHeldTwoHandedGhost } from './interaction-system.js';
@@ -246,6 +247,22 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
     if (sim.localAvatar && sim.localAvatar.hatGroup) {
       buildAvatarHat(sim.localHat, sim.localAvatar.hatMat, sim.localAvatar.hatGroup);
       sim.localAvatar.current_hat = sim.localHat;
+    }
+  };
+
+  window.setLocalAvatarSkin = function (id, role) {
+    const skin = getAvatarSkin(id, role);
+    sim.localSkin = skin.id;
+    sim.localSkinRole = role;
+    if (sim.localAvatar) {
+      applyAvatarSkin(sim.localAvatar, skin.id, role);
+      sim.localAvatar.bodyMat.color.set(skin.top);
+    }
+    if (sim.fpsSleeveMat) sim.fpsSleeveMat.color.set(skin.top);
+    if (sim.fpsArmGroup) {
+      const arm = sim.fpsArmGroup.userData;
+      arm.skinColor = skin.skin;
+      if (!sim.wearingGloves) arm.handMat.color.set(skin.skin);
     }
   };
 

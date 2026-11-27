@@ -3,8 +3,8 @@
  */
 
 import { getCultureOriginLabel } from '../core/culture-origin.js';
-import { makeBox } from '../engine/textures.js';
-import { registerPickable, makeScaleTex, mergeStaticGeos, updateItemBounds } from './item-registry.js';
+import { makeChamferedBox } from './lab-prop-shapes.js';
+import { registerPickable, makeScaleTex, makeRoundedRectShape, mergeStaticGeos, updateItemBounds } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
 import { updatePdaMediumVisual } from './pda-mix.js';
 import {
@@ -46,7 +46,7 @@ function getFalconAssets(is50) {
       map: makeScaleTex(maxMl, is50 ? 10 : 5, maxMl + 'ml'),
       transparent: true, opacity: 0.88, depthWrite: false, side: THREE.DoubleSide
     }),
-    capMat: new THREE.MeshStandardMaterial({ color: is50 ? 0xea580c : 0x2563eb, roughness: 0.38 })
+    capMat: new THREE.MeshStandardMaterial({ color: is50 ? 0xd68a57 : 0x779399, roughness: 0.57 })
   };
   Object.keys(assets).forEach((k) => {
     if (assets[k] && assets[k].userData) assets[k].userData.shared = true;
@@ -192,6 +192,7 @@ export function makeFalconTube(ctx, id, maxMl, px, py, pz, initMl) {
     cone.position.y = coneH / 2;
     fg.add(liqMesh, mycCloud, body, cone, gradCyl, cap);
   }
+  fg.userData.isFalconTube = true;
   fg.userData.liquidCtrl = {
     volMl: initMl || 0,
     maxMl,
@@ -228,23 +229,37 @@ export function makeFalconTube(ctx, id, maxMl, px, py, pz, initMl) {
 export function makeFalconRack(ctx, rx, ry, rz, id = 'falcon_rack_lab') {
   const rg = new THREE.Group();
   rg.position.set(rx, ry, rz);
-  const blueMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.42 });
-  const topPlate = makeBox(0.24, 0.012, 0.16, blueMat);
-  topPlate.position.y = 0.065;
-  const botPlate = makeBox(0.24, 0.012, 0.16, blueMat);
+  const sage = new THREE.MeshStandardMaterial({ color: 0x74866d, roughness: 0.64 });
+  const shelfShape = makeRoundedRectShape(0.234, 0.152, 0.012);
+  const slots = [];
+  for (const x of [-0.084, 0, 0.084]) {
+    for (const z of [-0.042, 0.042]) {
+      const hole = new THREE.Path();
+      hole.absarc(x, z, 0.026, 0, Math.PI * 2, true);
+      shelfShape.holes.push(hole);
+      slots.push(new THREE.Vector3(x, 0.012, -z));
+    }
+  }
+  const shelf = new THREE.ExtrudeGeometry(shelfShape, { depth: 0.009, bevelEnabled: false, curveSegments: 4 });
+  shelf.rotateX(-Math.PI / 2);
+  const topPlate = new THREE.Mesh(shelf, sage);
+  topPlate.position.y = 0.061;
+  const botPlate = makeChamferedBox(0.24, 0.012, 0.16, 0.003, sage);
   botPlate.position.y = 0.006;
-  [[-0.105, -0.065], [0.105, -0.065], [-0.105, 0.065], [0.105, 0.065]].forEach(function (p) {
-    const post = makeBox(0.014, 0.065, 0.014, blueMat);
-    post.position.set(p[0], 0.035, p[1]);
-    rg.add(post);
-  });
+  for (const x of [-0.115, 0.115]) {
+    const side = makeChamferedBox(0.012, 0.086, 0.156, 0.003, 0xe4cba1);
+    side.position.set(x, 0.043, 0);
+    rg.add(side);
+  }
+  rg.userData.firstPersonGrip = { x: 0.056, y: 0.014, z: 0.086 };
   rg.add(topPlate, botPlate);
   const rackSurf = {
     minX: rx - 0.12,
     maxX: rx + 0.12,
     minZ: rz - 0.08,
     maxZ: rz + 0.08,
-    topY: ry + 0.012
+    topY: ry + 0.012,
+    falconSlots: slots
   };
   if (ctx.supportSurfaces) ctx.supportSurfaces.push(rackSurf);
   if (ctx.supportMeshes) {
@@ -256,7 +271,7 @@ export function makeFalconRack(ctx, rx, ry, rz, id = 'falcon_rack_lab') {
   rg.userData.tableDims = { w: 0.24, h: 0.012, d: 0.16, surfOffset: 0 };
   rg.userData.dynamicSurface = rackSurf;
   rg.userData.updateBounds = updateItemBounds;
-  const rackItem = registerPickable(ctx, id, 'Suporte Azul de Tubos Falcon', rg, rx, ry, rz, 0, 0.14, 0.08, {
+  const rackItem = registerPickable(ctx, id, 'Suporte de Tubos Falcon', rg, rx, ry, rz, 0, 0.14, 0.09, {
     category: 'tool',
     purpose: 'Suporte para transportar e organizar Tubos Falcon / Slants',
     weightGrams: 180,

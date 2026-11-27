@@ -26,6 +26,7 @@ test('atalhos flutuantes padronizados: G sempre Pegar, I sempre Inspecionar, Z s
   const sprayActs = getFloatingActionsPreview({ hoveredPickable: spray, cookerPots: [] });
   assert.deepEqual(sprayActs.map(a => [a.key, a.label]), [
     ['G', 'Pegar'],
+    ['Q', 'Mover'],
     ['I', 'Inspecionar']
   ]);
 
@@ -36,6 +37,7 @@ test('atalhos flutuantes padronizados: G sempre Pegar, I sempre Inspecionar, Z s
     ['F', 'Abrir Tampa'],
     ['Z', 'Etiqueta'],
     ['G', 'Pegar'],
+    ['Q', 'Mover'],
     ['I', 'Inspecionar']
   ]);
 
@@ -46,16 +48,18 @@ test('atalhos flutuantes padronizados: G sempre Pegar, I sempre Inspecionar, Z s
     ['F', 'Abrir porta'],
     ['V', 'Ver Vagas'],
     ['G', 'Pegar Geladeira'],
+    ['Q', 'Mover'],
     ['I', 'Inspecionar']
   ]);
 
   // 4. Maleta de Ampolas (5 ações): F, V, Z, G, I únicos sem cortar Inspecionar
   const ampCase = makeItem('case_1', 'Maleta de Ampolas', { caseCtrl: { lidOpen: false, slots: [] } });
   const caseActs = getFloatingActionsPreview({ hoveredPickable: ampCase, cookerPots: [] });
-  assert.deepEqual(caseActs.map(a => a.key), ['F', 'V', 'Z', 'G', 'I']);
+  assert.deepEqual(caseActs.map(a => a.key), ['F', 'V', 'Z', 'G', 'Q', 'I']);
   assert.equal(caseActs[2].label, 'Etiqueta');
   assert.equal(caseActs[3].label, 'Pegar');
-  assert.equal(caseActs[4].label, 'Inspecionar');
+  assert.equal(caseActs[4].label, 'Mover');
+  assert.equal(caseActs[5].label, 'Inspecionar');
 
   // 5. Colmeia: I (Inspecionar)
   const hiveActs = getFloatingActionsPreview({ hoveredBeehive: { id: 'hive_0', honeyLevel: 50, buildProgress: 1 } });
@@ -65,6 +69,7 @@ test('atalhos flutuantes padronizados: G sempre Pegar, I sempre Inspecionar, Z s
   const heldActs = getFloatingActionsPreview({ heldItem: petri, placementMode: false });
   assert.deepEqual(heldActs.map(a => [a.key, a.label]), [
     ['F', 'Abrir Tampa'],
+    ['G', 'Posicionar'],
     ['I', 'Inspecionar']
   ]);
 
@@ -86,7 +91,11 @@ test('assignActionShortcuts, triggerFloatingActionByCode e Pegar sem forçar mod
     hoveredPickable: petri,
     cookerPots: [],
     isTouchDevice: () => false,
-    pickHoveredItemForMove: (target, startPlacement) => pickedCalls.push([target.id, startPlacement])
+    callbacks: {},
+    pickHoveredItemForMove: (target, startPlacement) => {
+      pickedCalls.push([target.id, startPlacement]);
+      ctx.heldItem = target;
+    }
   };
 
   // Mock DOM mínimo para syncFloatingActions
@@ -130,18 +139,24 @@ test('assignActionShortcuts, triggerFloatingActionByCode e Pegar sem forçar mod
     const bar = hudControls.children[0];
     assert.equal(bar.id, 'myco-floating-actions');
     const renderedKeys = bar.children.map(chip => chip.children[0].textContent);
-    assert.deepEqual(renderedKeys, ['F', 'Z', 'G', 'I']);
+    assert.deepEqual(renderedKeys, ['F', 'Z', 'G', 'Q', 'I']);
 
+    assert.equal(triggerFloatingActionByCode('KeyG'), true);
+    assert.equal(ctx.placementMode, false);
+    ctx.heldItem = null;
     assert.equal(triggerFloatingActionByCode('KeyQ'), true);
-    assert.deepEqual(pickedCalls, [['petri_pick', false]]);
+    assert.equal(ctx.placementMode, true);
+    ctx.placementMode = false;
+    ctx.heldItem = null;
+    assert.deepEqual(pickedCalls, [['petri_pick', false], ['petri_pick', false]]);
     assert.equal(triggerFloatingActionByCode('Digit4'), false);
 
     ctx.isTouchDevice = () => true;
     ctx.hoveredPickable = makeItem('simple_tool', 'Ferramenta');
-    ctx.mobileAimPrompt = ctx.hoveredPickable.label;
+    ctx.aimActionPrompt = ctx.hoveredPickable.label;
     syncFloatingActions(ctx);
     assert.match(bar.children[0].children[0].textContent, /Pegar Ferramenta/);
-    assert.deepEqual(bar.children[1].children.map(button => button.children[0].textContent), ['🔍 Inspecionar']);
+    assert.deepEqual(bar.children[1].children.map(button => button.children[0].textContent), ['Mover', '🔍 Inspecionar']);
 
     ctx.hoveredPickable = null;
     ctx.heldItem = makeItem('water_test', 'Água', {
@@ -150,14 +165,14 @@ test('assignActionShortcuts, triggerFloatingActionByCode e Pegar sem forçar mod
     });
     ctx.lastPickupAt = -1000;
     ctx.hoveredFillPot = { contents: [], waterMl: 0 };
-    ctx.mobileAimPrompt = 'Despejar água';
+    ctx.aimActionPrompt = 'Despejar água';
     syncFloatingActions(ctx);
     const holdButton = bar.children[0];
     assert.match(holdButton.children[0].textContent, /Segure · Despejar água/);
     holdButton.listeners.pointerdown({ button: 0, pointerId: 7, clientX: 1, clientY: 2 });
     assert.equal(ctx.isPrimaryDown, true);
     assert.equal(ctx.pourHold.dst, ctx.hoveredFillPot);
-    ctx.mobileAimPrompt = '';
+    ctx.aimActionPrompt = '';
     syncFloatingActions(ctx);
     assert.equal(bar.children[0], holdButton);
     holdButton.listeners.pointercancel({ pointerId: 7 });
@@ -198,4 +213,26 @@ test('traduções de Pegar e atalhos padronizados estão consistentes em PT-BR, 
   assert.match(t('actions.hover.held_options_hint'), /F, V, Z o I/);
 
   setLanguage('pt-BR');
+});
+
+test('a ação disponível precede Posicionar e Inspecionar no desktop e no toque', () => {
+  setLanguage('pt-BR');
+  const spray = makeItem('alcohol', 'Álcool', { userData: { isAlcoholSpray: true } });
+  const tool = makeItem('tool', 'Ferramenta');
+  for (const touch of [false, true]) {
+    const ctx = { heldItem: spray, isTouchDevice: () => touch };
+    const labels = () => getFloatingActionsPreview(ctx).map(({ key, label }) => [key, label]);
+    assert.deepEqual(labels(), [['F', 'Borrifar'], ['G', 'Posicionar'], ['I', 'Inspecionar']]);
+    ctx.heldItem = tool;
+    assert.deepEqual(labels(), [['G', 'Posicionar'], ['I', 'Inspecionar']]);
+    for (const prompt of [t('crate.place'), t('hud.place_aimed')]) {
+      ctx.aimActionPrompt = prompt;
+      assert.deepEqual(labels(), [['F', prompt], ['G', 'Posicionar'], ['I', 'Inspecionar']]);
+    }
+    ctx.placementMode = true;
+    ctx.placementValid = true;
+    assert.deepEqual(labels(), [['F', 'Confirmar posição'], ['R', 'Girar'], ['G', 'Cancelar']]);
+    ctx.placementValid = false;
+    assert.deepEqual(labels(), [['R', 'Girar'], ['G', 'Cancelar']]);
+  }
 });

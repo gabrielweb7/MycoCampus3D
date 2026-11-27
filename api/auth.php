@@ -8,6 +8,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/village_store.php';
 require_once __DIR__ . '/multiplayer_schema.php';
+require_once __DIR__ . '/avatar_skins.php';
 
 const MC_XP_HARVEST = 25;
 const MC_XP_MODULE = 50;
@@ -295,6 +296,8 @@ function mc_format_user(array $row): array {
         'completed_modules' => $modules,
         'unlocked_hats' => $unlockedHats,
         'current_hat' => $currentHat,
+        'unlocked_skins' => mc_owned_skins($row),
+        'current_skin' => mc_active_skin($row),
         'progress' => mc_clean_progress($row['progress_json'] ?? null),
     ];
 }
@@ -536,6 +539,45 @@ if ($action === 'harvest_greenhouse') {
 if ($action === 'cosmetics_catalog') {
     $user = mc_require_user($pdo);
     mc_json(['ok' => true, 'catalog' => array_merge(array_values(MC_COSMETIC_HATS), array_values(MC_COSMETIC_TOYS)), 'user' => mc_format_user($user)]);
+}
+
+if ($action === 'buy_skin' || $action === 'equip_skin') {
+    mc_require_post();
+    $user = mc_require_user($pdo);
+    $skinId = (string)($body['skin_id'] ?? '');
+    $skin = mc_skin_catalog()[$skinId] ?? null;
+    if (!$skin) mc_json(['ok' => false, 'error' => 'Skin não encontrada.'], 404);
+    $pdo->beginTransaction();
+    try {
+        $lock = $pdo->prepare('SELECT * FROM mc_users WHERE id = ? FOR UPDATE');
+        $lock->execute([(int)$user['id']]);
+        $row = $lock->fetch();
+        if (!$row || !mc_skin_available($skin, (string)$row['role'])) {
+            $pdo->rollBack();
+            mc_json(['ok' => false, 'error' => 'Skin indisponível para esta conta.'], 403);
+        }
+        $owned = mc_owned_skins($row);
+        if (!in_array($skinId, $owned, true)) {
+            $price = (int)$skin['price'];
+            if ($action !== 'buy_skin' || (int)($row['myco_coins'] ?? 250) < $price) {
+                $pdo->rollBack();
+                mc_json(['ok' => false, 'error' => 'Desbloqueie a skin com MycoCoins.'], 403);
+            }
+            $catalog = mc_skin_catalog();
+            $paid = array_values(array_filter($owned, static fn(string $id): bool => (int)$catalog[$id]['price'] > 0));
+            $paid[] = $skinId;
+            $upd = $pdo->prepare('UPDATE mc_users SET unlocked_skins = ?, myco_coins = COALESCE(myco_coins, 250) - ?, current_skin = ? WHERE id = ?');
+            $upd->execute([json_encode($paid, JSON_THROW_ON_ERROR), $price, $skinId, (int)$user['id']]);
+        } else {
+            $upd = $pdo->prepare('UPDATE mc_users SET current_skin = ? WHERE id = ?');
+            $upd->execute([$skinId, (int)$user['id']]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+    mc_json(['ok' => true, 'user' => mc_format_user(mc_fetch_user($pdo, (int)$user['id']))]);
 }
 
 if ($action === 'buy_cosmetic') {

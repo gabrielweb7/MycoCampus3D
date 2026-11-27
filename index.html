@@ -122,7 +122,7 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.10.9">
+  <link rel="stylesheet" href="css/game.css?v=2.11.0">
 </head>
 
 <body>
@@ -203,7 +203,7 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.10.9</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.11.0</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -366,31 +366,8 @@
     <div id="bottom-hud">
     <div id="bottom-hud-controls">
     <div id="held-item-bar"
-      class="hidden glass-panel rounded-2xl px-3.5 py-1.5 flex items-center gap-2.5 border border-emerald-500/50 shadow-2xl backdrop-blur-md">
-      <div class="held-item-description flex items-center gap-1.5 min-w-0">
-        <span class="text-base sm:text-lg shrink-0">📦</span>
-        <div class="text-left leading-tight min-w-0">
-          <div class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Em Mãos</div>
-          <div id="held-item-bar-name" class="text-xs sm:text-sm font-extrabold text-emerald-300">Item</div>
-        </div>
-      </div>
-      <div class="held-item-buttons">
-      <button id="btn-held-drop" type="button" title="Largar item no chão (X)"
-        class="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 flex items-center gap-1 active:scale-95 transition-all">
-        <span class="hidden sm:inline bg-slate-900/80 text-amber-300 px-1 py-0.2 rounded text-[10px] font-mono border border-amber-500/30">[X]</span>
-        ⬇️ Largar
-      </button>
-      <button id="btn-held-place" type="button" title="Posicionar com mira (G)"
-        class="px-2.5 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs border border-emerald-500/40 flex items-center gap-1 active:scale-95 transition-all">
-        <span class="hidden sm:inline bg-slate-900/80 text-emerald-300 px-1 py-0.2 rounded text-[10px] font-mono border border-emerald-500/30">[G]</span>
-        📦 Posicionar
-      </button>
-      <button id="btn-held-rotate" type="button" title="Girar item (R)"
-        class="px-2 py-1 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold text-xs border border-sky-500/40 flex items-center gap-1 active:scale-95 transition-all">
-        <span class="hidden sm:inline bg-slate-900/80 text-sky-300 px-1 py-0.2 rounded text-[10px] font-mono border border-sky-500/30">[R]</span>
-        🔄 Girar
-      </button>
-      </div>
+      class="hidden glass-panel rounded-2xl px-3.5 py-1.5 border border-emerald-500/50 shadow-2xl backdrop-blur-md">
+      <div id="held-item-bar-name" class="text-xs sm:text-sm font-extrabold text-emerald-300"></div>
     </div>
 
     <!-- Emotes Quick Bar -->
@@ -459,9 +436,6 @@
   </div>
   <div id="mobile-actions">
     <button id="btn-mobile-jump" type="button" class="touch-btn" title="Pular">⬆️</button>
-    <button id="btn-mobile-drop" type="button" class="touch-btn" title="Largar item no chão" style="display:none">⬇️</button>
-    <button id="btn-mobile-place" type="button" class="touch-btn" title="Mover ou posicionar item" aria-label="Mover ou posicionar item" style="display:none">📦</button>
-    <button id="btn-mobile-rotate" type="button" class="touch-btn" title="Girar item" style="display:none">🔄</button>
   </div>
 
   <!-- LAB GUIDE -->
@@ -566,6 +540,7 @@
         <nav class="shop-tabs">
           <button id="shop-tab-supplies" type="button" data-i18n="ui.shop.tab_supplies">Suprimentos</button>
           <button id="shop-tab-hats" type="button" data-i18n="modal.shop_hats">🎩 Chapéus</button>
+          <button id="shop-tab-skins" type="button" data-i18n="ui.shop.tab_skins">Skins</button>
           <button id="shop-tab-toys" type="button" data-i18n="modal.shop_toys">🏂 Brinquedos</button>
           <button id="shop-tab-pets" type="button" data-i18n="modal.shop_pets">🐾 Pets</button>
         </nav>
@@ -971,9 +946,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.10.9';</script>
+  <script>window.MYCO_VERSION = '2.11.0';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.10.9"></script>
+  <script type="module" src="js/main.js?v=2.11.0"></script>
 </body>
 
 </html>

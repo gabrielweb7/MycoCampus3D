@@ -97,6 +97,7 @@ export function applyGardenWorldState(stateMap) {
 export function makeOrganicGardenBasket(ctx, px, py, pz, customId = null) {
   const g = makeGardenBasketModel(THREE);
   g.scale.setScalar(0.57);
+  g.userData.firstPersonGrip = { x: 0.032, y: 0.515, z: 0.023 };
   models ||= createGardenModels(THREE);
   for (let i = 0; i < 2; i++) {
     const { group: fruit } = models.makeFruit();

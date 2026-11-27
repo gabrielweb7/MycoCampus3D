@@ -2,6 +2,7 @@
  * MycoCampus3D — Construtor de Prédios Universitários (2 Andares, Persianas, Portas & Lousas)
  */
 import { makeBox, brickMat, woodMat, registerSnowable } from '../engine/textures.js';
+import { makeChamferedBox, makeSideProfile } from '../items/lab-prop-shapes.js';
 import { addWalkableSlab, addSolidWall } from '../engine/physics.js';
 import { nightLampGlows } from './nature-plaza.js';
 
@@ -424,28 +425,34 @@ export function buildCampusBuildingWing(ctx, opts) {
   supportMeshes.push(tray);
 
   const chalkDefs = [
-    { id: 'chalk_white' + bSuffix, label: 'Giz Branco', color: 0xf8fafc, dz: -0.9 },
-    { id: 'chalk_green' + bSuffix, label: 'Giz Verde', color: 0x4ade80, dz: -0.3 },
-    { id: 'chalk_yellow' + bSuffix, label: 'Giz Amarelo', color: 0xfacc15, dz: 0.3 }
+    { id: 'chalk_white' + bSuffix, label: 'Giz Branco', color: 0xf3e1c0, dz: -0.9 },
+    { id: 'chalk_green' + bSuffix, label: 'Giz Verde', color: 0x9bc090, dz: -0.3 },
+    { id: 'chalk_yellow' + bSuffix, label: 'Giz Amarelo', color: 0xe4bc70, dz: 0.3 }
   ];
   chalkDefs.forEach((cd) => {
     const cg = new THREE.Group();
     const stick = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.025, 0.025, 0.18, 10),
-      new THREE.MeshStandardMaterial({ color: cd.color, roughness: 0.9 })
+      new THREE.CylinderGeometry(0.020, 0.024, 0.18, 7),
+      new THREE.MeshStandardMaterial({ color: cd.color, roughness: 0.92, flatShading: true })
     );
     stick.rotation.x = Math.PI / 2;
     stick.position.y = 0.03;
     cg.add(stick);
+    cg.userData.firstPersonGrip = { x: 0.012, y: 0.005, z: 0.052 };
     registerPickable(cd.id, cd.label, cg, trayX, trayY + 0.04, cz + cd.dz, 0, 0.15, 0.12, { purpose: 'Segure o giz, mire na lousa e arraste para escrever ou desenhar.' });
   });
 
   const eraser = new THREE.Group();
-  const eWood = makeBox(0.12, 0.06, 0.28, 0x92400e, { roughness: 0.75 });
+  const eWood = makeChamferedBox(0.12, 0.06, 0.28, 0.012, 0xe4ccaa);
   eWood.position.y = 0.06;
-  const eFelt = makeBox(0.12, 0.03, 0.28, 0x1e293b, { roughness: 0.95 });
+  const eFelt = makeChamferedBox(0.12, 0.03, 0.28, 0.007, 0x514443);
   eFelt.position.y = 0.015;
-  eraser.add(eWood, eFelt);
+  const eGrip = makeSideProfile([
+    [-0.075, 0.076], [-0.053, 0.123], [0.053, 0.123], [0.075, 0.076],
+    [0.049, 0.076], [0.041, 0.101], [-0.041, 0.101], [-0.049, 0.076]
+  ], 0.031, 0.005, new THREE.MeshStandardMaterial({ color: 0xd8ba91, roughness: 0.80 }));
+  eraser.add(eWood, eFelt, eGrip);
+  eraser.userData.firstPersonGrip = { x: 0.020, y: 0.104, z: 0.033 };
   registerPickable('board_eraser' + bSuffix, 'Apagador da Lousa', eraser, trayX, trayY + 0.04, cz + 0.95, 0, 0.2, 0.14, { purpose: 'Segure o apagador, mire na lousa e arraste sobre os traços para apagá-los.' });
 
   const doorHalfW = 0.96;

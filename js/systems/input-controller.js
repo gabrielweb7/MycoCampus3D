@@ -58,7 +58,7 @@ export function bindControls(ctx) {
     const GAME_KEYS = [
       'KeyW', 'KeyA', 'KeyS', 'KeyD',
       'KeyR', 'KeyF', 'KeyG', 'KeyQ',
-      'KeyX', 'KeyI', 'KeyC', 'KeyE',
+      'KeyI', 'KeyC', 'KeyE',
       'KeyZ', 'KeyV',
       'Space', 'Tab',
       'Digit1', 'Digit2', 'Digit3'
@@ -80,28 +80,19 @@ export function bindControls(ctx) {
     if (ctx.inventory?.pending) {
       if (ctx.inventory.pending.createdAt && (performance.now() - ctx.inventory.pending.createdAt > 2500)) {
         ctx.inventory.pending = null;
-      } else if (['KeyX', 'KeyG', 'KeyQ', 'KeyF', 'KeyZ', 'KeyV', 'KeyI', 'Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
+      } else if (['KeyG', 'KeyQ', 'KeyF', 'KeyZ', 'KeyV', 'KeyI', 'Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
         return;
-      }
-    }
-    if (e.code === 'KeyX' && !e.repeat) {
-      if (ctx.heldItem) {
-        if (ctx.placementMode) {
-          ctx.cancelHeldItemPlacement();
-        } else {
-          ctx.dropHeldItem();
-        }
       }
     }
     if ((e.code === 'KeyG' || e.code === 'KeyQ') && !e.repeat && !e.ctrlKey && !e.metaKey) {
       if (ctx.heldItem) {
         e.preventDefault();
         ctx.toggleHeldItemPlacement();
-      } else if (window.triggerCampusFloatingActionByCode?.('KeyG')) {
+      } else if (window.triggerCampusFloatingActionByCode?.(e.code)) {
         e.preventDefault();
       } else if (ctx.hoveredPickable && ctx.pickHoveredItemForMove) {
         e.preventDefault();
-        ctx.pickHoveredItemForMove(undefined, !!ctx.adminEditMode);
+        ctx.pickHoveredItemForMove(undefined, e.code === 'KeyQ');
       }
     }
     if (e.code === 'KeyR' && ctx.heldItem) {

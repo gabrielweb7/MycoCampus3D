@@ -1,4 +1,5 @@
 import {
+  clampPointToSurfaceXZ,
   findPlacementTarget,
   getPlacementBlockedReason,
   isPlacementBlocked,
@@ -8,6 +9,7 @@ import {
 import { hideHover3dBadge } from '../entities/hover-3d-badge.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
+import { isPointInBoundsXZ } from '../items/item-registry.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { saveLocalMovedObject } from './world-objects-sync.js';
 import { appState } from '../core/state.js';
@@ -19,6 +21,69 @@ import { addSealedBagToDeliveryCrate } from '../items/mushroom-packaging.js';
 const _tmpCommitVec = new window.THREE.Vector3();
 const _vPlaceZero2 = new window.THREE.Vector2(0, 0);
 const _projectedGhost = new window.THREE.Vector3();
+
+const RING_OFFSETS = [0.12, 0.22, 0.34, 0.48, 0.64];
+const RING_ANGLES = 12;
+
+function findSupportSurfaceAtPoint(ctx, pt) {
+  if (!ctx || !pt) return null;
+  let best = null;
+  if (ctx.supportSurfaces) {
+    for (let i = 0; i < ctx.supportSurfaces.length; i++) {
+      const ss = ctx.supportSurfaces[i];
+      if (!ss || (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.dynamicSurface === ss)) continue;
+      if (ss.ownerItem && ss.ownerItem === ctx.heldItem) continue;
+      if (Math.abs(pt.y - ss.topY) <= 0.08 && isPointInBoundsXZ(pt.x, pt.z, ss, 0.14)) {
+        if (!best || ss.topY > best.topY) best = ss;
+      }
+    }
+  }
+  return best;
+}
+
+function findFreeSpotOnSurface(ctx, surf, anchorPt, outPt) {
+  if (!surf || !outPt) return false;
+  clampPointToSurfaceXZ(anchorPt.x, anchorPt.z, surf, surf.topY, outPt);
+  if (!isPlacementBlocked(ctx.entityCtx, outPt)) return true;
+
+  for (let ri = 0; ri < RING_OFFSETS.length; ri++) {
+    const rad = RING_OFFSETS[ri];
+    for (let ai = 0; ai < RING_ANGLES; ai++) {
+      const a = (ai / RING_ANGLES) * Math.PI * 2;
+      clampPointToSurfaceXZ(anchorPt.x + Math.cos(a) * rad, anchorPt.z + Math.sin(a) * rad, surf, surf.topY, outPt);
+      if (!isPlacementBlocked(ctx.entityCtx, outPt)) return true;
+    }
+  }
+  return false;
+}
+
+const _aimedSurfacePoint = new window.THREE.Vector3();
+const _aimedPlacement = { point: _aimedSurfacePoint, snapped: false };
+
+export function findAimedHeldPlacement(ctx, aimNdc) {
+  if (!ctx.heldItem || !aimNdc) return null;
+  const aimPt = findPlacementTarget(ctx.entityCtx, aimNdc);
+  const distance = Math.hypot(aimPt.x - ctx.playerPos.x, aimPt.z - ctx.playerPos.z);
+  if (distance > 4.4 || Math.abs(aimPt.y - ctx.playerPos.y) > 2.6) return null;
+
+  if ((ctx.snapClosePot || ctx.snapPetriStack) && !isPlacementBlocked(ctx.entityCtx, aimPt)) {
+    _aimedPlacement.point = aimPt;
+    _aimedPlacement.snapped = true;
+    return _aimedPlacement;
+  }
+
+  const surface = findSupportSurfaceAtPoint(ctx, aimPt);
+  if (!surface || surface.topY <= ctx.playerPos.y + 0.04) return null;
+  if (surface.falconSlots && ctx.heldItem.mesh.userData.isFalconTube) {
+    if (isPlacementBlocked(ctx.entityCtx, aimPt)) return null;
+    _aimedPlacement.point = aimPt;
+  } else {
+    if (!findFreeSpotOnSurface(ctx, surface, aimPt, _aimedSurfacePoint)) return null;
+    _aimedPlacement.point = _aimedSurfacePoint;
+  }
+  _aimedPlacement.snapped = false;
+  return _aimedPlacement;
+}
 
 function syncHeldAttachedVisibility(item, visible) {
   if (!item || !item.mesh) return;
@@ -314,7 +379,7 @@ export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   markItemsFalling();
   ctx._stackPhysicsDirty = true;
   ctx.heldItem = null;
-  ctx.mobileAimPrompt = '';
+  ctx.aimActionPrompt = '';
   ctx.thermoLaserOn = false;
   if (ctx.placementGhost) ctx.placementGhost.visible = false;
   if (ctx.thermoLaserLine) ctx.thermoLaserLine.visible = false;

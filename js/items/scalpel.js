@@ -2,6 +2,7 @@
  * Bisturi Cirurgico Inox + Saches de Lamina Descartavel Esteril (MycoCampus3D)
  */
 
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
 import { getCachedCanvasTexture, registerPickable } from './item-registry.js';
 import { t } from '../core/i18n.js';
@@ -30,7 +31,7 @@ function getScalpelSharedAssets() {
     }),
     hitMat: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
     bladeTex,
-    handleGeo: new THREE.BoxGeometry(0.012, 0.004, 0.125),
+    handleMat: new THREE.MeshStandardMaterial({ color: 0xa88bad, roughness: 0.78 }),
     neckGeo: new THREE.BoxGeometry(0.007, 0.003, 0.026),
     bladeGeo: new THREE.BoxGeometry(0.011, 0.003, 0.044),
     chunkGeo: new THREE.BoxGeometry(0.0085, 0.0045, 0.011),
@@ -123,7 +124,7 @@ export function makeScalpel(ctx, id, px, py, pz) {
   const A = getScalpelSharedAssets();
   const sg = new THREE.Group();
 
-  const handle = new THREE.Mesh(A.handleGeo, A.steelMat);
+  const handle = makeChamferedBox(0.023, 0.015, 0.116, 0.004, A.handleMat);
   handle.position.set(0, 0.006, 0.02);
   const neck = new THREE.Mesh(A.neckGeo, A.steelMat);
   neck.position.set(0, 0.006, -0.052);
@@ -139,7 +140,9 @@ export function makeScalpel(ctx, id, px, py, pz) {
   pickHitbox.visible = false;
   pickHitbox.position.set(0, 0.016, -0.02);
 
-  sg.add(handle, neck, blade, myceliumChunk, pickHitbox);
+  const collar = makeChamferedBox(0.021, 0.014, 0.016, 0.004, 0xe4cdab);
+  collar.position.set(0, 0.006, -0.035);
+  sg.add(handle, collar, neck, blade, myceliumChunk, pickHitbox);
   sg.userData.isScalpel = true;
   const item = registerPickable(ctx, id, 'Bisturi Inox (Lâmina #24 Estéril ✅)', sg, px, py, pz, 0, 0.09, 0.02, SCALPEL_META);
   item.scalpelCtrl = {

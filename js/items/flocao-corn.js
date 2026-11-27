@@ -2,7 +2,7 @@
  * Flocao de Milho 500g para Culturas Solidas em Potinhos PP5 (MycoCampus3D)
  */
 
-import { makeBox } from '../engine/textures.js';
+import { makeChamferedBox, makePouch } from './lab-prop-shapes.js';
 import { registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
@@ -20,8 +20,8 @@ export function makeFlocao500g(ctx, id, px, py, pz) {
   const fg = new THREE.Group();
   const c = document.createElement('canvas'); c.width = 256; c.height = 256;
   const ctx2 = c.getContext('2d');
-  ctx2.fillStyle = '#eab308'; ctx2.fillRect(0, 0, 256, 256);
-  ctx2.fillStyle = '#15803d'; ctx2.fillRect(0, 0, 256, 54);
+  ctx2.fillStyle = '#e5ba6d'; ctx2.fillRect(0, 0, 256, 256);
+  ctx2.fillStyle = '#788b65'; ctx2.fillRect(0, 0, 256, 54);
   ctx2.fillStyle = '#ffffff'; ctx2.font = 'bold 26px sans-serif';
   ctx2.textAlign = 'center'; ctx2.fillText('FLOCÃO DE MILHO', 128, 36);
   ctx2.fillStyle = '#78350f'; ctx2.font = 'bold 34px sans-serif';
@@ -29,9 +29,15 @@ export function makeFlocao500g(ctx, id, px, py, pz) {
   ctx2.fillStyle = '#1e293b'; ctx2.font = 'bold 18px sans-serif';
   ctx2.fillText('100% Milho Flocado', 128, 178);
 
-  const pack = makeBox(0.14, 0.21, 0.085, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.55 }));
+  const pack = makePouch(0.14, 0.21, 0.085, new THREE.MeshStandardMaterial({ color: 0xe0ad57, roughness: 0.82 }));
   pack.position.y = 0.105;
-  fg.add(pack);
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.105, 0.105),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }));
+  label.position.set(0, 0.087, 0.043);
+  const seal = makeChamferedBox(0.13, 0.015, 0.034, 0.004, 0xf0d392);
+  seal.position.y = 0.202;
+  fg.add(pack, label, seal);
+  fg.userData.firstPersonGrip = { x: 0.033, y: 0.061, z: 0.055 };
   fg.userData.isFlocao = true;
   return registerPickable(ctx, id, 'Flocão de Milho 500g', fg, px, py, pz, 0, 0.12, 0.22, FLOCAO_META);
 }

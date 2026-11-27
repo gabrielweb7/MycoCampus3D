@@ -2,6 +2,7 @@
  * Bandeja Inox Cirurgica (MycoCampus3D)
  */
 
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { registerPickable, updateItemBounds, makeRoundedRectShape } from './item-registry.js';
 
 const THREE = window.THREE;
@@ -18,12 +19,10 @@ export const LAB_TRAY_META = {
 export function makeLabTray(ctx, id, label, px, py, pz) {
   const tg = new THREE.Group();
   const steelMat = new THREE.MeshStandardMaterial({
-    color: 0xf1f5f9, metalness: 0.90, roughness: 0.14,
-    emissive: 0x334155, emissiveIntensity: 0.12
+    color: 0x74866e, metalness: 0.08, roughness: 0.68
   });
   const innerSteelMat = new THREE.MeshStandardMaterial({
-    color: 0xe2e8f0, metalness: 0.85, roughness: 0.22,
-    emissive: 0x1e293b, emissiveIntensity: 0.08
+    color: 0xe2c69e, metalness: 0.13, roughness: 0.67
   });
 
   const baseShape = makeRoundedRectShape(0.38, 0.26, 0.032);
@@ -39,7 +38,7 @@ export function makeLabTray(ctx, id, label, px, py, pz) {
   outerWall.holes.push(innerHole);
   const wallGeo = new THREE.ExtrudeGeometry(outerWall, { depth: 0.018, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2 });
   wallGeo.rotateX(-Math.PI / 2);
-  const wallMesh = new THREE.Mesh(wallGeo, steelMat);
+  const wallMesh = new THREE.Mesh(wallGeo, innerSteelMat);
   wallMesh.position.y = 0.006;
   wallMesh.castShadow = true;
   wallMesh.receiveShadow = true;
@@ -54,6 +53,12 @@ export function makeLabTray(ctx, id, label, px, py, pz) {
   lipMesh.castShadow = true;
 
   tg.add(floorPlate, wallMesh, lipMesh);
+  for (const side of [-1, 1]) {
+    const tab = makeChamferedBox(0.031, 0.014, 0.105, 0.004, 0xc37a59);
+    tab.position.set(side * 0.20, 0.022, 0);
+    tg.add(tab);
+  }
+  tg.userData.firstPersonSideGrip = { x: 0.197, y: 0.004, z: 0.035 };
 
   const traySurf = { minX: px - 0.175, maxX: px + 0.175, minZ: pz - 0.115, maxZ: pz + 0.115, topY: py + 0.009 };
   ctx.supportSurfaces.push(traySurf);

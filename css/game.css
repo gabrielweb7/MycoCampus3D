@@ -446,7 +446,7 @@ div[id$="-modal"] > div {
   border-bottom: 1px solid #354d4b;
 }
 
-.shop-tabs { display: flex; gap: 5px; min-width: 0; }
+.shop-tabs { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
 .shop-tabs button, .shop-categories button {
   padding: 6px 10px;
   min-height: 38px;
@@ -504,6 +504,34 @@ div[id$="-modal"] > div {
   touch-action: pan-y;
   scrollbar-width: thin;
 }
+.shop-skin-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #526056;
+  border-radius: 12px;
+  background: #263631;
+}
+.shop-active-skin { border-color: #91c8a1; }
+.shop-skin-art {
+  aspect-ratio: 3 / 4;
+  border-radius: 7px;
+  background: #eddbc3 no-repeat;
+}
+.shop-skin-card h3 { font-size: .90rem; font-weight: 650; }
+.shop-skin-card button {
+  min-height: 38px;
+  padding-inline: 6px;
+  border-radius: 7px;
+  background: #dfbf8e;
+  color: #232b25;
+  font-size: .8rem;
+  font-weight: 700;
+}
+.shop-active-skin button { background: #91c8a1; }
+.shop-skin-card:not(.shop-active-skin) button:disabled { opacity: .6; }
 .shop-section-title { grid-column: 1 / -1; margin-top: 6px; color: #abdbca; font-size: 13px; font-weight: 800; }
 .shop-product {
   display: flex;
@@ -993,53 +1021,6 @@ body.device-desktop #btn-mobile-chat-toggle {
   outline-offset: 3px;
 }
 
-/* 4. Largar Item no Chão (aparece apenas segurando item) */
-#btn-mobile-drop {
-  right: 154px;
-  bottom: 84px;
-  width: 54px;
-  height: 54px;
-  min-width: 54px;
-  font-size: 22px;
-  background: rgba(30, 41, 59, 0.94);
-  border-color: rgba(245, 158, 11, 0.8);
-  color: #fcd34d;
-}
-
-#btn-mobile-drop:active {
-  background: rgba(245, 158, 11, 0.4);
-}
-
-/* 5. Posicionar Item: acima do botão de ação (aparece apenas segurando item) */
-#btn-mobile-place {
-  right: 78px;
-  bottom: 84px;
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
-  font-size: 24px;
-  background: rgba(30, 41, 59, 0.92);
-  border-color: rgba(148, 163, 184, 0.75);
-}
-
-#btn-mobile-place.placement-active {
-  background: rgba(16, 185, 129, 0.95);
-  border-color: #6ee7b7;
-  box-shadow: 0 0 18px rgba(52, 211, 153, 0.75);
-}
-
-/* 6. Girar Item: à esquerda do botão de ação (aparece apenas segurando item) */
-#btn-mobile-rotate {
-  right: 154px;
-  bottom: 12px;
-  width: 54px;
-  height: 54px;
-  min-width: 54px;
-  font-size: 22px;
-  background: rgba(30, 41, 59, 0.92);
-  border-color: rgba(148, 163, 184, 0.75);
-}
-
 #bottom-hud {
   --hud-bottom: 12px;
   --hud-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -1077,9 +1058,9 @@ body.device-desktop #btn-mobile-chat-toggle {
 }
 
 #held-item-bar {
+  order: -1;
   max-width: 100%;
-  pointer-events: auto;
-  touch-action: manipulation;
+  text-align: center;
 }
 
 #held-item-bar-name {
@@ -1088,13 +1069,6 @@ body.device-desktop #btn-mobile-chat-toggle {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
   overflow: hidden;
-}
-
-.held-item-buttons {
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  gap: 6px;
 }
 
 #emote-bar {
@@ -1106,9 +1080,6 @@ body.device-touch #hud-top-bar > .glass-panel {
   white-space: nowrap;
 }
 
-body.device-touch .held-item-buttons,
-body.device-phone .held-item-buttons,
-body.device-tablet .held-item-buttons,
 body.chat-typing #bottom-hud {
   display: none !important;
 }

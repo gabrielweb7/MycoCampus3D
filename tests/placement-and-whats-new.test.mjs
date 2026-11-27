@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { ExtrudeGeometry, IcosahedronGeometry, Shape, TorusGeometry } from '../js/vendor/three.bundle.min.js';
 
 class MockColor {
   constructor(hex = 0xffffff) { this.hex = hex; }
@@ -11,6 +12,7 @@ class MockColor {
 
 class MockMat {
   constructor(opts = {}) {
+    this.isMaterial = true;
     this.color = new MockColor(opts.color ?? 0xffffff);
     this.emissive = opts.emissive ? new MockColor(opts.emissive) : undefined;
     this.transparent = !!opts.transparent;
@@ -52,6 +54,10 @@ class MockObj {
 
 globalThis.window = {
   THREE: {
+    ExtrudeGeometry,
+    IcosahedronGeometry,
+    Shape,
+    TorusGeometry,
     Color: MockColor,
     Vector2: class { constructor(x = 0, y = 0) { this.x = x; this.y = y; } },
     Vector3: class { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; } set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } copy(v) { Object.assign(this, v); return this; } },
@@ -577,6 +583,7 @@ test('whats-new modal usa zIndex explicito 9999, hover-raycaster prioriza Base P
       hatGroup: {},
       hatMat: {},
       current_hat: 'default',
+      current_skin: 'campus',
       role: 'student',
       roleBadge: { material: { map: {} } },
       labelSprite: { material: { map: { image: {} } } },

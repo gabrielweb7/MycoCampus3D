@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { BufferGeometry, Float32BufferAttribute } from '../js/vendor/three.bundle.min.js';
+import { BufferGeometry, ExtrudeGeometry, Float32BufferAttribute, LatheGeometry, Shape, Vector2 } from '../js/vendor/three.bundle.min.js';
 
 class MockVec3 {
   constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
@@ -40,6 +40,7 @@ class MockObj {
 
 class MockMat {
   constructor(opts = {}) {
+    this.isMaterial = true;
     this.color = { hex: opts.color ?? 0xffffff, setHex(h) { this.hex = h; } };
     this.emissive = { hex: opts.emissive ?? 0, setHex(h) { this.hex = h; } };
     this.opacity = opts.opacity ?? 1;
@@ -70,6 +71,10 @@ globalThis.window = {
     Vector3: MockVec3,
     BoxGeometry: MockGeo,
     BufferGeometry,
+    ExtrudeGeometry,
+    LatheGeometry,
+    Shape,
+    Vector2,
     Float32BufferAttribute,
     CylinderGeometry: MockGeo,
     SphereGeometry: MockGeo,

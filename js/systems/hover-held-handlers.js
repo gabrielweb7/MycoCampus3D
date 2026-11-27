@@ -175,7 +175,7 @@ function handleH2O2SprayHover(ctx, intersectPickableItem, setHoverPrompt) {
     );
     prompt = t(isCobweb ? 'actions.held.h2o2_cobweb' : 'actions.held.h2o2_preventive', { label: bestLabel });
   }
-  setHoverPrompt(ctx, prompt);
+  setHoverPrompt(ctx, prompt, !!bestTarget);
   return true;
 }
 
@@ -220,7 +220,7 @@ function handleWaterSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
       ? t('actions.held.water_spray_gh_empty')
       : t('actions.held.water_spray_gh_hydrate', { label: bestLabel, humidity: Math.round(bestTarget.humidity) }));
   } else {
-    setHoverPrompt(ctx, t('actions.held.water_spray_default'));
+    setHoverPrompt(ctx, t('actions.held.water_spray_default'), false);
   }
   return true;
 }
@@ -283,7 +283,7 @@ function handleAlcoholSprayHover(ctx, intersectPickableItem, setHoverPrompt) {
   } else {
     setHoverPrompt(ctx, bestTarget
       ? formatSprayHoverPrompt(bestTarget, bestLabel, ctx)
-      : t('actions.held.alcohol_default'));
+      : t('actions.held.alcohol_default'), !!bestTarget);
   }
   return true;
 }
@@ -335,7 +335,7 @@ function handlePaperTowelHover(ctx, intersectPickableItem, setHoverPrompt) {
   ctx.hoverHit = bestHitObj;
   ctx.hoveredWipeTarget = bestTarget ? { target: bestTarget, label: bestLabel } : null;
   if (!bestTarget) {
-    setHoverPrompt(ctx, t('actions.held.paper_default'));
+    setHoverPrompt(ctx, t('actions.held.paper_default'), false);
     return true;
   }
   const st = getSanitizationStatus(bestTarget, ctx);

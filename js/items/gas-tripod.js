@@ -31,15 +31,15 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
 
   // 1. Materiais fiéis ao produto real da foto (Aço zincado/galvanizado brilhante, latão e borracha)
   const zincMat = new THREE.MeshStandardMaterial({
-    color: 0xd4d4d8,
-    metalness: 0.85,
-    roughness: 0.30,
+    color: 0x758771,
+    metalness: 0.28,
+    roughness: 0.61,
     side: THREE.DoubleSide
   });
   const chromeMat = new THREE.MeshStandardMaterial({
-    color: 0xf1f5f9,
-    metalness: 0.92,
-    roughness: 0.18
+    color: 0xc8b79c,
+    metalness: 0.32,
+    roughness: 0.50
   });
   const brassMat = new THREE.MeshStandardMaterial({
     color: 0xd97706,
@@ -61,7 +61,7 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   const drumH = 0.125;
 
   // 2. Tambor Cilíndrico Corta-Vento em Chapa de Aço Zincado
-  const drumGeo = new THREE.CylinderGeometry(drumR, drumR, drumH, 32, 1, true);
+  const drumGeo = new THREE.CylinderGeometry(drumR, drumR, drumH, 16, 1, true);
   const drumMesh = new THREE.Mesh(drumGeo, zincMat);
   drumMesh.position.y = totalH - drumH / 2;
   tg.add(drumMesh);
@@ -106,7 +106,7 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
     legG.add(bend);
 
     // Haste vertical principal da perna
-    const legMain = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, totalH - drumH, 12), chromeMat);
+    const legMain = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.021, totalH - drumH, 8), zincMat);
     legMain.position.set(Math.cos(ang) * 0.022, -(totalH - drumH) / 2, Math.sin(ang) * 0.022);
     legG.add(legMain);
 
@@ -300,7 +300,7 @@ export function makeGasTripodBurner(ctx, id, px, py, pz) {
   tg.add(hoseMesh);
 
   // Botijão GLP P13 verde com colar, válvula e regulador
-  const gasMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.40, metalness: 0.30 });
+  const gasMat = new THREE.MeshStandardMaterial({ color: 0xb7694c, roughness: 0.72, metalness: 0.10 });
   const cylBody = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.34, 20), gasMat);
   cylBody.position.set(-0.46, 0.18, -0.22);
 

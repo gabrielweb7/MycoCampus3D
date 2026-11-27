@@ -2,6 +2,7 @@
  * Sacos Mylar / Bandejas Seladas e Caixotes de Entrega Comercial (MycoCampus3D).
  */
 
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
 import { getCachedCanvasTexture, registerPickable, disposeObjectResources, getItemWeightGrams, mergeStaticGeos } from './item-registry.js';
 import { CRATE_WIDTH, CRATE_HEIGHT, CRATE_DEPTH, cratePackMask, freeCrateSlot } from '../systems/crate-cargo.js';
@@ -32,7 +33,7 @@ function mergePackagingParts(group, material) {
 
 export function createMushroomPackVisual(filled, sealed) {
   const wrap = new THREE.Group();
-  const trayMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.42 });
+  const trayMat = new THREE.MeshStandardMaterial({ color: 0xe6d6b9, roughness: 0.65 });
   const filmMat = new THREE.MeshStandardMaterial({
     color: 0xe0f2fe,
     transparent: true,
@@ -71,7 +72,7 @@ export function createMushroomPackVisual(filled, sealed) {
   });
   const labelMat = new THREE.MeshStandardMaterial({ map: labelTex, roughness: 0.35 });
 
-  const tray = makeBox(0.145, 0.016, 0.175, trayMat);
+  const tray = makeChamferedBox(0.145, 0.016, 0.175, 0.004, trayMat);
   tray.position.y = 0.008;
   wrap.add(tray);
 
@@ -360,7 +361,7 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
     g.add(botSlat);
   }
   [[-W * 0.5 + 0.02, -D * 0.5 + 0.02], [W * 0.5 - 0.02, -D * 0.5 + 0.02], [-W * 0.5 + 0.02, D * 0.5 - 0.02], [W * 0.5 - 0.02, D * 0.5 - 0.02]].forEach((cp) => {
-    const post = makeBox(0.024, H, 0.024, postMat);
+    const post = makeChamferedBox(0.024, H, 0.024, 0.004, postMat);
     post.position.set(cp[0], H * 0.5, cp[1]);
     g.add(post);
   });
@@ -377,6 +378,10 @@ export function makeDeliveryCrate(ctx, id, px, py, pz, opts = {}) {
     rSlat.position.set(W * 0.5 - 0.006, sy, 0);
     g.add(fSlat, bSlat, lSlat, rSlat);
   }
+  const nameplate = makeChamferedBox(0.14, 0.046, 0.008, 0.003, 0xe4c69c);
+  nameplate.position.set(0, 0.084, D * 0.5 + 0.002);
+  g.add(nameplate);
+  g.userData.firstPersonSideGrip = { x: W * 0.40, y: 0.093, z: D * 0.5 + 0.014 };
   mergePackagingParts(g, pineMat);
   mergePackagingParts(g, postMat);
 

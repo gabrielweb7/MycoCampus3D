@@ -3,6 +3,7 @@
  */
 
 import { getCultureOriginLabel } from '../core/culture-origin.js';
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { registerPickable, makeScaleTex, mergeStaticGeos } from './item-registry.js';
 import {
   createCultureLifecycleState,
@@ -51,12 +52,12 @@ function getSharedLiquidAssets() {
     capGeo: new THREE.CylinderGeometry(0.074, 0.074, 0.034, 20),
     injPortGeo: new THREE.CylinderGeometry(0.014, 0.014, 0.016, 12),
     filterPortGeo: new THREE.CylinderGeometry(0.013, 0.016, 0.022, 12),
-    jarGlassMat: new THREE.MeshStandardMaterial({ color: 0xf0f9ff, transparent: true, opacity: 0.28, roughness: 0.08, metalness: 0.12, depthWrite: false }),
-    beakerGlassMat: new THREE.MeshStandardMaterial({ color: 0xf0f9ff, transparent: true, opacity: 0.26, roughness: 0.08, metalness: 0.12, depthWrite: false }),
+    jarGlassMat: new THREE.MeshStandardMaterial({ color: 0x9ebdb9, transparent: true, opacity: 0.36, roughness: 0.20, metalness: 0.12, depthWrite: false }),
+    beakerGlassMat: new THREE.MeshStandardMaterial({ color: 0x92b7b4, transparent: true, opacity: 0.38, roughness: 0.23, metalness: 0.06, depthWrite: false }),
     jarScaleMat: new THREE.MeshBasicMaterial({ map: makeScaleTex(800, 200, '800ml'), transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }),
     beakerScaleMat: new THREE.MeshBasicMaterial({ map: makeScaleTex(1000, 200, '1000ml'), transparent: true, opacity: 0.88, depthWrite: false, side: THREE.DoubleSide }),
     stirBarMat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }),
-    capMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 }),
+    capMat: new THREE.MeshStandardMaterial({ color: 0xa991ae, roughness: 0.65, flatShading: true }),
     injPortMat: new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 }),
     filterPortMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.9 })
   };
@@ -281,6 +282,11 @@ export function makeBeaker1L(ctx, id, px, py, pz, initMl) {
     rim.rotation.x = Math.PI / 2; rim.position.y = 0.235;
     bg.add(liqMesh, stirBar, body, bottom, rim, scaleCyl);
   }
+  const spout = makeChamferedBox(0.046, 0.012, 0.033, 0.004, A.beakerGlassMat);
+  spout.position.set(0, 0.231, -0.101);
+  spout.rotation.x = 0.24;
+  bg.add(spout);
+  bg.userData.firstPersonGrip = { x: 0.028, y: 0.082, z: 0.099 };
   bg.userData.liquidCtrl = {
     volMl: initMl, maxMl: 1000, baseY: 0.012, maxH: 0.20,
     liqMesh, mycCloud: null, stirBar, syringePortY: 0.22,

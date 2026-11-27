@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 17;
+const MC_SCHEMA_VERSION = 18;
 const MC_TOKEN_TTL_DAYS = 30;
 const MC_PETS = ['cat_orange', 'cat_black', 'cat_calico', 'dog_golden', 'dog_husky', 'dog_pug'];
 
@@ -203,6 +203,18 @@ function mc_migrate(PDO $pdo): void {
         // v16 -> v17: Expande state_val em mc_world_state para suportar ecologia persistente (colmeias & flores)
         if ($version < 17) {
             try { $pdo->exec("ALTER TABLE mc_world_state MODIFY state_val TEXT NOT NULL"); } catch (Throwable $e) {}
+        }
+
+        if ($version < 18) {
+            foreach (['unlocked_skins' => 'TEXT NULL', 'current_skin' => "VARCHAR(32) NOT NULL DEFAULT ''"] as $column => $definition) {
+                if (!$pdo->query("SHOW COLUMNS FROM mc_users WHERE Field = '$column'")->fetch()) {
+                    try {
+                        $pdo->exec("ALTER TABLE mc_users ADD COLUMN $column $definition");
+                    } catch (PDOException $e) {
+                        if ((int)($e->errorInfo[1] ?? 0) !== 1060) throw $e;
+                    }
+                }
+            }
         }
 
         try {

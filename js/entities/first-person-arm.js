@@ -9,7 +9,7 @@ export function buildFirstPersonArm(ctx) {
   const cuffGeometry = new THREE.CylinderGeometry(0.049, 0.045, 0.028, 8);
   const handGeometry = new THREE.SphereGeometry(1, 10, 7);
 
-  function makeArm() {
+  function makeArm(side) {
     const group = new THREE.Group();
     const sleeve = new THREE.Mesh(sleeveGeometry, fpsSleeveMat);
     sleeve.rotation.x = Math.PI / 2;
@@ -19,18 +19,22 @@ export function buildFirstPersonArm(ctx) {
     cuff.position.z = 0.005;
     const hand = new THREE.Mesh(handGeometry, skinMat);
     hand.position.z = -0.05;
-    hand.scale.set(0.043, 0.039, 0.064);
-    group.add(sleeve, cuff, hand);
+    hand.scale.set(0.044, 0.038, 0.059);
+    const thumb = new THREE.Mesh(handGeometry, skinMat);
+    thumb.position.set(-side * 0.035, 0.017, -0.065);
+    thumb.rotation.y = side * 0.28;
+    thumb.scale.set(0.017, 0.019, 0.032);
+    group.add(sleeve, cuff, hand, thumb);
     group.userData.handMat = skinMat;
     group.visible = false;
     return group;
   }
 
-  const fpsArmGroup = makeArm();
-  fpsArmGroup.position.set(0.32, -0.28, -0.42);
+  const fpsArmGroup = makeArm(1);
+  fpsArmGroup.position.set(0.27, -0.23, -0.50);
   fpsArmGroup.rotation.set(0.18, -0.14, 0.05);
 
-  const fpsLeftArmGroup = makeArm();
+  const fpsLeftArmGroup = makeArm(-1);
   fpsLeftArmGroup.position.set(-0.32, -0.28, -0.42);
   fpsLeftArmGroup.rotation.set(0.18, 0.14, -0.05);
   ctx.camera.add(fpsArmGroup, fpsLeftArmGroup);

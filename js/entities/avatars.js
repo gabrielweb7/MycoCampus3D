@@ -6,6 +6,8 @@
 import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { createParagliderWingMesh, createRoundParachuteMesh } from './vehicles/paraglider.js';
+import { makeChamferedGeometry } from '../items/lab-prop-shapes.js';
+import { applyAvatarSkin } from './avatar-skins.js';
 
 const THREE = window.THREE;
 
@@ -18,17 +20,18 @@ const _tmpTrayPt = new THREE.Vector3();
 let sharedAvatarAssets = null;
 function getSharedAvatarAssets() {
   if (sharedAvatarAssets) return sharedAvatarAssets;
-  const legGeo = new THREE.BoxGeometry(0.14, 0.38, 0.14);
+  const legGeo = makeChamferedGeometry(0.15, 0.38, 0.15, 0.022);
   legGeo.translate(0, -0.19, 0);
-  const armGeo = new THREE.BoxGeometry(0.13, 0.44, 0.13);
-  armGeo.translate(0, -0.16, 0);
+  const armGeo = makeChamferedGeometry(0.137, 0.34, 0.14, 0.026);
+  armGeo.translate(0, -0.13, 0);
   sharedAvatarAssets = {
     legGeo,
     armGeo,
-    torsoGeo: new THREE.BoxGeometry(0.42, 0.52, 0.26),
-    headGeo: new THREE.BoxGeometry(0.36, 0.34, 0.34),
+    torsoGeo: makeChamferedGeometry(0.42, 0.51, 0.27, 0.045),
+    headGeo: makeChamferedGeometry(0.39, 0.36, 0.35, 0.049),
+    palmGeo: makeChamferedGeometry(0.105, 0.116, 0.11, 0.021),
+    shoeGeo: makeChamferedGeometry(0.154, 0.082, 0.213, 0.019),
     faceGeo: new THREE.PlaneGeometry(0.32, 0.30),
-    skinMat: new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.65 }),
     sbDeckGeo: new THREE.BoxGeometry(0.24, 0.024, 0.92),
     sbTipGeo: new THREE.BoxGeometry(0.22, 0.022, 0.16),
     sbBindGeo: new THREE.BoxGeometry(0.17, 0.035, 0.12),
@@ -178,7 +181,7 @@ export function buildAvatarHat(hatId, hatMat, hatGroup) {
 
   if (id === 'golden_shroom') {
     const goldMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15, metalness: 0.88, roughness: 0.18,
+      color: 0xdca954, metalness: 0.43, roughness: 0.42, flatShading: true,
       emissive: 0xb45309, emissiveIntensity: 0.35
     });
     const gHat = new THREE.Mesh(new THREE.SphereGeometry(0.36, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.58), goldMat);
@@ -194,7 +197,7 @@ export function buildAvatarHat(hatId, hatMat, hatGroup) {
     });
     hatGroup.add(gHat);
   } else if (id === 'wizard_hood') {
-    const wizMat = new THREE.MeshStandardMaterial({ color: 0x312e81, roughness: 0.55 });
+    const wizMat = new THREE.MeshStandardMaterial({ color: 0x70608b, roughness: 0.69, flatShading: true });
     const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.035, 20), wizMat);
     brim.position.set(0, 0.22, 0);
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.68, 20), wizMat);
@@ -235,7 +238,7 @@ export function buildAvatarHat(hatId, hatMat, hatGroup) {
       hatGroup.add(fMesh);
     }
   } else if (id === 'beret') {
-    const beretMat = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, roughness: 0.8 });
+    const beretMat = new THREE.MeshStandardMaterial({ color: 0x62546f, roughness: 0.82 });
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.25, 0.10, 18), beretMat);
     disc.position.set(0.05, 0.28, -0.02);
     disc.rotation.z = -0.22;
@@ -264,10 +267,14 @@ export function buildCuteAvatar(scene, data) {
     ? new THREE.MeshStandardMaterial({ color: new THREE.Color(data.body_color || '#4f46e5'), roughness: 0.6, transparent: true, opacity: 0.35, depthWrite: false })
     : new THREE.MeshStandardMaterial({ color: new THREE.Color(data.body_color || '#4f46e5'), roughness: 0.6 });
   const hatMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(data.hat_color || '#d9534f'), roughness: 0.45 });
+  const pantsMat = bodyMat.clone();
+  const accentMat = bodyMat.clone();
+  const skinMat = bodyMat.clone();
+  const hairMat = bodyMat.clone();
 
-  const leftLeg = new THREE.Mesh(A.legGeo, bodyMat);
+  const leftLeg = new THREE.Mesh(A.legGeo, pantsMat);
   leftLeg.position.set(-0.10, 0.38, 0); leftLeg.castShadow = true;
-  const rightLeg = new THREE.Mesh(A.legGeo, bodyMat);
+  const rightLeg = new THREE.Mesh(A.legGeo, pantsMat);
   rightLeg.position.set(0.10, 0.38, 0); rightLeg.castShadow = true;
   const torso = new THREE.Mesh(A.torsoGeo, bodyMat);
   torso.position.set(0, 0.64, 0); torso.castShadow = true;
@@ -275,11 +282,23 @@ export function buildCuteAvatar(scene, data) {
   leftArm.position.set(-0.28, 0.82, 0); leftArm.castShadow = true;
   const rightArm = new THREE.Mesh(A.armGeo, bodyMat);
   rightArm.position.set(0.28, 0.82, 0); rightArm.castShadow = true;
+  for (const arm of [leftArm, rightArm]) {
+    const palm = new THREE.Mesh(A.palmGeo, skinMat);
+    palm.position.y = -0.321;
+    arm.add(palm);
+  }
+  for (const leg of [leftLeg, rightLeg]) {
+    const shoe = new THREE.Mesh(A.shoeGeo, accentMat);
+    shoe.position.set(0, -0.339, -0.035);
+    leg.add(shoe);
+  }
+  const skinOutfit = new THREE.Group();
+  torso.add(skinOutfit);
   g.add(leftLeg, rightLeg, torso, leftArm, rightArm);
 
   const headGroup = new THREE.Group();
   headGroup.position.set(0, 1.05, 0);
-  const head = new THREE.Mesh(A.headGeo, A.skinMat);
+  const head = new THREE.Mesh(A.headGeo, skinMat);
   head.position.set(0, 0.1, 0); head.castShadow = true;
 
   const faceCanvas = document.createElement('canvas');
@@ -291,13 +310,15 @@ export function buildCuteAvatar(scene, data) {
     A.faceGeo,
     new THREE.MeshBasicMaterial({ map: faceTex, transparent: true })
   );
-  facePlane.position.set(0, 0.1, -0.173);
+  facePlane.position.set(0, 0.1, -0.178);
   facePlane.rotation.y = Math.PI;
   headGroup.add(facePlane);
 
   const hatGroup = new THREE.Group();
+  hatGroup.position.y = 0.058;
   buildAvatarHat(data.current_hat || 'default', hatMat, hatGroup);
-  headGroup.add(head, hatGroup);
+  const skinHair = new THREE.Group();
+  headGroup.add(head, skinHair, hatGroup);
 
   const isProf = data.role === 'professor' || data.role === 'admin';
   const isMaster = data.role === 'admin';
@@ -363,11 +384,12 @@ export function buildCuteAvatar(scene, data) {
   }
 
   scene.add(g);
-  return {
+  const avatar = {
     group: g, torso, leftLeg, rightLeg, leftArm, rightArm, headGroup,
     auraGroup, auraOrbs,
     snowboardMesh: null, paragliderMesh: null, roundParachuteMesh: null, toyMode: '',
-    bodyMat, hatMat, hatGroup, current_hat: data.current_hat || 'default', emote: data.emote || '',
+    bodyMat, hatMat, hatGroup, pantsMat, accentMat, skinMat, hairMat, skinHair, skinOutfit,
+    current_hat: data.current_hat || 'default', emote: data.emote || '',
     faceCtx, faceTex, lastMood: 'happy', lastBlink: false, blinkTimer: 2 + Math.random() * 3,
     labelSprite, chatSprite, lastChat: '', role: data.role || 'student',
     targetPos: new THREE.Vector3(data.x || 0, data.y || 0, data.z || 0),
@@ -378,6 +400,9 @@ export function buildCuteAvatar(scene, data) {
     snapshots: [],
     holding: '', walking: false, seated: false, walkPhase: 0
   };
+  applyAvatarSkin(avatar, data.current_skin, avatar.role);
+  if (!data.current_skin && data.body_color) bodyMat.color.set(data.body_color);
+  return avatar;
 }
 
 export function updateCampusPlayers(ctx, players) {
@@ -459,6 +484,7 @@ export function updateCampusPlayers(ctx, players) {
       av.current_hat = p.current_hat || 'default';
       buildAvatarHat(av.current_hat, av.hatMat, av.hatGroup);
     }
+    applyAvatarSkin(av, p.current_skin, p.role);
     av.emote = p.emote || '';
     if (av.role !== p.role) {
       av.role = p.role;
@@ -650,15 +676,24 @@ export function stepMultiplayerAvatars(ctx, dt) {
     if (av.holding) {
       heldObj = findPickable(av.holding);
       if (heldObj && heldObj !== heldItem) {
-        const isTwo = !!heldObj.mesh.userData.twoHanded;
+        const data = heldObj.mesh.userData;
+        const isTwo = !!(data.twoHanded || data.firstPersonSideGrip);
+        let carryYaw = 0;
         if (isTwo) {
           _tmpAvatarHandOffset.set(0, 0.72, -0.62);
         } else {
           _tmpAvatarHandOffset.set(0.36, 0.88, -0.38);
+          if (data.isAlcoholSpray || data.isWaterSpray || data.isH2O2Spray) {
+            carryYaw = Math.PI;
+            _tmpAvatarHandOffset.set(0.38, 0.81, -0.44);
+          } else if (data.firstPersonGrip) {
+            const { x, y, z } = data.firstPersonGrip;
+            _tmpAvatarHandOffset.set(0.38 - x * heldObj.mesh.scale.x, 0.91 - y * heldObj.mesh.scale.y, -0.38 - z * heldObj.mesh.scale.z);
+          }
         }
         _tmpAvatarHandOffset.applyAxisAngle(_tmpAvatarYAxis, av.group.rotation.y);
         heldObj.mesh.position.copy(av.group.position).add(_tmpAvatarHandOffset);
-        heldObj.mesh.rotation.y = av.group.rotation.y;
+        heldObj.mesh.rotation.set(0, av.group.rotation.y + carryYaw, 0);
         if (heldObj.mesh.userData.updateBounds) heldObj.mesh.userData.updateBounds(heldObj);
         if (heldObj.lidItem && heldObj.lidItem.isAttached) {
           const lidObj = heldObj.lidItem.mesh;
@@ -713,7 +748,7 @@ export function stepMultiplayerAvatars(ctx, dt) {
         }
       }
     }
-    const twoH = !!(heldObj && heldObj.mesh.userData.twoHanded);
+    const twoH = !!(heldObj && (heldObj.mesh.userData.twoHanded || heldObj.mesh.userData.firstPersonSideGrip));
     if (av.toyMode === 'snowboard') {
       if (!av.snowboardMesh) {
         av.snowboardMesh = createRemoteSnowboardMesh();
@@ -818,6 +853,7 @@ export function stepMultiplayerAvatars(ctx, dt) {
       } else {
         const stopDecay = Math.exp(-12 * dt);
         if (av.torso) {
+          av.torso.position.y += Math.sin(tNow * 2.6 + av.targetYaw) * 0.006;
           av.torso.rotation.x *= stopDecay;
           av.torso.rotation.z *= stopDecay;
         }

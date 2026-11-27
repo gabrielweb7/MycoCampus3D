@@ -2,7 +2,7 @@
  * MycoCampus3D — Loja de Cosméticos (Chapéus & Brinquedos)
  */
 import { appState } from '../core/state.js';
-import { t } from '../core/i18n.js';
+import { getLanguage, t } from '../core/i18n.js';
 import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
 import { preserveNewerPetState } from '../services/pets.js';
@@ -12,6 +12,7 @@ import { renderPetShop } from './pet-shop.js';
 import { $, escapeHtml } from './dom-helpers.js';
 import { updateUserHud } from './hud-lobby.js';
 import { getLocalMycoCoins, addLocalMycoCoins, setLocalMycoCoins } from '../items/dehydration-packaging.js';
+import { AVATAR_SKINS, getAvatarSkin } from '../entities/avatar-skins.js';
 
 export const COSMETIC_HATS = [
   { id: 'default', name: 'Cogumelo Vermelho Clássico', desc: 'O clássico Amanita com pintas brancas.', req_xp: 0, req_mushrooms: 0, price_coins: 0, icon: '🍄' },
@@ -298,10 +299,72 @@ function renderSupplies(grid, userCoins, userXp, userMush, scrollTop) {
   }
 }
 
+let skinRequestPending = false;
+const studentArt = new URL('../../assets/campus-students-low-poly.png', import.meta.url).href;
+const clubArt = new URL('../../assets/campus-clubs-low-poly.png', import.meta.url).href;
+
+function renderSkinShop(grid, user, userCoins) {
+  const active = getAvatarSkin(user?.current_skin, user?.role);
+  const owned = new Set(user?.unlocked_skins || []);
+  const faculty = user?.role === 'professor' || user?.role === 'admin';
+  const language = getLanguage();
+  const languageIndex = language === 'en' ? 1 : language === 'es' ? 2 : 0;
+
+  for (const [index, skin] of AVATAR_SKINS.entries()) {
+    if (skin.faculty && !faculty) continue;
+    const equipped = skin.id === active.id;
+    const unlocked = skin.price === 0 || owned.has(skin.id);
+    const card = document.createElement('article');
+    card.className = 'shop-skin-card';
+    card.classList.toggle('shop-active-skin', equipped);
+    const art = document.createElement('div');
+    art.className = 'shop-skin-art';
+    art.setAttribute('aria-hidden', 'true');
+    const tile = index % 7;
+    const top = tile < 4;
+    art.style.backgroundImage = `url("${index < 7 ? studentArt : clubArt}")`;
+    art.style.backgroundSize = `${top ? 400 : 300}% 200%`;
+    art.style.backgroundPosition = `${top ? tile * 100 / 3 : (tile - 4) * 50}% ${top ? 0 : 100}%`;
+    const title = document.createElement('h3');
+    title.textContent = skin.title[languageIndex];
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = equipped ? t('ui.shop.skin_active')
+      : unlocked ? t('ui.shop.skin_equip') : t('ui.shop.buyCoins', { price: skin.price });
+    button.disabled = !user || equipped || skinRequestPending || (!unlocked && userCoins < skin.price);
+    button.addEventListener('click', async () => {
+      if (skinRequestPending || appState.currentUser?.id !== user?.id) return;
+      skinRequestPending = true;
+      for (const control of grid.querySelectorAll('button')) control.disabled = true;
+      try {
+        const action = unlocked ? 'equip_skin' : 'buy_skin';
+        const result = await apiPost('api/auth.php?action=' + action, { skin_id: skin.id }, true);
+        if (appState.currentUser?.id !== user.id) return;
+        if (!result?.ok || !result.user || result.user.id !== user.id) {
+          toast3D(result?.error || t('ui.shop.skin_error'));
+          return;
+        }
+        appState.currentUser = preserveNewerPetState(appState.currentUser, result.user);
+        if (!unlocked) setLocalMycoCoins(result.user.myco_coins ?? getLocalMycoCoins());
+        updateUserHud();
+        if (!unlocked) window.playCampusEmote?.('cheer');
+      } catch {
+        toast3D(t('ui.shop.skin_error'));
+      } finally {
+        skinRequestPending = false;
+        if (activeShopTab === 'skins') renderShopModal();
+      }
+    });
+    card.append(art, title, button);
+    if (equipped) grid.prepend(card);
+    else grid.appendChild(card);
+  }
+}
+
 export function renderShopModal() {
   const grid = $('shop-grid');
-  const previousScroll = grid.scrollTop;
   if (!grid) return;
+  const previousScroll = grid.scrollTop;
   grid.innerHTML = '';
   const user = appState.currentUser;
   const userXp = user ? (user.xp || 0) : 0;
@@ -325,7 +388,7 @@ export function renderShopModal() {
     }
   } catch (e) {}
 
-  for (const tab of ['supplies', 'hats', 'toys', 'pets']) {
+  for (const tab of ['supplies', 'hats', 'skins', 'toys', 'pets']) {
     const button = $('shop-tab-' + tab);
     if (!button) continue;
     button.setAttribute('aria-pressed', String(activeShopTab === tab));
@@ -346,6 +409,11 @@ export function renderShopModal() {
   }
   if (activeShopTab === 'pets') {
     renderPetShop(grid, renderShopModal);
+    return;
+  }
+  if (activeShopTab === 'skins') {
+    renderSkinShop(grid, user, userCoins);
+    grid.scrollTop = previousScroll;
     return;
   }
 

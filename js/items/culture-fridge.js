@@ -394,7 +394,7 @@ export function stepCultureFridges(ctx, dt) {
 
 export function makeCultureFridge(ctx, id, x, y, z) {
   const group = new THREE.Group();
-  const shellMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.48, metalness: 0.08 });
+  const shellMat = new THREE.MeshStandardMaterial({ color: 0xe7cfa8, roughness: 0.66, metalness: 0.08 });
   const insideMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.72 });
   const shelfMat = new THREE.MeshStandardMaterial({
     color: 0xe2e8f0, roughness: 0.36, metalness: 0.48,
@@ -482,6 +482,7 @@ export function makeCultureFridge(ctx, id, x, y, z) {
   const doorWidth = FRIDGE_WIDTH - 0.08;
   const frameB = 0.08;
   const frameTop = 0.11;
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x788b74, roughness: 0.66 });
   const doorGlassMat = new THREE.MeshStandardMaterial({
     color: 0x38bdf8,
     transparent: true,
@@ -491,15 +492,15 @@ export function makeCultureFridge(ctx, id, x, y, z) {
     depthWrite: false,
     side: THREE.DoubleSide
   });
-  addBox(doorPivot, doorWidth, frameTop, 0.055, shellMat, doorWidth * 0.5, -frameTop * 0.5, 0.035);
-  addBox(doorPivot, doorWidth, frameB, 0.055, shellMat, doorWidth * 0.5, -doorHeight + frameB * 0.5, 0.035);
-  addBox(doorPivot, frameB, doorHeight - frameTop - frameB, 0.055, shellMat, frameB * 0.5, -frameTop - (doorHeight - frameTop - frameB) * 0.5, 0.035);
-  addBox(doorPivot, frameB, doorHeight - frameTop - frameB, 0.055, shellMat, doorWidth - frameB * 0.5, -frameTop - (doorHeight - frameTop - frameB) * 0.5, 0.035);
+  addBox(doorPivot, doorWidth, frameTop, 0.055, frameMat, doorWidth * 0.5, -frameTop * 0.5, 0.035);
+  addBox(doorPivot, doorWidth, frameB, 0.055, frameMat, doorWidth * 0.5, -doorHeight + frameB * 0.5, 0.035);
+  addBox(doorPivot, frameB, doorHeight - frameTop - frameB, 0.055, frameMat, frameB * 0.5, -frameTop - (doorHeight - frameTop - frameB) * 0.5, 0.035);
+  addBox(doorPivot, frameB, doorHeight - frameTop - frameB, 0.055, frameMat, doorWidth - frameB * 0.5, -frameTop - (doorHeight - frameTop - frameB) * 0.5, 0.035);
   const glassW = doorWidth - frameB * 2;
   const glassH = doorHeight - frameTop - frameB;
   const doorGlass = addBox(doorPivot, glassW, glassH, 0.014, doorGlassMat, doorWidth * 0.5, -frameTop - glassH * 0.5, 0.038);
   doorGlass.renderOrder = 3;
-  const doorHandle = addBox(doorPivot, 0.025, 0.34, 0.04, shelfMat, doorWidth - 0.045, -doorHeight * 0.5, 0.082);
+  const doorHandle = addBox(doorPivot, 0.045, 0.34, 0.055, new THREE.MeshStandardMaterial({ color: 0xca7b52, roughness: 0.68 }), doorWidth - 0.045, -doorHeight * 0.5, 0.082);
   doorGlass.userData.ignoreRay = true;
 
   const screenCanvas = document.createElement('canvas');

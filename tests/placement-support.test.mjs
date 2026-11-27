@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { ExtrudeGeometry, Shape } from '../js/vendor/three.bundle.min.js';
 
 class MockColor {
   constructor(hex = 0xffffff) { this.hex = hex; }
@@ -11,6 +12,7 @@ class MockColor {
 
 class MockMat {
   constructor(opts = {}) {
+    this.isMaterial = true;
     this.color = new MockColor(opts.color ?? 0xffffff);
     this.transparent = !!opts.transparent;
     this.opacity = opts.opacity ?? 1;
@@ -40,6 +42,8 @@ class MockObj {
 
 globalThis.window = {
   THREE: {
+    ExtrudeGeometry,
+    Shape,
     Color: MockColor,
     Vector2: class { constructor(x = 0, y = 0) { this.x = x; this.y = y; } },
     Vector3: class { constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; } set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; } copy(v) { Object.assign(this, v); return this; } },

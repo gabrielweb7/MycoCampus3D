@@ -1,0 +1,16 @@
+[
+  {"id":"campus","title":["Calouro Sálvia","Sage Freshman","Estudiante Salvia"],"price":0,"skin":"#dfa274","hair":"#624035","top":"#80916d","pants":"#594943","accent":"#ebd3a9","cut":"tuft","outfit":"jacket"},
+  {"id":"lavender","title":["Estudante Lavanda","Lavender Student","Estudiante Lavanda"],"price":0,"skin":"#98604b","hair":"#432d29","top":"#a886b3","pants":"#dfc7a5","accent":"#efd4a6","cut":"curls","outfit":"sweater"},
+  {"id":"terracotta","title":["Moletom Terracota","Terracotta Hoodie","Sudadera Terracota"],"price":0,"skin":"#bd805c","hair":"#52342c","top":"#b66346","pants":"#51434b","accent":"#ecd1a2","cut":"swept","outfit":"hoodie"},
+  {"id":"faculty","title":["Jaleco Docente","Faculty Coat","Bata Docente"],"price":0,"faculty":true,"skin":"#e5ab83","hair":"#d1c7bb","top":"#e7d1ad","pants":"#536b59","accent":"#69806a","cut":"waves","outfit":"coat","glasses":true},
+  {"id":"botanist","title":["Botânica de Campo","Field Botanist","Botánica de Campo"],"price":180,"skin":"#bd835e","hair":"#503632","top":"#81988e","pants":"#5e6b4f","accent":"#bc9362","cut":"waves","outfit":"utility"},
+  {"id":"apron","title":["Avental Rosé","Rose Apron","Delantal Rosa"],"price":200,"skin":"#e5ae83","hair":"#975d52","top":"#c98e91","pants":"#7d5155","accent":"#ebd0ac","cut":"bob","outfit":"apron"},
+  {"id":"library","title":["Arquivo do Campus","Campus Archivist","Archivo del Campus"],"price":220,"skin":"#9f634a","hair":"#4a3230","top":"#d8bd96","pants":"#45445c","accent":"#726482","cut":"curls","outfit":"cardigan","glasses":true},
+  {"id":"apiary","title":["Aprendiz do Apiário","Apiary Apprentice","Aprendiz del Apiario"],"price":240,"skin":"#835541","hair":"#312926","top":"#bd7850","pants":"#635347","accent":"#e2c39a","cut":"crop","outfit":"vest"},
+  {"id":"winter","title":["Inverno no Campus","Campus Winter","Invierno en el Campus"],"price":260,"skin":"#edbd94","hair":"#c99c60","top":"#7286a2","pants":"#435367","accent":"#e0d8c9","cut":"swept","outfit":"scarf"},
+  {"id":"garden","title":["Jardineiro de Musgo","Moss Gardener","Jardinero Musgo"],"price":280,"skin":"#bb855b","hair":"#70503b","top":"#c1af79","pants":"#6e825c","accent":"#8b9a69","cut":"waves","outfit":"overalls"},
+  {"id":"astronomy","title":["Observatório","Observatory","Observatorio"],"price":300,"skin":"#9b695d","hair":"#39323c","top":"#4e577d","pants":"#434462","accent":"#b4a1cf","cut":"bob","outfit":"vest","glasses":true},
+  {"id":"athletics","title":["Atleta Coral","Coral Runner","Atleta Coral"],"price":320,"skin":"#d19470","hair":"#664331","top":"#d87970","pants":"#665b6a","accent":"#eee2c9","cut":"crop","outfit":"track"},
+  {"id":"photography","title":["Clube de Fotografia","Photography Club","Club de Fotografía"],"price":340,"skin":"#aa7653","hair":"#47332e","top":"#c5a15e","pants":"#6e505f","accent":"#a77e95","cut":"tuft","outfit":"satchel"},
+  {"id":"technician","title":["Técnico de Campo","Field Technician","Técnico de Campo"],"price":360,"skin":"#9c6c57","hair":"#c4beb5","top":"#526167","pants":"#454d52","accent":"#80a49c","cut":"crop","outfit":"utility"}
+]

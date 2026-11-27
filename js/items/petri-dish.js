@@ -265,8 +265,10 @@ function getPetriAssets() {
       lidGeo: new THREE.CylinderGeometry(PETRI_DISH_RADIUS, PETRI_DISH_RADIUS, PETRI_LID_THICKNESS, 22),
       agarGeo: new THREE.CylinderGeometry(PETRI_AGAR_RADIUS, PETRI_AGAR_RADIUS, 0.009, 22),
       parafilmGeo: new THREE.CylinderGeometry(PETRI_DISH_RADIUS + 0.0018, PETRI_DISH_RADIUS + 0.0018, 0.011, 22, 1, true),
-      glassMat: new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.34, roughness: 0.08, metalness: 0.15 }),
+      glassMat: new THREE.MeshStandardMaterial({ color: 0xb3cbc3, transparent: true, opacity: 0.33, roughness: 0.20, metalness: 0.08 }),
       hitboxMat: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+      lidRingGeo: new THREE.TorusGeometry(PETRI_DISH_RADIUS - 0.002, 0.0022, 4, 20),
+      lidRingMat: new THREE.MeshStandardMaterial({ color: 0x839883, roughness: 0.67 }),
       parafilmMat: new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.58, roughness: 0.25, side: THREE.DoubleSide })
     };
   }
@@ -299,7 +301,11 @@ export function makePetriDish(mode) {
   lidPivot.position.set(-PETRI_DISH_RADIUS, 0.021, 0);
   const lid = new THREE.Mesh(A.lidGeo, A.glassMat);
   lid.position.x = PETRI_DISH_RADIUS;
-  lidPivot.add(lid);
+  const lidRing = new THREE.Mesh(A.lidRingGeo, A.lidRingMat);
+  lidRing.rotation.x = Math.PI / 2;
+  lidRing.position.set(PETRI_DISH_RADIUS, 0, 0);
+  lidPivot.add(lid, lidRing);
+  pg.userData.firstPersonGrip = { x: 0.027, y: 0.003, z: PETRI_DISH_RADIUS + 0.012 };
 
   const isColonized = mode === 'clean';
   const ctrl = {

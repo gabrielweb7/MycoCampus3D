@@ -10,6 +10,7 @@ import {
   clampPosAgainstWalls
 } from '../engine/physics.js';
 import { animateAvatarAura } from '../entities/avatars.js';
+import { fitHandHorizontally } from '../entities/first-person-grip.js';
 import { getHeldBoardToolColor } from './chalkboard.js';
 
 const P = GAME_CONFIG.player;
@@ -251,7 +252,8 @@ export function stepPlayerMovement(ctx, dt, now) {
   ctx.camera.rotation.z = umbralSway + (ctx.snowboardActive ? ctx.snowboardRoll * 0.35 : ((ctx.paragliderActive && !ctx.onGround) ? ctx.paragliderRoll * 0.45 : 0));
 
   // Bracos em 1a pessoa
-  const isTwoHanded = !!(ctx.heldItem && ctx.heldItem.mesh.userData.twoHanded);
+  const heldData = ctx.heldItem?.mesh.userData;
+  const isTwoHanded = !!(heldData?.twoHanded || heldData?.firstPersonSideGrip);
   if (ctx.fpsArmGroup) {
     ctx.fpsArmGroup.visible = true;
     if (ctx.paragliderActive && !ctx.onGround) {
@@ -266,9 +268,9 @@ export function stepPlayerMovement(ctx, dt, now) {
       if (speedNow > 0.2) ctx.armSwingPhase += dt * 7;
       const emptyHands = !ctx.heldItem;
       ctx.fpsArmGroup.position.set(
-        (isTwoHanded ? 0.27 : 0.32) + (emptyHands ? 0.025 : 0) - ctx.armReach * 0.08,
-        (isTwoHanded || emptyHands ? -0.34 : -0.28) + Math.sin(ctx.armSwingPhase) * 0.014 + ctx.armReach * 0.06,
-        (isTwoHanded ? -0.56 : -0.42) - (emptyHands ? 0.035 : 0) - ctx.armReach * 0.16
+        fitHandHorizontally(ctx.camera, (isTwoHanded ? 0.25 : 0.27) - ctx.armReach * 0.08),
+        (isTwoHanded ? -0.285 : -0.23) + Math.sin(ctx.armSwingPhase) * 0.014 + ctx.armReach * 0.06,
+        (isTwoHanded ? -0.56 : -0.47) - (emptyHands ? 0.03 : 0) - ctx.armReach * 0.16
       );
       ctx.fpsArmGroup.rotation.set(0.18 + ctx.armReach * 0.35, (isTwoHanded ? 0.12 : -0.14) + ctx.armReach * 0.1, 0.05);
     }
@@ -282,7 +284,7 @@ export function stepPlayerMovement(ctx, dt, now) {
       ctx.fpsLeftArmGroup.position.set(-0.42, -0.22, -0.34);
       ctx.fpsLeftArmGroup.rotation.set(0.10, 0.45, 0.25);
     } else if (isTwoHanded) {
-      ctx.fpsLeftArmGroup.position.set(-0.27, -0.34 + Math.sin(ctx.armSwingPhase) * 0.014, -0.56);
+      ctx.fpsLeftArmGroup.position.set(fitHandHorizontally(ctx.camera, -0.25), -0.285 + Math.sin(ctx.armSwingPhase) * 0.014, -0.56);
       ctx.fpsLeftArmGroup.rotation.set(0.18, -0.12, -0.05);
     }
   }

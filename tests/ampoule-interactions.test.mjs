@@ -31,7 +31,8 @@ test('a closed lid physically covers every ampoule and opens normally', () => {
     assert.ok(bounds.max.y < lidBounds.min.y, 'vial must fit under the lid');
     const center = bounds.getCenter(new THREE.Vector3());
     const ray = new THREE.Raycaster(new THREE.Vector3(center.x, 1, center.z), new THREE.Vector3(0, -1, 0));
-    assert.equal(ray.intersectObject(box.mesh, true)[0].object, lid, 'lid blocks the view from above');
+    assert.ok(ray.intersectObject(lid).length, 'the lid panel covers the vial');
+    assert.ok(box.caseCtrl.lidPivot.children.includes(ray.intersectObject(box.mesh, true)[0].object), 'the closed lid assembly blocks the view from above');
     for (const side of [new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)]) {
       const from = center.clone().addScaledVector(side, 1);
       const sideRay = new THREE.Raycaster(from, side.clone().negate());

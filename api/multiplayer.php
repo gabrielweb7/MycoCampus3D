@@ -9,6 +9,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/multiplayer_schema.php';
 require_once __DIR__ . '/inventory.php';
 require_once __DIR__ . '/village_store.php';
+require_once __DIR__ . '/avatar_skins.php';
 
 const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
@@ -493,9 +494,9 @@ if ($action === 'sync') {
     // A nearby player's polling is enough to advance pickups for offline owners.
     if ($initSync || mt_rand(1, 15) === 1) mc_village_settle_sales($pdo, $initSync ? $userId : null);
 
-    $pStmt = $pdo->prepare('SELECT session_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps, pet_json,
-            IF(chat_at IS NOT NULL AND chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), chat_msg, NULL) AS chat_msg
-        FROM mc_sessions WHERE session_id != ? ORDER BY session_id ASC LIMIT 60');
+    $pStmt = $pdo->prepare('SELECT p.session_id, p.display_name, u.role, p.hat_color, p.body_color, p.current_hat, p.emote, p.x, p.y, p.z, p.yaw, p.pitch, p.holding_item, p.walking, p.in_fps, p.pet_json, u.current_skin, u.unlocked_skins,
+            IF(p.chat_at IS NOT NULL AND p.chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), p.chat_msg, NULL) AS chat_msg
+        FROM mc_sessions p JOIN mc_users u ON u.id = p.user_id WHERE p.session_id != ? ORDER BY p.session_id ASC LIMIT 60');
     $pStmt->execute([$sessionKey]);
     $players = [];
     foreach ($pStmt->fetchAll() as $p) {
@@ -516,6 +517,7 @@ if ($action === 'sync') {
             'hat_color' => mc_clean_hex($p['hat_color'], '#dc2626'),
             'body_color' => mc_clean_hex($p['body_color'], '#4f46e5'),
             'current_hat' => (string)($p['current_hat'] ?? 'default'),
+            'current_skin' => mc_active_skin($p),
             'emote' => (string)($p['emote'] ?? ''),
             'x' => (float)$p['x'],
             'y' => (float)$p['y'],

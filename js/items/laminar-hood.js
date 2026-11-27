@@ -2,6 +2,7 @@
  * Capela de Fluxo Laminar Horizontal & Bancadas do Lab (MycoCampus3D)
  */
 
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
 import { registerPickable, updateItemBounds, isSurfaceOccupied } from './item-registry.js';
 import { addMovableStainlessTable } from './stainless-table.js';
@@ -163,14 +164,14 @@ export function setHoodPower(air, on) {
 export function makeLaminarHood(ctx, id, x, y, z) {
   const portable = id !== 'laminar_hood_lab';
   const hoodGroup = new THREE.Group();
-  const hoodBackBox = makeBox(0.32, 1.08, 2.34, 0x0f172a, { roughness: 0.45, metalness: 0.4 });
+  const hoodBackBox = makeChamferedBox(0.32, 1.08, 2.34, 0.043, 0x748570);
   hoodBackBox.position.set(-0.58, 0.54, 0);
   const hepaCanvas = document.createElement('canvas');
   hepaCanvas.width = 256; hepaCanvas.height = 128;
   const hctx = hepaCanvas.getContext('2d');
-  hctx.fillStyle = '#f8fafc';
+  hctx.fillStyle = '#dcd1b7';
   hctx.fillRect(0, 0, 256, 128);
-  hctx.strokeStyle = '#cbd5e1';
+  hctx.strokeStyle = '#868978';
   hctx.lineWidth = 1.5;
   for (let hx = -128; hx < 384; hx += 8) {
     hctx.beginPath(); hctx.moveTo(hx, 0); hctx.lineTo(hx + 128, 128); hctx.stroke();
@@ -182,7 +183,7 @@ export function makeLaminarHood(ctx, id, x, y, z) {
   const hepaMat = new THREE.MeshStandardMaterial({ map: hepaTex, emissive: 0xe0f2fe, emissiveIntensity: 0.35, roughness: 0.6 });
   const hepa = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.94, 2.16), hepaMat);
   hepa.position.set(-0.41, 0.54, 0);
-  const hoodTop = makeBox(1.10, 0.06, 2.34, 0x0f172a, { roughness: 0.4 });
+  const hoodTop = makeChamferedBox(1.10, 0.06, 2.34, 0.018, 0xe3cfa9);
   hoodTop.position.set(0.10, 1.08, 0);
   const hoodGlassL = makeBox(1.07, 1.01, 0.04, 0xbae6fd, { transparent: true, opacity: 0.26, noShadow: true });
   hoodGlassL.position.set(0.115, 0.545, -1.15);
@@ -194,12 +195,12 @@ export function makeLaminarHood(ctx, id, x, y, z) {
   hoodBase.position.set(-0.045, 0.02, 0);
   const hoodWorkMat = makeBox(1.03, 0.008, 2.24, 0x334155, { metalness: 0.55, roughness: 0.35 });
   hoodWorkMat.position.set(0.115, 0.042, 0);
-  const hoodFrontLip = makeBox(0.03, 0.045, 2.34, 0x0f172a, { metalness: 0.5, roughness: 0.4 });
+  const hoodFrontLip = makeChamferedBox(0.036, 0.045, 2.34, 0.009, 0xd4bd98);
   hoodFrontLip.position.set(0.64, 0.0225, 0);
 
   const hoodSwitchBox = makeBox(0.06, 0.14, 0.10, 0x1e293b, { noShadow: true });
   hoodSwitchBox.position.set(0.62, 1.05, 1.13);
-  const hoodBtnMesh = makeBox(0.03, 0.06, 0.06, 0x38bdf8, { noShadow: true });
+  const hoodBtnMesh = makeChamferedBox(0.03, 0.06, 0.06, 0.008, 0xd98b55);
   hoodBtnMesh.position.set(0.65, 1.03, 1.13);
   const hoodLedMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
   const hoodLedBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.012, 14), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }));
@@ -220,7 +221,9 @@ export function makeLaminarHood(ctx, id, x, y, z) {
   airGeo.setAttribute('position', airAttr);
   const airPoints = new THREE.Points(airGeo, new THREE.PointsMaterial({ color: 0xbae6fd, size: 0.045, transparent: true, opacity: 0.72 }));
   airPoints.userData.ignoreRay = true;
-  hoodGroup.add(hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLedBezel, hoodLed, airPoints);
+  const fascia = makeChamferedBox(0.085, 0.14, 2.19, 0.020, 0xe3cfa9);
+  fascia.position.set(0.60, 1.105, 0);
+  hoodGroup.add(fascia, hoodBackBox, hepa, hoodTop, hoodGlassL, hoodGlassR, hoodBase, hoodWorkMat, hoodFrontLip, hoodSwitchBox, hoodBtnMesh, hoodLedBezel, hoodLed, airPoints);
 
   const hoodLight = new THREE.PointLight(0xe0f2fe, 0.95, 4.0, 1.8);
   hoodLight.position.set(0, 0.8, 0);

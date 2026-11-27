@@ -17,11 +17,11 @@ export function buildLabSink(ctx, sx, sy, sz, style = 'lab') {
   sg.position.set(sx, sy, sz);
 
   const cottage = style === 'cottage';
-  const steelMat = new THREE.MeshStandardMaterial({ color: cottage ? 0xfff0d7 : 0xdbeafe, metalness: cottage ? 0 : 0.9, roughness: 0.2 });
-  const basinWallMat = new THREE.MeshStandardMaterial({ color: cottage ? 0xf5e4c9 : 0xcbd5e1, metalness: cottage ? 0 : 0.92, roughness: 0.22, side: THREE.DoubleSide });
-  const basinFloorMat = new THREE.MeshStandardMaterial({ color: cottage ? 0xe5d6bd : 0xb6c2d1, metalness: cottage ? 0 : 0.9, roughness: 0.3 });
+  const steelMat = new THREE.MeshStandardMaterial({ color: cottage ? 0xfff0d7 : 0xdac6a2, metalness: cottage ? 0 : 0.19, roughness: 0.55 });
+  const basinWallMat = new THREE.MeshStandardMaterial({ color: cottage ? 0xf5e4c9 : 0xb7b3a4, metalness: cottage ? 0 : 0.42, roughness: 0.36, side: THREE.DoubleSide });
+  const basinFloorMat = new THREE.MeshStandardMaterial({ color: cottage ? 0xe5d6bd : 0x9ea498, metalness: cottage ? 0 : 0.42, roughness: 0.44 });
   const faucetMat = new THREE.MeshStandardMaterial({ color: cottage ? 0xbb8655 : 0xf8fafc, metalness: cottage ? 0.35 : 0.7, roughness: cottage ? 0.4 : 0.2 });
-  const valveMat = new THREE.MeshStandardMaterial({ color: cottage ? 0x317f83 : 0x16a34a, roughness: 0.4 });
+  const valveMat = new THREE.MeshStandardMaterial({ color: cottage ? 0x317f83 : 0x718572, roughness: 0.4 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.3 });
 
   const hw = BASIN_W / 2;

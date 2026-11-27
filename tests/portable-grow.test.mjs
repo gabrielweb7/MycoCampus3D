@@ -114,7 +114,7 @@ test('a porta do grow conserva umidade e só permite colher pela mira quando abe
   ctx.playerPos.copy(ctx.camera.position);
   updateHoverRay(ctx);
   assert.equal(ctx.hoveredGrowSlot, 0);
-  assert.match(ctx.mobileAimPrompt, /Colher Shiitake/);
+  assert.match(ctx.aimActionPrompt, /Colher Shiitake/);
   assert.match(growSlotActionLabel(grow, ctx.hoveredGrowSlot), /Colher Shiitake/);
   assert.equal(handlePrimaryAction(ctx), true);
   assert.equal(ctx.heldItem.wildMushroomCtrl.speciesName, 'Shiitake');

@@ -169,15 +169,15 @@ export function transferPdaGrams(source, target, amountMl, sourceVolumeMl) {
 export function makePdaMediaBottle1L(ctx, id, px, py, pz) {
   const bottle = new THREE.Group();
   const glassMat = new THREE.MeshStandardMaterial({
-    color: 0xf0f9ff, transparent: true, opacity: 0.28, roughness: 0.08, metalness: 0.12, depthWrite: false
+    color: 0x91b6b5, transparent: true, opacity: 0.38, roughness: 0.22, metalness: 0.05, depthWrite: false
   });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.36, 24, 1, true), glassMat);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.36, 16, 1, true), glassMat);
   body.position.y = 0.20;
-  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.018, 24), glassMat);
+  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.026, 16), glassMat);
   bottom.position.y = 0.026;
-  const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.073, 0.13, 0.12, 24), glassMat);
+  const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.073, 0.13, 0.12, 16), glassMat);
   shoulder.position.y = 0.44;
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.071, 0.071, 0.052, 20), glassMat);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.071, 0.071, 0.052, 16), glassMat);
   neck.position.y = 0.51;
   const liquid = new THREE.Mesh(
     new THREE.CylinderGeometry(0.118, 0.118, 0.30, 20),
@@ -189,16 +189,20 @@ export function makePdaMediaBottle1L(ctx, id, px, py, pz) {
   );
   graduations.position.y = 0.20;
   const cap = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.082, 0.082, 0.06, 24),
-    new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35 })
+    new THREE.CylinderGeometry(0.078, 0.085, 0.06, 12),
+    new THREE.MeshStandardMaterial({ color: 0xca7958, roughness: 0.69, flatShading: true })
   );
   cap.position.y = 0.566;
   const capSeal = new THREE.Mesh(
     new THREE.CylinderGeometry(0.074, 0.074, 0.012, 24),
-    new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.38 })
+    new THREE.MeshStandardMaterial({ color: 0x8d5545, roughness: 0.68 })
   );
   capSeal.position.y = 0.531;
-  bottle.add(liquid, body, bottom, shoulder, neck, graduations, cap, capSeal);
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(0.131, 0.131, 0.046, 10, 1, true, -1.04, 2.08),
+    new THREE.MeshStandardMaterial({ color: 0xe4cfad, roughness: 0.88 }));
+  label.position.y = 0.066;
+  bottle.userData.firstPersonGrip = { x: 0.036, y: 0.16, z: 0.142 };
+  bottle.add(liquid, body, bottom, shoulder, neck, graduations, cap, capSeal, label);
   const bottleScale = 0.62;
   bottle.scale.setScalar(bottleScale);
 

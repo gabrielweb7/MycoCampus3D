@@ -3,6 +3,7 @@
  * Mostra nivel de agua visivel, pesa conforme volume (1ml = 1g) e despeja em frascos/panela.
  */
 
+import { makeSideProfile } from './lab-prop-shapes.js';
 import { registerPickable } from './item-registry.js';
 import { updateContainerVolume } from './liquid-culture.js';
 
@@ -26,17 +27,17 @@ export const DISTILLED_JUG_META = {
 export function makeDistilledJug5L(ctx, id, px, py, pz, initMl) {
   const jg = new THREE.Group();
   const jugMat = new THREE.MeshStandardMaterial({
-    color: 0xe0f2fe, transparent: true, opacity: 0.34, roughness: 0.12, metalness: 0.08, depthWrite: false
+    color: 0x9abec9, transparent: true, opacity: 0.42, roughness: 0.12, metalness: 0.08, depthWrite: false
   });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.118, 0.118, 0.28, 22, 1, true), jugMat);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.118, 0.118, 0.28, 14, 1, true), jugMat);
   body.position.y = 0.14;
-  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.118, 0.118, 0.012, 22), jugMat);
+  const bottom = new THREE.Mesh(new THREE.CylinderGeometry(0.118, 0.118, 0.015, 14), jugMat);
   bottom.position.y = 0.006;
-  const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.118, 0.055, 22), jugMat);
+  const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.118, 0.055, 14), jugMat);
   shoulder.position.y = 0.307;
   const cap = new THREE.Mesh(
     new THREE.CylinderGeometry(0.038, 0.038, 0.032, 16),
-    new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35 })
+    new THREE.MeshStandardMaterial({ color: 0x718870, roughness: 0.66, flatShading: true })
   );
   cap.position.y = 0.35;
 
@@ -62,7 +63,14 @@ export function makeDistilledJug5L(ctx, id, px, py, pz, initMl) {
   );
   labelMesh.position.y = 0.15;
 
-  jg.add(liqMesh, body, bottom, shoulder, cap, labelMesh);
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x9abfc8, roughness: 0.62 });
+  const handle = makeSideProfile([
+    [0.031, 0.319], [0.043, 0.352], [0.086, 0.352], [0.108, 0.330],
+    [0.115, 0.278], [0.095, 0.277], [0.090, 0.319], [0.080, 0.332],
+    [0.055, 0.332], [0.049, 0.309]
+  ], 0.034, 0.004, handleMat);
+  jg.add(liqMesh, body, bottom, shoulder, cap, labelMesh, handle);
+  jg.userData.firstPersonGrip = { x: 0.018, y: 0.285, z: 0.119 };
   jg.userData.isWaterGallon = true;
   jg.userData.liquidCtrl = {
     volMl: initMl,

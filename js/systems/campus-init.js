@@ -753,7 +753,10 @@ export function initCampus3D(containerId, cbs) {
     createPastureAndCows(wbCtx);
     buildFirstPersonArm(sim.entityCtx);
 
-    sim.localAvatar = buildCuteAvatar(sim.scene, { isLocal: true, hat_color: '#d9534f', body_color: '#4f46e5' });
+    sim.localAvatar = buildCuteAvatar(sim.scene, {
+      isLocal: true, hat_color: '#d9534f', current_skin: sim.localSkin, role: sim.localSkinRole
+    });
+    window.setLocalAvatarSkin?.(sim.localSkin, sim.localSkinRole);
     sim.localAvatar.group.visible = false;
     sim.placementGhost = createPlacementGhost(sim.scene);
     sim.hover3dBadge = createHover3dBadge(sim.scene);

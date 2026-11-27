@@ -26,14 +26,14 @@ export function updateLcNutrientLabel(item) {
 
 export function makeLcNutrientBottle(ctx, id, px, py, pz) {
   const g = new THREE.Group();
-  const amberMat = new THREE.MeshStandardMaterial({ color: 0xb45309, transparent: true, opacity: 0.82, roughness: 0.16 });
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.15, 20), amberMat);
+  const amberMat = new THREE.MeshStandardMaterial({ color: 0xad682e, transparent: true, opacity: 0.78, roughness: 0.27, flatShading: true });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.15, 14), amberMat);
   body.position.y = 0.075;
-  const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.068, 0.025, 20), amberMat);
+  const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.068, 0.025, 14), amberMat);
   shoulder.position.y = 0.162;
   const cap = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.052, 0.052, 0.036, 18),
-    new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35 })
+    new THREE.CylinderGeometry(0.048, 0.054, 0.036, 12),
+    new THREE.MeshStandardMaterial({ color: 0x78886b, roughness: 0.69, flatShading: true })
   );
   cap.position.y = 0.19;
   const lblTex = getCachedCanvasTexture('lc_nutrient_malt_lbl', 256, 128, (lctx) => {
@@ -53,6 +53,7 @@ export function makeLcNutrientBottle(ctx, id, px, py, pz) {
   lbl.position.y = 0.078;
   g.add(body, shoulder, cap, lbl);
   g.userData.isLcNutrientBottle = true;
+  g.userData.firstPersonGrip = { x: 0.026, y: 0.067, z: 0.072 };
   const item = registerPickable(ctx, id, '🍯 Extrato de Malte / Mel 250g', g, px, py, pz, 0, 0.10, 0.21, LC_NUTRIENT_META);
   item.lcNutrientCtrl = { remainingGrams: 250, maxGrams: 250 };
   updateLcNutrientLabel(item);
@@ -70,11 +71,11 @@ export const PDA_BOTTLE_META = {
 
 export function createPdaBottleGroup() {
   const pdaGroup = new THREE.Group();
-  const hdpeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35, metalness: 0.05 });
-  const pdaBody = new THREE.Mesh(new THREE.CylinderGeometry(0.102, 0.102, 0.21, 28), hdpeMat);
+  const hdpeMat = new THREE.MeshStandardMaterial({ color: 0xead8b8, roughness: 0.64, metalness: 0.05 });
+  const pdaBody = new THREE.Mesh(new THREE.CylinderGeometry(0.102, 0.102, 0.21, 16), hdpeMat);
   pdaBody.position.y = 0.105;
   pdaBody.castShadow = true;
-  const pdaShoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.102, 0.038, 28), hdpeMat);
+  const pdaShoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.102, 0.038, 16), hdpeMat);
   pdaShoulder.position.y = 0.228;
   const pdaNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.070, 0.070, 0.024, 24), hdpeMat);
   pdaNeck.position.y = 0.255;
@@ -122,14 +123,15 @@ export function createPdaBottleGroup() {
   );
   pdaLabel.position.y = 0.105;
 
-  const capMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.32 });
-  const pdaCap = new THREE.Mesh(new THREE.CylinderGeometry(0.078, 0.080, 0.056, 24), capMat);
+  const capMat = new THREE.MeshStandardMaterial({ color: 0xd58d66, roughness: 0.64, flatShading: true });
+  const pdaCap = new THREE.Mesh(new THREE.CylinderGeometry(0.076, 0.083, 0.056, 14), capMat);
   pdaCap.position.y = 0.285;
   const pdaSealRing = new THREE.Mesh(
     new THREE.CylinderGeometry(0.082, 0.082, 0.010, 24),
     new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.4 })
   );
   pdaSealRing.position.y = 0.254;
+  pdaGroup.userData.firstPersonGrip = { x: 0.043, y: 0.089, z: 0.105 };
   pdaGroup.add(pdaBody, pdaShoulder, pdaNeck, pdaLabel, pdaCap, pdaSealRing);
   return pdaGroup;
 }

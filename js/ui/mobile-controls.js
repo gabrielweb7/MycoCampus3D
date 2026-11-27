@@ -86,28 +86,6 @@ export function setupMobileJoystick() {
   window.addEventListener('touchcancel', endStick, { passive: true });
   window.addEventListener('blur', resetStick);
 
-  function bindTouchTap(btn, handler) {
-    if (!btn) return;
-    btn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      handler();
-    }, { passive: false });
-    btn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      handler();
-    });
-  }
-
-  bindTouchTap($('btn-mobile-rotate'), () => {
-    if (window.rotateCampusHeldItem) window.rotateCampusHeldItem();
-  });
-
-  bindTouchTap($('btn-mobile-drop'), () => {
-    if (window.dropCampusHeldItem) window.dropCampusHeldItem();
-  });
-
   const jumpBtn = $('btn-mobile-jump');
   if (jumpBtn) {
     jumpBtn.addEventListener('touchstart', (e) => {
@@ -128,13 +106,4 @@ export function setupMobileJoystick() {
       if (window.triggerCampusJump) window.triggerCampusJump();
     });
   }
-
-  bindTouchTap($('btn-mobile-place'), () => {
-    const pose = window.getCampusPlayerPose && window.getCampusPlayerPose();
-    if (pose && pose.holding_item) {
-      if (window.toggleCampusHeldPlacement) window.toggleCampusHeldPlacement();
-    } else if (window.pickCampusHoveredItemForMove) {
-      window.pickCampusHoveredItemForMove();
-    }
-  });
 }

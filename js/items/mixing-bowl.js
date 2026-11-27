@@ -4,6 +4,7 @@
  * e misturar com a colher ate ficar homogeneo para formar receitas de cultivo.
  */
 
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { mergeStaticGeos, registerPickable } from './item-registry.js';
 
 const THREE = window.THREE;
@@ -11,8 +12,8 @@ const THREE = window.THREE;
 let sharedBowlAssets = null;
 function getBowlSharedAssets() {
   if (sharedBowlAssets) return sharedBowlAssets;
-  const wallGeo = new THREE.CylinderGeometry(0.115, 0.090, 0.13, 20, 1, true);
-  const botGeo = new THREE.CylinderGeometry(0.090, 0.090, 0.008, 20);
+  const wallGeo = new THREE.CylinderGeometry(0.115, 0.082, 0.13, 14, 1, true);
+  const botGeo = new THREE.CylinderGeometry(0.082, 0.082, 0.008, 14);
   const bowlShellGeo = mergeStaticGeos([
     { geo: wallGeo, y: 0.065 },
     { geo: botGeo, y: 0.004 }
@@ -23,17 +24,18 @@ function getBowlSharedAssets() {
   sharedBowlAssets = {
     bowlShellGeo,
     bowlMat: new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0, transparent: true, opacity: 0.42, roughness: 0.15, depthWrite: false, side: THREE.DoubleSide
+      color: 0xe9cea6, transparent: true, opacity: 0.76, roughness: 0.65, depthWrite: false, side: THREE.DoubleSide, flatShading: true
     }),
     mixGeo: new THREE.CylinderGeometry(0.096, 0.080, 0.095, 18),
     waterGeo: new THREE.CylinderGeometry(0.098, 0.086, 0.095, 18),
     waterMat: new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.62, roughness: 0.12, depthWrite: false }),
     steelMat: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.95, roughness: 0.12 }),
     spoonBowlMat: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.10, side: THREE.DoubleSide }),
-    gripMat: new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.55 }),
+    gripMat: new THREE.MeshStandardMaterial({ color: 0xc47d5e, roughness: 0.74 }),
+    gripEndMat: new THREE.MeshStandardMaterial({ color: 0xe7d1a8, roughness: 0.76 }),
     spoonHandleGeo: new THREE.CylinderGeometry(0.0045, 0.0065, 0.15, 12),
-    spoonGripGeo: new THREE.CylinderGeometry(0.0085, 0.0085, 0.055, 12),
-    spoonCapGeo: new THREE.SphereGeometry(0.0085, 12, 8),
+    spoonGripGeo: new THREE.CylinderGeometry(0.012, 0.011, 0.055, 9),
+    spoonCapGeo: new THREE.SphereGeometry(0.010, 9, 6),
     spoonNeckGeo: new THREE.CylinderGeometry(0.0055, 0.0045, 0.028, 10),
     spoonScoopGeo: new THREE.SphereGeometry(0.026, 20, 12, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5),
     spoonRimGeo: new THREE.TorusGeometry(0.026, 0.0015, 6, 24)
@@ -216,6 +218,14 @@ export function stirMixingBowl(item) {
 export function makeMixingBowl(ctx, id, px, py, pz) {
   const A = getBowlSharedAssets();
   const bg = new THREE.Group();
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.083, 0.088, 0.018, 14),
+    new THREE.MeshStandardMaterial({ color: 0x71826b, roughness: 0.76 }));
+  foot.position.y = 0.009;
+  const lip = makeChamferedBox(0.060, 0.014, 0.042, 0.005, 0xce805d);
+  lip.rotation.x = 0.20;
+  lip.position.set(0, 0.126, -0.106);
+  bg.add(foot, lip);
+  bg.userData.firstPersonGrip = { x: 0.045, y: 0.027, z: 0.091 };
   const mixMesh = new THREE.Mesh(
     A.mixGeo,
     new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.78 })
@@ -257,7 +267,7 @@ export function makeLabSpoon(ctx, id, px, py, pz) {
   const grip = new THREE.Mesh(A.spoonGripGeo, A.gripMat);
   grip.rotation.x = Math.PI / 2;
   grip.position.set(0, 0.012, 0.095);
-  const gripCap = new THREE.Mesh(A.spoonCapGeo, A.gripMat);
+  const gripCap = new THREE.Mesh(A.spoonCapGeo, A.gripEndMat);
   gripCap.position.set(0, 0.012, 0.1225);
 
   const neck = new THREE.Mesh(A.spoonNeckGeo, A.steelMat);

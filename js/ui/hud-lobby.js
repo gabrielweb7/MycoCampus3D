@@ -59,6 +59,7 @@ export function updateUserHud() {
   if (window.setLocalAvatarHat) {
     window.setLocalAvatarHat(user.current_hat || 'default');
   }
+  window.setLocalAvatarSkin?.(user.current_skin, user.role);
 
   const isMaster = (user.role === 'admin') || (user.username === 'gabrieldaluz');
   const isMod = (user.role === 'moderator');

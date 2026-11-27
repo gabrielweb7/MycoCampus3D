@@ -35,7 +35,7 @@ function playAudio(method) {
 export function makeAlcoholLamp(ctx, id, px, py, pz) {
   const g = new THREE.Group();
   const glassMat = new THREE.MeshStandardMaterial({
-    color: 0xe0f2fe,
+    color: 0xacc8bf,
     transparent: true,
     opacity: 0.48,
     roughness: 0.12,
@@ -48,7 +48,7 @@ export function makeAlcoholLamp(ctx, id, px, py, pz) {
     roughness: 0.1,
     depthWrite: false
   });
-  const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.82, roughness: 0.25 });
+  const brassMat = new THREE.MeshStandardMaterial({ color: 0x7a886c, metalness: 0.14, roughness: 0.65 });
   const wickMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.9 });
   const outerFlameMat = new THREE.MeshBasicMaterial({
     color: 0xf97316,
@@ -61,7 +61,7 @@ export function makeAlcoholLamp(ctx, id, px, py, pz) {
     opacity: 0.92
   });
 
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.046, 0.055, 16), glassMat);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.041, 0.046, 0.055, 12), glassMat);
   body.position.y = 0.0275;
   const liquid = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.042, 0.036, 14), alcoholLiquidMat);
   liquid.position.y = 0.020;
@@ -78,7 +78,13 @@ export function makeAlcoholLamp(ctx, id, px, py, pz) {
   innerFlame.position.y = 0.010;
   flameGroup.add(outerFlame, innerFlame);
 
-  g.add(body, liquid, collar, wick, flameGroup);
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xdcc7a3, roughness: 0.71 });
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.043, 0.012, 12), trimMat);
+  foot.position.y = 0.006;
+  const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.041, 0.013, 12), trimMat);
+  shoulder.position.y = 0.054;
+  g.add(foot, body, liquid, shoulder, collar, wick, flameGroup);
+  g.userData.firstPersonGrip = { x: 0.013, y: 0.025, z: 0.055 };
   g.userData.isAlcoholLamp = true;
 
   const item = registerPickable(
@@ -800,17 +806,17 @@ export function makeSilicaStorageJar(ctx, id, px, py, pz, initialOpt = 0) {
 
   const g = new THREE.Group();
   const glassMat = new THREE.MeshStandardMaterial({
-    color: 0xe0f2fe,
+    color: 0xc59b60,
     transparent: true,
-    opacity: 0.28,
-    roughness: 0.08,
-    metalness: 0.1,
+    opacity: 0.36,
+    roughness: 0.24,
+    metalness: 0.07,
     depthWrite: false
   });
-  const glassRimMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.55, roughness: 0.12 });
-  const lidMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.45, metalness: 0.2 });
+  const glassRimMat = new THREE.MeshStandardMaterial({ color: 0xb48c59, transparent: true, opacity: 0.60, roughness: 0.26 });
+  const lidMat = new THREE.MeshStandardMaterial({ color: 0xe8d1ab, roughness: 0.68, flatShading: true });
   const sealRingMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.65 });
-  const clampMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.2 });
+  const clampMat = new THREE.MeshStandardMaterial({ color: 0xbf7356, metalness: 0.10, roughness: 0.64 });
 
   // Corpo de vidro + fundo espesso + aro superior
   const baseGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.084, 0.084, 0.014, 18), glassRimMat);
@@ -824,14 +830,18 @@ export function makeSilicaStorageJar(ctx, id, px, py, pz, initialOpt = 0) {
   // Tampa articulada (pivot atrás em z = -0.085 para abrir de verdade!)
   const lidPivot = new THREE.Group();
   lidPivot.position.set(0, 0.194, -0.085);
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.022, 18), lidMat);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.083, 0.090, 0.025, 14), lidMat);
   lid.position.set(0, 0.008, 0.085);
   const rubberSeal = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.005, 8, 18), sealRingMat);
   rubberSeal.rotation.x = Math.PI / 2;
   rubberSeal.position.set(0, -0.003, 0.085);
-  const wireClamp = makeBox(0.182, 0.048, 0.01, clampMat, { noShadow: true });
-  wireClamp.position.set(0, -0.015, 0.168);
-  lidPivot.add(lid, rubberSeal, wireClamp);
+  const clasp = makeChamferedBox(0.045, 0.022, 0.014, 0.004, clampMat);
+  clasp.position.set(0, -0.005, 0.173);
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.015, 0.003, 5, 8), clampMat);
+  loop.position.set(0, -0.024, 0.175);
+  loop.scale.y = 1.26;
+  lidPivot.add(lid, rubberSeal, clasp, loop);
+  g.userData.firstPersonGrip = { x: 0.042, y: 0.061, z: 0.078 };
 
   // Camada de bolinhas de Sílica Gel indicadora (laranja/âmbar secas) no fundo do pote
   const silicaBeadGroup = new THREE.Group();

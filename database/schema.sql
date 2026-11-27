@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS mc_users (
     body_color VARCHAR(7) NOT NULL DEFAULT '#4f46e5',
     unlocked_hats TEXT NULL,
     current_hat VARCHAR(32) NOT NULL DEFAULT 'default',
+    unlocked_skins TEXT NULL,
+    current_skin VARCHAR(32) NOT NULL DEFAULT '',
     xp INT NOT NULL DEFAULT 0,
     mushrooms_harvested INT NOT NULL DEFAULT 0,
     myco_coins INT NOT NULL DEFAULT 250,

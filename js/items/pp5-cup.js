@@ -46,11 +46,12 @@ function getPP5SharedAssets() {
     mycGeo: new THREE.CylinderGeometry(0.041, 0.034, 0.034, 20),
     liquidGeo: new THREE.CylinderGeometry(0.032, 0.030, 0.034, 20),
     ppMat: new THREE.MeshStandardMaterial({
-      color: 0xf1f5f9, transparent: true, opacity: 0.44, roughness: 0.24, metalness: 0.05, side: THREE.DoubleSide, depthWrite: false
+      color: 0xe9d4b4, transparent: true, opacity: 0.41, roughness: 0.24, metalness: 0.05, side: THREE.DoubleSide, depthWrite: false
     }),
     ppLidMat: new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0, transparent: true, opacity: 0.88, roughness: 0.28, metalness: 0.06
+      color: 0xa58bb3, transparent: true, opacity: 0.87, roughness: 0.28, metalness: 0.06
     }),
+    lidTabMat: new THREE.MeshStandardMaterial({ color: 0xcd815e, roughness: 0.71 }),
     flocaoMat
   };
   Object.keys(sharedPP5Assets).forEach((k) => {
@@ -104,9 +105,10 @@ export function makePP5Cup145ml(ctx, id, filled, px, py, pz) {
   const lidRim = new THREE.Mesh(A.lidRimGeo, A.ppLidMat || A.ppMat);
   lidRim.rotation.x = Math.PI / 2;
   lidRim.position.set(0.044, -0.002, 0);
-  const lidTab = new THREE.Mesh(A.lidTabGeo, A.ppLidMat || A.ppMat);
+  const lidTab = new THREE.Mesh(A.lidTabGeo, A.lidTabMat);
   lidTab.position.set(0.094, -0.001, 0);
   lidPivot.add(lid, lidRim, lidTab);
+  cg.userData.firstPersonGrip = { x: 0.007, y: 0.025, z: 0.057 };
 
   const flocaoMesh = new THREE.Mesh(A.flocaoGeo, A.flocaoMat);
   flocaoMesh.position.y = 0.018;

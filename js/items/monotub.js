@@ -15,6 +15,7 @@
  */
 
 import { calculateHarvestYieldGrams, getCultureOriginLabel, normalizeCultureOrigin } from '../core/culture-origin.js';
+import { makeChamferedBox } from './lab-prop-shapes.js';
 import { makeBox } from '../engine/textures.js';
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { bindPngTexture, getCachedCanvasTexture, getItemKindId, registerPickable, updateItemBounds } from './item-registry.js';
@@ -74,29 +75,29 @@ function getSharedMonotubAssets() {
 
   sharedMonotubAssets = {
     clearPlasticMat: new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
+      color: 0xa7c8c5,
       transparent: true,
-      opacity: 0.34,
+      opacity: 0.33,
       roughness: 0.14,
       metalness: 0.05,
       depthWrite: false,
       side: THREE.DoubleSide
     }),
     lidPlasticMat: new THREE.MeshStandardMaterial({
-      color: 0xf1f5f9,
+      color: 0xe9d6b5,
       transparent: true,
-      opacity: 0.44,
+      opacity: 0.42,
       roughness: 0.18,
       depthWrite: false
     }),
     blackLinerMat: new THREE.MeshStandardMaterial({
-      color: 0x111827,
+      color: 0x536057,
       roughness: 0.72,
       metalness: 0.08
     }),
     latchMat: new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.45,
+      color: 0xc67d53,
+      roughness: 0.63,
       metalness: 0.25
     }),
     polyfillMat: new THREE.MeshStandardMaterial({
@@ -470,7 +471,7 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
 
   // 1. Liner preto na parte inferior (como na Foto 1)
   const linerH = 0.095;
-  const linerBox = makeBox(W + 0.004, linerH, D + 0.004, A.blackLinerMat);
+  const linerBox = makeChamferedBox(W + 0.004, linerH, D + 0.004, 0.009, A.blackLinerMat);
   linerBox.position.y = linerH * 0.5;
   group.add(linerBox);
 
@@ -488,7 +489,7 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
   // 3. Presilhas pretas nas alças laterais (esquerda e direita) com animação ao destravar
   const latches = [];
   [-1, 1].forEach((side) => {
-    const latch = makeBox(0.024, 0.055, 0.11, A.latchMat, { noShadow: true });
+    const latch = makeChamferedBox(0.024, 0.055, 0.11, 0.008, A.latchMat);
     latch.position.set(side * (W * 0.5 + 0.012), H - 0.025, 0);
     latches.push(latch);
     group.add(latch);
@@ -518,7 +519,16 @@ export function makeMonotub24L(ctx, id, px, py, pz, opts = {}) {
   const lidPlate = makeBox(W + 0.018, 0.016, D + 0.018, A.lidPlasticMat, { noShadow: true });
   lidPlate.position.set(0, 0.008, D * 0.5);
   lidPivot.add(lidPlate);
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x87977c, roughness: 0.74 });
+  for (const side of [-1, 1]) {
+    const end = makeChamferedBox(0.016, 0.016, D + 0.017, 0.005, trimMat);
+    end.position.set(side * (W * 0.5 + 0.001), 0.009, D * 0.5);
+    const rail = makeChamferedBox(W - 0.004, 0.016, 0.017, 0.005, trimMat);
+    rail.position.set(0, 0.009, side > 0 ? D : 0);
+    lidPivot.add(end, rail);
+  }
   group.add(lidPivot);
+  group.userData.firstPersonSideGrip = { x: W * 0.46, y: 0.078, z: D * 0.5 + 0.013 };
 
   // 6. Bolo interno de substrato (Vermiculita + Pó de Coco + Spawn)
   const cakeMesh = makeBox(W - 0.024, 0.09, D - 0.024, A.cocoSubMat);
