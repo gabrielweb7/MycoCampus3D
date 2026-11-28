@@ -28,18 +28,6 @@ export const HERD_MIGRATION_ROUTE = Object.freeze([
   { x: -75, z: 18, name: 'Clareira Oeste' }
 ]);
 
-export const CAMPUS_HIVE_CANDIDATES = [
-  { x: 24.8, z: 26.5 },
-  { x: 68.5, z: -16.0 },
-  { x: -69.5, z: 12.0 },
-  { x: 38.0, z: 24.0 },
-  { x: 54.0, z: -28.0 },
-  { x: -72.0, z: -22.0 },
-  { x: -30.5, z: 28.5 },
-  { x: 46.0, z: -46.0 },
-  { x: 66.0, z: 28.0 }
-];
-
 export function hash01(a, b) {
   const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
   return x - Math.floor(x);
