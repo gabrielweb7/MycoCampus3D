@@ -547,7 +547,7 @@ test('second_floor upgrade registers 4 under-stair storage shelves and toggles t
   for (const sf of shelfSurfs) {
     assert.equal(sf._disabled, false);
   }
-  assert.equal(cabCollider.maxY, 2.68);
+  assert.ok(cabCollider.maxY > 1.5 && cabCollider.maxY < 2.0, `cabCollider.maxY deve ficar abaixo da escada (foi ${cabCollider.maxY})`);
 
   applyVillageUpgrades([{ id: 3, upgrades: { second_floor: false } }]);
   for (const sf of shelfSurfs) {

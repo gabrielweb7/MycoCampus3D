@@ -810,13 +810,13 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   // Coluna de terminação do corrimão na abertura da escada (encontro com corrimão da escada)
   box(secondFloorGrp, mats.wood, stairInnerX, loftY + 0.48, frontEdgeZ, 0.09, 0.92, 0.09, false);
 
-  // Colisor do guarda-corpo para impedir queda do segundo andar
+  // Colisor do guarda-corpo para impedir queda do segundo andar (folga na quina da escada)
   const railCollider = {
     x1: railStartX,
     z1: frontEdgeZ,
-    x2: stairInnerX,
+    x2: stairInnerX - front * 0.08,
     z2: frontEdgeZ,
-    halfThick: 0.10,
+    halfThick: 0.06,
     minY: loftY,
     maxY: -1
   };
@@ -883,7 +883,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
     z1: stairZStart,
     x2: stairInnerX,
     z2: frontEdgeZ,
-    halfThick: 0.12,
+    halfThick: 0.06,
     minY: floorY,
     maxY: -1
   };
@@ -955,10 +955,10 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
 
   const stairCabCollider = {
     x1: cabX - cabW / 2,
-    z1: cabFrontZ + front * 0.18,
+    z1: cabBackZ - front * 0.04,
     x2: cabX + cabW / 2,
-    z2: cabFrontZ + front * 0.18,
-    halfThick: 0.14,
+    z2: cabBackZ - front * 0.04,
+    halfThick: 0.08,
     minY: floorY,
     maxY: -1
   };
@@ -1019,7 +1019,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
       stepSlabs.forEach((st) => { st._disabled = !u.second_floor; });
       if (loftSurf) loftSurf._disabled = !u.second_floor;
       shelfSurfs.forEach((sf) => { sf._disabled = !u.second_floor; });
-      stairCabCollider.maxY = u.second_floor ? loftY : -1;
+      stairCabCollider.maxY = u.second_floor ? (cabTopY - 0.12) : -1;
       stairSideWall.maxY = u.second_floor ? (loftY + 1.0) : -1;
       railCollider.maxY = u.second_floor ? (loftY + 1.10) : -1;
     }
