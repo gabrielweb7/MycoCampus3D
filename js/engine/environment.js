@@ -202,12 +202,6 @@ export function updateDynamicEnvironment(dt, env, precipitationDt = dt) {
     env.moonDisc.scale.setScalar(celestialScale);
     const moonVis = sunY < 0.12 && wb.rain < 0.85;
     env.moonDisc.visible = moonVis;
-    if (env.moonHalo) {
-      env.moonHalo.position.copy(env.moonDisc.position);
-      env.moonHalo.scale.setScalar(celestialScale);
-      env.moonHalo.visible = moonVis;
-      env.moonHalo.material.opacity = Math.max(0.04, 0.26 * (1 - wb.overcast * 0.65) * (1 - wb.rain));
-    }
   }
   if (env.celestialDome) {
     updateCelestialSkyDome(env.celestialDome, dayFrac, sunY, weatherMode, env.envTime, skyOrigin, cameraFar);

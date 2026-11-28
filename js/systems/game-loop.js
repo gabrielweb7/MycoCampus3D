@@ -109,7 +109,6 @@ const _envArg = {
   sunDisc: null,
   sunHalo: null,
   moonDisc: null,
-  moonHalo: null,
   starPoints: null,
   celestialDome: null,
   skyGradient: null,
@@ -262,7 +261,6 @@ export function updateDynamicEnvironment(ctx, dt, precipitationDt = dt) {
   _envArg.sunDisc = ctx.sunDisc;
   _envArg.sunHalo = ctx.sunHalo;
   _envArg.moonDisc = ctx.moonDisc;
-  _envArg.moonHalo = ctx.moonHalo;
   _envArg.starPoints = ctx.starPoints;
   _envArg.celestialDome = ctx.celestialDome;
   _envArg.skyGradient = ctx.skyGradient;

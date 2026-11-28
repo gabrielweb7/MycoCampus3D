@@ -195,7 +195,12 @@ test('RELEASE_NOTES_CATALOG tem notas simples da v1.8.1 e modal fecha apenas pel
   assert.equal(modalNode.classList.contains('hidden'), true);
 
   const { setLanguage } = await import('../js/core/i18n.js');
+  showWhatsNewModal('2.11.5');
+  assert.match(elements.get('#whats-new-title').textContent, /2\.11\.5/);
+  assert.match(elements.get('#whats-new-list').innerHTML, /cúpula luminosa/);
   setLanguage('en', { persist: false, apply: false });
+  showWhatsNewModal('2.11.4');
+  assert.match(elements.get('#whats-new-list').innerHTML, /reduced excessive brightness/);
   showWhatsNewModal('2.3.5');
   assert.equal(elements.get('#whats-new-title').textContent, '✨ What’s new in v2.3.5');
   assert.match(elements.get('#whats-new-list').innerHTML, /fountain has a new model/);

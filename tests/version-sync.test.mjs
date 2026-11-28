@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { validateReleaseNotes } from '../js/ui/whats-new-modal.js';
 
 test('VERSION, package.json, sw.js e index.html estão sincronizados na mesma versão', () => {
   const version = fs.readFileSync('VERSION', 'utf8').trim();
   assert.match(version, /^\d+\.\d+\.\d+$/);
+  validateReleaseNotes(version);
 
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert.equal(pkg.version, version);
@@ -21,6 +23,13 @@ test('VERSION, package.json, sw.js e index.html estão sincronizados na mesma ve
   assert.ok(html.includes(`>v${version}</span>`), 'index.html #app-version desatualizado');
   assert.ok(html.includes(`window.MYCO_VERSION = '${version}'`), 'index.html MYCO_VERSION desatualizado');
   assert.ok(html.includes(`js/main.js?v=${version}`), 'index.html main.js query desatualizada');
+});
+
+test('versionamento exige notas da versão atual nos três idiomas', () => {
+  for (const version of ['2.11.0', '2.11.1', '2.11.2', '2.11.3', '2.11.4', '2.11.5']) {
+    assert.doesNotThrow(() => validateReleaseNotes(version));
+  }
+  assert.throws(() => validateReleaseNotes('99.0.0'), /Adicione as novidades/);
 });
 
 test('version-updater valida reload anti-loop e constrói URL com cache bust', async () => {

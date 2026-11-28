@@ -3,13 +3,54 @@
  * Funciona tanto no PC quanto no Mobile (layout responsivo, touch-action: manipulation).
  */
 
-import { releaseInputForModal } from './dom-helpers.js';
-import { t } from '../core/i18n.js';
+import { escapeHtml, releaseInputForModal } from './dom-helpers.js';
+import { t, TRANSLATIONS } from '../core/i18n.js';
 
 const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.11.5': {
+    subtitleKey: 'news.2115.subtitle',
+    items: [
+      { icon: '🌙', key: 'news.2115.plaza' },
+      { icon: '📋', key: 'news.2115.notes' }
+    ]
+  },
+  '2.11.4': {
+    subtitleKey: 'news.2114.subtitle',
+    items: [{ icon: '🌤️', key: 'news.2114.lighting' }]
+  },
+  '2.11.3': {
+    subtitleKey: 'news.2113.subtitle',
+    items: [
+      { icon: '🎨', key: 'news.2113.palette' },
+      { icon: '💡', key: 'news.2113.lighting' }
+    ]
+  },
+  '2.11.2': {
+    subtitleKey: 'news.2112.subtitle',
+    items: [
+      { icon: '📦', key: 'news.2112.catalog' },
+      { icon: '🔎', key: 'news.2112.titles' },
+      { icon: '🛍️', key: 'news.2112.bags' }
+    ]
+  },
+  '2.11.1': {
+    subtitleKey: 'news.2111.subtitle',
+    items: [
+      { icon: '🧰', key: 'news.2111.models' },
+      { icon: '🖐️', key: 'news.2111.grip' }
+    ]
+  },
+  '2.11.0': {
+    subtitleKey: 'news.2110.subtitle',
+    items: [
+      { icon: '🎒', key: 'news.2110.controls' },
+      { icon: '🧑‍🎓', key: 'news.2110.skins' },
+      { icon: '🎨', key: 'news.2110.models' }
+    ]
+  },
   '2.10.1': {
     get title() { return t('misc.whats_new.version_title', { ver: '2.10.1' }); },
     get subtitle() { return t('misc.whats_new.2101.subtitle'); },
@@ -306,6 +347,20 @@ export const RELEASE_NOTES_CATALOG = {
   }
 };
 
+export function validateReleaseNotes(version) {
+  const notes = RELEASE_NOTES_CATALOG[version];
+  if (!notes?.subtitleKey || !notes.items?.length) {
+    throw new Error(`Adicione as novidades da versão ${version} em js/ui/whats-new-modal.js.`);
+  }
+  for (const [language, dictionary] of Object.entries(TRANSLATIONS)) {
+    for (const key of [notes.subtitleKey, ...notes.items.map(item => item.key)]) {
+      if (!key || !dictionary[key]?.trim()) {
+        throw new Error(`Novidades da versão ${version} sem tradução em ${language}: ${key}.`);
+      }
+    }
+  }
+}
+
 function getCurrentNotes(ver) {
   if (ver === '2.6.0') {
     return {
@@ -333,14 +388,18 @@ function getCurrentNotes(ver) {
   }
   const notes = RELEASE_NOTES_CATALOG[ver];
   if (notes?.subtitleKey) {
-    return { title: notes.title, subtitle: t(notes.subtitleKey), items: notes.items.map(({ icon, key }) => ({ icon, text: t(key) })) };
+    return {
+      title: notes.title || t('misc.whats_new.version_title', { ver }),
+      subtitle: t(notes.subtitleKey),
+      items: notes.items.map(({ icon, key }) => ({ icon, text: t(key) }))
+    };
   }
   if (notes) return notes;
   if (!ver) return null;
   return {
     title: '✨ MycoCampus3D v' + ver,
     subtitle: t('news.updated'),
-    items: []
+    items: [{ icon: '📋', text: t('news.notes_unavailable') }]
   };
 }
 
@@ -391,6 +450,12 @@ function bindCloseButton(btn) {
   });
 }
 
+function renderNoteItems(items) {
+  return items.map(({ icon, text }) =>
+    `<li class="flex items-start gap-2 rounded-xl bg-slate-800/70 border border-slate-700/60 px-2.5 py-2"><span class="text-base leading-none shrink-0 mt-0.5">${escapeHtml(icon)}</span><span>${escapeHtml(text)}</span></li>`
+  ).join('');
+}
+
 function ensureWhatsNewModalDom() {
   if (typeof document === 'undefined') return null;
   let modal = document.getElementById('whats-new-modal');
@@ -419,6 +484,10 @@ function ensureWhatsNewModalDom() {
       </div>
       <div class="p-3.5 sm:p-4 overflow-y-auto flex-1 overscroll-contain">
         <ul id="whats-new-list" class="space-y-2 text-xs sm:text-[13px] text-slate-200 leading-snug"></ul>
+        <details id="whats-new-history" class="mt-4 text-sm" hidden>
+          <summary id="whats-new-history-title" class="cursor-pointer py-2 text-emerald-300"></summary>
+          <div id="whats-new-history-list" class="space-y-4 pt-2"></div>
+        </details>
       </div>
       <div class="px-4 pb-3.5 pt-2 border-t border-slate-800/80 flex items-center justify-end gap-3 shrink-0 bg-slate-900/95">
         <button id="btn-confirm-whats-new" type="button"
@@ -461,10 +530,19 @@ export function showWhatsNewModal(ver, onClosed) {
   if (subEl) subEl.textContent = notes.subtitle;
   if (closeEl) closeEl.setAttribute('aria-label', t('news.close'));
   if (confirmEl) confirmEl.textContent = t('news.confirm');
-  if (listEl) {
-    listEl.innerHTML = notes.items
-      .map((it) => `<li class="flex items-start gap-2 rounded-xl bg-slate-800/70 border border-slate-700/60 px-2.5 py-2"><span class="text-base leading-none shrink-0 mt-0.5">${it.icon}</span><span>${it.text}</span></li>`)
-      .join('');
+  if (listEl) listEl.innerHTML = renderNoteItems(notes.items);
+  const history = modal.querySelector('#whats-new-history');
+  if (history) {
+    const versions = Object.keys(RELEASE_NOTES_CATALOG);
+    const currentIndex = versions.indexOf(resolvedVer);
+    const previous = currentIndex < 0 ? [] : versions.slice(currentIndex + 1, currentIndex + 6);
+    history.hidden = !previous.length;
+    history.open = false;
+    history.querySelector('#whats-new-history-title').textContent = t('news.history');
+    history.querySelector('#whats-new-history-list').innerHTML = previous.map(version => {
+      const older = getCurrentNotes(version);
+      return `<section><h3 class="mb-2 font-bold">${escapeHtml(older.title)}</h3><ul class="space-y-2 text-xs">${renderNoteItems(older.items)}</ul></section>`;
+    }).join('');
   }
 
   releaseInputForModal();

@@ -1,9 +1,11 @@
 import fs from 'node:fs';
+import { validateReleaseNotes } from '../js/ui/whats-new-modal.js';
 
 const version = fs.readFileSync('VERSION', 'utf8').trim();
 if (!/^\d+\.\d+\.\d+$/.test(version)) {
   throw new Error(`VERSION inválida: "${version}"`);
 }
+validateReleaseNotes(version);
 
 // 1. package.json
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));

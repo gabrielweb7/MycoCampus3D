@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.5] - 2026-11-27
+
+- Removido o halo da Lua que aparecia como uma cúpula luminosa sobre a praça.
+- O painel de novidades exibe as notas das versões 2.11.0 a 2.11.5. O versionamento exige notas da versão atual em PT-BR, EN e ES.
+
 ## [v2.11.4] - 2026-11-27
 
 - Menos brilho excessivo no campus. Ajustamos exposição, intensidade da luz diurna e reflexos para separar melhor paredes, pisos, folhagens e objetos claros.

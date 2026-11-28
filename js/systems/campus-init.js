@@ -275,7 +275,6 @@ const sim = {
   sunDisc: null,
   sunHalo: null,
   moonDisc: null,
-  moonHalo: null,
   starPoints: null,
   celestialDome: null,
   skyGradient: null,
@@ -596,11 +595,7 @@ export function initCampus3D(containerId, cbs) {
       new THREE.SphereGeometry(5.5, 16, 12),
       new THREE.MeshBasicMaterial({ color: 0xe2e8f0, fog: false })
     );
-    sim.moonHalo = new THREE.Mesh(
-      new THREE.SphereGeometry(11.5, 16, 12),
-      new THREE.MeshBasicMaterial({ color: 0xbfdbfe, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
-    );
-    sim.scene.add(sim.sunDisc, sim.sunHalo, sim.moonDisc, sim.moonHalo);
+    sim.scene.add(sim.sunDisc, sim.sunHalo, sim.moonDisc);
 
     sim.celestialDome = createCelestialSkyDome(sim.scene);
     sim.skyGradient = createSkyGradientDome(sim.scene);
