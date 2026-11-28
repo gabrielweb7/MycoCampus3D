@@ -616,6 +616,20 @@ function handleSinkHover(ctx, setHoverPrompt) {
 }
 
 function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
+  if (ctx.heldItem.petFoodBagCtrl) {
+    const bag = ctx.heldItem.petFoodBagCtrl;
+    const bowlHit = findPickableHit(ctx, 3.5, (c) => !!c.petBowlCtrl, intersectPickableItem);
+    if (bowlHit) {
+      const bw = bowlHit.item.petBowlCtrl;
+      ctx.hoverHit = bowlHit.hit;
+      ctx.hoveredPetBowl = bowlHit.item;
+      hidePlacementGhost(ctx);
+      setHoverPrompt(ctx, bag.grams > 0 && bw.grams < bw.maxGrams
+        ? `🥣 Despejar ração (${Math.round(bw.grams)}/${bw.maxGrams}g)`
+        : (bag.grams <= 0 ? '📦 Saquinho de ração vazio' : '🥣 Potinho já está cheio'), bag.grams > 0 && bw.grams < bw.maxGrams);
+      return true;
+    }
+  }
   if (!ctx.heldItem.mesh || !ctx.heldItem.mesh.userData.liquidCtrl || ctx.heldItem.mesh.userData.liquidCtrl.volMl <= 0) return false;
   const sourceHasPda = hasPdaContents(ctx.heldItem);
   const sourceCanPourWater = !!(ctx.heldItem.meta && ctx.heldItem.meta.compatibilities && ctx.heldItem.meta.compatibilities.poursWater);

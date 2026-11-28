@@ -2,6 +2,7 @@ import { VILLAGE_ENTRY_X, VILLAGE_HOUSE, VILLAGE_LOTS, VILLAGE_STREET_Z } from '
 import { addSolidWall, addWalkableSlab } from '../engine/physics.js';
 import { getGroundTextures, getTextures, makeBox, registerSnowable, woodMat } from '../engine/textures.js';
 import { buildGardenTap, buildLabSink } from '../items/lab-sink.js';
+import { attachHouseUpgradesToLot } from './house-upgrades.js';
 
 const THREE = window.THREE;
 const PALETTES = [
@@ -189,7 +190,24 @@ function buildHouse(ctx, root, lot, mats) {
   const wallHeight = EAVES_Y - FLOOR_Y;
   addWalkableSlab(root, walkableFloors, x, FLOOR_Y, houseZ, width, 0.18, depth, mats.floor);
   addWalkableSlab(root, walkableFloors, x, FLOOR_Y, doorZ + front * 0.68, 2.6, 0.15, 1.5, mats.trim);
-  addSolidWall(root, wallSegments, left, backZ, right, backZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
+  const backWinX = x - front * 2.1;
+  const backDoorX = x + front * 1.9;
+  const bGapL = backDoorX - 0.6;
+  const bGapR = backDoorX + 0.6;
+  if (backWinX < bGapL) {
+    frontWallWithWindow(root, wallSegments, left, bGapL, backZ, backWinX, mats);
+    addSolidWall(root, wallSegments, bGapR, backZ, right, backZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
+  } else {
+    addSolidWall(root, wallSegments, left, backZ, bGapL, backZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
+    frontWallWithWindow(root, wallSegments, bGapR, right, backZ, backWinX, mats);
+  }
+  box(root, mats.wall, backDoorX, EAVES_Y - 0.33, backZ, 1.24, 0.66, 0.25);
+  const backFacade = new THREE.Group();
+  backFacade.position.set(x, 0, backZ);
+  backFacade.rotation.y = front === 1 ? Math.PI : 0;
+  root.add(backFacade);
+  windowFrame(backFacade, mats, front === 1 ? (x - backWinX) : (backWinX - x), 0.12);
+  attachHouseUpgradesToLot(ctx, root, lot, mats, { width, depth, floorY: FLOOR_Y, eavesY: EAVES_Y, addSolidWall, addWalkableSlab, box });
   addSolidWall(root, wallSegments, left, backZ, left, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
   addSolidWall(root, wallSegments, right, backZ, right, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
   frontWallWithWindow(root, wallSegments, left, x - doorway / 2, doorZ, x - 2.46, mats);

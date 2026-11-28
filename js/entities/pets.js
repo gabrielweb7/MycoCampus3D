@@ -20,6 +20,23 @@ let remoteSnapshotIds = new Set();
 const peePuddles = [];
 let peeGeo = null;
 let peeMat = null;
+const petPoops = [];
+let poopGeo = null;
+let poopMat = null;
+
+function spawnPetPoop(scene, x, y, z) {
+  if (!scene || !THREE) return;
+  if (!poopGeo) poopGeo = new THREE.ConeGeometry(0.085, 0.11, 8);
+  if (!poopMat) poopMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.9 });
+  const mesh = new THREE.Mesh(poopGeo, poopMat);
+  mesh.position.set(x, y + 0.05, z);
+  scene.add(mesh);
+  petPoops.push({ mesh, age: 0, maxAge: 45 });
+  while (petPoops.length > 4) {
+    const old = petPoops.shift();
+    if (old.mesh?.parent) old.mesh.parent.remove(old.mesh);
+  }
+}
 
 function spawnPetPeePuddle(scene, x, y, z) {
   if (!THREE || !scene) return;
@@ -43,6 +60,14 @@ function spawnPetPeePuddle(scene, x, y, z) {
 }
 
 function stepPetPeePuddles(dt) {
+  for (let i = petPoops.length - 1; i >= 0; i--) {
+    const pp = petPoops[i];
+    pp.age += dt;
+    if (pp.age >= pp.maxAge) {
+      if (pp.mesh?.parent) pp.mesh.parent.remove(pp.mesh);
+      petPoops.splice(i, 1);
+    }
+  }
   for (let i = peePuddles.length - 1; i >= 0; i--) {
     const p = peePuddles[i];
     p.age += dt;
@@ -200,6 +225,10 @@ function createAnimal(id) {
     nextPeeAt: 35 + Math.random() * 28,
     peeUntil: 0,
     peeSpawned: false,
+    nextPoopAt: 55 + Math.random() * 40,
+    poopUntil: 0,
+    poopSpawned: false,
+    hunger: 20,
     nextCuriousAt: 12 + Math.random() * 10,
     curiousUntil: 0,
     loveUntil: 0,
@@ -437,16 +466,44 @@ export function stepPets(ctx, dt) {
         pet.retryAt = now + 10000;
         petAction('consume_' + need).catch(() => {}).finally(() => { pet.pending = false; });
       }
-    } else if (!isPeeing && pet.idleTime > 2.2) {
+    } else if (!isPeeing && !isPooping && pet.idleTime > 2.2) {
       pet.nextPeeAt -= dt;
+      pet.nextPoopAt -= dt;
       pet.nextCuriousAt -= dt;
       if (pet.nextPeeAt <= 0) {
         pet.peeUntil = nowPerf + 2400;
         pet.peeSpawned = false;
         pet.nextPeeAt = 45 + Math.random() * 35;
+      } else if (pet.nextPoopAt <= 0) {
+        pet.poopUntil = nowPerf + 2200;
+        pet.poopSpawned = false;
+        pet.nextPoopAt = 65 + Math.random() * 45;
       } else if (pet.nextCuriousAt <= 0) {
         pet.curiousUntil = nowPerf + 2800;
         pet.nextCuriousAt = 14 + Math.random() * 12;
+      }
+    }
+  }
+  const isPooping = pet.poopUntil > nowPerf;
+  if (isPooping && !pet.poopSpawned && (pet.poopUntil - nowPerf) < 1300) {
+    pet.poopSpawned = true;
+    const backX = pos.x - Math.sin(pet.group.rotation.y) * 0.25;
+    const backZ = pos.z - Math.cos(pet.group.rotation.y) * 0.25;
+    spawnPetPoop(ctx.scene, backX, pos.y, backZ);
+  }
+  pet.hunger = Math.min(100, (pet.hunger || 0) + dt * 0.45);
+  // Procura potinho móvel cheio perto quando estiver com fome
+  if (pet.hunger >= 55 && Array.isArray(ctx.pickableItems)) {
+    for (let bi = 0; bi < ctx.pickableItems.length; bi++) {
+      const bw = ctx.pickableItems[bi];
+      if (!bw?.petBowlCtrl || bw.petBowlCtrl.grams <= 5 || bw === ctx.heldItem) continue;
+      if (Math.hypot(bw.mesh.position.x - pos.x, bw.mesh.position.z - pos.z) < 2.2) {
+        bw.petBowlCtrl.grams = Math.max(0, bw.petBowlCtrl.grams - 60);
+        bw.petBowlCtrl.updateVisual?.();
+        pet.hunger = Math.max(0, pet.hunger - 45);
+        pet.loveUntil = nowPerf + 2600;
+        ctx.queueItemStateSync?.(bw);
+        break;
       }
     }
   }
@@ -466,14 +523,14 @@ export function stepPets(ctx, dt) {
   pet.tail.rotation.z = Math.sin(now * (walking || pet.loveUntil > nowPerf ? 0.012 : 0.003)) * 0.30;
   const hopY = pet.hopUntil > nowPerf ? Math.abs(Math.sin(nowPerf * 0.014)) * 0.14 : 0;
   pet.body.position.y = (walking ? Math.abs(Math.sin(pet.phase)) * 0.025 : 0) + hopY;
-  const sleeping = !walking && !need && !isPeeing && pet.idleTime > 20 && pet.loveUntil <= nowPerf;
+  const sleeping = !walking && !need && !isPeeing && !isPooping && (pet.idleTime > 20 || (pet.hunger || 0) >= 75) && pet.loveUntil <= nowPerf;
   pet.body.rotation.z = sleeping ? 0.4 : (isPeeing ? -0.14 : 0);
   if (sleeping) pet.body.position.y = -0.12;
   const blink = sleeping || now % 7000 < 160;
   for (const eye of pet.eyes) eye.scale.y = blink ? 0.008 : 0.07;
   for (const glint of pet.glints) glint.visible = !blink;
-  if (!walking && !need && !isPeeing && pet.idleTime > 1.5 && !sleeping) {
-    pet.body.rotation.x = 0.14;
+  if (!walking && !need && !isPeeing && (pet.idleTime > 1.5 || isPooping) && !sleeping) {
+    pet.body.rotation.x = isPooping ? -0.22 : 0.14;
     pet.legs[0].rotation.x = -0.62; pet.legs[2].rotation.x = -0.62;
   } else pet.body.rotation.x = 0;
 
@@ -481,9 +538,11 @@ export function stepPets(ctx, dt) {
   if (pet.moodSprite) {
     let emoji = '';
     if (pet.loveUntil > nowPerf) emoji = '❤️';
+    else if (isPooping) emoji = '💩';
     else if (isPeeing) emoji = '💦';
     else if (need === 'food') emoji = '🍽️';
     else if (need === 'water') emoji = '💧';
+    else if ((pet.hunger || 0) >= 75) emoji = '😢';
     else if (sleeping) emoji = '💤';
     else if (isCurious) emoji = '❓';
     else if (!walking && pet.idleTime > 1.5 && state.mode === 'follow') emoji = '😊';

@@ -35,6 +35,7 @@ import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 import { t } from '../core/i18n.js';
 import { cratePlacementError, findAimedCrate, freeCrateSlot } from './crate-cargo.js';
 import { villageLotAt } from '../core/village-layout.js';
+import { findHoveredHouseAction } from '../world/house-upgrades.js';
 import { appState } from '../core/state.js';
 
 const THREE = window.THREE;
@@ -232,6 +233,8 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredVillageLot = null;
   ctx.hoveredVillageEditor = null;
   ctx.hoveredVillageItem = null;
+  ctx.hoveredHouseAction = null;
+  ctx.hoveredPetBowl = null;
   ctx.hoveredDoorObj = null;
   ctx.hoveredBlindObj = null;
   ctx.hoveredBoardHit = null;
@@ -321,6 +324,12 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (aimAtVillageGuestOrItem(ctx)) return;
+  const hAct = !ctx.heldItem ? findHoveredHouseAction(ctx) : null;
+  if (hAct) {
+    ctx.hoveredHouseAction = hAct;
+    setHoverPrompt(ctx, hAct.label(), true);
+    return;
+  }
   if (resolveHeldItemHover(ctx, rayNdc, {
     intersectPickableItem,
     setHoverPrompt,

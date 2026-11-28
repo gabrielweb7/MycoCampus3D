@@ -1,4 +1,5 @@
 import { buildSnowboardRig } from './vehicles/snowboard.js';
+import { buildSkateboardRig } from './vehicles/skateboard.js';
 import { buildParagliderRig, buildThermalColumns } from './vehicles/paraglider.js';
 
 export function buildFirstPersonArm(ctx) {
@@ -47,6 +48,7 @@ export function buildFirstPersonArm(ctx) {
   });
 
   buildSnowboardRig(ctx);
+  buildSkateboardRig(ctx);
   buildParagliderRig(ctx);
   buildThermalColumns(ctx);
 }

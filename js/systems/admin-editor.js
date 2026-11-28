@@ -43,6 +43,7 @@ import { makeFlocao500g } from '../items/flocao-corn.js';
 import { makeAmpouleCase, makeVial3ml } from '../items/ampoule-case.js';
 import { makeFlowerSeedPacket } from '../world/campus-flowers.js';
 import { makeStarterBeehiveItem, makeBeeBaitItem } from '../entities/bee-ecology.js';
+import { makePetFoodBowl, makePetFoodBag } from '../items/pet-supplies.js';
 import { saveLocalMovedObject } from './world-objects-sync.js';
 import { moveItemWithSupported, dropSupportedItemsToGround } from './surface-group-move.js';
 import { clampPosAgainstWalls, getItemGroundHeight } from '../engine/physics.js';
@@ -247,6 +248,22 @@ export function ensureCoreAdminPrefabs() {
     label: 'Colmeia Inicial (Com Rainha)',
     category: 'gardening',
     factory: (ctx, opts) => makeStarterBeehiveItem(ctx, opts.id || ('dyn_beehive_' + Date.now().toString(36)), opts.x, opts.y, opts.z, opts)
+  });
+
+  registerItemPrefab('pet_food_bowl', {
+    label: 'Potinho de Ração',
+    category: 'supplies',
+    factory: (ctx, opts) => makePetFoodBowl(ctx, opts.id || ('dyn_pet_bowl_' + Date.now().toString(36)), opts.x, opts.y, opts.z)
+  });
+  registerItemPrefab('dog_food_bag', {
+    label: 'Ração para Cachorro (800g)',
+    category: 'supplies',
+    factory: (ctx, opts) => makePetFoodBag(ctx, opts.id || ('dyn_dog_food_' + Date.now().toString(36)), 'dog', opts.x, opts.y, opts.z)
+  });
+  registerItemPrefab('cat_food_bag', {
+    label: 'Ração para Gato (800g)',
+    category: 'supplies',
+    factory: (ctx, opts) => makePetFoodBag(ctx, opts.id || ('dyn_cat_food_' + Date.now().toString(36)), 'cat', opts.x, opts.y, opts.z)
   });
 
   for (const [prefabId, label, category, make] of [

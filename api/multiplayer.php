@@ -299,7 +299,7 @@ if ($action === 'sync') {
         if ($lotId === null) return false;
         return mc_village_can_edit($pdo, $lotId, $userId, $getLot($lotId), $villageNow);
     };
-    $inventory = mp_inventory_sync($pdo, $userId, $sessionKey, $holding, $initSync, $body, $canAccessItem);
+    $inventory = mp_inventory_sync($pdo, $userId, $sessionKey, $holding, $initSync, $body, $canAccessItem, $canEditWorldItem);
     $holding = $inventory['holding'];
     if ($savedPose) $savedPose['holding'] = $holding;
 
@@ -516,7 +516,7 @@ if ($action === 'sync') {
     $standingLot = mc_village_lot_at($x, $z);
     $standingLease = $standingLot !== null ? $getLot($standingLot) : null;
     $manageEditors = $inFps && mc_village_has_lease($standingLease, $userId, $villageNow);
-    $editorIds = $manageEditors ? mc_village_editor_ids($pdo, $standingLot, (int)$standingLease['lease_epoch']) : [];
+    $editorIds = $manageEditors ? mc_village_editor_ids($pdo, $standingLot, (int)$standingLease['lease_epoch'], $userId) : [];
     $guestEditLot = $inFps && !$manageEditors && $standingLot !== null &&
         mc_village_can_edit($pdo, $standingLot, $userId, $standingLease, $villageNow) ? $standingLot : null;
     $pStmt = $pdo->prepare('SELECT p.user_id, p.session_id, p.display_name, u.role, p.hat_color, p.body_color, p.current_hat, p.emote, p.x, p.y, p.z, p.yaw, p.pitch, p.holding_item, p.walking, p.in_fps, p.pet_json, u.current_skin, u.unlocked_skins,

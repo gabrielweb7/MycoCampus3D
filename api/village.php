@@ -8,6 +8,14 @@ require_once __DIR__ . '/inventory.php';
 
 const MC_VILLAGE_DAILY_PRICE = 25;
 const MC_VILLAGE_RENTAL_DAYS = [1, 3, 7];
+const MC_HOUSE_UPGRADE_PRICES = [
+    'house_lights' => 60,
+    'garden_lights' => 80,
+    'blinds' => 50,
+    'front_door' => 75,
+    'back_door' => 110,
+    'second_floor' => 220,
+];
 const MC_VILLAGE_DAY_SECONDS = 86400;
 const MC_VILLAGE_MAX_DAYS = 30;
 
@@ -16,15 +24,22 @@ function mc_village_status(PDO $pdo, int $userId): array {
     $lots = [];
     $rentalQuery = 'SELECT l.lot_id, l.owner_id, l.expires_at, u.display_name FROM mc_village_lots l' .
         ' LEFT JOIN mc_users u ON u.id = l.owner_id WHERE l.lot_id BETWEEN 1 AND 10 ORDER BY l.lot_id';
+    $upgradesMap = [];
+    foreach ($pdo->query('SELECT lot_id, upgrades_json FROM mc_village_upgrades') as $uRow) {
+        $dec = json_decode((string)$uRow['upgrades_json'], true);
+        if (is_array($dec)) $upgradesMap[(int)$uRow['lot_id']] = $dec;
+    }
     foreach ($pdo->query($rentalQuery) as $row) {
+        $id = (int)$row['lot_id'];
         $expires = (int)$row['expires_at'];
         $occupied = $expires > $now && (int)$row['owner_id'] > 0;
         $lots[] = [
-            'id' => (int)$row['lot_id'],
+            'id' => $id,
             'occupied' => $occupied,
             'mine' => $occupied && (int)$row['owner_id'] === $userId,
             'expires_at' => $occupied ? $expires : 0,
             'tenant_name' => $occupied ? $row['display_name'] : null,
+            'upgrades' => $occupied ? ($upgradesMap[$id] ?? new stdClass()) : new stdClass(),
         ];
     }
     $storage = $pdo->prepare('SELECT w.item_id, w.prefab_id, w.label FROM mc_world_layout_edits w' . MC_VILLAGE_ITEM_JOINS .
@@ -104,9 +119,11 @@ if ($action === 'set_editor' || $action === 'move_as_editor') {
                 mc_json(['ok' => false], 403);
             }
             if ($allowed) {
+                $pdo->prepare('INSERT IGNORE INTO mc_village_trusted (owner_id, guest_id) VALUES (?, ?)')->execute([$userId, $guest]);
                 $pdo->prepare('INSERT INTO mc_village_editors (lot_id, user_id, lease_epoch) VALUES (?, ?, ?)
                     ON DUPLICATE KEY UPDATE lease_epoch=VALUES(lease_epoch)')->execute([$lotId, $guest, (int)$lot['lease_epoch']]);
             } else {
+                $pdo->prepare('DELETE FROM mc_village_trusted WHERE owner_id=? AND guest_id=?')->execute([$userId, $guest]);
                 $pdo->prepare('DELETE FROM mc_village_editors WHERE lot_id=? AND user_id=? AND lease_epoch=?')
                     ->execute([$lotId, $guest, (int)$lot['lease_epoch']]);
             }
@@ -182,6 +199,49 @@ if ($action === 'withdraw') {
         mc_json(['ok' => false, 'error' => $error->getMessage()], 409);
     }
 }
+if ($action === 'buy_upgrade') {
+    $lotId = filter_var($body['lot_id'] ?? null, FILTER_VALIDATE_INT);
+    $upgradeId = (string)($body['upgrade_id'] ?? '');
+    if (!$lotId || $lotId < 1 || $lotId > 10 || !isset(MC_HOUSE_UPGRADE_PRICES[$upgradeId])) {
+        mc_json(['ok' => false, 'error' => 'Melhoria inválida.'], 400);
+    }
+    $price = MC_HOUSE_UPGRADE_PRICES[$upgradeId];
+    $pdo->beginTransaction();
+    try {
+        $now = time();
+        $lot = mc_village_read_lot($pdo, $lotId);
+        if (!mc_village_has_lease($lot, $userId, $now)) {
+            $pdo->rollBack();
+            mc_json(['ok' => false, 'error' => 'Apenas o dono do terreno pode comprar melhorias.'], 403);
+        }
+        $uq = $pdo->prepare('SELECT upgrades_json FROM mc_village_upgrades WHERE lot_id = ? FOR UPDATE');
+        $uq->execute([$lotId]);
+        $cur = json_decode((string)($uq->fetchColumn() ?: '{}'), true);
+        if (!is_array($cur)) $cur = [];
+        if (!empty($cur[$upgradeId])) {
+            $pdo->rollBack();
+            mc_json(['ok' => true, 'already' => true, 'upgrades' => $cur]);
+        }
+        $acc = $pdo->prepare('SELECT myco_coins FROM mc_users WHERE id = ? FOR UPDATE');
+        $acc->execute([$userId]);
+        $coins = (int)$acc->fetchColumn();
+        if ($coins < $price) {
+            $pdo->rollBack();
+            mc_json(['ok' => false, 'error' => 'MycoCoins insuficientes.'], 409);
+        }
+        $pdo->prepare('UPDATE mc_users SET myco_coins = myco_coins - ? WHERE id = ?')->execute([$price, $userId]);
+        $cur[$upgradeId] = true;
+        $json = json_encode($cur);
+        $pdo->prepare('INSERT INTO mc_village_upgrades (lot_id, upgrades_json) VALUES (?, ?) ON DUPLICATE KEY UPDATE upgrades_json = VALUES(upgrades_json)')
+            ->execute([$lotId, $json]);
+        $pdo->commit();
+        mc_json(['ok' => true, 'myco_coins' => $coins - $price, 'upgrades' => $cur] + mc_village_status($pdo, $userId));
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        mc_json(['ok' => false, 'error' => 'Erro ao comprar melhoria.'], 500);
+    }
+}
+
 if ($action !== 'rent') {
     mc_json(['ok' => false, 'error' => 'Ação desconhecida.'], 404);
 }

@@ -29,7 +29,8 @@ function mp_inventory_lock(PDO $pdo): void {
 }
 
 /** A single transaction covers reservations, carried poses and item writes. */
-function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $holding, bool $initial, array $body, callable $canAccessItem): array {
+function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $holding, bool $initial, array $body, callable $canAccessItem, ?callable $canHoldItem = null): array {
+    $canHold = $canHoldItem ?? $canAccessItem;
     $fetch = $pdo->prepare('SELECT session_id, active_slot, operation_id, operation_result FROM mc_inventory_control WHERE user_id = ?');
     $fetch->execute([$userId]);
     $control = $fetch->fetch();
@@ -66,7 +67,7 @@ function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $ho
     if ($owner && ($initial || $replay) && $slots[$active] !== null) $holding = $slots[$active];
     if ($replay && $control['operation_result'] === 'ok') $holding = $slots[$active] ?? '';
     $conflict = $holding !== '' && (
-        !$canAccessItem($holding) || (isset($reservations[$holding]) && $reservations[$holding] !== $userId) || isset($otherHeld[$holding])
+        !$canHold($holding) || (isset($reservations[$holding]) && $reservations[$holding] !== $userId) || isset($otherHeld[$holding])
     );
     if ($conflict) $holding = '';
 
@@ -81,6 +82,7 @@ function mp_inventory_sync(PDO $pdo, int $userId, string $sessionKey, string $ho
         $target = $op['slot'] ?? null;
         $result = !is_int($target) || $target < 0 || $target > 2 || $target === $active ? 'slot' : '';
         if ($conflict || ($op['held'] ?? null) !== $holding) $result = 'busy';
+        if ($holding !== '' && $result === '' && !$canAccessItem($holding)) $result = 'lot';
         $kind = $holding !== '' && $result === '' ? mp_inventory_kind($pdo, $holding) : '';
         if ($holding !== '' && $result === '' && $kind === '') $result = 'large';
 

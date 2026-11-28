@@ -24,7 +24,7 @@ export function stepPlayerMovement(ctx, dt, now) {
   let groundY = getGroundHeight(ctx.physCtx, ctx.playerPos.x, ctx.playerPos.z, ctx.playerPos.y);
   ctx.onGround = (ctx.playerPos.y <= groundY + 0.06 && ctx.playerVelY <= 0.05);
 
-  if (ctx.snowboardActive) {
+  if (ctx.snowboardActive || ctx.skateboardActive) {
     if (ctx.seatedSeat) ctx.seatedSeat = null;
     const fwdX = -Math.sin(ctx.playerYaw), fwdZ = -Math.cos(ctx.playerYaw);
     const rightX = Math.cos(ctx.playerYaw), rightZ = -Math.sin(ctx.playerYaw);
@@ -110,7 +110,7 @@ export function stepPlayerMovement(ctx, dt, now) {
     if (mag > 0.08) {
       if (ctx.seatedSeat) ctx.seatedSeat = null;
       const isSprinting = !!(ctx.keys['ShiftLeft'] || ctx.keys['ShiftRight'] || ctx.mobileSprint);
-      const isCrouching = !ctx.seatedSeat && !ctx.paragliderActive && !ctx.snowboardActive &&
+      const isCrouching = !ctx.seatedSeat && !ctx.paragliderActive && !(ctx.snowboardActive || ctx.skateboardActive) &&
         !!(ctx.keys['ControlLeft'] || ctx.keys['ControlRight'] || ctx.keys['KeyC'] || ctx.mobileCrouch);
       let maxSpeed = (isSprinting ? P.sprintSpeed : P.walkSpeed) * (window.getTripSpeedMultiplier ? window.getTripSpeedMultiplier() : 1);
       if (isCrouching) maxSpeed *= 0.55;
@@ -140,7 +140,7 @@ export function stepPlayerMovement(ctx, dt, now) {
   }
 
   const speedNow = Math.hypot(ctx.playerVelX, ctx.playerVelZ);
-  ctx.isWalking = !ctx.snowboardActive && !(ctx.paragliderActive && !ctx.onGround) && speedNow > 0.2;
+  ctx.isWalking = !(ctx.snowboardActive || ctx.skateboardActive) && !(ctx.paragliderActive && !ctx.onGround) && speedNow > 0.2;
   groundY = getGroundHeight(ctx.physCtx, ctx.playerPos.x, ctx.playerPos.z, ctx.playerPos.y);
 
   // Correntes termicas
@@ -186,26 +186,26 @@ export function stepPlayerMovement(ctx, dt, now) {
   const wantsJump = !isCrawlingUmbral && ((now <= ctx.jumpBufferUntil) || ctx.keys['Space'] || ctx.jumpHeld);
   if (wantsJump && (ctx.onGround || (now - ctx.lastGroundedAt < P.coyoteTimeMs && ctx.playerVelY <= 0))) {
     if (ctx.seatedSeat) ctx.seatedSeat = null;
-    ctx.playerVelY = ctx.paragliderActive ? P.paragliderJumpVelocity : (ctx.snowboardActive ? P.snowboardJumpVelocity : P.jumpVelocity);
+    ctx.playerVelY = ctx.paragliderActive ? P.paragliderJumpVelocity : ((ctx.snowboardActive || ctx.skateboardActive) ? P.snowboardJumpVelocity : P.jumpVelocity);
     ctx.onGround = false;
     ctx.lastGroundedAt = 0;
     ctx.jumpBufferUntil = 0;
   }
 
   let bobY = 0;
-  if (!ctx.snowboardActive && !(ctx.paragliderActive && !ctx.onGround) && ctx.onGround && speedNow > 0.25) {
+  if (!(ctx.snowboardActive || ctx.skateboardActive) && !(ctx.paragliderActive && !ctx.onGround) && ctx.onGround && speedNow > 0.25) {
     ctx.walkBobPhase += dt * (4.5 + speedNow * 1.4);
     bobY = Math.sin(ctx.walkBobPhase) * 0.028 * Math.min(1, speedNow / 3.8);
   }
   // Agachamento suave em primeira pessoa (Ctrl ou KeyC)
   if (ctx.crouchProgress === undefined) ctx.crouchProgress = 0;
-  const isCrouchingNow = !ctx.seatedSeat && !ctx.paragliderActive && !ctx.snowboardActive &&
+  const isCrouchingNow = !ctx.seatedSeat && !ctx.paragliderActive && !(ctx.snowboardActive || ctx.skateboardActive) &&
     !!(ctx.keys['ControlLeft'] || ctx.keys['ControlRight'] || ctx.keys['KeyC'] || ctx.mobileCrouch);
   const targetCrouch = isCrouchingNow ? 1 : 0;
   ctx.crouchProgress += (targetCrouch - ctx.crouchProgress) * Math.min(1, dt * 9.5);
   const crouchDrop = ctx.crouchProgress * 0.76;
 
-  const baseEyeH = ctx.seatedSeat ? P.seatedEyeHeight : (ctx.snowboardActive ? P.snowboardEyeHeight : P.eyeHeight);
+  const baseEyeH = ctx.seatedSeat ? P.seatedEyeHeight : ((ctx.snowboardActive || ctx.skateboardActive) ? P.snowboardEyeHeight : P.eyeHeight);
   const eyeH = isCrawlingUmbral ? 0.34 : (baseEyeH - crouchDrop);
   if (ctx.seatedSeat) {
     ctx.playerPos.set(ctx.seatedSeat.x, ctx.seatedSeat.y, ctx.seatedSeat.z);
@@ -219,6 +219,16 @@ export function stepPlayerMovement(ctx, dt, now) {
       ctx.snowboardGroup.rotation.y = ctx.playerYaw;
       ctx.snowboardGroup.rotation.x = ctx.snowboardPitch;
       ctx.snowboardGroup.rotation.z = ctx.snowboardRoll;
+    }
+  }
+  if (ctx.skateboardGroup) {
+    ctx.skateboardGroup.visible = ctx.skateboardActive && ctx.inFps;
+    if (ctx.skateboardGroup.visible) {
+      ctx.skateboardGroup.position.set(ctx.playerPos.x, ctx.playerPos.y + 0.02, ctx.playerPos.z);
+      ctx.skateboardGroup.rotation.order = 'YXZ';
+      ctx.skateboardGroup.rotation.y = ctx.playerYaw;
+      ctx.skateboardGroup.rotation.x = ctx.snowboardPitch;
+      ctx.skateboardGroup.rotation.z = ctx.snowboardRoll;
     }
   }
   if (ctx.roundParachuteGroup) {
@@ -242,7 +252,7 @@ export function stepPlayerMovement(ctx, dt, now) {
   ctx.camera.up.set(0, 1, 0);
   ctx.camera.rotation.order = 'YXZ';
   ctx.camera.rotation.y = ctx.playerYaw;
-  const sbSlopePitch = ctx.snowboardActive ? Math.max(-0.38, Math.min(0.28, ctx.snowboardPitch * 0.55)) : 0;
+  const sbSlopePitch = (ctx.snowboardActive || ctx.skateboardActive) ? Math.max(-0.38, Math.min(0.28, ctx.snowboardPitch * 0.55)) : 0;
   ctx.camera.rotation.x = ctx.playerPitch + sbSlopePitch;
   const tCam = ctx.clock ? ctx.clock.elapsedTime : now * 0.001;
   const umbralSway = isCrawlingUmbral
@@ -250,7 +260,7 @@ export function stepPlayerMovement(ctx, dt, now) {
     : ((typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive())
       ? Math.sin(tCam * 2.2) * 0.085
       : 0);
-  ctx.camera.rotation.z = umbralSway + (ctx.snowboardActive ? ctx.snowboardRoll * 0.65 : ((ctx.paragliderActive && !ctx.onGround) ? ctx.paragliderRoll * 0.45 : 0));
+  ctx.camera.rotation.z = umbralSway + ((ctx.snowboardActive || ctx.skateboardActive) ? ctx.snowboardRoll * 0.65 : ((ctx.paragliderActive && !ctx.onGround) ? ctx.paragliderRoll * 0.45 : 0));
 
   // Bracos em 1a pessoa
   const heldData = ctx.heldItem?.mesh.userData;
@@ -260,7 +270,7 @@ export function stepPlayerMovement(ctx, dt, now) {
     if (ctx.paragliderActive && !ctx.onGround) {
       ctx.fpsArmGroup.position.set(0.32, 0.06, -0.34);
       ctx.fpsArmGroup.rotation.set(0.85, -0.10, -0.15);
-    } else if (ctx.snowboardActive) {
+    } else if ((ctx.snowboardActive || ctx.skateboardActive)) {
       ctx.fpsArmGroup.position.set(0.42, -0.22, -0.34);
       ctx.fpsArmGroup.rotation.set(0.10, -0.45, -0.25);
     } else {
@@ -277,11 +287,11 @@ export function stepPlayerMovement(ctx, dt, now) {
     }
   }
   if (ctx.fpsLeftArmGroup) {
-    ctx.fpsLeftArmGroup.visible = isTwoHanded || (ctx.paragliderActive && !ctx.onGround) || ctx.snowboardActive;
+    ctx.fpsLeftArmGroup.visible = isTwoHanded || (ctx.paragliderActive && !ctx.onGround) || (ctx.snowboardActive || ctx.skateboardActive);
     if (ctx.paragliderActive && !ctx.onGround) {
       ctx.fpsLeftArmGroup.position.set(-0.32, 0.06, -0.34);
       ctx.fpsLeftArmGroup.rotation.set(0.85, 0.10, 0.15);
-    } else if (ctx.snowboardActive) {
+    } else if ((ctx.snowboardActive || ctx.skateboardActive)) {
       ctx.fpsLeftArmGroup.position.set(-0.42, -0.22, -0.34);
       ctx.fpsLeftArmGroup.rotation.set(0.10, 0.45, 0.25);
     } else if (isTwoHanded) {

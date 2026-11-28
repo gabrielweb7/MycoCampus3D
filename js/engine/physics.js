@@ -45,6 +45,7 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
 
   for (let f = 0; f < walkableFloors.length; f++) {
     const fl = walkableFloors[f];
+    if (fl._disabled) continue;
     if (x >= fl.minX && x <= fl.maxX && z >= fl.minZ && z <= fl.maxZ) {
       if (curY >= fl.topY - 1.1) h = Math.max(h, fl.topY);
     }

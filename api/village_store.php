@@ -20,14 +20,27 @@ function mc_village_has_lease(?array $lot, int $userId, int $now): bool {
     return $lot && (int)$lot['owner_id'] === $userId && (int)$lot['expires_at'] > $now;
 }
 
-function mc_village_editor_ids(PDO $pdo, int $lotId, int $epoch): array {
+function mc_village_editor_ids(PDO $pdo, int $lotId, int $epoch, ?int $ownerId = null): array {
+    $ids = [];
+    if ($ownerId !== null && $ownerId > 0) {
+        $tq = $pdo->prepare('SELECT guest_id FROM mc_village_trusted WHERE owner_id = ?');
+        $tq->execute([$ownerId]);
+        foreach ($tq->fetchAll(PDO::FETCH_COLUMN) as $gid) $ids[(int)$gid] = true;
+    }
     $query = $pdo->prepare('SELECT user_id FROM mc_village_editors WHERE lot_id = ? AND lease_epoch = ?');
     $query->execute([$lotId, $epoch]);
-    return array_fill_keys($query->fetchAll(PDO::FETCH_COLUMN), true);
+    foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $uid) $ids[(int)$uid] = true;
+    return $ids;
 }
 
 function mc_village_can_edit(PDO $pdo, int $lotId, int $userId, ?array $lot, int $now): bool {
     if (!$lot || (int)$lot['expires_at'] <= $now) return false;
+    $ownerId = (int)($lot['owner_id'] ?? 0);
+    if ($ownerId > 0) {
+        $tq = $pdo->prepare('SELECT 1 FROM mc_village_trusted WHERE owner_id = ? AND guest_id = ?');
+        $tq->execute([$ownerId, $userId]);
+        if ($tq->fetchColumn()) return true;
+    }
     $query = $pdo->prepare('SELECT 1 FROM mc_village_editors WHERE lot_id = ? AND user_id = ? AND lease_epoch = ?');
     $query->execute([$lotId, $userId, (int)$lot['lease_epoch']]);
     return (bool)$query->fetchColumn();

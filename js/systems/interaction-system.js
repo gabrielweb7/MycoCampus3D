@@ -247,6 +247,10 @@ export function dropHeldItem(ctx) {
 
 export function handlePrimaryAction(ctx, aimNdc) {
   if (ctx.inventory?.pending) return false;
+  if (!ctx.heldItem && ctx.hoveredHouseAction) {
+    ctx.hoveredHouseAction.run();
+    return true;
+  }
   if (ctx.heldItem) {
     if (performance.now() - ctx.lastPickupAt < 140) return;
     if (ctx.placementMode) {
@@ -764,6 +768,24 @@ export function handlePrimaryAction(ctx, aimNdc) {
         startJarVol: (tgt.item && tgt.item.mesh && tgt.item.mesh.userData.liquidCtrl) ? tgt.item.mesh.userData.liquidCtrl.volMl : 0
       };
       return;
+    }
+    if (ctx.hoveredPetBowl && ctx.heldItem?.petFoodBagCtrl) {
+      const bag = ctx.heldItem.petFoodBagCtrl;
+      const bw = ctx.hoveredPetBowl.petBowlCtrl;
+      const space = bw.maxGrams - bw.grams;
+      if (bag.grams > 0 && space > 0) {
+        const dose = Math.min(100, bag.grams, space);
+        bag.grams -= dose;
+        bw.grams += dose;
+        bag.updateVisual?.();
+        bw.updateVisual?.();
+        window.MycoAudio?.playClick?.();
+        ctx.queueItemStateSync?.(ctx.heldItem);
+        ctx.queueItemStateSync?.(ctx.hoveredPetBowl);
+        ctx.callbacks?.onToast?.(`🥣 Colocou ${Math.round(dose)}g de ração no potinho!`);
+        ctx.notifyWorldAction();
+      }
+      return true;
     }
     if (ctx.hoveredSink) {
       if (ctx.hoveredSinkAction === 'drain') {

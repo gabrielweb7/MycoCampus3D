@@ -1,6 +1,7 @@
 import { VILLAGE_ENTRY, VILLAGE_LOTS } from '../core/village-layout.js';
 import { getLanguage } from '../core/i18n.js';
 import { appState } from '../core/state.js';
+import { applyVillageUpgrades } from '../world/house-upgrades.js';
 import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
 import { pendingCoinOperations } from '../services/coin-outbox.js';
@@ -186,6 +187,7 @@ export function renderVillageRentals(grid, back, focusLot = null) {
       const result = await apiPost('api/village.php?action=status', {}, true);
       if (!panel.isConnected || appState.currentUser?.id !== userId) return;
       if (!result?.ok) throw new Error('status');
+      if (Array.isArray(result.lots)) applyVillageUpgrades(result.lots);
       info.textContent = '';
       heading.hidden = false;
       const pending = readPendingRental(userId);

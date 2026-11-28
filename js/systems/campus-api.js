@@ -221,10 +221,25 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
 
   window.setCampusSnowboard = function (active) {
     sim.snowboardActive = !!active;
+    if (sim.snowboardActive) {
+      sim.skateboardActive = false;
+      if (sim.skateboardGroup) sim.skateboardGroup.visible = false;
+    }
     if (!sim.snowboardActive && sim.snowboardGroup) sim.snowboardGroup.visible = false;
   };
 
   window.isCampusSnowboardActive = function () { return sim.snowboardActive; };
+
+  window.setCampusSkateboard = function (active) {
+    sim.skateboardActive = !!active;
+    if (sim.skateboardActive) {
+      sim.snowboardActive = false;
+      if (sim.snowboardGroup) sim.snowboardGroup.visible = false;
+    }
+    if (!sim.skateboardActive && sim.skateboardGroup) sim.skateboardGroup.visible = false;
+  };
+
+  window.isCampusSkateboardActive = function () { return sim.skateboardActive; };
 
   window.setCampusParaglider = function (active) {
     sim.paragliderActive = !!active;

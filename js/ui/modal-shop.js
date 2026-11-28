@@ -24,6 +24,7 @@ export const COSMETIC_HATS = [
 ];
 
 export const COSMETIC_TOYS = [
+  { id: 'skateboard', name: 'Skate MycoStreet', desc: 'Deslize pelo campus e estradas no estilo!', req_xp: 60, req_mushrooms: 1, price_coins: 90, icon: '🛹', img: 'assets/items/skateboard.jpg' },
   { id: 'snowboard', name: 'Snowboard Pro MycoRide', desc: 'Desça as montanhas com física real, carving e visão nos pés! (Atalho: B)', req_xp: 100, req_mushrooms: 2, price_coins: 120, icon: '🏂' },
   { id: 'paraglider', name: 'Paraglider MycoWing', desc: 'Salte das montanhas, pegue correntes térmicas e voe pelo campus! (Atalho: P)', req_xp: 150, req_mushrooms: 3, price_coins: 240, icon: '🪂' }
 ];
@@ -50,6 +51,9 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_flower_seeds', prefabId: 'flower_seeds', name: 'Sementes de Flor (5 un.)', desc: 'Plante flores na grama para alimentar abelhas e gerar mel natural.', price_coins: 25, icon: '🌸' },
   { id: 'sup_bee_bait', prefabId: 'bee_bait', name: 'Isca de Abelhas (Mel & Néctar)', desc: 'Coloque ao ar livre perto de flores para atrair um novo enxame para árvores ou beirais.', price_coins: 75, icon: '🍯' },
   { id: 'sup_beehive', prefabId: 'beehive_starter', name: 'Colmeia Inicial (Com Rainha)', desc: 'Coloque no chão perto de uma árvore ou casa: a Rainha e as abelhas migram logo para o alto.', price_coins: 180, icon: '🐝' },
+  { id: 'sup_pet_bowl', prefabId: 'pet_food_bowl', name: 'Potinho de Ração', desc: 'Tigela móvel para colocar onde quiser e alimentar seu pet.', price_coins: 45, icon: '🥣', img: 'assets/items/pet_bowl.jpg' },
+  { id: 'sup_dog_food', prefabId: 'dog_food_bag', name: 'Ração para Cachorro (800g)', desc: 'Despeje no potinho para alimentar seu cachorro.', price_coins: 30, icon: '🦴', img: 'assets/items/dog_food_bag.jpg' },
+  { id: 'sup_cat_food', prefabId: 'cat_food_bag', name: 'Ração para Gato (800g)', desc: 'Despeje no potinho para alimentar seu gato.', price_coins: 30, icon: '🐟', img: 'assets/items/cat_food_bag.jpg' },
   { id: 'sup_monotub', prefabId: 'monotub_24l', name: 'Caixa Monotub 24L', desc: 'Expanda sua produção com frutificação em massa.', price_coins: 260, icon: '📦' },
   { id: 'sup_dehydrator', prefabId: 'dehydrator', name: 'Desidratadora de Cogumelos', desc: 'Seque mais lotes simultâneos até 0% umidade.', price_coins: 380, icon: '♨️' },
   { id: 'sup_table', prefabId: 'table_stainless', name: 'Bancada Inox (1.6m)', desc: 'Mesa móvel adicional para ampliar seu laboratório.', price_coins: 320, icon: '🛠️' },
@@ -99,7 +103,7 @@ export const SHOP_SUPPLY_CATEGORIES = [
   { id: 'lab', label: 'Laboratório', icon: '🧪', ids: ['sup_petri', 'sup_syringe', 'sup_lc', 'sup_ampoule_case'] },
   { id: 'hygiene', label: 'Higiene & Mofo', icon: '🧴', ids: ['sup_spray', 'sup_water_spray', 'sup_h2o2'] },
   { id: 'equipment', label: 'Equipamentos', icon: '⚙️', ids: [] },
-  { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust', 'sup_flower_seeds', 'sup_bee_bait', 'sup_beehive'] },
+  { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust', 'sup_flower_seeds', 'sup_bee_bait', 'sup_beehive', 'sup_pet_bowl', 'sup_dog_food', 'sup_cat_food'] },
   { id: 'post', label: 'Pós-colheita', icon: '📦', ids: ['sup_dehydrator', 'sup_silica', 'sup_mylar', 'sup_crate'] },
   { id: 'furniture', label: 'Bancadas', icon: '🛠️', ids: ['sup_table'] }
 ];
@@ -120,6 +124,20 @@ const coinsTxt = (n) => t('ui.shop.coins', { n });
 function toast3D(msg) {
   if (window.showCampusToast) window.showCampusToast(msg);
 }
+
+window.toggleCampusSkateboard = function () {
+  const unlocked = (appState.currentUser && appState.currentUser.unlocked_hats) || [];
+  if (unlocked.indexOf('skateboard') === -1) {
+    toast3D('Desbloqueie o Skate na Loja primeiro!');
+    return;
+  }
+  const next = !(window.isCampusSkateboardActive && window.isCampusSkateboardActive());
+  if (next && window.setCampusParaglider) window.setCampusParaglider(false);
+  if (window.setCampusSkateboard) window.setCampusSkateboard(next);
+  if (window.syncCampusUserProgress) window.syncCampusUserProgress({ equipped_toy: next ? 'skateboard' : '' });
+  if (window.MycoAudio) window.MycoAudio.playClick();
+  toast3D(next ? '🛹 Skate equipado!' : '🛹 Skate guardado.');
+};
 
 window.toggleCampusSnowboard = function () {
   const unlocked = (appState.currentUser && appState.currentUser.unlocked_hats) || [];
@@ -274,7 +292,12 @@ function renderSupplies(grid, userCoins, userXp, userMush, scrollTop) {
     card.className = 'shop-product';
     card.dataset.supplyId = supply.id;
     card.innerHTML = '<div class="shop-product-head"><span class="shop-product-icon" aria-hidden="true"></span><h4></h4></div><p></p>';
-    card.querySelector('.shop-product-icon').textContent = supply.icon;
+    const iconSlot = card.querySelector('.shop-product-icon');
+    if (supply.img) {
+      iconSlot.innerHTML = `<img src="${supply.img}" alt="${escapeHtml(supply.name)}" class="w-9 h-9 object-cover rounded-lg">`;
+    } else {
+      iconSlot.textContent = supply.icon;
+    }
     card.querySelector('h4').textContent = nm('sup', supply, 'name');
     card.querySelector('p').textContent = nm('sup', supply, 'desc');
 
@@ -371,6 +394,7 @@ export function renderShopModal() {
   const userMush = user ? (user.mushrooms_harvested || 0) : 0;
   const unlocked = (user && user.unlocked_hats) || ['default'];
   const currentHat = (user && user.current_hat) || 'default';
+  const skateboardOn = !!(window.isCampusSkateboardActive && window.isCampusSkateboardActive());
   const snowboardOn = !!(window.isCampusSnowboardActive && window.isCampusSnowboardActive());
   const paragliderOn = !!(window.isCampusParagliderActive && window.isCampusParagliderActive());
 
@@ -421,7 +445,7 @@ export function renderShopModal() {
   list.forEach((item) => {
     const isToy = activeShopTab === 'toys';
     const kindKey = isToy ? 'toy' : 'hat';
-    const isEquipped = isToy ? (item.id === 'paraglider' ? paragliderOn : snowboardOn) : (currentHat === item.id);
+    const isEquipped = isToy ? (item.id === 'paraglider' ? paragliderOn : (item.id === 'skateboard' ? skateboardOn : snowboardOn)) : (currentHat === item.id);
     const isUnlocked = unlocked.indexOf(item.id) !== -1 || coinUnlocked.indexOf(item.id) !== -1 || (!isToy && item.id === 'default');
     const canUnlockByXp = userXp >= item.req_xp && userMush >= item.req_mushrooms;
     const canUnlockByCoins = (item.price_coins || 0) > 0 && userCoins >= item.price_coins;
@@ -435,7 +459,9 @@ export function renderShopModal() {
     top.className = 'space-y-1.5';
     top.innerHTML =
       `<div class="flex items-center gap-2">` +
-        `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">${item.icon}</span>` +
+        (item.img
+          ? `<img src="${item.img}" alt="${escapeHtml(item.name)}" class="w-10 h-10 object-cover rounded-lg bg-slate-800/80 border border-slate-700/60 shrink-0">`
+          : `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">${item.icon}</span>`) +
         `<div>` +
           `<div class="font-bold text-white text-xs">${escapeHtml(nm(kindKey, item, 'name'))}</div>` +
           `<div class="text-[11px] text-slate-400">${escapeHtml(nm(kindKey, item, 'desc'))}</div>` +
@@ -454,13 +480,16 @@ export function renderShopModal() {
     if (isEquipped) {
       const unequipBtn = document.createElement('button');
       unequipBtn.className = 'w-full py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white font-bold text-xs shadow-sm transition';
-      unequipBtn.textContent = isToy ? t('ui.shop.deactivate', { name: t(item.id === 'paraglider' ? 'ui.shop.name.paraglider' : 'ui.shop.name.snowboard') }) : t('ui.shop.deactivateHat');
+      unequipBtn.textContent = isToy ? t('ui.shop.deactivate', { name: item.id === 'skateboard' ? 'Skate' : t(item.id === 'paraglider' ? 'ui.shop.name.paraglider' : 'ui.shop.name.snowboard') }) : t('ui.shop.deactivateHat');
       unequipBtn.onclick = async () => {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (isToy) {
           if (item.id === 'paraglider') {
             if (window.setCampusParaglider) window.setCampusParaglider(false);
             toast3D(t('ui.shop.paragliderOff'));
+          } else if (item.id === 'skateboard') {
+            if (window.setCampusSkateboard) window.setCampusSkateboard(false);
+            toast3D('🛹 Skate guardado.');
           } else {
             if (window.setCampusSnowboard) window.setCampusSnowboard(false);
             if (window.setCampusParaglider) window.setCampusParaglider(false);
@@ -484,14 +513,19 @@ export function renderShopModal() {
     } else if (isUnlocked) {
       const equipBtn = document.createElement('button');
       equipBtn.className = 'w-full py-1.5 rounded-lg ' + (isToy ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-purple-600 hover:bg-purple-500') + ' text-white font-bold text-xs shadow transition';
-      equipBtn.textContent = isToy ? (item.id === 'paraglider' ? t('ui.shop.activateParaglider') : t('ui.shop.activateSnowboard')) : t('ui.shop.equip');
+      equipBtn.textContent = isToy ? (item.id === 'paraglider' ? t('ui.shop.activateParaglider') : (item.id === 'skateboard' ? '🛹 Ativar Skate' : t('ui.shop.activateSnowboard'))) : t('ui.shop.equip');
       equipBtn.onclick = async () => {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (isToy) {
           if (item.id === 'paraglider') {
             if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+            if (window.setCampusSkateboard) window.setCampusSkateboard(false);
             if (window.setCampusParaglider) window.setCampusParaglider(true);
             toast3D(t('ui.shop.paragliderEquipped'));
+          } else if (item.id === 'skateboard') {
+            if (window.setCampusParaglider) window.setCampusParaglider(false);
+            if (window.setCampusSkateboard) window.setCampusSkateboard(true);
+            toast3D('🛹 Skate equipado!');
           } else {
             if (window.setCampusParaglider) window.setCampusParaglider(false);
             if (window.setCampusSnowboard) window.setCampusSnowboard(true);

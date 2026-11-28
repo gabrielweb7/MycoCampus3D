@@ -361,6 +361,13 @@ export function showItemStatusCard(item, ctx) {
     });
   }
 
+  if (item.petBowlCtrl) {
+    chips.push({ icon: '🥣', text: `Ração: ${Math.round(item.petBowlCtrl.grams)} / ${item.petBowlCtrl.maxGrams} g`, color: item.petBowlCtrl.grams > 0 ? 'bg-teal-500/20 text-teal-300 border-teal-500/30' : 'bg-slate-700/60 text-slate-300 border-slate-600/40' });
+  }
+  if (item.petFoodBagCtrl) {
+    chips.push({ icon: item.petFoodBagCtrl.species === 'cat' ? '🐟' : '🦴', text: `Restante: ${Math.round(item.petFoodBagCtrl.grams)} / ${item.petFoodBagCtrl.maxGrams} g`, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+  }
+
   const sp = item.spawnCtrl;
   if (sp) {
     if (sp.isPP5) {
@@ -1503,6 +1510,15 @@ export function assignActionShortcuts(actions) {
 
 export function getFloatingActionsPreview(ctx) {
   if (!ctx) return [];
+  if (!ctx.heldItem && ctx.hoveredHouseAction) {
+    const hAct = ctx.hoveredHouseAction;
+    return assignActionShortcuts([{
+      id: 'house_act_' + hAct.label(),
+      key: 'F', primary: true, icon: '🏡',
+      label: hAct.label(),
+      run: () => hAct.run()
+    }]);
+  }
   const guest = ctx.hoveredVillageEditor;
   if (!ctx.heldItem && guest?.villageEditor) {
     const editor = guest.villageEditor;

@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 19;
+const MC_SCHEMA_VERSION = 21;
 const MC_TOKEN_TTL_DAYS = 30;
 const MC_PETS = ['cat_orange', 'cat_black', 'cat_calico', 'dog_golden', 'dog_husky', 'dog_pug'];
 
@@ -79,6 +79,12 @@ function mc_migrate(PDO $pdo): void {
 
     if ($version < MC_SCHEMA_VERSION) {
         mc_run_schema_file($pdo);
+        if ($version < 21) {
+            $pdo->query('SELECT lot_id, upgrades_json FROM mc_village_upgrades LIMIT 0');
+        }
+        if ($version < 20) {
+            $pdo->query('SELECT owner_id, guest_id FROM mc_village_trusted LIMIT 0');
+        }
         if ($version < 19) {
             $pdo->query('SELECT lot_id, user_id, lease_epoch FROM mc_village_editors LIMIT 0');
         }

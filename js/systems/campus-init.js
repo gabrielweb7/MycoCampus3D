@@ -153,6 +153,8 @@ const sim = {
   fpsSleeveMat: null,
   snowboardActive: false,
   snowboardGroup: null,
+  skateboardActive: false,
+  skateboardGroup: null,
   snowboardRoll: 0,
   snowboardPitch: 0,
   paragliderActive: false,
@@ -475,6 +477,8 @@ sim.entityCtx = {
   setHeldRotY: function (v) { sim.heldRotY = v; },
   getSnowboardGroup: function () { return sim.snowboardGroup; },
   setSnowboardGroup: function (v) { sim.snowboardGroup = v; },
+  getSkateboardGroup: function () { return sim.skateboardGroup; },
+  setSkateboardGroup: function (v) { sim.skateboardGroup = v; },
   getParagliderGroup: function () { return sim.paragliderGroup; },
   setParagliderGroup: function (v) { sim.paragliderGroup = v; },
   setFpsArmRefs: function (r) {

@@ -6,13 +6,13 @@
 const THREE = (typeof window !== 'undefined' ? window.THREE : null) || globalThis.THREE || null;
 const _ColorCtor = THREE && THREE.Color ? THREE.Color : null;
 
-const _cTopDay = _ColorCtor ? new _ColorCtor(0x2f56c8) : null;
-const _cTopSunset = _ColorCtor ? new _ColorCtor(0x63258a) : null;
-const _cTopNight = _ColorCtor ? new _ColorCtor(0x090522) : null;
+const _cTopDay = _ColorCtor ? new _ColorCtor(0x1e64c8) : null;
+const _cTopSunset = _ColorCtor ? new _ColorCtor(0x4c2478) : null;
+const _cTopNight = _ColorCtor ? new _ColorCtor(0x04071d) : null;
 
-const _cHorDay = _ColorCtor ? new _ColorCtor(0x7cd6ea) : null;
-const _cHorSunset = _ColorCtor ? new _ColorCtor(0xf47f6b) : null;
-const _cHorNight = _ColorCtor ? new _ColorCtor(0x31145a) : null;
+const _cHorDay = _ColorCtor ? new _ColorCtor(0x7cc8f8) : null;
+const _cHorSunset = _ColorCtor ? new _ColorCtor(0xf97352) : null;
+const _cHorNight = _ColorCtor ? new _ColorCtor(0x161b4a) : null;
 
 const _cRainTint = _ColorCtor ? new _ColorCtor(0x475569) : null;
 const _cOverTint = _ColorCtor ? new _ColorCtor(0x94a3b8) : null;
@@ -87,20 +87,19 @@ export function createSkyGradientDome(scene) {
         float h = clamp(dir.y, 0.0, 1.0);
         float curve = pow(h, 0.52);
         vec3 col = mix(uHorizonColor, uTopColor, curve);
-        // Faixa nostálgica/psicodélica suave no céu (iridescência pastel que acompanha o horizonte e o sol)
-        float az = atan(dir.x, -dir.z);
-        float wave = sin(az * 2.0 + uTime * 0.08 + h * 5.0) * 0.5 + 0.5;
-        vec3 prism = 0.5 + 0.5 * cos(vec3(0.0, 2.094, 4.188) + az * 1.4 + h * 3.8 - uTime * 0.06);
-        float prismBand = smoothstep(0.02, 0.34, h) * (1.0 - smoothstep(0.45, 0.92, h));
-        col = mix(col, prism, prismBand * (0.14 + 0.07 * wave) * (1.0 - uNightAmt * 0.55));
-        float sunAmt = max(0.0, dot(dir, normalize(uSunDir)));
-        col += mix(vec3(1.0, 0.72, 0.42), vec3(0.98, 0.48, 0.78), 0.32 * uSunWarmth) * pow(sunAmt, 5.5) * uSunWarmth;
+        // Brilho solar e degradê de crepúsculo contínuo em 3D (sem emenda no céu)
+        vec3 sDir = normalize(uSunDir);
+        float sunAmt = max(0.0, dot(dir, sDir));
+        float horizonGlow = (1.0 - smoothstep(0.0, 0.42, h)) * (0.45 + 0.55 * sunAmt);
+        vec3 duskTint = mix(vec3(1.0, 0.56, 0.34), vec3(0.96, 0.38, 0.62), smoothstep(0.05, 0.35, h));
+        col = mix(col, duskTint, horizonGlow * min(0.75, uSunWarmth * 1.15) * (1.0 - uNightAmt));
+        col += vec3(1.0, 0.78, 0.48) * pow(sunAmt, 6.0) * (0.35 + 0.65 * uSunWarmth);
         if (uNightAmt > 0.01) {
           float bandCoord = dir.x * 0.65 + dir.y * 0.45 - dir.z * 0.60;
-          float nebula = exp(-bandCoord * bandCoord * 6.2) * smoothstep(0.04, 0.48, h);
+          float nebula = exp(-bandCoord * bandCoord * 6.5) * smoothstep(0.04, 0.48, h);
           float swirl = 0.5 + 0.5 * sin(dir.x * 5.0 + dir.z * 4.2 + uTime * 0.14);
-          vec3 nebulaCol = mix(vec3(0.48, 0.16, 0.70), vec3(0.14, 0.62, 0.78), swirl);
-          col += nebulaCol * nebula * uNightAmt * 0.42;
+          vec3 nebulaCol = mix(vec3(0.32, 0.16, 0.58), vec3(0.14, 0.48, 0.68), swirl);
+          col += nebulaCol * nebula * uNightAmt * 0.36;
         }
         if (uAuroraStrength > 0.003 && dir.y > 0.06 && dir.y < 0.82 && dir.z < 0.0) {
           float angle = atan(dir.x, -dir.z);

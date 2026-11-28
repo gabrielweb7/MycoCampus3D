@@ -61,6 +61,18 @@ CREATE TABLE IF NOT EXISTS mc_village_editors (
     INDEX idx_village_editor_user (user_id)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS mc_village_trusted (
+    owner_id INT NOT NULL,
+    guest_id INT NOT NULL,
+    PRIMARY KEY (owner_id, guest_id),
+    INDEX idx_village_trusted_guest (guest_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS mc_village_upgrades (
+    lot_id TINYINT UNSIGNED PRIMARY KEY,
+    upgrades_json TEXT NOT NULL
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS mc_village_sales (
     item_id VARCHAR(64) PRIMARY KEY,
     owner_id INT NOT NULL,
