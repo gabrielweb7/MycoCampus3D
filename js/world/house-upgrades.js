@@ -590,11 +590,11 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   }
   box(backPathGrp, mats.trim, backDoorX, 2.41, backZ, 1.32, 0.12, 0.32);
   const pathStartZ = backZ - front * 0.12;
-  const pathEndZ = fenceBackZ - front * 1.6;
+  const pathEndZ = fenceBackZ - front * 0.85;
   const pathLen = Math.abs(pathEndZ - pathStartZ);
   const backPathMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.65, pathLen), mats.path || mats.trim);
   backPathMesh.rotation.x = -Math.PI / 2;
-  backPathMesh.position.set(backDoorX, 0.034, (pathStartZ + pathEndZ) / 2);
+  backPathMesh.position.set(backDoorX, 0.029, (pathStartZ + pathEndZ) / 2);
   backPathMesh.receiveShadow = true;
   backPathGrp.add(backPathMesh);
   backPathGrp.visible = false;
