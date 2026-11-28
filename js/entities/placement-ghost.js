@@ -914,7 +914,7 @@ export function dropUnsupportedItems(ctx) {
   for (var sIdx = 0; sIdx < _sortedGravityIndices.length; sIdx++) {
     var idx = _sortedGravityIndices[sIdx];
     var item = pickableItems[idx];
-    if (!item || !item.mesh || item.isReadOnly || item.crateParent) continue;
+    if (!item || !item.mesh || item.isReadOnly || item.crateParent || item.campusCar) continue;
     if (item.potItem && item.isAttached) {
       var pot = item.potItem;
       item.mesh.position.set(pot.mesh.position.x, pot.mesh.position.y + 0.36, pot.mesh.position.z);

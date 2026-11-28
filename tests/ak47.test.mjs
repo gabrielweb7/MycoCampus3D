@@ -184,11 +184,24 @@ test('o vigésimo acerto derruba a nave antes da recuperação e da saída', () 
   assert.equal(getUfoTelemetry().phase, 'flyby');
   target.onHit(ctx, origin, target.mesh.position, direction);
   assert.equal(getUfoTelemetry().phase, 'crashing');
-  for (let i = 0; i < 110; i++) stepUfoAbduction(ctx, 0.05);
+  for (let i = 0; i < 210; i++) stepUfoAbduction(ctx, 0.05);
   assert.equal(getUfoTelemetry().phase, 'wrecked');
   assert.equal(target.active(), false);
   stepUfoAbduction(ctx, 73);
   assert.equal(getUfoTelemetry().phase, 'recovering');
   stepUfoAbduction(ctx, 7);
   assert.equal(getUfoTelemetry().active, false);
+
+  const start = 145000;
+  const packet = { cycle: 1, start, crash_at: start + 8000, crash_pos: [12, 26, 38] };
+  ctx.sharedUfo = { ...packet, now: packet.crash_at + 7200, receivedAt: performance.now() };
+  stepUfoAbduction(ctx, 0.05);
+  assert.equal(getUfoTelemetry().phase, 'crashing');
+  ctx.sharedUfo = { ...packet, now: packet.crash_at + 9000, receivedAt: performance.now() };
+  stepUfoAbduction(ctx, 0.05);
+  const landed = getUfoTelemetry();
+  assert.equal(landed.phase, 'wrecked');
+  ctx.sharedUfo = { ...packet, now: packet.crash_at + 31000, receivedAt: performance.now() };
+  stepUfoAbduction(ctx, 0.05);
+  assert.deepEqual(getUfoTelemetry(), landed, 'a posição do destroço vem do mesmo evento compartilhado');
 });

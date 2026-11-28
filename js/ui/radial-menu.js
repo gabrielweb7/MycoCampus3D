@@ -8,6 +8,7 @@
 import { BURNER_LEVEL_NAMES, queuePurchasedBurnerState, setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { getItemKindId } from '../items/item-registry.js';
 import { isAk47Aiming } from '../systems/ak47-effects.js';
+import { getCampusCarActions } from '../systems/campus-cars.js';
 import { getContamInfo } from '../items/contaminations.js';
 import { togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
@@ -1511,6 +1512,8 @@ export function assignActionShortcuts(actions) {
 
 export function getFloatingActionsPreview(ctx) {
   if (!ctx) return [];
+  const carActions = getCampusCarActions(ctx);
+  if (carActions) return assignActionShortcuts(carActions);
   if (!ctx.heldItem && ctx.hoveredHouseAction) {
     const hAct = ctx.hoveredHouseAction;
     return assignActionShortcuts([{

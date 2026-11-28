@@ -7,6 +7,7 @@ import { cancelHeldItemPlacement, findAimedHeldPlacement, updateHeldItemPlacemen
 import { resolveHeldItemHover } from './hover-held-handlers.js';
 import { isRayOccludedByStructure, firstUnoccludedRayHit } from './ray-occlusion.js';
 import { isAk47Aiming } from './ak47-effects.js';
+import { getAimedCarSeat } from './campus-cars.js';
 import { isSeatOccupied } from './world-interactions.js';
 import {
   greenhouseHitMeshes,
@@ -300,6 +301,7 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredCratePlacement = null;
   ctx.hoveredRoadSaleStand = false;
   ctx.hoveredTelescope = false;
+  ctx.hoveredCarSeat = null;
   let prompt = '';
 
   const rayNdc = customNdc || (ctx.inFps ? _vZero2 : ctx.pointerNdc);
@@ -311,6 +313,15 @@ export function updateHoverRay(ctx, customNdc) {
 
   if (isAk47Aiming(ctx)) {
     setHoverPrompt(ctx, t('ui.weapon.fire'));
+    return;
+  }
+  if (ctx.campusRide) {
+    setHoverPrompt(ctx, '', false);
+    return;
+  }
+  ctx.hoveredCarSeat = getAimedCarSeat(ctx);
+  if (ctx.hoveredCarSeat) {
+    setHoverPrompt(ctx, t(ctx.hoveredCarSeat.seat === 'driver' ? 'ui.car.enter_driver' : 'ui.car.enter_passenger'));
     return;
   }
 
@@ -585,7 +596,7 @@ export function updateHoverRay(ctx, customNdc) {
     const rd = ray && ray.direction;
     for (let i = 0; i < ctx.pickableItems.length; i++) {
       let item = ctx.pickableItems[i];
-      if (item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem) ||
+      if ((item.campusCar && !ctx.adminEditMode) || item === ctx.heldItem || (ctx.heldItem && item === ctx.heldItem.lidItem) ||
         !isCultureAccessibleFromFridge(ctx, item) || isItemInClosedCabinet(ctx, item)) continue;
       if (ctx.isHeldByRemote(item.id)) continue;
       if (item.crateParent && (item.crateParent.isReadOnly || ctx.isHeldByRemote(item.crateParent.id))) continue;

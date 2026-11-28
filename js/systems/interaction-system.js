@@ -6,6 +6,7 @@
 
 import { t } from '../core/i18n.js';
 import { isAk47Aiming, pressAk47Trigger } from './ak47-effects.js';
+import { enterCampusCar } from './campus-cars.js';
 import { interactBeehive } from '../entities/bee-ecology.js';
 import { interactFlower, plantFlowerSeedAtSpot } from '../world/campus-flowers.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
@@ -248,6 +249,8 @@ export function dropHeldItem(ctx) {
 
 export function handlePrimaryAction(ctx, aimNdc) {
   if (ctx.inventory?.pending) return false;
+  if (ctx.campusRide || ctx.campusCarRequest) return false;
+  if (ctx.hoveredCarSeat && enterCampusCar(ctx)) return true;
   if (isAk47Aiming(ctx)) return pressAk47Trigger(ctx, aimNdc);
   if (!ctx.placementMode && ctx.hoveredHouseAction) {
     ctx.hoveredHouseAction.run();
@@ -1141,7 +1144,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
 
 function pickUpTargetItem(ctx, targetItem, startPlacement) {
   if (ctx.inventory?.pending) return false;
-  if (!ctx || !targetItem || targetItem.isReadOnly) return false;
+  if (!ctx || !targetItem || targetItem.isReadOnly || targetItem.campusCar) return false;
   if (targetItem.crateParent && (targetItem.crateParent.isReadOnly || ctx.isHeldByRemote(targetItem.crateParent.id))) return false;
   if (!ctx.adminEditMode && targetItem.mesh.userData.isBlockedPickup && targetItem.mesh.userData.isBlockedPickup(targetItem)) {
     if (ctx.callbacks.onToast) {
@@ -1257,6 +1260,6 @@ function pickUpTargetItem(ctx, targetItem, startPlacement) {
 export function pickHoveredItemForMove(ctx, explicitItem, startPlacement = true) {
   if (!ctx || ctx.heldItem) return false;
   const target = explicitItem || ctx.hoveredPickable;
-  if (!target) return false;
+  if (!target || target.campusCar) return false;
   return pickUpTargetItem(ctx, target, startPlacement);
 }

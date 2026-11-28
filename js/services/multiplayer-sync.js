@@ -90,7 +90,9 @@ function applySyncSnapshot(data, players, sentHolding, firstSync) {
   }
   if (firstSync && !data.force_teleport) applyCampusMeetupInvite();
   window.updateCampusPlayers?.(players);
+  window.applyCampusCars?.(data.cars, data.car_seat);
   window.applyCampusRemoteShots?.(players);
+  window.applyCampusUfo?.(data.ufo);
   updateRemotePets(players);
   if (data.board_strokes && data.board_strokes.length && window.applyCampusBoardStrokes) {
     window.applyCampusBoardStrokes(data.board_strokes);
@@ -168,6 +170,7 @@ export async function syncMultiplayer(forceHeldState = false) {
       current_hat: pose.current_hat || 'default',
       emote: pose.emote || '',
       shots: window.getCampusRecentShots?.(),
+      car: window.getCampusCarSync?.(),
       chat_msg: chatToSend,
       moved_items: moved,
       state_changes: stateChanges,
@@ -194,7 +197,7 @@ export async function syncMultiplayer(forceHeldState = false) {
     if (data.ok) {
       const players = data.players || [];
       alone = players.length === 0 && (data.online_count || 1) <= 1;
-      remoteMoving = players.some(player => player.walking || player.vx || player.vz || player.ak47_equipped);
+      remoteMoving = !!data.ufo?.active || players.some(player => player.walking || player.vx || player.vz || player.ak47_equipped);
       appState.villageLease = data.village_lease || null;
       appState.villageEditLot = data.village_edit_lot || null;
       setVillageTraffic(data.village_traffic);

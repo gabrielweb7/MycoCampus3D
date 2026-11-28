@@ -22,6 +22,7 @@ import * as adminEditor from './admin-editor.js';
 import { openRadialMenu, triggerFloatingAction, triggerFloatingActionByCode, inspectItemToast, inspectBeehiveCard } from '../ui/radial-menu.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
 import { applyRemoteAk47Shots, getRecentAk47Shots, hasRecentAk47Shots, resetAk47Session } from './ak47-effects.js';
+import { applyCampusCars, getCampusCarSync, resetCampusCarRide } from './campus-cars.js';
 
 const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
 
@@ -44,6 +45,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       return;
     }
     sim.lobbyTourActive = false;
+    if (!enable) resetCampusCarRide(sim, true);
     sim.inFps = !!enable;
     sim.controls.enabled = !sim.inFps;
     if (!sim.inFps && sim.telescopeZoomActive) {
@@ -62,7 +64,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   };
 
   window.triggerCampusJump = function () {
-    if (!sim.inFps) return;
+    if (!sim.inFps || sim.campusRide) return;
     if (sim.seatedSeat) {
       sim.seatedSeat = null;
       sim.playerVelY = GAME_CONFIG.player.jumpVelocity;
@@ -165,7 +167,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       vz: Math.round(sim.playerVelZ * 100) / 100,
       yaw: sim.playerYaw, pitch: sim.playerPitch,
       holding_item: !sim.villageMove && sim.heldItem ? sim.heldItem.id : '',
-      walking: sim.isWalking, seated: !!sim.seatedSeat, in_fps: sim.inFps,
+      walking: sim.isWalking, seated: !!sim.seatedSeat || !!sim.campusRide, in_fps: sim.inFps,
       toy_mode: (sim.roundParachuteActive && inAir) ? 'parachute' : ((sim.paragliderActive && inAir) ? 'paraglider' : (sim.snowboardActive ? 'snowboard' : '')),
       current_hat: sim.localHat,
       emote: sim.localEmote || (isTrip ? 'rainbow_trip' : actionFx)
@@ -294,8 +296,14 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.isCampusInventoryPending = () => !!sim.inventory.pending;
   window.getCampusRecentShots = () => getRecentAk47Shots(sim);
   window.applyCampusRemoteShots = players => applyRemoteAk47Shots(sim, players);
+  window.getCampusCarSync = () => getCampusCarSync(sim);
+  window.applyCampusCars = (cars, seat) => applyCampusCars(sim, cars, seat);
+  window.applyCampusUfo = packet => {
+    if (packet && Number.isFinite(packet.now)) sim.sharedUfo = { ...packet, receivedAt: performance.now() };
+  };
   window.hasCampusPendingSync = () => !!(sim.inventory.pending || sim.pendingBoardStrokes.length ||
-    Object.keys(sim.pendingMovedItems).length || Object.keys(sim.pendingStateChanges).length || hasRecentAk47Shots(sim));
+    Object.keys(sim.pendingMovedItems).length || Object.keys(sim.pendingStateChanges).length ||
+    hasRecentAk47Shots(sim) || sim.campusCarRequest || sim.campusRide);
   window.getCampusInventoryOperation = () => getQuickInventoryOperation(sim, item => getReplicatedItemState(sim, item));
   window.applyCampusInventory = (snapshot, players, sentHolding, initial) => applyQuickInventory(sim, snapshot, players, sentHolding, initial);
   window.markCampusInitialItemStatesApplied = function () { return worldSync.markCampusInitialItemStatesApplied(sim); };
@@ -333,6 +341,8 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.resetCampusLocalSession = function () {
     resetQuickInventory(sim);
     resetAk47Session(sim);
+    resetCampusCarRide(sim);
+    sim.sharedUfo = null;
     sim.syringePumping = null;
     sim.sinkFilling = null;
     sim.pourHold = null;

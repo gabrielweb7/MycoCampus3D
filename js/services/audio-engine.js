@@ -18,6 +18,9 @@ let ak47ShotBuffer = null;
 let ak47PassBuffer = null;
 let ak47ImpactBuffer = null;
 let weaponAudioScheduled = false;
+let campusEngine = null;
+let radioNextAt = 0;
+let radioStep = 0;
 let _iosSilentUnlocked = false;
 
 try {
@@ -817,10 +820,55 @@ export function playAk47Impact(volume, pan, delay, hardSurface) {
   if (ctx) playWeaponBuffer(ctx, getAk47ImpactBuffer(ctx), volume, pan, delay, pan, hardSurface ? 1.25 : 0.77);
 }
 
+const radioTune = [220, 261.63, 329.63, 293.66, 220, 196, 261.63, 329.63, 246.94, 293.66, 369.99, 329.63];
+
+export function setCampusCarAudio(speed, radio = false) {
+  if (speed === undefined || isMuted) {
+    if (campusEngine) campusEngine.gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.06);
+    radioNextAt = 0;
+    return;
+  }
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  if (!campusEngine) {
+    const oscillator = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    oscillator.type = 'sawtooth';
+    filter.type = 'lowpass';
+    gain.gain.value = 0;
+    oscillator.connect(filter).connect(gain).connect(masterGain);
+    oscillator.start();
+    campusEngine = { oscillator, filter, gain };
+  }
+  campusEngine.oscillator.frequency.setTargetAtTime(36 + speed * 88, now, 0.09);
+  campusEngine.filter.frequency.setTargetAtTime(135 + speed * 330, now, 0.12);
+  campusEngine.gain.gain.setTargetAtTime(0.095 + speed * 0.085, now, 0.09);
+  if (!radio) {
+    radioNextAt = 0;
+    return;
+  }
+  if (radioNextAt > now + 0.07) return;
+  const start = Math.max(now, radioNextAt);
+  const tone = ctx.createOscillator();
+  const gain = ctx.createGain();
+  tone.type = radioStep % 4 === 0 ? 'triangle' : 'sine';
+  tone.frequency.value = radioTune[radioStep++ % radioTune.length];
+  gain.gain.setValueAtTime(0.001, start);
+  gain.gain.exponentialRampToValueAtTime(0.048, start + 0.025);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+  tone.connect(gain).connect(masterGain);
+  tone.start(start);
+  tone.stop(start + 0.24);
+  radioNextAt = start + 0.23;
+}
+
 export const AudioEngine = {
   playAk47Shot,
   playAk47Pass,
   playAk47Impact,
+  setCampusCarAudio,
   playFootstep,
   playHarvest,
   playMushroomPop,

@@ -685,7 +685,13 @@ export function stepMultiplayerAvatars(ctx, dt) {
       }
     }
 
-    if (av.group.position.distanceToSquared(_tmpInterpPos) > 100) {
+    if (av.campusVehicle?.item.mesh.visible) {
+      const { item, seat, at, from } = av.campusVehicle;
+      item.mesh.localToWorld(_tmpInterpPos.set(seat === 'driver' ? -0.48 : 0.48, 0.72, 0.05));
+      const progress = Math.max(0, Math.min(1, (nowMs - at) / 780));
+      av.group.position.copy(from).lerp(_tmpInterpPos, progress * progress * (3 - 2 * progress));
+      desiredYaw = item.mesh.rotation.y;
+    } else if (av.group.position.distanceToSquared(_tmpInterpPos) > 100) {
       av.group.position.copy(_tmpInterpPos);
     } else {
       av.group.position.lerp(_tmpInterpPos, blend);
@@ -827,7 +833,7 @@ export function stepMultiplayerAvatars(ctx, dt) {
       av.rightArm.rotation.z = 0.58;
       if (sbGlide > 0.08) av.walkPhase += dt * 4.5;
       av.group.rotation.z = Math.sin(av.walkPhase * 0.5) * 0.07 * sbGlide;
-    } else if (av.seated) {
+    } else if (av.seated || av.campusVehicle) {
       av.leftArm.rotation.z *= Math.exp(-10 * dt);
       av.rightArm.rotation.z *= Math.exp(-10 * dt);
       av.group.rotation.z *= Math.exp(-10 * dt);

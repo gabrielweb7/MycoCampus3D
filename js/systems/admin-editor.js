@@ -21,6 +21,7 @@ import { makeInfraredThermometer } from '../items/thermometer.js';
 import { makeDehydrator } from '../items/dehydrator.js';
 import { GROW_PREFABS, makeGrowShopItem } from '../items/portable-grow.js';
 import { AK47_PREFAB, makeAk47 } from '../items/ak47.js';
+import { CAMPUS_PICKUP_ID, makeCampusPickup } from '../items/campus-pickup.js';
 import { makeMonotub24L } from '../items/monotub.js';
 import { makeAlcoholLamp, makeLabMicroscope, makeSilicaStorageJar } from '../items/lab-advanced-tools.js';
 import { makeFalconRack, makeFalconTube } from '../items/falcon-tubes.js';
@@ -61,6 +62,7 @@ export function ensureCoreAdminPrefabs() {
     category: 'weapon',
     factory: makeAk47
   });
+  registerItemPrefab(CAMPUS_PICKUP_ID, { label: 'Picape Off-road', category: 'vehicle', factory: makeCampusPickup });
   for (const [kind, label] of Object.entries(GROW_PREFABS)) {
     registerItemPrefab(kind, { label, category: 'equipment', factory: (ctx, opts) => makeGrowShopItem(ctx, opts, kind) });
   }
@@ -332,10 +334,11 @@ export function getShopDeliveryPose(sim, prefabId, { requireReady = true } = {})
   const pz = sim.playerPos ? sim.playerPos.z : 10;
   const yaw = sim.playerYaw || 0;
   const baseY = sim.playerPos ? sim.playerPos.y : 0;
-  const clearance = prefabId === 'laminar_hood' ? 1.25
+  const largeCar = prefabId === CAMPUS_PICKUP_ID;
+  const clearance = largeCar ? 1.18 : prefabId === 'laminar_hood' ? 1.25
     : prefabId === 'table_stainless' || prefabId === 'grow_tent' ? 0.72
       : prefabId === AK47_PREFAB ? 0.55 : 0.28;
-  for (const distance of [1.25 + clearance, 2.15 + clearance]) {
+  for (const distance of largeCar ? [3.85, 5.3] : [1.25 + clearance, 2.15 + clearance]) {
     for (const angle of [0, -0.55, 0.55, -1.15, 1.15, Math.PI]) {
       const x = px - Math.sin(yaw + angle) * distance;
       const z = pz - Math.cos(yaw + angle) * distance;
@@ -345,6 +348,13 @@ export function getShopDeliveryPose(sim, prefabId, { requireReady = true } = {})
         const point = { x, y: y + 0.12, z };
         clampPosAgainstWalls(sim.physCtx, point, clearance);
         if (Math.hypot(point.x - x, point.z - z) > 0.04) continue;
+        if (largeCar && [-1.44, 1.44].some(offset => {
+          const px = x + Math.sin(yaw) * offset;
+          const pz = z + Math.cos(yaw) * offset;
+          const end = { x: px, y: y + 0.18, z: pz };
+          clampPosAgainstWalls(sim.physCtx, end, 1.05);
+          return Math.hypot(end.x - px, end.z - pz) > 0.04;
+        })) continue;
       }
       const overlaps = sim.pickableItems?.some((item) => {
         const mesh = item.mesh;

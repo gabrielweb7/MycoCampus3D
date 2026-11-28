@@ -228,6 +228,7 @@ export function clampPosAgainstWalls(ctx, pos, radius) {
   const held = ctx.heldItem;
   for (let j = 0; j < solidColliders.length; j++) {
     const c = solidColliders[j];
+    if (c === pos.ignoreCollider || (c._isCampusCar && c._disabled)) continue;
     if (held && ((held.fridgeCtrl && held.fridgeCtrl.solidCollider === c) || (held.mesh && held.mesh.userData && held.mesh.userData.dynamicCollider === c))) continue;
     const surfY = (c.surfaceTopY !== undefined) ? c.surfaceTopY : c.maxY;
     if (pos.y >= surfY - 0.08 || pos.y + 1.5 < c.minY) continue;

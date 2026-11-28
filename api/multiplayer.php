@@ -11,6 +11,8 @@ require_once __DIR__ . '/inventory.php';
 require_once __DIR__ . '/village_store.php';
 require_once __DIR__ . '/avatar_skins.php';
 require_once __DIR__ . '/shot_fx.php';
+require_once __DIR__ . '/campus_cars.php';
+require_once __DIR__ . '/shared_ufo.php';
 
 const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
@@ -54,6 +56,8 @@ if ($action === 'leave') {
     $user = mc_require_user($pdo);
     $del = $pdo->prepare('DELETE FROM mc_sessions WHERE session_id = ?');
     $del->execute([mp_session_key((int)$user['id'], mp_client_sid($body))]);
+    $pdo->prepare('DELETE FROM mc_car_seats WHERE session_id = ?')
+        ->execute([mp_session_key((int)$user['id'], mp_client_sid($body))]);
     mc_json(['ok' => true]);
 }
 
@@ -309,13 +313,20 @@ if ($action === 'sync') {
     $walking = ($toyMode === 'parachute') ? 5 : (($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0))));
     $inFps = !empty($body['in_fps']) ? 1 : 0;
     $shotTime = (int)floor(microtime(true) * 1000);
+    $carSeat = !$initSync && (($inFps && $holding === '') || (($body['car']['op'] ?? null) === 'leave'))
+        ? mp_sync_campus_car($pdo, $body['car'] ?? null, $userId, $sessionKey, $x, $z, $shotTime)
+        : null;
     $shotJson = null;
+    $acceptedShots = [];
     if ($inFps && !$initSync && $holding !== '' && is_array($body['shots'] ?? null) && $body['shots']) {
         $shots = mp_clean_shot_fx($body['shots'], $x, $y, $z, $shotTime);
         if ($shots) {
             $heldPrefab = $pdo->prepare('SELECT prefab_id FROM mc_world_layout_edits WHERE item_id = ? AND removed = 0');
             $heldPrefab->execute([$holding]);
-            if ($heldPrefab->fetchColumn() === 'ak47') $shotJson = json_encode($shots);
+            if ($heldPrefab->fetchColumn() === 'ak47') {
+                $acceptedShots = $shots;
+                $shotJson = json_encode($shots);
+            }
         }
     }
     // Only expose the selected, owned pet and bowl positions, never private progress.
@@ -933,6 +944,9 @@ if ($action === 'sync') {
         'village_edit_lot' => $guestEditLot,
         'force_teleport' => $forceTeleport,
         'players' => $players,
+        'cars' => (object)mp_campus_car_snapshot($pdo, $userId, $shotTime),
+        'car_seat' => $carSeat,
+        'ufo' => mc_sync_shared_ufo($pdo, $shotTime, $acceptedShots, $sessionKey),
         'obj_ver' => $objVer,
         'item_state_ver' => $itemStateVer,
         'state_ver' => $stateVer,

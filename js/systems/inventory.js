@@ -27,7 +27,8 @@ function isUsingItem(ctx) {
 
 export function selectQuickSlot(ctx, slot) {
   const inv = ctx.inventory;
-  if (!inv?.ready || !ctx.inFps || ctx.adminEditMode || !Number.isInteger(slot) || slot < 0 || slot > 2) return false;
+  if (!inv?.ready || !ctx.inFps || ctx.adminEditMode || ctx.campusRide || ctx.campusCarRequest ||
+      !Number.isInteger(slot) || slot < 0 || slot > 2) return false;
   if (inv.pending) {
     if (inv.pending.createdAt && (performance.now() - inv.pending.createdAt > 2500)) {
       inv.pending = null;

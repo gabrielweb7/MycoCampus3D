@@ -12,11 +12,13 @@ import {
 import { animateAvatarAura } from '../entities/avatars.js';
 import { fitHandHorizontally, resetHeldSleeve } from '../entities/first-person-grip.js';
 import { getHeldBoardToolColor } from './chalkboard.js';
+import { stepCampusCarRide } from './campus-cars.js';
 
 const P = GAME_CONFIG.player;
 const V = GAME_CONFIG.vehicles;
 
 export function stepPlayerMovement(ctx, dt, now) {
+  if (stepCampusCarRide(ctx, dt, now)) return;
   let moveZ = (ctx.keys['KeyW'] || ctx.keys['ArrowUp'] ? 1 : 0) - (ctx.keys['KeyS'] || ctx.keys['ArrowDown'] ? 1 : 0) - ctx.joyY;
   let moveX = (ctx.keys['KeyD'] || ctx.keys['ArrowRight'] ? 1 : 0) - (ctx.keys['KeyA'] || ctx.keys['ArrowLeft'] ? 1 : 0) + ctx.joyX;
   const mag = Math.hypot(moveX, moveZ);

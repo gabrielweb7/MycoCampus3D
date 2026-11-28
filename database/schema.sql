@@ -134,6 +134,37 @@ CREATE TABLE IF NOT EXISTS mc_world_objects (
     updated_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS mc_campus_cars (
+    item_id VARCHAR(64) PRIMARY KEY,
+    owner_id INT NOT NULL,
+    x DOUBLE NOT NULL,
+    y DOUBLE NOT NULL,
+    z DOUBLE NOT NULL,
+    yaw DOUBLE NOT NULL,
+    speed DOUBLE NOT NULL DEFAULT 0,
+    steer DOUBLE NOT NULL DEFAULT 0,
+    lights TINYINT(1) NOT NULL DEFAULT 0,
+    drive_seen_ms BIGINT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_car_seats (
+    session_id VARCHAR(64) PRIMARY KEY,
+    item_id VARCHAR(64) NOT NULL,
+    seat ENUM('driver', 'passenger') NOT NULL,
+    last_seen_ms BIGINT NOT NULL,
+    UNIQUE KEY idx_car_seat (item_id, seat)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mc_ufo_flights (
+    cycle INT UNSIGNED PRIMARY KEY,
+    hit_count SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    last_hits TEXT NULL,
+    crash_at BIGINT NULL,
+    crash_x DOUBLE NULL,
+    crash_y DOUBLE NULL,
+    crash_z DOUBLE NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS mc_world_item_states (
     item_id VARCHAR(64) PRIMARY KEY,
     state_json MEDIUMTEXT NOT NULL,

@@ -28,6 +28,9 @@ let ufoState = {
 const UFO_CRASH_HITS = 20;
 const UFO_WRECK_SECONDS = 72;
 const TARGETABLE_PHASES = new Set(['flyby', 'approach', 'beam', 'depart']);
+const SHARED_FLIGHT_SECONDS = 36;
+const SHARED_CRASH_SECONDS = 8.5;
+const SHARED_RECOVERY_SECONDS = 6.5;
 
 function ensureUfoMesh(ctx) {
   const scene = ctx.scene;
@@ -154,6 +157,7 @@ function releaseCow(cow, ctx) {
 
 function hitUfo(ctx, _source, point, direction) {
   spawnCampusFxBurst(ctx.scene, point, 0xfbbf24, 4);
+  if (ctx.sharedUfo) return;
   if (++ufoState.hits < UFO_CRASH_HITS) return;
   const ufo = ufoState.mesh;
   ufoState.beam.visible = false;
@@ -167,12 +171,121 @@ function hitUfo(ctx, _source, point, direction) {
   ufoState.crashStart.set(ufo.position.x, ufo.position.y, ufo.position.z);
 }
 
+function stepSharedUfo(ctx, dt) {
+  const packet = ctx.sharedUfo;
+  const now = packet.now + Math.max(0, performance.now() - packet.receivedAt);
+  const elapsed = (now - packet.start) / 1000;
+  const crashedFor = (now - packet.crash_at) / 1000;
+  const plane = ufoState.mesh;
+  const visible = packet.crash_at
+    ? crashedFor < SHARED_CRASH_SECONDS + UFO_WRECK_SECONDS + SHARED_RECOVERY_SECONDS
+    : elapsed < SHARED_FLIGHT_SECONDS;
+  if (!visible) {
+    if (ufoState.targetCow) releaseCow(ufoState.targetCow, ctx);
+    ufoState.targetCow = null;
+    ufoState.phase = 'idle';
+    if (plane) {
+      plane.visible = false;
+      ufoState.crashFx?.step(plane.position, dt, false);
+    }
+    return;
+  }
+  const ufo = ensureUfoMesh(ctx);
+  ufo.visible = true;
+  ufoState.beam.visible = false;
+  const side = packet.cycle % 2 ? 1 : -1;
+  if (!packet.crash_at) {
+    const time = THREE.MathUtils.clamp(elapsed, 0, SHARED_FLIGHT_SECONDS);
+    if (packet.cycle % 3 === 0) {
+      if (time < 11) {
+        const approach = 1 - (1 - time / 11) ** 2;
+        ufo.position.set(127 - 53 * approach, 30 - 18 * approach, -39 + 41 * approach);
+        ufoState.phase = 'approach';
+      } else if (time < 17) {
+        ufo.position.set(74, 12, 2);
+        const progress = (time - 11) / 6;
+        ufoState.beam.visible = true;
+        ufoState.beam.material.opacity = 0.32 + Math.sin(elapsed * 10) * 0.09;
+        if (ufoState.phase !== 'beam') {
+          let distance = 13;
+          for (const cow of ctx.pastureCows || []) {
+            const position = cow.mesh.position;
+            const nearby = Math.hypot(position.x - 74, position.z - 2);
+            if (!cow.abducted && nearby < distance) {
+              distance = nearby;
+              ufoState.targetCow = cow;
+            }
+          }
+          if (ufoState.targetCow) {
+            ufoState.targetCow.abducted = true;
+            ufoState.cowStartY = ufoState.targetCow.mesh.position.y;
+          }
+        }
+        if (ufoState.targetCow) {
+          const cow = ufoState.targetCow;
+          cow.mesh.position.y = THREE.MathUtils.lerp(ufoState.cowStartY, ufo.position.y, progress);
+          cow.mesh.rotation.y += dt * 2.6;
+          cow.mesh.scale.setScalar(Math.max(0.08, 1 - progress));
+        }
+        ufoState.phase = 'beam';
+      } else {
+        const depart = (time - 17) / 19;
+        ufo.position.set(74 - 161 * depart, 12 + 19 * Math.sin(depart * Math.PI * 0.5), 2 + 47 * depart);
+        if (ufoState.targetCow) releaseCow(ufoState.targetCow, ctx);
+        ufoState.targetCow = null;
+        ufoState.phase = 'depart';
+      }
+    } else {
+      const progress = time / SHARED_FLIGHT_SECONDS;
+      const line = packet.cycle % 4 < 2 ? 35 : -35;
+      ufo.position.set(side * (-94 + 188 * progress), 25 + 2.4 * Math.sin(progress * Math.PI * 2),
+        line + Math.sin(progress * Math.PI) * 18);
+      ufoState.phase = 'flyby';
+    }
+    ufo.rotation.set(0.04, elapsed * 1.4, side * 0.12);
+    ufoState.crashFx?.step(ufo.position, dt, false);
+  } else {
+    if (ufoState.targetCow) releaseCow(ufoState.targetCow, ctx);
+    ufoState.targetCow = null;
+    const [x, y, z] = packet.crash_pos;
+    const landX = THREE.MathUtils.clamp(x + side * 48, -191, 191);
+    const landZ = THREE.MathUtils.clamp(z + (packet.cycle % 4 < 2 ? -1 : 1) * 25, -191, 191);
+    const terrain = terrainHeight(landX, landZ) - 0.24;
+    if (crashedFor < SHARED_CRASH_SECONDS) {
+      const progress = THREE.MathUtils.clamp(crashedFor / SHARED_CRASH_SECONDS, 0, 1);
+      const sway = Math.sin(progress * Math.PI * 5) * Math.sin(progress * Math.PI);
+      ufo.position.set(THREE.MathUtils.lerp(x, landX, progress) + sway * 3,
+        THREE.MathUtils.lerp(y, terrain, progress ** 3) + sway * 1.3,
+        THREE.MathUtils.lerp(z, landZ, progress) + sway * 5);
+      ufo.rotation.set(0.19 * progress + Math.sin(progress * 24) * 0.52 * (1 - progress),
+        progress * 26, 0.27 * progress + Math.cos(progress * 21) * 0.56 * (1 - progress));
+      ufoState.phase = 'crashing';
+    } else if (crashedFor < SHARED_CRASH_SECONDS + UFO_WRECK_SECONDS) {
+      ufo.position.set(landX, terrain, landZ);
+      ufo.rotation.set(0.19, 26, 0.27);
+      ufoState.phase = 'wrecked';
+    } else {
+      const lift = crashedFor - SHARED_CRASH_SECONDS - UFO_WRECK_SECONDS;
+      const distance = Math.max(0, lift - 1.1) ** 2;
+      ufo.position.set(landX + side * distance * 2.6, terrain + lift * 1.5 + distance * 2.4, landZ + distance * 1.4);
+      ufo.rotation.set(Math.sin(lift * 4) * 0.16, 26 + lift * 1.8, Math.cos(lift * 3) * 0.19);
+      ufoState.phase = 'recovering';
+    }
+    ufoState.crashFx ||= makeUfoCrashFx(ctx.scene);
+    ufoState.crashFx.step(ufo.position, dt, true);
+  }
+  for (let i = 0; i < ufoState.lights.length; i++) {
+    const pulse = (Math.sin(elapsed * 8 + i * 0.9) + 1) * 0.5;
+    ufoState.lights[i].material.color.setHSL(packet.crash_at ? 0.028 : 0.14, 1, 0.44 + pulse * 0.35);
+  }
+}
+
 function stepDamagedUfo(dt) {
   const ufo = ufoState.mesh;
   const time = ufoState.t;
   const yaw = ufoState.crashYaw;
   if (ufoState.phase === 'crashing') {
-    ufoState.crashVelY -= dt * 7.8;
+    ufoState.crashVelY -= dt * 0.95;
     ufo.position.x = THREE.MathUtils.clamp(ufo.position.x + Math.sin(yaw + Math.sin(time * 2.6) * 0.82) * dt * 9, -192, 192);
     ufo.position.z = THREE.MathUtils.clamp(ufo.position.z + Math.cos(yaw + Math.sin(time * 2.6) * 0.82) * dt * 9, -192, 192);
     ufo.position.y += ufoState.crashVelY * dt;
@@ -221,6 +334,22 @@ export function getUfoTelemetry() {
 
 export function stepUfoAbduction(ctx, dt) {
   if (!ctx || !ctx.scene) return;
+  if (ctx.sharedUfo) {
+    if (!ufoState.sharedMode) {
+      if (ufoState.targetCow) releaseCow(ufoState.targetCow, ctx);
+      if (ufoState.respawnCow) releaseCow(ufoState.respawnCow, ctx);
+      ufoState.targetCow = ufoState.respawnCow = null;
+      ufoState.sharedMode = true;
+    }
+    stepSharedUfo(ctx, dt);
+    return;
+  }
+  if (ufoState.sharedMode) {
+    ufoState.sharedMode = false;
+    ufoState.phase = 'idle';
+    ufoState.timer = 25;
+    if (ufoState.mesh) ufoState.mesh.visible = false;
+  }
 
   if (ufoState.respawnCow) {
     ufoState.cowRespawnTimer -= dt;

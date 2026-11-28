@@ -142,6 +142,7 @@ function mc_clean_pet_state($raw): array {
 const MC_SHOP_SUPPLIES = [
     'sup_pp5' => ['prefab_id' => 'pp5_cup', 'price_coins' => 30, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_ak47' => ['prefab_id' => 'ak47', 'price_coins' => 1300, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_campus_pickup' => ['prefab_id' => 'campus_pickup', 'price_coins' => 4200, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_syringe' => ['prefab_id' => 'syringe_10ml', 'price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_water_spray' => ['prefab_id' => 'water_spray', 'price_coins' => 35, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_lc_nutrient' => ['prefab_id' => 'lc_nutrient_bottle', 'price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
@@ -834,8 +835,13 @@ if ($action === 'buy_supply' || $action === 'buy_supply_durable') {
                     ->execute([$deliveryId, (float)$pose['x'], (float)$pose['y'], (float)$pose['z'], (float)$pose['ry']]);
                 $pdo->prepare('INSERT INTO mc_world_layout_edits (item_id, prefab_id, label, scale, removed) VALUES (?, ?, ?, 1.0, 0)')
                     ->execute([$deliveryId, $sup['prefab_id'], '']);
+                $isCampusCar = $sup['prefab_id'] === 'campus_pickup';
                 $pdo->prepare('INSERT INTO mc_village_items (item_id, owner_id, lot_id, lease_epoch) VALUES (?, ?, ?, ?)')
-                    ->execute([$deliveryId, (int)$user['id'], $lotId, (int)($lot['lease_epoch'] ?? 0)]);
+                    ->execute([$deliveryId, (int)$user['id'], $isCampusCar ? null : $lotId, $isCampusCar ? 0 : (int)($lot['lease_epoch'] ?? 0)]);
+                if ($isCampusCar) {
+                    $pdo->prepare('INSERT INTO mc_campus_cars (item_id, owner_id, x, y, z, yaw) VALUES (?, ?, ?, ?, ?, ?)')
+                        ->execute([$deliveryId, (int)$user['id'], (float)$pose['x'], (float)$pose['y'], (float)$pose['z'], (float)$pose['ry']]);
+                }
             }
         }
         $pdo->commit();
