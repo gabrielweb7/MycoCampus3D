@@ -5,6 +5,7 @@ import { getGroundHeight, terrainHeight } from '../engine/physics.js';
 import { makeTextSprite, updateTextSprite } from '../engine/textures.js';
 import { isNaturalSoilSpot } from './nature-plaza.js';
 import { getVirtualDayFrac } from './staircase-clock.js';
+import { registerShotTarget } from '../systems/shot-targets.js';
 
 const THREE = window.THREE;
 
@@ -527,6 +528,18 @@ function createSingleGnome(tunicColor, isShadow = false) {
   hat.position.set(0, 0.24, -0.01);
   hat.rotation.x = -0.06;
   headGrp.add(head, nose, beard, stache, eyeL, eyeR, hat);
+  const crossedEyes = new THREE.Group();
+  const markGeo = new THREE.BoxGeometry(0.046, 0.008, 0.005);
+  for (const x of [-0.045, 0.045]) {
+    for (const angle of [-Math.PI / 4, Math.PI / 4]) {
+      const mark = new THREE.Mesh(markGeo, eyeMat);
+      mark.position.set(x, 0.03, 0.139);
+      mark.rotation.z = angle;
+      crossedEyes.add(mark);
+    }
+  }
+  crossedEyes.visible = false;
+  headGrp.add(crossedEyes);
 
   const emoteSprite = makeTextSprite('😊', '#fde047');
   emoteSprite.position.set(0, 0.98, 0);
@@ -537,7 +550,7 @@ function createSingleGnome(tunicColor, isShadow = false) {
   root.visible = false;
 
   return {
-    root, legL, legR, armL, armR, headGrp, emoteSprite,
+    root, legL, legR, armL, armR, headGrp, emoteSprite, eyeL, eyeR, crossedEyes,
     state: 'wander',
     targetX: 0,
     targetZ: 0,
@@ -545,6 +558,45 @@ function createSingleGnome(tunicColor, isShadow = false) {
     phase: Math.random() * Math.PI * 2,
     currentEmote: '😊'
   };
+}
+
+function addGnome(ctx, gn, onDeath) {
+  ctx.scene.add(gn.root);
+  registerShotTarget(ctx, gn.root, {
+    radius: 0.25, halfHeight: 0.49, centerY: 0.46,
+    active: () => gn.root.visible && !gn.death,
+    onHit: sim => {
+      gn.death = {
+        time: 0,
+        ground: getGroundHeight(sim.physCtx, gn.root.position.x, gn.root.position.z, gn.root.position.y),
+        pitch: gn.root.rotation.x,
+        y: gn.root.position.y
+      };
+      gn.headGrp.rotation.set(0, 0, 0);
+      gn.armL.rotation.x = gn.armR.rotation.x = -0.2;
+      gn.legL.rotation.x = gn.legR.rotation.x = 0;
+      gn.crossedEyes.visible = true;
+      gn.eyeL.visible = gn.eyeR.visible = gn.emoteSprite.visible = false;
+      onDeath?.();
+    }
+  });
+}
+
+function stepFallenGnome(gn, dt) {
+  if (!gn?.death) return;
+  const death = gn.death;
+  death.time += dt;
+  const progress = Math.min(1, death.time / 0.45);
+  const fall = progress * progress;
+  gn.root.rotation.x = THREE.MathUtils.lerp(death.pitch, -Math.PI / 2, fall);
+  gn.root.position.y = THREE.MathUtils.lerp(death.y, death.ground + 0.15, fall);
+  if (death.time >= 38) {
+    gn.death = null;
+    gn.root.visible = false;
+    gn.root.rotation.x = 0;
+    gn.crossedEyes.visible = false;
+    gn.eyeL.visible = gn.eyeR.visible = gn.emoteSprite.visible = true;
+  }
 }
 
 function setGnomeEmote(gn, emoji) {
@@ -607,6 +659,10 @@ function applyUmbralAtmosphere(ctx, active) {
 }
 
 export function stepTripGnomes(ctx, dt) {
+  for (const gn of gnomePool || []) stepFallenGnome(gn, dt);
+  for (const gn of shadowGnomePool || []) stepFallenGnome(gn, dt);
+  stepFallenGnome(lonelyTreeGnome?.gn, dt);
+  stepFallenGnome(rogueBlackGnome?.gn, dt);
   stepTripTextureFlow(ctx.scene, dt);
   const freakout = typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive();
   // Gnomos raros rodam sempre (antes só rodavam com o efeito de trip ativo e por isso nunca apareciam).
@@ -622,12 +678,12 @@ export function stepTripGnomes(ctx, dt) {
   stepGiantTrampolines(ctx, dt, active && !freakout);
 
   if (!freakout && shadowGnomePool) {
-    for (let i = 0; i < shadowGnomePool.length; i++) shadowGnomePool[i].root.visible = false;
+    for (const gn of shadowGnomePool) if (!gn.death) gn.root.visible = false;
   }
 
   if (freakout) {
     if (gnomePool) {
-      for (let i = 0; i < gnomePool.length; i++) gnomePool[i].root.visible = false;
+      for (const gn of gnomePool) if (!gn.death) gn.root.visible = false;
     }
     const px = ctx.playerPos.x;
     const pz = ctx.playerPos.z;
@@ -639,13 +695,14 @@ export function stepTripGnomes(ctx, dt) {
         const gn = createSingleGnome(0x050507, true);
         gn.respawnTimer = 0;
         gn.gazeDecided = false;
-        ctx.scene.add(gn.root);
+        addGnome(ctx, gn);
         return gn;
       });
     }
 
     for (let i = 0; i < shadowGnomePool.length; i++) {
       const gn = shadowGnomePool[i];
+      if (gn.death) continue;
       if (!gn.root.visible) {
         gn.respawnTimer -= dt;
         if (gn.respawnTimer > 0) continue;
@@ -738,7 +795,7 @@ export function stepTripGnomes(ctx, dt) {
     : false;
   if (!gnomesActive) {
     if (gnomePool) {
-      for (let i = 0; i < gnomePool.length; i++) gnomePool[i].root.visible = false;
+      for (const gn of gnomePool) if (!gn.death) gn.root.visible = false;
     }
     return;
   }
@@ -749,13 +806,14 @@ export function stepTripGnomes(ctx, dt) {
   if (!gnomePool) {
     gnomePool = TUNIC_COLORS.map((col) => {
       const gn = createSingleGnome(col);
-      ctx.scene.add(gn.root);
+      addGnome(ctx, gn);
       return gn;
     });
   }
 
   for (let i = 0; i < gnomePool.length; i++) {
     const gn = gnomePool[i];
+    if (gn.death) continue;
     if (!gn.root.visible) {
       pickRoamTarget(gn, px, pz, 11, 20);
       const gy = getGroundHeight(ctx.physCtx, gn.targetX, gn.targetZ, 2);
@@ -905,7 +963,11 @@ function stepLonelyTreeGnome(ctx, dt, px, pz) {
     crown.position.y = 4.6;
     tree.add(trunk, crown);
     ctx.scene.add(tree);
-    ctx.scene.add(gn.root);
+    gn.root.visible = true;
+    addGnome(ctx, gn, () => {
+      lonelyTreeGnome.phase = 'hidden';
+      lonelyTreeGnome.timer = 12;
+    });
     const spot = LONELY_TREE_SPOTS[0];
     const gy = getGroundHeight(ctx.physCtx, spot.x, spot.z, 2);
     tree.position.set(spot.x, gy, spot.z);
@@ -915,6 +977,7 @@ function stepLonelyTreeGnome(ctx, dt, px, pz) {
   }
   const L = lonelyTreeGnome;
   const gn = L.gn;
+  if (gn.death) return;
   if (L.phase === 'hidden') {
     L.timer -= dt;
     if (L.timer <= 0) {
@@ -999,12 +1062,13 @@ export function triggerRareBlackGnomeAppearance(ctx, spotIdx = 0) {
       anchorX: spot.x,
       anchorZ: spot.z
     };
-    if (ctx && ctx.scene && rogueBlackGnome.gn.root && rogueBlackGnome.gn.root.isObject3D !== false) {
-      try { ctx.scene.add(rogueBlackGnome.gn.root); } catch (_) {}
+    if (ctx?.scene && rogueBlackGnome.gn.root.isObject3D) {
+      addGnome(ctx, rogueBlackGnome.gn, retireBlackGnome);
     }
   }
 
   const R = rogueBlackGnome;
+  if (R.gn.death) return R;
   R.active = true;
   R.activeTimer = 50 + Math.random() * 25;
   R.mode = 'weird_walk';
@@ -1021,6 +1085,12 @@ export function triggerRareBlackGnomeAppearance(ctx, spotIdx = 0) {
   R.gn.root.visible = true;
   if (R.gn.emoteSprite) setGnomeEmote(R.gn, '👁️');
   return R;
+}
+
+function retireBlackGnome() {
+  rogueBlackGnome.active = false;
+  rogueBlackGnome.mode = 'dormant';
+  rogueBlackGnome.dormantTimer = 150 + Math.random() * 110;
 }
 
 export function clearRareBlackGnomeForTest() {
@@ -1066,11 +1136,12 @@ function stepRogueBlackGnome(ctx, dt, px, pz) {
       anchorX: firstSpot.x,
       anchorZ: firstSpot.z
     };
-    ctx.scene.add(rogueBlackGnome.gn.root);
+    addGnome(ctx, rogueBlackGnome.gn, retireBlackGnome);
   }
 
   const R = rogueBlackGnome;
   const gn = R.gn;
+  if (gn.death) return;
   if (!R.active) {
     R.dormantTimer -= dt;
     if (R.dormantTimer <= 0) {

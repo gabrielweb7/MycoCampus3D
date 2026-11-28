@@ -31,6 +31,7 @@ import {
   queueBeeEcologySync
 } from '../world/ecology-shared.js';
 import { createCuteCowMesh, createPoopWithFliesAndCubensis } from './cow-models.js';
+import { registerShotTarget } from '../systems/shot-targets.js';
 import {
   FLOWER_COLORS,
   FLOWER_COLOR_NAMES,
@@ -259,6 +260,15 @@ export function createPastureAndCows(ctx) {
     cowVis.body.userData.cowObj = cowObj;
     ctx.cowHitMeshes.push(cowVis.body);
     ctx.pastureCows.push(cowObj);
+    registerShotTarget(ctx, cowVis.group, {
+      radius: 0.62, depth: 1.18, halfHeight: 0.69, centerY: 0.79,
+      active: () => !cowObj.abducted,
+      onHit: (_sim, source) => {
+        cowObj.shotFleeFrom = { x: source.x, z: source.z };
+        cowObj.happyTimer = cowObj.curiousTimer = cowObj.grazeTimer = 0;
+        cowObj.fleeTimer = 5;
+      }
+    });
   }
   createPastureBees(ctx);
 }
@@ -270,6 +280,7 @@ export function petCow(cowObj) {
   cowObj.state = 'curious';
   cowObj.happyTimer = 3.0;
   cowObj.fleeTimer = 0;
+  cowObj.shotFleeFrom = null;
   cowObj.curiousTimer = 3.0;
   if (cowObj.mesh && cowObj.mesh.position) {
     triggerCozyHeartBurst(cowObj.mesh.position.x, cowObj.mesh.position.y + 1.35, cowObj.mesh.position.z, 0xf472b6);
@@ -328,7 +339,10 @@ export function stepPastureCows(ctx, dt) {
     }
     if (cow.fleeTimer > 0) {
       cow.fleeTimer = Math.max(0, cow.fleeTimer - dt);
-      if (cow.fleeTimer <= 0) cow.lastBucket = -1;
+      if (cow.fleeTimer <= 0) {
+        cow.lastBucket = -1;
+        cow.shotFleeFrom = null;
+      }
     }
     if (cow.curiousCooldown > 0) cow.curiousCooldown = Math.max(0, cow.curiousCooldown - dt);
     if (cow.avoidTimer > 0) cow.avoidTimer = Math.max(0, cow.avoidTimer - dt);
@@ -350,7 +364,7 @@ export function stepPastureCows(ctx, dt) {
       cow.state = 'flee';
       cow.speed = cow.baseSpeed * 2.15;
       cow.mood = 'Correndo 💨';
-      desiredYaw = Math.atan2(cx - px, cz - pz);
+      desiredYaw = Math.atan2(cx - (cow.shotFleeFrom?.x ?? px), cz - (cow.shotFleeFrom?.z ?? pz));
     } else if (distToPlayer < 1.35) {
       cow.fleeTimer = 2.4;
       cow.curiousTimer = 0;

@@ -6,10 +6,11 @@ import * as THREE from '../js/vendor/three.bundle.min.js';
 globalThis.window = { THREE };
 const { ensureCoreAdminPrefabs, spawnShopItemNearPlayer } = await import('../js/systems/admin-editor.js');
 const { handlePrimaryAction } = await import('../js/systems/interaction-system.js');
-const { poseAk47, stepAk47Effects } = await import('../js/systems/ak47-effects.js');
+const { applyRemoteAk47Shots, getRecentAk47Shots, poseAk47, stepAk47Effects } = await import('../js/systems/ak47-effects.js');
 const { applyQuickInventory, createQuickInventory, getStorageBlock, selectQuickSlot } = await import('../js/systems/inventory.js');
 const { SHOP_SUPPLIES, SHOP_SUPPLY_CATEGORIES } = await import('../js/ui/modal-shop.js');
 const { getFloatingActionsPreview } = await import('../js/ui/radial-menu.js');
+const { getUfoTelemetry, stepUfoAbduction } = await import('../js/world/ufo-abduction.js');
 
 function fixture() {
   const ctx = {
@@ -81,6 +82,10 @@ test('clique e toque compartilham o disparo, traçantes param em paredes e estoj
   assert.ok(fx.light.intensity > 0);
   assert.ok(fx.tracers[0].distance < 4);
   assert.equal(fx.brassMesh.count, 1);
+  const [snapshot] = getRecentAk47Shots(ctx, 1050);
+  assert.equal(snapshot.length, 9);
+  assert.equal(snapshot[1], 50);
+  assert.deepEqual(getRecentAk47Shots(ctx, 1900), []);
 
   const fire = getFloatingActionsPreview(ctx)[0];
   assert.equal(fire.id, 'fire_ak47');
@@ -115,10 +120,75 @@ test('o traçante perde altura ao se afastar do cano', () => {
   poseAk47(ctx, ctx.heldItem, 1000, 0.18);
   stepAk47Effects(ctx, 0.016, 1000);
   const tracer = ctx.ak47Effects.tracers[0];
-  stepAk47Effects(ctx, 0.05, 1050);
+  stepAk47Effects(ctx, 0.02, 1020);
+  const nearDistance = tracer.mesh.position.clone().sub(tracer.start).dot(tracer.direction);
+  assert.ok(Math.abs(tracer.mesh.position.y - (tracer.start.y + tracer.direction.y * nearDistance)) < 0.001);
+  stepAk47Effects(ctx, 0.05, 1080);
   const distance = tracer.mesh.position.clone().sub(tracer.start).dot(tracer.direction);
   const straightHeight = tracer.start.y + tracer.direction.y * distance;
   assert.ok(tracer.mesh.visible);
   assert.ok(distance > 15);
   assert.ok(tracer.mesh.position.y < straightHeight - 0.15);
+});
+
+test('tiros próximos têm áudio direcional e deixam uma única marca temporária na face da parede', () => {
+  const ctx = fixture();
+  ctx.camera.position.set(1, 1.6, -6);
+  ctx.wallSegments = [{ x1: -3, x2: 3, z1: -12, z2: -12, halfThick: 0.1, minY: 0, maxY: 3 }];
+  let cracks = 0;
+  const passes = [];
+  const impacts = [];
+  window.MycoAudio = {
+    playAk47Shot: () => cracks++,
+    playAk47Pass: (gain, pan, delay) => passes.push({ gain, pan, delay }),
+    playAk47Impact: (gain, pan, delay) => impacts.push({ gain, pan, delay })
+  };
+  const players = [{ id: 'nearby-player', shots: [[1, 0, 1.6, 0, 0, 0, -1, 12]] }];
+  applyRemoteAk47Shots(ctx, players, 1000);
+  applyRemoteAk47Shots(ctx, players, 1020);
+  assert.equal(cracks, 1);
+  assert.equal(passes.length, 1);
+  assert.equal(impacts.length, 1);
+  assert.ok(impacts[0].delay > passes[0].delay);
+  assert.ok(passes[0].pan < 0 && passes[0].gain > 0 && passes[0].delay > 0);
+  const fx = ctx.ak47Effects;
+  stepAk47Effects(ctx, 0.016, 1014);
+  assert.ok(fx.remoteLight.intensity > 0);
+  assert.ok(fx.flashes[0].core.visible);
+  assert.ok(fx.tracers[0].mesh.visible);
+  stepAk47Effects(ctx, 0.05, 1050);
+  assert.equal(fx.impactMesh.count, 1);
+  assert.ok(Math.abs(fx.impacts[0].position.z - (-11.9)) < 0.04);
+  stepAk47Effects(ctx, 0.05, 56000);
+  assert.equal(fx.impactMesh.count, 1);
+  stepAk47Effects(ctx, 0.05, 62000);
+  assert.equal(fx.impactMesh.count, 0);
+
+  ctx.camera.position.set(7, 1.6, -6);
+  applyRemoteAk47Shots(ctx, [{ id: 'nearby-player', shots: [[2, 0, 1.6, 0, 0, 0, -1, 12]] }], 63000);
+  assert.equal(cracks, 2);
+  assert.equal(passes.length, 1, 'quem está fora da trajetória não ouve o assobio');
+  ctx.camera.position.set(100, 1.6, -6);
+  applyRemoteAk47Shots(ctx, [{ id: 'nearby-player', shots: [[3, 0, 1.6, 0, 0, 0, -1, 12]] }], 64000);
+  assert.equal(cracks, 3, 'o disparo chega a quem está longe do atirador');
+  assert.equal(impacts.length, 2, 'o impacto só é audível perto do ponto atingido');
+});
+
+test('o vigésimo acerto derruba a nave antes da recuperação e da saída', () => {
+  const ctx = fixture();
+  stepUfoAbduction(ctx, 33);
+  const [target] = ctx.scene.userData.shotTargets;
+  const origin = new THREE.Vector3();
+  const direction = new THREE.Vector3(0, 0.28, -1).normalize();
+  for (let i = 0; i < 19; i++) target.onHit(ctx, origin, target.mesh.position, direction);
+  assert.equal(getUfoTelemetry().phase, 'flyby');
+  target.onHit(ctx, origin, target.mesh.position, direction);
+  assert.equal(getUfoTelemetry().phase, 'crashing');
+  for (let i = 0; i < 110; i++) stepUfoAbduction(ctx, 0.05);
+  assert.equal(getUfoTelemetry().phase, 'wrecked');
+  assert.equal(target.active(), false);
+  stepUfoAbduction(ctx, 73);
+  assert.equal(getUfoTelemetry().phase, 'recovering');
+  stepUfoAbduction(ctx, 7);
+  assert.equal(getUfoTelemetry().active, false);
 });

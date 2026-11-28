@@ -1,8 +1,11 @@
 /**
  * MycoCampus3D — Disco Voador (Passagem Rara no Céu & Abdução de Vaquinha)
  */
-import { getGroundHeight } from '../engine/physics.js';
+import { getGroundHeight, terrainHeight } from '../engine/physics.js';
 import { findSafePasturePoint, PASTURE_TROUGH_POS } from '../entities/pasture-cows.js';
+import { registerShotTarget } from '../systems/shot-targets.js';
+import { spawnCampusFxBurst } from '../engine/fx-burst.js';
+import { makeUfoCrashFx } from './ufo-crash-fx.js';
 
 const THREE = window.THREE;
 
@@ -22,8 +25,12 @@ let ufoState = {
   cowRespawnTimer: 0,
   respawnCow: null
 };
+const UFO_CRASH_HITS = 20;
+const UFO_WRECK_SECONDS = 72;
+const TARGETABLE_PHASES = new Set(['flyby', 'approach', 'beam', 'depart']);
 
-function ensureUfoMesh(scene) {
+function ensureUfoMesh(ctx) {
+  const scene = ctx.scene;
   if (ufoState.mesh) return ufoState.mesh;
   const root = new THREE.Group();
 
@@ -118,6 +125,11 @@ function ensureUfoMesh(scene) {
   root.visible = false;
   scene.add(root);
   ufoState.mesh = root;
+  registerShotTarget(ctx, root, {
+    radius: 2.66, halfHeight: 0.73, centerY: 0.19,
+    active: () => root.visible && TARGETABLE_PHASES.has(ufoState.phase),
+    onHit: hitUfo
+  });
   ufoState.beam = beam;
   return root;
 }
@@ -138,6 +150,60 @@ function releaseCow(cow, ctx) {
   cow.routeIdx = 1;
   cow.lastProgressX = rx;
   cow.lastProgressZ = rz;
+}
+
+function hitUfo(ctx, _source, point, direction) {
+  spawnCampusFxBurst(ctx.scene, point, 0xfbbf24, 4);
+  if (++ufoState.hits < UFO_CRASH_HITS) return;
+  const ufo = ufoState.mesh;
+  ufoState.beam.visible = false;
+  if (ufoState.targetCow) releaseCow(ufoState.targetCow, ctx);
+  ufoState.targetCow = null;
+  ufoState.phase = 'crashing';
+  ufoState.t = 0;
+  ufoState.crashFx ||= makeUfoCrashFx(ctx.scene);
+  ufoState.crashYaw = Math.atan2(direction.x, direction.z) + 0.6;
+  ufoState.crashVelY = 1.4;
+  ufoState.crashStart.set(ufo.position.x, ufo.position.y, ufo.position.z);
+}
+
+function stepDamagedUfo(dt) {
+  const ufo = ufoState.mesh;
+  const time = ufoState.t;
+  const yaw = ufoState.crashYaw;
+  if (ufoState.phase === 'crashing') {
+    ufoState.crashVelY -= dt * 7.8;
+    ufo.position.x = THREE.MathUtils.clamp(ufo.position.x + Math.sin(yaw + Math.sin(time * 2.6) * 0.82) * dt * 9, -192, 192);
+    ufo.position.z = THREE.MathUtils.clamp(ufo.position.z + Math.cos(yaw + Math.sin(time * 2.6) * 0.82) * dt * 9, -192, 192);
+    ufo.position.y += ufoState.crashVelY * dt;
+    ufo.rotation.set(Math.sin(time * 3) * 0.5, ufo.rotation.y + dt * 3.7, Math.cos(time * 2.7) * 0.62);
+    const ground = terrainHeight(ufo.position.x, ufo.position.z);
+    if (ufo.position.y <= ground) {
+      ufo.position.y = ground - 0.24;
+      ufo.rotation.set(0.19, ufo.rotation.y, 0.27);
+      ufoState.phase = 'wrecked';
+      ufoState.t = 0;
+    }
+  } else if (ufoState.phase === 'wrecked' && time >= UFO_WRECK_SECONDS) {
+    ufoState.phase = 'recovering';
+    ufoState.t = 0;
+    ufoState.crashStart.copy(ufo.position);
+  } else if (ufoState.phase === 'recovering') {
+    const speedUp = Math.max(0, time - 1.1) ** 2;
+    ufo.position.set(ufoState.crashStart.x + Math.sin(yaw) * speedUp * 3,
+      ufoState.crashStart.y + time * 1.9 + speedUp * 1.75,
+      ufoState.crashStart.z + Math.cos(yaw) * speedUp * 3);
+    ufo.rotation.x = Math.sin(time * 4) * 0.15;
+    ufo.rotation.y += dt * 1.8;
+    ufo.rotation.z = Math.cos(time * 3) * 0.2;
+    if (time >= 6) {
+      ufo.visible = false;
+      ufo.rotation.set(0, 0, 0);
+      ufoState.phase = 'idle';
+      ufoState.timer = 95;
+    }
+  }
+  ufoState.crashFx.step(ufo.position, dt, ufoState.phase !== 'idle');
 }
 
 /** Telemetria da nave para o radar da Estação Ecológica. */
@@ -165,10 +231,11 @@ export function stepUfoAbduction(ctx, dt) {
   }
 
   if (ufoState.phase === 'idle') {
+    if (ufoState.crashFx) ufoState.crashFx.step(ufoState.mesh.position, dt, false);
     ufoState.timer -= dt;
     if (ufoState.timer > 0) return;
 
-    const ufo = ensureUfoMesh(ctx.scene);
+    const ufo = ensureUfoMesh(ctx);
     const cows = ctx.pastureCows || [];
     const availableCows = cows.filter((c) => !c.abducted);
     const doAbduct = availableCows.length > 0 && Math.random() < 0.55;
@@ -176,6 +243,8 @@ export function stepUfoAbduction(ctx, dt) {
     ufo.visible = true;
     ufoState.beam.visible = false;
     ufoState.t = 0;
+    ufoState.hits = 0;
+    ufoState.crashStart ||= new THREE.Vector3();
     ctx.callbacks?.onToast?.('🛸 Nave detectada! Veja a posição no radar da Estação Ecológica.');
 
     if (doAbduct) {
@@ -203,6 +272,10 @@ export function stepUfoAbduction(ctx, dt) {
   const ufo = ufoState.mesh;
   if (!ufo) return;
   ufoState.t += dt;
+  if (ufoState.phase === 'crashing' || ufoState.phase === 'wrecked' || ufoState.phase === 'recovering') {
+    stepDamagedUfo(dt);
+    return;
+  }
 
   // Girar nave e piscar luzinhas
   ufo.rotation.y += dt * 1.4;

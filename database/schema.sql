@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS mc_sessions (
     walking TINYINT(1) NOT NULL DEFAULT 0,
     in_fps TINYINT(1) NOT NULL DEFAULT 0,
     pet_json TEXT NULL,
+    shot_fx_json TEXT NULL,
     chat_msg VARCHAR(140) NULL,
     chat_at DATETIME NULL,
     last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

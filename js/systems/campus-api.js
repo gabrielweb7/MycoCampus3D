@@ -21,6 +21,7 @@ import * as worldSync from './world-sync.js';
 import * as adminEditor from './admin-editor.js';
 import { openRadialMenu, triggerFloatingAction, triggerFloatingActionByCode, inspectItemToast, inspectBeehiveCard } from '../ui/radial-menu.js';
 import { setTelescopeZoom } from '../world/plaza-telescope.js';
+import { applyRemoteAk47Shots, getRecentAk47Shots, hasRecentAk47Shots, resetAk47Session } from './ak47-effects.js';
 
 const qualityTiersOrder = ['high', 'medium', 'low', 'min'];
 
@@ -291,8 +292,10 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
     return { id: held.id, state: getReplicatedItemState(sim, held) };
   };
   window.isCampusInventoryPending = () => !!sim.inventory.pending;
+  window.getCampusRecentShots = () => getRecentAk47Shots(sim);
+  window.applyCampusRemoteShots = players => applyRemoteAk47Shots(sim, players);
   window.hasCampusPendingSync = () => !!(sim.inventory.pending || sim.pendingBoardStrokes.length ||
-    Object.keys(sim.pendingMovedItems).length || Object.keys(sim.pendingStateChanges).length);
+    Object.keys(sim.pendingMovedItems).length || Object.keys(sim.pendingStateChanges).length || hasRecentAk47Shots(sim));
   window.getCampusInventoryOperation = () => getQuickInventoryOperation(sim, item => getReplicatedItemState(sim, item));
   window.applyCampusInventory = (snapshot, players, sentHolding, initial) => applyQuickInventory(sim, snapshot, players, sentHolding, initial);
   window.markCampusInitialItemStatesApplied = function () { return worldSync.markCampusInitialItemStatesApplied(sim); };
@@ -329,6 +332,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
 
   window.resetCampusLocalSession = function () {
     resetQuickInventory(sim);
+    resetAk47Session(sim);
     sim.syringePumping = null;
     sim.sinkFilling = null;
     sim.pourHold = null;

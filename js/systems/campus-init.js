@@ -53,6 +53,7 @@ import {
 import { bindControls } from './input-controller.js';
 import { freezeStaticWorld } from '../engine/scene-optimizer.js';
 import { applyQualityTier, getCinemaHitTarget, startAnimationLoop } from './game-loop.js';
+import { compileAk47Effects, prepareAk47Effects } from './ak47-effects.js';
 import { registerCampusPublicApi as bindPublicApi } from './campus-api.js';
 import { markItemRemovedForSync, queueItemStateSync, restoreLocalWorldObjects } from './world-objects-sync.js';
 
@@ -791,8 +792,9 @@ export function initCampus3D(containerId, cbs) {
     resetAutoQuality();
     applyQualityTier(sim, initialTier);
     if (autoConfig) setAutoQualityScale(autoConfig.scale, sim.renderer);
+    prepareAk47Effects(sim);
     if (sim.renderer && typeof sim.renderer.compile === 'function') {
-      try { sim.renderer.compile(sim.scene, sim.camera); } catch (_) {}
+      try { compileAk47Effects(sim); } catch (_) {}
     }
     startAnimationLoop(sim);
     const lobbyEl = document.getElementById('campus-lobby');

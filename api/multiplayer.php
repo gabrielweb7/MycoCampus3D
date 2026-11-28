@@ -10,6 +10,7 @@ require_once __DIR__ . '/multiplayer_schema.php';
 require_once __DIR__ . '/inventory.php';
 require_once __DIR__ . '/village_store.php';
 require_once __DIR__ . '/avatar_skins.php';
+require_once __DIR__ . '/shot_fx.php';
 
 const MP_SESSION_TIMEOUT_S = 12;
 const MP_CHAT_TTL_S = 7;
@@ -307,6 +308,16 @@ if ($action === 'sync') {
     $toyMode = (string)($body['toy_mode'] ?? '');
     $walking = ($toyMode === 'parachute') ? 5 : (($toyMode === 'paraglider') ? 4 : (($toyMode === 'snowboard') ? 3 : ($seated ? 2 : (!empty($body['walking']) ? 1 : 0))));
     $inFps = !empty($body['in_fps']) ? 1 : 0;
+    $shotTime = (int)floor(microtime(true) * 1000);
+    $shotJson = null;
+    if ($inFps && !$initSync && $holding !== '' && is_array($body['shots'] ?? null) && $body['shots']) {
+        $shots = mp_clean_shot_fx($body['shots'], $x, $y, $z, $shotTime);
+        if ($shots) {
+            $heldPrefab = $pdo->prepare('SELECT prefab_id FROM mc_world_layout_edits WHERE item_id = ? AND removed = 0');
+            $heldPrefab->execute([$holding]);
+            if ($heldPrefab->fetchColumn() === 'ak47') $shotJson = json_encode($shots);
+        }
+    }
     // Only expose the selected, owned pet and bowl positions, never private progress.
     $userProgress = json_decode((string)($user['progress_json'] ?? ''), true);
     $petState = is_array($userProgress['pets'] ?? null) ? $userProgress['pets'] : [];
@@ -400,21 +411,22 @@ if ($action === 'sync') {
         $sessionKey, $userId, (string)$user['display_name'], (string)$user['role'],
         mc_clean_hex($user['hat_color'], '#dc2626'), mc_clean_hex($user['body_color'], '#4f46e5'),
         $currentHat, $emote,
-        $x, $y, $z, $yaw, $pitch, $holding, $walking, $inFps, $petJson,
+        $x, $y, $z, $yaw, $pitch, $holding, $walking, $inFps, $petJson, $shotJson,
     ];
-    $baseCols = 'session_id, user_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps, pet_json';
+    $baseCols = 'session_id, user_id, display_name, role, hat_color, body_color, current_hat, emote, x, y, z, yaw, pitch, holding_item, walking, in_fps, pet_json, shot_fx_json';
     $baseUpd = 'user_id=VALUES(user_id), display_name=VALUES(display_name), role=VALUES(role),
                 hat_color=VALUES(hat_color), body_color=VALUES(body_color),
                 current_hat=VALUES(current_hat), emote=VALUES(emote),
                 x=VALUES(x), y=VALUES(y), z=VALUES(z), yaw=VALUES(yaw), pitch=VALUES(pitch),
-                holding_item=VALUES(holding_item), walking=VALUES(walking), in_fps=VALUES(in_fps), pet_json=VALUES(pet_json), last_seen=NOW()';
+                holding_item=VALUES(holding_item), walking=VALUES(walking), in_fps=VALUES(in_fps),
+                pet_json=VALUES(pet_json), shot_fx_json=VALUES(shot_fx_json), last_seen=NOW()';
 
     if ($chatMsg !== null) {
-        $sql = "INSERT INTO mc_sessions ($baseCols, chat_msg, chat_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        $sql = "INSERT INTO mc_sessions ($baseCols, chat_msg, chat_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                 ON DUPLICATE KEY UPDATE $baseUpd, chat_msg=VALUES(chat_msg), chat_at=NOW()";
         $params[] = $chatMsg;
     } else {
-        $sql = "INSERT INTO mc_sessions ($baseCols, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        $sql = "INSERT INTO mc_sessions ($baseCols, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
                 ON DUPLICATE KEY UPDATE $baseUpd";
     }
     $pdo->prepare($sql)->execute($params);
@@ -519,9 +531,10 @@ if ($action === 'sync') {
     $editorIds = $manageEditors ? mc_village_editor_ids($pdo, $standingLot, (int)$standingLease['lease_epoch'], $userId) : [];
     $guestEditLot = $inFps && !$manageEditors && $standingLot !== null &&
         mc_village_can_edit($pdo, $standingLot, $userId, $standingLease, $villageNow) ? $standingLot : null;
-    $pStmt = $pdo->prepare('SELECT p.user_id, p.session_id, p.display_name, u.role, p.hat_color, p.body_color, p.current_hat, p.emote, p.x, p.y, p.z, p.yaw, p.pitch, p.holding_item, p.walking, p.in_fps, p.pet_json, u.current_skin, u.unlocked_skins,
+    $pStmt = $pdo->prepare('SELECT p.user_id, p.session_id, p.display_name, u.role, p.hat_color, p.body_color, p.current_hat, p.emote, p.x, p.y, p.z, p.yaw, p.pitch, p.holding_item, p.walking, p.in_fps, p.pet_json, p.shot_fx_json, u.current_skin, u.unlocked_skins, l.item_id IS NOT NULL AS ak47_equipped,
             IF(p.chat_at IS NOT NULL AND p.chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), p.chat_msg, NULL) AS chat_msg
         FROM mc_sessions p JOIN mc_users u ON u.id = p.user_id
+        LEFT JOIN mc_world_layout_edits l ON l.item_id = p.holding_item AND l.prefab_id = \'ak47\' AND l.removed = 0
         WHERE p.session_id != ? AND p.last_seen >= (NOW() - INTERVAL ' . MP_SESSION_TIMEOUT_S . ' SECOND)
         ORDER BY p.session_id ASC LIMIT 60');
     $pStmt->execute([$sessionKey]);
@@ -558,9 +571,13 @@ if ($action === 'sync') {
             'seated' => ((int)$p['walking'] === 2),
             'toy_mode' => ((int)$p['walking'] === 5) ? 'parachute' : (((int)$p['walking'] === 4) ? 'paraglider' : (((int)$p['walking'] === 3) ? 'snowboard' : '')),
             'in_fps' => (bool)$p['in_fps'],
+            'ak47_equipped' => (bool)$p['in_fps'] && (bool)$p['ak47_equipped'],
             'pets' => json_decode((string)($p['pet_json'] ?? ''), true) ?: null,
             'chat' => $p['chat_msg'],
         ];
+        if ($inFps && ($nearbyShots = mp_visible_shot_fx($p['shot_fx_json'], $shotTime, $x, $y, $z))) {
+            $player['shots'] = $nearbyShots;
+        }
         if ($manageEditors && $p['in_fps'] && mc_village_lot_at((float)$p['x'], (float)$p['z']) === $standingLot) {
             $guestId = (int)$p['user_id'];
             $player['village_editor'] = ['id' => $guestId, 'lot' => $standingLot, 'allowed' => isset($editorIds[$guestId])];

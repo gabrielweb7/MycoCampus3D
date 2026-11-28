@@ -1,7 +1,7 @@
-function rayIntersectsAabb(origin, dir, c, useEntry = false) {
+function rayIntersectsAabb(origin, dir, c, useEntry = false, normal, limit = Infinity) {
   const cMinY = typeof c.minY === 'number' ? c.minY : 0;
   const cMaxY = typeof c.maxY === 'number' ? c.maxY : 2.5;
-  if (cMaxY - cMinY < 0.38) return -1;
+  if (!useEntry && cMaxY - cMinY < 0.38) return -1;
 
   const invDx = 1 / (Math.abs(dir.x) > 1e-6 ? dir.x : 1e-6);
   const invDy = 1 / (Math.abs(dir.y) > 1e-6 ? dir.y : 1e-6);
@@ -16,11 +16,19 @@ function rayIntersectsAabb(origin, dir, c, useEntry = false) {
 
   const tmin = Math.max(Math.min(tx1, tx2), Math.min(ty1, ty2), Math.min(tz1, tz2));
   const tmax = Math.min(Math.max(tx1, tx2), Math.max(ty1, ty2), Math.max(tz1, tz2));
-  if (tmax < tmin || tmax <= 0.05) return -1;
-  return useEntry && tmin > 0.05 ? tmin : tmax;
+  if (tmax < tmin || tmax <= (useEntry ? 0.005 : 0.05)) return -1;
+  const enter = useEntry && tmin > 0.005;
+  const hit = enter ? tmin : tmax;
+  if (normal && hit < limit) {
+    if (hit === (enter ? Math.min(tx1, tx2) : Math.max(tx1, tx2))) normal.set(-Math.sign(dir.x), 0, 0);
+    else if (hit === (enter ? Math.min(ty1, ty2) : Math.max(ty1, ty2))) normal.set(0, -Math.sign(dir.y), 0);
+    else normal.set(0, 0, -Math.sign(dir.z));
+    if (!enter) normal.negate();
+  }
+  return hit;
 }
 
-function nearestWallDistance(origin, dir, walls, maxDist, stopAtFirst = false) {
+function nearestWallDistance(origin, dir, walls, maxDist, stopAtFirst = false, normal) {
   if (!walls?.length) return maxDist;
   let closest = maxDist;
   for (let i = 0; i < walls.length; i++) {
@@ -32,9 +40,12 @@ function nearestWallDistance(origin, dir, walls, maxDist, stopAtFirst = false) {
     if (Math.abs(denom) < 1e-6) continue;
     const qx = w.x1 - origin.x;
     const qz = w.z1 - origin.z;
-    const t = (qx * sz - qz * sx) / denom;
+    const span = stopAtFirst ? 0 : Math.hypot(sx, sz);
+    const faceOffset = stopAtFirst ? 0 : (w.halfThick || 0) * span / Math.abs(denom);
+    const t = (qx * sz - qz * sx) / denom - faceOffset;
     if (t <= 0.05 || t >= closest - (stopAtFirst ? 0.05 : 0)) continue;
-    const u = (qx * dir.z - qz * dir.x) / denom;
+    const u = stopAtFirst ? (qx * dir.z - qz * dir.x) / denom
+      : ((origin.x + dir.x * t - w.x1) * sx + (origin.z + dir.z * t - w.z1) * sz) / (sx * sx + sz * sz);
     if (u < -0.005 || u > 1.005) continue;
     const hitY = origin.y + dir.y * t;
     const minY = typeof w.minY === 'number' ? w.minY : 0;
@@ -42,16 +53,17 @@ function nearestWallDistance(origin, dir, walls, maxDist, stopAtFirst = false) {
     if (hitY >= minY && hitY <= maxY) {
       if (stopAtFirst) return t;
       closest = t;
+      if (normal) normal.set(sz, 0, -sx).multiplyScalar(-Math.sign(denom) / span);
     }
   }
   return closest;
 }
 
-export function getStructureHitDistance(ctx, origin, direction, range) {
-  let distance = nearestWallDistance(origin, direction, ctx.wallSegments, range);
+export function getStructureHitDistance(ctx, origin, direction, range, normal) {
+  let distance = nearestWallDistance(origin, direction, ctx.wallSegments, range, false, normal);
   for (const collider of ctx.solidColliders || []) {
     if (!collider || collider._disabled) continue;
-    const hit = rayIntersectsAabb(origin, direction, collider, true);
+    const hit = rayIntersectsAabb(origin, direction, collider, true, normal, distance);
     if (hit > 0 && hit < distance) distance = hit;
   }
   return distance;

@@ -7,6 +7,10 @@ let meshBounds;
 const viewPoint = new THREE.Vector3();
 const cameraInverse = new THREE.Quaternion();
 const palmOffset = new THREE.Vector3();
+const sleeveAxis = new THREE.Vector3(0, 0, 1);
+const elbow = new THREE.Vector3();
+const armAxis = new THREE.Vector3();
+const adjustedSleeves = new WeakMap();
 
 function getGripBounds(mesh) {
   let bounds = gripBounds.get(mesh);
@@ -69,28 +73,51 @@ function alignPalm(camera, arm, mesh, x, y, z) {
   arm.position.copy(viewPoint).sub(palmOffset);
 }
 
+export function resetHeldSleeve(arm) {
+  const sleeve = adjustedSleeves.get(arm);
+  if (!sleeve) return;
+  sleeve.position.z = 0.15;
+  sleeve.scale.setScalar(1);
+  adjustedSleeves.delete(arm);
+}
+
+function alignRifleHand(camera, arm, mesh, grip, side) {
+  if (!arm?.visible) return;
+  viewPoint.set(grip.x, grip.y, grip.z).multiply(mesh.scale).applyQuaternion(mesh.quaternion)
+    .add(mesh.position).sub(camera.position).applyQuaternion(cameraInverse);
+  elbow.set(fitHandHorizontally(camera, side * (side < 0 ? 0.29 : 0.37)), -0.51, -0.28);
+  armAxis.subVectors(elbow, viewPoint).normalize();
+  arm.quaternion.setFromUnitVectors(sleeveAxis, armAxis);
+  arm.rotateZ(side < 0 ? -0.5 : 0.22);
+  arm.position.copy(viewPoint).addScaledVector(armAxis, 0.05);
+  const sleeve = adjustedSleeves.get(arm) || arm.getObjectByName('fps-sleeve');
+  if (sleeve) {
+    const length = arm.position.distanceTo(elbow);
+    sleeve.position.z = length / 2;
+    sleeve.scale.set(0.76, length / 0.30, 0.76);
+    adjustedSleeves.set(arm, sleeve);
+  }
+}
+
 export function alignHeldHands(ctx, item) {
   if (!ctx.fpsArmGroup?.visible || !item.mesh.visible || ctx.snowboardActive || (ctx.paragliderActive && !ctx.onGround)) return;
   const mesh = item.mesh;
   const data = mesh.userData;
+  const camera = ctx.camera;
+  cameraInverse.copy(camera.quaternion).invert();
+  if (data.firstPersonSupportGrip && data.firstPersonGrip) {
+    alignRifleHand(camera, ctx.fpsArmGroup, mesh, data.firstPersonGrip, 1);
+    alignRifleHand(camera, ctx.fpsLeftArmGroup, mesh, data.firstPersonSupportGrip, -1);
+    return;
+  }
   const { min, max } = getGripBounds(mesh);
   const centerX = (min.x + max.x) / 2;
   const width = max.x - min.x;
   const y = min.y + Math.min(0.12, (max.y - min.y) * 0.28);
   const front = max.z + 0.025;
-  const camera = ctx.camera;
-  cameraInverse.copy(camera.quaternion).invert();
-
   if (data.isHood) {
     alignPalm(camera, ctx.fpsArmGroup, mesh, max.x + 0.025, 0.035, -0.42);
     alignPalm(camera, ctx.fpsLeftArmGroup, mesh, max.x + 0.025, 0.035, 0.42);
-  } else if (data.firstPersonSupportGrip && data.firstPersonGrip) {
-    const grip = data.firstPersonGrip;
-    const support = data.firstPersonSupportGrip;
-    ctx.fpsArmGroup.rotation.set(0.09, 0.08, 0.16);
-    ctx.fpsLeftArmGroup?.rotation.set(0.08, -0.36, -0.2);
-    alignPalm(camera, ctx.fpsArmGroup, mesh, grip.x, grip.y, grip.z);
-    alignPalm(camera, ctx.fpsLeftArmGroup, mesh, support.x, support.y, support.z);
   } else if (data.twoHanded || data.firstPersonSideGrip) {
     const spread = Math.min(0.34, (max.x - min.x) * 0.43);
     const grip = data.firstPersonSideGrip;

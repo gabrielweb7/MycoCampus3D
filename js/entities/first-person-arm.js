@@ -13,6 +13,7 @@ export function buildFirstPersonArm(ctx) {
   function makeArm(side) {
     const group = new THREE.Group();
     const sleeve = new THREE.Mesh(sleeveGeometry, fpsSleeveMat);
+    sleeve.name = 'fps-sleeve';
     sleeve.rotation.x = Math.PI / 2;
     sleeve.position.z = 0.15;
     const cuff = new THREE.Mesh(cuffGeometry, cuffMat);

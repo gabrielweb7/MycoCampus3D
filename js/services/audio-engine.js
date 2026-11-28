@@ -15,6 +15,9 @@ let _sprayBufRate = 0;
 let _steamBuf = null;
 let _steamBufRate = 0;
 let ak47ShotBuffer = null;
+let ak47PassBuffer = null;
+let ak47ImpactBuffer = null;
+let weaponAudioScheduled = false;
 let _iosSilentUnlocked = false;
 
 try {
@@ -45,6 +48,16 @@ export function unlock() {
   userHasGestured = true;
   const ctx = getAudioContext();
   if (!ctx) return;
+  if (!weaponAudioScheduled) {
+    weaponAudioScheduled = true;
+    const prepare = () => {
+      getAk47ShotBuffer(ctx);
+      getAk47PassBuffer(ctx);
+      getAk47ImpactBuffer(ctx);
+    };
+    if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(prepare, { timeout: 600 });
+    else setTimeout(prepare, 0);
+  }
   if (isSuspendedOrInterrupted(ctx.state)) {
     ctx.resume().catch(() => {});
   }
@@ -707,10 +720,30 @@ export function playBubble() {
   osc.stop(t + 0.12);
 }
 
-export function playAk47Shot() {
-  if (isMuted) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
+function playWeaponBuffer(ctx, buffer, volume, pan, delay, endPan = pan, rate = 1) {
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.playbackRate.value = rate * (0.95 + Math.random() * 0.10);
+  const startAt = ctx.currentTime + delay;
+  if (volume === 1 && !pan && !endPan) {
+    source.connect(masterGain);
+  } else {
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+    source.connect(gain);
+    if (ctx.createStereoPanner && (pan || endPan)) {
+      const stereo = ctx.createStereoPanner();
+      stereo.pan.setValueAtTime(pan, startAt);
+      stereo.pan.linearRampToValueAtTime(endPan, startAt + 0.08);
+      gain.connect(stereo).connect(masterGain);
+    } else {
+      gain.connect(masterGain);
+    }
+  }
+  source.start(startAt);
+}
+
+function getAk47ShotBuffer(ctx) {
   if (!ak47ShotBuffer) {
     const rate = ctx.sampleRate;
     ak47ShotBuffer = ctx.createBuffer(1, Math.ceil(rate * 0.32), rate);
@@ -730,15 +763,64 @@ export function playAk47Shot() {
       previousNoise = noise;
     }
   }
-  const source = ctx.createBufferSource();
-  source.buffer = ak47ShotBuffer;
-  source.playbackRate.value = 0.95 + Math.random() * 0.10;
-  source.connect(masterGain);
-  source.start();
+  return ak47ShotBuffer;
+}
+
+function getAk47PassBuffer(ctx) {
+  if (!ak47PassBuffer) {
+    const rate = ctx.sampleRate;
+    ak47PassBuffer = ctx.createBuffer(1, Math.ceil(rate * 0.13), rate);
+    const samples = ak47PassBuffer.getChannelData(0);
+    let low = 0;
+    let phase = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const age = i / rate;
+      const noise = Math.random() * 2 - 1;
+      low += (noise - low) * 0.19;
+      phase += (680 + 1750 * Math.exp(-age * 45)) * Math.PI * 2 / rate;
+      const swell = Math.min(1, age / 0.009) * Math.exp(-age * 39);
+      samples[i] = ((noise - low) * 0.23 + Math.sin(phase) * 0.27) * swell;
+    }
+  }
+  return ak47PassBuffer;
+}
+
+function getAk47ImpactBuffer(ctx) {
+  if (!ak47ImpactBuffer) {
+    const rate = ctx.sampleRate;
+    ak47ImpactBuffer = ctx.createBuffer(1, Math.ceil(rate * 0.11), rate);
+    const samples = ak47ImpactBuffer.getChannelData(0);
+    let low = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const age = i / rate;
+      const noise = Math.random() * 2 - 1;
+      low += (noise - low) * 0.21;
+      samples[i] = (noise - low) * Math.exp(-age * 118) * 0.33 +
+        (low * 0.38 + Math.sin(age * 2 * Math.PI * 210) * 0.16) * Math.exp(-age * 63);
+    }
+  }
+  return ak47ImpactBuffer;
+}
+
+export function playAk47Shot(volume = 1, pan = 0, delay = 0) {
+  const ctx = !isMuted && getAudioContext();
+  if (ctx) playWeaponBuffer(ctx, getAk47ShotBuffer(ctx), volume, pan, delay);
+}
+
+export function playAk47Pass(volume, pan, delay, endPan = pan) {
+  const ctx = !isMuted && getAudioContext();
+  if (ctx) playWeaponBuffer(ctx, getAk47PassBuffer(ctx), volume, pan, delay, endPan);
+}
+
+export function playAk47Impact(volume, pan, delay, hardSurface) {
+  const ctx = !isMuted && getAudioContext();
+  if (ctx) playWeaponBuffer(ctx, getAk47ImpactBuffer(ctx), volume, pan, delay, pan, hardSurface ? 1.25 : 0.77);
 }
 
 export const AudioEngine = {
   playAk47Shot,
+  playAk47Pass,
+  playAk47Impact,
   playFootstep,
   playHarvest,
   playMushroomPop,

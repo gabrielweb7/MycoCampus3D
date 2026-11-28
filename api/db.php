@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-const MC_SCHEMA_VERSION = 21;
+const MC_SCHEMA_VERSION = 22;
 const MC_TOKEN_TTL_DAYS = 30;
 const MC_PETS = ['cat_orange', 'cat_black', 'cat_calico', 'dog_golden', 'dog_husky', 'dog_pug'];
 
@@ -79,6 +79,10 @@ function mc_migrate(PDO $pdo): void {
 
     if ($version < MC_SCHEMA_VERSION) {
         mc_run_schema_file($pdo);
+        if ($version < 22) {
+            $shotColumn = $pdo->query("SHOW COLUMNS FROM mc_sessions LIKE 'shot_fx_json'")->fetch();
+            if (!$shotColumn) $pdo->exec('ALTER TABLE mc_sessions ADD COLUMN shot_fx_json TEXT NULL');
+        }
         if ($version < 21) {
             $pdo->query('SELECT lot_id, upgrades_json FROM mc_village_upgrades LIMIT 0');
         }

@@ -10,7 +10,7 @@ import {
   clampPosAgainstWalls
 } from '../engine/physics.js';
 import { animateAvatarAura } from '../entities/avatars.js';
-import { fitHandHorizontally } from '../entities/first-person-grip.js';
+import { fitHandHorizontally, resetHeldSleeve } from '../entities/first-person-grip.js';
 import { getHeldBoardToolColor } from './chalkboard.js';
 
 const P = GAME_CONFIG.player;
@@ -267,6 +267,11 @@ export function stepPlayerMovement(ctx, dt, now) {
   // Bracos em 1a pessoa
   const heldData = ctx.heldItem?.mesh.userData;
   const isTwoHanded = !!(heldData?.twoHanded || heldData?.firstPersonSideGrip || heldData?.firstPersonSupportGrip);
+  if (!heldData?.firstPersonSupportGrip || ctx.placementMode || ctx.villageMove || ctx.snowboardActive ||
+      (ctx.paragliderActive && !ctx.onGround)) {
+    resetHeldSleeve(ctx.fpsArmGroup);
+    resetHeldSleeve(ctx.fpsLeftArmGroup);
+  }
   if (ctx.fpsArmGroup) {
     ctx.fpsArmGroup.visible = true;
     if (ctx.paragliderActive && !ctx.onGround) {
