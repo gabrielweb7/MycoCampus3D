@@ -71,6 +71,7 @@ const {
 } = await import('../js/world/house-upgrades.js');
 const { appState } = await import('../js/core/state.js');
 const { firstUnoccludedRayHit } = await import('../js/systems/ray-occlusion.js');
+const { applyCampusWorldState } = await import('../js/systems/world-devices-sync.js');
 
 test('house upgrades catalog contains 6 valid upgrades with required properties', () => {
   assert.equal(HOUSE_UPGRADES.length, 6);
@@ -423,4 +424,106 @@ test('firstUnoccludedRayHit skips objects hidden by an invisible parent group', 
     { object: visibleMesh, distance: 2.0 }
   ], 4.2);
   assert.equal(hit?.object, visibleMesh);
+});
+
+test('applyCampusWorldState restores lot doors, blinds, and light power on initial sync and queues toggles', () => {
+  const lot = { id: 2, x: -26, z: 54, front: 1, houseZ: 50, doorZ: 53.4 };
+  const h = makeLotHarness(lot);
+  const queued = [];
+  h.ctx.windowBlinds = [];
+  const root2 = new globalThis.THREE.Group();
+  const ctx2 = {
+    scene: root2,
+    wallSegments: [],
+    walkableFloors: [],
+    stairsList: [],
+    supportSurfaces: [],
+    supportMeshes: [],
+    houseInteractMeshes: [],
+    houseDynamicObjects: [],
+    campusDoors: [],
+    windowBlinds: [],
+    pendingStateChanges: {},
+    recentlyChangedState: {},
+    pickableItems: [],
+    campusLightSwitches: [],
+    stirrerDevices: [],
+    burnerDevices: [],
+    cookerPots: [],
+    wildMushrooms: [],
+    labCabinets: [],
+    sportBalls: [],
+    queueWorldStateChange: (k, v) => queued.push([k, v])
+  };
+  const mats = {
+    wood: new globalThis.THREE.MeshBasicMaterial(),
+    trim: new globalThis.THREE.MeshBasicMaterial(),
+    wall: new globalThis.THREE.MeshBasicMaterial(),
+    floor: new globalThis.THREE.MeshBasicMaterial(),
+    accent: new globalThis.THREE.MeshBasicMaterial()
+  };
+  const dims = {
+    width: 8.4,
+    depth: 6.8,
+    doorway: 1.90,
+    floorY: 0.10,
+    eavesY: 4.70,
+    gableH: 1.62,
+    addSolidWall(parent, walls, x1, z1, x2, z2, minY, hgt, thick) {
+      walls.push({ x1, z1, x2, z2, minY, maxY: minY + hgt, halfThick: thick / 2 });
+      const m = new globalThis.THREE.Mesh();
+      parent.add(m);
+      return m;
+    },
+    addWalkableSlab(parent, floors, cx, topY, cz, w, thick, d) {
+      floors.push({ minX: cx - w / 2, maxX: cx + w / 2, minZ: cz - d / 2, maxZ: cz + d / 2, topY });
+      const m = new globalThis.THREE.Mesh();
+      parent.add(m);
+      return m;
+    },
+    box(parent, mat, x, y, z) {
+      const m = new globalThis.THREE.Mesh();
+      m.position.set(x, y, z);
+      parent.add(m);
+      return m;
+    }
+  };
+  attachHouseUpgradesToLot(ctx2, root2, { id: 8, x: 0, z: 84, front: -1, houseZ: 88, doorZ: 84.6 }, mats, dims);
+  applyVillageUpgrades([{
+    id: 8,
+    upgrades: { house_lights: true, garden_lights: true, front_door: true, back_door: true }
+  }]);
+
+  applyCampusWorldState(ctx2, {
+    lot_8_front_door: '1',
+    lot_8_back_door: '1',
+    lot_8_blind_back: '0',
+    lot_8_house_lights_on: '0',
+    lot_8_garden_lights_on: '0'
+  }, true);
+
+  const fDoor = ctx2.campusDoors.find(d => d.id === 'lot_8_front_door');
+  const bDoor = ctx2.campusDoors.find(d => d.id === 'lot_8_back_door');
+  const backBlind = ctx2.windowBlinds.find(b => b.id === 'lot_8_blind_back');
+  assert.equal(fDoor.open, true);
+  assert.equal(fDoor.doorCollider.maxY, -1);
+  assert.notEqual(fDoor.leftPivot.rotation.y, 0);
+  assert.equal(bDoor.open, true);
+  assert.equal(bDoor.doorCollider.maxY, -1);
+  assert.equal(backBlind.open, false);
+
+  const houseLightGrp = ctx2.houseDynamicObjects[4];
+  const gardenLightGrp = ctx2.houseDynamicObjects[5];
+  assert.equal(houseLightGrp.visible, false);
+  assert.equal(gardenLightGrp.visible, false);
+
+  // Clicking door and blind queues world state changes
+  const frontDoorHit = ctx2.houseInteractMeshes.find(m => m.userData?.houseAction?.label().includes('Porta da Frente'));
+  const blindHit = ctx2.houseInteractMeshes.find(m => m.userData?.houseAction?.label().includes('Persiana'));
+  frontDoorHit.userData.houseAction.run();
+  blindHit.userData.houseAction.run();
+  assert.deepEqual(queued, [
+    ['lot_8_front_door', 0],
+    ['lot_8_blind_back', 1]
+  ]);
 });

@@ -552,6 +552,8 @@ function getWorldBuilderCtx() {
     stirSwitchMeshes: sim.stirSwitchMeshes,
     stirrerDevices: sim.stirrerDevices,
     isTouchDevice: sim.isTouchDevice,
+    queueWorldStateChange: function (key, val) { return sim.queueWorldStateChange(key, val); },
+    notifyWorldAction: function () { sim.notifyWorldAction(); },
     getHeldItem: function () { return sim.heldItem; },
     isHeldByRemote: sim.isHeldByRemote,
     registerPickable: function (id, label, mesh, x, y, z, ry, radius, height, meta) {

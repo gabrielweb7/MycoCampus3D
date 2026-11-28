@@ -20,6 +20,7 @@ import { applyRoadStandWorldState } from '../world/roadside-stand.js';
 import { applyGardenWorldState } from '../world/campus-garden.js';
 import { applyBeeEcologyWorldState } from '../entities/bee-ecology.js';
 import { applySportsWorldState } from '../world/sports-scoreboard.js';
+import { applyHouseLightWorldState } from '../world/house-upgrades.js';
 
 export function consumeCampusBoardStrokes(sim) {
   if (sim.currentStroke && sim.currentStroke.pts.length >= 2) {
@@ -91,7 +92,15 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
       d.open = wantOpen;
       if (isInitial) {
         d.angle = d.open ? -d.dir * Math.PI * 0.48 : 0;
-        d.pivot.rotation.y = d.angle;
+        if (d.leftPivot && d.rightPivot) {
+          d.leftPivot.rotation.y = d.angle;
+          d.rightPivot.rotation.y = -d.angle;
+        } else if (d.pivot) {
+          d.pivot.rotation.y = d.angle;
+        }
+        if (d.doorCollider && d.installed !== false) {
+          d.doorCollider.maxY = d.open ? -1 : (d.eavesY || 4.70);
+        }
       }
     }
   }
@@ -127,6 +136,8 @@ export function applyCampusWorldState(sim, stateMap, isInitial) {
       if (sw.rocker) sw.rocker.rotation.x = sw.on ? -0.22 : 0.22;
     }
   }
+
+  applyHouseLightWorldState(sim, stateMap, now);
 
   if (sim.hoodAirData && stateMap.hood_lab !== undefined) {
     if (sim.pendingStateChanges.hood_lab === undefined && !(sim.recentlyChangedState.hood_lab > now)) {

@@ -169,7 +169,10 @@ function createCottageVenetianBlind(parent, mats, x, topY, z, rotY, lotId, name,
       }
       blindObj.open = !blindObj.open;
       if (window.MycoAudio) window.MycoAudio.playSwitch?.() || window.MycoAudio.playClick?.();
-      ctx?.queueWorldStateChange?.(blindObj.id, blindObj.open ? 1 : 0);
+      if (ctx?.queueWorldStateChange) {
+        ctx.queueWorldStateChange(blindObj.id, blindObj.open ? 1 : 0);
+        events.emit('sync:now');
+      }
     }
   };
   hit.userData.houseAction = action;
@@ -257,10 +260,14 @@ function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, 
       }
       doorObj.open = !doorObj.open;
       const swing = doorObj.open ? (frontDir * Math.PI * 0.48) : 0;
+      doorObj.angle = swing;
       leftPivot.rotation.y = swing;
       rightPivot.rotation.y = -swing;
       if (doorObj.doorCollider) doorObj.doorCollider.maxY = doorObj.open ? -1 : eavesY;
-      ctx?.queueWorldStateChange?.(doorObj.id, doorObj.open ? 1 : 0);
+      if (ctx?.queueWorldStateChange) {
+        ctx.queueWorldStateChange(doorObj.id, doorObj.open ? 1 : 0);
+        events.emit('sync:now');
+      }
       window.MycoAudio?.playDoor?.(doorObj.open) || window.MycoAudio?.playClick?.();
     }
   };
@@ -322,9 +329,14 @@ function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18, lotI
         return;
       }
       doorObj.open = !doorObj.open;
-      pivot.rotation.y = doorObj.open ? (frontDir * Math.PI * 0.48) : 0;
+      const swing = doorObj.open ? (frontDir * Math.PI * 0.48) : 0;
+      doorObj.angle = swing;
+      pivot.rotation.y = swing;
       if (doorObj.doorCollider) doorObj.doorCollider.maxY = doorObj.open ? -1 : eavesY;
-      ctx?.queueWorldStateChange?.(doorObj.id, doorObj.open ? 1 : 0);
+      if (ctx?.queueWorldStateChange) {
+        ctx.queueWorldStateChange(doorObj.id, doorObj.open ? 1 : 0);
+        events.emit('sync:now');
+      }
       window.MycoAudio?.playDoor?.(doorObj.open) || window.MycoAudio?.playClick?.();
     }
   };
@@ -737,19 +749,42 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   root.add(secondFloorGrp);
 
   lotHooks.set(id, {
+    ctx,
     upgrades: {},
+    houseLightPower: true,
+    gardenLightPower: true,
     apply(u = {}) {
       this.upgrades = u || {};
-      houseLightGrp.visible = !!u.house_lights;
-      if (housePointLight) housePointLight.visible = !!u.house_lights;
-      gardenLightGrp.visible = !!u.garden_lights;
-      if (gardenPointLight) gardenPointLight.visible = !!u.garden_lights;
+      const houseOn = !!u.house_lights && this.houseLightPower !== false;
+      const gardenOn = !!u.garden_lights && this.gardenLightPower !== false;
+      houseLightGrp.visible = houseOn;
+      if (housePointLight) housePointLight.visible = houseOn;
+      gardenLightGrp.visible = gardenOn;
+      if (gardenPointLight) gardenPointLight.visible = gardenOn;
       fBlinds.forEach((b) => { b.group.visible = !!u.blinds; });
-      if (!u.front_door) fDoor.doorObj.open = false;
+      if (!u.front_door) {
+        fDoor.doorObj.open = false;
+        fDoor.doorObj.angle = 0;
+        fDoor.doorObj.leftPivot.rotation.y = 0;
+        fDoor.doorObj.rightPivot.rotation.y = 0;
+      } else {
+        const fAng = fDoor.doorObj.open ? (front * Math.PI * 0.48) : 0;
+        fDoor.doorObj.angle = fAng;
+        fDoor.doorObj.leftPivot.rotation.y = fAng;
+        fDoor.doorObj.rightPivot.rotation.y = -fAng;
+      }
       fDoor.doorObj.installed = !!u.front_door;
       fDoor.group.visible = !!u.front_door;
       frontDoorCollider.maxY = (u.front_door && !fDoor.doorObj.open) ? eavesY : -1;
-      if (!u.back_door) bDoor.doorObj.open = false;
+      if (!u.back_door) {
+        bDoor.doorObj.open = false;
+        bDoor.doorObj.angle = 0;
+        bDoor.pivot.rotation.y = 0;
+      } else {
+        const bAng = bDoor.doorObj.open ? (front * Math.PI * 0.48) : 0;
+        bDoor.doorObj.angle = bAng;
+        bDoor.pivot.rotation.y = bAng;
+      }
       bDoor.doorObj.installed = !!u.back_door;
       bDoor.pivot.visible = !!u.back_door;
       if (backDoorSealWall) backDoorSealWall.visible = !u.back_door;
@@ -766,6 +801,35 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
       railCollider.maxY = u.second_floor ? (loftY + 1.10) : -1;
     }
   });
+}
+
+export function applyHouseLightWorldState(sim, stateMap, now = performance.now()) {
+  if (!stateMap || typeof stateMap !== 'object') return;
+  const pending = sim?.pendingStateChanges || {};
+  const recent = sim?.recentlyChangedState || {};
+  for (const [id, hook] of lotHooks.entries()) {
+    let changed = false;
+    const hKey = `lot_${id}_house_lights_on`;
+    if (stateMap[hKey] !== undefined && pending[hKey] === undefined && !(recent[hKey] > now)) {
+      const wantOn = Number(stateMap[hKey]) !== 0;
+      if (hook.houseLightPower !== wantOn) {
+        hook.houseLightPower = wantOn;
+        changed = true;
+      }
+    }
+    const gKey = `lot_${id}_garden_lights_on`;
+    if (stateMap[gKey] !== undefined && pending[gKey] === undefined && !(recent[gKey] > now)) {
+      const wantOn = Number(stateMap[gKey]) !== 0;
+      if (hook.gardenLightPower !== wantOn) {
+        hook.gardenLightPower = wantOn;
+        changed = true;
+      }
+    }
+    if (changed) {
+      hook.apply(hook.upgrades);
+      if (currentModalLotId === id) renderHouseUpgradesModal(id);
+    }
+  }
 }
 
 export function applyVillageUpgrades(lots) {
@@ -877,13 +941,31 @@ function renderHouseUpgradesModal(lotId) {
         `<div class="font-bold text-xs flex items-center gap-1.5"><span>${u.icon}</span><span>${u.name}</span></div>` +
         `<div class="text-[11px] text-slate-300 mt-1">${u.desc}</div>` +
       `</div>`;
+    const isLight = u.id === 'house_lights' || u.id === 'garden_lights';
+    const lightOn = u.id === 'house_lights' ? (hook?.houseLightPower !== false) : (hook?.gardenLightPower !== false);
+    const canToggleLight = active && isLight && canPlayerAccessLot(lotId);
     const btn = document.createElement('button');
     btn.className = 'mt-2.5 w-full py-1.5 rounded-lg font-bold text-xs transition ' +
-      (active ? 'bg-emerald-700/40 text-emerald-200 cursor-default'
-        : (isOwner ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-slate-800 text-slate-400 cursor-not-allowed'));
-    btn.textContent = active ? '✅ Instalado' : (isOwner ? `🪙 Comprar (${u.price})` : `🪙 ${u.price} (só o dono)`);
-    btn.disabled = active || !isOwner;
-    if (!active && isOwner) {
+      (canToggleLight
+        ? (lightOn ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200')
+        : (active ? 'bg-emerald-700/40 text-emerald-200 cursor-default'
+          : (isOwner ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-slate-800 text-slate-400 cursor-not-allowed')));
+    btn.textContent = canToggleLight
+      ? (lightOn ? '💡 Ligada (desligar)' : '🌑 Desligada (ligar)')
+      : (active ? '✅ Instalado' : (isOwner ? `🪙 Comprar (${u.price})` : `🪙 ${u.price} (só o dono)`));
+    btn.disabled = canToggleLight ? false : (active || !isOwner);
+    if (canToggleLight && hook) {
+      btn.onclick = () => {
+        const nextPower = !lightOn;
+        if (u.id === 'house_lights') hook.houseLightPower = nextPower;
+        else hook.gardenLightPower = nextPower;
+        hook.apply(hook.upgrades);
+        hook.ctx?.queueWorldStateChange?.(`lot_${lotId}_${u.id}_on`, nextPower ? 1 : 0);
+        events.emit('sync:now');
+        window.MycoAudio?.playSwitch?.() || window.MycoAudio?.playClick?.();
+        if (currentModalLotId === lotId) renderHouseUpgradesModal(lotId);
+      };
+    } else if (!active && isOwner) {
       btn.onclick = async () => {
         if (btn.disabled) return;
         btn.disabled = true;
@@ -891,6 +973,11 @@ function renderHouseUpgradesModal(lotId) {
           await window.flushCampusMycoCoins?.();
           const res = await apiPost('api/village.php?action=buy_upgrade', { lot_id: lotId, upgrade_id: u.id }, true);
           if (res?.ok) {
+            if (isLight && hook) {
+              if (u.id === 'house_lights') hook.houseLightPower = true;
+              else hook.gardenLightPower = true;
+              hook.ctx?.queueWorldStateChange?.(`lot_${lotId}_${u.id}_on`, 1);
+            }
             if (Array.isArray(res.lots)) applyVillageUpgrades(res.lots);
             if (typeof res.myco_coins === 'number' && appState.currentUser) {
               appState.currentUser.myco_coins = res.myco_coins;

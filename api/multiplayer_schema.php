@@ -558,6 +558,7 @@ function mp_is_valid_state_key(string $k): bool {
     }
     if (preg_match('/^(door_[0-3]|light_[0-7])$/', $k)) return true;
     if (preg_match('/^blind_([0-9]|1[0-5])$/', $k)) return true;
+    if (preg_match('/^lot_([1-9]|10)_(front_door|back_door|blind_back|blind_front_left|blind_front_right|house_lights_on|garden_lights_on)$/', $k)) return true;
     if (preg_match('/^cab_[a-z0-9_]+$/', $k)) return true;
     if (preg_match('/\Awild_(?:[0-9]|[1-9][0-9]|1[0-2][0-9]|13[01]|poop_[0-5]_[0-9]{1,12})\z/', $k)) return true;
     if (preg_match('/^greenhouse_slot_([0-9]|1[0-9]|2[0-3])_(humidity|stage|empty|species|contam|origin)$/', $k)) return true;

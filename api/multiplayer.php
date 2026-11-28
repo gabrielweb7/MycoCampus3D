@@ -715,6 +715,16 @@ if ($action === 'sync') {
                     $nowTimerTs = time();
                     $cleanVal = (string)max($nowTimerTs - 3600, min($nowTimerTs + 86400, $endTs));
                 }
+            } elseif (preg_match('/^lot_([1-9]|10)_(front_door|back_door|blind_back|blind_front_left|blind_front_right|house_lights_on|garden_lights_on)$/', $sKey, $lotMatch)) {
+                $targetLotId = (int)$lotMatch[1];
+                $targetLot = $getLot($targetLotId);
+                $isLotOccupied = $targetLot && (int)$targetLot['expires_at'] > $villageNow && (int)$targetLot['owner_id'] > 0;
+                $allowedLotState = mc_is_admin($user)
+                    || !$isLotOccupied
+                    || (int)$targetLot['owner_id'] === $userId
+                    || mc_village_can_edit($pdo, $targetLotId, $userId, $targetLot, $villageNow);
+                if (!$allowedLotState) continue;
+                $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             } else {
                 $cleanVal = ($sVal === '1' || $sVal === 1 || $sVal === true) ? '1' : '0';
             }
