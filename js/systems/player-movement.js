@@ -85,7 +85,8 @@ export function stepPlayerMovement(ctx, dt, now) {
       clampPosAgainstWalls(ctx.physCtx, ctx.playerPos, P.radius);
     }
 
-    const targetPitch = Math.atan2(-(gradX * fwdX + gradZ * fwdZ), 1);
+    // Positivo em X levanta a frente (-Z) na subida, evitando a ponta entrar na terra
+    const targetPitch = Math.atan2(gradX * fwdX + gradZ * fwdZ, 1);
     const targetRoll = -moveX * 0.30 - Math.max(-0.26, Math.min(0.26, (ctx.playerVelX * rightX + ctx.playerVelZ * rightZ) * 0.03));
     ctx.snowboardPitch += (targetPitch - ctx.snowboardPitch) * Math.min(1, dt * 8);
     ctx.snowboardRoll += (targetRoll - ctx.snowboardRoll) * Math.min(1, dt * 8);
@@ -211,10 +212,11 @@ export function stepPlayerMovement(ctx, dt, now) {
     ctx.playerPos.set(ctx.seatedSeat.x, ctx.seatedSeat.y, ctx.seatedSeat.z);
     ctx.playerVelY = 0;
   }
+  const pitchLift = Math.abs(Math.sin(ctx.snowboardPitch || 0)) * 0.16;
   if (ctx.snowboardGroup) {
     ctx.snowboardGroup.visible = ctx.snowboardActive && ctx.inFps;
     if (ctx.snowboardGroup.visible) {
-      ctx.snowboardGroup.position.set(ctx.playerPos.x, ctx.playerPos.y + 0.03, ctx.playerPos.z);
+      ctx.snowboardGroup.position.set(ctx.playerPos.x, ctx.playerPos.y + 0.03 + pitchLift, ctx.playerPos.z);
       ctx.snowboardGroup.rotation.order = 'YXZ';
       ctx.snowboardGroup.rotation.y = ctx.playerYaw;
       ctx.snowboardGroup.rotation.x = ctx.snowboardPitch;
@@ -224,7 +226,7 @@ export function stepPlayerMovement(ctx, dt, now) {
   if (ctx.skateboardGroup) {
     ctx.skateboardGroup.visible = ctx.skateboardActive && ctx.inFps;
     if (ctx.skateboardGroup.visible) {
-      ctx.skateboardGroup.position.set(ctx.playerPos.x, ctx.playerPos.y + 0.02, ctx.playerPos.z);
+      ctx.skateboardGroup.position.set(ctx.playerPos.x, ctx.playerPos.y + 0.02 + pitchLift, ctx.playerPos.z);
       ctx.skateboardGroup.rotation.order = 'YXZ';
       ctx.skateboardGroup.rotation.y = ctx.playerYaw;
       ctx.skateboardGroup.rotation.x = ctx.snowboardPitch;
