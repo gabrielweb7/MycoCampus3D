@@ -14,7 +14,7 @@ function getThree() {
 }
 
 export const QUALITY_TIERS_ORDER = ['high', 'medium', 'low', 'min'];
-export const CAMPUS_EXPOSURE = 0.98;
+export const CAMPUS_EXPOSURE = 0.68;
 
 const TIER_CONFIGS = {
   desktop: {
@@ -251,8 +251,9 @@ export function applyQualityTier(tier, deps) {
     renderer.outputColorSpace = ThreeRef.SRGBColorSpace;
   }
   if (ThreeRef && ThreeRef.ACESFilmicToneMapping !== undefined && ThreeRef.NoToneMapping !== undefined) {
-    renderer.toneMapping = cfg.toneMap ? ThreeRef.ACESFilmicToneMapping : ThreeRef.NoToneMapping;
-    renderer.toneMappingExposure = cfg.toneMap ? CAMPUS_EXPOSURE : 1;
+    renderer.toneMapping = cfg.toneMap ? ThreeRef.ACESFilmicToneMapping
+      : (ThreeRef.LinearToneMapping ?? ThreeRef.NoToneMapping);
+    renderer.toneMappingExposure = CAMPUS_EXPOSURE;
   }
   if (renderer.shadowMap) {
     renderer.shadowMap.enabled = cfg.shadows;
@@ -276,7 +277,7 @@ export function applyQualityTier(tier, deps) {
       cam.updateProjectionMatrix();
       envSun.shadow.bias = -0.00055;
       if (envSun.shadow.normalBias !== undefined) envSun.shadow.normalBias = 0.018;
-      if (envSun.shadow.intensity !== undefined) envSun.shadow.intensity = 0.76;
+      if (envSun.shadow.intensity !== undefined) envSun.shadow.intensity = 0.88;
       if (envSun.shadow.radius !== undefined) envSun.shadow.radius = cfg.soft ? 1.7 : 1;
       const ms = cfg.shadowMap || (isTouchDevice ? 768 : 1536);
       if (envSun.shadow.mapSize && envSun.shadow.mapSize.x !== ms) {
@@ -297,7 +298,7 @@ export function applyQualityTier(tier, deps) {
     setSceneMaterialQuality(scene, !!cfg.lambert);
     scene.environment = cfg.lambert ? null : getLabEnvironmentMap(renderer);
     // Reflexos decorativos do laboratório, com pouca influência na luz difusa do campus.
-    scene.environmentIntensity = 0.4;
+    scene.environmentIntensity = 0.24;
   }
   if (weatherPoints && weatherPoints.geometry) {
     weatherPoints.geometry.userData.weatherParticleLimit = cfg.weatherParticles;

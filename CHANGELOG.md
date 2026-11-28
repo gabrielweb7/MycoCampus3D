@@ -2,6 +2,11 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.4] - 2026-11-27
+
+- Menos brilho excessivo no campus. Ajustamos exposição, intensidade da luz diurna e reflexos para separar melhor paredes, pisos, folhagens e objetos claros.
+- Os perfis gráficos leves também aplicam a correção de exposição, com uma curva simples e sem mapas de sombra.
+
 ## [v2.11.3] - 2026-11-27
 
 - Laboratórios, bancadas, estantes, paredes, piso, persianas, praça e vila compartilham uma paleta botânica com creme, verde sálvia, terracota e madeira clara. Tampos de inox mais escuros destacam bandejas e ferramentas.

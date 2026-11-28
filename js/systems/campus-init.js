@@ -688,10 +688,10 @@ export function initCampus3D(containerId, cbs) {
     sim.controls.maxDistance = 65;
     sim.controls.target.set(0, 4.5, -14);
 
-    const hemi = new THREE.HemisphereLight(palette.daylightFill, palette.bounce, 0.48);
+    const hemi = new THREE.HemisphereLight(palette.daylightFill, palette.bounce, 0.45);
     sim.scene.add(hemi);
     sim.envHemi = hemi;
-    const sun = new THREE.DirectionalLight(palette.daylight, 0.81);
+    const sun = new THREE.DirectionalLight(palette.daylight, 0.65);
     sun.position.set(45, 65, 38);
     sun.castShadow = true;
     const shSize = touch ? 768 : camCfg.desktopShadowSize;
