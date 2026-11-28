@@ -87,7 +87,7 @@ function resolveHoverTargetObj(ctx) {
     ctx.hoveredGreenhouseSlot ||
     (ctx.hoveredMushroom ? { label: (ctx.hoveredMushroom.capMesh && ctx.hoveredMushroom.capMesh.userData.speciesName) || t('actions.hover.wild_mushroom') } : null) ||
     ctx.hoveredBlindObj ||
-    (ctx.hoveredSink ? { label: t('actions.hover.sink_badge') } : null) ||
+    (ctx.hoveredSink ? { label: t(ctx.hoveredSink.labelKey || 'actions.hover.sink_badge') } : null) ||
     (ctx.hoveredTrash ? { label: t('actions.hover.trash_badge') } : null) ||
     (ctx.hoveredSeat ? { label: t('actions.hover.seat_badge') } : null) ||
     (ctx.hoveredBoardHit ? { label: t('actions.hover.board_badge') } : null) ||

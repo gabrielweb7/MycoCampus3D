@@ -86,10 +86,10 @@ export function buildLabSink(ctx, sx, sy, sz, style = 'lab') {
 
   // Hitbox da torneira (encher) e hitbox da cuba/ralo (esvaziar/derramar)
   const faucetHitBox = new THREE.Mesh(
-    new THREE.BoxGeometry(0.40, 0.44, 0.36),
+    new THREE.BoxGeometry(0.49, 0.45, 0.42),
     new THREE.MeshBasicMaterial({ visible: false })
   );
-  faucetHitBox.position.set(-0.16, 0.24, 0);
+  faucetHitBox.position.set(-0.17, 0.235, 0);
 
   const basinHitBox = new THREE.Mesh(
     new THREE.BoxGeometry(0.82, BASIN_DEPTH + 0.08, 0.62),
@@ -118,7 +118,10 @@ export function buildLabSink(ctx, sx, sy, sz, style = 'lab') {
     waterStream,
     handle,
     activeUntil: 0,
-    nozzleWorld: new THREE.Vector3(sx + nozzleX, sy + 0.03, sz),
+    nozzleWorld: new THREE.Vector3(sx + nozzleX, sy + 0.28, sz),
+    streamHeight: streamH,
+    streamStartY: 0.28,
+    labelKey: cottage ? 'actions.hover.cottage_sink_badge' : 'actions.hover.sink_badge',
     label: cottage ? '🚰' : 'Pia Inox do Laboratório'
   };
   faucetHitBox.userData.labSink = sinkObj;
@@ -142,7 +145,7 @@ export function buildGardenTap(ctx, x, z, facing) {
       valve: new THREE.MeshStandardMaterial({ color: 0x318581, roughness: 0.56 }),
       water: new THREE.MeshBasicMaterial({ color: 0x8ee0fd, transparent: true, opacity: 0.74 }),
       streamGeo: new THREE.CylinderGeometry(0.011, 0.017, 0.74, 8),
-      hitGeo: new THREE.BoxGeometry(0.44, 0.34, 0.37),
+      hitGeo: new THREE.BoxGeometry(0.44, 0.34, 0.52),
       hitMat: new THREE.MeshBasicMaterial({ visible: false })
     };
   }
@@ -163,20 +166,32 @@ export function buildGardenTap(ctx, x, z, facing) {
   waterStream.userData.ignoreRay = true;
   const hit = new THREE.Mesh(assets.hitGeo, assets.hitMat);
   hit.position.set(x, 0.82, z + facing * 0.26);
-  const tap = { x, y: 0.77, z, activeUntil: 0, handle, waterStream, nozzleWorld: new THREE.Vector3(x, 0.66, outletZ), label: '🚰' };
+  const collider = { minX: x - 0.15, maxX: x + 0.15, minZ: z - 0.15, maxZ: z + 0.15, minY: 0, maxY: 0.93 };
+  const tap = {
+    x, y: 0.77, z, activeUntil: 0, handle, waterStream, collider,
+    nozzleWorld: new THREE.Vector3(x, 0.70, outletZ), streamHeight: 0.74, streamStartY: 0.702,
+    labelKey: 'actions.hover.garden_tap_badge', label: '🚰'
+  };
   hit.userData.labSink = tap;
   hit.userData.sinkAction = 'fill';
   ctx.labSinks.push(tap);
   ctx.labSinkMeshes.push(hit);
   ctx.scene.add(mount, pipe, outlet, handle, waterStream, hit);
-  ctx.solidColliders.push({ minX: x - 0.15, maxX: x + 0.15, minZ: z - 0.15, maxZ: z + 0.15, minY: 0, maxY: 0.93 });
+  ctx.solidColliders.push(collider);
   return tap;
 }
 
-export function triggerSinkStream(sinkObj, durationMs) {
+export function triggerSinkStream(sinkObj, durationMs, containerHeight) {
   if (!sinkObj) return;
   sinkObj.activeUntil = performance.now() + (durationMs || 900);
-  if (sinkObj.waterStream) sinkObj.waterStream.visible = true;
+  if (!sinkObj.waterStream) return;
+  const { waterStream, streamHeight, streamStartY } = sinkObj;
+  if (streamHeight) {
+    const length = containerHeight ? Math.min(streamHeight, 0.09) : streamHeight;
+    waterStream.scale.y = length / streamHeight;
+    waterStream.position.y = streamStartY - length / 2;
+  }
+  waterStream.visible = true;
 }
 
 export function stepLabSinks(ctx) {
@@ -189,7 +204,8 @@ export function stepLabSinks(ctx) {
       s.waterStream.visible = active;
       if (active) {
         const pulse = 0.88 + Math.sin(now * 0.03) * 0.14;
-        s.waterStream.scale.set(pulse, 1, pulse);
+        s.waterStream.scale.x = pulse;
+        s.waterStream.scale.z = pulse;
       }
     }
     if (s.handle) {

@@ -11,13 +11,13 @@ const THREE = window.THREE;
 
 export const DISTILLED_JUG_META = {
   category: 'water_source',
-  purpose: 'Armazenar e despejar até 5000ml (5L) de água destilada em frascos e na panela',
+  purpose: 'Armazenar e despejar até 5 L de água em frascos e na panela',
   maxVolumeMl: 5000,
   baseTempC: 21.5,
   getWeightGrams: (item) => 180 + ((item && item.mesh && item.mesh.userData.liquidCtrl) ? item.mesh.userData.liquidCtrl.volMl : 0),
   compatibilities: {
     canEnterCooker: false,
-    fillsFromSink: false,
+    fillsFromSink: true,
     poursWater: true,
     receivesWater: true
   },
@@ -52,11 +52,11 @@ export function makeDistilledJug5L(ctx, id, px, py, pz, initMl) {
   lctx.fillStyle = '#ffffff'; lctx.fillRect(0, 0, 256, 128);
   lctx.fillStyle = '#0284c7'; lctx.fillRect(0, 0, 256, 38);
   lctx.fillStyle = '#ffffff'; lctx.font = 'bold 20px system-ui, sans-serif';
-  lctx.textAlign = 'center'; lctx.fillText('ÁGUA DESTILADA', 128, 26);
+  lctx.textAlign = 'center'; lctx.fillText('ÁGUA', 128, 26);
   lctx.fillStyle = '#0f172a'; lctx.font = 'bold 28px system-ui, sans-serif';
   lctx.fillText('5 LITROS', 128, 76);
   lctx.fillStyle = '#0369a1'; lctx.font = 'bold 16px system-ui, sans-serif';
-  lctx.fillText('Deionizada • Lab Estéril', 128, 108);
+  lctx.fillText('Garrafão reutilizável', 128, 108);
   const labelMesh = new THREE.Mesh(
     new THREE.CylinderGeometry(0.120, 0.120, 0.12, 20, 1, true, -0.7, 1.4),
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true })
@@ -80,10 +80,10 @@ export function makeDistilledJug5L(ctx, id, px, py, pz, initMl) {
     liqMesh,
     mycCloud: null,
     stirBar: null,
-    baseLabel: 'Garrafão Água Destilada 5L'
+    baseLabel: 'Garrafão de Água 5 L'
   };
 
-  const item = registerPickable(ctx, id, 'Garrafão Água Destilada 5L', jg, px, py, pz, 0, 0.16, 0.37, DISTILLED_JUG_META);
+  const item = registerPickable(ctx, id, 'Garrafão de Água 5 L', jg, px, py, pz, 0, 0.16, 0.37, DISTILLED_JUG_META);
   item.setVolume = function (v) { updateContainerVolume(item, v); };
   updateContainerVolume(item, initMl);
   return item;

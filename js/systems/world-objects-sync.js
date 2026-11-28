@@ -27,7 +27,7 @@ import { updateDehydratorVisual, DEHYDRATOR_DRY_SECONDS } from '../items/dehydra
 import { makeOrganicGardenBasket } from '../world/campus-garden.js';
 import { rebuildCrateCargo, removeCrateCargo } from './crate-cargo.js';
 
-import { clearLocalMovedObjects, flushLocalMovedObjects, readLocalMovedMap, saveLocalMovedObject, setLocalMovedEntry }
+import { clearLocalMovedObjects, flushLocalMovedObjects, readLocalMovedMap, saveLocalItemState, saveLocalMovedObject, setLocalMovedEntry }
   from './local-world-objects.js';
 import { applyCampusWorldObjects } from './world-object-poses.js';
 
@@ -43,7 +43,7 @@ function quantizeStep(val, step = 25) {
 }
 
 /** Queue an immediate state change without waiting for the periodic scan. */
-export function queueItemStateSync(sim, item) {
+export function queueItemStateSync(sim, item, { includePose = true } = {}) {
   if (!sim || !item?.id || !item.mesh || item._removedForSync || item.isReadOnly) return;
   const state = getReplicatedItemState(sim, item);
   if (!state) return;
@@ -51,7 +51,7 @@ export function queueItemStateSync(sim, item) {
   const queued = sim.pendingMovedItems[item.id] || (sim.pendingMovedItems[item.id] = { id: item.id });
   queued.state = state;
   const dynamic = item.id.startsWith('dyn_');
-  if (!sim.inventory?.reserved?.has(item.id) && (item.isMoved || dynamic)) {
+  if (includePose && !sim.inventory?.reserved?.has(item.id) && (item.isMoved || dynamic)) {
     queued.x = item.mesh.position.x;
     queued.y = item.mesh.position.y;
     queued.z = item.mesh.position.z;
@@ -59,7 +59,8 @@ export function queueItemStateSync(sim, item) {
   }
   const prefabId = item.meta?.prefabId || item.mesh.userData?.prefabId;
   if (dynamic && prefabId) { queued.prefabId = prefabId; queued.label = item.label || ''; }
-  saveLocalMovedObject(item, state);
+  if (includePose) saveLocalMovedObject(item, state);
+  else saveLocalItemState(item, state);
 }
 
 export function markItemRemovedForSync(sim, item, dynamicKind) {
@@ -1020,6 +1021,8 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
     if (!item.isPersonal) item.isReadOnly = !!item._layoutReadOnly || !!sim._lastWorldObjectsMap?.[itemId]?.lot_locked;
     if (!item.isReadOnly && (item.dehydratorCtrl || item.growCtrl) && sim.pendingMovedItems?.[itemId]?.state?.custom) return;
     const pendingState = sim.pendingMovedItems?.[itemId]?.state;
+    if (!item.isReadOnly && (sim.sinkFilling?.item === item || (item._sinkVolumePending && pendingState))) return;
+    if (item._sinkVolumePending) item._sinkVolumePending = false;
     const incomingSignature = JSON.stringify(st);
     if (!itemStateAges && !pendingState && receivedItemSignatures.get(item) === incomingSignature) return;
     const previousCargo = item.crateCargo;

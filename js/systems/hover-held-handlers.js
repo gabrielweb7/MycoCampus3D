@@ -12,7 +12,8 @@ export { isRayOccludedByStructure, firstUnoccludedRayHit } from './ray-occlusion
 import { getSyringeInjectionDoseMl } from '../items/syringe.js';
 import { updatePlacementGhostVisual } from '../entities/placement-ghost.js';
 import { greenhouseHitMeshes } from '../world/greenhouse.js';
-import { canFillFromSink, canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, getItemKindId, hasPdaContents } from '../items/item-registry.js';
+import { canItemEnterCooker, canSealSpawnBag, canSyringeSource, canSyringeTarget, getItemKindId, hasPdaContents } from '../items/item-registry.js';
+import { canUseSinkWater, getDrySinkGrains, getSinkCooker, getSinkCookerCapacity } from './sink-water.js';
 import { getDrainableVolume } from './liquid-disposal.js';
 import { t } from '../core/i18n.js';
 import { getCultureFridgeStorageTarget, isCultureAccessibleFromFridge } from '../items/culture-fridge.js';
@@ -545,27 +546,25 @@ function handleCookerInsertHover(ctx, setHoverPrompt) {
   return false;
 }
 
-function handleSinkHover(ctx, setHoverPrompt) {
+export function handleSinkHover(ctx, setHoverPrompt) {
   if (!ctx.labSinkMeshes || !ctx.labSinkMeshes.length) return false;
-  const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !(cp.lidItem && cp.lidItem.isAttached));
-  const isLiquidHeld = canFillFromSink(ctx.heldItem);
-  const isBowlHeld = !!(ctx.heldItem && ctx.heldItem.bowlCtrl);
-  const isDrySpawnHeld = !!(ctx.heldItem && ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.filled &&
-    ctx.heldItem.spawnCtrl.hydrated === false && !ctx.heldItem.spawnCtrl.sterilized && !ctx.heldItem.spawnCtrl.inoculated);
+  const bowl = ctx.heldItem?.bowlCtrl;
+  const dryGrains = getDrySinkGrains(ctx.heldItem);
   const isDunkMonotubHeld = !!(ctx.heldItem && ctx.heldItem.monotubCtrl &&
     ctx.heldItem.monotubCtrl.colonization >= 100 && !ctx.heldItem.monotubCtrl.spent && !ctx.heldItem.monotubCtrl.contaminated);
   const canDrain = getDrainableVolume(ctx, ctx.heldItem) > 0;
-  const canFill = isPotHeld || isLiquidHeld || isBowlHeld || isDrySpawnHeld;
+  const canFill = canUseSinkWater(ctx, ctx.heldItem);
   if (!canFill && !canDrain && !isDunkMonotubHeld) return false;
   const hits = ctx.raycaster.intersectObjects(ctx.labSinkMeshes, false);
-  const hit = hits.find(candidate => candidate.distance < 3.5 && !isRayOccludedByStructure(ctx, candidate.distance, {
-    checkWalls: true,
-    ignoreCollider: candidate.object.userData.labSink?.collider
-  }));
+  const hit = hits.find(candidate => {
+    if (candidate.distance >= 3.5) return false;
+    const { sinkAction, labSink } = candidate.object.userData;
+    if (!(isDunkMonotubHeld || (sinkAction === 'drain' ? canDrain : canFill))) return false;
+    return !isRayOccludedByStructure(ctx, candidate.distance, { checkWalls: true, ignoreCollider: labSink?.collider });
+  });
   if (!hit) return false;
   const sinkAction = hit.object.userData.sinkAction || 'fill';
   if (sinkAction === 'drain' && !isDunkMonotubHeld) {
-    if (!canDrain) return false;
     ctx.hoverHit = hit;
     ctx.hoveredSink = hit.object.userData.labSink;
     ctx.hoveredSinkAction = 'drain';
@@ -573,7 +572,6 @@ function handleSinkHover(ctx, setHoverPrompt) {
     setHoverPrompt(ctx, t('liquid.drain_sink'));
     return true;
   }
-  if (sinkAction === 'fill' && !canFill && !isDunkMonotubHeld) return false;
   ctx.hoverHit = hit;
   if (isDunkMonotubHeld) {
     ctx.hoveredMonotubDunkSink = true;
@@ -584,34 +582,25 @@ function handleSinkHover(ctx, setHoverPrompt) {
   ctx.hoveredSink = hit.object.userData.labSink;
   ctx.hoveredSinkAction = sinkAction;
   hidePlacementGhost(ctx);
-  if (isDrySpawnHeld) {
-    const scDry = ctx.heldItem.spawnCtrl;
-    setHoverPrompt(ctx, t('actions.held.sink_hydrate_grain', { water: Math.round(scDry.waterMl || 0) }));
+  if (dryGrains) {
+    setHoverPrompt(ctx, t('actions.held.sink_hydrate_grain', { water: Math.round(dryGrains.waterMl || 0) }));
     return true;
   }
-  if (isBowlHeld) {
-    const bc = ctx.heldItem.bowlCtrl;
-    if (bc.mixed) {
+  if (bowl) {
+    if (bowl.mixed) {
       setHoverPrompt(ctx, t('actions.held.sink_bowl_mixed'));
-    } else if (sinkAction === 'drain') {
-      const w = Math.round(bc.ingredients.water || 0);
-      setHoverPrompt(ctx, w > 0
-        ? t('actions.held.sink_bowl_drain', { water: w })
-        : t('actions.held.sink_bowl_solids_only'));
     } else {
-      const tot = Math.round(Object.values(bc.ingredients).reduce((a, b) => a + b, 0));
+      const tot = Math.round(Object.values(bowl.ingredients).reduce((a, b) => a + b, 0));
       setHoverPrompt(ctx, t('actions.held.sink_bowl_fill', { total: tot }));
     }
     return true;
   }
   const sinkLc = ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.liquidCtrl;
-  const sinkPot = ctx.cookerPots.find((cp) => cp.potItem === ctx.heldItem);
-  const curVol = sinkLc ? sinkLc.volMl : (sinkPot ? sinkPot.waterMl : 0);
-  const maxVol = sinkLc ? sinkLc.maxMl : (sinkPot ? (sinkPot.hasBase ? 4000 : 15000) : 0);
+  const sinkPot = getSinkCooker(ctx, ctx.heldItem);
   const volTxt = sinkLc
     ? ' • ' + Math.round(sinkLc.volMl) + '/' + sinkLc.maxMl + ' ml'
-    : (sinkPot ? ' • ' + (sinkPot.waterMl / 1000).toFixed(1) + '/' + (maxVol / 1000).toFixed(0) + ' L' : '');
-  setHoverPrompt(ctx, t(sinkAction === 'drain' ? 'actions.held.sink_drain_item' : 'actions.held.sink_fill_item', { label: ctx.heldItem.label, vol: volTxt }));
+    : (sinkPot ? ' • ' + (sinkPot.waterMl / 1000).toFixed(1) + '/' + (getSinkCookerCapacity(sinkPot) / 1000).toFixed(0) + ' L' : '');
+  setHoverPrompt(ctx, t('actions.held.sink_fill_item', { label: ctx.heldItem.label, vol: volTxt }));
   return true;
 }
 

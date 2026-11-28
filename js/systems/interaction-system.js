@@ -28,14 +28,13 @@ import { triggerMagicCubensisEffect } from './mycoteca.js';
 import { handleWildHarvest, handleWorldInteraction, isSeatOccupied } from './world-interactions.js';
 import { removeCrateCargo } from './crate-cargo.js';
 import { updateHoverRay, firstValidRayHit } from './hover-raycaster.js';
-import { canFillFromSink, canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, getItemKindId, hasPdaContents } from '../items/item-registry.js';
-import { discardHeldLiquid } from './liquid-disposal.js';
-import { triggerSinkStream } from '../items/lab-sink.js';
+import { canSealSpawnBag, canSyringeSource, canSyringeTarget, disposeObjectResources, getItemKindId, hasPdaContents } from '../items/item-registry.js';
+import { useAimedSink } from './sink-water.js';
 import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { fireAlcoholSpray, fireH2O2Spray, fireWaterSpray } from '../items/alcohol-spray.js';
 import { getContamInfo } from '../items/contaminations.js';
 import { wipeWithPaperTowel } from '../items/paper-towel.js';
-import { handleTrashDisposal, isContaminatedOrBurned, resetDisposableContainer } from '../items/lab-trash.js';
+import { handleTrashDisposal } from '../items/lab-trash.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
 import { getSyringeInjectionDoseMl } from '../items/syringe.js';
@@ -64,7 +63,7 @@ import { packDriedMushroomsIntoBag, sealMushroomBag } from '../items/mushroom-pa
 import { interactRoadsideStand } from '../world/roadside-stand.js';
 import { toggleCultureFridgeDoor, isPartOfFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
 import { preparePP5ForPda } from '../items/pp5-cup.js';
-import { addIngredientToBowl, updateMixingBowlLabel } from '../items/mixing-bowl.js';
+import { addIngredientToBowl } from '../items/mixing-bowl.js';
 import {
   handleFlocaoTargetAction,
   handleMixingBowlTargetAction,
@@ -810,125 +809,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       }
       return true;
     }
-    if (ctx.hoveredSink) {
-      if (ctx.hoveredSinkAction === 'drain') {
-        discardHeldLiquid(ctx, ctx.hoveredSink);
-        return;
-      }
-      if (isContaminatedOrBurned(ctx.heldItem) && resetDisposableContainer(ctx.heldItem)) {
-        triggerSinkStream(ctx.hoveredSink, 500);
-        if (window.MycoAudio) window.MycoAudio.playSpray();
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.interact.sink_washed'));
-        ctx.notifyWorldAction();
-        return;
-      }
-      if (ctx.heldItem.bowlCtrl) {
-        const bc = ctx.heldItem.bowlCtrl;
-        const sinkAction = ctx.hoveredSinkAction || 'fill';
-        if (bc.mixed) {
-          if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.interact.sink_bowl_mixed'));
-          return;
-        }
-        const totalG = Object.values(bc.ingredients).reduce((a, b) => a + b, 0);
-        if (sinkAction === 'fill') {
-          if (totalG < 600) {
-            const add = Math.min(25, 600 - totalG);
-            addIngredientToBowl(ctx.heldItem, 'water', add);
-            ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, mode: 'fill', carryMl: 0, addedAny: true };
-            triggerSinkStream(ctx.hoveredSink, 500);
-            if (window.MycoAudio) window.MycoAudio.playSpray();
-            if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-            ctx.notifyWorldAction();
-          } else if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast(t('actions.interact.sink_bowl_full'));
-          }
-        } else {
-          if ((bc.ingredients.water || 0) > 0) {
-            bc.ingredients.water = Math.max(0, (bc.ingredients.water || 0) - 25);
-            bc.stirProgress = 0;
-            updateMixingBowlLabel(ctx.heldItem);
-            ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, mode: 'drain', carryMl: 0, addedAny: true };
-            if (window.MycoAudio) window.MycoAudio.playSpray();
-            if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-            ctx.notifyWorldAction();
-          } else if (ctx.callbacks.onToast) {
-            ctx.callbacks.onToast(t('actions.interact.sink_bowl_dry_only'));
-          }
-        }
-        return;
-      }
-      if (ctx.heldItem.spawnCtrl && ctx.heldItem.spawnCtrl.filled && ctx.heldItem.spawnCtrl.hydrated === false &&
-          !ctx.heldItem.spawnCtrl.sterilized && !ctx.heldItem.spawnCtrl.inoculated) {
-        const sc = ctx.heldItem.spawnCtrl;
-        if ((sc.waterMl || 0) < 80) {
-          sc.waterMl = Math.min(80, (sc.waterMl || 0) + 30);
-          if (sc.waterMl >= 60) sc.hydrated = true;
-          sc.updateVisual();
-          ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, mode: 'fill', carryMl: 0, addedAny: true };
-          triggerSinkStream(ctx.hoveredSink, 500);
-          if (window.MycoAudio) window.MycoAudio.playSpray();
-          if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-          ctx.notifyWorldAction();
-        } else if (ctx.callbacks.onToast) {
-          ctx.callbacks.onToast(t('actions.interact.sink_grains_hydrated'));
-        }
-        return;
-      }
-      const medium = ctx.heldItem.pdaMediumCtrl;
-      const isPotHeld = ctx.cookerPots.some((cp) => cp.potItem === ctx.heldItem && !(cp.lidItem && cp.lidItem.isAttached));
-      if (hasPdaContents(ctx.heldItem)) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.interact.sink_pda_blocked'));
-        return;
-      }
-      if (!isPotHeld && !canFillFromSink(ctx.heldItem)) {
-        if (ctx.callbacks.onToast) ctx.callbacks.onToast(t('actions.interact.sink_cannot_fill'));
-        return;
-      }
-      const sinkAction = ctx.hoveredSinkAction || 'fill';
-      let sinkMode = sinkAction;
-      let didStep = false;
-      if (ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
-        const lc = ctx.heldItem.mesh.userData.liquidCtrl;
-        if (sinkAction === 'fill' && lc.volMl < lc.maxMl) {
-          updateContainerVolume(ctx.heldItem, Math.min(lc.maxMl, lc.volMl + 35));
-          if (medium) markPdaVolumeChanged(ctx.heldItem);
-          didStep = true;
-        } else if (sinkAction === 'drain' && lc.volMl > 0) {
-          updateContainerVolume(ctx.heldItem, Math.max(0, lc.volMl - 45));
-          if (medium) markPdaVolumeChanged(ctx.heldItem);
-          didStep = true;
-        }
-      } else {
-        for (let cpi = 0; cpi < ctx.cookerPots.length; cpi++) {
-          const cp = ctx.cookerPots[cpi];
-          if (cp.potItem === ctx.heldItem) {
-            const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
-            const potWaterCap = hasBase ? 4000 : 15000;
-            if (sinkAction === 'fill' && cp.waterMl < potWaterCap) {
-              cp.waterMl = Math.min(potWaterCap, cp.waterMl + 100);
-              updateCookerWaterVisual(cp);
-              didStep = true;
-            } else if (sinkAction === 'drain' && cp.waterMl > 0) {
-              cp.waterMl = Math.max(0, cp.waterMl - 120);
-              updateCookerWaterVisual(cp);
-              didStep = true;
-            }
-            break;
-          }
-        }
-      }
-      if (didStep) {
-        ctx.sinkFilling = { sink: ctx.hoveredSink, item: ctx.heldItem, mode: sinkMode, carryMl: 0, addedAny: true };
-        if (sinkMode === 'fill') triggerSinkStream(ctx.hoveredSink, 500);
-        if (window.MycoAudio) window.MycoAudio.playSpray();
-        if (ctx.callbacks.onHoldChange) ctx.callbacks.onHoldChange(ctx.heldItem.label);
-        ctx.notifyWorldAction();
-      } else if (ctx.callbacks.onToast) {
-        ctx.callbacks.onToast(t('actions.interact.sink_empty_or_full'));
-      }
-      return;
-    }
+    if (ctx.hoveredSink) return useAimedSink(ctx);
     if (ctx.hoveredFillPot && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.liquidCtrl) {
       const sourceCanPourWater = ctx.heldItem.meta && ctx.heldItem.meta.compatibilities &&
         ctx.heldItem.meta.compatibilities.poursWater;

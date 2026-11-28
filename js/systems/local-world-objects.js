@@ -64,6 +64,12 @@ export function saveLocalMovedObject(item, state, deferFlush = false) {
   setLocalMovedEntry(item.id, entry, deferFlush);
 }
 
+export function saveLocalItemState(item, state, deferFlush = false) {
+  if (item.isPersonal) return;
+  const entry = readLocalMovedMap()[item.id];
+  if (entry) setLocalMovedEntry(item.id, { ...entry, state }, deferFlush);
+}
+
 export function clearLocalMovedObjects() {
   localMovedCache = {};
   localMovedDirty = false;

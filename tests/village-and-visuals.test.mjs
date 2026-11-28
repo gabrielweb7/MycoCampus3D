@@ -8,6 +8,12 @@ const { terrainHeight } = await import('../js/engine/physics.js');
 const { MUSHROOM_SPECIES_CATALOG, createMushroomMeshBySpeciesName, stepForestDistanceCulling } = await import('../js/world/mushroom-species.js');
 const { discardHeldLiquid, getDrainableVolume } = await import('../js/systems/liquid-disposal.js');
 const { buildGardenTap, buildLabSink } = await import('../js/items/lab-sink.js');
+const { DISTILLED_JUG_META } = await import('../js/items/distilled-jug.js');
+const { handleSinkHover } = await import('../js/systems/hover-held-handlers.js');
+const { handlePrimaryAction } = await import('../js/systems/interaction-system.js');
+const { stepSinkWater } = await import('../js/systems/sink-water.js');
+const { getFloatingActionsPreview } = await import('../js/ui/radial-menu.js');
+const { applyCampusItemStates } = await import('../js/systems/world-objects-sync.js');
 
 test('ten walkable village lots face the street and accept placements only from their tenant', () => {
   assert.equal(VILLAGE_LOTS.length, 10);
@@ -80,7 +86,82 @@ test('cottages register fill and drain targets, while the yard tap only fills', 
   assert.deepEqual(ctx.labSinks, [sink, tap]);
   assert.deepEqual(ctx.labSinkMeshes.map(mesh => mesh.userData.sinkAction), ['fill', 'drain', 'fill']);
   assert.equal(sink.waterStream.visible, false);
-  assert.deepEqual(tap.nozzleWorld.toArray(), [-18, 0.66, 54.64]);
+  assert.deepEqual(tap.nozzleWorld.toArray(), [-18, 0.70, 54.64]);
+});
+
+test('garrafão, pote de mistura e panela enchem na casa pelo clique e pelo botão de toque', () => {
+  const makeContext = touch => ({
+    scene: new THREE.Scene(), raycaster: new THREE.Raycaster(), labSinks: [], labSinkMeshes: [],
+    solidColliders: [], supportSurfaces: [], supportMeshes: [], wallSegments: [],
+    cookerPots: [], pendingMovedItems: {}, callbacks: {}, notifyWorldAction() {},
+    isTouchDevice: () => touch, isPrimaryDown: true
+  });
+  const aim = (ctx, position, target) => {
+    ctx.scene.updateMatrixWorld(true);
+    ctx.raycaster.set(position, target.clone().sub(position).normalize());
+    return handleSinkHover(ctx, (_, prompt) => { ctx.aimActionPrompt = prompt; });
+  };
+
+  for (const touch of [false, true]) {
+    const ctx = makeContext(touch);
+    const indoor = buildLabSink(ctx, -20, 0.99, 50, 'cottage');
+    const garden = buildGardenTap(ctx, -18, 55, -1);
+    const jug = { id: 'village_test_jug', label: 'Garrafão', mesh: new THREE.Group(), meta: DISTILLED_JUG_META, isMoved: true };
+    jug.mesh.userData.liquidCtrl = { volMl: 0, maxMl: 5000, baseY: 0.012, maxH: 0.26, liqMesh: new THREE.Group(), baseLabel: jug.label };
+    const bowl = { id: 'village_test_bowl', label: 'Pote de Mistura', mesh: new THREE.Group(),
+      bowlCtrl: { ingredients: { flocao: 575 } } };
+    const pot = { id: 'village_test_pot', label: 'Panela', mesh: new THREE.Group() };
+    pot.cookerRef = { potItem: pot, lidItem: { isAttached: false }, waterMl: 0, maxWaterMl: 15000, contents: [] };
+    ctx.cookerPots.push(pot.cookerRef);
+
+    for (const [sink, origin] of [[indoor, new THREE.Vector3(-18.5, 1.6, 50)],
+      [garden, new THREE.Vector3(-18, 1.6, 56.6)]]) {
+      for (const item of [jug, bowl, pot]) {
+        ctx.heldItem = item;
+        ctx.hoveredSink = null;
+        ctx.hoveredSinkAction = null;
+        const lc = jug.mesh.userData.liquidCtrl;
+        lc.volMl = 0;
+        bowl.bowlCtrl.ingredients.water = 0;
+        pot.cookerRef.waterMl = 0;
+        assert.equal(aim(ctx, origin, sink.nozzleWorld), true);
+        assert.equal(ctx.hoveredSink, sink);
+        assert.equal(ctx.hoveredSinkAction, 'fill');
+
+        ctx.isPrimaryDown = true;
+        if (touch) {
+          const action = getFloatingActionsPreview(ctx).find(entry => entry.primary);
+          assert.equal(action.hold, true);
+          action.run();
+        } else {
+          assert.equal(handlePrimaryAction(ctx), true);
+        }
+        stepSinkWater(ctx, 0.3);
+        if (item === jug) {
+          ctx.pickableItems = [jug];
+          applyCampusItemStates(ctx, { [jug.id]: { liquid: { volMl: 35 } } });
+          assert.equal(lc.volMl, 230);
+        }
+        ctx.isPrimaryDown = false;
+        stepSinkWater(ctx, 0.3);
+        assert.equal(ctx.sinkFilling, null);
+        if (item === jug) {
+          applyCampusItemStates(ctx, { [jug.id]: { liquid: { volMl: 35 } } });
+          assert.equal(lc.volMl, 230);
+          assert.equal(ctx.pendingMovedItems[item.id].state.liquid.volMl, 230);
+          assert.equal(ctx.pendingMovedItems[item.id].y, undefined);
+        } else if (item === bowl) {
+          assert.equal(bowl.bowlCtrl.ingredients.water, 25);
+        } else {
+          assert.equal(pot.cookerRef.waterMl, 400);
+        }
+      }
+    }
+
+    ctx.heldItem = pot;
+    pot.cookerRef.lidItem.isAttached = true;
+    assert.equal(aim(ctx, new THREE.Vector3(-18, 1.6, 56.6), garden.nozzleWorld), false);
+  }
 });
 
 test('ground and sink disposal immediately replicate the new volume and preserve the vessel', () => {
