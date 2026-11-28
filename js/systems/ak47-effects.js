@@ -8,6 +8,7 @@ const SHOT_INTERVAL = 114;
 const CASING_LIFETIME = 5200;
 const TRACER_SPEED = 390;
 const TRACER_RANGE = 42;
+const TRACER_DROP = 0.00072;
 const CASING_COUNT = 48;
 const forward = new THREE.Vector3(0, 0, -1);
 const aimCenter = new THREE.Vector2();
@@ -15,6 +16,10 @@ const handOffset = new THREE.Vector3();
 const muzzle = new THREE.Vector3();
 const shotDirection = new THREE.Vector3();
 const samplePoint = new THREE.Vector3();
+const aimOffset = new THREE.Vector3();
+const segmentStart = new THREE.Vector3();
+const segmentEnd = new THREE.Vector3();
+const segmentDirection = new THREE.Vector3();
 
 function makeEffects(scene) {
   const group = new THREE.Group();
@@ -59,7 +64,7 @@ function makeEffects(scene) {
   return {
     flash, flare, light, brassMesh, tracers, cases, traceIndex: 0, caseIndex: 0,
     raycaster: new THREE.Raycaster(), aim: new THREE.Vector2(),
-    firedAt: -Infinity, nextShotAt: 0, triggerItem: null, poseItem: null, queued: false, bolt: null
+    firedAt: -Infinity, nextShotAt: 0, spread: 0, triggerItem: null, poseItem: null, queued: false, bolt: null
   };
 }
 
@@ -99,15 +104,37 @@ export function poseAk47(ctx, item, now, horizontalOffset) {
   if (fx?.poseItem === item && fx.bolt) fx.bolt.position.z = -0.049 + 0.032 * Math.exp(-shotAge / 19);
 }
 
-function getTracerDistance(ctx, origin, direction) {
-  const limit = getStructureHitDistance(ctx, origin, direction, TRACER_RANGE);
-  if (!ctx.physCtx || direction.y > 0) return limit;
+function getGroundHitDistance(ctx, origin, direction, limit, drop = 0) {
+  if (!ctx.physCtx || direction.y > drop * limit) return limit;
   const ceiling = origin.y + 0.08;
   for (let distance = 0.16; distance < limit; distance += 0.24 + distance * 0.04) {
-    samplePoint.copy(origin).addScaledVector(direction, distance);
+    tracerPoint(samplePoint, origin, direction, distance, drop);
     if (samplePoint.y <= getItemGroundHeight(ctx.physCtx, samplePoint.x, samplePoint.z, ceiling, null, ceiling)) {
       return distance;
     }
+  }
+  return limit;
+}
+
+function tracerPoint(out, origin, direction, distance, drop = TRACER_DROP) {
+  out.copy(origin).addScaledVector(direction, distance);
+  out.y -= drop * distance * distance;
+  return out;
+}
+
+function getFlightDistance(ctx, origin, direction) {
+  const limit = getGroundHitDistance(ctx, origin, direction, TRACER_RANGE, TRACER_DROP);
+  for (let boundary = 0; boundary < limit; boundary += 4) {
+    // Overlap the chords to catch surfaces just past a segment boundary.
+    const from = Math.max(0, boundary - 0.06);
+    const to = Math.min(boundary + 4, limit);
+    tracerPoint(segmentStart, origin, direction, from);
+    tracerPoint(segmentEnd, origin, direction, to);
+    segmentDirection.subVectors(segmentEnd, segmentStart);
+    const length = segmentDirection.length();
+    segmentDirection.divideScalar(length);
+    const hit = getStructureHitDistance(ctx, segmentStart, segmentDirection, length);
+    if (hit < length) return from + (to - from) * hit / length;
   }
   return limit;
 }
@@ -127,11 +154,16 @@ function shoot(ctx, fx, item, now) {
   ctx.camera.updateMatrixWorld();
   fx.raycaster.setFromCamera(fx.aim, ctx.camera);
   const ray = fx.raycaster.ray;
-  // Converge from the muzzle toward the crosshair and stop at nearby scenery.
-  const aimDistance = getTracerDistance(ctx, ray.origin, ray.direction);
+  // Keep the first shot close to the crosshair, with greater drift during a burst.
+  const structureDistance = getStructureHitDistance(ctx, ray.origin, ray.direction, TRACER_RANGE);
+  const aimDistance = getGroundHitDistance(ctx, ray.origin, ray.direction, structureDistance);
   ray.at(aimDistance, shotDirection).sub(muzzle);
-  const muzzleToAim = shotDirection.length();
   shotDirection.normalize();
+  const spread = 0.002 + fx.spread * 0.018;
+  aimOffset.set((Math.random() * 2 - 1) * spread, (Math.random() * 2 - 1) * spread + fx.spread * 0.007, 0)
+    .applyQuaternion(ctx.camera.quaternion);
+  shotDirection.add(aimOffset).normalize();
+  fx.spread = Math.min(1, fx.spread + 0.23);
 
   fx.flash.position.copy(muzzle).addScaledVector(shotDirection, 0.063);
   fx.flash.quaternion.setFromUnitVectors(forward, shotDirection);
@@ -143,8 +175,7 @@ function shoot(ctx, fx, item, now) {
   const tracer = fx.tracers[fx.traceIndex++ % fx.tracers.length];
   tracer.start.copy(muzzle);
   tracer.direction.copy(shotDirection);
-  tracer.distance = Math.min(muzzleToAim, getTracerDistance(ctx, muzzle, shotDirection));
-  tracer.mesh.quaternion.setFromUnitVectors(forward, shotDirection);
+  tracer.distance = getFlightDistance(ctx, muzzle, shotDirection);
   tracer.firedAt = now;
 
   const casing = fx.cases[fx.caseIndex++ % fx.cases.length];
@@ -161,6 +192,9 @@ function shoot(ctx, fx, item, now) {
 export function stepAk47Effects(ctx, dt, now) {
   const fx = ctx.ak47Effects;
   if (!fx) return;
+  if (!ctx.isPrimaryDown || now - fx.firedAt > SHOT_INTERVAL + 60) {
+    fx.spread = Math.max(0, fx.spread - dt * 2.8);
+  }
   if (fx.poseItem && (fx.poseItem !== ctx.heldItem || !isAk47Aiming(ctx))) {
     if (fx.bolt) fx.bolt.position.z = -0.049;
     fx.bolt = null;
@@ -191,8 +225,13 @@ export function stepAk47Effects(ctx, dt, now) {
     const tail = Math.max(0, travel - 3.4);
     tracer.mesh.visible = head > tail;
     if (!tracer.mesh.visible) continue;
-    tracer.mesh.position.copy(tracer.start).addScaledVector(tracer.direction, (head + tail) * 0.5);
-    tracer.mesh.scale.z = head - tail;
+    tracerPoint(segmentStart, tracer.start, tracer.direction, tail);
+    tracerPoint(segmentEnd, tracer.start, tracer.direction, head);
+    segmentDirection.subVectors(segmentEnd, segmentStart);
+    const length = segmentDirection.length();
+    tracer.mesh.position.copy(segmentStart).lerp(segmentEnd, 0.5);
+    tracer.mesh.quaternion.setFromUnitVectors(forward, segmentDirection.divideScalar(length));
+    tracer.mesh.scale.z = length;
   }
 
   let visibleCases = 0;

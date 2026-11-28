@@ -94,6 +94,7 @@ test('clique e toque compartilham o disparo, traçantes param em paredes e estoj
   stepAk47Effects(ctx, 0.016, 1115);
   stepAk47Effects(ctx, 0.016, 1230);
   assert.equal(played, 3);
+  assert.ok(fx.spread > 0.5);
   ctx.placementMode = true;
   stepAk47Effects(ctx, 0.05, 1400);
   assert.equal(played, 3);
@@ -102,6 +103,22 @@ test('clique e toque compartilham o disparo, traçantes param em paredes e estoj
   assert.ok(fx.cases[0].settled);
   assert.equal(fx.brassMesh.count, 3);
   assert.equal(fx.light.intensity, 0);
+  assert.equal(fx.spread, 0);
   stepAk47Effects(ctx, 0.05, 6500);
   assert.equal(fx.brassMesh.count, 0);
+});
+
+test('o traçante perde altura ao se afastar do cano', () => {
+  const ctx = fixture();
+  ctx.heldItem = spawnShopItemNearPlayer(ctx, 'ak47');
+  assert.equal(handlePrimaryAction(ctx), true);
+  poseAk47(ctx, ctx.heldItem, 1000, 0.18);
+  stepAk47Effects(ctx, 0.016, 1000);
+  const tracer = ctx.ak47Effects.tracers[0];
+  stepAk47Effects(ctx, 0.05, 1050);
+  const distance = tracer.mesh.position.clone().sub(tracer.start).dot(tracer.direction);
+  const straightHeight = tracer.start.y + tracer.direction.y * distance;
+  assert.ok(tracer.mesh.visible);
+  assert.ok(distance > 15);
+  assert.ok(tracer.mesh.position.y < straightHeight - 0.15);
 });
