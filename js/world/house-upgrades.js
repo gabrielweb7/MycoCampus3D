@@ -918,19 +918,28 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
     ctx.supportMeshes.push(loftFloor);
   }
 
-  // Armário embutido com 4 prateleiras sob/atrás da escada (aberto para os fundos da casa)
+  // Armário embutido sob medida com 4 prateleiras sob a escada (fechado até a viga, sem vão nem degraus expostos)
   const cabX = stairX;
-  const cabW = 0.82;
-  const cabFrontZ = houseZ - front * 0.04;
-  const cabBackZ = houseZ + front * 0.48;
+  const cabW = 0.88;
+  const cabFrontZ = houseZ - front * 0.06;
+  const cabBackZ = houseZ + front * 0.46;
   const cabD = Math.abs(cabBackZ - cabFrontZ);
   const cabZ = (cabFrontZ + cabBackZ) / 2;
-  const cabTopY = 1.88;
+  const cabTopY = 1.92;
   const cabH = cabTopY - floorY;
-  box(secondFloorGrp, mats.wood, cabX, floorY + cabH / 2, cabBackZ, cabW, cabH, 0.03, false);
+  const cabInnerW = cabW - 0.08;
+  // Fundo do nicho (recuado 1cm das laterais para zero z-fighting)
+  box(secondFloorGrp, mats.wood, cabX, floorY + cabH / 2, cabBackZ, cabInnerW, cabH - 0.04, 0.03, false);
+  // Laterais esquerda e direita sob medida
   box(secondFloorGrp, mats.wood, cabX - cabW / 2 + 0.02, floorY + cabH / 2, cabZ, 0.04, cabH, cabD, false);
   box(secondFloorGrp, mats.wood, cabX + cabW / 2 - 0.02, floorY + cabH / 2, cabZ, 0.04, cabH, cabD, false);
-  box(secondFloorGrp, mats.wood, cabX, cabTopY - 0.02, cabZ, cabW, 0.04, cabD, false);
+  // Tampo superior do armário
+  box(secondFloorGrp, mats.wood, cabX, cabTopY - 0.02, cabZ, cabInnerW, 0.04, cabD, false);
+  // Testeira planejada fechando 100% o vão entre o topo do armário e a laje/viga do mezanino
+  const headerBottomY = cabTopY;
+  const headerTopY = loftY - 0.11;
+  const headerH = headerTopY - headerBottomY;
+  box(secondFloorGrp, mats.wood, cabX, headerBottomY + headerH / 2, cabFrontZ + front * 0.02, cabW, headerH, 0.04, false);
 
   const shelfTopYs = [0.16, 0.60, 1.04, 1.48];
   const shelfSurfs = [];
