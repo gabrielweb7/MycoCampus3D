@@ -192,11 +192,25 @@ export function stepCozyDetails(ctrl, dt, envTime, sunY, weatherMode, qualityTie
   const dummy = ensureDummy();
   if (!dummy) return;
 
-  // Borboletas apenas de dia sem chuva e fora do tier min
   const showButterflies = qualityTier !== 'min' && sunY > 0.04 && weatherMode !== 'rain' && weatherMode !== 'snow';
-  if (ctrl.butterflies) {
-    ctrl.butterflies.visible = showButterflies;
-    if (showButterflies) {
+  const showSpores = qualityTier !== 'min' && weatherMode !== 'rain';
+  const becameVisible =
+    (ctrl.butterflies && !ctrl.butterflies.visible && showButterflies) ||
+    (ctrl.spores && !ctrl.spores.visible && showSpores);
+  if (ctrl.butterflies) ctrl.butterflies.visible = showButterflies;
+  if (ctrl.spores) ctrl.spores.visible = showSpores;
+
+  const throttleAmbient = !!qualityTier && qualityTier !== 'high';
+  const firstRun = ctrl._cozyAccumDt === undefined;
+  const accumDt = (firstRun ? 0 : ctrl._cozyAccumDt) + dt;
+  const shouldStepAmbient = !throttleAmbient || firstRun || becameVisible || accumDt >= 0.032;
+
+  if (shouldStepAmbient) {
+    const stepDt = firstRun ? dt : accumDt;
+    ctrl._cozyAccumDt = 0;
+
+    // Borboletas apenas de dia sem chuva e fora do tier min
+    if (ctrl.butterflies && showButterflies) {
       for (let i = 0; i < BUTTERFLY_BASES.length; i++) {
         const b = BUTTERFLY_BASES[i];
         const t = envTime * b.sp + b.ph;
@@ -212,19 +226,15 @@ export function stepCozyDetails(ctrl, dt, envTime, sunY, weatherMode, qualityTie
       }
       ctrl.butterflies.instanceMatrix.needsUpdate = true;
     }
-  }
 
-  // Esporos mágicos suaves (pausa em min)
-  if (ctrl.spores && ctrl.spAttr) {
-    const showSpores = qualityTier !== 'min' && weatherMode !== 'rain';
-    ctrl.spores.visible = showSpores;
-    if (showSpores) {
+    // Esporos mágicos suaves (pausa em min)
+    if (ctrl.spores && ctrl.spAttr && showSpores) {
       const arr = ctrl.spAttr.array;
       for (let i = 0; i < SPORE_COUNT; i++) {
         const idx = i * 3;
         const floorY = ctrl.spBaseY ? ctrl.spBaseY[i] : 0;
-        arr[idx + 1] += dt * 0.22;
-        arr[idx] += Math.sin(envTime * 0.7 + i) * dt * 0.14;
+        arr[idx + 1] += stepDt * 0.22;
+        arr[idx] += Math.sin(envTime * 0.7 + i) * stepDt * 0.14;
         if (arr[idx + 1] > floorY + 4.2) arr[idx + 1] = floorY + 0.55;
       }
       ctrl.spAttr.needsUpdate = true;
@@ -236,9 +246,11 @@ export function stepCozyDetails(ctrl, dt, envTime, sunY, weatherMode, qualityTie
         ctrl.spMat.color.setHSL(hueShift, 0.72, sunY < 0 ? 0.78 : 0.72);
       }
     }
+  } else {
+    ctrl._cozyAccumDt = accumDt;
   }
 
-  // Corações / estrelinhas fofas ao interagir
+  // Corações / estrelinhas fofas ao interagir (sempre em taxa cheia)
   if (ctrl.hearts) {
     if (activeBursts.length === 0) {
       ctrl.hearts.visible = false;

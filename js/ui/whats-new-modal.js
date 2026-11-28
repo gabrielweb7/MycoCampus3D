@@ -10,6 +10,22 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.11.19': {
+    subtitleKey: 'news.21119.subtitle',
+    items: [
+      { icon: '🪜', key: 'news.21119.stairs' },
+      { icon: '🌲', key: 'news.21119.grounding' },
+      { icon: '❄️', key: 'news.21119.snow' },
+      { icon: '🛸', key: 'news.21119.ufo' }
+    ]
+  },
+  '2.11.19': {
+    subtitleKey: 'news.21119.subtitle',
+    items: [
+      { icon: '🗄️', key: 'news.21119.cabinet' },
+      { icon: '⚡', key: 'news.21119.perf' }
+    ]
+  },
   '2.11.18': {
     subtitleKey: 'news.21118.subtitle',
     items: [

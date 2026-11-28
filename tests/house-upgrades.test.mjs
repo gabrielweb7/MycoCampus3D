@@ -527,3 +527,31 @@ test('applyCampusWorldState restores lot doors, blinds, and light power on initi
     ['lot_8_blind_back', 1]
   ]);
 });
+
+test('second_floor upgrade registers 4 under-stair storage shelves and toggles them safely', () => {
+  const lot = { id: 3, x: 0, z: 54, front: 1, houseZ: 50, doorZ: 53.4 };
+  const h = makeLotHarness(lot);
+
+  // loftSurf + 4 under-stair shelf surfaces
+  assert.equal(h.supportSurfaces.length, 5);
+  assert.equal(h.ctx.supportMeshes.length, 5);
+  const shelfSurfs = h.supportSurfaces.slice(1);
+  assert.deepEqual(shelfSurfs.map(s => s.topY), [0.16, 0.60, 1.04, 1.48]);
+  for (const sf of shelfSurfs) {
+    assert.equal(sf._disabled, true);
+  }
+  const cabCollider = h.wallSegments[h.wallSegments.length - 1];
+  assert.equal(cabCollider.maxY, -1);
+
+  applyVillageUpgrades([{ id: 3, upgrades: { second_floor: true } }]);
+  for (const sf of shelfSurfs) {
+    assert.equal(sf._disabled, false);
+  }
+  assert.equal(cabCollider.maxY, 2.68);
+
+  applyVillageUpgrades([{ id: 3, upgrades: { second_floor: false } }]);
+  for (const sf of shelfSurfs) {
+    assert.equal(sf._disabled, true);
+  }
+  assert.equal(cabCollider.maxY, -1);
+});

@@ -1,5 +1,5 @@
 import { CAMPUS_CROSSINGS, CAMPUS_ROUTES } from '../core/campus-route-layout.js';
-import { getGroundTextures, makeBox } from '../engine/textures.js';
+import { getGroundTextures, makeBox, registerSnowable } from '../engine/textures.js';
 
 const THREE = window.THREE;
 let routes;
@@ -84,7 +84,7 @@ function makeRibbon({ samples, width, surface, closed }, groundY, material) {
 
 function addWoodlandDetails(scene, groundY) {
   const rockGeo = new THREE.DodecahedronGeometry(1, 0);
-  const rockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true });
+  const rockMat = registerSnowable(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true }), 0.72, 0xe8f1f8);
   const layouts = [[-25.8, -51, 0.8], [-14.9, -54, 1.08], [-17.9, -60.7, 1.25],
     [-31.3, -51.7, 0.7], [-26.2, -61.7, 0.75], [-29.7, -47.8, 0.72], [-9.7, -58, 0.6]];
   const rocks = new THREE.InstancedMesh(rockGeo, rockMat, layouts.length * 3);
@@ -149,8 +149,8 @@ function addWoodlandDetails(scene, groundY) {
 }
 
 export function buildCampusRoutes(scene, groundY) {
-  const dirt = new THREE.MeshStandardMaterial({ map: getGroundTextures().dirt, vertexColors: true, roughness: 0.97 });
-  const paving = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88 });
+  const dirt = registerSnowable(new THREE.MeshStandardMaterial({ map: getGroundTextures().dirt, vertexColors: true, roughness: 0.97 }), 0.68, 0xebf3fa);
+  const paving = registerSnowable(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88 }), 0.78, 0xf1f5f9);
   dirt.userData.keepPbr = true;
   for (const route of getRoutes()) {
     const path = makeRibbon(route, groundY, route.surface ? paving : dirt);

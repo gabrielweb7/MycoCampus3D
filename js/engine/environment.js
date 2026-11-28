@@ -80,13 +80,15 @@ export function stepPrecipitation(env, dt, wb) {
   points.material.color.setHex(snow ? 0xffffff : 0x93c5fd);
   points.material.size = snow ? 0.24 : 0.16;
   points.material.opacity = Math.min(0.78, intensity * 0.82);
-  const fall = (snow ? 2.2 + wb.snow * 1.1 : 16 + wb.rain * 8.5) * dt;
-  const drift = (snow ? Math.sin(env.envTime * 1.5) * 1.2 : 1.6 + wb.rain) * dt;
+  const fall = (snow ? 2.1 + wb.snow * 1.1 : 16 + wb.rain * 8.5) * dt;
+  const drift = (snow ? Math.sin(env.envTime * 1.5) * 1.35 : 1.6 + wb.rain) * dt;
+  const driftZ = (snow ? Math.cos(env.envTime * 1.1) * 0.75 : 0) * dt;
   const origin = env.inFps ? env.playerPos : env.camera.position;
   const bottom = Math.max(0, origin.y - 12);
   for (let p = 0; p < active * 3; p += 3) {
-    arr[p] += drift;
+    arr[p] += snow ? drift * (0.7 + ((p % 7) * 0.1)) : drift;
     arr[p + 1] -= fall;
+    if (snow) arr[p + 2] += driftZ;
     const outOfRange = Math.abs(arr[p] - origin.x) > 32 || Math.abs(arr[p + 2] - origin.z) > 32 ||
       arr[p + 1] > bottom + 36;
     let hitRoof = false;
@@ -290,13 +292,18 @@ export function updateDynamicEnvironment(dt, env, precipitationDt = dt) {
   }
 
   if (env.terrainSnowMat) {
-    env.terrainSnowMat.emissive.setHex(0xe2e8f0);
-    env.terrainSnowMat.emissiveIntensity = env.snowMix * 0.42;
+    if (env.terrainSnowMat.userData?.snowUniform) {
+      env.terrainSnowMat.userData.snowUniform.value = env.snowMix;
+    }
+    env.terrainSnowMat.emissive.setHex(0xdbeafe);
+    env.terrainSnowMat.emissiveIntensity = env.snowMix * 0.14;
   }
   if (Math.abs(env.snowMix - lastSnowMix) > 0.005) {
     lastSnowMix = env.snowMix;
     for (let si = 0; si < snowableEntries.length; si++) {
-      snowableEntries[si].mat.color.copy(snowableEntries[si].base).lerp(_cSnowWhite, env.snowMix * 0.85);
+      const entry = snowableEntries[si];
+      const factor = typeof entry.factor === 'number' ? entry.factor : 0.85;
+      entry.mat.color.copy(entry.base).lerp(entry.target || _cSnowWhite, env.snowMix * factor);
     }
   }
 

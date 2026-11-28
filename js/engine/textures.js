@@ -26,10 +26,15 @@ export function getGroundTextures() {
   return groundTextures;
 }
 
-export function registerSnowable(mat) {
+export function registerSnowable(mat, factor = 0.85, targetHex = null) {
   if (mat && mat.color && !mat._snowRegistered) {
     mat._snowRegistered = true;
-    snowableEntries.push({ mat, base: mat.color.clone() });
+    snowableEntries.push({
+      mat,
+      base: mat.color.clone(),
+      factor,
+      target: targetHex != null ? new THREE.Color(targetHex) : null
+    });
   }
   return mat;
 }

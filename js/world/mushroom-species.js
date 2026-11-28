@@ -7,6 +7,7 @@ import { t } from '../core/i18n.js';
 import { qualityState } from '../core/quality.js';
 
 import { terrainHeight } from '../engine/physics.js';
+import { registerSnowable } from '../engine/textures.js';
 import { isNaturalSoilSpot } from './nature-plaza.js';
 import { isOverCampusRoute } from './campus-routes.js';
 
@@ -660,9 +661,16 @@ export function buildExpandedForestAndMushrooms(ctx) {
     if (i % 3 === 0) {
       const lx = tx + (seededRand(i + 200) - 0.5) * 4.2;
       const lz = tz + (seededRand(i + 300) - 0.5) * 4.2;
-      if (isNaturalSoilSpot(lx, lz, 1.8)) {
-        const ly = terrainHeight(lx, lz);
-        woodLogs.push({ x: lx, y: ly + 0.36, baseY: ly + 0.18, z: lz, rotY: seededRand(i + 400) * Math.PI });
+      if (isNaturalSoilSpot(lx, lz, 2.0) && !isOverCampusRoute(lx, lz, 1.0)) {
+        const rotY = seededRand(i + 400) * Math.PI;
+        const dxL = Math.cos(rotY) * 1.1;
+        const dzL = -Math.sin(rotY) * 1.1;
+        const h1 = terrainHeight(lx + dxL, lz + dzL);
+        const h2 = terrainHeight(lx - dxL, lz - dzL);
+        const hc = terrainHeight(lx, lz);
+        const pitch = Math.max(-0.28, Math.min(0.28, Math.atan2(h1 - h2, 2.2)));
+        const baseY = Math.min(hc, (h1 + h2) * 0.5) + 0.14;
+        woodLogs.push({ x: lx, y: baseY + 0.19, baseY, z: lz, rotY, pitch });
       }
     }
   }
@@ -682,7 +690,7 @@ export function buildExpandedForestAndMushrooms(ctx) {
 
   const trunkGeo = new THREE.CylinderGeometry(0.18, 0.28, 3.2, 8);
   trunkGeo.userData.shared = true;
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  const trunkMat = registerSnowable(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true }), 0.22, 0xcbd5e1);
   trunkMat.userData.shared = true;
   const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, visibleTrees.length);
   trunkInst.frustumCulled = false;
@@ -692,7 +700,7 @@ export function buildExpandedForestAndMushrooms(ctx) {
   if (pineConeTotal > 0) {
     const pGeo = new THREE.ConeGeometry(1, 1, 9);
     pGeo.userData.shared = true;
-    const pMat = new THREE.MeshStandardMaterial({ color: 0x249457, roughness: 0.84 });
+    const pMat = registerSnowable(new THREE.MeshStandardMaterial({ color: 0x249457, roughness: 0.84, flatShading: true }), 0.72, 0xe6f1fb);
     pMat.userData.shared = true;
     pineInst = new THREE.InstancedMesh(pGeo, pMat, pineConeTotal);
     pineInst.frustumCulled = false;
@@ -703,7 +711,7 @@ export function buildExpandedForestAndMushrooms(ctx) {
   if (foliageTotal > 0) {
     const fGeo = new THREE.DodecahedronGeometry(1, 1);
     fGeo.userData.shared = true;
-    const fMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82 });
+    const fMat = registerSnowable(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82, flatShading: true }), 0.72, 0xe6f1fb);
     fMat.userData.shared = true;
     foliageInst = new THREE.InstancedMesh(fGeo, fMat, foliageTotal);
     foliageInst.frustumCulled = false;
@@ -718,7 +726,7 @@ export function buildExpandedForestAndMushrooms(ctx) {
     const ts = visibleTrees[i];
     const items = [];
     dummy.rotation.set(0, 0, 0);
-    dummy.position.set(ts.x, ts.y + 1.6 * ts.scale, ts.z);
+    dummy.position.set(ts.x, ts.y + 1.46 * ts.scale, ts.z);
     dummy.scale.setScalar(ts.scale);
     dummy.updateMatrix();
     trunkInst.setMatrixAt(i, dummy.matrix);
@@ -781,7 +789,7 @@ export function buildExpandedForestAndMushrooms(ctx) {
   if (woodLogs.length > 0) {
     const logGeo = new THREE.CylinderGeometry(0.22, 0.26, 2.4, 8);
     logGeo.userData.shared = true;
-    const logMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.95 });
+    const logMat = registerSnowable(new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.95, flatShading: true }), 0.45, 0xdbeafe);
     logMat.userData.shared = true;
     const logInst = new THREE.InstancedMesh(logGeo, logMat, woodLogs.length);
     logInst.frustumCulled = false;
@@ -789,7 +797,7 @@ export function buildExpandedForestAndMushrooms(ctx) {
     for (let li = 0; li < woodLogs.length; li++) {
       const lg = woodLogs[li];
       dummy.position.set(lg.x, lg.baseY, lg.z);
-      dummy.rotation.set(0, lg.rotY, Math.PI / 2);
+      dummy.rotation.set(0, lg.rotY, Math.PI / 2 + (lg.pitch || 0));
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       logInst.setMatrixAt(li, dummy.matrix);
@@ -810,34 +818,57 @@ export function buildExpandedForestAndMushrooms(ctx) {
   for (let si = 0; si < MUSHROOM_SPECIES_CATALOG.length; si++) {
     const spec = MUSHROOM_SPECIES_CATALOG[si];
     let mx = 0, my = 0, mz = 0;
+    let rotY = 0;
+    let tiltZ = 0;
 
-    if (spec.habitat === 'wood' && woodLogs.length > 0) {
-      const log = woodLogs[si % woodLogs.length];
-      mx = log.x + (seededRand(si * 7 + 1) - 0.5) * 1.4;
-      mz = log.z + (seededRand(si * 7 + 2) - 0.5) * 1.4;
-      my = log.y;
+    if (spec.habitat === 'wood' && (woodLogs.length > 0 || visibleTrees.length > 0)) {
+      if (si % 3 === 0 && visibleTrees.length > 0) {
+        // Cresce diretamente na casca do tronco da árvore em pé
+        const tree = visibleTrees[si % visibleTrees.length];
+        const ang = seededRand(si * 7 + 5) * Math.PI * 2;
+        const hOnTrunk = 0.55 + seededRand(si * 7 + 6) * 0.85;
+        const trunkR = (0.26 - (hOnTrunk / (3.2 * tree.scale)) * 0.08) * tree.scale;
+        mx = tree.x + Math.cos(ang) * (trunkR - 0.015);
+        mz = tree.z + Math.sin(ang) * (trunkR - 0.015);
+        my = tree.y + hOnTrunk;
+        rotY = -ang;
+        tiltZ = -0.62;
+      } else {
+        // Cresce exatamente em cima da superfície do tronco caído
+        const log = woodLogs[si % woodLogs.length];
+        const along = (seededRand(si * 7 + 1) - 0.5) * 1.75;
+        const lat = (seededRand(si * 7 + 2) - 0.5) * 0.16;
+        const cosY = Math.cos(log.rotY);
+        const sinY = Math.sin(log.rotY);
+        mx = log.x + cosY * along + sinY * lat;
+        mz = log.z - sinY * along + cosY * lat;
+        const radialTop = Math.sqrt(Math.max(0.01, 0.22 * 0.22 - lat * lat));
+        my = log.baseY + Math.sin(log.pitch || 0) * along + radialTop - 0.025;
+      }
     } else if (spec.habitat === 'pasture') {
       for (let att = 0; att < 14; att++) {
         const candX = 54 + seededRand(si * 11 + 3 + att * 17) * 26;
         const candZ = -26 + seededRand(si * 11 + 4 + att * 29) * 58;
-        if (isNaturalSoilSpot(candX, candZ, 1.0)) { mx = candX; mz = candZ; break; }
+        if (isNaturalSoilSpot(candX, candZ, 1.2) && !isOverCampusRoute(candX, candZ, 0.85)) { mx = candX; mz = candZ; break; }
       }
       if (mx === 0 && mz === 0) { mx = 68; mz = 8; }
-      my = terrainHeight(mx, mz);
+      my = terrainHeight(mx, mz) - 0.015;
     } else {
       for (let att = 0; att < 14; att++) {
         const ang = seededRand(si * 13 + 5 + att * 23) * Math.PI * 2;
         const r = 48 + seededRand(si * 13 + 6 + att * 31) * 54;
         const candX = Math.cos(ang) * r;
         const candZ = Math.sin(ang) * r;
-        if (isNaturalSoilSpot(candX, candZ, 1.0)) { mx = candX; mz = candZ; break; }
+        if (isNaturalSoilSpot(candX, candZ, 1.2) && !isOverCampusRoute(candX, candZ, 0.85)) { mx = candX; mz = candZ; break; }
       }
       if (mx === 0 && mz === 0) { mx = -72; mz = -20; }
-      my = terrainHeight(mx, mz);
+      my = terrainHeight(mx, mz) - 0.015;
     }
 
     const { g, cap } = makeSpeciesMushroomMesh(spec);
     g.position.set(mx, my, mz);
+    if (rotY) g.rotation.y = rotY;
+    if (tiltZ) g.rotation.z = tiltZ;
     const id = `wild_${startIdx + si}`;
     cap.userData.wildMushId = id;
     cap.userData.speciesName = `${spec.common} (${spec.scientific})`;

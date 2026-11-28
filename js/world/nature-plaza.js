@@ -1,7 +1,7 @@
 /**
  * MycoCampus3D — Mundo Natural, Floresta InstancedMesh, Cogumelos Silvestres & Praça Central
  */
-import { makeBox, getTextures, getGroundTextures } from '../engine/textures.js';
+import { makeBox, getTextures, getGroundTextures, registerSnowable } from '../engine/textures.js';
 import { MYCO_PALETTE as palette } from '../engine/visual-style.js';
 import { terrainHeight } from '../engine/physics.js';
 import { villageDistance } from '../core/village-layout.js';
@@ -75,6 +75,18 @@ export function buildNatureWorld(ctx) {
   geo.computeVertexNormals();
   const terrainSnowMat = new THREE.MeshStandardMaterial({ map: getGroundTextures().grass, vertexColors: true, roughness: 0.94 });
   terrainSnowMat.userData.keepPbr = true;
+  terrainSnowMat.userData.snowUniform = { value: 0 };
+  if (typeof terrainSnowMat.onBeforeCompile === 'function') {
+    terrainSnowMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uSnowMix = terrainSnowMat.userData.snowUniform;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vSnowWorldPos;\nvarying vec3 vSnowWorldNorm;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSnowWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvSnowWorldNorm = normalize(mat3(modelMatrix) * normal);');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uSnowMix;\nvarying vec3 vSnowWorldPos;\nvarying vec3 vSnowWorldNorm;')
+        .replace('#include <map_fragment>', '#include <map_fragment>\nfloat snowNoise = fract(sin(dot(floor(vSnowWorldPos.xz * 1.4), vec2(12.9898, 78.233))) * 43758.5453);\nfloat slopeMask = smoothstep(0.55, 0.88, vSnowWorldNorm.y + (snowNoise - 0.5) * 0.14);\nfloat snowCov = clamp(uSnowMix * 1.15 * slopeMask, 0.0, 0.94);\nvec3 snowCol = mix(vec3(0.84, 0.91, 0.98), vec3(0.97, 0.99, 1.0), 0.55 + 0.45 * snowNoise);\ndiffuseColor.rgb = mix(diffuseColor.rgb, snowCol, snowCov);');
+    };
+  }
   const terrain = new THREE.Mesh(geo, terrainSnowMat);
   terrain.receiveShadow = true;
   scene.add(terrain);
@@ -109,7 +121,7 @@ export function buildNatureWorld(ctx) {
     [-28, 30], [26, 28], [-70, -8], [72, 18], [68, -22], [-68, 22], [70, 30]
   ];
   extraTrees.forEach((et, k) => {
-    if (!isNaturalSoilSpot(et[0], et[1], 1.8) || isOverCampusRoute(et[0], et[1], 0.7)) return;
+    if (!isNaturalSoilSpot(et[0], et[1], 2.0) || isOverCampusRoute(et[0], et[1], 0.85)) return;
     treePositions.push({ x: et[0], y: terrainHeight(et[0], et[1]), z: et[1], s: 0.95 + (k % 3) * 0.15 });
   });
   const grove = [
@@ -119,7 +131,7 @@ export function buildNatureWorld(ctx) {
     [-27.9, -58.2, 1.26], [-34.9, -54.8, 1.17], [-35.6, -50.1, 1.28], [-23, -58.6, 1.03]
   ];
   grove.forEach(([x, z, s], i) => {
-    if (!isNaturalSoilSpot(x, z, 0.75) || isOverCampusRoute(x, z, 0.77)) return;
+    if (!isNaturalSoilSpot(x, z, 2.2) || isOverCampusRoute(x, z, 0.9)) return;
     if (treePositions.some(tree => Math.hypot(tree.x - x, tree.z - z) < 1.8)) return;
     treePositions.push({ x, y: terrainHeight(x, z), z, s, grove: true, isPine: i % 4 === 3 });
   });
@@ -133,7 +145,7 @@ export function buildNatureWorld(ctx) {
     [48, -24], [64, -20], [68, 2], [68, 30], [72, 22], [-70, 28],
     [-70, 16], [-72, -12], [-58, -48], [-24, -48], [24, -48], [44, -40],
     [-74, 2], [74, 10]
-  ].filter((mc) => isNaturalSoilSpot(mc[0], mc[1], 1.0));
+  ].filter((mc) => isNaturalSoilSpot(mc[0], mc[1], 1.2) && !isOverCampusRoute(mc[0], mc[1], 0.85));
   const pathSpecies = [
     'Agárico-das-Moscas (Amanita muscaria)', 'Cantarelo Dourado (Cantharellus cibarius)',
     'Pé-Azul (Wood Blewit) (Lepista nuda)', 'Chapéu-de-Fada Azul (Mycena interrupta)',
@@ -141,7 +153,7 @@ export function buildNatureWorld(ctx) {
   ];
   mushCoords.forEach((mc, idx) => {
     const mx = mc[0], mz = mc[1];
-    const my = terrainHeight(mx, mz);
+    const my = terrainHeight(mx, mz) - 0.015;
     const speciesName = pathSpecies[idx % pathSpecies.length];
     const g = createMushroomMeshBySpeciesName(speciesName, 0.105 + (idx % 4) * 0.011);
     g.position.set(mx, my, mz);
@@ -176,8 +188,8 @@ function buildForestSectors(scene, solidColliders, treePositions) {
   const trunkGeo = new THREE.CylinderGeometry(0.24, 0.42, 3.45, 8);
   const pineGeo = new THREE.ConeGeometry(1, 1, LITE_FLORA ? 7 : 9);
   const crownGeo = new THREE.IcosahedronGeometry(1, LITE_FLORA ? 0 : 1);
-  const trunkMat = new THREE.MeshStandardMaterial({ map: getTextures().texBark, color: 0xffffff, roughness: 0.9 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, flatShading: true });
+  const trunkMat = registerSnowable(new THREE.MeshStandardMaterial({ map: getTextures().texBark, color: 0xffffff, roughness: 0.9 }), 0.22, 0xcbd5e1);
+  const leafMat = registerSnowable(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, flatShading: true }), 0.72, 0xe6f1fb);
   const dummy = new THREE.Object3D();
   const color = new THREE.Color();
   const layers = [0x426f57, 0x4d805e, 0x618b62, 0x799965];
@@ -205,7 +217,7 @@ function buildForestSectors(scene, solidColliders, treePositions) {
       const trunkWidth = s * (isPine ? 0.9 : 1.08);
       dummy.rotation.set(0, yaw, 0);
       dummy.scale.set(trunkWidth, s, trunkWidth);
-      dummy.position.set(x, y + 1.72 * s, z);
+      dummy.position.set(x, y + 1.56 * s, z);
       dummy.updateMatrix();
       trunkInst.setMatrixAt(trunkIdx, dummy.matrix);
       color.setHex(i % 7 === 0 ? 0xc6a27a : (isPine ? 0xa17855 : 0xb3906d));
@@ -258,7 +270,7 @@ function getSharedBedAssets() {
     curbGeo: new THREE.CylinderGeometry(1, 1, 0.22, 24),
     curbMat: new THREE.MeshStandardMaterial({ color: palette.linen, roughness: 0.75 }),
     grassGeo: new THREE.CylinderGeometry(1, 1, 0.24, 24),
-    grassMat: new THREE.MeshStandardMaterial({ color: palette.leaf, roughness: 0.9 }),
+    grassMat: registerSnowable(new THREE.MeshStandardMaterial({ color: palette.leaf, roughness: 0.9 }), 0.85, 0xf1f5f9),
     trunkGeo: new THREE.CylinderGeometry(0.16, 0.28, 1.55, 8),
     rootGeo: new THREE.ConeGeometry(0.11, 0.42, 6),
     branchGeo: new THREE.CylinderGeometry(0.07, 0.11, 0.85, 6),
@@ -270,8 +282,8 @@ function getSharedBedAssets() {
     centerGeo: new THREE.SphereGeometry(0.045, 7, 5),
     petalGeo: new THREE.SphereGeometry(0.055, 6, 5),
     trunkMat: new THREE.MeshStandardMaterial({ color: 0xa77c55, roughness: 0.88 }),
-    leafDarkMat: new THREE.MeshStandardMaterial({ color: palette.leaf, roughness: 0.72 }),
-    leafBrightMat: new THREE.MeshStandardMaterial({ color: palette.leafLight, roughness: 0.68 }),
+    leafDarkMat: registerSnowable(new THREE.MeshStandardMaterial({ color: palette.leaf, roughness: 0.72, flatShading: true }), 0.72, 0xe2eef9),
+    leafBrightMat: registerSnowable(new THREE.MeshStandardMaterial({ color: palette.leafLight, roughness: 0.68, flatShading: true }), 0.72, 0xe8f3fc),
     potMat: new THREE.MeshStandardMaterial({ color: palette.terracotta, roughness: 0.75 }),
     rimMat: new THREE.MeshStandardMaterial({ color: 0xc79678, roughness: 0.7 }),
     stemMat: new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.65 }),

@@ -24,6 +24,156 @@ const CHRISTMAS_PALETTE = [0xff4d5a, 0xffd166, 0x34d399, 0x60a5fa, 0xfff3c4];
 const lotHooks = new Map();
 let currentModalLotId = null;
 let _cachedScreenMat = null;
+let _sharedHitMat = null;
+let _sharedLampMat = null;
+let _sharedGardenBulbMat = null;
+let _sharedGardenBulbGeo = null;
+let _sharedChristmasBulbGeo = null;
+let _sharedChristmasBulbMat = null;
+let _sharedBlindSlatGeo = null;
+let _blindDummy = null;
+
+function getSharedHitMat() {
+  if (!_sharedHitMat) _sharedHitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+  return _sharedHitMat;
+}
+
+function getSharedLampMat() {
+  if (!_sharedLampMat) _sharedLampMat = new THREE.MeshBasicMaterial({ color: 0xffebb8 });
+  return _sharedLampMat;
+}
+
+function getSharedGardenBulbMat() {
+  if (!_sharedGardenBulbMat) _sharedGardenBulbMat = new THREE.MeshBasicMaterial({ color: 0xffe094 });
+  return _sharedGardenBulbMat;
+}
+
+function getSharedGardenBulbGeo() {
+  if (!_sharedGardenBulbGeo) _sharedGardenBulbGeo = new THREE.BoxGeometry(0.24, 0.22, 0.24);
+  return _sharedGardenBulbGeo;
+}
+
+function getSharedChristmasBulbGeo() {
+  if (!_sharedChristmasBulbGeo) _sharedChristmasBulbGeo = new THREE.SphereGeometry(0.055, 6, 5);
+  return _sharedChristmasBulbGeo;
+}
+
+function getSharedChristmasBulbMat() {
+  if (!_sharedChristmasBulbMat) _sharedChristmasBulbMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  return _sharedChristmasBulbMat;
+}
+
+function getSharedBlindSlatGeo(blindW) {
+  if (!_sharedBlindSlatGeo || _sharedBlindSlatGeo._blindW !== blindW) {
+    _sharedBlindSlatGeo = new THREE.BoxGeometry(0.05, 0.008, blindW - 0.02);
+    _sharedBlindSlatGeo._blindW = blindW;
+  }
+  return _sharedBlindSlatGeo;
+}
+
+function ensureBlindDummy() {
+  if (!_blindDummy && THREE.Object3D) _blindDummy = new THREE.Object3D();
+  return _blindDummy;
+}
+
+function normalizeChildGeoForMerge(mesh, hasUv) {
+  const srcGeo = mesh && mesh.geometry;
+  if (!srcGeo || !srcGeo.attributes || !srcGeo.attributes.position) return null;
+  const g = srcGeo.index ? srcGeo.toNonIndexed() : srcGeo.clone();
+  mesh.updateMatrix();
+  g.applyMatrix4(mesh.matrix);
+  if (!g.attributes.normal) g.computeVertexNormals();
+  if (hasUv && !g.attributes.uv) {
+    const count = g.attributes.position.count;
+    g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(count * 2), 2));
+  }
+  const attrNames = Object.keys(g.attributes);
+  for (let i = 0; i < attrNames.length; i++) {
+    const name = attrNames[i];
+    if (name === 'position' || name === 'normal' || (hasUv && name === 'uv')) continue;
+    g.deleteAttribute(name);
+  }
+  g.morphAttributes = {};
+  return g;
+}
+
+/** Merge static opaque child meshes by material & shadow flags without changing local placement. */
+function mergeStaticGroupChildren(group, excludeSet) {
+  if (!group || !THREE.mergeGeometries || !THREE.BufferAttribute) return;
+  const buckets = new Map();
+  const children = group.children;
+  for (let i = 0; i < children.length; i++) {
+    const obj = children[i];
+    if (!obj || !obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) continue;
+    if (excludeSet && excludeSet.has(obj)) continue;
+    if (obj.userData && (obj.userData.houseAction || obj.userData.supportSurface || obj.userData.keepDynamic || obj.userData.noMerge)) continue;
+    const mat = obj.material;
+    if (!mat || Array.isArray(mat) || mat.transparent || mat.vertexColors) continue;
+    if (!obj.geometry || !obj.geometry.attributes || !obj.geometry.attributes.position) continue;
+    let matMap = buckets.get(mat);
+    if (!matMap) {
+      matMap = new Map();
+      buckets.set(mat, matMap);
+    }
+    const flagKey = (obj.castShadow ? 1 : 0) + '|' + (obj.receiveShadow ? 1 : 0);
+    let bucket = matMap.get(flagKey);
+    if (!bucket) {
+      bucket = {
+        mat,
+        castShadow: !!obj.castShadow,
+        receiveShadow: !!obj.receiveShadow,
+        hasUv: !!mat.map,
+        meshes: []
+      };
+      matMap.set(flagKey, bucket);
+    }
+    bucket.meshes.push(obj);
+  }
+
+  buckets.forEach((matMap) => {
+    matMap.forEach((bucket) => {
+      if (bucket.meshes.length < 2) return;
+      const geoms = [];
+      const okMeshes = [];
+      for (let i = 0; i < bucket.meshes.length; i++) {
+        const m = bucket.meshes[i];
+        const norm = normalizeChildGeoForMerge(m, bucket.hasUv);
+        if (norm) {
+          geoms.push(norm);
+          okMeshes.push(m);
+        }
+      }
+      if (geoms.length < 2) {
+        for (let i = 0; i < geoms.length; i++) geoms[i].dispose();
+        return;
+      }
+      const combined = THREE.mergeGeometries(geoms, false);
+      for (let i = 0; i < geoms.length; i++) geoms[i].dispose();
+      if (!combined) return;
+
+      combined.computeBoundingBox();
+      combined.computeBoundingSphere();
+      if (combined.computeBoundsTree && combined.attributes.position.count > 150) {
+        combined.computeBoundsTree();
+      }
+      const merged = new THREE.Mesh(combined, bucket.mat);
+      merged.castShadow = bucket.castShadow;
+      merged.receiveShadow = bucket.receiveShadow;
+      merged.matrixAutoUpdate = false;
+      merged.updateMatrix();
+      group.add(merged);
+
+      for (let i = 0; i < okMeshes.length; i++) {
+        const orig = okMeshes[i];
+        const origGeo = orig.geometry;
+        group.remove(orig);
+        if (origGeo && !(origGeo.userData && origGeo.userData.shared)) {
+          origGeo.dispose();
+        }
+      }
+    });
+  });
+}
 
 export function canPlayerAccessLot(lotId) {
   if (!lotId) return true;
@@ -105,14 +255,31 @@ function createCottageVenetianBlind(parent, mats, x, topY, z, rotY, lotId, name,
   headrail.position.set(0, -0.025, 0);
   g.add(headrail);
 
-  // 2. Slats
+  // 2. Slats (instanced when available, array fallback for headless tests)
   const slats = [];
-  for (let i = 0; i < slatCount; i++) {
-    const slat = makeBox(0.05, 0.008, blindW - 0.02, mats.wood, { noShadow: true });
-    slat.position.set(0, -0.07 - ((i + 0.5) / slatCount) * (dropH - 0.12), 0);
-    slat.rotation.z = 0.28;
-    slats.push(slat);
-    g.add(slat);
+  let slatInst = null;
+  const dummy = ensureBlindDummy();
+  if (THREE.InstancedMesh && dummy && typeof dummy.updateMatrix === 'function') {
+    slatInst = new THREE.InstancedMesh(getSharedBlindSlatGeo(blindW), mats.wood, slatCount);
+    slatInst.castShadow = false;
+    slatInst.receiveShadow = true;
+    dummy.scale.set(1, 1, 1);
+    dummy.rotation.set(0, 0, 0.28);
+    for (let i = 0; i < slatCount; i++) {
+      dummy.position.set(0, -0.07 - ((i + 0.5) / slatCount) * (dropH - 0.12), 0);
+      dummy.updateMatrix();
+      slatInst.setMatrixAt(i, dummy.matrix);
+    }
+    slatInst.instanceMatrix.needsUpdate = true;
+    g.add(slatInst);
+  } else {
+    for (let i = 0; i < slatCount; i++) {
+      const slat = makeBox(0.05, 0.008, blindW - 0.02, mats.wood, { noShadow: true });
+      slat.position.set(0, -0.07 - ((i + 0.5) / slatCount) * (dropH - 0.12), 0);
+      slat.rotation.z = 0.28;
+      slats.push(slat);
+      g.add(slat);
+    }
   }
 
   // 3. Ladder tapes
@@ -139,8 +306,7 @@ function createCottageVenetianBlind(parent, mats, x, topY, z, rotY, lotId, name,
   g.add(wand, cord, cordKnob);
 
   // 6. Raycast hit box
-  const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-  const hit = new THREE.Mesh(new THREE.BoxGeometry(0.28, dropH, blindW), hitMat);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(0.28, dropH, blindW), getSharedHitMat());
   hit.position.set(0, -dropH / 2, 0);
   g.add(hit);
 
@@ -148,6 +314,8 @@ function createCottageVenetianBlind(parent, mats, x, topY, z, rotY, lotId, name,
     id: `lot_${lotId}_blind_${name}`,
     lotId,
     slats,
+    slatInst,
+    slatCount,
     tapes,
     bottomRail,
     cordKnob,
@@ -177,6 +345,7 @@ function createCottageVenetianBlind(parent, mats, x, topY, z, rotY, lotId, name,
   };
   hit.userData.houseAction = action;
   headrail.userData.houseAction = action;
+  if (slatInst) slatInst.userData.houseAction = action;
   slats.forEach((s) => { s.userData.houseAction = action; });
 
   if (ctx?.blindHitMeshes) ctx.blindHitMeshes.push(hit);
@@ -226,8 +395,7 @@ function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, 
   addDoorHandlesBothSides(rightPivot, mats, -leafW + 0.08, leafW, false);
 
   // Hitbox de interação
-  const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-  const hit = new THREE.Mesh(new THREE.BoxGeometry(doorway + 0.2, doorH + 0.2, 0.44), hitMat);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(doorway + 0.2, doorH + 0.2, 0.44), getSharedHitMat());
   hit.position.set(0, 0, 0);
   g.add(leftPivot, rightPivot, hit);
 
@@ -297,8 +465,7 @@ function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18, lotI
   pivot.add(leaf);
   addDoorHandlesBothSides(pivot, mats, width - 0.12, width - 0.02, true);
 
-  const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-  const hit = new THREE.Mesh(new THREE.BoxGeometry(width + 0.2, doorH + 0.2, 0.44), hitMat);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(width + 0.2, doorH + 0.2, 0.44), getSharedHitMat());
   hit.position.set(width / 2, 0, 0);
   pivot.add(hit);
   parent.add(pivot);
@@ -364,8 +531,7 @@ function createWallMenuPanel(parent, mats, x, y, z, rotY, lotId) {
   const face = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.17), getSharedScreenMat(mats));
   face.position.z = 0.012;
 
-  const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-  const hit = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.34, 0.24), hitMat);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.34, 0.24), getSharedHitMat());
   hit.position.set(0, 0, 0.02);
   g.add(frame, face, hit);
   parent.add(g);
@@ -388,8 +554,7 @@ function buildGardenAndChristmasLights(root, x, houseZ, doorZ, backZ, front, wid
     const lz = backZ - front * 2.2;
     const post = makeBox(0.12, 1.75, 0.12, mats.wood);
     post.position.set(x + ox, 0.88, lz);
-    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffe094 });
-    const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.24), bulbMat);
+    const bulb = new THREE.Mesh(getSharedGardenBulbGeo(), getSharedGardenBulbMat());
     bulb.position.set(x + ox, 1.82, lz);
     gardenLightGrp.add(post, bulb);
   });
@@ -444,8 +609,8 @@ function buildGardenAndChristmasLights(root, x, houseZ, doorZ, backZ, front, wid
   bulbs.push([treeX, 3.38, treeZ, 0xffd166]);
 
   if (THREE.InstancedMesh && THREE.SphereGeometry && THREE.Matrix4 && THREE.Color) {
-    const bulbGeo = new THREE.SphereGeometry(0.055, 6, 5);
-    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const bulbGeo = getSharedChristmasBulbGeo();
+    const bulbMat = getSharedChristmasBulbMat();
     const inst = new THREE.InstancedMesh(bulbGeo, bulbMat, bulbs.length);
     const mat4 = new THREE.Matrix4();
     const col = new THREE.Color();
@@ -513,8 +678,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   const houseLightGrp = new THREE.Group();
   const lampWood = makeBox(0.56, 0.08, 0.56, mats.wood, { noShadow: true });
   lampWood.position.set(x, peakY, houseZ);
-  const lampMat = new THREE.MeshBasicMaterial({ color: 0xffebb8 });
-  const lampGlow = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.44), lampMat);
+  const lampGlow = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.44), getSharedLampMat());
   lampGlow.position.set(x, peakY - 0.06, houseZ);
   houseLightGrp.add(lampWood, lampGlow);
   let housePointLight = null;
@@ -569,6 +733,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   for (const px of [backDoorX - 0.38, backDoorX + 0.38]) {
     box(backFenceSealGrp, mats.wood, px, 0.50, fenceBackZ, 0.15, 1.0, 0.15);
   }
+  mergeStaticGroupChildren(backFenceSealGrp);
   markDynamic(backFenceSealGrp, dynList);
   root.add(backFenceSealGrp);
   const backFenceSealCollider = {
@@ -615,38 +780,41 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   loftSlabObj._disabled = true;
 
   // Viga mestra frontal robusta (abaixo do piso para zero z-fighting)
-  box(secondFloorGrp, mats.wood, x, loftY - 0.18, frontEdgeZ, loftW, 0.16, 0.16);
+  box(secondFloorGrp, mats.wood, x, loftY - 0.18, frontEdgeZ, loftW, 0.16, 0.16, false);
 
   // Vigas estruturais sob o piso (encostadas por baixo, sem faces coplanares)
   for (let j = -2; j <= 2; j++) {
-    box(secondFloorGrp, mats.wood, x + j * 1.5, loftY - 0.17, loftZ, 0.10, 0.14, loftD - 0.08);
+    box(secondFloorGrp, mats.wood, x + j * 1.5, loftY - 0.17, loftZ, 0.10, 0.14, loftD - 0.08, false);
   }
 
   // Pilares estruturais encostados na parede oposta à escada (ZERO pilares no meio da sala)
   const postH = loftY - 0.10 - floorY;
   const postMidY = (loftY - 0.10 + floorY) / 2;
-  box(secondFloorGrp, mats.wood, x - front * 3.70, postMidY, frontEdgeZ, 0.16, postH, 0.16);
-  box(secondFloorGrp, mats.wood, x - front * 3.70, postMidY, backZ + front * 0.14, 0.16, postH, 0.16);
+  box(secondFloorGrp, mats.wood, x - front * 3.70, postMidY, frontEdgeZ, 0.16, postH, 0.16, false);
+  box(secondFloorGrp, mats.wood, x - front * 3.70, postMidY, backZ + front * 0.14, 0.16, postH, 0.16, false);
 
   // Guarda-corpo de proteção com corrimão e ripas verticais elegantes
-  // Deixa abertura de ~1.20m para a chegada da escada
-  const railW = loftW - 1.30;
-  const railCenterX = x - front * 0.65;
-  box(secondFloorGrp, mats.wood, railCenterX, loftY + 0.88, frontEdgeZ, railW, 0.07, 0.07);
-  box(secondFloorGrp, mats.wood, railCenterX, loftY + 0.08, frontEdgeZ, railW, 0.06, 0.06);
+  // Alinhado exatamente com a borda interna da escada (stairInnerX) para conexão contínua
+  const stairX = x + front * 3.55;
+  const stairInnerX = stairX - front * 0.46;
+  const railStartX = x - front * 4.05;
+  const railW = Math.abs(stairInnerX - railStartX);
+  const railCenterX = (railStartX + stairInnerX) / 2;
+  box(secondFloorGrp, mats.wood, railCenterX, loftY + 0.88, frontEdgeZ, railW, 0.07, 0.07, false);
+  box(secondFloorGrp, mats.wood, railCenterX, loftY + 0.08, frontEdgeZ, railW, 0.06, 0.06, false);
   const spindleCount = Math.floor(railW / 0.26);
   for (let sp = 0; sp <= spindleCount; sp++) {
     const sx = railCenterX - railW / 2 + sp * (railW / spindleCount);
-    box(secondFloorGrp, mats.trim, sx, loftY + 0.48, frontEdgeZ, 0.035, 0.74, 0.035);
+    box(secondFloorGrp, mats.trim, sx, loftY + 0.48, frontEdgeZ, 0.035, 0.74, 0.035, false);
   }
-  // Coluna de terminação do corrimão na abertura da escada
-  box(secondFloorGrp, mats.wood, railCenterX + front * (railW / 2), loftY + 0.48, frontEdgeZ, 0.09, 0.92, 0.09);
+  // Coluna de terminação do corrimão na abertura da escada (encontro com corrimão da escada)
+  box(secondFloorGrp, mats.wood, stairInnerX, loftY + 0.48, frontEdgeZ, 0.09, 0.92, 0.09, false);
 
   // Colisor do guarda-corpo para impedir queda do segundo andar
   const railCollider = {
-    x1: x - front * 4.05,
+    x1: railStartX,
     z1: frontEdgeZ,
-    x2: railCenterX + front * (railW / 2),
+    x2: stairInnerX,
     z2: frontEdgeZ,
     halfThick: 0.10,
     minY: loftY,
@@ -654,55 +822,59 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   };
   ctx.wallSegments.push(railCollider);
 
-  // Escada caminhável encostada na parede lateral
-  const stairX = x + front * 3.55;
+  // Escada caminhável encostada na parede lateral (termina na borda da laje sem sobreposição)
   const steps = 12;
   const stairZStart = houseZ + front * 2.50;
-  const stairZEnd = houseZ - front * 0.10;
+  const stairZEnd = frontEdgeZ + front * 0.13;
   const stepSlabs = [];
+  const stepRise = (loftY - floorY) / (steps + 1);
 
   for (let s = 1; s <= steps; s++) {
     const t = s / steps;
-    const sy = floorY + (loftY - floorY) * t;
+    const sy = floorY + stepRise * s;
     const sz = stairZStart + (stairZEnd - stairZStart) * t;
-    addWalkableSlab(secondFloorGrp, ctx.walkableFloors, stairX, sy, sz, 0.90, 0.06, 0.26, mats.wood);
+    addWalkableSlab(secondFloorGrp, ctx.walkableFloors, stairX, sy, sz, 0.90, 0.055, 0.25, mats.wood, { noShadow: true });
     const stObj = ctx.walkableFloors[ctx.walkableFloors.length - 1];
     stObj._disabled = true;
     stepSlabs.push(stObj);
-    // Espelho vertical fechando o vão do degrau
-    box(secondFloorGrp, mats.trim, stairX, sy - 0.10, sz - front * 0.11, 0.88, 0.18, 0.03);
+    // Espelho vertical fechando o vão do degrau sem afundar no piso térreo
+    const riserBottom = Math.max(floorY + 0.01, sy - stepRise - 0.02);
+    const riserTop = sy - 0.03;
+    const riserH = Math.max(0.04, riserTop - riserBottom);
+    box(secondFloorGrp, mats.trim, stairX, riserBottom + riserH / 2, sz - front * 0.11, 0.88, riserH, 0.03, false);
   }
 
-  // Painel de fechamento maciço sob a escada e longarina lateral
-  const stairRunZ = stairZEnd - stairZStart;
-  const stairMidZ = (stairZStart + stairZEnd) / 2;
+  // Painel de fechamento maciço sob a escada e longarina lateral (sem z-fighting)
+  const stairRailEndZ = frontEdgeZ;
+  const stairRunZ = stairRailEndZ - stairZStart;
+  const stairMidZ = (stairZStart + stairRailEndZ) / 2;
   const stairMidY = (floorY + loftY) / 2;
-  const stairInnerX = stairX - front * 0.46;
   const stairRunLen = Math.hypot(stairRunZ, loftY - floorY);
   const stairAngle = Math.atan2(loftY - floorY, Math.abs(stairRunZ));
 
   // Longarina de madeira
-  const stringer = box(secondFloorGrp, mats.wood, stairInnerX, stairMidY, stairMidZ, 0.06, 0.16, stairRunLen + 0.10);
+  const stringer = box(secondFloorGrp, mats.wood, stairInnerX, stairMidY, stairMidZ, 0.06, 0.15, stairRunLen, false);
   stringer.rotation.x = front === 1 ? stairAngle : -stairAngle;
 
-  // Painelamento ripado sob a escada (impede visão e passagem por baixo)
-  for (let p = 0; p <= 8; p++) {
-    const pt = p / 8;
+  // Painelamento sob a escada (blocos separados por folga de 4mm, sem faces coplanares no chão)
+  const segLen = Math.abs(stairRunZ) / 8 - 0.008;
+  for (let p = 1; p <= 8; p++) {
+    const pt = (p - 0.5) / 8;
     const pz = stairZStart + stairRunZ * pt;
-    const ph = (loftY - floorY) * pt;
-    if (ph > 0.15) {
-      box(secondFloorGrp, mats.wall, stairInnerX, floorY + ph / 2, pz, 0.04, ph, Math.abs(stairRunZ) / 8 + 0.02);
+    const ph = (loftY - floorY) * pt - 0.09;
+    if (ph > 0.10) {
+      box(secondFloorGrp, mats.wall, stairInnerX, floorY + 0.025 + ph / 2, pz, 0.032, ph, segLen, false);
     }
   }
 
   // Colunas verticais de suporte do corrimão (newel posts)
-  for (const tPost of [0, 0.33, 0.67, 1.0]) {
+  for (const tPost of [0, 0.33, 0.67]) {
     const py = floorY + (loftY - floorY) * tPost + 0.44;
     const pz = stairZStart + stairRunZ * tPost;
-    box(secondFloorGrp, mats.wood, stairInnerX, py, pz, 0.06, 0.88, 0.06);
+    box(secondFloorGrp, mats.wood, stairInnerX, py, pz, 0.07, 0.88, 0.07, false);
   }
-  // Corrimão contínuo apoiado nas colunas
-  const handrail = box(secondFloorGrp, mats.wood, stairInnerX, stairMidY + 0.88, stairMidZ, 0.06, 0.06, stairRunLen + 0.12);
+  // Corrimão contínuo apoiado nas colunas até a coluna do guarda-corpo
+  const handrail = box(secondFloorGrp, mats.wood, stairInnerX, stairMidY + 0.88, stairMidZ, 0.065, 0.065, stairRunLen + 0.04, false);
   handrail.rotation.x = front === 1 ? stairAngle : -stairAngle;
 
   // Colisor de parede lateral sob a escada: IMPEDE o jogador de passar por baixo / atravessar de lado igual fantasma!
@@ -710,7 +882,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
     x1: stairInnerX,
     z1: stairZStart,
     x2: stairInnerX,
-    z2: stairZEnd,
+    z2: frontEdgeZ,
     halfThick: 0.12,
     minY: floorY,
     maxY: -1
@@ -722,7 +894,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
     minX: Math.min(stairX - 0.50, stairX + 0.50),
     maxX: Math.max(stairX - 0.50, stairX + 0.50),
     zStart: stairZStart,
-    zEnd: stairZEnd,
+    zEnd: frontEdgeZ - front * 0.04,
     yStart: floorY,
     yEnd: loftY,
     _disabled: true
@@ -731,6 +903,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
 
   // Superfície de apoio no piso do mezanino para posicionar itens/vasos/caixas
   let loftSurf = null;
+  const keepSeparate = new Set([loftFloor]);
   if (ctx.supportSurfaces && ctx.supportMeshes) {
     loftSurf = {
       minX: x - loftW / 2,
@@ -744,6 +917,55 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
     ctx.supportSurfaces.push(loftSurf);
     ctx.supportMeshes.push(loftFloor);
   }
+
+  // Armário embutido com 4 prateleiras sob/atrás da escada (aberto para os fundos da casa)
+  const cabX = stairX;
+  const cabW = 0.86;
+  const cabFrontZ = houseZ - front * 0.06;
+  const cabBackZ = houseZ + front * 0.56;
+  const cabD = Math.abs(cabBackZ - cabFrontZ);
+  const cabZ = (cabFrontZ + cabBackZ) / 2;
+  const cabTopY = 1.92;
+  const cabH = cabTopY - floorY;
+  box(secondFloorGrp, mats.trim, cabX, floorY + cabH / 2, cabBackZ, cabW, cabH, 0.03, false);
+  box(secondFloorGrp, mats.wood, cabX - cabW / 2 + 0.02, floorY + cabH / 2, cabZ, 0.04, cabH, cabD, false);
+  box(secondFloorGrp, mats.wood, cabX + cabW / 2 - 0.02, floorY + cabH / 2, cabZ, 0.04, cabH, cabD, false);
+  box(secondFloorGrp, mats.wood, cabX, cabTopY - 0.02, cabZ, cabW, 0.04, cabD, false);
+  box(secondFloorGrp, mats.trim, cabX, (cabTopY + 2.50) / 2, cabFrontZ + front * 0.02, cabW, 2.50 - cabTopY, 0.03, false);
+
+  const shelfTopYs = [0.16, 0.60, 1.04, 1.48];
+  const shelfSurfs = [];
+  for (const topY of shelfTopYs) {
+    const shelfMesh = box(secondFloorGrp, mats.wood, cabX, topY - 0.02, cabZ, cabW - 0.08, 0.04, cabD - 0.04, false);
+    if (ctx.supportSurfaces && ctx.supportMeshes) {
+      const sSurf = {
+        minX: cabX - (cabW - 0.08) / 2,
+        maxX: cabX + (cabW - 0.08) / 2,
+        minZ: Math.min(cabFrontZ, cabBackZ) + 0.02,
+        maxZ: Math.max(cabFrontZ, cabBackZ) - 0.02,
+        topY,
+        _disabled: true
+      };
+      shelfMesh.userData.supportSurface = sSurf;
+      ctx.supportSurfaces.push(sSurf);
+      ctx.supportMeshes.push(shelfMesh);
+      shelfSurfs.push(sSurf);
+      keepSeparate.add(shelfMesh);
+    }
+  }
+
+  const stairCabCollider = {
+    x1: cabX - cabW / 2,
+    z1: cabFrontZ + front * 0.18,
+    x2: cabX + cabW / 2,
+    z2: cabFrontZ + front * 0.18,
+    halfThick: 0.14,
+    minY: floorY,
+    maxY: -1
+  };
+  ctx.wallSegments.push(stairCabCollider);
+
+  mergeStaticGroupChildren(secondFloorGrp, keepSeparate);
   secondFloorGrp.visible = false;
   markDynamic(secondFloorGrp, dynList);
   root.add(secondFloorGrp);
@@ -797,6 +1019,8 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
       stairBox._disabled = !u.second_floor;
       stepSlabs.forEach((st) => { st._disabled = !u.second_floor; });
       if (loftSurf) loftSurf._disabled = !u.second_floor;
+      shelfSurfs.forEach((sf) => { sf._disabled = !u.second_floor; });
+      stairCabCollider.maxY = u.second_floor ? loftY : -1;
       stairSideWall.maxY = u.second_floor ? (loftY + 1.0) : -1;
       railCollider.maxY = u.second_floor ? (loftY + 1.10) : -1;
     }
@@ -843,7 +1067,7 @@ export function applyVillageUpgrades(lots) {
 
 export function findHoveredHouseAction(ctx) {
   if (!ctx.houseInteractMeshes?.length || !ctx.raycaster) return null;
-  const hits = ctx.raycaster.intersectObjects(ctx.houseInteractMeshes, true);
+  const hits = ctx.raycaster.intersectObjects(ctx.houseInteractMeshes, false);
   for (const h of hits) {
     const act = h.object?.userData?.houseAction;
     if (!act) continue;

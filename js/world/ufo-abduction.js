@@ -27,51 +27,75 @@ function ensureUfoMesh(scene) {
   if (ufoState.mesh) return ufoState.mesh;
   const root = new THREE.Group();
 
-  const hullMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
-  const domeMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+  const hullMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.72, roughness: 0.28, flatShading: true });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.65, roughness: 0.35, flatShading: true });
+  const domeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0e7490, emissiveIntensity: 0.35, roughness: 0.14, metalness: 0.2, transparent: true, opacity: 0.62 });
+  const alienMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.5, flatShading: true });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x020617 });
   const cyanMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
   const yellowMat = new THREE.MeshBasicMaterial({ color: 0xfde047 });
 
-  // Disco principal prateado achatado
-  const saucer = new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 12), hullMat);
-  saucer.scale.set(1, 0.23, 1);
-  root.add(saucer);
+  // Casco superior e inferior facetados estilo low-poly metálico
+  const saucerTop = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 2.7, 0.36, 12), hullMat);
+  saucerTop.position.y = 0.14;
+  root.add(saucerTop);
 
-  // Base escura inferior
-  const belly = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 10), domeMat);
-  belly.scale.set(1, 0.35, 1);
-  belly.position.y = -0.24;
-  root.add(belly);
+  const saucerRim = new THREE.Mesh(new THREE.CylinderGeometry(2.7, 2.55, 0.14, 12), trimMat);
+  saucerRim.position.y = -0.05;
+  root.add(saucerRim);
 
-  // Cúpula escura superior
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(1.45, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), domeMat);
-  dome.position.y = 0.25;
+  const saucerBottom = new THREE.Mesh(new THREE.CylinderGeometry(2.55, 1.15, 0.34, 12), hullMat);
+  saucerBottom.position.y = -0.26;
+  root.add(saucerBottom);
+
+  // Núcleo propulsor inferior brilhante
+  const thruster = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.45, 0.12, 10), cyanMat);
+  thruster.position.y = -0.45;
+  root.add(thruster);
+
+  // Cúpula translúcida com piloto alienígena low-poly dentro
+  const cockpitSeat = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.05, 0.16, 10), trimMat);
+  cockpitSeat.position.y = 0.34;
+  root.add(cockpitSeat);
+
+  const alienHead = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32, 0), alienMat);
+  alienHead.scale.set(0.95, 1.15, 0.9);
+  alienHead.position.y = 0.72;
+  root.add(alienHead);
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 6, 5), eyeMat);
+    eye.scale.set(0.8, 1.25, 0.7);
+    eye.position.set(side * 0.12, 0.74, 0.25);
+    root.add(eye);
+  }
+
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(1.38, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.54), domeMat);
+  dome.position.y = 0.28;
   root.add(dome);
 
   // Anel ciano brilhante na base da cúpula
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.08, 8, 24), cyanMat);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.38, 0.075, 6, 16), cyanMat);
   ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.32;
+  ring.position.y = 0.34;
   root.add(ring);
 
-  // 6 janelas ciano ao redor da cúpula
-  const winGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.1, 10);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    const win = new THREE.Mesh(winGeo, cyanMat);
-    win.position.set(Math.cos(a) * 1.24, 0.68, Math.sin(a) * 1.24);
-    win.lookAt(Math.cos(a) * 4, 0.9, Math.sin(a) * 4);
-    win.rotateX(Math.PI / 2);
-    root.add(win);
+  // 4 aletas estabilizadoras + 8 luzinhas amarelas na borda
+  const finGeo = new THREE.BoxGeometry(0.55, 0.12, 0.22);
+  for (let fi = 0; fi < 4; fi++) {
+    const fa = (fi / 4) * Math.PI * 2 + Math.PI / 4;
+    const fin = new THREE.Mesh(finGeo, trimMat);
+    fin.position.set(Math.cos(fa) * 2.55, 0.05, Math.sin(fa) * 2.55);
+    fin.rotation.y = -fa;
+    fin.rotation.z = 0.25;
+    root.add(fin);
   }
 
-  // 8 luzinhas amarelas na borda
-  const bulbGeo = new THREE.SphereGeometry(0.11, 8, 6);
+  const bulbGeo = new THREE.OctahedronGeometry(0.11, 0);
   ufoState.lights = [];
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
     const bulb = new THREE.Mesh(bulbGeo, yellowMat.clone());
-    bulb.position.set(Math.cos(a) * 2.25, 0.06, Math.sin(a) * 2.25);
+    bulb.position.set(Math.cos(a) * 2.32, 0.08, Math.sin(a) * 2.32);
     root.add(bulb);
     ufoState.lights.push(bulb);
   }

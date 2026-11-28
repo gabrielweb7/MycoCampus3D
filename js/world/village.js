@@ -298,7 +298,7 @@ function buildYard(ctx, root, lot, mats) {
   const treeX = x - front * 7.9;
   const treeZ = lot.houseZ + front * 3.35;
   const trunk = new THREE.Mesh(mats.trunkGeo, mats.wood);
-  trunk.position.set(treeX, 0.82, treeZ);
+  trunk.position.set(treeX, 0.76, treeZ);
   trunk.castShadow = true;
   root.add(trunk);
   for (const [offsetX, y, offsetZ, scale] of [[0, 2.1, 0, 1.13], [-0.55, 1.92, 0.14, 0.79], [0.49, 2.01, -0.2, 0.81], [0.10, 2.72, -0.08, 0.70]]) {
@@ -368,12 +368,14 @@ function addVillageGrass(root, geometry, mat, minX, maxX, minZ, maxZ, skip) {
 }
 
 export function buildVillage(ctx) {
-  const dirt = new THREE.MeshStandardMaterial({ map: getGroundTextures().dirt, color: 0xebc394, roughness: 0.97 });
+  const dirt = registerSnowable(new THREE.MeshStandardMaterial({ map: getGroundTextures().dirt, color: 0xebc394, roughness: 0.97 }), 0.65, 0xebf3fa);
   dirt.userData.keepPbr = true;
-  const path = new THREE.MeshStandardMaterial({ map: getTextures().texPaving, color: 0xd5bc9a, roughness: 0.95 });
+  const path = registerSnowable(new THREE.MeshStandardMaterial({ map: getTextures().texPaving, color: 0xd5bc9a, roughness: 0.95 }), 0.72, 0xf1f5f9);
   const shared = {
-    path, wood: woodMat(1, 1), floor: woodMat(1.8, 1.8), trim: material(0xd8c1a7), mail: material(0x4e8d8c),
-    chimney: material(0x8f665b), leaf: material(0x4f783a), canopy: material(0x77a750),
+    path, wood: woodMat(1, 1), floor: woodMat(1.8, 1.8), trim: registerSnowable(material(0xd8c1a7), 0.25, 0xf1f5f9), mail: material(0x4e8d8c),
+    chimney: registerSnowable(material(0x8f665b), 0.45, 0xe2e8f0),
+    leaf: registerSnowable(new THREE.MeshStandardMaterial({ color: 0x4f783a, roughness: 0.9, flatShading: true }), 0.72, 0xe6f1fb),
+    canopy: registerSnowable(new THREE.MeshStandardMaterial({ color: 0x77a750, roughness: 0.9, flatShading: true }), 0.72, 0xe6f1fb),
     glass: new THREE.MeshStandardMaterial({ color: 0x9bd0e2, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.24, depthWrite: false }),
     trunkGeo: new THREE.CylinderGeometry(0.16, 0.22, 1.64, 7), crownGeo: new THREE.DodecahedronGeometry(1, 0),
     flower: material(0xe57d8e), flowerLight: material(0xfbd484), flowerGeo: new THREE.IcosahedronGeometry(0.14, 0)
@@ -392,7 +394,9 @@ export function buildVillage(ctx) {
     addVillageGrass(ctx.scene, grassGeo, grassMat, x - 1, x + 1, 43.3, entryEnd, () => false);
   }
   const palettes = PALETTES.map(([wall, roof]) => ({
-    wall: material(wall), roof: material(roof), accent: material(new THREE.Color(roof).multiplyScalar(0.76))
+    wall: material(wall),
+    roof: registerSnowable(material(roof), 0.88, 0xf1f5f9),
+    accent: registerSnowable(material(new THREE.Color(roof).multiplyScalar(0.76)), 0.72, 0xe2e8f0)
   }));
   for (const lot of VILLAGE_LOTS) {
     const root = new THREE.Group();

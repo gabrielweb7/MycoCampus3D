@@ -324,7 +324,7 @@ export function updateHoverRay(ctx, customNdc) {
   }
 
   if (aimAtVillageGuestOrItem(ctx)) return;
-  const hAct = !ctx.placementMode ? findHoveredHouseAction(ctx) : null;
+  const hAct = (!ctx.placementMode && refZ >= 40 && refZ <= 102) ? findHoveredHouseAction(ctx) : null;
   if (hAct) {
     ctx.hoveredHouseAction = hAct;
     setHoverPrompt(ctx, hAct.label(), true);
