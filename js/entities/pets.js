@@ -402,6 +402,7 @@ export function stepPets(ctx, dt) {
   const dist = Math.hypot(dx, dz);
   const nowPerf = performance.now();
   const isPeeing = pet.peeUntil > nowPerf;
+  const isPooping = pet.poopUntil > nowPerf;
   const walking = !isPeeing && dist > stop;
   pet.motion = isPeeing ? 'pee' : (walking ? (need || dist > 6 ? 'run' : 'walk') : (need ? 'eat' : (pet.idleTime > 20 ? 'sleep' : (pet.idleTime > 1.5 ? 'sit' : 'idle'))));
   if (walking) {
@@ -484,7 +485,6 @@ export function stepPets(ctx, dt) {
       }
     }
   }
-  const isPooping = pet.poopUntil > nowPerf;
   if (isPooping && !pet.poopSpawned && (pet.poopUntil - nowPerf) < 1300) {
     pet.poopSpawned = true;
     const backX = pos.x - Math.sin(pet.group.rotation.y) * 0.25;
