@@ -148,7 +148,7 @@ test('attachHouseUpgradesToLot registers interactive elements, stairs, and colli
   const st = ctx.stairsList[0];
   assert.equal(st._disabled, true);
   assert.equal(st.yStart, 0.10);
-  assert.equal(st.yEnd, 2.40);
+  assert.equal(st.yEnd, 2.68);
 
   // Find panel hit mesh
   const panelHit = ctx.houseInteractMeshes.find(m => m.userData?.houseAction?.label().includes('Painel'));

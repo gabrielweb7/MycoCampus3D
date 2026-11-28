@@ -603,7 +603,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
 
   // 5. Segundo andar + escada (mezanino elegante nos fundos com pé-direito alto)
   const secondFloorGrp = new THREE.Group();
-  const loftY = 2.40;
+  const loftY = 2.68;
   const loftW = width - 0.24; // 8.16m, cobre de parede a parede
   const loftD = 3.30; // metade traseira da casa
   const loftZ = (backZ + houseZ) / 2;
