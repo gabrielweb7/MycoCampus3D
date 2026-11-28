@@ -6,14 +6,14 @@ import { attachHouseUpgradesToLot } from './house-upgrades.js';
 
 const THREE = window.THREE;
 const PALETTES = [
-  [0xe9d5b8, 0xb87965], [0xd5e0d4, 0x5b7c73], [0xe6d5dd, 0x91798e],
-  [0xdce0bc, 0x6e8058], [0xeee0c5, 0x94745c]
+  [0xdec5a4, 0xb2705b], [0xc6d4c5, 0x55756c], [0xdac7d0, 0x897186],
+  [0xcfd4ad, 0x667850], [0xe2d2b5, 0x8c6c54]
 ];
 const FLOOR_Y = 0.10;
 const EAVES_Y = 4.70;
 const GABLE_H = 1.62;
 
-function material(color, roughness = 0.88) {
+function material(color, roughness = 0.94) {
   return new THREE.MeshStandardMaterial({ color, roughness });
 }
 
@@ -59,19 +59,8 @@ function registerCounter(ctx, mesh, x, z, width, depth, topY, minY = 0) {
 
 function buildCottageWorkArea(ctx, root, lot, mats) {
   const { x, front, houseZ } = lot;
-  const benchX = x + front * 2.3;
-  const benchZ = houseZ - front * 2.36;
-  const bench = box(root, mats.wood, benchX, 0.92, benchZ, 2.75, 0.15, 0.90);
-  for (const dx of [-1.15, 1.15]) {
-    for (const dz of [-0.31, 0.31]) {
-      box(root, mats.accent, benchX + dx, 0.51, benchZ + dz, 0.14, 0.82, 0.14);
-    }
-  }
-  box(root, mats.wood, benchX, 0.34, benchZ, 2.37, 0.10, 0.66);
-  registerCounter(ctx, bench, benchX, benchZ, 2.75, 0.90, 0.995, FLOOR_Y);
-
   const sinkX = x - front * 2.52;
-  const sinkZ = benchZ;
+  const sinkZ = houseZ - front * 2.36;
   box(root, mats.wall, sinkX, 0.43, sinkZ, 1.36, 0.66, 0.78);
   for (const dx of [-0.34, 0.34]) {
     box(root, mats.accent, sinkX + dx, 0.45, sinkZ + front * 0.398, 0.56, 0.55, 0.042);

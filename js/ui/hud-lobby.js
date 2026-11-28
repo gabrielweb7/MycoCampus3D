@@ -99,10 +99,20 @@ export function enterCampus(user, token, created = false) {
   if (user && user.progress && user.progress.lab_tutorial_done) {
     try { localStorage.setItem('myco_lab_tutorial_done', '1'); } catch (e) {}
   }
-  const savedToy = (user && user.progress && user.progress.equipped_toy) || '';
+  const localToy = (typeof localStorage !== 'undefined') ? localStorage.getItem('myco_equipped_toy') : null;
+  const serverToy = (user && user.progress && user.progress.equipped_toy) || '';
+  const savedToy = (localToy !== null) ? localToy : serverToy;
   if (typeof window !== 'undefined') {
-    if (window.setCampusSnowboard) window.setCampusSnowboard(savedToy === 'snowboard');
-    if (window.setCampusParaglider) window.setCampusParaglider(savedToy === 'paraglider');
+    if (window.setEquippedToy) {
+      window.setEquippedToy(savedToy, localToy !== null && localToy !== serverToy);
+    } else {
+      if (window.setCampusSnowboard) window.setCampusSnowboard(savedToy === 'snowboard');
+      if (window.setCampusSkateboard) window.setCampusSkateboard(savedToy === 'skateboard');
+      if (window.setCampusParaglider) window.setCampusParaglider(savedToy === 'paraglider');
+      if (localToy !== null && localToy !== serverToy && window.syncCampusUserProgress) {
+        window.syncCampusUserProgress({ equipped_toy: savedToy });
+      }
+    }
   }
   if (token) appState.authToken = token;
   if (user && typeof user.myco_coins === 'number' && Number.isFinite(user.myco_coins)) {
@@ -201,6 +211,7 @@ export async function logoutCampus() {
   appState.sessionId = createSessionId();
   if (window.resetCampusLocalSession) window.resetCampusLocalSession();
   if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+  if (window.setCampusSkateboard) window.setCampusSkateboard(false);
   if (window.setCampusParaglider) window.setCampusParaglider(false);
   if (window.updateCampusPlayers) window.updateCampusPlayers([]);
   if (window.setCampusFpsMode) window.setCampusFpsMode(false);
@@ -238,6 +249,7 @@ export function handleSessionExpired(msg) {
   appState.sessionId = createSessionId();
   window.resetCampusLocalSession?.();
   if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+  if (window.setCampusSkateboard) window.setCampusSkateboard(false);
   if (window.setCampusParaglider) window.setCampusParaglider(false);
   if (window.setCampusParachute) window.setCampusParachute(false);
   if (window.updateCampusPlayers) window.updateCampusPlayers([]);

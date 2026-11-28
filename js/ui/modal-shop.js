@@ -126,6 +126,25 @@ function toast3D(msg) {
   if (window.showCampusToast) window.showCampusToast(msg);
 }
 
+export function setEquippedToy(toyId, syncServer = true) {
+  const toy = (toyId === 'snowboard' || toyId === 'skateboard' || toyId === 'paraglider') ? toyId : '';
+  if (window.setCampusSnowboard) window.setCampusSnowboard(toy === 'snowboard');
+  if (window.setCampusSkateboard) window.setCampusSkateboard(toy === 'skateboard');
+  if (window.setCampusParaglider) window.setCampusParaglider(toy === 'paraglider');
+
+  if (typeof localStorage !== 'undefined') {
+    try { localStorage.setItem('myco_equipped_toy', toy); } catch (e) {}
+  }
+  if (appState.currentUser) {
+    appState.currentUser.progress = appState.currentUser.progress || {};
+    appState.currentUser.progress.equipped_toy = toy;
+  }
+  if (syncServer && window.syncCampusUserProgress) {
+    window.syncCampusUserProgress({ equipped_toy: toy });
+  }
+}
+window.setEquippedToy = setEquippedToy;
+
 window.toggleCampusSkateboard = function () {
   const unlocked = (appState.currentUser && appState.currentUser.unlocked_hats) || [];
   if (unlocked.indexOf('skateboard') === -1) {
@@ -133,9 +152,7 @@ window.toggleCampusSkateboard = function () {
     return;
   }
   const next = !(window.isCampusSkateboardActive && window.isCampusSkateboardActive());
-  if (next && window.setCampusParaglider) window.setCampusParaglider(false);
-  if (window.setCampusSkateboard) window.setCampusSkateboard(next);
-  if (window.syncCampusUserProgress) window.syncCampusUserProgress({ equipped_toy: next ? 'skateboard' : '' });
+  setEquippedToy(next ? 'skateboard' : '');
   if (window.MycoAudio) window.MycoAudio.playClick();
   toast3D(next ? '🛹 Skate equipado!' : '🛹 Skate guardado.');
 };
@@ -147,9 +164,7 @@ window.toggleCampusSnowboard = function () {
     return;
   }
   const next = !(window.isCampusSnowboardActive && window.isCampusSnowboardActive());
-  if (next && window.setCampusParaglider) window.setCampusParaglider(false);
-  if (window.setCampusSnowboard) window.setCampusSnowboard(next);
-  if (window.syncCampusUserProgress) window.syncCampusUserProgress({ equipped_toy: next ? 'snowboard' : '' });
+  setEquippedToy(next ? 'snowboard' : '');
   if (window.MycoAudio) window.MycoAudio.playClick();
   toast3D(next ? t('ui.shop.snowboardOn') : t('ui.shop.snowboardOff'));
 };
@@ -161,9 +176,7 @@ window.toggleCampusParaglider = function () {
     return;
   }
   const next = !(window.isCampusParagliderActive && window.isCampusParagliderActive());
-  if (next && window.setCampusSnowboard) window.setCampusSnowboard(false);
-  if (window.setCampusParaglider) window.setCampusParaglider(next);
-  if (window.syncCampusUserProgress) window.syncCampusUserProgress({ equipped_toy: next ? 'paraglider' : '' });
+  setEquippedToy(next ? 'paraglider' : '');
   if (window.MycoAudio) window.MycoAudio.playClick();
   toast3D(next ? t('ui.shop.paragliderOn') : t('ui.shop.paragliderOff'));
 };
@@ -485,15 +498,12 @@ export function renderShopModal() {
       unequipBtn.onclick = async () => {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (isToy) {
+          setEquippedToy('');
           if (item.id === 'paraglider') {
-            if (window.setCampusParaglider) window.setCampusParaglider(false);
             toast3D(t('ui.shop.paragliderOff'));
           } else if (item.id === 'skateboard') {
-            if (window.setCampusSkateboard) window.setCampusSkateboard(false);
             toast3D('🛹 Skate guardado.');
           } else {
-            if (window.setCampusSnowboard) window.setCampusSnowboard(false);
-            if (window.setCampusParaglider) window.setCampusParaglider(false);
             toast3D(t('ui.shop.snowboardOff'));
           }
           renderShopModal();
@@ -518,20 +528,12 @@ export function renderShopModal() {
       equipBtn.onclick = async () => {
         if (window.MycoAudio) window.MycoAudio.playClick();
         if (isToy) {
+          setEquippedToy(item.id);
           if (item.id === 'paraglider') {
-            if (window.setCampusSnowboard) window.setCampusSnowboard(false);
-            if (window.setCampusSkateboard) window.setCampusSkateboard(false);
-            if (window.setCampusParaglider) window.setCampusParaglider(true);
             toast3D(t('ui.shop.paragliderEquipped'));
           } else if (item.id === 'skateboard') {
-            if (window.setCampusParaglider) window.setCampusParaglider(false);
-            if (window.setCampusSnowboard) window.setCampusSnowboard(false);
-            if (window.setCampusSkateboard) window.setCampusSkateboard(true);
             toast3D('🛹 Skate equipado!');
           } else {
-            if (window.setCampusParaglider) window.setCampusParaglider(false);
-            if (window.setCampusSkateboard) window.setCampusSkateboard(false);
-            if (window.setCampusSnowboard) window.setCampusSnowboard(true);
             toast3D(t('ui.shop.snowboardEquipped'));
           }
           renderShopModal();
@@ -585,20 +587,12 @@ export function renderShopModal() {
             if (coinUnlocked.indexOf(item.id) === -1) coinUnlocked.push(item.id);
             try { localStorage.setItem(coinUnlockedKey, JSON.stringify(coinUnlocked)); } catch (e) {}
             if (isToy) {
+              setEquippedToy(item.id);
               if (item.id === 'paraglider') {
-                if (window.setCampusSnowboard) window.setCampusSnowboard(false);
-                if (window.setCampusSkateboard) window.setCampusSkateboard(false);
-                if (window.setCampusParaglider) window.setCampusParaglider(true);
                 toast3D(t('ui.shop.paragliderBoughtCoins'));
               } else if (item.id === 'skateboard') {
-                if (window.setCampusParaglider) window.setCampusParaglider(false);
-                if (window.setCampusSnowboard) window.setCampusSnowboard(false);
-                if (window.setCampusSkateboard) window.setCampusSkateboard(true);
                 toast3D('🛹 Skate comprado e equipado!');
               } else {
-                if (window.setCampusParaglider) window.setCampusParaglider(false);
-                if (window.setCampusSkateboard) window.setCampusSkateboard(false);
-                if (window.setCampusSnowboard) window.setCampusSnowboard(true);
                 toast3D(t('ui.shop.snowboardBoughtCoins'));
               }
             } else {
@@ -616,20 +610,12 @@ export function renderShopModal() {
             if (appState.currentUser?.id !== res.user.id) return;
             appState.currentUser = preserveNewerPetState(appState.currentUser, res.user);
             if (isToy) {
+              setEquippedToy(item.id);
               if (item.id === 'paraglider') {
-                if (window.setCampusSnowboard) window.setCampusSnowboard(false);
-                if (window.setCampusSkateboard) window.setCampusSkateboard(false);
-                if (window.setCampusParaglider) window.setCampusParaglider(true);
                 toast3D(t('ui.shop.paragliderUnlocked'));
               } else if (item.id === 'skateboard') {
-                if (window.setCampusParaglider) window.setCampusParaglider(false);
-                if (window.setCampusSnowboard) window.setCampusSnowboard(false);
-                if (window.setCampusSkateboard) window.setCampusSkateboard(true);
                 toast3D('🛹 Skate desbloqueado e equipado!');
               } else {
-                if (window.setCampusParaglider) window.setCampusParaglider(false);
-                if (window.setCampusSkateboard) window.setCampusSkateboard(false);
-                if (window.setCampusSnowboard) window.setCampusSnowboard(true);
                 toast3D(t('ui.shop.snowboardUnlocked'));
               }
             } else if (window.setLocalAvatarHat) {

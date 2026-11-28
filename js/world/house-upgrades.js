@@ -388,7 +388,7 @@ function buildGardenAndChristmasLights(root, x, houseZ, doorZ, backZ, front, wid
     const lz = backZ - front * 2.2;
     const post = makeBox(0.12, 1.75, 0.12, mats.wood);
     post.position.set(x + ox, 0.88, lz);
-    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xfff0aa });
+    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffe094 });
     const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.24), bulbMat);
     bulb.position.set(x + ox, 1.82, lz);
     gardenLightGrp.add(post, bulb);
@@ -463,8 +463,8 @@ function buildGardenAndChristmasLights(root, x, houseZ, doorZ, backZ, front, wid
 
   let gardenPointLight = null;
   if (THREE.PointLight) {
-    gardenPointLight = new THREE.PointLight(0xffe09a, 1.6, 14, 1.5);
-    gardenPointLight.position.set(x - front * 2.2, 2.5, doorZ + front * 2.2);
+    gardenPointLight = new THREE.PointLight(0xffcb7d, 0.48, 10, 1.8);
+    gardenPointLight.position.set(x - front * 4.2, 2.4, doorZ + front * 3.4);
     gardenPointLight.visible = false;
     gardenLightGrp.add(gardenPointLight);
   }
@@ -513,13 +513,13 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   const houseLightGrp = new THREE.Group();
   const lampWood = makeBox(0.56, 0.08, 0.56, mats.wood, { noShadow: true });
   lampWood.position.set(x, peakY, houseZ);
-  const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff6df });
+  const lampMat = new THREE.MeshBasicMaterial({ color: 0xffebb8 });
   const lampGlow = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.44), lampMat);
   lampGlow.position.set(x, peakY - 0.06, houseZ);
   houseLightGrp.add(lampWood, lampGlow);
   let housePointLight = null;
   if (THREE.PointLight) {
-    housePointLight = new THREE.PointLight(0xffe6b3, 2.5, 16, 1.4);
+    housePointLight = new THREE.PointLight(0xffd494, 0.72, 11, 1.8);
     housePointLight.position.set(x, peakY - 0.35, houseZ);
     housePointLight.visible = false;
     houseLightGrp.add(housePointLight);

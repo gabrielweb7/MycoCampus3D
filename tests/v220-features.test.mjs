@@ -237,3 +237,44 @@ test('v2.2.0: quality shadowMap.autoUpdate disabled + auth & schema persistence 
   assert.match(schemaSrc, /\$validContamKinds/);
   assert.match(schemaSrc, /customTag/);
 });
+
+test('toy persistence: setEquippedToy synchronizes local state, localStorage, and progress', async () => {
+  const { setEquippedToy } = await import('../js/ui/modal-shop.js');
+  const { appState } = await import('../js/core/state.js');
+
+  const syncCalls = [];
+  globalThis.window.syncCampusUserProgress = (p) => { syncCalls.push(p); };
+  let sbActive = false;
+  let skActive = false;
+  let pgActive = false;
+  globalThis.window.setCampusSnowboard = (a) => { sbActive = a; };
+  globalThis.window.setCampusSkateboard = (a) => { skActive = a; };
+  globalThis.window.setCampusParaglider = (a) => { pgActive = a; };
+
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => store.get(k) ?? null,
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+
+  appState.currentUser = { id: 42, progress: { equipped_toy: '' } };
+
+  // 1. Equip snowboard
+  setEquippedToy('snowboard');
+  assert.equal(sbActive, true);
+  assert.equal(skActive, false);
+  assert.equal(pgActive, false);
+  assert.equal(appState.currentUser.progress.equipped_toy, 'snowboard');
+  assert.equal(globalThis.localStorage.getItem('myco_equipped_toy'), 'snowboard');
+  assert.deepEqual(syncCalls[syncCalls.length - 1], { equipped_toy: 'snowboard' });
+
+  // 2. Deactivate snowboard
+  setEquippedToy('');
+  assert.equal(sbActive, false);
+  assert.equal(skActive, false);
+  assert.equal(pgActive, false);
+  assert.equal(appState.currentUser.progress.equipped_toy, '');
+  assert.equal(globalThis.localStorage.getItem('myco_equipped_toy'), '');
+  assert.deepEqual(syncCalls[syncCalls.length - 1], { equipped_toy: '' });
+});
