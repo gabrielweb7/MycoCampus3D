@@ -247,7 +247,7 @@ export function dropHeldItem(ctx) {
 
 export function handlePrimaryAction(ctx, aimNdc) {
   if (ctx.inventory?.pending) return false;
-  if (!ctx.heldItem && ctx.hoveredHouseAction) {
+  if (!ctx.placementMode && ctx.hoveredHouseAction) {
     ctx.hoveredHouseAction.run();
     return true;
   }

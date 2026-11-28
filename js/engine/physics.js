@@ -35,6 +35,7 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
 
   for (let s = 0; s < stairsList.length; s++) {
     const st = stairsList[s];
+    if (st._disabled) continue;
     if (x >= st.minX && x <= st.maxX && z <= Math.max(st.zStart, st.zEnd) && z >= Math.min(st.zStart, st.zEnd)) {
       let t = (z - st.zStart) / (st.zEnd - st.zStart);
       t = Math.max(0, Math.min(1, t));

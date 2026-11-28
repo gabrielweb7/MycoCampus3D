@@ -10,6 +10,15 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.11.12': {
+    subtitleKey: 'news.21112.subtitle',
+    items: [
+      { icon: '🏡', key: 'news.21112.architecture' },
+      { icon: '🪜', key: 'news.21112.stairs' },
+      { icon: '🚪', key: 'news.21112.interactions' },
+      { icon: '⚡', key: 'news.21112.performance' }
+    ]
+  },
   '2.11.11': {
     subtitleKey: 'news.21111.subtitle',
     items: [
@@ -526,7 +535,7 @@ function ensureWhatsNewModalDom() {
           <div id="whats-new-history-list" class="space-y-4 pt-2"></div>
         </details>
       </div>
-      <div class="px-4 pb-3.5 pt-2 border-t border-slate-800/80 flex items-center justify-end gap-3 shrink-0 bg-slate-900/95">
+      <div style="padding: 12px 16px 16px 16px;" class="border-t border-slate-800/80 flex items-center justify-end gap-3 shrink-0 bg-slate-900/95">
         <button id="btn-confirm-whats-new" type="button"
           style="touch-action: manipulation;"
           class="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-900/40 transition cursor-pointer select-none">
