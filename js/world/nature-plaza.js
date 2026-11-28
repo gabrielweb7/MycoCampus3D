@@ -136,6 +136,13 @@ export function buildNatureWorld(ctx) {
     treePositions.push({ x, y: terrainHeight(x, z), z, s, grove: true, isPine: i % 4 === 3 });
   });
 
+  if (ctx.beeTreeMounts) {
+    ctx.beeTreeMounts.length = 0;
+    for (const { x, y, z, s } of treePositions) {
+      if (Math.abs(x) > 95 || z < -85 || z > 40) continue;
+      ctx.beeTreeMounts.push({ x: x + 0.65, y: y + 2.35 * s, z, mountType: 'trunk', label: 'Árvore' });
+    }
+  }
   buildForestSectors(scene, solidColliders, treePositions);
 
   const mushCoords = [

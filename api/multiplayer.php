@@ -656,7 +656,7 @@ if ($action === 'sync') {
                     $hx = round(max(-300.0, min(300.0, (float)($hv['x'] ?? 0))), 2);
                     $hy = round(max(-300.0, min(300.0, (float)($hv['y'] ?? 0))), 2);
                     $hz = round(max(-300.0, min(300.0, (float)($hv['z'] ?? 0))), 2);
-                    $hm = (($hv['m'] ?? 'tree') === 'eaves') ? 'eaves' : 'tree';
+                    $hm = in_array($hv['m'] ?? '', ['eaves', 'trunk'], true) ? $hv['m'] : 'tree';
                     $hh = max(0, min(100, (int)round((float)($hv['h'] ?? 0))));
                     $hbp = round(max(0.0, min(1.0, (float)($hv['bp'] ?? 1.0))), 2);
                     $hab = !empty($hv['ab']) ? 1 : 0;

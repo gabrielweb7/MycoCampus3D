@@ -14,7 +14,6 @@ import { updateContainerVolume } from '../items/liquid-culture.js';
 import { addSyringeMix, updateSyringeVolume } from '../items/syringe.js';
 import { updateLcNutrientLabel } from '../items/pda-bottle.js';
 import {
-  CAMPUS_HIVE_CANDIDATES,
   hash01,
   isBlockedAt,
   markSubtreeDynamic,
@@ -63,14 +62,15 @@ function getStaticCampusEavesSpots() {
   ];
 }
 
-export function findNearestHiveMountSpot(ctx, fromX = 0, fromZ = 0) {
+function getHiveMountSpots(ctx, random = Math.random) {
   const candidates = [];
   for (let i = 0; i < VILLAGE_LOTS.length; i++) {
     const lot = VILLAGE_LOTS[i];
+    const alongSide = (random() - 0.5) * 3;
     candidates.push(
       { x: lot.x + lot.front * 2.1, y: 2.86, z: lot.doorZ + lot.front * 0.45, mountType: 'eaves', label: `Beiral Casa #${lot.id}` },
-      { x: lot.x - (VILLAGE_HOUSE.width / 2 + 0.36), y: 2.86, z: lot.houseZ, mountType: 'eaves', label: `Beiral Casa #${lot.id}` },
-      { x: lot.x + (VILLAGE_HOUSE.width / 2 + 0.36), y: 2.86, z: lot.houseZ, mountType: 'eaves', label: `Beiral Casa #${lot.id}` }
+      { x: lot.x - (VILLAGE_HOUSE.width / 2 + 0.36), y: 2.86, z: lot.houseZ + alongSide, mountType: 'eaves', label: `Beiral Casa #${lot.id}` },
+      { x: lot.x + (VILLAGE_HOUSE.width / 2 + 0.36), y: 2.86, z: lot.houseZ - alongSide, mountType: 'eaves', label: `Beiral Casa #${lot.id}` }
     );
   }
   const zones = ctx && Array.isArray(ctx.roofZones) ? ctx.roofZones : null;
@@ -93,39 +93,30 @@ export function findNearestHiveMountSpot(ctx, fromX = 0, fromZ = 0) {
     const statics = getStaticCampusEavesSpots();
     for (let i = 0; i < statics.length; i++) candidates.push(statics[i]);
   }
-  const treeSpots = sampleFreeTreeSpots(ctx, fromX, fromZ, 14, 6, 38);
-  for (let i = 0; i < treeSpots.length; i++) candidates.push(treeSpots[i]);
+  for (const spot of ctx?.beeTreeMounts || []) candidates.push(spot);
+  return candidates;
+}
 
+function isHiveMountOccupied(spot, hives, minGap) {
+  return hives.some(hive => hive && !hive.collected && Math.hypot(hive.x - spot.x, hive.z - spot.z) < minGap);
+}
+
+export function findNearestHiveMountSpot(ctx, fromX = 0, fromZ = 0) {
+  const candidates = getHiveMountSpots(ctx);
   const existing = (ctx && Array.isArray(ctx.beehives)) ? ctx.beehives : [];
   let best = null;
   let bestDist = Infinity;
   for (let i = 0; i < candidates.length; i++) {
     const cand = candidates[i];
-    const checkX = cand.mountType === 'tree' ? cand.x + 0.48 : cand.x;
     // Colmeia abandonada que ninguém recolheu continua ocupando o lugar.
-    const occupied = existing.some((h) => h && !h.collected && Math.hypot(h.x - checkX, h.z - cand.z) < 6.0);
-    if (occupied) continue;
-    const d = Math.hypot(checkX - fromX, cand.z - fromZ) * (0.7 + Math.random() * 0.6);
+    if (isHiveMountOccupied(cand, existing, 6)) continue;
+    const d = Math.hypot(cand.x - fromX, cand.z - fromZ) * (0.7 + Math.random() * 0.6);
     if (d < bestDist) {
       bestDist = d;
       best = cand;
     }
   }
   return best;
-}
-
-/** Sorteia pontos livres de solo natural onde a abelha pode criar uma árvore-colmeia (sem lista fixa). */
-function sampleFreeTreeSpots(ctx, cx, cz, count, minR, maxR) {
-  const out = [];
-  for (let n = 0; n < count * 6 && out.length < count; n++) {
-    const ang = Math.random() * Math.PI * 2;
-    const r = minR + Math.random() * (maxR - minR);
-    const x = Math.max(-95, Math.min(95, cx + Math.cos(ang) * r));
-    const z = Math.max(-85, Math.min(30, cz + Math.sin(ang) * r));
-    if (!isNaturalSoilSpot(x, z, 1.8) || isBlockedAt(ctx, x, z, 1.6)) continue;
-    out.push({ x, y: terrainHeight(x, z) + 2.55, z, mountType: 'tree', label: 'Árvore Próxima' });
-  }
-  return out;
 }
 
 function countBloomingFlowersNear(ctx, x, z, radius) {
@@ -139,16 +130,17 @@ function countBloomingFlowersNear(ctx, x, z, radius) {
 }
 
 function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
-  const isEaves = opts.mountType === 'eaves' || !treeInfo;
-  const worldX = isEaves
+  const mountType = opts.mountType || (treeInfo ? 'tree' : 'eaves');
+  const worldX = !treeInfo
     ? (opts.x ?? 0)
     : ((treeInfo.tree ? treeInfo.tree.position.x : (treeInfo.posX ?? 0)) + 0.48);
-  const worldY = isEaves
+  const worldY = !treeInfo
     ? (opts.y ?? 2.86)
     : ((treeInfo.gy ?? 0) + 2.55);
-  const worldZ = isEaves
+  const worldZ = !treeInfo
     ? (opts.z ?? 0)
     : (treeInfo.tree ? treeInfo.tree.position.z : (treeInfo.posZ ?? 0));
+  const treePos = mountType === 'eaves' ? null : { x: worldX - (mountType === 'trunk' ? 0.65 : 0.48), z: worldZ };
 
   if (!Array.isArray(ctx.beehives)) ctx.beehives = [];
   if (!Array.isArray(ctx.beehiveHitMeshes)) ctx.beehiveHitMeshes = [];
@@ -156,7 +148,7 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
   if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial || !ctx.scene) {
     const mockHive = {
       id,
-      mountType: isEaves ? 'eaves' : 'tree',
+      mountType,
       group: {
         position: { x: worldX, y: worldY, z: worldZ, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
         scale: { setScalar() {} },
@@ -172,7 +164,7 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
       leafMesh: { visible: true },
       honeyDropMesh: { visible: false, scale: { set() {} } },
       hitMesh: { userData: {} },
-      treePos: isEaves ? null : { x: worldX - 0.48, z: worldZ },
+      treePos,
       x: worldX,
       y: worldY,
       z: worldZ,
@@ -198,7 +190,7 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
 
   const vis = buildHiveVisualGroup();
   const hiveGroup = vis.hiveGroup;
-  if (isEaves) {
+  if (!treeInfo) {
     hiveGroup.position.set(worldX, worldY, worldZ);
     ctx.scene.add(hiveGroup);
   } else {
@@ -208,9 +200,9 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
 
   const hiveObj = {
     id,
-    mountType: isEaves ? 'eaves' : 'tree',
+    mountType,
     group: hiveGroup,
-    treeGroup: isEaves ? null : treeInfo.tree,
+    treeGroup: treeInfo?.tree || null,
     boxMesh: vis.bandMid,
     bandMesh: vis.ribBot,
     honeycombMeshes: [vis.bandBot, vis.bandMid, vis.bandTop],
@@ -223,7 +215,7 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
     leafMesh: vis.hiveLeaf,
     honeyDropMesh: vis.honeyDropGroup,
     hitMesh: vis.hitMesh,
-    treePos: isEaves ? null : { x: treeInfo.tree.position.x, z: treeInfo.tree.position.z },
+    treePos,
     x: worldX,
     y: worldY,
     z: worldZ,
@@ -256,9 +248,10 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
 }
 
 export function createHiveAtSpot(ctx, id, spot, opts = {}) {
-  if (spot && spot.mountType === 'eaves') {
-    return createHiveOnTree(ctx, id, null, { ...opts, mountType: 'eaves', x: spot.x, y: spot.y, z: spot.z });
+  if (spot && (spot.mountType === 'eaves' || spot.mountType === 'trunk')) {
+    return createHiveOnTree(ctx, id, null, { ...opts, ...spot });
   }
+  // Restaura o suporte próprio das colmeias gravadas antes dos apoios na floresta.
   const tx = spot ? spot.x : 0;
   const tz = spot ? spot.z : 0;
   const treeInfo = spawnTreeWithHiveSlot(ctx, tx, tz);
@@ -401,9 +394,9 @@ export function applyBeeEcologyWorldState(ctx, stateMap) {
         for (let i = 0; i < parsed.length && i < 24; i++) {
           const item = parsed[i];
           if (!item || typeof item.x !== 'number' || typeof item.z !== 'number') continue;
-          const isEaves = item.m === 'eaves';
-          const spot = isEaves
-            ? { x: item.x, y: typeof item.y === 'number' ? item.y : 2.86, z: item.z, mountType: 'eaves' }
+          const worldMount = item.m === 'eaves' || item.m === 'trunk';
+          const spot = worldMount
+            ? { x: item.x, y: typeof item.y === 'number' ? item.y : 2.86, z: item.z, mountType: item.m }
             : { x: item.x - 0.48, y: typeof item.y === 'number' ? item.y : 2.55, z: item.z, mountType: 'tree' };
           const hive = createHiveAtSpot(ctx, item.id || ('hive_' + i), spot, {
             honeyLevel: typeof item.h === 'number' ? item.h : 45,
@@ -554,9 +547,20 @@ export function createPastureBees(ctx) {
   };
 
   const hiveSpots = [];
+  let mountSeed = 0;
+  const mounts = getHiveMountSpots(ctx, () => hash01(++mountSeed, 47));
   for (let hIdx = 0; hIdx < 3; hIdx++) {
-    const hs = freeSpot(hIdx + 1, 35, hiveSpots) || CAMPUS_HIVE_CANDIDATES[hIdx];
-    hiveSpots.push(hs);
+    const center = freeSpot(hIdx + 1, 35, hiveSpots);
+    let nearest = null;
+    let nearestDistance = Infinity;
+    for (const mount of mounts) {
+      if (isHiveMountOccupied(mount, hiveSpots, 22)) continue;
+      const distance = Math.hypot(mount.x - (center?.x ?? 0), mount.z - (center?.z ?? 0));
+      if (distance >= nearestDistance) continue;
+      nearest = mount;
+      nearestDistance = distance;
+    }
+    if (nearest) hiveSpots.push(nearest);
   }
 
   // Flores espalhadas por todo o mapa, em pequenos grupos, além de perto das colmeias iniciais.
@@ -583,9 +587,11 @@ export function createPastureBees(ctx) {
       }
     }
   });
+  const flowerCenters = hiveSpots.slice();
   for (let g = 0; g < 14; g++) {
-    const center = freeSpot(40 + g, 12, []);
+    const center = freeSpot(40 + g, 12, flowerCenters);
     if (!center) continue;
+    flowerCenters.push(center);
     const n = 3 + Math.floor(hash01(g, 77) * 4);
     for (let f = 0; f < n; f++) {
       for (let attempt = 0; attempt < 10; attempt++) {
@@ -599,9 +605,9 @@ export function createPastureBees(ctx) {
     }
   }
 
-  for (let hIdx = 0; hIdx < 3; hIdx++) {
+  for (let hIdx = 0; hIdx < hiveSpots.length; hIdx++) {
     const hs = hiveSpots[hIdx];
-    const hive = createHiveAtSpot(ctx, 'hive_' + hIdx, { x: hs.x, z: hs.z, mountType: 'tree' }, {
+    const hive = createHiveAtSpot(ctx, 'hive_' + hIdx, hs, {
       honeyLevel: 45 + hIdx * 10,
       buildProgress: 1.0
     });
@@ -641,17 +647,13 @@ export function startHiveMigration(ctx, oldHive, isNight = false) {
   let bestSpot = null;
   let bestScore = -1;
   const hives = Array.isArray(ctx.beehives) ? ctx.beehives : [];
-  // As abelhas escolhem livremente: árvore nova em solo livre ou beiral de uma construção, onde houver mais flores.
-  const pool = sampleFreeTreeSpots(ctx, oldHive.x, oldHive.z, 40, 8, 70);
-  const eaves = findNearestHiveMountSpot(ctx, oldHive.x, oldHive.z);
-  if (eaves && eaves.mountType === 'eaves') pool.push(eaves);
+  const pool = getHiveMountSpots(ctx);
   for (let i = 0; i < pool.length; i++) {
     const cand = pool[i];
-    const cx = cand.mountType === 'tree' ? cand.x + 0.48 : cand.x;
     // Colmeia abandonada e não recolhida bloqueia o lugar (nada de construir em cima).
-    const occupied = hives.some((h) => h && !h.collected && Math.hypot(h.x - cx, h.z - cand.z) < 6.0);
-    if (occupied) continue;
-    const score = countBloomingFlowersNear(ctx, cx, cand.z, 11.5) + Math.random() * 0.9;
+    const distance = Math.hypot(cand.x - oldHive.x, cand.z - oldHive.z);
+    if (distance > 70 || isHiveMountOccupied(cand, hives, 6)) continue;
+    const score = countBloomingFlowersNear(ctx, cand.x, cand.z, 11.5) + Math.random() * 0.55 + (1 - distance / 70) * 0.35;
     if (score > bestScore) {
       bestScore = score;
       bestSpot = cand;

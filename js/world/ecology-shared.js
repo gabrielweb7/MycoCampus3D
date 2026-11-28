@@ -217,7 +217,7 @@ export function serializeBeehives(ctx) {
       x: Math.round((Number(h.x) || 0) * 100) / 100,
       y: Math.round((Number(h.y) || 2.55) * 100) / 100,
       z: Math.round((Number(h.z) || 0) * 100) / 100,
-      m: h.mountType === 'eaves' ? 'eaves' : 'tree',
+      m: h.mountType === 'eaves' || h.mountType === 'trunk' ? h.mountType : 'tree',
       h: Math.max(0, Math.min(100, Math.round(Number(h.honeyLevel) || 0))),
       bp: Math.round(Math.max(0, Math.min(1, Number(h.buildProgress ?? 1))) * 100) / 100,
       ab: h.abandoned ? 1 : 0,

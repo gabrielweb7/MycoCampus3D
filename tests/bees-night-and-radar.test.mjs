@@ -72,18 +72,33 @@ test('colmeia abandonada não recolhida bloqueia nova colmeia e migração escol
   assert.ok(spot);
   const cx = spot.mountType === 'tree' ? spot.x + 0.48 : spot.x;
   assert.ok(Math.hypot(cx - abandoned.x, spot.z - abandoned.z) >= 6, 'não constrói sobre a abandonada');
-  const positions = new Set();
-  for (let i = 0; i < 12; i++) {
-    const s = eco.findNearestHiveMountSpot(makeCtx(), 10, 10);
-    positions.add(`${Math.round(s.x)}:${Math.round(s.z)}`);
-  }
-  assert.ok(positions.size > 1, 'o local varia, não é fixo');
+});
+
+test('colônias usam árvores existentes e restauram o apoio sem criar outra árvore', () => {
+  const near = { x: 10.65, y: 2.35, z: 10, mountType: 'trunk' };
+  const distant = { x: 2.65, y: 3.15, z: 8, mountType: 'trunk' };
+  const ctx = makeCtx({ beeTreeMounts: [near, distant] });
+  const first = eco.findNearestHiveMountSpot(ctx, near.x, near.z);
+  assert.equal(first, near);
+  const hive = eco.createHiveAtSpot(ctx, 'hive_trunk', first, { abandoned: true });
+  assert.equal(hive.treeGroup, null);
+  assert.equal(eco.findNearestHiveMountSpot(ctx, near.x, near.z), distant);
+  const restored = makeCtx({ beeTreeMounts: [near, distant] });
+  assert.equal(eco.applyBeeEcologyWorldState(restored, { campus_beehives: eco.serializeBeehives(ctx) }), true);
+  const saved = restored.beehives[0];
+  assert.deepEqual([saved.mountType, saved.x, saved.y, saved.z], ['trunk', near.x, near.y, near.z]);
+  assert.equal(saved.treeGroup, null);
+  assert.equal(saved.abandoned, true);
+  saved.collected = true;
+  assert.equal(eco.findNearestHiveMountSpot(restored, near.x, near.z), near);
 });
 
 test('criação inicial espalha colmeias e flores pelo mapa', () => {
   const ctx = makeCtx({ scene: { add() {}, remove() {} } });
-  try { eco.createPastureBees(ctx); } catch (e) { return; /* sem cena THREE completa no Node */ }
+  eco.createPastureBees(ctx);
   assert.ok(ctx.campusFlowers.length >= 18);
+  assert.equal(ctx.beehives.length, 3);
+  assert.ok(ctx.beehives.every(hive => hive.mountType === 'eaves'));
 });
 
 test('nave aparece na telemetria e o gnomo raro roda sem trip ativo', () => {
