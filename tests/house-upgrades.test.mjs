@@ -62,7 +62,14 @@ if (!globalThis.THREE) {
   globalThis.window.THREE = globalThis.THREE;
 }
 
-const { HOUSE_UPGRADES, attachHouseUpgradesToLot, findHoveredHouseAction } = await import('../js/world/house-upgrades.js');
+const {
+  HOUSE_UPGRADES,
+  attachHouseUpgradesToLot,
+  applyVillageUpgrades,
+  canPlayerAccessLot,
+  findHoveredHouseAction
+} = await import('../js/world/house-upgrades.js');
+const { appState } = await import('../js/core/state.js');
 
 test('house upgrades catalog contains 6 valid upgrades with required properties', () => {
   assert.equal(HOUSE_UPGRADES.length, 6);
@@ -195,4 +202,174 @@ test('findHoveredHouseAction returns action when within player range and visible
   // If player is too far away (> 4.2m), should not interact
   ctx.playerPos.set(20, 0, 20);
   assert.equal(findHoveredHouseAction(ctx), null);
+});
+
+function makeLotHarness(lot) {
+  const root = new globalThis.THREE.Group();
+  const wallSegments = [];
+  const walkableFloors = [];
+  const stairsList = [];
+  const supportSurfaces = [];
+  const supportMeshes = [];
+  const houseInteractMeshes = [];
+  const houseDynamicObjects = [];
+  let backDoorSealWall = null;
+
+  const ctx = {
+    scene: root,
+    wallSegments,
+    walkableFloors,
+    stairsList,
+    supportSurfaces,
+    supportMeshes,
+    houseInteractMeshes,
+    houseDynamicObjects,
+    playerPos: new globalThis.THREE.Vector3(lot.x, 0.1, lot.z),
+    inFps: false
+  };
+  const mats = {
+    wood: new globalThis.THREE.MeshBasicMaterial(),
+    trim: new globalThis.THREE.MeshBasicMaterial(),
+    wall: new globalThis.THREE.MeshBasicMaterial(),
+    floor: new globalThis.THREE.MeshBasicMaterial(),
+    accent: new globalThis.THREE.MeshBasicMaterial()
+  };
+  const boxes = [];
+  const dims = {
+    width: 8.4,
+    depth: 6.8,
+    doorway: 1.90,
+    floorY: 0.10,
+    eavesY: 3.52,
+    addSolidWall(parent, walls, x1, z1, x2, z2, minY, h, thick) {
+      const col = { x1, z1, x2, z2, minY, maxY: minY + h, halfThick: thick / 2 };
+      walls.push(col);
+      backDoorSealWall = new globalThis.THREE.Mesh();
+      parent.add(backDoorSealWall);
+      return backDoorSealWall;
+    },
+    addWalkableSlab(parent, floors, cx, topY, cz, w, thick, d) {
+      floors.push({ minX: cx - w / 2, maxX: cx + w / 2, minZ: cz - d / 2, maxZ: cz + d / 2, topY });
+      const m = new globalThis.THREE.Mesh();
+      m.position.set(cx, topY, cz);
+      parent.add(m);
+      return m;
+    },
+    box(parent, mat, x, y, z, w, h, d) {
+      const m = new globalThis.THREE.Mesh();
+      m.position.set(x, y, z);
+      boxes.push({ mesh: m, x, y, z, w, h, d, parent });
+      parent.add(m);
+      return m;
+    }
+  };
+  attachHouseUpgradesToLot(ctx, root, lot, mats, dims);
+  return { ctx, root, wallSegments, walkableFloors, stairsList, supportSurfaces, houseInteractMeshes, houseDynamicObjects, backDoorSealWall, boxes };
+}
+
+test('attachHouseUpgradesToLot protects dynamic objects and applyVillageUpgrades toggles all 6 upgrades', () => {
+  const lot = { id: 2, x: -26, z: 54, front: 1, houseZ: 50, doorZ: 53.4 };
+  const h = makeLotHarness(lot);
+
+  assert.equal(h.houseDynamicObjects.length, 9);
+  for (const obj of h.houseDynamicObjects) {
+    assert.equal(obj.userData.keepDynamic, true);
+  }
+  assert.ok(h.houseDynamicObjects.includes(h.backDoorSealWall));
+
+  const frontDoorCollider = h.wallSegments[0];
+  const backDoorSealCollider = h.wallSegments[1];
+  const loftSurf = h.supportSurfaces[0];
+  assert.equal(loftSurf._disabled, true);
+  assert.equal(h.backDoorSealWall.visible, true);
+  assert.equal(frontDoorCollider.maxY, -1);
+  assert.equal(backDoorSealCollider.maxY, 3.52);
+
+  // Enable all 6 upgrades
+  applyVillageUpgrades([{
+    id: 2,
+    upgrades: {
+      house_lights: true,
+      garden_lights: true,
+      blinds: true,
+      front_door: true,
+      back_door: true,
+      second_floor: true
+    }
+  }]);
+
+  assert.equal(h.backDoorSealWall.visible, false);
+  assert.equal(frontDoorCollider.maxY, 3.52);
+  assert.equal(backDoorSealCollider.maxY, 3.52);
+  assert.equal(loftSurf._disabled, false);
+  assert.equal(h.stairsList[0]._disabled, false);
+  for (const wf of h.walkableFloors) {
+    assert.equal(wf._disabled, false);
+  }
+  for (const obj of h.houseDynamicObjects) {
+    if (obj !== h.backDoorSealWall) {
+      assert.equal(obj.visible, true);
+    }
+  }
+
+  // Opening back door clears seal collider
+  const backDoorHit = h.houseInteractMeshes.find(m => m.userData?.houseAction?.label().includes('Porta dos Fundos'));
+  assert.ok(backDoorHit);
+  backDoorHit.userData.houseAction.run();
+  assert.equal(backDoorSealCollider.maxY, -1);
+
+  // Disabling all upgrades restores disabled state
+  applyVillageUpgrades([{ id: 2, upgrades: {} }]);
+  assert.equal(h.backDoorSealWall.visible, true);
+  assert.equal(frontDoorCollider.maxY, -1);
+  assert.equal(backDoorSealCollider.maxY, 3.52);
+  assert.equal(loftSurf._disabled, true);
+  assert.equal(h.stairsList[0]._disabled, true);
+  for (const wf of h.walkableFloors) {
+    assert.equal(wf._disabled, true);
+  }
+});
+
+test('south row lots (front = -1) keep stair clearance from pillars and swing back door outward', () => {
+  const lot = { id: 9, x: 26, z: 84, front: -1, houseZ: 88, doorZ: 84.6 };
+  const h = makeLotHarness(lot);
+  const st = h.stairsList[0];
+
+  // Pillars of the loft should not intersect stairX range
+  const pillars = h.boxes.filter(b => (b.w === 0.14 || b.w === 0.16) && (b.d === 0.14 || b.d === 0.16) && b.h > 2.0);
+  assert.ok(pillars.length >= 2);
+  for (const p of pillars) {
+    assert.ok(p.x < st.minX || p.x > st.maxX, `pillar at x=${p.x} must not block stairs [${st.minX}, ${st.maxX}]`);
+  }
+
+  // Back door should swing outward (+Z -> negative Y rotation for front = -1)
+  applyVillageUpgrades([{ id: 9, upgrades: { back_door: true } }]);
+  const backDoorHit = h.houseInteractMeshes.find(m => m.userData?.houseAction?.label().includes('Porta dos Fundos'));
+  backDoorHit.userData.houseAction.run();
+  const backDoorPivot = h.houseDynamicObjects.find(o => o.children?.includes(backDoorHit));
+  assert.ok(backDoorPivot);
+  assert.ok(backDoorPivot.rotation.y < 0, 'back door should rotate negatively to swing outward (+Z) when front = -1');
+});
+
+test('canPlayerAccessLot validates owner, editor, admin, and non-owners', () => {
+  const prevUser = appState.currentUser;
+  const prevLease = appState.villageLease;
+  const prevEdit = appState.villageEditLot;
+  try {
+    appState.currentUser = { id: 10, role: 'student' };
+    appState.villageLease = { id: 3 };
+    appState.villageEditLot = 7;
+
+    assert.equal(canPlayerAccessLot(null), true);
+    assert.equal(canPlayerAccessLot(3), true);
+    assert.equal(canPlayerAccessLot(7), true);
+    assert.equal(canPlayerAccessLot(5), false);
+
+    appState.currentUser = { id: 1, role: 'admin' };
+    assert.equal(canPlayerAccessLot(5), true);
+  } finally {
+    appState.currentUser = prevUser;
+    appState.villageLease = prevLease;
+    appState.villageEditLot = prevEdit;
+  }
 });

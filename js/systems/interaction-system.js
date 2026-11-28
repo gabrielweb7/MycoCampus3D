@@ -43,6 +43,7 @@ import { updateCookerWaterVisual, COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../
 import { interactDehydrator } from '../items/dehydrator.js';
 import { getItemsSupportedBy } from './surface-group-move.js';
 import { depositSporePrintOnPetri, fillPetriWithPda, sealPetriWithParafilm } from '../items/petri-dish.js';
+import { canPlayerAccessLot } from '../world/house-upgrades.js';
 import { interactMonotub, placeMonotubInLedRackSlot, rehydrateMonotubCake, dunkMonotubAtSink, treatMonotubWithH2O2 } from '../items/monotub.js';
 import { isHoldingColonizedSpawn } from '../world/greenhouse.js';
 import { installInGrow, openPortableGrowPanel, takeFromGrowSlot } from '../items/portable-grow.js';
@@ -249,6 +250,28 @@ export function handlePrimaryAction(ctx, aimNdc) {
   if (ctx.inventory?.pending) return false;
   if (!ctx.placementMode && ctx.hoveredHouseAction) {
     ctx.hoveredHouseAction.run();
+    return true;
+  }
+  if (!ctx.placementMode && ctx.hoveredDoorObj) {
+    const d = ctx.hoveredDoorObj;
+    if (d.lotId && !canPlayerAccessLot(d.lotId)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('Apenas o morador ou pessoas com permissão no lote podem usar esta porta.');
+      return true;
+    }
+    d.open = !d.open;
+    ctx.queueWorldStateChange(d.id, d.open ? 1 : 0);
+    if (window.MycoAudio) window.MycoAudio.playDoor(d.open);
+    return true;
+  }
+  if (!ctx.placementMode && ctx.hoveredBlindObj) {
+    const b = ctx.hoveredBlindObj;
+    if (b.lotId && !canPlayerAccessLot(b.lotId)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('Apenas o morador ou pessoas com permissão no lote podem usar esta persiana.');
+      return true;
+    }
+    b.open = !b.open;
+    if (window.MycoAudio) window.MycoAudio.playSwitch?.() || window.MycoAudio.playClick?.();
+    ctx.queueWorldStateChange(b.id, b.open ? 1 : 0);
     return true;
   }
   if (ctx.heldItem) {

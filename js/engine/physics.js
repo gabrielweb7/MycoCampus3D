@@ -54,6 +54,7 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
 
   for (let u = 0; u < supportSurfaces.length; u++) {
     const ss = supportSurfaces[u];
+    if (ss._disabled) continue;
     if (ss.topY <= h || curY < ss.topY - 0.40) continue;
     if (typeof maxSurfTopY === 'number' && ss.topY > maxSurfTopY) continue;
     if (!isPointInBoundsXZ(x, z, ss, 0.08)) continue;
@@ -76,6 +77,7 @@ export function getSupportSurfaceAt(ctx, x, z, margin, ignoreSurf, maxTopY) {
   const { supportSurfaces, heldItem } = ctx;
   for (let u = 0; u < supportSurfaces.length; u++) {
     const ss = supportSurfaces[u];
+    if (ss._disabled) continue;
     if (best && ss.topY <= best.topY) continue;
     if (typeof maxTopY === 'number' && ss.topY > maxTopY) continue;
     if (!isPointInBoundsXZ(x, z, ss, m)) continue;

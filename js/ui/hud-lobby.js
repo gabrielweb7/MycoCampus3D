@@ -192,6 +192,7 @@ export async function logoutCampus() {
   appState.currentUser = null;
   appState.villageLease = null;
   appState.villageEditLot = null;
+  appState.lastUpgradesVer = '';
   setModalManagerUserKey(null);
   setMycoCoinsUserScope(null);
   hydrateMicotecaFromServer(null);
@@ -203,9 +204,12 @@ export async function logoutCampus() {
   if (window.setCampusParaglider) window.setCampusParaglider(false);
   if (window.updateCampusPlayers) window.updateCampusPlayers([]);
   if (window.setCampusFpsMode) window.setCampusFpsMode(false);
-  ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'guide-modal', 'mycoteca-modal', 'settings-modal', 'whats-new-modal', 'emote-bar'].forEach((id) => {
+  ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'guide-modal', 'mycoteca-modal', 'settings-modal', 'whats-new-modal', 'house-upgrades-modal', 'emote-bar'].forEach((id) => {
     const el = $(id);
-    if (el) el.classList.add('hidden');
+    if (el) {
+      el.classList.add('hidden');
+      if (id === 'house-upgrades-modal') el.classList.remove('flex');
+    }
   });
   if ($('campus-lobby')) $('campus-lobby').classList.remove('hidden');
   if (lastName && $('input-name')) $('input-name').value = lastName;
@@ -225,6 +229,7 @@ export function handleSessionExpired(msg) {
   stopMultiplayerPolling();
   appState.currentUser = null;
   appState.villageLease = null;
+  appState.lastUpgradesVer = '';
   setModalManagerUserKey(null);
   setMycoCoinsUserScope(null);
   hydrateMicotecaFromServer(null);
@@ -238,9 +243,12 @@ export function handleSessionExpired(msg) {
   if (window.updateCampusPlayers) window.updateCampusPlayers([]);
   if (window.setCampusFpsMode) window.setCampusFpsMode(false);
   if (window.resetCampusQuickInventory) window.resetCampusQuickInventory();
-  ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'guide-modal', 'mycoteca-modal', 'settings-modal', 'whats-new-modal', 'emote-bar'].forEach((id) => {
+  ['campus-hud', 'lesson-modal', 'ranking-modal', 'admin-modal', 'map-modal', 'quest-modal', 'shop-modal', 'guide-modal', 'mycoteca-modal', 'settings-modal', 'whats-new-modal', 'house-upgrades-modal', 'emote-bar'].forEach((id) => {
     const el = $(id);
-    if (el) el.classList.add('hidden');
+    if (el) {
+      el.classList.add('hidden');
+      if (id === 'house-upgrades-modal') el.classList.remove('flex');
+    }
   });
   if ($('campus-lobby')) $('campus-lobby').classList.remove('hidden');
   const btn = $('btn-enter-campus');

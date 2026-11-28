@@ -1,25 +1,46 @@
 /**
- * Melhorias da Casa da Vila: Painel na Parede, Persianas, Portas, Luzes e 2º Andar + Escada.
+ * Melhorias da Casa da Vila: Painel na Parede, Persianas Venetian, Portas Articuladas, Iluminação e 2º Andar + Escada Enclausurada.
  */
 import { makeBox } from '../engine/textures.js';
 import { apiPost } from '../services/api-client.js';
 import { appState } from '../core/state.js';
+import { events } from '../core/events.js';
+import { showFloatingToast } from '../ui/dom-helpers.js';
+import { pendingCoinOperations } from '../services/coin-outbox.js';
+import { getLocalMycoCoins, setLocalMycoCoins } from '../core/myco-coins.js';
 
 const THREE = window.THREE;
 
 export const HOUSE_UPGRADES = [
   { id: 'house_lights', icon: '💡', name: 'Iluminação Interna', desc: 'Luminária central quente que ilumina toda a casa.', price: 60 },
-  { id: 'garden_lights', icon: '🏮', name: 'Iluminação no Jardim', desc: 'Dois postes com lanternas aconchegantes no quintal.', price: 80 },
+  { id: 'garden_lights', icon: '🎄', name: 'Iluminação no Jardim', desc: 'Luzes de Natal em volta da casa, na árvore do quintal e lanternas no jardim.', price: 80 },
   { id: 'blinds', icon: '🪟', name: 'Persianas nas Janelas', desc: 'Persianas articuladas nas janelas da frente (fundo já incluso).', price: 50 },
   { id: 'front_door', icon: '🚪', name: 'Porta da Frente', desc: 'Porta articulada com maçaneta que abre e fecha.', price: 75 },
   { id: 'back_door', icon: '🚪', name: 'Porta dos Fundos', desc: 'Passagem direta para o quintal com porta articulada.', price: 110 },
   { id: 'second_floor', icon: '🪜', name: 'Segundo Andar + Escada', desc: 'Mezanino caminhável com guarda-corpo e escadinha.', price: 220 }
 ];
 
+const CHRISTMAS_PALETTE = [0xff4d5a, 0xffd166, 0x34d399, 0x60a5fa, 0xfff3c4];
 const lotHooks = new Map();
 let currentModalLotId = null;
-let fetchedOnce = false;
 let _cachedScreenMat = null;
+
+export function canPlayerAccessLot(lotId) {
+  if (!lotId) return true;
+  if (!appState.currentUser && !appState.villageLease) return true;
+  if (appState.currentUser?.role === 'admin' || appState.currentUser?.is_admin) return true;
+  if (appState.villageLease && appState.villageLease.id === lotId) return true;
+  if (appState.villageEditLot === lotId) return true;
+  return false;
+}
+
+function markDynamic(obj, dynList) {
+  if (!obj) return obj;
+  obj.userData = obj.userData || {};
+  obj.userData.keepDynamic = true;
+  if (dynList) dynList.push(obj);
+  return obj;
+}
 
 function getSharedScreenMat(mats) {
   if (_cachedScreenMat) return _cachedScreenMat;
@@ -28,19 +49,16 @@ function getSharedScreenMat(mats) {
   c.width = 512;
   c.height = 340;
   const tx = c.getContext('2d');
-  // Fundo vidro escuro com degradê tecnológico
   const grad = tx.createLinearGradient(0, 0, 0, 340);
   grad.addColorStop(0, '#090e17');
   grad.addColorStop(1, '#0f172a');
   tx.fillStyle = grad;
   tx.fillRect(0, 0, 512, 340);
 
-  // Borda fina azul-ciano
   tx.strokeStyle = '#0284c7';
   tx.lineWidth = 6;
   tx.strokeRect(10, 10, 492, 320);
 
-  // Barra superior
   tx.fillStyle = '#10b981';
   tx.beginPath();
   tx.arc(36, 36, 8, 0, Math.PI * 2);
@@ -50,7 +68,6 @@ function getSharedScreenMat(mats) {
   tx.textAlign = 'left';
   tx.fillText('SMART HOME • CASA DA VILA', 56, 44);
 
-  // Conteúdo principal
   tx.fillStyle = '#ffffff';
   tx.font = 'bold 44px system-ui';
   tx.textAlign = 'center';
@@ -60,7 +77,6 @@ function getSharedScreenMat(mats) {
   tx.font = '22px system-ui';
   tx.fillText('Luzes • Portas • 2º Andar', 256, 172);
 
-  // Botão de ação "Toque para Abrir"
   tx.fillStyle = '#0284c7';
   tx.beginPath();
   tx.roundRect(64, 218, 384, 76, 16);
@@ -75,68 +91,99 @@ function getSharedScreenMat(mats) {
   return _cachedScreenMat;
 }
 
-function createBlindGroup(parent, mats, x, y, z, rotY = 0) {
+function createCottageVenetianBlind(parent, mats, x, topY, z, rotY, lotId, name, ctx) {
   const g = new THREE.Group();
-  g.position.set(x, y, z);
+  g.position.set(x, topY, z);
   g.rotation.y = rotY;
 
-  // 1. Caixa superior de acabamento (pelmet/headbox)
-  const pelmet = makeBox(1.18, 0.07, 0.08, mats.trim, { noShadow: true });
-  pelmet.position.set(0, 0.44, 0);
-  g.add(pelmet);
+  const blindW = 1.12;
+  const dropH = 0.86;
+  const slatCount = 12;
 
-  // 2. Lâminas horizontais finas e elegantes (estilo persiana veneziana de madeira)
+  // 1. Headrail
+  const headrail = makeBox(0.06, 0.05, blindW, mats.trim, { noShadow: true });
+  headrail.position.set(0, -0.025, 0);
+  g.add(headrail);
+
+  // 2. Slats
   const slats = [];
-  const slatCount = 7;
   for (let i = 0; i < slatCount; i++) {
-    const slat = makeBox(1.12, 0.082, 0.014, mats.wood, { noShadow: true });
+    const slat = makeBox(0.05, 0.008, blindW - 0.02, mats.wood, { noShadow: true });
+    slat.position.set(0, -0.07 - ((i + 0.5) / slatCount) * (dropH - 0.12), 0);
+    slat.rotation.z = 0.28;
     slats.push(slat);
     g.add(slat);
   }
 
-  // 3. Cordão decorativo lateral com puxador de madeira
-  const cord = makeBox(0.01, 0.32, 0.01, mats.trim, { noShadow: true });
-  cord.position.set(0.53, 0.22, 0.02);
-  const cordKnob = makeBox(0.025, 0.04, 0.025, mats.wood, { noShadow: true });
-  cordKnob.position.set(0.53, 0.05, 0.02);
-  g.add(cord, cordKnob);
+  // 3. Ladder tapes
+  const tapes = [];
+  [-0.32, 0.32].forEach((tz) => {
+    const tp = makeBox(0.015, dropH, 0.02, mats.trim, { noShadow: true });
+    tp.position.set(0, -dropH / 2, tz);
+    tapes.push(tp);
+    g.add(tp);
+  });
 
+  // 4. Bottom rail
+  const bottomRail = makeBox(0.055, 0.03, blindW - 0.02, mats.trim, { noShadow: true });
+  bottomRail.position.set(0, -dropH, 0);
+  g.add(bottomRail);
+
+  // 5. Tilt wand and cord with knob
+  const wand = makeBox(0.012, dropH * 0.65, 0.012, mats.trim, { noShadow: true });
+  wand.position.set(-0.035, -dropH * 0.35, -0.42);
+  const cord = makeBox(0.008, dropH * 0.50, 0.008, mats.trim, { noShadow: true });
+  cord.position.set(-0.035, -dropH * 0.28, 0.42);
+  const cordKnob = makeBox(0.025, 0.05, 0.025, mats.accent, { noShadow: true });
+  cordKnob.position.set(-0.035, -dropH * 0.54, 0.42);
+  g.add(wand, cord, cordKnob);
+
+  // 6. Raycast hit box
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-  const hit = new THREE.Mesh(new THREE.BoxGeometry(1.30, 1.10, 0.32), hitMat);
-  hit.position.set(0, 0.05, 0);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(0.28, dropH, blindW), hitMat);
+  hit.position.set(0, -dropH / 2, 0);
   g.add(hit);
-  parent.add(g);
 
-  const ctrl = { group: g, slats, open: true };
-  const apply = () => {
-    for (let i = 0; i < slats.length; i++) {
-      if (ctrl.open) {
-        slats[i].rotation.x = Math.PI * 0.45;
-        slats[i].position.set(0, 0.39 - i * 0.014, 0);
-      } else {
-        slats[i].rotation.x = 0.06;
-        slats[i].position.set(0, 0.36 - i * 0.120, 0);
-      }
-    }
+  const blindObj = {
+    id: `lot_${lotId}_blind_${name}`,
+    lotId,
+    slats,
+    tapes,
+    bottomRail,
+    cordKnob,
+    open: true,
+    progress: 0.0,
+    dropH,
+    dir: 1
   };
-  apply();
+
+  hit.userData.blindObj = blindObj;
 
   const action = {
-    label: () => (ctrl.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana'),
+    label: () => (blindObj.open ? '🪟 Fechar Persiana' : '🪟 Abrir Persiana'),
     run: () => {
-      ctrl.open = !ctrl.open;
-      apply();
-      window.MycoAudio?.playClick?.();
+      if (!canPlayerAccessLot(lotId)) {
+        if (window.showToast) window.showToast('Apenas o morador ou pessoas com permissão no lote podem usar esta persiana.');
+        else showFloatingToast('Apenas o morador ou pessoas com permissão no lote podem usar esta persiana.');
+        return;
+      }
+      blindObj.open = !blindObj.open;
+      if (window.MycoAudio) window.MycoAudio.playSwitch?.() || window.MycoAudio.playClick?.();
+      ctx?.queueWorldStateChange?.(blindObj.id, blindObj.open ? 1 : 0);
     }
   };
   hit.userData.houseAction = action;
-  pelmet.userData.houseAction = action;
+  headrail.userData.houseAction = action;
   slats.forEach((s) => { s.userData.houseAction = action; });
 
-  return { group: g, hit, ctrl };
+  if (ctx?.blindHitMeshes) ctx.blindHitMeshes.push(hit);
+  if (ctx?.windowBlinds) ctx.windowBlinds.push(blindObj);
+
+  parent.add(g);
+  return { group: g, hit, blindObj };
 }
 
-function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90) {
+function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, lotId, ctx) {
   const g = new THREE.Group();
   g.position.set(x, y, z);
   parent.add(g);
@@ -175,41 +222,64 @@ function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90) 
   rightHandleLever.position.set(-leafW + 0.09, 0, 0.065);
   rightPivot.add(rightLeaf, rightPanelT, rightPanelB, rightHandlePlate, rightHandleLever);
 
-  // Hitbox de interação invisível mas raycastable
+  // Hitbox de interação
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
   const hit = new THREE.Mesh(new THREE.BoxGeometry(doorway + 0.2, doorH + 0.2, 0.44), hitMat);
   hit.position.set(0, 0, 0);
   g.add(leftPivot, rightPivot, hit);
 
-  const state = { open: false };
-  let doorCollider = null;
+  const doorObj = {
+    id: `lot_${lotId}_front_door`,
+    lotId,
+    label: `Porta Casa #${lotId}`,
+    leftPivot,
+    rightPivot,
+    angle: 0,
+    dir: frontDir,
+    open: false,
+    doorCollider: null,
+    eavesY: 3.52
+  };
+
+  hit.userData.doorObj = doorObj;
+  leftLeaf.userData.doorObj = doorObj;
+  rightLeaf.userData.doorObj = doorObj;
 
   const action = {
-    label: () => (state.open ? '🚪 Fechar Porta da Frente' : '🚪 Abrir Porta da Frente'),
+    label: () => (doorObj.open ? '🚪 Fechar Porta da Frente' : '🚪 Abrir Porta da Frente'),
     run: () => {
-      state.open = !state.open;
-      const swing = state.open ? (frontDir * Math.PI * 0.48) : 0;
+      if (!canPlayerAccessLot(lotId)) {
+        if (window.showToast) window.showToast('Apenas o morador ou pessoas com permissão no lote podem usar esta porta.');
+        else showFloatingToast('Apenas o morador ou pessoas com permissão no lote podem usar esta porta.');
+        return;
+      }
+      doorObj.open = !doorObj.open;
+      const swing = doorObj.open ? (-frontDir * Math.PI * 0.48) : 0;
       leftPivot.rotation.y = swing;
       rightPivot.rotation.y = -swing;
-      if (doorCollider) doorCollider.maxY = state.open ? -1 : 3.5;
-      window.MycoAudio?.playDoor?.(state.open) || window.MycoAudio?.playClick?.();
+      if (doorObj.doorCollider) doorObj.doorCollider.maxY = doorObj.open ? -1 : 3.52;
+      ctx?.queueWorldStateChange?.(doorObj.id, doorObj.open ? 1 : 0);
+      window.MycoAudio?.playDoor?.(doorObj.open) || window.MycoAudio?.playClick?.();
     }
   };
   hit.userData.houseAction = action;
   leftLeaf.userData.houseAction = action;
   rightLeaf.userData.houseAction = action;
 
+  if (ctx?.doorHitMeshes) ctx.doorHitMeshes.push(hit, leftLeaf, rightLeaf);
+  if (ctx?.campusDoors) ctx.campusDoors.push(doorObj);
+
   return {
     group: g,
     hit,
     leftLeaf,
     rightLeaf,
-    state,
-    setCollider(c) { doorCollider = c; }
+    doorObj,
+    setCollider(c) { doorObj.doorCollider = c; }
   };
 }
 
-function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18) {
+function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18, lotId, ctx) {
   const pivot = new THREE.Group();
   pivot.position.set(x - width / 2, y, z);
   const doorH = 2.28;
@@ -230,27 +300,48 @@ function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18) {
   pivot.add(leaf, panelT, panelB, handlePlate, handleLever, hit);
   parent.add(pivot);
 
-  const state = { open: false };
-  let doorCollider = null;
+  const doorObj = {
+    id: `lot_${lotId}_back_door`,
+    lotId,
+    label: `Porta dos Fundos #${lotId}`,
+    pivot,
+    angle: 0,
+    dir: frontDir,
+    open: false,
+    doorCollider: null,
+    eavesY: 3.52
+  };
+
+  hit.userData.doorObj = doorObj;
+  leaf.userData.doorObj = doorObj;
 
   const action = {
-    label: () => (state.open ? '🚪 Fechar Porta dos Fundos' : '🚪 Abrir Porta dos Fundos'),
+    label: () => (doorObj.open ? '🚪 Fechar Porta dos Fundos' : '🚪 Abrir Porta dos Fundos'),
     run: () => {
-      state.open = !state.open;
-      pivot.rotation.y = state.open ? (frontDir * Math.PI * 0.48) : 0;
-      if (doorCollider) doorCollider.maxY = state.open ? -1 : 3.5;
-      window.MycoAudio?.playDoor?.(state.open) || window.MycoAudio?.playClick?.();
+      if (!canPlayerAccessLot(lotId)) {
+        if (window.showToast) window.showToast('Apenas o morador ou pessoas com permissão no lote podem usar esta porta.');
+        else showFloatingToast('Apenas o morador ou pessoas com permissão no lote podem usar esta porta.');
+        return;
+      }
+      doorObj.open = !doorObj.open;
+      pivot.rotation.y = doorObj.open ? (frontDir * Math.PI * 0.48) : 0;
+      if (doorObj.doorCollider) doorObj.doorCollider.maxY = doorObj.open ? -1 : 3.52;
+      ctx?.queueWorldStateChange?.(doorObj.id, doorObj.open ? 1 : 0);
+      window.MycoAudio?.playDoor?.(doorObj.open) || window.MycoAudio?.playClick?.();
     }
   };
   hit.userData.houseAction = action;
   leaf.userData.houseAction = action;
 
+  if (ctx?.doorHitMeshes) ctx.doorHitMeshes.push(hit, leaf);
+  if (ctx?.campusDoors) ctx.campusDoors.push(doorObj);
+
   return {
     pivot,
     hit,
     leaf,
-    state,
-    setCollider(c) { doorCollider = c; }
+    doorObj,
+    setCollider(c) { doorObj.doorCollider = c; }
   };
 }
 
@@ -259,7 +350,6 @@ function createWallMenuPanel(parent, mats, x, y, z, rotY, lotId) {
   g.position.set(x, y, z);
   g.rotation.y = rotY;
 
-  // Moldura compacta e discreta estilo tablet / interfone inteligente (~28cm x 19cm)
   const frame = makeBox(0.28, 0.19, 0.022, mats.trim);
   const face = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.17), getSharedScreenMat(mats));
   face.position.z = 0.012;
@@ -286,37 +376,44 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   const { width, depth, doorway = 1.90, floorY, eavesY, addSolidWall, addWalkableSlab, box } = dims;
   const backZ = houseZ - front * depth / 2;
   const hitList = ctx.houseInteractMeshes || (ctx.houseInteractMeshes = []);
+  const dynList = ctx.houseDynamicObjects || (ctx.houseDynamicObjects = []);
 
-  // 1. Janela traseira com persiana já instalada
+  // 1. Janela traseira com persiana veneziana
   const backWinX = x - front * 2.1;
   const backDoorX = x + front * 1.9;
-  const backBlind = createBlindGroup(root, mats, backWinX, 1.81, backZ + front * 0.04, front === 1 ? Math.PI : 0);
+  const backBlind = createCottageVenetianBlind(
+    root, mats, backWinX, 2.24, backZ + front * 0.08,
+    front === 1 ? -Math.PI / 2 : Math.PI / 2, id, 'back', ctx
+  );
+  markDynamic(backBlind.group, dynList);
   hitList.push(backBlind.hit);
 
-  // Persianas frontais (visíveis quando compra 'blinds')
+  // Persianas venezianas frontais (visíveis com 'blinds')
   const fBlinds = [
-    createBlindGroup(root, mats, x - 2.46, 1.81, doorZ - front * 0.06, front === 1 ? 0 : Math.PI),
-    createBlindGroup(root, mats, x + 2.46, 1.81, doorZ - front * 0.06, front === 1 ? 0 : Math.PI)
+    createCottageVenetianBlind(root, mats, x - 2.46, 2.24, doorZ - front * 0.08, front === 1 ? Math.PI / 2 : -Math.PI / 2, id, 'front_left', ctx),
+    createCottageVenetianBlind(root, mats, x + 2.46, 2.24, doorZ - front * 0.08, front === 1 ? Math.PI / 2 : -Math.PI / 2, id, 'front_right', ctx)
   ];
   fBlinds.forEach((b) => {
     b.group.visible = false;
+    markDynamic(b.group, dynList);
     hitList.push(b.hit);
   });
 
-  // 2. Painel da Casa na parede interna (ao lado da entrada, elegante e discreto)
+  // 2. Painel inteligente na parede interna
   const panelX = x - front * (doorway / 2 + 0.38);
   const panelHit = createWallMenuPanel(root, mats, panelX, 1.55, doorZ - front * 0.14, front === 1 ? Math.PI : 0, id);
   hitList.push(panelHit);
 
-  // 3. Iluminação interna e no jardim (emissivas puras sem PointLights adicionais para preservar 60+ FPS e evitar WebGL context loss)
+  // 3. Iluminação interna e no jardim (emissivas puras sem PointLights pesadas)
   const houseLightGrp = new THREE.Group();
-  const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff6df });
   const lampWood = makeBox(0.48, 0.08, 0.48, mats.wood, { noShadow: true });
   lampWood.position.set(x, eavesY - 0.08, houseZ);
+  const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff6df });
   const lampGlow = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.06, 0.38), lampMat);
   lampGlow.position.set(x, eavesY - 0.14, houseZ);
   houseLightGrp.add(lampWood, lampGlow);
   houseLightGrp.visible = false;
+  markDynamic(houseLightGrp, dynList);
   root.add(houseLightGrp);
 
   const gardenLightGrp = new THREE.Group();
@@ -330,11 +427,13 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
     gardenLightGrp.add(post, bulb);
   });
   gardenLightGrp.visible = false;
+  markDynamic(gardenLightGrp, dynList);
   root.add(gardenLightGrp);
 
-  // 4. Porta da Frente Dupla (preenche os 1.9m com duas folhas articuladas) e Porta dos Fundos
-  const fDoor = createHouseDoubleDoor(root, mats, x, 1.24, doorZ, front, doorway);
+  // 4. Porta da Frente Dupla e Porta dos Fundos
+  const fDoor = createHouseDoubleDoor(root, mats, x, 1.24, doorZ, front, doorway, id, ctx);
   fDoor.group.visible = false;
+  markDynamic(fDoor.group, dynList);
   hitList.push(fDoor.hit, fDoor.leftLeaf, fDoor.rightLeaf);
 
   const frontDoorCollider = {
@@ -347,80 +446,136 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   ctx.wallSegments.push(frontDoorCollider);
   fDoor.setCollider(frontDoorCollider);
 
-  const bDoor = createHouseBackDoor(root, mats, backDoorX, 1.24, backZ, -front, 1.18);
+  const bDoor = createHouseBackDoor(root, mats, backDoorX, 1.24, backZ, front, 1.18, id, ctx);
   bDoor.pivot.visible = false;
+  markDynamic(bDoor.pivot, dynList);
   hitList.push(bDoor.hit, bDoor.leaf);
 
   const backDoorSealWall = addSolidWall(root, ctx.wallSegments, backDoorX - 0.6, backZ, backDoorX + 0.6, backZ, floorY, eavesY - floorY, 0.24, mats.wall);
+  markDynamic(backDoorSealWall, dynList);
   const backDoorSealCollider = ctx.wallSegments[ctx.wallSegments.length - 1];
   bDoor.setCollider(backDoorSealCollider);
 
-  // 5. Segundo andar + escada (mezanino elegante e robusto nos fundos/lateral com pé-direito alto)
+  // 5. Segundo andar + escada (mezanino elegante nos fundos com pé-direito alto)
   const secondFloorGrp = new THREE.Group();
   const loftY = 2.40;
-  const loftW = width - 0.36; // 8.04m, cobre de parede a parede
-  const loftD = 2.80; // fundos da casa
-  const loftZ = backZ + front * (loftD / 2);
-  const frontEdgeZ = loftZ + front * (loftD / 2);
+  const loftW = width - 0.24; // 8.16m, cobre de parede a parede
+  const loftD = 3.30; // metade traseira da casa
+  const loftZ = (backZ + houseZ) / 2;
+  const frontEdgeZ = houseZ;
 
   // Piso de madeira nobre do mezanino
-  const loftFloor = addWalkableSlab(secondFloorGrp, ctx.walkableFloors, x, loftY, loftZ, loftW, 0.12, loftD, mats.floor);
+  const loftFloor = addWalkableSlab(secondFloorGrp, ctx.walkableFloors, x, loftY, loftZ, loftW, 0.10, loftD, mats.floor);
   const loftSlabObj = ctx.walkableFloors[ctx.walkableFloors.length - 1];
   loftSlabObj._disabled = true;
 
-  // Vigas estruturais robustas de sustentação sob o piso
+  // Viga mestra frontal robusta (sustenta o mezanino sem pilares no meio da sala!)
   box(secondFloorGrp, mats.wood, x, loftY - 0.08, frontEdgeZ, loftW, 0.16, 0.16);
-  for (let j = -2; j <= 2; j++) {
-    box(secondFloorGrp, mats.wood, x + j * 1.8, loftY - 0.08, loftZ, 0.12, 0.14, loftD);
-  }
-  // Pilares nos cantos até o piso térreo
-  box(secondFloorGrp, mats.wood, x - 3.70, (loftY + floorY) / 2, frontEdgeZ, 0.16, loftY - floorY, 0.16);
-  box(secondFloorGrp, mats.wood, x + 1.20, (loftY + floorY) / 2, frontEdgeZ, 0.16, loftY - floorY, 0.16);
 
-  // Guarda-corpo de proteção com corrimão e ripas verticais (deixando vão de 1.4m para a escada)
-  const railW = loftW - 1.50;
-  const railCenterX = x - front * 0.75;
-  box(secondFloorGrp, mats.wood, railCenterX, loftY + 0.88, frontEdgeZ, railW, 0.07, 0.07); // Corrimão superior
-  box(secondFloorGrp, mats.wood, railCenterX, loftY + 0.08, frontEdgeZ, railW, 0.06, 0.06); // Régua inferior
-  const spindleCount = Math.floor(railW / 0.28);
+  // Vigas estruturais sob o piso (estritamente debaixo do mezanino, sem pontas expostas)
+  for (let j = -2; j <= 2; j++) {
+    box(secondFloorGrp, mats.wood, x + j * 1.5, loftY - 0.07, loftZ, 0.10, 0.14, loftD - 0.08);
+  }
+
+  // Pilares estruturais encostados na parede oposta à escada (ZERO pilares no meio da sala)
+  const postH = loftY - floorY;
+  const postMidY = (loftY + floorY) / 2;
+  box(secondFloorGrp, mats.wood, x - front * 3.70, postMidY, frontEdgeZ, 0.16, postH, 0.16);
+  box(secondFloorGrp, mats.wood, x - front * 3.70, postMidY, backZ + front * 0.14, 0.16, postH, 0.16);
+
+  // Guarda-corpo de proteção com corrimão e ripas verticais elegantes
+  // Deixa abertura de ~1.20m para a chegada da escada
+  const railW = loftW - 1.30;
+  const railCenterX = x - front * 0.65;
+  box(secondFloorGrp, mats.wood, railCenterX, loftY + 0.88, frontEdgeZ, railW, 0.07, 0.07);
+  box(secondFloorGrp, mats.wood, railCenterX, loftY + 0.08, frontEdgeZ, railW, 0.06, 0.06);
+  const spindleCount = Math.floor(railW / 0.26);
   for (let sp = 0; sp <= spindleCount; sp++) {
     const sx = railCenterX - railW / 2 + sp * (railW / spindleCount);
     box(secondFloorGrp, mats.trim, sx, loftY + 0.48, frontEdgeZ, 0.035, 0.74, 0.035);
   }
+  // Coluna de terminação do corrimão na abertura da escada
   box(secondFloorGrp, mats.wood, railCenterX + front * (railW / 2), loftY + 0.48, frontEdgeZ, 0.09, 0.92, 0.09);
+
+  // Colisor do guarda-corpo para impedir queda do segundo andar
+  const railCollider = {
+    x1: x - front * 4.05,
+    z1: frontEdgeZ,
+    x2: railCenterX + front * (railW / 2),
+    z2: frontEdgeZ,
+    halfThick: 0.10,
+    minY: loftY,
+    maxY: -1
+  };
+  ctx.wallSegments.push(railCollider);
 
   // Escada caminhável encostada na parede lateral
   const stairX = x + front * 3.55;
-  const steps = 11;
-  const stairZStart = houseZ + front * 1.50;
-  const stairZEnd = frontEdgeZ;
+  const steps = 12;
+  const stairZStart = houseZ + front * 2.50;
+  const stairZEnd = houseZ - front * 0.10;
   const stepSlabs = [];
 
   for (let s = 1; s <= steps; s++) {
     const t = s / steps;
     const sy = floorY + (loftY - floorY) * t;
     const sz = stairZStart + (stairZEnd - stairZStart) * t;
-    // Degrau de madeira
-    addWalkableSlab(secondFloorGrp, ctx.walkableFloors, stairX, sy, sz, 0.92, 0.08, 0.28, mats.wood);
+    addWalkableSlab(secondFloorGrp, ctx.walkableFloors, stairX, sy, sz, 0.90, 0.06, 0.26, mats.wood);
     const stObj = ctx.walkableFloors[ctx.walkableFloors.length - 1];
     stObj._disabled = true;
     stepSlabs.push(stObj);
-    // Espelho / fechamento vertical do degrau
-    box(secondFloorGrp, mats.trim, stairX, sy - 0.10, sz - front * 0.12, 0.90, 0.18, 0.04);
+    // Espelho vertical fechando o vão do degrau
+    box(secondFloorGrp, mats.trim, stairX, sy - 0.10, sz - front * 0.11, 0.88, 0.18, 0.03);
   }
 
-  // Corrimão da escada
+  // Painel de fechamento maciço sob a escada e longarina lateral
+  const stairRunZ = stairZEnd - stairZStart;
   const stairMidZ = (stairZStart + stairZEnd) / 2;
-  const stairMidY = (floorY + loftY) / 2 + 0.82;
-  const stairRun = Math.hypot(stairZEnd - stairZStart, loftY - floorY);
-  const stairAngle = Math.atan2(loftY - floorY, Math.abs(stairZEnd - stairZStart));
-  const handrail = box(secondFloorGrp, mats.wood, stairX - front * 0.46, stairMidY, stairMidZ, 0.05, 0.06, Math.abs(stairZEnd - stairZStart) + 0.2);
-  handrail.rotation.x = front === 1 ? -stairAngle : stairAngle;
+  const stairMidY = (floorY + loftY) / 2;
+  const stairInnerX = stairX - front * 0.46;
+  const stairRunLen = Math.hypot(stairRunZ, loftY - floorY);
+  const stairAngle = Math.atan2(loftY - floorY, Math.abs(stairRunZ));
+
+  // Longarina de madeira
+  const stringer = box(secondFloorGrp, mats.wood, stairInnerX, stairMidY, stairMidZ, 0.06, 0.16, stairRunLen + 0.10);
+  stringer.rotation.x = front === 1 ? stairAngle : -stairAngle;
+
+  // Painelamento ripado sob a escada (impede visão e passagem por baixo)
+  for (let p = 0; p <= 8; p++) {
+    const pt = p / 8;
+    const pz = stairZStart + stairRunZ * pt;
+    const ph = (loftY - floorY) * pt;
+    if (ph > 0.15) {
+      box(secondFloorGrp, mats.wall, stairInnerX, floorY + ph / 2, pz, 0.04, ph, Math.abs(stairRunZ) / 8 + 0.02);
+    }
+  }
+
+  // Colunas verticais de suporte do corrimão (newel posts)
+  for (const tPost of [0, 0.33, 0.67, 1.0]) {
+    const py = floorY + (loftY - floorY) * tPost + 0.44;
+    const pz = stairZStart + stairRunZ * tPost;
+    box(secondFloorGrp, mats.wood, stairInnerX, py, pz, 0.06, 0.88, 0.06);
+  }
+  // Corrimão contínuo apoiado nas colunas
+  const handrail = box(secondFloorGrp, mats.wood, stairInnerX, stairMidY + 0.88, stairMidZ, 0.06, 0.06, stairRunLen + 0.12);
+  handrail.rotation.x = front === 1 ? stairAngle : -stairAngle;
+
+  // Colisor de parede lateral sob a escada: IMPEDE o jogador de passar por baixo / atravessar de lado igual fantasma!
+  const stairSideWall = {
+    x1: stairInnerX,
+    z1: stairZStart,
+    x2: stairInnerX,
+    z2: stairZEnd,
+    halfThick: 0.12,
+    minY: floorY,
+    maxY: -1
+  };
+  ctx.wallSegments.push(stairSideWall);
 
   // Registro no stairsList para subida 100% contínua e suave da física
   const stairBox = {
-    minX: stairX - 0.55,
-    maxX: stairX + 0.55,
+    minX: Math.min(stairX - 0.50, stairX + 0.50),
+    maxX: Math.max(stairX - 0.50, stairX + 0.50),
     zStart: stairZStart,
     zEnd: stairZEnd,
     yStart: floorY,
@@ -430,19 +585,22 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   if (ctx.stairsList) ctx.stairsList.push(stairBox);
 
   // Superfície de apoio no piso do mezanino para posicionar itens/vasos/caixas
+  let loftSurf = null;
   if (ctx.supportSurfaces && ctx.supportMeshes) {
-    const loftSurf = {
+    loftSurf = {
       minX: x - loftW / 2,
       maxX: x + loftW / 2,
       minZ: Math.min(loftZ - loftD / 2, loftZ + loftD / 2),
       maxZ: Math.max(loftZ - loftD / 2, loftZ + loftD / 2),
-      topY: loftY + 0.06
+      topY: loftY + 0.06,
+      _disabled: true
     };
     loftFloor.userData.supportSurface = loftSurf;
     ctx.supportSurfaces.push(loftSurf);
     ctx.supportMeshes.push(loftFloor);
   }
   secondFloorGrp.visible = false;
+  markDynamic(secondFloorGrp, dynList);
   root.add(secondFloorGrp);
 
   lotHooks.set(id, {
@@ -453,23 +611,19 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
       gardenLightGrp.visible = !!u.garden_lights;
       fBlinds.forEach((b) => { b.group.visible = !!u.blinds; });
       fDoor.group.visible = !!u.front_door;
-      frontDoorCollider.maxY = (u.front_door && !fDoor.state.open) ? eavesY : -1;
+      frontDoorCollider.maxY = (u.front_door && !fDoor.doorObj.open) ? eavesY : -1;
       bDoor.pivot.visible = !!u.back_door;
       if (backDoorSealWall) backDoorSealWall.visible = !u.back_door;
-      if (backDoorSealCollider) backDoorSealCollider.maxY = (u.back_door && bDoor.state.open) ? -1 : eavesY;
+      if (backDoorSealCollider) backDoorSealCollider.maxY = (u.back_door && bDoor.doorObj.open) ? -1 : eavesY;
       secondFloorGrp.visible = !!u.second_floor;
       loftSlabObj._disabled = !u.second_floor;
       stairBox._disabled = !u.second_floor;
       stepSlabs.forEach((st) => { st._disabled = !u.second_floor; });
+      if (loftSurf) loftSurf._disabled = !u.second_floor;
+      stairSideWall.maxY = u.second_floor ? (loftY + 1.0) : -1;
+      railCollider.maxY = u.second_floor ? (loftY + 1.10) : -1;
     }
   });
-
-  if (!fetchedOnce && typeof window !== 'undefined') {
-    fetchedOnce = true;
-    apiPost('api/village.php?action=status', {}, true)
-      .then((res) => { if (res?.ok && Array.isArray(res.lots)) applyVillageUpgrades(res.lots); })
-      .catch(() => {});
-  }
 }
 
 export function applyVillageUpgrades(lots) {
@@ -488,7 +642,6 @@ export function findHoveredHouseAction(ctx) {
     const act = h.object?.userData?.houseAction;
     if (!act) continue;
 
-    // Confere visibilidade subindo a hierarquia
     let cur = h.object;
     let visible = true;
     while (cur) {
@@ -498,7 +651,6 @@ export function findHoveredHouseAction(ctx) {
     }
     if (!visible) continue;
 
-    // Distância do ponto atingido até a posição do jogador (ou da câmera se em FPS)
     const distToPlayer = ctx.playerPos ? h.point.distanceTo(ctx.playerPos) : h.distance;
     if (distToPlayer < 4.2 || (ctx.inFps && h.distance < 4.8)) {
       return act;
@@ -514,8 +666,8 @@ function ensureModalDom() {
   el.className = 'fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4';
   el.innerHTML =
     `<div class="glass-panel w-full max-w-lg rounded-2xl border border-slate-600/50 p-4 sm:p-5 text-white shadow-2xl space-y-3.5 bg-slate-950/90 max-h-[88vh] flex flex-col">` +
-      `<div class="flex items-center justify-between border-b border-slate-700/60 pb-2.5 shrink-0">` +
-        `<div class="font-bold text-base flex items-center gap-2"><span>🏡</span><span>Painel de Melhorias</span> <span id="house-up-lot" class="text-cyan-400 font-mono text-xs px-2 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/40"></span></div>` +
+      `<div class="flex items-center justify-between border-b border-slate-700/60 pb-2.5 shrink-0 gap-2">` +
+        `<div class="font-bold text-base flex items-center gap-2 flex-wrap"><span>🏡</span><span>Painel de Melhorias</span> <span id="house-up-lot" class="text-cyan-400 font-mono text-xs px-2 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/40"></span> <span id="house-up-coins" class="text-amber-300 font-mono text-xs px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-500/40"></span></div>` +
         `<button id="btn-close-house-up" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold transition">✕</button>` +
       `</div>` +
       `<div id="house-up-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 overflow-y-auto pr-1 flex-1"></div>` +
@@ -543,16 +695,35 @@ export function openHouseUpgradesModal(lotId) {
   renderHouseUpgradesModal(lotId);
   el.classList.remove('hidden');
   el.classList.add('flex');
+
+  if (appState.currentUser) {
+    apiPost('api/village.php?action=status', {}, true)
+      .then((res) => {
+        if (!res?.ok || !Array.isArray(res.lots)) return;
+        const lease = res.lots.find((row) => row.mine);
+        appState.villageLease = lease ? { id: lease.id, expires_at: lease.expires_at } : null;
+        if (typeof res.myco_coins === 'number' && appState.currentUser) {
+          appState.currentUser.myco_coins = res.myco_coins;
+          const pendingDelta = pendingCoinOperations(appState.currentUser.id)
+            .reduce((sum, entry) => sum + entry.delta, 0);
+          setLocalMycoCoins(res.myco_coins + pendingDelta);
+        }
+        applyVillageUpgrades(res.lots);
+      })
+      .catch(() => {});
+  }
 }
 
 function renderHouseUpgradesModal(lotId) {
   const list = document.getElementById('house-up-list');
   const lotEl = document.getElementById('house-up-lot');
+  const coinsEl = document.getElementById('house-up-coins');
   if (!list) return;
   if (lotEl) lotEl.textContent = `#${lotId}`;
+  if (coinsEl) coinsEl.textContent = `🪙 ${getLocalMycoCoins()}`;
   const hook = lotHooks.get(lotId);
   const owned = hook?.upgrades || {};
-  const isOwner = appState.villageLease?.id === lotId || appState.currentUser?.role === 'admin';
+  const isOwner = appState.villageLease?.id === lotId;
   list.innerHTML = '';
   for (const u of HOUSE_UPGRADES) {
     const active = !!owned[u.id];
@@ -572,22 +743,31 @@ function renderHouseUpgradesModal(lotId) {
     btn.disabled = active || !isOwner;
     if (!active && isOwner) {
       btn.onclick = async () => {
+        if (btn.disabled) return;
         btn.disabled = true;
         try {
+          await window.flushCampusMycoCoins?.();
           const res = await apiPost('api/village.php?action=buy_upgrade', { lot_id: lotId, upgrade_id: u.id }, true);
           if (res?.ok) {
             if (Array.isArray(res.lots)) applyVillageUpgrades(res.lots);
             if (typeof res.myco_coins === 'number' && appState.currentUser) {
               appState.currentUser.myco_coins = res.myco_coins;
+              const pendingDelta = pendingCoinOperations(appState.currentUser.id)
+                .reduce((sum, entry) => sum + entry.delta, 0);
+              setLocalMycoCoins(res.myco_coins + pendingDelta);
             }
+            appState.lastUpgradesVer = '';
+            events.emit('sync:now');
             window.MycoAudio?.playClick?.();
-            window.dispatchEvent(new CustomEvent('myco-toast', { detail: `🏡 ${u.name} instalado!` }));
+            showFloatingToast(`🏡 ${u.name} instalado!`);
+            if (currentModalLotId === lotId) renderHouseUpgradesModal(lotId);
           } else {
             btn.disabled = false;
-            window.dispatchEvent(new CustomEvent('myco-toast', { detail: res?.error || 'Não foi possível comprar.' }));
+            showFloatingToast(res?.error || 'Não foi possível comprar.');
           }
         } catch {
           btn.disabled = false;
+          showFloatingToast('Erro de conexão ao comprar melhoria.');
         }
       };
     }

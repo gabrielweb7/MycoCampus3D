@@ -321,7 +321,15 @@ function stepArchitectureProps(ctx, dt, now) {
     const targetAngle = d.open ? -d.dir * Math.PI * 0.48 : 0;
     if (Math.abs(targetAngle - d.angle) > 0.0005) {
       d.angle += (targetAngle - d.angle) * Math.min(1, dt * 8);
-      d.pivot.rotation.y = d.angle;
+      if (d.leftPivot && d.rightPivot) {
+        d.leftPivot.rotation.y = d.angle;
+        d.rightPivot.rotation.y = -d.angle;
+      } else if (d.pivot) {
+        d.pivot.rotation.y = d.angle;
+      }
+    }
+    if (d.doorCollider) {
+      d.doorCollider.maxY = d.open ? -1 : (d.eavesY || 3.52);
     }
   }
 

@@ -22,6 +22,7 @@ import { createMushroomMeshBySpeciesName } from '../world/mushroom-species.js';
 import { terrainHeight } from '../engine/physics.js';
 import { t } from '../core/i18n.js';
 import { freeCrateSlot, loadCrateCargo } from './crate-cargo.js';
+import { canPlayerAccessLot } from '../world/house-upgrades.js';
 
 function createPersistedMushroomMesh(speciesName, isMagic) {
   const THREE = window.THREE;
@@ -199,15 +200,25 @@ export function handleWorldInteraction(ctx) {
   }
   if (handleWildHarvest(ctx)) return true;
   if (ctx.hoveredDoorObj) {
-    ctx.hoveredDoorObj.open = !ctx.hoveredDoorObj.open;
-    ctx.queueWorldStateChange(ctx.hoveredDoorObj.id, ctx.hoveredDoorObj.open ? 1 : 0);
-    if (window.MycoAudio) window.MycoAudio.playDoor(ctx.hoveredDoorObj.open);
+    const d = ctx.hoveredDoorObj;
+    if (d.lotId && !canPlayerAccessLot(d.lotId)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('Apenas o morador ou pessoas com permissão no lote podem usar esta porta.');
+      return true;
+    }
+    d.open = !d.open;
+    ctx.queueWorldStateChange(d.id, d.open ? 1 : 0);
+    if (window.MycoAudio) window.MycoAudio.playDoor(d.open);
     return true;
   }
   if (ctx.hoveredBlindObj) {
-    ctx.hoveredBlindObj.open = !ctx.hoveredBlindObj.open;
-    if (window.MycoAudio) window.MycoAudio.playSwitch();
-    ctx.queueWorldStateChange(ctx.hoveredBlindObj.id, ctx.hoveredBlindObj.open ? 1 : 0);
+    const b = ctx.hoveredBlindObj;
+    if (b.lotId && !canPlayerAccessLot(b.lotId)) {
+      if (ctx.callbacks.onToast) ctx.callbacks.onToast('Apenas o morador ou pessoas com permissão no lote podem usar esta persiana.');
+      return true;
+    }
+    b.open = !b.open;
+    if (window.MycoAudio) window.MycoAudio.playSwitch ? window.MycoAudio.playSwitch() : window.MycoAudio.playClick?.();
+    ctx.queueWorldStateChange(b.id, b.open ? 1 : 0);
     return true;
   }
   if (ctx.hoveredCinema) {

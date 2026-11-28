@@ -220,7 +220,7 @@ if ($action === 'buy_upgrade') {
         if (!is_array($cur)) $cur = [];
         if (!empty($cur[$upgradeId])) {
             $pdo->rollBack();
-            mc_json(['ok' => true, 'already' => true, 'upgrades' => $cur]);
+            mc_json(['ok' => true, 'already' => true, 'upgrades' => $cur] + mc_village_status($pdo, $userId));
         }
         $acc = $pdo->prepare('SELECT myco_coins FROM mc_users WHERE id = ? FOR UPDATE');
         $acc->execute([$userId]);
@@ -238,6 +238,7 @@ if ($action === 'buy_upgrade') {
         mc_json(['ok' => true, 'myco_coins' => $coins - $price, 'upgrades' => $cur] + mc_village_status($pdo, $userId));
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('[MycoCampus3D] village buy_upgrade: ' . $e->getMessage());
         mc_json(['ok' => false, 'error' => 'Erro ao comprar melhoria.'], 500);
     }
 }

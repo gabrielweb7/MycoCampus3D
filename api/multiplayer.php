@@ -774,6 +774,10 @@ if ($action === 'sync') {
 
     $nowTs = time();
     $villageVersion = mc_village_layout_version($pdo, $nowTs);
+    $villageUpgrades = mc_village_upgrades_list($pdo, $nowTs);
+    $upgradesVer = substr(hash('sha256', json_encode($villageUpgrades)), 0, 12);
+    $clientUpgradesVer = (string)($body['upgrades_ver'] ?? '');
+    $upgradesUnchanged = (!$initSync && $clientUpgradesVer !== '' && $clientUpgradesVer === $upgradesVer);
     $leaseQuery = $pdo->prepare('SELECT lot_id, expires_at FROM mc_village_lots WHERE owner_id = ? AND expires_at > ? LIMIT 1');
     $leaseQuery->execute([$userId, $nowTs]);
     $activeLease = $leaseQuery->fetch();
@@ -906,10 +910,12 @@ if ($action === 'sync') {
         'item_state_ver' => $itemStateVer,
         'state_ver' => $stateVer,
         'layout_ver' => $layoutVer,
+        'upgrades_ver' => $upgradesVer,
         'objects_unchanged' => $objectsUnchanged,
         'item_states_unchanged' => $itemStatesUnchanged,
         'state_unchanged' => $stateUnchanged,
         'layout_unchanged' => $layoutUnchanged,
+        'upgrades_unchanged' => $upgradesUnchanged,
         'board_strokes' => $boardStrokes,
         'board_last_id' => $lastBoardId,
     ];
@@ -932,6 +938,9 @@ if ($action === 'sync') {
     }
     if (!$layoutUnchanged) {
         $resp['layout_edits'] = $layoutEdits;
+    }
+    if (!$upgradesUnchanged) {
+        $resp['village_upgrades'] = $villageUpgrades;
     }
     mc_json($resp);
 }

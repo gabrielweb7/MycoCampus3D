@@ -557,7 +557,7 @@ export function findPlacementTarget(ctx, customNdc) {
       if (sh.distance < 0.02 || sh.distance >= bestSupportDist) continue;
       if (sh.object.userData.ignoreRay) continue;
       var sSurf = sh.object.userData.supportSurface;
-      if (!sSurf || isSurfaceOwnerHeld(ctx, sSurf)) continue;
+      if (!sSurf || sSurf._disabled || isSurfaceOwnerHeld(ctx, sSurf)) continue;
       if (sSurf.isCabinetShelf && sSurf.requiresOpenPart && !sSurf.requiresOpenPart.open) continue;
       if (isClosedFridgeShelf(sSurf)) continue;
       if (heldItem && heldItem.mesh) {
@@ -581,7 +581,7 @@ export function findPlacementTarget(ctx, customNdc) {
   var bestFallbackSurface = null;
   for (var i = 0; i < supportSurfaces.length; i++) {
     var s = supportSurfaces[i];
-    if (isSurfaceOwnerHeld(ctx, s)) continue;
+    if (s._disabled || isSurfaceOwnerHeld(ctx, s)) continue;
     if (heldItem && heldItem.mesh) {
       if (heldItem.mesh.userData.dynamicSurface === s) continue;
       if (Array.isArray(heldItem.mesh.userData.dynamicSurfaces) && heldItem.mesh.userData.dynamicSurfaces.indexOf(s) !== -1) continue;

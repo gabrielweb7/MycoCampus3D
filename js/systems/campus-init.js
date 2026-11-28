@@ -81,6 +81,9 @@ const sim = {
   _stackPhysicsDirty: true,
   wildMushrooms: [],
   villageHitMeshes: [],
+  houseInteractMeshes: [],
+  houseDynamicObjects: [],
+  hoveredHouseAction: null,
 
   // Portas, persianas, telao e relogio
   campusDoors: [],
@@ -509,6 +512,8 @@ function getWorldBuilderCtx() {
     remoteHeldIds: sim.remoteHeldIds,
     wildMushrooms: sim.wildMushrooms,
     villageHitMeshes: sim.villageHitMeshes,
+    houseInteractMeshes: sim.houseInteractMeshes,
+    houseDynamicObjects: sim.houseDynamicObjects,
     campusDoors: sim.campusDoors,
     doorHitMeshes: sim.doorHitMeshes,
     windowBlinds: sim.windowBlinds,

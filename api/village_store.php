@@ -103,6 +103,26 @@ function mc_village_layout_version(PDO $pdo, int $now): string {
     return substr(hash('sha256', json_encode($active->fetchAll())), 0, 12);
 }
 
+function mc_village_upgrades_list(PDO $pdo, int $now): array {
+    $stmt = $pdo->prepare(
+        'SELECT l.lot_id, l.owner_id, l.expires_at, u.upgrades_json' .
+        ' FROM mc_village_lots l' .
+        ' LEFT JOIN mc_village_upgrades u ON u.lot_id = l.lot_id' .
+        ' WHERE l.lot_id BETWEEN 1 AND 10 ORDER BY l.lot_id'
+    );
+    $stmt->execute();
+    $list = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $occupied = (int)$row['expires_at'] > $now && (int)$row['owner_id'] > 0;
+        $dec = ($occupied && !empty($row['upgrades_json'])) ? json_decode((string)$row['upgrades_json'], true) : null;
+        $list[] = [
+            'id' => (int)$row['lot_id'],
+            'upgrades' => (is_array($dec) && $dec) ? $dec : new stdClass(),
+        ];
+    }
+    return $list;
+}
+
 function mc_village_sale_position(int $lotId): array {
     $front = $lotId <= 5 ? 1 : -1;
     return [((($lotId - 1) % 5) - 2) * 26 + $front * 4.6, $front === 1 ? 62.48 : 75.52];

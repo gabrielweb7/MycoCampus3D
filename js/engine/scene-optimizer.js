@@ -172,6 +172,8 @@ function collectDynamicObjects(sim) {
   markList(sim.scaleTareMeshes);
   markList(sim.labSinkMeshes);
   markList(sim.villageHitMeshes);
+  markList(sim.houseInteractMeshes);
+  markTreeList(sim.houseDynamicObjects);
   markList(sim.labTrashMeshes);
   markList(sim.cowHitMeshes);
   markList(sim.beehiveHitMeshes);
@@ -307,6 +309,17 @@ function normalizeForMerge(mesh, hasUv) {
   return g;
 }
 
+function isVisibleInHierarchy(obj, scene) {
+  let cur = obj;
+  while (cur) {
+    if (cur.visible === false) return false;
+    if (cur.userData && (cur.userData.isDynamic || cur.userData.keepDynamic || cur.userData.noMerge)) return false;
+    if (cur === scene) break;
+    cur = cur.parent;
+  }
+  return true;
+}
+
 function mergeStaticWorld(sim, dynamicObjects, protectedMaterials) {
   if (!THREE || !THREE.mergeGeometries) return 0;
   const scene = sim.scene;
@@ -314,10 +327,9 @@ function mergeStaticWorld(sim, dynamicObjects, protectedMaterials) {
 
   scene.traverse((obj) => {
     if (!obj || !obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
-    if (!obj.visible) return;
+    if (!isVisibleInHierarchy(obj, scene)) return;
     if (obj.isCamera || obj === sim.camera || obj === scene) return;
     if (dynamicObjects.has(obj)) return;
-    if (obj.userData && (obj.userData.isDynamic || obj.userData.keepDynamic || obj.userData.noMerge)) return;
 
     const mat = obj.material;
     if (!mat || Array.isArray(mat)) return;

@@ -5,6 +5,7 @@ import { applyCampusMeetupInvite } from '../ui/campus-agenda.js';
 import { appState } from '../core/state.js';
 import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS } from '../core/constants.js';
 import { setVillageTraffic } from '../world/village-traffic.js';
+import { applyVillageUpgrades } from '../world/house-upgrades.js';
 import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
 import { $, showFloatingToast } from '../ui/dom-helpers.js';
@@ -84,6 +85,7 @@ export async function syncMultiplayer(forceHeldState = false) {
       appState.lastItemStateVer = '';
       appState.lastStateVer = '';
       appState.lastLayoutVer = '';
+      appState.lastUpgradesVer = '';
     }
     const data = await apiPost('api/multiplayer.php?action=sync', {
       session_id: sessionId,
@@ -114,6 +116,7 @@ export async function syncMultiplayer(forceHeldState = false) {
       item_state_ver: appState.lastItemStateVer,
       state_ver: appState.lastStateVer,
       layout_ver: appState.lastLayoutVer || '',
+      upgrades_ver: appState.lastUpgradesVer || '',
       board_since: appState.boardLastId,
       board_strokes: strokes
     }, true, { timeoutMs: 6000 });
@@ -189,6 +192,9 @@ export async function syncMultiplayer(forceHeldState = false) {
         if (typeof data.server_ts === 'number') data.world_state._serverTs = data.server_ts;
         window.applyCampusWorldState(data.world_state, firstSync);
       }
+      if (!data.upgrades_unchanged && Array.isArray(data.village_upgrades)) {
+        applyVillageUpgrades(data.village_upgrades);
+      }
       window.applyCampusInventory?.(data.inventory, players, pose.holding_item, firstSync);
       if (firstSync && data.saved_pose && window.applyCampusSavedPose) {
         window.applyCampusSavedPose(data.saved_pose);
@@ -211,6 +217,7 @@ export async function syncMultiplayer(forceHeldState = false) {
       if (typeof data.item_state_ver === 'string') appState.lastItemStateVer = data.item_state_ver;
       if (typeof data.state_ver === 'string') appState.lastStateVer = data.state_ver;
       if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;
+      if (typeof data.upgrades_ver === 'string') appState.lastUpgradesVer = data.upgrades_ver;
       if (typeof data.board_last_id === 'number' && data.board_last_id > appState.boardLastId) appState.boardLastId = data.board_last_id;
       if (appState.syncFailures >= 3 && !globalThis.document?.hidden) {
         showFloatingToast('✅ ' + t('misc.mp.restored'), 3000);
