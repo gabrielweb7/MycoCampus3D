@@ -458,11 +458,11 @@ export function renderShopModal() {
     const top = document.createElement('div');
     top.className = 'space-y-1.5';
     top.innerHTML =
-      `<div class="flex items-center gap-2">` +
+      `<div class="flex items-center gap-2.5">` +
         (item.img
-          ? `<img src="${item.img}" alt="${escapeHtml(item.name)}" class="w-10 h-10 object-cover rounded-lg bg-slate-800/80 border border-slate-700/60 shrink-0">`
-          : `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">${item.icon}</span>`) +
-        `<div>` +
+          ? `<img src="${item.img}" alt="${escapeHtml(item.name)}" class="w-12 h-12 object-cover rounded-lg bg-slate-800/80 border border-slate-700/60 shrink-0">`
+          : `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 shrink-0">${item.icon}</span>`) +
+        `<div class="min-w-0 flex-1">` +
           `<div class="font-bold text-white text-xs">${escapeHtml(nm(kindKey, item, 'name'))}</div>` +
           `<div class="text-[11px] text-slate-400">${escapeHtml(nm(kindKey, item, 'desc'))}</div>` +
         `</div>` +

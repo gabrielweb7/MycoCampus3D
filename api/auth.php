@@ -79,6 +79,12 @@ const MC_COSMETIC_HATS = [
 ];
 
 const MC_COSMETIC_TOYS = [
+    'skateboard' => [
+        'id' => 'skateboard',
+        'req_xp' => 60,
+        'req_mushrooms' => 1,
+        'price_coins' => 90,
+    ],
     'snowboard' => [
         'id' => 'snowboard',
         'category' => 'toy',
@@ -243,7 +249,7 @@ function mc_clean_progress($raw): array {
     }
     $equippedToy = '';
     if (isset($raw['equipped_toy']) && is_string($raw['equipped_toy']) &&
-        in_array($raw['equipped_toy'], ['', 'snowboard', 'paraglider'], true)) {
+        in_array($raw['equipped_toy'], ['', 'skateboard', 'snowboard', 'paraglider'], true)) {
         $equippedToy = $raw['equipped_toy'];
     }
     return [
@@ -599,6 +605,7 @@ if ($action === 'buy_cosmetic') {
         'grad_cap' => 480,
         'flower_crown' => 120,
         'beret' => 120,
+        'skateboard' => 90,
         'snowboard' => 120,
         'paraglider' => 240,
     ];
