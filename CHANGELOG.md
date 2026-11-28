@@ -2,6 +2,13 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.6] - 2026-11-27
+
+- Abelhas: escolhem livremente onde construir (árvore em solo livre ou beiral), dormem à noite entrando uma por uma na colmeia, migram quando o mel ou as flores acabam e não constroem sobre colmeia abandonada. Flores espalhadas pelo mapa.
+- Estação Ecológica: a nave (OVNI) aparece no aviso e no radar com a posição.
+- Gnomo Preto raro e Gnomo das Árvores agora rodam sempre (antes dependiam do efeito de trip).
+- Terreno: o dono pode permitir que um convidado dentro do lote inspecione e mova itens.
+
 ## [v2.11.5] - 2026-11-27
 
 - Removido o halo da Lua que aparecia como uma cúpula luminosa sobre a praça.

@@ -10,7 +10,7 @@ for (const key of ['MYCO_TEST_DB_HOST', 'MYCO_TEST_DB_USER', 'MYCO_TEST_DB_PASS'
 }
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'myco-backend-test-'));
-const files = ['api/auth.php', 'api/db.php', 'api/multiplayer.php', 'api/multiplayer_schema.php', 'api/inventory.php', 'api/village.php', 'api/village_store.php', 'database/schema.sql', 'VERSION'];
+const files = ['api/auth.php', 'api/db.php', 'api/multiplayer.php', 'api/multiplayer_schema.php', 'api/inventory.php', 'api/village.php', 'api/village_store.php', 'assets/avatar-skins.json', 'database/schema.sql', 'VERSION'];
 const suffix = randomBytes(6).toString('hex');
 
 function post(file, action, body) {
@@ -21,7 +21,7 @@ function post(file, action, body) {
 }
 
 try {
-  for (const dir of ['api', 'database', 'data']) fs.mkdirSync(path.join(fixture, dir));
+  for (const dir of ['api', 'assets', 'database', 'data']) fs.mkdirSync(path.join(fixture, dir));
   for (const file of files) fs.copyFileSync(file, path.join(fixture, file));
   fs.writeFileSync(path.join(fixture, 'api', 'config.php'), `<?php
 define('DB_HOST', getenv('MYCO_TEST_DB_HOST'));
@@ -248,6 +248,26 @@ define('DB_PASS', getenv('MYCO_TEST_DB_PASS'));
   assert.equal(protectedCrate.inventory.conflict, true);
   assert.equal(protectedCrate.objects[crate].lot_locked, true);
   assert.equal(protectedCrate.objects[crate].x, cratePlacement.x);
+
+  const inLot = { ...delivery, in_fps: true };
+  const guestScene = post('multiplayer.php', 'sync', { ...visit, ...inLot });
+  const grant = { lot_id: lot.id, guest_id: auth.user_id, allowed: true };
+  const move = { lot_id: lot.id, item_id: protectedId, pose: { ...delivery, x: delivery.x + 0.3 } };
+  assert.equal(post('village.php', 'move_as_editor', { ...auth, ...move }).ok, false);
+  assert.equal(post('village.php', 'set_editor', { ...auth, ...grant, guest_id: tenant.user_id }).ok, false);
+  const roster = post('multiplayer.php', 'sync', { ...tenantSession, ...inLot });
+  assert.equal(roster.players.find(p => p.village_editor?.id === auth.user_id).village_editor.allowed, false);
+  assert.equal(post('village.php', 'set_editor', { ...tenant, ...grant }).ok, true);
+  const granted = post('multiplayer.php', 'sync', { ...visit, ...inLot, obj_ver: guestScene.obj_ver, holding_item: protectedId });
+  assert.equal(granted.village_edit_lot, lot.id);
+  assert.equal(granted.objects[protectedId].edit_lot, lot.id);
+  assert.equal(granted.inventory.conflict, true, 'editor pode mover mas não tomar posse do item');
+  assert.equal(post('village.php', 'move_as_editor', { ...auth, ...move, pose: { ...delivery, z: 69 } }).ok, false);
+  assert.equal(post('village.php', 'move_as_editor', { ...auth, ...move }).ok, true);
+  assert.equal(post('multiplayer.php', 'sync', { ...visit, ...inLot, obj_ver: granted.obj_ver }).objects[protectedId].x, move.pose.x);
+  assert.equal(post('village.php', 'set_editor', { ...tenant, ...grant, allowed: false }).ok, true);
+  assert.equal(post('village.php', 'move_as_editor', { ...auth, ...move }).ok, false);
+
   assert.equal(post('village.php', 'save_note', { ...tenant, note: 'Experimento da vila' }).ok, true);
   assert.equal(post('village.php', 'status', tenant).notebook, 'Experimento da vila');
   assert.notEqual(post('village.php', 'status', auth).notebook, 'Experimento da vila');

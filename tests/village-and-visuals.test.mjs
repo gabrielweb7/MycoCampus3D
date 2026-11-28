@@ -5,7 +5,7 @@ import * as THREE from '../js/vendor/three.bundle.min.js';
 globalThis.window = { THREE };
 const { VILLAGE_LOTS, villageLotAt, canPlaceVillageItem } = await import('../js/core/village-layout.js');
 const { terrainHeight } = await import('../js/engine/physics.js');
-const { MUSHROOM_SPECIES_CATALOG, createMushroomMeshBySpeciesName } = await import('../js/world/mushroom-species.js');
+const { MUSHROOM_SPECIES_CATALOG, createMushroomMeshBySpeciesName, stepForestDistanceCulling } = await import('../js/world/mushroom-species.js');
 const { discardHeldLiquid, getDrainableVolume } = await import('../js/systems/liquid-disposal.js');
 const { buildGardenTap, buildLabSink } = await import('../js/items/lab-sink.js');
 
@@ -23,6 +23,35 @@ test('ten walkable village lots face the street and accept placements only from 
   }
   assert.equal(villageLotAt(-13, 54), null);
   assert.equal(villageLotAt(0, 69), null);
+  const item = { isReadOnly: true, villageEditLot: VILLAGE_LOTS[0].id };
+  const first = VILLAGE_LOTS[0];
+  assert.equal(canPlaceVillageItem(first.x, first.z, item, null, true), true);
+  assert.equal(canPlaceVillageItem(first.x, first.z, item, null), false);
+  assert.equal(canPlaceVillageItem(first.x, 69, item, null, true), false);
+});
+
+test('forest batches submit only visible instances and preserve the original tree colors', () => {
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial(), 2);
+  const red = new THREE.Color('#b35a38');
+  const green = new THREE.Color('#609352');
+  mesh.setColorAt(0, red);
+  mesh.setColorAt(1, green);
+  const chunks = [0, 100].map((x, idx) => {
+    const activeMat = new THREE.Matrix4().makeTranslation(x, 0, 0);
+    mesh.setMatrixAt(idx, activeMat);
+    return { x, z: 0, visible: true, maxDistSq: 900, items: [{ inst: mesh, idx, activeMat }] };
+  });
+  const ctx = { playerPos: { x: 100, z: 0 }, forestInstChunks: chunks };
+  const color = new THREE.Color();
+  stepForestDistanceCulling(ctx);
+  assert.equal(mesh.count, 1);
+  mesh.getColorAt(0, color);
+  assert.equal(color.getHex(), green.getHex());
+  ctx.playerPos.x = 0;
+  stepForestDistanceCulling(ctx);
+  assert.equal(mesh.count, 1);
+  mesh.getColorAt(0, color);
+  assert.equal(color.getHex(), red.getHex());
 });
 
 test('every catalog entry produces a distinct, bounded low-poly mesh', () => {

@@ -17,6 +17,7 @@ export const appState = {
   lastItemStateVer: '',
   lastStateVer: '',
   villageLease: null,
+  villageEditLot: null,
   syncTimer: null,
   syncInFlight: false,
   syncQueued: false,

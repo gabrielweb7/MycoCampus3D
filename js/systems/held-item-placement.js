@@ -17,6 +17,7 @@ import { t } from '../core/i18n.js';
 import { canPlaceVillageItem } from '../core/village-layout.js';
 import { cratePlacementError, crateSlotPosition, findAimedCrate, freeCrateSlot, loadCrateCargo } from './crate-cargo.js';
 import { addSealedBagToDeliveryCrate } from '../items/mushroom-packaging.js';
+import { apiPost } from '../services/api-client.js';
 
 const _tmpCommitVec = new window.THREE.Vector3();
 const _vPlaceZero2 = new window.THREE.Vector2(0, 0);
@@ -147,9 +148,26 @@ export function beginHeldItemPlacement(ctx) {
   return true;
 }
 
+export function beginVillageItemMove(ctx, item) {
+  if (ctx.heldItem || ctx.villageMovePending || !item.villageEditLot || ctx.isHeldByRemote(item.id) ||
+      item.crateParent || item.trayContents?.length || item.lidItem?.isAttached ||
+      item.isAttached || item.mesh.userData.isBlockedPickup?.(item)) return false;
+  ctx.heldItem = item;
+  ctx.villageMove = item.villageEditLot;
+  if (beginHeldItemPlacement(ctx)) return true;
+  ctx.heldItem = null;
+  ctx.villageMove = null;
+  return false;
+}
+
 export function cancelHeldItemPlacement(ctx) {
   if (!ctx.placementMode) return false;
   syncHeldAttachedVisibility(ctx.heldItem, true);
+  if (ctx.villageMove) {
+    ctx.villageMove = null;
+    ctx.heldItem = null;
+    ctx.callbacks.onHoldChange?.(null);
+  }
   setPlacementMode(ctx, false);
   return true;
 }
@@ -167,7 +185,7 @@ export function updateHeldItemPlacementPreview(ctx, rayNdc) {
     return false;
   }
 
-  const crate = ctx.heldItem.deliveryCrateCtrl ? null : findAimedCrate(ctx, rayNdc);
+  const crate = (ctx.villageMove || ctx.heldItem.deliveryCrateCtrl) ? null : findAimedCrate(ctx, rayNdc);
   if (crate) {
     const slot = freeCrateSlot(crate, ctx.heldItem.mushroomBagCtrl?.sealed ? null : ctx.heldItem);
     const error = cratePlacementError(crate, ctx.heldItem, slot);
@@ -235,7 +253,22 @@ export function placeHeldInCrate(ctx, crate) {
 
 export function commitHeldItemPlacement(ctx, point, snapCloseLid) {
   const held = ctx.heldItem;
-  if (!held || !canPlaceVillageItem(point.x, point.z, held, appState.villageLease)) return false;
+  if (!held || !canPlaceVillageItem(point.x, point.z, held, appState.villageLease, !!ctx.villageMove)) return false;
+  if (ctx.villageMove) {
+    const payload = { lot_id: ctx.villageMove, item_id: held.id,
+      pose: { x: point.x, y: point.y, z: point.z, ry: ctx.heldRotY } };
+    const session = appState.sessionId;
+    cancelHeldItemPlacement(ctx);
+    ctx.villageMovePending = true;
+    apiPost('api/village.php?action=move_as_editor', payload, true).then(result => {
+      if (appState.sessionId !== session) return;
+      ctx.callbacks.onToast?.(t(result?.ok ? 'village.editor_moved' : 'village.editor_failed'));
+      ctx.notifyWorldAction();
+    }).catch(() => {
+      if (appState.sessionId === session) ctx.callbacks.onToast?.(t('village.editor_failed'));
+    }).finally(() => { ctx.villageMovePending = false; });
+    return true;
+  }
 
   held.mesh.visible = true;
   if (held.growCtrl) {

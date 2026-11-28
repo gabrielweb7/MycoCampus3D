@@ -81,6 +81,80 @@ $userId = (int)mc_require_user($pdo)['id'];
 $body = mc_body();
 $action = mc_action('status');
 
+if ($action === 'set_editor' || $action === 'move_as_editor') {
+    $lotId = filter_var($body['lot_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$lotId || $lotId < 1 || $lotId > 10) mc_json(['ok' => false], 400);
+    mp_inventory_lock($pdo);
+    try {
+        $now = time();
+        $lot = mc_village_read_lot($pdo, $lotId);
+        $poses = $pdo->prepare('SELECT x, z FROM mc_sessions WHERE user_id = ? AND in_fps = 1
+            AND last_seen >= NOW() - INTERVAL 12 SECOND ORDER BY last_seen DESC LIMIT 1');
+        $inside = static function (int $person) use ($poses, $lotId): bool {
+            $poses->execute([$person]);
+            $position = $poses->fetch();
+            return $position && mc_village_lot_at((float)$position['x'], (float)$position['z']) === $lotId;
+        };
+        if ($action === 'set_editor') {
+            $guest = filter_var($body['guest_id'] ?? null, FILTER_VALIDATE_INT);
+            $allowed = $body['allowed'] ?? null;
+            if (!$guest || $guest === $userId || !is_bool($allowed) ||
+                !mc_village_has_lease($lot, $userId, $now) || !$inside($userId) || ($allowed && !$inside($guest))) {
+                $pdo->rollBack();
+                mc_json(['ok' => false], 403);
+            }
+            if ($allowed) {
+                $pdo->prepare('INSERT INTO mc_village_editors (lot_id, user_id, lease_epoch) VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE lease_epoch=VALUES(lease_epoch)')->execute([$lotId, $guest, (int)$lot['lease_epoch']]);
+            } else {
+                $pdo->prepare('DELETE FROM mc_village_editors WHERE lot_id=? AND user_id=? AND lease_epoch=?')
+                    ->execute([$lotId, $guest, (int)$lot['lease_epoch']]);
+            }
+            $pdo->commit();
+            mc_json(['ok' => true, 'allowed' => $allowed]);
+        }
+
+        $id = $body['item_id'] ?? null;
+        $pose = $body['pose'] ?? null;
+        if (!is_string($id) || !preg_match('/\A[a-z0-9_]{2,64}\z/D', $id) ||
+            !is_array($pose) || !mc_village_can_edit($pdo, $lotId, $userId, $lot, $now) || !$inside($userId)) {
+            $pdo->rollBack();
+            mc_json(['ok' => false], 403);
+        }
+        foreach (['x', 'y', 'z', 'ry'] as $key) {
+            if (!is_numeric($pose[$key] ?? null) || !is_finite((float)$pose[$key])) {
+                $pdo->rollBack();
+                mc_json(['ok' => false], 400);
+            }
+        }
+        $source = $pdo->prepare('SELECT w.x, w.z FROM mc_world_objects w
+            LEFT JOIN mc_world_layout_edits le ON le.item_id=w.item_id
+            LEFT JOIN mc_village_items vi ON vi.item_id=w.item_id
+            LEFT JOIN mc_village_sales vs ON vs.item_id=w.item_id
+            WHERE w.item_id=? AND COALESCE(le.removed, 0)=0 AND vs.item_id IS NULL
+              AND (vi.item_id IS NULL OR (vi.lot_id=? AND vi.owner_id=? AND vi.lease_epoch=?))
+              AND NOT EXISTS (SELECT 1 FROM mc_inventory_slots WHERE item_id=w.item_id)
+              AND NOT EXISTS (SELECT 1 FROM mc_sessions WHERE holding_item=w.item_id AND last_seen >= NOW() - INTERVAL 12 SECOND)
+            FOR UPDATE');
+        $source->execute([$id, $lotId, (int)$lot['owner_id'], (int)$lot['lease_epoch']]);
+        $position = $source->fetch();
+        if (!$position || mc_village_lot_at((float)$position['x'], (float)$position['z']) !== $lotId ||
+            mc_village_lot_at((float)$pose['x'], (float)$pose['z']) !== $lotId ||
+            (float)$pose['y'] < -0.02 || (float)$pose['y'] > 12 || abs((float)$pose['ry']) > 1000) {
+            $pdo->rollBack();
+            mc_json(['ok' => false], 409);
+        }
+        $pdo->prepare('UPDATE mc_world_objects SET x=?, y=?, z=?, ry=? WHERE item_id=?')
+            ->execute([(float)$pose['x'], (float)$pose['y'], (float)$pose['z'], (float)$pose['ry'], $id]);
+        $pdo->commit();
+        mc_json(['ok' => true]);
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log($error->getMessage());
+        mc_json(['ok' => false], 500);
+    }
+}
+
 if ($action === 'status') {
     mc_village_settle_sales($pdo, $userId);
     $balance = $pdo->prepare('SELECT myco_coins FROM mc_users WHERE id = ?');

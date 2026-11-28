@@ -407,6 +407,7 @@ function applySyringeMixDelta(ctx, syringeTarget, targetLiquid, targetSpawn, fin
 }
 
 export function stepHeldItemAndSyringe(ctx, dt, now) {
+  if (ctx.villageMove) return;
   if (ctx.heldItem) {
     const reachZ = ctx.fpsArmGroup ? ctx.armReach * 0.16 : 0;
     const reachY = ctx.fpsArmGroup ? ctx.armReach * 0.06 : 0;

@@ -163,13 +163,16 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
       vx: Math.round(sim.playerVelX * 100) / 100,
       vz: Math.round(sim.playerVelZ * 100) / 100,
       yaw: sim.playerYaw, pitch: sim.playerPitch,
-      holding_item: sim.heldItem ? sim.heldItem.id : '',
+      holding_item: !sim.villageMove && sim.heldItem ? sim.heldItem.id : '',
       walking: sim.isWalking, seated: !!sim.seatedSeat, in_fps: sim.inFps,
       toy_mode: (sim.roundParachuteActive && inAir) ? 'parachute' : ((sim.paragliderActive && inAir) ? 'paraglider' : (sim.snowboardActive ? 'snowboard' : '')),
       current_hat: sim.localHat,
       emote: sim.localEmote || (isTrip ? 'rainbow_trip' : actionFx)
     };
   };
+  window.isCampusSyncMoving = () => sim.inFps && (
+    sim.isWalking || !sim.onGround || sim.snowboardActive || sim.paragliderActive
+  );
 
   sim.triggerLocalAvatarAction = function (fxKind) {
     if (!fxKind) return;
@@ -269,7 +272,7 @@ export function registerCampusPublicApi(sim, initCampus3D, triggerCampusRainbow)
   window.selectCampusQuickSlot = (slot) => selectQuickSlot(sim, slot);
   window.getCampusInventoryHandState = (force = false) => {
     const held = sim.heldItem;
-    if (!held || (!force && held.id === sim.inventory.ackHolding)) return null;
+    if (sim.villageMove || !held || (!force && held.id === sim.inventory.ackHolding)) return null;
     return { id: held.id, state: getReplicatedItemState(sim, held) };
   };
   window.isCampusInventoryPending = () => !!sim.inventory.pending;

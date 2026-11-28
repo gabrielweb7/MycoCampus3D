@@ -34,11 +34,14 @@ import {
 import { telescopeHitMeshes } from '../world/plaza-telescope.js';
 import { t } from '../core/i18n.js';
 import { cratePlacementError, findAimedCrate, freeCrateSlot } from './crate-cargo.js';
+import { villageLotAt } from '../core/village-layout.js';
+import { appState } from '../core/state.js';
 
 const THREE = window.THREE;
 const _vZero2 = new THREE.Vector2(0, 0);
 const _tmpBadgeWorldPos = new THREE.Vector3();
 const _tmpAimAssistPos = new THREE.Vector3();
+const _villageTarget = new THREE.Vector3();
 const GREENHOUSE_DEV_KEYS = {
   panel: 'actions.hover.gh_dev_panel',
   humidifier: 'actions.hover.gh_dev_humidifier',
@@ -47,7 +50,7 @@ const GREENHOUSE_DEV_KEYS = {
 };
 
 function resolveHoverTargetObj(ctx) {
-  return ctx.hoveredPickable ||
+  return ctx.hoveredVillageItem || ctx.hoveredPickable ||
     ctx.hoveredPdaTarget ||
     ctx.hoveredHeatSealerTarget ||
     ctx.hoveredParafilmTarget ||
@@ -98,6 +101,43 @@ function resolveHoverTargetObj(ctx) {
     (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.isThermometer && ctx.thermoLaserOn
       ? { label: ctx.thermoTargetLabel || t('actions.hover.thermometer_badge') }
       : null);
+}
+
+function aimAtVillageGuestOrItem(ctx) {
+  if (!ctx.inFps || ctx.heldItem || (!appState.villageLease && !appState.villageEditLot)) return false;
+  const lotId = villageLotAt(ctx.playerPos.x, ctx.playerPos.z)?.id;
+  if (!lotId) return false;
+  const ray = ctx.raycaster.ray;
+  let distance = 4;
+  if (lotId === appState.villageLease?.id) {
+    for (const id in ctx.remoteAvatars) {
+      const avatar = ctx.remoteAvatars[id];
+      if (avatar.villageEditor?.lot !== lotId || !avatar.group.visible) continue;
+      _villageTarget.copy(avatar.group.position);
+      _villageTarget.y += 0.86;
+      const range = ray.origin.distanceTo(_villageTarget);
+      if (range >= distance || ray.distanceSqToPoint(_villageTarget) > 0.30) continue;
+      if (isRayOccludedByStructure(ctx, range, { checkWalls: true })) continue;
+      distance = range;
+      ctx.hoveredVillageEditor = avatar;
+    }
+    if (ctx.hoveredVillageEditor) return true;
+  }
+  if (lotId !== appState.villageEditLot) return false;
+  for (const item of ctx.pickableItems) {
+    if (item.villageEditLot !== lotId || !item.mesh.visible || ctx.isHeldByRemote(item.id)) continue;
+    if (ray.distanceSqToPoint(item.mesh.position) > Math.max(0.8, item.radius || 0) ** 2) continue;
+    const hit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObject(item.mesh, true), distance, {
+      checkWalls: true, ignoreCollider: item.mesh.userData.dynamicCollider
+    });
+    if (!hit) continue;
+    distance = hit.distance;
+    ctx.hoverHit = hit;
+    ctx.hoveredVillageItem = item;
+  }
+  if (!ctx.hoveredVillageItem) return false;
+  setHoverPrompt(ctx, ctx.hoveredVillageItem.label, false);
+  return true;
 }
 
 export function syncHover3dBadge(ctx, prompt) {
@@ -207,6 +247,8 @@ export function updateHoverRay(ctx, customNdc) {
   ctx.hoveredGrowSlot = null;
   ctx.hoveredMushroom = null;
   ctx.hoveredVillageLot = null;
+  ctx.hoveredVillageEditor = null;
+  ctx.hoveredVillageItem = null;
   ctx.hoveredDoorObj = null;
   ctx.hoveredBlindObj = null;
   ctx.hoveredBoardHit = null;
@@ -295,6 +337,7 @@ export function updateHoverRay(ctx, customNdc) {
     }
   }
 
+  if (aimAtVillageGuestOrItem(ctx)) return;
   if (resolveHeldItemHover(ctx, rayNdc, {
     intersectPickableItem,
     setHoverPrompt,

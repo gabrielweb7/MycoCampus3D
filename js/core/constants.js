@@ -5,7 +5,7 @@ export const HAT_COLORS = ['#dc2626', '#d97706', '#9333ea', '#059669', '#2563eb'
 export const BODY_COLORS = ['#4f46e5', '#0f766e', '#1e293b', '#b45309', '#be185d', '#334155'];
 
 export const SYNC_INTERVAL_MS = 250;
-export const SYNC_BACKGROUND_INTERVAL_MS = 1500;
+export const SYNC_BACKGROUND_INTERVAL_MS = 3000;
 export const VIRTUAL_DAY_SECONDS = 2400; // 40 minutos reais = 24h virtuais
 
 export function getAppVersion() {

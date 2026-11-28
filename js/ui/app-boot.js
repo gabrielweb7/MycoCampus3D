@@ -5,7 +5,7 @@ import { bindQuickInventory } from './inventory-bar.js';
 import { getCameraSensitivity, setCameraSensitivity } from '../core/camera-settings.js';
 import { unlockAchievement } from '../core/achievements.js';
 import { getDisplayItemTitle } from '../entities/hover-3d-badge.js';
-import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS, getAppVersion } from '../core/constants.js';
+import { getAppVersion } from '../core/constants.js';
 import { forceCacheBustReload, isValidSemver } from '../core/version-updater.js';
 import { markPendingAutoUpdateNotice } from './whats-new-modal.js';
 import { events } from '../core/events.js';
@@ -1077,15 +1077,7 @@ export function bootApp() {
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (!appState.currentUser || !appState.syncTimer) return;
-    if (document.hidden) {
-      if (appState.syncTimer) clearInterval(appState.syncTimer);
-      appState.syncTimer = setInterval(syncMultiplayer, SYNC_BACKGROUND_INTERVAL_MS);
-    } else {
-      if (appState.syncTimer) clearInterval(appState.syncTimer);
-      syncMultiplayer();
-      appState.syncTimer = setInterval(syncMultiplayer, SYNC_INTERVAL_MS);
-    }
+    if (!document.hidden && appState.currentUser && appState.syncTimer !== null) syncMultiplayer();
   });
 
   const flushAndLeave = (event) => {

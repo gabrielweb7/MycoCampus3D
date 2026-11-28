@@ -170,6 +170,36 @@ export function isInsideBuildingRoof(ctx, x, y, z) {
 export function stepSingleBeeFlight(ctx, bee, i, dt, nowSec, px, pz, isNight, isDeepNight) {
   const hive = bee.hive;
   const dist = Math.hypot(px - bee.group.position.x, pz - bee.group.position.z);
+
+  // Sono: de noite profunda cada abelha entra na colmeia, uma por uma, e some. De dia sai e volta ao trabalho.
+  if (isDeepNight && !hive.migrating && !hive.groundResting) {
+    bee.nightTimer = (bee.nightTimer || 0) + dt;
+    if (bee.sleepDelay === undefined) bee.sleepDelay = bee.isQueen ? 16 + Math.random() * 4 : 1 + Math.random() * 14;
+    if (bee.nightTimer > bee.sleepDelay) {
+      if (!bee.sleeping) {
+        const entering = Math.hypot(hive.x - bee.group.position.x, hive.y - bee.group.position.y, hive.z - bee.group.position.z);
+        if (entering < 0.5 || dist > 65 || bee.nightTimer > bee.sleepDelay + 8) {
+          bee.sleeping = true;
+          if (bee.pollenMesh) bee.pollenMesh.visible = false;
+          if (bee.migrationSprite) bee.migrationSprite.visible = false;
+          bee.group.position.set(hive.x, hive.y, hive.z);
+        } else {
+          bee.phase += dt * (bee.speed || 1.4);
+          moveBeeSafely(ctx, bee, hive.x, hive.y, hive.z, 3.2, dt, 0, hive);
+          return;
+        }
+      }
+      bee.group.visible = false;
+      return;
+    }
+  } else if (bee.sleeping || bee.nightTimer) {
+    bee.sleeping = false;
+    bee.nightTimer = 0;
+    bee.sleepDelay = undefined;
+    bee.state = 'to_flower';
+    bee.stateTimer = Math.random() * 3;
+  }
+
   bee.group.visible = dist <= 65;
   if (!bee.group.visible && !hive.migrating) return;
 

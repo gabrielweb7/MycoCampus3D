@@ -20,6 +20,19 @@ function mc_village_has_lease(?array $lot, int $userId, int $now): bool {
     return $lot && (int)$lot['owner_id'] === $userId && (int)$lot['expires_at'] > $now;
 }
 
+function mc_village_editor_ids(PDO $pdo, int $lotId, int $epoch): array {
+    $query = $pdo->prepare('SELECT user_id FROM mc_village_editors WHERE lot_id = ? AND lease_epoch = ?');
+    $query->execute([$lotId, $epoch]);
+    return array_fill_keys($query->fetchAll(PDO::FETCH_COLUMN), true);
+}
+
+function mc_village_can_edit(PDO $pdo, int $lotId, int $userId, ?array $lot, int $now): bool {
+    if (!$lot || (int)$lot['expires_at'] <= $now) return false;
+    $query = $pdo->prepare('SELECT 1 FROM mc_village_editors WHERE lot_id = ? AND user_id = ? AND lease_epoch = ?');
+    $query->execute([$lotId, $userId, (int)$lot['lease_epoch']]);
+    return (bool)$query->fetchColumn();
+}
+
 function mc_village_world_item_lots(PDO $pdo, array $itemIds, int $userId): array {
     $ids = array_values(array_unique(array_filter($itemIds, static fn($id) => is_string($id) && $id !== '')));
     $placeholders = implode(',', array_fill(0, count($ids), '?'));

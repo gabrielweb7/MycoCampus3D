@@ -494,9 +494,17 @@ if ($action === 'sync') {
     // A nearby player's polling is enough to advance pickups for offline owners.
     if ($initSync || mt_rand(1, 15) === 1) mc_village_settle_sales($pdo, $initSync ? $userId : null);
 
-    $pStmt = $pdo->prepare('SELECT p.session_id, p.display_name, u.role, p.hat_color, p.body_color, p.current_hat, p.emote, p.x, p.y, p.z, p.yaw, p.pitch, p.holding_item, p.walking, p.in_fps, p.pet_json, u.current_skin, u.unlocked_skins,
+    $standingLot = mc_village_lot_at($x, $z);
+    $standingLease = $standingLot !== null ? $getLot($standingLot) : null;
+    $manageEditors = $inFps && mc_village_has_lease($standingLease, $userId, $villageNow);
+    $editorIds = $manageEditors ? mc_village_editor_ids($pdo, $standingLot, (int)$standingLease['lease_epoch']) : [];
+    $guestEditLot = $inFps && !$manageEditors && $standingLot !== null &&
+        mc_village_can_edit($pdo, $standingLot, $userId, $standingLease, $villageNow) ? $standingLot : null;
+    $pStmt = $pdo->prepare('SELECT p.user_id, p.session_id, p.display_name, u.role, p.hat_color, p.body_color, p.current_hat, p.emote, p.x, p.y, p.z, p.yaw, p.pitch, p.holding_item, p.walking, p.in_fps, p.pet_json, u.current_skin, u.unlocked_skins,
             IF(p.chat_at IS NOT NULL AND p.chat_at >= (NOW() - INTERVAL ' . MP_CHAT_TTL_S . ' SECOND), p.chat_msg, NULL) AS chat_msg
-        FROM mc_sessions p JOIN mc_users u ON u.id = p.user_id WHERE p.session_id != ? ORDER BY p.session_id ASC LIMIT 60');
+        FROM mc_sessions p JOIN mc_users u ON u.id = p.user_id
+        WHERE p.session_id != ? AND p.last_seen >= (NOW() - INTERVAL ' . MP_SESSION_TIMEOUT_S . ' SECOND)
+        ORDER BY p.session_id ASC LIMIT 60');
     $pStmt->execute([$sessionKey]);
     $players = [];
     foreach ($pStmt->fetchAll() as $p) {
@@ -510,7 +518,7 @@ if ($action === 'sync') {
                 $pVz = (float)($vel['vz'] ?? 0.0);
             }
         }
-        $players[] = [
+        $player = [
             'id' => mp_public_id($pSid),
             'name' => (string)$p['display_name'],
             'role' => (string)$p['role'],
@@ -534,6 +542,11 @@ if ($action === 'sync') {
             'pets' => json_decode((string)($p['pet_json'] ?? ''), true) ?: null,
             'chat' => $p['chat_msg'],
         ];
+        if ($manageEditors && $p['in_fps'] && mc_village_lot_at((float)$p['x'], (float)$p['z']) === $standingLot) {
+            $guestId = (int)$p['user_id'];
+            $player['village_editor'] = ['id' => $guestId, 'lot' => $standingLot, 'allowed' => isset($editorIds[$guestId])];
+        }
+        $players[] = $player;
     }
 
     // Salva mudancas de estado do mundo (portas, persianas, interruptores, fluxo laminar, cinema, cogumelos)
@@ -733,16 +746,12 @@ if ($action === 'sync') {
         mc_json(['ok' => true]);
     }
 
-    $meta = $pdo->query('SELECT
-        (SELECT COUNT(*) FROM mc_world_objects) AS obj_c,
-        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_objects) AS obj_u,
-        (SELECT COUNT(*) FROM mc_world_item_states) AS st_obj_c,
-        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_item_states) AS st_obj_u,
-        (SELECT COUNT(*) FROM mc_world_state) AS ws_c,
-        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_state) AS ws_u,
-        (SELECT COUNT(*) FROM mc_world_layout_edits) AS le_c,
-        (SELECT COALESCE(MAX(updated_at), "") FROM mc_world_layout_edits) AS le_u,
-        (SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes) AS brd_max')->fetch();
+    $meta = $pdo->query('SELECT obj_c, obj_u, st_obj_c, st_obj_u, ws_c, ws_u, le_c, le_u,
+        (SELECT COALESCE(MAX(id), 0) FROM mc_board_strokes) AS brd_max
+        FROM (SELECT COUNT(*) AS obj_c, COALESCE(MAX(updated_at), "") AS obj_u FROM mc_world_objects) o
+        CROSS JOIN (SELECT COUNT(*) AS st_obj_c, COALESCE(MAX(updated_at), "") AS st_obj_u FROM mc_world_item_states) i
+        CROSS JOIN (SELECT COUNT(*) AS ws_c, COALESCE(MAX(updated_at), "") AS ws_u FROM mc_world_state) s
+        CROSS JOIN (SELECT COUNT(*) AS le_c, COALESCE(MAX(updated_at), "") AS le_u FROM mc_world_layout_edits) l')->fetch();
 
     $nowTs = time();
     $villageVersion = mc_village_layout_version($pdo, $nowTs);
@@ -750,12 +759,13 @@ if ($action === 'sync') {
     $leaseQuery->execute([$userId, $nowTs]);
     $activeLease = $leaseQuery->fetch();
     $clientObjVer = (string)($body['obj_ver'] ?? '');
-    $objVer = ($meta ? ((string)$meta['obj_c'] . ':' . (string)$meta['obj_u']) : '0:') . ':' . $villageVersion;
+    $objVer = ($meta ? ((string)$meta['obj_c'] . ':' . (string)$meta['obj_u']) : '0:') . ':' . $villageVersion . ':' . ($guestEditLot ?? '');
     $objectsUnchanged = (!$initSync && $clientObjVer !== '' && $clientObjVer === $objVer);
     $objects = null;
     if (!$objectsUnchanged) {
         $objects = new stdClass();
-        foreach ($pdo->query('SELECT w.item_id, w.x, w.y, w.z, w.ry FROM mc_world_objects w' . MC_VILLAGE_ITEM_JOINS . ' WHERE ' . MC_VILLAGE_ITEM_VISIBLE) as $obj) {
+        foreach ($pdo->query('SELECT w.item_id, w.x, w.y, w.z, w.ry, vs.item_id IS NOT NULL AS on_sale
+            FROM mc_world_objects w' . MC_VILLAGE_ITEM_JOINS . ' LEFT JOIN mc_village_sales vs ON vs.item_id=w.item_id WHERE ' . MC_VILLAGE_ITEM_VISIBLE) as $obj) {
             $itemId = (string)$obj['item_id'];
             $objects->{$itemId} = [
                 'x' => (float)$obj['x'],
@@ -767,6 +777,7 @@ if ($action === 'sync') {
             $lot = $lotId !== null ? $getLot($lotId) : null;
             if ($lot && (int)$lot['expires_at'] > $villageNow && (int)$lot['owner_id'] !== $userId) {
                 $objects->{$itemId}['lot_locked'] = true;
+                if ($lotId === $guestEditLot && !$obj['on_sale']) $objects->{$itemId}['edit_lot'] = $lotId;
             }
         }
     }
@@ -866,6 +877,7 @@ if ($action === 'sync') {
         'online_count' => count($players) + 1,
         'saved_pose' => $savedPose,
         'village_lease' => $activeLease ? ['id' => (int)$activeLease['lot_id'], 'expires_at' => (int)$activeLease['expires_at']] : null,
+        'village_edit_lot' => $guestEditLot,
         'force_teleport' => $forceTeleport,
         'players' => $players,
         'obj_ver' => $objVer,

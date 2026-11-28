@@ -259,11 +259,16 @@ export function updateDynamicEnvironment(dt, env, precipitationDt = dt) {
       env.envCloudMat.color.copy(cCol);
     }
   }
-  if (env.envCloudsInst && env.envClouds && env.envClouds.length) {
+  env.cloudDelta = (env.cloudDelta || 0) + dt;
+  const cloudPeriod = env.isTouch ? 0.08 : 0.05;
+  if (env.envCloudsInst && env.envClouds?.length &&
+      (env.cloudDelta >= cloudPeriod || env.envCloudsInst.count !== Math.min(targetClouds, env.envClouds.length) * 3)) {
+    const cloudDt = env.cloudDelta;
+    env.cloudDelta = 0;
     const visibleClouds = Math.min(targetClouds, env.envClouds.length);
     for (let ci = 0; ci < visibleClouds; ci++) {
       const cl = env.envClouds[ci];
-      cl.x += dt * cloudSpeed * (0.8 + (ci % 3) * 0.25);
+      cl.x += cloudDt * cloudSpeed * (0.8 + (ci % 3) * 0.25);
       if (cl.x > 155) cl.x = -155;
       for (let cp = 0; cp < 3; cp++) {
         const r = 5 + (cp % 2) * 2.5;
@@ -275,7 +280,8 @@ export function updateDynamicEnvironment(dt, env, precipitationDt = dt) {
     }
     env.envCloudsInst.count = visibleClouds * 3;
     env.envCloudsInst.instanceMatrix.needsUpdate = true;
-  } else if (env.envClouds) {
+  } else if (!env.envCloudsInst && env.envClouds) {
+    env.cloudDelta = 0;
     for (let ci = 0; ci < env.envClouds.length; ci++) {
       env.envClouds[ci].visible = ci < targetClouds;
       env.envClouds[ci].position.x += dt * cloudSpeed * (0.8 + (ci % 3) * 0.25);

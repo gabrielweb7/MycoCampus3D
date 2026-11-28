@@ -653,7 +653,7 @@ export function isPlacementBlocked(ctx, pt) {
   placementBlockedReason = '';
   var heldItem = ctx.heldItem;
   if (!heldItem || !heldItem.mesh) return false;
-  if (!canPlaceVillageItem(pt.x, pt.z, heldItem, appState.villageLease)) {
+  if (!canPlaceVillageItem(pt.x, pt.z, heldItem, appState.villageLease, !!ctx.villageMove)) {
     placementBlockedReason = t('village.placement_locked');
     return true;
   }

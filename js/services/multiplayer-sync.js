@@ -3,6 +3,7 @@
  */
 import { applyCampusMeetupInvite } from '../ui/campus-agenda.js';
 import { appState } from '../core/state.js';
+import { SYNC_BACKGROUND_INTERVAL_MS, SYNC_INTERVAL_MS } from '../core/constants.js';
 import { setVillageTraffic } from '../world/village-traffic.js';
 import { events } from '../core/events.js';
 import { apiPost } from '../services/api-client.js';
@@ -13,6 +14,44 @@ import { forceCacheBustReload } from '../core/version-updater.js';
 import { t } from '../core/i18n.js';
 import { getLocalPetPose, updateRemotePets } from '../entities/pets.js';
 
+let lastRequestAt = -Infinity;
+let alone = false;
+let remoteMoving = false;
+
+export function getMultiplayerPollDelay({ hidden, alone, moving, pending, failures }) {
+  if (failures > 0) return Math.max(hidden ? SYNC_BACKGROUND_INTERVAL_MS : 0, Math.min(4000, 500 * 2 ** Math.min(3, failures - 1)));
+  if (pending) return SYNC_INTERVAL_MS;
+  if (hidden) return SYNC_BACKGROUND_INTERVAL_MS;
+  if (alone) return 850;
+  return moving ? SYNC_INTERVAL_MS : 500;
+}
+
+export function stopMultiplayerPolling() {
+  if (appState.syncTimer !== null) clearInterval(appState.syncTimer);
+  appState.syncTimer = null;
+}
+
+export function startMultiplayerPolling({ reset = false } = {}) {
+  stopMultiplayerPolling();
+  if (reset) {
+    lastRequestAt = -Infinity;
+    alone = false;
+    remoteMoving = false;
+  }
+  appState.syncTimer = setInterval(() => {
+    if (!appState.currentUser || appState.syncInFlight) return;
+    const pending = appState.isInitialSync || !!appState.pendingChatMsg || !!window.hasCampusPendingSync?.();
+    const delay = getMultiplayerPollDelay({
+      pending,
+      alone,
+      moving: remoteMoving || !!window.isCampusSyncMoving?.(),
+      hidden: !!document.hidden,
+      failures: appState.syncFailures
+    });
+    if (performance.now() - lastRequestAt >= delay - 8) events.emit('sync:now');
+  }, 125);
+}
+
 export async function syncMultiplayer(forceHeldState = false) {
   const userId = appState.currentUser?.id;
   if (userId == null || typeof window.getCampusPlayerPose !== 'function') return false;
@@ -21,6 +60,7 @@ export async function syncMultiplayer(forceHeldState = false) {
     return false;
   }
   appState.syncInFlight = true;
+  lastRequestAt = performance.now();
   appState.syncQueued = false;
   const sessionId = appState.sessionId;
   const isCurrent = () => appState.currentUser?.id === userId && appState.sessionId === sessionId;
@@ -81,8 +121,7 @@ export async function syncMultiplayer(forceHeldState = false) {
     if (!isCurrent()) return false;
 
     if (data && data.kicked) {
-      if (appState.syncTimer) clearInterval(appState.syncTimer);
-      appState.syncTimer = null;
+      stopMultiplayerPolling();
       appState.currentUser = null;
       appState.authToken = null;
       if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock();
@@ -91,7 +130,11 @@ export async function syncMultiplayer(forceHeldState = false) {
     }
 
     if (data.ok) {
+      const players = data.players || [];
+      alone = players.length === 0 && (data.online_count || 1) <= 1;
+      remoteMoving = players.some(player => player.walking || player.vx || player.vz);
       appState.villageLease = data.village_lease || null;
+      appState.villageEditLot = data.village_edit_lot || null;
       setVillageTraffic(data.village_traffic);
       if (data.force_teleport && window.teleportCampusPlayer) {
         window.teleportCampusPlayer(
@@ -119,7 +162,9 @@ export async function syncMultiplayer(forceHeldState = false) {
         if (verEl) verEl.textContent = 'v' + data.app_version;
       }
 
-      if ($('hud-online')) $('hud-online').textContent = String(data.online_count || 1);
+      const online = $('hud-online');
+      const onlineCount = String(data.online_count || 1);
+      if (online && online.textContent !== onlineCount) online.textContent = onlineCount;
       if (typeof data.server_ts === 'number' && window.setCampusServerTime) {
         window.setCampusServerTime(data.server_ts);
       }
@@ -144,13 +189,13 @@ export async function syncMultiplayer(forceHeldState = false) {
         if (typeof data.server_ts === 'number') data.world_state._serverTs = data.server_ts;
         window.applyCampusWorldState(data.world_state, firstSync);
       }
-      window.applyCampusInventory?.(data.inventory, data.players || [], pose.holding_item, firstSync);
+      window.applyCampusInventory?.(data.inventory, players, pose.holding_item, firstSync);
       if (firstSync && data.saved_pose && window.applyCampusSavedPose) {
         window.applyCampusSavedPose(data.saved_pose);
       }
       if (firstSync && !data.force_teleport) applyCampusMeetupInvite();
-      if (window.updateCampusPlayers) window.updateCampusPlayers(data.players || []);
-      updateRemotePets(data.players || []);
+      window.updateCampusPlayers?.(players);
+      updateRemotePets(players);
       if (data.board_strokes && data.board_strokes.length && window.applyCampusBoardStrokes) {
         window.applyCampusBoardStrokes(data.board_strokes);
       }

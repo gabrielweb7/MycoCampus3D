@@ -34,7 +34,9 @@ import { breakAndShakeSpawn, canReceiveSpawnForFruiting, getSpawnSubstrateDispla
 import { interactSilicaStorageJar, interactLabMicroscope } from '../items/lab-advanced-tools.js';
 import { toggleAmpouleCaseLid, openAmpouleCaseModal } from '../items/ampoule-case.js';
 import { handleWorldInteraction } from '../systems/world-interactions.js';
-import { cancelHeldItemPlacement, toggleHeldItemPlacement } from '../systems/held-item-placement.js';
+import { beginVillageItemMove, cancelHeldItemPlacement, toggleHeldItemPlacement } from '../systems/held-item-placement.js';
+import { apiPost } from '../services/api-client.js';
+import { appState } from '../core/state.js';
 import { escapeHtml } from './dom-helpers.js';
 import { diagnoseItemPedagogy } from '../core/cultivation-tracks.js';
 import { discardHeldLiquid, getDrainableVolume } from '../systems/liquid-disposal.js';
@@ -51,6 +53,7 @@ let styleInjected = false;
 let currentActions = [];
 let lastSignature = '';
 let mobileHold = null;
+let villageEditorRequest = false;
 const BOWL_ING_KEYS = {
   vermiculite: 'actions.radial.ing_vermiculite',
   coco: 'actions.radial.ing_coco',
@@ -1478,6 +1481,44 @@ export function assignActionShortcuts(actions) {
 
 export function getFloatingActionsPreview(ctx) {
   if (!ctx) return [];
+  const guest = ctx.hoveredVillageEditor;
+  if (!ctx.heldItem && guest?.villageEditor) {
+    const editor = guest.villageEditor;
+    return assignActionShortcuts([{
+      id: 'village_editor_' + editor.id + '_' + Number(editor.allowed),
+      key: 'F', primary: true, icon: '🏡',
+      label: t(editor.allowed ? 'village.editor_yes' : 'village.editor_no', { name: guest.displayName }),
+      run: async () => {
+        if (villageEditorRequest || ctx.hoveredVillageEditor !== guest) return;
+        const session = appState.sessionId;
+        villageEditorRequest = true;
+        const allowed = !editor.allowed;
+        try {
+          const result = await apiPost('api/village.php?action=set_editor',
+            { lot_id: editor.lot, guest_id: editor.id, allowed }, true);
+          if (appState.sessionId !== session) return;
+          if (result?.ok) {
+            if (guest.villageEditor?.id === editor.id) guest.villageEditor.allowed = allowed;
+            ctx.callbacks?.onToast?.(t(allowed ? 'village.editor_granted' : 'village.editor_revoked', { name: guest.displayName }));
+            ctx.notifyWorldAction();
+          } else ctx.callbacks?.onToast?.(t('village.editor_failed'));
+        } catch {
+          if (appState.sessionId === session) ctx.callbacks?.onToast?.(t('village.editor_failed'));
+        } finally {
+          villageEditorRequest = false;
+        }
+      }
+    }]);
+  }
+  const guestItem = ctx.hoveredVillageItem;
+  if (!ctx.heldItem && guestItem?.villageEditLot) {
+    return assignActionShortcuts([
+      { id: 'village_move_' + guestItem.id, key: 'Q', label: t('hud.move_aimed'), primary: true,
+        run: () => { if (ctx.hoveredVillageItem === guestItem) beginVillageItemMove(ctx, guestItem); } },
+      { id: 'village_inspect_' + guestItem.id, key: 'I', label: t('actions.radial.inspect'),
+        run: () => inspectItemToast(ctx, guestItem) }
+    ]);
+  }
   const touch = !!ctx.isTouchDevice?.();
   const held = ctx.heldItem;
   const placing = !!(ctx.placementMode && held);

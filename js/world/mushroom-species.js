@@ -864,8 +864,60 @@ let lastForestCullAt = 0;
 let lastForestCullX = 9999;
 let lastForestCullZ = 9999;
 let lastForestScale = -1;
-const _zeroScaleMat4 = (THREE && THREE.Matrix4) ? new THREE.Matrix4().makeScale(0, 0, 0) : null;
-const _dirtyInstMeshes = new Set();
+const forestBatches = new WeakMap();
+
+function updateForestBatches(chunks, px, pz, scaleSq) {
+  let batches = forestBatches.get(chunks);
+  const first = !batches;
+  if (first) {
+    batches = new Map();
+    for (const chunk of chunks) {
+      for (const { inst } of chunk.items) {
+        if (!batches.has(inst)) {
+          batches.set(inst, { sourceColors: inst.instanceColor?.array.slice(), count: 0 });
+          inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+          inst.instanceColor?.setUsage(THREE.DynamicDrawUsage);
+        }
+      }
+    }
+    forestBatches.set(chunks, batches);
+  }
+  let changed = first;
+  for (const chunk of chunks) {
+    const dx = chunk.x - px, dz = chunk.z - pz;
+    const visible = dx * dx + dz * dz <= chunk.maxDistSq * scaleSq;
+    if (visible === chunk.visible) continue;
+    chunk.visible = visible;
+    changed = true;
+  }
+  if (!changed) return;
+
+  for (const batch of batches.values()) batch.count = 0;
+  for (const chunk of chunks) {
+    if (!chunk.visible) continue;
+    for (const { inst, idx, activeMat } of chunk.items) {
+      const batch = batches.get(inst);
+      const destination = batch.count++;
+      inst.setMatrixAt(destination, activeMat);
+      if (batch.sourceColors) {
+        const offset = idx * 3;
+        inst.instanceColor.setXYZ(destination, batch.sourceColors[offset], batch.sourceColors[offset + 1], batch.sourceColors[offset + 2]);
+      }
+    }
+  }
+  for (const [inst, batch] of batches) {
+    inst.count = batch.count;
+    if (batch.count === 0) continue;
+    inst.instanceMatrix.clearUpdateRanges();
+    inst.instanceMatrix.addUpdateRange(0, batch.count * 16);
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) {
+      inst.instanceColor.clearUpdateRanges();
+      inst.instanceColor.addUpdateRange(0, batch.count * 3);
+      inst.instanceColor.needsUpdate = true;
+    }
+  }
+}
 
 export function stepForestDistanceCulling(ctx) {
   if (!ctx || !ctx.playerPos) return;
@@ -882,26 +934,7 @@ export function stepForestDistanceCulling(ctx) {
 
   const scaleSq = scale * scale;
   const fChunks = ctx.forestInstChunks;
-  if (fChunks && fChunks.length && _zeroScaleMat4) {
-    _dirtyInstMeshes.clear();
-    for (let i = 0; i < fChunks.length; i++) {
-      const ch = fChunks[i];
-      const dx = ch.x - px, dz = ch.z - pz;
-      const shouldShow = (dx * dx + dz * dz) <= (ch.maxDistSq * scaleSq);
-      if (shouldShow === ch.visible) continue;
-      ch.visible = shouldShow;
-      const mat4 = shouldShow ? null : _zeroScaleMat4;
-      for (let k = 0; k < ch.items.length; k++) {
-        const ref = ch.items[k];
-        ref.inst.setMatrixAt(ref.idx, mat4 || ref.activeMat);
-        _dirtyInstMeshes.add(ref.inst);
-      }
-    }
-    if (_dirtyInstMeshes.size > 0) {
-      _dirtyInstMeshes.forEach((inst) => { inst.instanceMatrix.needsUpdate = true; });
-      _dirtyInstMeshes.clear();
-    }
-  }
+  if (fChunks?.length) updateForestBatches(fChunks, px, pz, scaleSq);
   const fList = ctx.forestCullGroups;
   if (fList && fList.length) {
     for (let i = 0; i < fList.length; i++) {

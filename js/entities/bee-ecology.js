@@ -93,16 +93,8 @@ export function findNearestHiveMountSpot(ctx, fromX = 0, fromZ = 0) {
     const statics = getStaticCampusEavesSpots();
     for (let i = 0; i < statics.length; i++) candidates.push(statics[i]);
   }
-  for (let i = 0; i < CAMPUS_HIVE_CANDIDATES.length; i++) {
-    const c = CAMPUS_HIVE_CANDIDATES[i];
-    candidates.push({
-      x: c.x,
-      y: terrainHeight(c.x, c.z) + 2.55,
-      z: c.z,
-      mountType: 'tree',
-      label: 'Árvore Próxima'
-    });
-  }
+  const treeSpots = sampleFreeTreeSpots(ctx, fromX, fromZ, 14, 6, 38);
+  for (let i = 0; i < treeSpots.length; i++) candidates.push(treeSpots[i]);
 
   const existing = (ctx && Array.isArray(ctx.beehives)) ? ctx.beehives : [];
   let best = null;
@@ -110,15 +102,40 @@ export function findNearestHiveMountSpot(ctx, fromX = 0, fromZ = 0) {
   for (let i = 0; i < candidates.length; i++) {
     const cand = candidates[i];
     const checkX = cand.mountType === 'tree' ? cand.x + 0.48 : cand.x;
-    const occupied = existing.some((h) => h && !h.abandoned && !h.collected && Math.hypot(h.x - checkX, h.z - cand.z) < 3.5);
+    // Colmeia abandonada que ninguém recolheu continua ocupando o lugar.
+    const occupied = existing.some((h) => h && !h.collected && Math.hypot(h.x - checkX, h.z - cand.z) < 6.0);
     if (occupied) continue;
-    const d = Math.hypot(checkX - fromX, cand.z - fromZ);
+    const d = Math.hypot(checkX - fromX, cand.z - fromZ) * (0.7 + Math.random() * 0.6);
     if (d < bestDist) {
       bestDist = d;
       best = cand;
     }
   }
   return best;
+}
+
+/** Sorteia pontos livres de solo natural onde a abelha pode criar uma árvore-colmeia (sem lista fixa). */
+function sampleFreeTreeSpots(ctx, cx, cz, count, minR, maxR) {
+  const out = [];
+  for (let n = 0; n < count * 6 && out.length < count; n++) {
+    const ang = Math.random() * Math.PI * 2;
+    const r = minR + Math.random() * (maxR - minR);
+    const x = Math.max(-95, Math.min(95, cx + Math.cos(ang) * r));
+    const z = Math.max(-85, Math.min(30, cz + Math.sin(ang) * r));
+    if (!isNaturalSoilSpot(x, z, 1.8) || isBlockedAt(ctx, x, z, 1.6)) continue;
+    out.push({ x, y: terrainHeight(x, z) + 2.55, z, mountType: 'tree', label: 'Árvore Próxima' });
+  }
+  return out;
+}
+
+function countBloomingFlowersNear(ctx, x, z, radius) {
+  let score = 0;
+  const flowers = ctx.campusFlowers || [];
+  for (let f = 0; f < flowers.length; f++) {
+    const fl = flowers[f];
+    if (fl && !fl.removed && fl.stage === 'blooming' && fl.pollen > 0.001 && Math.hypot(fl.x - x, fl.z - z) <= radius) score++;
+  }
+  return score;
 }
 
 function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
@@ -524,32 +541,66 @@ export function createPastureBees(ctx) {
   if (!Array.isArray(ctx.campusFlowers)) ctx.campusFlowers = []; else ctx.campusFlowers.length = 0;
   if (!Array.isArray(ctx.flowerHitMeshes)) ctx.flowerHitMeshes = []; else ctx.flowerHitMeshes.length = 0;
 
+  // Pontos livres espalhados pelo mapa (determinísticos para todos os jogadores), sem lista fixa de colmeias.
+  const freeSpot = (seed, minGap, taken) => {
+    for (let a = 0; a < 80; a++) {
+      const x = -92 + hash01(seed * 3.7 + a, 11 + seed) * 184;
+      const z = -80 + hash01(seed * 5.3 + a * 1.3, 29 + seed) * 108;
+      if (!isNaturalSoilSpot(x, z, 1.8) || isBlockedAt(ctx, x, z, 1.6)) continue;
+      if (taken.some((p) => Math.hypot(p.x - x, p.z - z) < minGap)) continue;
+      return { x, z };
+    }
+    return null;
+  };
+
+  const hiveSpots = [];
+  for (let hIdx = 0; hIdx < 3; hIdx++) {
+    const hs = freeSpot(hIdx + 1, 35, hiveSpots) || CAMPUS_HIVE_CANDIDATES[hIdx];
+    hiveSpots.push(hs);
+  }
+
+  // Flores espalhadas por todo o mapa, em pequenos grupos, além de perto das colmeias iniciais.
   let flowerSeed = 0;
-  CAMPUS_HIVE_CANDIDATES.forEach((spot, sIdx) => {
-    const count = sIdx < 3 ? 6 : 7;
-    for (let f = 0; f < count; f++) {
+  const flowerSpots = [];
+  const addFlowerAt = (fx, fz, staggered) => {
+    const sDur = 12 + hash01(flowerSeed + 5, 19) * 20;
+    ctx.campusFlowers.push(createCampusFlower(ctx, fx, fz, flowerSeed++, {
+      stage: staggered ? 'sprouting' : 'blooming',
+      pollen: 1.0,
+      sproutDuration: sDur,
+      stageTimer: staggered ? sDur * hash01(flowerSeed, 9) * 0.7 : 0
+    }));
+    flowerSpots.push({ x: fx, z: fz });
+  };
+  hiveSpots.forEach((spot, sIdx) => {
+    for (let f = 0; f < 6; f++) {
       for (let attempt = 0; attempt < 24; attempt++) {
-        const ang = (f / count) * Math.PI * 2 + hash01(sIdx + 1, f + attempt * 7 + 3) * 1.1;
+        const ang = (f / 6) * Math.PI * 2 + hash01(sIdx + 1, f + attempt * 7 + 3) * 1.1;
         const dist = 2.0 + hash01(f + attempt * 13 + 7, sIdx + 11) * 5.2;
         const fx = spot.x + Math.cos(ang) * dist;
         const fz = spot.z + Math.sin(ang) * dist;
-        if (isNaturalSoilSpot(fx, fz, 0.7) && !isBlockedAt(ctx, fx, fz, 0.5)) {
-          const isStaggeredSprout = sIdx >= 3 && (flowerSeed % 6 === 0);
-          const sDur = 12 + hash01(f + 5, sIdx + 19) * 20;
-          ctx.campusFlowers.push(createCampusFlower(ctx, fx, fz, flowerSeed++, {
-            stage: isStaggeredSprout ? 'sprouting' : 'blooming',
-            pollen: 1.0,
-            sproutDuration: sDur,
-            stageTimer: isStaggeredSprout ? sDur * hash01(sIdx + 2, f + 9) * 0.7 : 0
-          }));
-          break;
-        }
+        if (isNaturalSoilSpot(fx, fz, 0.7) && !isBlockedAt(ctx, fx, fz, 0.5)) { addFlowerAt(fx, fz, false); break; }
       }
     }
   });
+  for (let g = 0; g < 14; g++) {
+    const center = freeSpot(40 + g, 12, []);
+    if (!center) continue;
+    const n = 3 + Math.floor(hash01(g, 77) * 4);
+    for (let f = 0; f < n; f++) {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const ang = hash01(g * 9 + f, attempt + 3) * Math.PI * 2;
+        const dist = 0.8 + hash01(f + attempt, g + 5) * 4.5;
+        const fx = center.x + Math.cos(ang) * dist;
+        const fz = center.z + Math.sin(ang) * dist;
+        if (isNaturalSoilSpot(fx, fz, 0.7) && !isBlockedAt(ctx, fx, fz, 0.5) &&
+            !flowerSpots.some((p) => Math.hypot(p.x - fx, p.z - fz) < 0.9)) { addFlowerAt(fx, fz, f % 3 === 0); break; }
+      }
+    }
+  }
 
   for (let hIdx = 0; hIdx < 3; hIdx++) {
-    const hs = CAMPUS_HIVE_CANDIDATES[hIdx];
+    const hs = hiveSpots[hIdx];
     const hive = createHiveAtSpot(ctx, 'hive_' + hIdx, { x: hs.x, z: hs.z, mountType: 'tree' }, {
       honeyLevel: 45 + hIdx * 10,
       buildProgress: 1.0
@@ -590,26 +641,24 @@ export function startHiveMigration(ctx, oldHive, isNight = false) {
   let bestSpot = null;
   let bestScore = -1;
   const hives = Array.isArray(ctx.beehives) ? ctx.beehives : [];
-  for (let i = 0; i < CAMPUS_HIVE_CANDIDATES.length; i++) {
-    const cand = CAMPUS_HIVE_CANDIDATES[i];
-    const occupied = hives.some((h) => h && !h.abandoned && !h.collected && Math.hypot(h.x - cand.x, h.z - cand.z) < 6.0);
+  // As abelhas escolhem livremente: árvore nova em solo livre ou beiral de uma construção, onde houver mais flores.
+  const pool = sampleFreeTreeSpots(ctx, oldHive.x, oldHive.z, 40, 8, 70);
+  const eaves = findNearestHiveMountSpot(ctx, oldHive.x, oldHive.z);
+  if (eaves && eaves.mountType === 'eaves') pool.push(eaves);
+  for (let i = 0; i < pool.length; i++) {
+    const cand = pool[i];
+    const cx = cand.mountType === 'tree' ? cand.x + 0.48 : cand.x;
+    // Colmeia abandonada e não recolhida bloqueia o lugar (nada de construir em cima).
+    const occupied = hives.some((h) => h && !h.collected && Math.hypot(h.x - cx, h.z - cand.z) < 6.0);
     if (occupied) continue;
-    let score = 0;
-    if (ctx.campusFlowers) {
-      for (let f = 0; f < ctx.campusFlowers.length; f++) {
-        const fl = ctx.campusFlowers[f];
-        if (fl && !fl.removed && fl.stage === 'blooming' && fl.pollen > 0.001 && Math.hypot(fl.x - cand.x, fl.z - cand.z) <= 11.5) {
-          score++;
-        }
-      }
-    }
+    const score = countBloomingFlowersNear(ctx, cx, cand.z, 11.5) + Math.random() * 0.9;
     if (score > bestScore) {
       bestScore = score;
       bestSpot = cand;
     }
   }
 
-  if (!bestSpot || bestScore <= 0) {
+  if (!bestSpot || bestScore < 1) {
     oldHive.failedMigrations = (oldHive.failedMigrations || 0) + 1;
     if (!bestSpot || oldHive.failedMigrations >= 3 || (nightNow && oldHive.failedMigrations >= 2)) {
       enterGroundRestMode(ctx, oldHive);
@@ -624,7 +673,7 @@ export function startHiveMigration(ctx, oldHive, isNight = false) {
   const nextFailedCount = oldHive.failedMigrations || 0;
   markHiveAbandoned(oldHive);
 
-  const newHive = createHiveAtSpot(ctx, 'hive_mig_' + hives.length, { x: bestSpot.x, z: bestSpot.z, mountType: 'tree' }, {
+  const newHive = createHiveAtSpot(ctx, 'hive_mig_' + hives.length + '_' + Date.now().toString(36), bestSpot, {
     honeyLevel: 12,
     migrating: true,
     buildProgress: 0.2,
@@ -801,7 +850,8 @@ export function stepPastureBees(ctx, dt) {
           if (fl.stage === 'blooming' && fl.pollen > 0.001) availableFlowers++;
           else if (fl.stage === 'sprouting' || (fl.stage === 'seeding' && !fl.seedHarvested)) upcomingSprouts++;
         }
-        if (availableFlowers === 0 && upcomingSprouts === 0) {
+        const outOfHoney = hive.honeyLevel <= 0.5 && availableFlowers === 0;
+        if ((availableFlowers === 0 && upcomingSprouts === 0) || outOfHoney) {
           hive.noPollenTimer += dt;
           if (hive.noPollenTimer > 5.0) {
             hive.noPollenTimer = 0;

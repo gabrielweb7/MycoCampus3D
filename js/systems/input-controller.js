@@ -24,6 +24,7 @@ export function bindControls(ctx) {
   let altReleasedPointerLock = false;
   let lastPointerLockExitAt = -2000;
   function safeRequestPointerLock(force = false) {
+    if (document.hidden || document.hasFocus?.() === false) return;
     if (!force && performance.now() - lastPointerLockExitAt < 1100) return;
     try {
       const res = ctx.renderer.domElement.requestPointerLock();

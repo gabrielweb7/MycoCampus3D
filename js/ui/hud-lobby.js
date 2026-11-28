@@ -1,8 +1,8 @@
 /**
  * MycoCampus3D — HUD do Jogador, Lobby, Sessão e Controles de Vista/FPS
  */
-import { flushInventoryBeforeLogout } from '../services/multiplayer-sync.js';
-import { HAT_COLORS, BODY_COLORS, SYNC_INTERVAL_MS, createSessionId, getAppVersion } from '../core/constants.js';
+import { flushInventoryBeforeLogout, startMultiplayerPolling, stopMultiplayerPolling } from '../services/multiplayer-sync.js';
+import { HAT_COLORS, BODY_COLORS, createSessionId, getAppVersion } from '../core/constants.js';
 import { LESSONS } from '../core/lessons-data.js';
 import { t } from '../core/i18n.js';
 import { appState } from '../core/state.js';
@@ -126,9 +126,8 @@ export function enterCampus(user, token, created = false) {
     const hint = $('fps-hint');
     if (hint) hint.classList.add('faded');
   }, 4000);
-  if (appState.syncTimer) clearInterval(appState.syncTimer);
+  startMultiplayerPolling({ reset: true });
   events.emit('sync:now');
-  appState.syncTimer = setInterval(() => events.emit('sync:now'), SYNC_INTERVAL_MS);
   setTimeout(() => {
     const isCurrent = () => entryGeneration === campusEntryGeneration && appState.currentUser?.id === user.id;
     if (!isCurrent()) return;
@@ -170,8 +169,7 @@ export async function tryResumeSession() {
 export async function logoutCampus() {
   if (!appState.currentUser) return false;
   const sessionId = appState.sessionId;
-  if (appState.syncTimer) clearInterval(appState.syncTimer);
-  appState.syncTimer = null;
+  stopMultiplayerPolling();
   const lastName = appState.currentUser.display_name;
   let signedOut = false;
   try {
@@ -183,7 +181,7 @@ export async function logoutCampus() {
   } catch (e) {}
   if (appState.sessionId !== sessionId || !appState.currentUser) return false;
   if (!signedOut) {
-    appState.syncTimer = setInterval(() => events.emit('sync:now'), SYNC_INTERVAL_MS);
+    startMultiplayerPolling();
     showFloatingToast(t('settings.logout_retry'));
     return false;
   }
@@ -193,6 +191,7 @@ export async function logoutCampus() {
   resetFirstSteps();
   appState.currentUser = null;
   appState.villageLease = null;
+  appState.villageEditLot = null;
   setModalManagerUserKey(null);
   setMycoCoinsUserScope(null);
   hydrateMicotecaFromServer(null);
@@ -223,8 +222,7 @@ export function handleSessionExpired(msg) {
   dismissWhatsNewModal();
   dismissDiscordWelcome();
   resetFirstSteps();
-  if (appState.syncTimer) clearInterval(appState.syncTimer);
-  appState.syncTimer = null;
+  stopMultiplayerPolling();
   appState.currentUser = null;
   appState.villageLease = null;
   setModalManagerUserKey(null);

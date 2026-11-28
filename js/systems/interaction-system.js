@@ -189,6 +189,7 @@ function tryPlaceHeldOnAimedSurface(ctx, aimNdc) {
 export function dropHeldItem(ctx) {
   if (ctx.inventory?.pending) return false;
   if (!ctx.heldItem) return false;
+  if (ctx.villageMove) return cancelHeldItemPlacement(ctx);
   ctx.syringePumping = null;
   ctx.syringePunctureProgress = 0;
   ctx.lastSyringeTargetItem = null;

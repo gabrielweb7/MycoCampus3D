@@ -13,6 +13,7 @@
 import { makeBox } from '../engine/textures.js';
 import { getBeeEcologySummary } from '../entities/bee-ecology.js';
 import { getRareBlackGnomeTelemetry } from './trip-gnomes.js';
+import { getUfoTelemetry } from './ufo-abduction.js';
 import { getVirtualDayFrac } from './staircase-clock.js';
 
 const THREE = window.THREE;
@@ -74,6 +75,7 @@ export function collectEcologyTelemetrySnapshot(ctx, { includeRadar = true } = {
   }
 
   const gnome = getRareBlackGnomeTelemetry();
+  const ufo = getUfoTelemetry();
   const sunY = (ctx && typeof ctx.sunElevation === 'number')
     ? ctx.sunElevation
     : Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2);
@@ -110,6 +112,7 @@ export function collectEcologyTelemetrySnapshot(ctx, { includeRadar = true } = {
     wildMushroomsCount: wildMushrooms,
     isNight,
     gnome,
+    ufo,
     radar: {
       cows: cowsList,
       hives: hiveList,
@@ -304,6 +307,22 @@ function drawRightRadarMonitor(sctx, w, h, snap, blinkPhase) {
     sctx.fillRect(gx + 1, gz - 1, 2, 2);
   }
 
+  // Nave (OVNI): marcador pulsante no radar
+  if (snap.ufo && snap.ufo.active) {
+    const ux = toRadarX(snap.ufo.x);
+    const uz = toRadarY(snap.ufo.z);
+    sctx.strokeStyle = blinkPhase ? '#22d3ee' : '#a3e635';
+    sctx.lineWidth = 2.5;
+    sctx.beginPath();
+    sctx.arc(ux, uz, blinkPhase ? 11 : 7, 0, Math.PI * 2);
+    sctx.stroke();
+    sctx.fillStyle = '#e0f2fe';
+    sctx.font = '14px system-ui, sans-serif';
+    sctx.textAlign = 'center';
+    sctx.fillText('🛸', ux, uz + 5);
+    sctx.textAlign = 'left';
+  }
+
   // Painel lateral de legenda & status de anomalia
   drawRoundedPanel(sctx, 248, 68, 244, 210, 12, '#081828', '#334155');
   sctx.fillStyle = '#e2e8f0';
@@ -314,7 +333,8 @@ function drawRightRadarMonitor(sctx, w, h, snap, blinkPhase) {
     { col: '#facc15', txt: 'Colmeias Ativas' },
     { col: '#f8fafc', txt: 'Rebanho de Vaquinhas' },
     { col: '#38bdf8', txt: 'Estação Ecológica' },
-    { col: '#f43f5e', txt: 'Gnomo Sombrio Raro' }
+    { col: '#f43f5e', txt: 'Gnomo Sombrio Raro' },
+    { col: '#22d3ee', txt: 'Nave (OVNI)' }
   ];
   for (let i = 0; i < leg.length; i++) {
     sctx.fillStyle = leg[i].col;
@@ -327,11 +347,19 @@ function drawRightRadarMonitor(sctx, w, h, snap, blinkPhase) {
   sctx.font = '13px system-ui, sans-serif';
   sctx.fillText(
     snap.gnome?.lonelyTreeActive ? '🌲 Gnomo das Árvores ativo na mata' : '🌲 Sem atividade na mata alta',
-    262, 260
+    262, 273
   );
 
   // Banner de Aviso Inferior
-  if (gnomeActive) {
+  if (!gnomeActive && snap.ufo && snap.ufo.active) {
+    drawRoundedPanel(sctx, 20, 290, 472, 74, 12, blinkPhase ? '#164e63' : '#365314', blinkPhase ? '#22d3ee' : '#a3e635');
+    sctx.fillStyle = '#ffffff';
+    sctx.font = 'bold 19px system-ui, sans-serif';
+    sctx.fillText(snap.ufo.abducting ? '🛸 NAVE ABDUZINDO UMA VAQUINHA!' : '🛸 NAVE DETECTADA NO CÉU!', 36, 320);
+    sctx.fillStyle = '#fde68a';
+    sctx.font = 'bold 15px system-ui, sans-serif';
+    sctx.fillText(`Posição: x ${Math.round(snap.ufo.x)}  z ${Math.round(snap.ufo.z)} (veja o radar)`, 36, 348);
+  } else if (gnomeActive) {
     drawRoundedPanel(
       sctx, 20, 290, 472, 74, 12,
       blinkPhase ? '#7f1d1d' : '#4c1d95',
@@ -592,7 +620,11 @@ export function stepEcologyMonitoringStation(ctx, dt) {
   const hasExtinction = snap.activeHives === 0 && snap.extinctHives > 0;
 
   if (stationState.beaconMat) {
-    if (hasGnomeAlert) {
+    if (snap.ufo && snap.ufo.active && !hasGnomeAlert) {
+      stationState.beaconMat.color.setHex(blinkPhase ? 0x22d3ee : 0xa3e635);
+      stationState.beaconMat.emissive.setHex(blinkPhase ? 0x22d3ee : 0xa3e635);
+      stationState.beaconMat.emissiveIntensity = blinkPhase ? 1.6 : 0.9;
+    } else if (hasGnomeAlert) {
       stationState.beaconMat.color.setHex(blinkPhase ? 0xf43f5e : 0xa855f7);
       stationState.beaconMat.emissive.setHex(blinkPhase ? 0xf43f5e : 0xa855f7);
       stationState.beaconMat.emissiveIntensity = blinkPhase ? 1.6 : 0.9;
@@ -621,7 +653,7 @@ export function stepEcologyMonitoringStation(ctx, dt) {
       for (let ci = 0; ci < snap.radar.cows.length; ci++) {
         cowSum += Math.round(snap.radar.cows[ci].x) * 31 + Math.round(snap.radar.cows[ci].z);
       }
-      sig = `${hasGnomeAlert ? 1 : 0}|${snap.gnome ? snap.gnome.sector : ''}|${snap.gnome ? Math.round(snap.gnome.distToStation || 0) : 0}|${blinkPhase ? 1 : 0}|${snap.radar.hives.length}|${snap.radar.flowers.length}|${cowSum}`;
+      sig = `${snap.ufo && snap.ufo.active ? Math.round(snap.ufo.x / 3) + ':' + Math.round(snap.ufo.z / 3) : 0}|${hasGnomeAlert ? 1 : 0}|${snap.gnome ? snap.gnome.sector : ''}|${snap.gnome ? Math.round(snap.gnome.distToStation || 0) : 0}|${blinkPhase ? 1 : 0}|${snap.radar.hives.length}|${snap.radar.flowers.length}|${cowSum}`;
     }
     if (stationState.lastSigs[idx] !== sig) {
       stationState.lastSigs[idx] = sig;

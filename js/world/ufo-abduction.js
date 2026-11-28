@@ -116,6 +116,19 @@ function releaseCow(cow, ctx) {
   cow.lastProgressZ = rz;
 }
 
+/** Telemetria da nave para o radar da Estação Ecológica. */
+export function getUfoTelemetry() {
+  const pos = ufoState.mesh?.position;
+  const active = ufoState.phase !== 'idle' && !!ufoState.mesh && ufoState.mesh.visible && !!pos;
+  return {
+    active,
+    x: active ? Math.round(pos.x * 10) / 10 : 0,
+    z: active ? Math.round(pos.z * 10) / 10 : 0,
+    phase: active ? ufoState.phase : 'idle',
+    abducting: active && (ufoState.phase === 'approach' || ufoState.phase === 'beam')
+  };
+}
+
 export function stepUfoAbduction(ctx, dt) {
   if (!ctx || !ctx.scene) return;
 
@@ -139,6 +152,7 @@ export function stepUfoAbduction(ctx, dt) {
     ufo.visible = true;
     ufoState.beam.visible = false;
     ufoState.t = 0;
+    ctx.callbacks?.onToast?.('🛸 Nave detectada! Veja a posição no radar da Estação Ecológica.');
 
     if (doAbduct) {
       const cow = availableCows[Math.floor(Math.random() * availableCows.length)];

@@ -53,6 +53,14 @@ CREATE TABLE IF NOT EXISTS mc_village_items (
     INDEX idx_village_item_owner (owner_id, lot_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS mc_village_editors (
+    lot_id TINYINT UNSIGNED NOT NULL,
+    user_id INT NOT NULL,
+    lease_epoch BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (lot_id, user_id),
+    INDEX idx_village_editor_user (user_id)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS mc_village_sales (
     item_id VARCHAR(64) PRIMARY KEY,
     owner_id INT NOT NULL,

@@ -29,7 +29,8 @@ export function villageLotAt(x, z) {
   return VILLAGE_LOTS.find(lot => x >= lot.minX && x <= lot.maxX && z >= lot.minZ && z <= lot.maxZ) || null;
 }
 
-export function canPlaceVillageItem(x, z, item, lease) {
+export function canPlaceVillageItem(x, z, item, lease, guestMove = false) {
   const lot = villageLotAt(x, z);
+  if (guestMove) return !!lot && item?.villageEditLot === lot.id;
   return !!item && !item.isReadOnly && (!lot || lease?.id === lot.id);
 }

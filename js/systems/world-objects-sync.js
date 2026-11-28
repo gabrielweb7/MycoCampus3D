@@ -1119,6 +1119,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
   sim.pickableItems.forEach(function (item) {
     const saved = objectsMap[item.id];
     const lockedByLot = !!saved?.lot_locked;
+    item.villageEditLot = saved?.edit_lot || null;
     if (!item.isPersonal) item.isReadOnly = !!item._layoutReadOnly || lockedByLot;
     if (!item.mesh.userData.updateBounds || item._removedForSync) return;
     const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);

@@ -493,6 +493,8 @@ export function updateCampusPlayers(ctx, players) {
       if (snaps.length > 8) snaps.shift();
     }
     av.targetPos.set(p.x, p.y, p.z);
+    av.villageEditor = p.village_editor || null;
+    av.displayName = p.name;
     av.targetYaw = nyaw;
     av.targetPitch = npitch;
     av.targetVelX = Number(p.vx) || 0;

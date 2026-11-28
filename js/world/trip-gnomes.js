@@ -609,6 +609,11 @@ function applyUmbralAtmosphere(ctx, active) {
 export function stepTripGnomes(ctx, dt) {
   stepTripTextureFlow(ctx.scene, dt);
   const freakout = typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive();
+  // Gnomos raros rodam sempre (antes só rodavam com o efeito de trip ativo e por isso nunca apareciam).
+  if (ctx && ctx.playerPos) {
+    stepLonelyTreeGnome(ctx, dt, ctx.playerPos.x, ctx.playerPos.z);
+    stepRogueBlackGnome(ctx, dt, ctx.playerPos.x, ctx.playerPos.z);
+  }
   const active = typeof window !== 'undefined' && window.isTripRainbowActive && window.isTripRainbowActive();
   const nightFireflies = Math.sin((getVirtualDayFrac() - 0.25) * Math.PI * 2) < -0.08;
   applyUmbralAtmosphere(ctx, freakout);
@@ -887,11 +892,6 @@ export function stepTripGnomes(ctx, dt) {
     }
   }
 
-  // Gnomo Solitário das Árvores (aparece longe da população e sobe na árvore ao se aproximar!)
-  stepLonelyTreeGnome(ctx, dt, px, pz);
-
-  // Gnomo Preto Estranho Solitário (evento raro monitorado pela Estação Fauna & Flora)
-  stepRogueBlackGnome(ctx, dt, px, pz);
 }
 
 function stepLonelyTreeGnome(ctx, dt, px, pz) {
@@ -1074,7 +1074,14 @@ function stepRogueBlackGnome(ctx, dt, px, pz) {
   if (!R.active) {
     R.dormantTimer -= dt;
     if (R.dormantTimer <= 0) {
-      triggerRareBlackGnomeAppearance(ctx, Math.floor(Math.random() * ROGUE_BLACK_GNOME_SPOTS.length));
+      // Prefere um ponto a 25-80 m do jogador, para que ele possa realmente ver o gnomo.
+      const near = [];
+      for (let s = 0; s < ROGUE_BLACK_GNOME_SPOTS.length; s++) {
+        const d = Math.hypot(ROGUE_BLACK_GNOME_SPOTS[s].x - px, ROGUE_BLACK_GNOME_SPOTS[s].z - pz);
+        if (d >= 25 && d <= 80) near.push(s);
+      }
+      const pick = near.length ? near[Math.floor(Math.random() * near.length)] : Math.floor(Math.random() * ROGUE_BLACK_GNOME_SPOTS.length);
+      triggerRareBlackGnomeAppearance(ctx, pick);
     }
     return;
   }

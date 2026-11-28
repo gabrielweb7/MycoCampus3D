@@ -5,9 +5,18 @@ import * as THREE from '../js/vendor/three.bundle.min.js';
 globalThis.window = { THREE };
 globalThis.document = { getElementById: () => null, querySelectorAll: () => [] };
 const { appState } = await import('../js/core/state.js');
-const { syncMultiplayer, sendLeaveBeacon } = await import('../js/services/multiplayer-sync.js');
+const { syncMultiplayer, sendLeaveBeacon, getMultiplayerPollDelay } = await import('../js/services/multiplayer-sync.js');
 const { logoutCampus } = await import('../js/ui/hud-lobby.js');
 const { apiPost } = await import('../js/services/api-client.js');
+
+test('polling adaptativo poupa requisições de presença e prioriza alterações', () => {
+  assert.equal(getMultiplayerPollDelay({ alone: true }), 850);
+  assert.equal(getMultiplayerPollDelay({ moving: true }), 250);
+  assert.equal(getMultiplayerPollDelay({}), 500);
+  assert.equal(getMultiplayerPollDelay({ hidden: true }), 3000);
+  assert.equal(getMultiplayerPollDelay({ hidden: true, pending: true }), 250);
+  assert.equal(getMultiplayerPollDelay({ pending: true, failures: 8 }), 4000);
+});
 
 function setup(t) {
   const previous = { ...appState };
