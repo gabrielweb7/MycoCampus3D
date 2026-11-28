@@ -910,7 +910,7 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
       maxX: x + loftW / 2,
       minZ: Math.min(loftZ - loftD / 2, loftZ + loftD / 2),
       maxZ: Math.max(loftZ - loftD / 2, loftZ + loftD / 2),
-      topY: loftY + 0.06,
+      topY: loftY,
       _disabled: true
     };
     loftFloor.userData.supportSurface = loftSurf;
@@ -1022,6 +1022,19 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
       stairCabCollider.maxY = u.second_floor ? (cabTopY - 0.12) : -1;
       stairSideWall.maxY = u.second_floor ? (loftY + 1.0) : -1;
       railCollider.maxY = u.second_floor ? (loftY + 1.10) : -1;
+      if (u.second_floor && loftSurf && Array.isArray(ctx.items)) {
+        for (let ii = 0; ii < ctx.items.length; ii++) {
+          const it = ctx.items[ii];
+          const pos = it && it.mesh && it.mesh.position;
+          if (!pos) continue;
+          if (pos.x >= loftSurf.minX && pos.x <= loftSurf.maxX &&
+              pos.z >= loftSurf.minZ && pos.z <= loftSurf.maxZ &&
+              pos.y >= loftY - 0.55 && pos.y < loftY - 0.01) {
+            pos.y = loftY;
+            ctx._stackPhysicsDirty = true;
+          }
+        }
+      }
     }
   });
 }

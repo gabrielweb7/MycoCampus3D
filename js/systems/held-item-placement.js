@@ -32,7 +32,7 @@ function findSupportSurfaceAtPoint(ctx, pt) {
   if (ctx.supportSurfaces) {
     for (let i = 0; i < ctx.supportSurfaces.length; i++) {
       const ss = ctx.supportSurfaces[i];
-      if (!ss || (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.dynamicSurface === ss)) continue;
+      if (!ss || ss._disabled || (ctx.heldItem && ctx.heldItem.mesh && ctx.heldItem.mesh.userData.dynamicSurface === ss)) continue;
       if (ss.ownerItem && ss.ownerItem === ctx.heldItem) continue;
       if (Math.abs(pt.y - ss.topY) <= 0.08 && isPointInBoundsXZ(pt.x, pt.z, ss, 0.14)) {
         if (!best || ss.topY > best.topY) best = ss;
