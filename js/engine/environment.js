@@ -194,8 +194,8 @@ export function updateDynamicEnvironment(dt, env, precipitationDt = dt) {
     env.sunHalo.visible = sunVis;
     const sunOrbCol = sunY < 0.22 ? 0xfb923c : 0xfef08a;
     env.sunDisc.material.color.setHex(sunOrbCol);
-    env.sunHalo.material.color.setHex(sunOrbCol);
-    env.sunHalo.material.opacity = Math.max(0.06, (0.42 - 0.22 * wb.overcast) * (1 - wb.rain));
+    // Halo na passada opaca (atrás do relevo): a intensidade vai na cor, pois o aditivo não usa opacidade sem transparent.
+    env.sunHalo.material.color.setHex(sunOrbCol).multiplyScalar(Math.max(0.06, (0.34 - 0.18 * wb.overcast) * (1 - wb.rain)));
   }
   if (env.moonDisc) {
     env.moonDisc.position.set(ox - sunX * celestialDist, oy - sunY * celestialDist * 0.88, oz - celestialDist * 0.27);

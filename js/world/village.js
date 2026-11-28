@@ -85,8 +85,29 @@ function buildCottageWorkArea(ctx, root, lot, mats) {
   buildGardenTap(ctx, x + front * 5.85, lot.doorZ + front * 1.17, front);
 }
 
+/** Parede frontal com abertura real para a janela (dá para ver o interior pelo vidro). Colisão continua inteira. */
+function frontWallWithWindow(root, wallSegments, xa, xb, z, cx, mats) {
+  wallSegments.push({ x1: xa, z1: z, x2: xb, z2: z, halfThick: 0.18, minY: FLOOR_Y, maxY: EAVES_Y });
+  const t = 0.24;
+  const y0 = 1.38;
+  const y1 = 2.24;
+  const hx0 = cx - 0.53;
+  const hx1 = cx + 0.53;
+  const part = (a, b, ya, yb) => {
+    if (b - a < 0.01 || yb - ya < 0.01) return;
+    box(root, mats.wall, (a + b) / 2, (ya + yb) / 2, z, b - a, yb - ya, t);
+  };
+  part(xa, xb, FLOOR_Y, y0);
+  part(xa, xb, y1, EAVES_Y);
+  part(xa, hx0, y0, y1);
+  part(hx1, xb, y0, y1);
+}
+
 function windowFrame(parent, mats, x, z) {
-  box(parent, mats.trim, x, 1.80, z, 1.26, 1.05, 0.19);
+  box(parent, mats.trim, x, 2.275, z, 1.26, 0.12, 0.19);
+  box(parent, mats.trim, x, 1.345, z, 1.26, 0.12, 0.19);
+  box(parent, mats.trim, x - 0.57, 1.81, z, 0.12, 1.05, 0.19);
+  box(parent, mats.trim, x + 0.57, 1.81, z, 0.12, 1.05, 0.19);
   box(parent, mats.glass, x, 1.81, z + 0.045, 1.06, 0.85, 0.16, false);
   box(parent, mats.trim, x, 1.81, z, 0.08, 0.86, 0.27, false);
   box(parent, mats.trim, x, 1.81, z, 1.09, 0.08, 0.27, false);
@@ -161,8 +182,8 @@ function buildHouse(ctx, root, lot, mats) {
   addSolidWall(root, wallSegments, left, backZ, right, backZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
   addSolidWall(root, wallSegments, left, backZ, left, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
   addSolidWall(root, wallSegments, right, backZ, right, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
-  addSolidWall(root, wallSegments, left, doorZ, x - doorway / 2, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
-  addSolidWall(root, wallSegments, x + doorway / 2, doorZ, right, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
+  frontWallWithWindow(root, wallSegments, left, x - doorway / 2, doorZ, x - 2.46, mats);
+  frontWallWithWindow(root, wallSegments, x + doorway / 2, right, doorZ, x + 2.46, mats);
   box(root, mats.wall, x, EAVES_Y - 0.33, doorZ, doorway + 0.04, 0.66, 0.25);
   for (const off of [-doorway / 2, doorway / 2]) {
     box(root, mats.trim, x + off, 1.28, doorZ, 0.13, 2.37, 0.36);

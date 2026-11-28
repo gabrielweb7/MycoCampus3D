@@ -16,7 +16,8 @@ import {
 } from '../entities/placement-ghost.js';
 import {
   beginHeldItemPlacement,
-  cancelHeldItemPlacement,
+  beginVillageItemMove,
+cancelHeldItemPlacement,
   commitHeldItemPlacement,
   findAimedHeldPlacement,
   placeHeldInCrate,
@@ -246,6 +247,7 @@ export function dropHeldItem(ctx) {
 
 export function handlePrimaryAction(ctx, aimNdc) {
   if (ctx.inventory?.pending) return false;
+  if (!ctx.heldItem && ctx.hoveredVillageItem) return beginVillageItemMove(ctx, ctx.hoveredVillageItem);
   if (ctx.heldItem) {
     if (performance.now() - ctx.lastPickupAt < 140) return;
     if (ctx.placementMode) {

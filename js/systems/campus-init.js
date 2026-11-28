@@ -587,16 +587,20 @@ export function initCampus3D(containerId, cbs) {
 
     sim.sunDisc = new THREE.Mesh(
       new THREE.SphereGeometry(7.5, 18, 14),
-      new THREE.MeshBasicMaterial({ color: 0xfef08a, fog: false })
+      new THREE.MeshBasicMaterial({ color: 0xfef08a, fog: false, depthTest: false, depthWrite: false })
     );
     sim.sunHalo = new THREE.Mesh(
       new THREE.SphereGeometry(14.5, 18, 14),
-      new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+      new THREE.MeshBasicMaterial({ color: 0xfef08a, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, fog: false })
     );
     sim.moonDisc = new THREE.Mesh(
       new THREE.SphereGeometry(5.5, 16, 12),
-      new THREE.MeshBasicMaterial({ color: 0xe2e8f0, fog: false })
+      new THREE.MeshBasicMaterial({ color: 0xe2e8f0, fog: false, depthTest: false, depthWrite: false })
     );
+    // Sol e Lua são desenhados logo após o céu (antes de montanhas e construções), então ficam ATRÁS delas.
+    sim.sunDisc.renderOrder = -10;
+    sim.sunHalo.renderOrder = -9;
+    sim.moonDisc.renderOrder = -10;
     sim.scene.add(sim.sunDisc, sim.sunHalo, sim.moonDisc);
 
     sim.celestialDome = createCelestialSkyDome(sim.scene);

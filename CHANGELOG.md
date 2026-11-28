@@ -2,6 +2,12 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.8] - 2026-11-27
+
+- Janelas das casas com abertura real e vidro transparente.
+- Sol, halo e lua renderizados atrás das montanhas e construções.
+- Clicar no item do lote como convidado autorizado inicia a movimentação.
+
 ## [v2.11.7] - 2026-11-27
 
 - Visual menos branco: céu mais azul, luz de preenchimento colorida e mais contraste entre sol e sombra.
