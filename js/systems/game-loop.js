@@ -31,6 +31,7 @@ import { updateHoverRay } from './interaction-system.js';
 import { syncFloatingActions } from '../ui/radial-menu.js';
 import { stepPlayerMovement } from './player-movement.js';
 import { stepHeldItemAndSyringe } from './held-item-loop.js';
+import { stepAk47Effects } from './ak47-effects.js';
 import { stepSportBalls } from './sports-physics.js';
 import { stepLaminarHood } from '../items/laminar-hood.js';
 import { stepMagneticStirrers } from '../items/magnetic-stirrer.js';
@@ -463,6 +464,7 @@ export function startAnimationLoop(ctx) {
         ctx.controls.update();
       }
 
+      stepAk47Effects(ctx, dt, now);
       stepHoverAndChalkboard(ctx, now);
       stepLaminarHood(ctx, dt);
       stepAlcoholLamps(ctx, dt);

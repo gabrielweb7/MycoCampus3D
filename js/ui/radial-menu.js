@@ -7,6 +7,7 @@
 
 import { BURNER_LEVEL_NAMES, queuePurchasedBurnerState, setBurnerLevel, updateCookerWaterVisual } from '../items/pressure-cooker.js';
 import { getItemKindId } from '../items/item-registry.js';
+import { isAk47Aiming } from '../systems/ak47-effects.js';
 import { getContamInfo } from '../items/contaminations.js';
 import { togglePetriLid, updatePetriVisual } from '../items/petri-dish.js';
 import { toggleCultureFridgeDoor, isCultureFridgeOccupied } from '../items/culture-fridge.js';
@@ -1551,8 +1552,14 @@ export function getFloatingActionsPreview(ctx) {
   const touch = !!ctx.isTouchDevice?.();
   const held = ctx.heldItem;
   const placing = !!(ctx.placementMode && held);
-  const actions = placing ? [] : buildContextActions(ctx);
-  if (touch || held) addAimPrimaryAction(ctx, actions, touch);
+  const aimingWeapon = isAk47Aiming(ctx);
+  const actions = placing || aimingWeapon ? [] : buildContextActions(ctx);
+  if (aimingWeapon) {
+    actions.push({
+      id: 'fire_ak47', label: t('ui.weapon.fire'), icon: '🎯', primary: true, hold: touch,
+      run: () => handlePrimaryAction(ctx)
+    });
+  } else if (touch || held) addAimPrimaryAction(ctx, actions, touch);
   if (placing) {
     actions.push(
       { id: 'rotate_held', key: 'R', label: t('hud.rotate_held'), run: () => window.rotateCampusHeldItem?.() },

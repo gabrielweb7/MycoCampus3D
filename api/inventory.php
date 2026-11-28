@@ -9,7 +9,7 @@ function mp_inventory_kind(PDO $pdo, string $itemId): string {
         $find->execute([$itemId]);
         $prefab = (string)$find->fetchColumn();
         if (str_starts_with($itemId, 'dyn_vial3ml_') || str_starts_with($itemId, 'dyn_vial') || $prefab === 'vial3ml' || $prefab === 'vial_3ml' || $prefab === 'vial_5ml') return 'portable';
-        if (in_array($prefab, ['grow_tent', 'grow_humidifier', 'grow_exhaust'], true)) return 'portable';
+        if (in_array($prefab, ['grow_tent', 'grow_humidifier', 'grow_exhaust', 'ak47'], true)) return 'portable';
         if (str_starts_with($prefab, 'petri')) return 'petri';
         if (str_starts_with($prefab, 'pp5')) return 'pp5';
         if (str_starts_with($prefab, 'spawn_bag')) return 'bag';

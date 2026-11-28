@@ -266,7 +266,7 @@ export function stepPlayerMovement(ctx, dt, now) {
 
   // Bracos em 1a pessoa
   const heldData = ctx.heldItem?.mesh.userData;
-  const isTwoHanded = !!(heldData?.twoHanded || heldData?.firstPersonSideGrip);
+  const isTwoHanded = !!(heldData?.twoHanded || heldData?.firstPersonSideGrip || heldData?.firstPersonSupportGrip);
   if (ctx.fpsArmGroup) {
     ctx.fpsArmGroup.visible = true;
     if (ctx.paragliderActive && !ctx.onGround) {

@@ -6,6 +6,7 @@
 import { cancelHeldItemPlacement, findAimedHeldPlacement, updateHeldItemPlacementPreview } from './held-item-placement.js';
 import { resolveHeldItemHover } from './hover-held-handlers.js';
 import { isRayOccludedByStructure, firstUnoccludedRayHit } from './ray-occlusion.js';
+import { isAk47Aiming } from './ak47-effects.js';
 import { isSeatOccupied } from './world-interactions.js';
 import {
   greenhouseHitMeshes,
@@ -307,6 +308,11 @@ export function updateHoverRay(ctx, customNdc) {
   const maxPickSq = ctx.inFps ? 26 : 225;
   ctx.raycaster.far = 24;
   ctx.raycaster.setFromCamera(rayNdc, ctx.camera);
+
+  if (isAk47Aiming(ctx)) {
+    setHoverPrompt(ctx, t('ui.weapon.fire'));
+    return;
+  }
 
   // Permite mirar e abrir/fechar portas mesmo segurando um item na mão (quando não está em modo posicionamento)
   if (!ctx.placementMode && ctx.doorHitMeshes.length) {

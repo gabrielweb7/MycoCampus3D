@@ -14,6 +14,7 @@ export function getItemIcon(item, id) {
   if (!id && !item) return '';
   const key = (item?.meta?.prefabId || item?.mesh?.userData?.prefabId || item?.id || id || '').toLowerCase();
   const label = (item?.label || '').toLowerCase();
+  if (key === 'ak47') return '🎯';
 
   if (key.includes('petri') || label.includes('petri') || label.includes('placa')) return '🧫';
   if (key.includes('syringe') || label.includes('seringa')) return '💉';

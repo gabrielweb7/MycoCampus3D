@@ -30,6 +30,7 @@ export const COSMETIC_TOYS = [
 ];
 
 export const SHOP_SUPPLIES = [
+  { id: 'sup_ak47', prefabId: 'ak47', category: 'weapons', name: 'AK-47', price_coins: 1300, icon: '🎯' },
   { id: 'sup_pp5', prefabId: 'pp5_cup', name: 'Copo PP5 145ml', desc: 'Recipiente extra para ágar PDA ou grãos.', price_coins: 30, icon: '🥤' },
   { id: 'sup_syringe', prefabId: 'syringe_10ml', name: 'Seringa Estéril 10ml', desc: 'Nova seringa extra para inoculação rápida.', price_coins: 40, icon: '💉' },
   { id: 'sup_water_spray', prefabId: 'water_spray', name: 'Borrifador Água Destilada', desc: 'Hidrate Monotubs 24L e bolos da Estufa com névoa fina estéril.', price_coins: 35, icon: '💧' },
@@ -106,7 +107,8 @@ export const SHOP_SUPPLY_CATEGORIES = [
   { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust', 'sup_flower_seeds', 'sup_bee_bait', 'sup_beehive'] },
   { id: 'pets', label: 'Pets & Cuidados', icon: '🐾', ids: ['sup_pet_bowl', 'sup_dog_food', 'sup_cat_food'] },
   { id: 'post', label: 'Pós-colheita', icon: '📦', ids: ['sup_dehydrator', 'sup_silica', 'sup_mylar', 'sup_crate'] },
-  { id: 'furniture', label: 'Bancadas', icon: '🛠️', ids: ['sup_table'] }
+  { id: 'furniture', label: 'Bancadas', icon: '🛠️', ids: ['sup_table'] },
+  { id: 'weapons', icon: '🎯', ids: [] }
 ];
 
 let activeSupplyCat = 'all';

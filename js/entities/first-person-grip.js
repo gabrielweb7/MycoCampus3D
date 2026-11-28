@@ -84,6 +84,13 @@ export function alignHeldHands(ctx, item) {
   if (data.isHood) {
     alignPalm(camera, ctx.fpsArmGroup, mesh, max.x + 0.025, 0.035, -0.42);
     alignPalm(camera, ctx.fpsLeftArmGroup, mesh, max.x + 0.025, 0.035, 0.42);
+  } else if (data.firstPersonSupportGrip && data.firstPersonGrip) {
+    const grip = data.firstPersonGrip;
+    const support = data.firstPersonSupportGrip;
+    ctx.fpsArmGroup.rotation.set(0.09, 0.08, 0.16);
+    ctx.fpsLeftArmGroup?.rotation.set(0.08, -0.36, -0.2);
+    alignPalm(camera, ctx.fpsArmGroup, mesh, grip.x, grip.y, grip.z);
+    alignPalm(camera, ctx.fpsLeftArmGroup, mesh, support.x, support.y, support.z);
   } else if (data.twoHanded || data.firstPersonSideGrip) {
     const spread = Math.min(0.34, (max.x - min.x) * 0.43);
     const grip = data.firstPersonSideGrip;

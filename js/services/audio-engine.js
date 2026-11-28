@@ -14,6 +14,7 @@ let _sprayBuf = null;
 let _sprayBufRate = 0;
 let _steamBuf = null;
 let _steamBufRate = 0;
+let ak47ShotBuffer = null;
 let _iosSilentUnlocked = false;
 
 try {
@@ -706,7 +707,38 @@ export function playBubble() {
   osc.stop(t + 0.12);
 }
 
+export function playAk47Shot() {
+  if (isMuted) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (!ak47ShotBuffer) {
+    const rate = ctx.sampleRate;
+    ak47ShotBuffer = ctx.createBuffer(1, Math.ceil(rate * 0.32), rate);
+    const samples = ak47ShotBuffer.getChannelData(0);
+    let lowNoise = 0;
+    let previousNoise = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const age = i / rate;
+      const noise = Math.random() * 2 - 1;
+      lowNoise += (noise - lowNoise) * 0.085;
+      const crack = (noise - previousNoise * 0.62) * Math.exp(-age * 185) * 0.48;
+      const body = (lowNoise * 0.61 + Math.sin(2 * Math.PI * (105 * age - age * age * 95)) * 0.24) * Math.exp(-age * 35);
+      const tail = lowNoise * 0.32 * Math.exp(-age * 14);
+      const cycle = Math.max(0, age - 0.041);
+      const metal = age > 0.041 ? noise * 0.11 * Math.exp(-cycle * 190) : 0;
+      samples[i] = (crack + body + tail + metal) * Math.min(1, (samples.length - i) / (rate * 0.018));
+      previousNoise = noise;
+    }
+  }
+  const source = ctx.createBufferSource();
+  source.buffer = ak47ShotBuffer;
+  source.playbackRate.value = 0.95 + Math.random() * 0.10;
+  source.connect(masterGain);
+  source.start();
+}
+
 export const AudioEngine = {
+  playAk47Shot,
   playFootstep,
   playHarvest,
   playMushroomPop,

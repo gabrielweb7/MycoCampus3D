@@ -1,4 +1,4 @@
-function rayIntersectsAabbExit(origin, dir, c) {
+function rayIntersectsAabb(origin, dir, c, useEntry = false) {
   const cMinY = typeof c.minY === 'number' ? c.minY : 0;
   const cMaxY = typeof c.maxY === 'number' ? c.maxY : 2.5;
   if (cMaxY - cMinY < 0.38) return -1;
@@ -17,11 +17,12 @@ function rayIntersectsAabbExit(origin, dir, c) {
   const tmin = Math.max(Math.min(tx1, tx2), Math.min(ty1, ty2), Math.min(tz1, tz2));
   const tmax = Math.min(Math.max(tx1, tx2), Math.max(ty1, ty2), Math.max(tz1, tz2));
   if (tmax < tmin || tmax <= 0.05) return -1;
-  return tmax;
+  return useEntry && tmin > 0.05 ? tmin : tmax;
 }
 
-function rayHitsWallBefore(origin, dir, walls, maxDist) {
-  if (!walls || !walls.length) return false;
+function nearestWallDistance(origin, dir, walls, maxDist, stopAtFirst = false) {
+  if (!walls?.length) return maxDist;
+  let closest = maxDist;
   for (let i = 0; i < walls.length; i++) {
     const w = walls[i];
     if (!w) continue;
@@ -32,15 +33,28 @@ function rayHitsWallBefore(origin, dir, walls, maxDist) {
     const qx = w.x1 - origin.x;
     const qz = w.z1 - origin.z;
     const t = (qx * sz - qz * sx) / denom;
-    if (t <= 0.05 || t >= maxDist - 0.05) continue;
+    if (t <= 0.05 || t >= closest - (stopAtFirst ? 0.05 : 0)) continue;
     const u = (qx * dir.z - qz * dir.x) / denom;
     if (u < -0.005 || u > 1.005) continue;
     const hitY = origin.y + dir.y * t;
     const minY = typeof w.minY === 'number' ? w.minY : 0;
     const maxY = typeof w.maxY === 'number' ? w.maxY : 3.6;
-    if (hitY >= minY && hitY <= maxY) return true;
+    if (hitY >= minY && hitY <= maxY) {
+      if (stopAtFirst) return t;
+      closest = t;
+    }
   }
-  return false;
+  return closest;
+}
+
+export function getStructureHitDistance(ctx, origin, direction, range) {
+  let distance = nearestWallDistance(origin, direction, ctx.wallSegments, range);
+  for (const collider of ctx.solidColliders || []) {
+    if (!collider || collider._disabled) continue;
+    const hit = rayIntersectsAabb(origin, direction, collider, true);
+    if (hit > 0 && hit < distance) distance = hit;
+  }
+  return distance;
 }
 
 /**
@@ -59,14 +73,14 @@ export function isRayOccludedByStructure(ctx, targetDist, opts) {
     for (let i = 0; i < colliders.length; i++) {
       const c = colliders[i];
       if (!c || c === ignoreCollider) continue;
-      const tExit = rayIntersectsAabbExit(origin, dir, c);
+      const tExit = rayIntersectsAabb(origin, dir, c);
       if (tExit > 0.05 && tExit < targetDist - 0.04) {
         return true;
       }
     }
   }
 
-  if (opts && opts.checkWalls && rayHitsWallBefore(origin, dir, ctx.wallSegments, targetDist)) {
+  if (opts && opts.checkWalls && nearestWallDistance(origin, dir, ctx.wallSegments, targetDist, true) < targetDist) {
     return true;
   }
   return false;

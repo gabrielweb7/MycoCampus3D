@@ -5,6 +5,7 @@
  */
 
 import { t } from '../core/i18n.js';
+import { isAk47Aiming, pressAk47Trigger } from './ak47-effects.js';
 import { interactBeehive } from '../entities/bee-ecology.js';
 import { interactFlower, plantFlowerSeedAtSpot } from '../world/campus-flowers.js';
 import { getHeldBoardToolColor, drawBoardSegment } from './chalkboard.js';
@@ -247,6 +248,7 @@ export function dropHeldItem(ctx) {
 
 export function handlePrimaryAction(ctx, aimNdc) {
   if (ctx.inventory?.pending) return false;
+  if (isAk47Aiming(ctx)) return pressAk47Trigger(ctx, aimNdc);
   if (!ctx.placementMode && ctx.hoveredHouseAction) {
     ctx.hoveredHouseAction.run();
     return true;

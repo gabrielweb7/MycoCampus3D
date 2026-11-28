@@ -15,6 +15,7 @@ export function getStorageBlock(item) {
       (item.spawnCtrl?.isBag && item.spawnCtrl.filled && !item.spawnCtrl.sealed) ||
       (item.mushroomBagCtrl?.filled && !item.mushroomBagCtrl.sealed)) return 'open';
   const key = getItemKindId(item);
+  if (key === 'ak47') return '';
   if (key.startsWith('falcon_rack')) return 'large';
   if (!/^(?:petri|pp5|syringe|scalpel|spawn_jar|spawn_bag|liquid_culture|falcon|alcohol_spray|water_spray|h2o2_spray|paper_towel|gloves|infrared_thermometer|lab_spoon|parafilm|micropore|foil_roll|wild_picked_|harvest_tub_|harvest_gh_|dried_batch_|mushroom_pack_bag_|dyn_vial3ml_|vial_?3ml)/.test(key)) return 'large';
   return '';

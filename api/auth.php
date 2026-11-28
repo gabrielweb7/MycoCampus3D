@@ -141,6 +141,7 @@ function mc_clean_pet_state($raw): array {
 
 const MC_SHOP_SUPPLIES = [
     'sup_pp5' => ['prefab_id' => 'pp5_cup', 'price_coins' => 30, 'req_xp' => 0, 'req_mushrooms' => 0],
+    'sup_ak47' => ['prefab_id' => 'ak47', 'price_coins' => 1300, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_syringe' => ['prefab_id' => 'syringe_10ml', 'price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_water_spray' => ['prefab_id' => 'water_spray', 'price_coins' => 35, 'req_xp' => 0, 'req_mushrooms' => 0],
     'sup_lc_nutrient' => ['prefab_id' => 'lc_nutrient_bottle', 'price_coins' => 40, 'req_xp' => 0, 'req_mushrooms' => 0],

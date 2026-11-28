@@ -20,6 +20,7 @@ import { makeMagneticStirrer } from '../items/magnetic-stirrer.js';
 import { makeInfraredThermometer } from '../items/thermometer.js';
 import { makeDehydrator } from '../items/dehydrator.js';
 import { GROW_PREFABS, makeGrowShopItem } from '../items/portable-grow.js';
+import { AK47_PREFAB, makeAk47 } from '../items/ak47.js';
 import { makeMonotub24L } from '../items/monotub.js';
 import { makeAlcoholLamp, makeLabMicroscope, makeSilicaStorageJar } from '../items/lab-advanced-tools.js';
 import { makeFalconRack, makeFalconTube } from '../items/falcon-tubes.js';
@@ -55,6 +56,11 @@ let corePrefabsRegistered = false;
 export function ensureCoreAdminPrefabs() {
   if (corePrefabsRegistered) return;
   corePrefabsRegistered = true;
+  registerItemPrefab(AK47_PREFAB, {
+    label: 'AK-47',
+    category: 'weapon',
+    factory: makeAk47
+  });
   for (const [kind, label] of Object.entries(GROW_PREFABS)) {
     registerItemPrefab(kind, { label, category: 'equipment', factory: (ctx, opts) => makeGrowShopItem(ctx, opts, kind) });
   }
@@ -326,7 +332,9 @@ export function getShopDeliveryPose(sim, prefabId, { requireReady = true } = {})
   const pz = sim.playerPos ? sim.playerPos.z : 10;
   const yaw = sim.playerYaw || 0;
   const baseY = sim.playerPos ? sim.playerPos.y : 0;
-  const clearance = prefabId === 'laminar_hood' ? 1.25 : (prefabId === 'table_stainless' || prefabId === 'grow_tent' ? 0.72 : 0.28);
+  const clearance = prefabId === 'laminar_hood' ? 1.25
+    : prefabId === 'table_stainless' || prefabId === 'grow_tent' ? 0.72
+      : prefabId === AK47_PREFAB ? 0.55 : 0.28;
   for (const distance of [1.25 + clearance, 2.15 + clearance]) {
     for (const angle of [0, -0.55, 0.55, -1.15, 1.15, Math.PI]) {
       const x = px - Math.sin(yaw + angle) * distance;

@@ -23,6 +23,7 @@ import { advanceMixingBowlStir } from '../items/mixing-bowl.js';
 import { markBladePackEmpty, updateScalpelLabel, stepScalpels } from '../items/scalpel.js';
 import { shouldHideHeldInPlacementMode } from '../entities/placement-ghost.js';
 import { alignHeldHands, fitHandHorizontally, frameHeldItem } from '../entities/first-person-grip.js';
+import { poseAk47 } from './ak47-effects.js';
 import { getHiveSyringeDose, takeHoneyIntoSyringe } from '../entities/bee-ecology.js';
 
 const THREE = window.THREE;
@@ -438,10 +439,14 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
     } else {
       _tmpHandLocal.set(0.30, -0.22 + reachY, -0.58 - reachZ);
     }
-    frameHeldItem(ctx.camera, ctx.heldItem.mesh, _tmpHandLocal);
-    _tmpHandPos.copy(_tmpHandLocal).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
-    ctx.heldItem.mesh.position.copy(_tmpHandPos);
-    if (ctx.heldItem.id.indexOf('chalk_') === 0) {
+    if (!ud.isAk47) {
+      frameHeldItem(ctx.camera, ctx.heldItem.mesh, _tmpHandLocal);
+      _tmpHandPos.copy(_tmpHandLocal).applyEuler(ctx.camera.rotation).add(ctx.camera.position);
+      ctx.heldItem.mesh.position.copy(_tmpHandPos);
+    }
+    if (ud.isAk47) {
+      poseAk47(ctx, ctx.heldItem, now, fitHandHorizontally(ctx.camera, 0.18));
+    } else if (ctx.heldItem.id.indexOf('chalk_') === 0) {
       ctx.heldItem.mesh.rotation.order = 'YXZ';
       ctx.heldItem.mesh.rotation.set(ctx.playerPitch + 0.35, ctx.playerYaw, 0);
     } else if (ctx.heldItem.id.indexOf('board_eraser') === 0) {
