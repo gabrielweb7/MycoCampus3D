@@ -1110,6 +1110,21 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
   }
 }
 
+function protectRecentPlacement(sim, item, saved, now) {
+  const expiresAt = sim.recentlyDropped[item.id];
+  if (!(expiresAt > now)) return false;
+
+  const { x, y, z } = item.mesh.position;
+  const ry = item.mesh.rotation.y || 0;
+  if (saved && Math.abs(saved.x - x) < 0.002 && Math.abs(saved.y - y) < 0.002 &&
+      Math.abs(saved.z - z) < 0.002 && Math.abs((saved.ry || 0) - ry) < 0.002) {
+    delete sim.recentlyDropped[item.id];
+  } else if (expiresAt - now < 23500) {
+    sim.pendingMovedItems[item.id] = { id: item.id, x, y, z, ry };
+  }
+  return true;
+}
+
 export function applyCampusWorldObjects(sim, objectsMap) {
   if (!objectsMap) return;
   sim._lastWorldObjectsMap = objectsMap;
@@ -1131,16 +1146,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
     } else if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id) || sim.pendingMovedItems[item.id]) {
       return;
     }
-    if (sim.recentlyDropped[item.id] > now) {
-      if (saved && Math.hypot(saved.x - item.mesh.position.x, saved.z - item.mesh.position.z) < 0.08 && Math.abs(saved.y - item.mesh.position.y) < 0.08) {
-        delete sim.recentlyDropped[item.id];
-      } else if (sim.recentlyDropped[item.id] - now < 23500) {
-        sim.pendingMovedItems[item.id] = {
-          id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
-        };
-      }
-      return;
-    }
+    if (protectRecentPlacement(sim, item, saved, now)) return;
     if (saved) {
       const nextRy = saved.ry || 0;
       const changed = !item.isMoved ||
@@ -1177,16 +1183,7 @@ export function applyCampusWorldObjects(sim, objectsMap) {
     } else if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id) || sim.pendingMovedItems[item.id]) {
       return;
     }
-    if (sim.recentlyDropped[item.id] > now) {
-      if (saved && Math.hypot(saved.x - item.mesh.position.x, saved.z - item.mesh.position.z) < 0.08 && Math.abs(saved.y - item.mesh.position.y) < 0.08) {
-        delete sim.recentlyDropped[item.id];
-      } else if (sim.recentlyDropped[item.id] - now < 23500) {
-        sim.pendingMovedItems[item.id] = {
-          id: item.id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, ry: item.mesh.rotation.y
-        };
-      }
-      return;
-    }
+    if (protectRecentPlacement(sim, item, saved, now)) return;
     if (item.potItem && item.isAttached) {
       const pRef = item.potItem;
       if (sim.heldItem === pRef || sim.isHeldByRemote(pRef.id) || sim.pendingMovedItems[pRef.id] || sim.recentlyDropped[pRef.id] > now) {

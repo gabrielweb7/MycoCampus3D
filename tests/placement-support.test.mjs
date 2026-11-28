@@ -130,3 +130,25 @@ test('item empilhado sobre caixa continua apoiado na caixa e não cai na mesa', (
   assert.ok(Math.abs(crate.mesh.position.y - 0.91) < 0.02, 'caixa deve ficar na mesa');
   assert.ok(Math.abs(jar.mesh.position.y - (0.91 + 0.165)) < 0.02, `vidro deve ficar sobre a caixa (y=${jar.mesh.position.y})`);
 });
+
+test('bancada movida e girada conserva o item abaixo do piso superior', () => {
+  const ctx = makeCtx();
+  const table = addMovableStainlessTable(ctx, 'tbl_loft', 'Mesa', 0, 0.12, 0, 2.0, 0.79, 1.0);
+  table.mesh.position.set(4, 0.12, 5);
+  table.mesh.rotation.y = Math.PI / 2;
+  table.mesh.userData.updateBounds(table);
+  ctx.walkableFloors.push({ minX: 3, maxX: 5, minZ: 4, maxZ: 6, topY: 1.9 });
+  const jar = registerPickable(ctx, 'jar_loft', 'Vidro', new MockObj(), 4, 0.91, 5.7, 0, 0.14, 0.25);
+  runGravity(ctx, 10);
+  assert.ok(Math.abs(table.mesh.position.y - 0.12) < 0.001);
+  assert.ok(Math.abs(jar.mesh.position.y - 0.91) < 0.001, 'vidro foi deslocado para o piso superior');
+});
+
+test('apoio desativado deixa o item cair no piso e sincroniza a posicao final', () => {
+  const ctx = makeCtx();
+  const jar = registerPickable(ctx, 'jar_removed', 'Vidro', new MockObj(), 0, 0.91, 0, 0, 0.14, 0.25);
+  ctx.supportSurfaces.push({ minX: -1, maxX: 1, minZ: -1, maxZ: 1, topY: 0.91, _disabled: true });
+  runGravity(ctx, 10);
+  assert.equal(jar.mesh.position.y, 0.12);
+  assert.equal(ctx.pendingMovedItems[jar.id].y, 0.12);
+});

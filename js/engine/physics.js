@@ -27,9 +27,10 @@ export function terrainHeight(x, z) {
   return blend * hills + mtn;
 }
 
-export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
+export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY, limitFloorHeight = false) {
   let h = terrainHeight(x, z);
   const curY = refY !== undefined ? refY : ctx.playerPos.y;
+  const maxFloorY = limitFloorHeight ? (maxSurfTopY ?? Infinity) : Infinity;
 
   const { stairsList, walkableFloors, supportSurfaces, heldItem } = ctx;
 
@@ -40,13 +41,13 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
       let t = (z - st.zStart) / (st.zEnd - st.zStart);
       t = Math.max(0, Math.min(1, t));
       const sy = st.yStart + t * (st.yEnd - st.yStart);
-      if (curY >= sy - 1.2) h = Math.max(h, sy);
+      if (sy <= maxFloorY && curY >= sy - 1.2) h = Math.max(h, sy);
     }
   }
 
   for (let f = 0; f < walkableFloors.length; f++) {
     const fl = walkableFloors[f];
-    if (fl._disabled) continue;
+    if (fl._disabled || fl.topY > maxFloorY) continue;
     if (x >= fl.minX && x <= fl.maxX && z >= fl.minZ && z <= fl.maxZ) {
       if (curY >= fl.topY - 1.1) h = Math.max(h, fl.topY);
     }
@@ -91,7 +92,7 @@ export function getSupportSurfaceAt(ctx, x, z, margin, ignoreSurf, maxTopY) {
 }
 
 export function getItemGroundHeight(ctx, x, z, refY, ignoreSurf, maxTopY) {
-  const gh = getGroundHeight(ctx, x, z, refY !== undefined ? refY : 3.0, ignoreSurf, maxTopY);
+  const gh = getGroundHeight(ctx, x, z, refY !== undefined ? refY : 3.0, ignoreSurf, maxTopY, true);
   const ss = getSupportSurfaceAt(ctx, x, z, 0.08, ignoreSurf, maxTopY);
   if (ss && ss.topY > gh) return ss.topY;
   return gh;

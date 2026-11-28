@@ -67,6 +67,27 @@ test('snapshots de multiplayer só reaplicam itens alterados', () => {
   assert.deepEqual(updates, [['first', 1], ['second', 1], ['second', 2]]);
 });
 
+test('sincronização confirma o movimento recente somente com posição e rotação novas', () => {
+  for (const updateBounds of [undefined, () => {}]) {
+    const item = { id: 'moved', isMoved: true, mesh: {
+      userData: { updateBounds },
+      position: { x: 4.03, y: 0.91, z: 5, set(x, y, z) { Object.assign(this, { x, y, z }); } },
+      rotation: { y: 0.4 }
+    }};
+    const sim = { pickableItems: [item], pendingMovedItems: {}, recentlyDropped: { moved: performance.now() + 22000 },
+      isHeldByRemote: () => false };
+
+    applyCampusWorldObjects(sim, { moved: { x: 4, y: 0.87, z: 5, ry: 0 } });
+    assert.equal(sim.pendingMovedItems.moved?.x, 4.03);
+    delete sim.pendingMovedItems.moved;
+    applyCampusWorldObjects(sim, { moved: { x: 4.03, y: 0.91, z: 5, ry: 0 } });
+    assert.equal(sim.pendingMovedItems.moved?.ry, 0.4);
+    delete sim.pendingMovedItems.moved;
+    applyCampusWorldObjects(sim, { moved: { x: 4.03, y: 0.91, z: 5, ry: 0.4 } });
+    assert.equal(sim.recentlyDropped.moved, undefined);
+  }
+});
+
 test('getReplicatedItemState e applyReplicatedItemState executam hooks meta.serializeState e meta.applyState', () => {
   const sim = { cookerPots: [], findPickable: () => null };
   const item = {

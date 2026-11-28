@@ -636,7 +636,8 @@ export function findPlacementTarget(ctx, customNdc) {
     var px = origin.x + dir.x * t;
     var py = origin.y + dir.y * t;
     var pz = origin.z + dir.z * t;
-    var gh = getItemGroundHeight(physCtx, px, pz, py);
+    var previousY = py - dir.y * 0.08;
+    var gh = getItemGroundHeight(physCtx, px, pz, py, undefined, Math.max(py, previousY) + 0.04);
     if (py <= gh + 0.04) {
       return _tmpPlacePt.set(px, gh, pz);
     }
@@ -646,7 +647,7 @@ export function findPlacementTarget(ctx, customNdc) {
   var hLen = Math.hypot(dir.x, dir.z) || 1;
   var fx = playerPos.x + (dir.x / hLen) * 3.2;
   var fz = playerPos.z + (dir.z / hLen) * 3.2;
-  return _tmpPlacePt.set(fx, getItemGroundHeight(physCtx, fx, fz, playerPos.y), fz);
+  return _tmpPlacePt.set(fx, getItemGroundHeight(physCtx, fx, fz, playerPos.y, undefined, playerPos.y + 0.04), fz);
 }
 
 export function isPlacementBlocked(ctx, pt) {
@@ -966,6 +967,7 @@ export function dropUnsupportedItems(ctx) {
       var ownSurfs = Array.isArray(item.mesh.userData.dynamicSurfaces) ? item.mesh.userData.dynamicSurfaces : null;
       for (var i = 0; i < supportSurfaces.length; i++) {
         var s = supportSurfaces[i];
+        if (s._disabled) continue;
         if (s.topY <= supportedY || item.mesh.position.y < s.topY - (s.isCultureFridgeShelf ? 0.15 : 0.08)) continue;
         if (!isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s, 0.12)) continue;
         if (s === item.mesh.userData.dynamicSurface) continue;
@@ -979,6 +981,7 @@ export function dropUnsupportedItems(ctx) {
       if (!item.fridgeCtrl && !item.mesh.userData.twoHanded) {
         for (const fr of gravityFridges) {
           const s0 = fr.fridgeCtrl.shelfSurfaces[0];
+          if (s0._disabled) continue;
           if (isPointInBoundsXZ(item.mesh.position.x, item.mesh.position.z, s0, 0.10) &&
               item.mesh.position.y >= fr.mesh.position.y - 0.05 &&
               item.mesh.position.y < s0.topY) {
