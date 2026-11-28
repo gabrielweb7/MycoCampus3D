@@ -10,7 +10,7 @@ const PALETTES = [
   [0xdce0bc, 0x6e8058], [0xeee0c5, 0x94745c]
 ];
 const FLOOR_Y = 0.10;
-const EAVES_Y = 3.52;
+const EAVES_Y = 4.70;
 const GABLE_H = 1.62;
 
 function material(color, roughness = 0.88) {
@@ -43,8 +43,8 @@ function roofGable(parent, mat, x, z, halfWidth) {
   shape.lineTo(halfWidth, 0);
   shape.lineTo(0, GABLE_H);
   shape.closePath();
-  const panel = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.14, bevelEnabled: false }), mat);
-  panel.position.set(x, EAVES_Y, z - 0.07);
+  const panel = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.24, bevelEnabled: false }), mat);
+  panel.position.set(x, EAVES_Y, z - 0.12);
   panel.receiveShadow = true;
   parent.add(panel);
 }
@@ -120,8 +120,8 @@ function windowFrame(parent, mats, x, z) {
   box(parent, mats.trim, x - 0.57, 1.81, z, 0.12, 1.05, 0.19);
   box(parent, mats.trim, x + 0.57, 1.81, z, 0.12, 1.05, 0.19);
   box(parent, mats.glass, x, 1.81, z + 0.045, 1.06, 0.85, 0.16, false);
-  box(parent, mats.trim, x, 1.81, z, 0.08, 0.86, 0.27, false);
-  box(parent, mats.trim, x, 1.81, z, 1.09, 0.08, 0.27, false);
+  box(parent, mats.trim, x, 1.81, z, 0.08, 0.86, 0.26, false);
+  box(parent, mats.trim, x, 1.81, z, 1.09, 0.08, 0.24, false);
   box(parent, mats.wood, x, 1.23, z, 1.41, 0.14, 0.39);
 }
 
@@ -165,8 +165,12 @@ function buildFence(ctx, parent, lot, mat) {
   }
   const { minX, maxX, x, gateZ } = lot;
   const backZ = lot.z - lot.front * 10;
+  const backDoorX = x + lot.front * 1.9;
+  const backGapL = backDoorX - 1.1;
+  const backGapR = backDoorX + 1.1;
   segment(minX, gateZ, minX, backZ);
-  segment(minX, backZ, maxX, backZ);
+  segment(minX, backZ, backGapL, backZ, true);
+  segment(backGapR, backZ, maxX, backZ, true);
   segment(maxX, backZ, maxX, gateZ);
   segment(x - 1.34, gateZ, minX, gateZ);
   segment(maxX, gateZ, x + 1.34, gateZ, true);
@@ -189,32 +193,36 @@ function buildHouse(ctx, root, lot, mats) {
   const right = x + width / 2;
   const wallHeight = EAVES_Y - FLOOR_Y;
   addWalkableSlab(root, walkableFloors, x, FLOOR_Y, houseZ, width, 0.18, depth, mats.floor);
-  addWalkableSlab(root, walkableFloors, x, FLOOR_Y, doorZ + front * 0.68, 2.6, 0.15, 1.5, mats.trim);
+  box(root, mats.trim, x, 0.022, houseZ, width + 0.26, 0.15, depth + 0.26, false);
+  addWalkableSlab(root, walkableFloors, x, FLOOR_Y - 0.006, doorZ + front * 0.82, 2.6, 0.18, 1.40, mats.trim);
   const backWinX = x - front * 2.1;
   const backDoorX = x + front * 1.9;
   const bGapL = backDoorX - 0.6;
   const bGapR = backDoorX + 0.6;
   if (backWinX < bGapL) {
-    frontWallWithWindow(root, wallSegments, left, bGapL, backZ, backWinX, mats);
-    addSolidWall(root, wallSegments, bGapR, backZ, right, backZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
+    frontWallWithWindow(root, wallSegments, left - 0.12, bGapL, backZ, backWinX, mats);
+    addSolidWall(root, wallSegments, bGapR, backZ, right + 0.12, backZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
   } else {
-    addSolidWall(root, wallSegments, left, backZ, bGapL, backZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
-    frontWallWithWindow(root, wallSegments, bGapR, right, backZ, backWinX, mats);
+    addSolidWall(root, wallSegments, left - 0.12, backZ, bGapL, backZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
+    frontWallWithWindow(root, wallSegments, bGapR, right + 0.12, backZ, backWinX, mats);
   }
-  box(root, mats.wall, backDoorX, (EAVES_Y + 2.44) / 2, backZ, 1.24, EAVES_Y - 2.44, 0.25);
+  box(root, mats.wall, backDoorX, (EAVES_Y + 2.44) / 2, backZ, 1.20, EAVES_Y - 2.44, 0.24);
   const backFacade = new THREE.Group();
   backFacade.position.set(x, 0, backZ);
   backFacade.rotation.y = front === 1 ? Math.PI : 0;
   root.add(backFacade);
   windowFrame(backFacade, mats, front === 1 ? (x - backWinX) : (backWinX - x), 0.12);
-  attachHouseUpgradesToLot(ctx, root, lot, mats, { width, depth, doorway, floorY: FLOOR_Y, eavesY: EAVES_Y, addSolidWall, addWalkableSlab, box });
-  addSolidWall(root, wallSegments, left, backZ, left, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
-  addSolidWall(root, wallSegments, right, backZ, right, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
-  frontWallWithWindow(root, wallSegments, left, x - doorway / 2, doorZ, x - 2.46, mats);
-  frontWallWithWindow(root, wallSegments, x + doorway / 2, right, doorZ, x + 2.46, mats);
-  box(root, mats.wall, x, (EAVES_Y + 2.44) / 2, doorZ, doorway + 0.04, EAVES_Y - 2.44, 0.25);
+  attachHouseUpgradesToLot(ctx, root, lot, mats, { width, depth, doorway, floorY: FLOOR_Y, eavesY: EAVES_Y, gableH: GABLE_H, addSolidWall, addWalkableSlab, box });
+  const sideLen = depth - 0.24;
+  for (const wx of [left, right]) {
+    box(root, mats.wall, wx, FLOOR_Y + wallHeight / 2, houseZ, 0.24, wallHeight, sideLen);
+    wallSegments.push({ x1: wx, z1: backZ, x2: wx, z2: doorZ, halfThick: 0.18, minY: FLOOR_Y, maxY: EAVES_Y });
+  }
+  frontWallWithWindow(root, wallSegments, left - 0.12, x - doorway / 2, doorZ, x - 2.46, mats);
+  frontWallWithWindow(root, wallSegments, x + doorway / 2, right + 0.12, doorZ, x + 2.46, mats);
+  box(root, mats.wall, x, (EAVES_Y + 2.44) / 2, doorZ, doorway, EAVES_Y - 2.44, 0.24);
   for (const off of [-doorway / 2, doorway / 2]) {
-    box(root, mats.trim, x + off, 1.28, doorZ, 0.13, 2.37, 0.36);
+    box(root, mats.trim, x + off, 1.2275, doorZ, 0.13, 2.255, 0.34);
   }
   box(root, mats.trim, x, 2.44, doorZ, doorway + 0.22, 0.17, 0.36);
 
@@ -226,16 +234,16 @@ function buildHouse(ctx, root, lot, mats) {
   windowFrame(facade, mats, -2.46, 0.12);
   windowFrame(facade, mats, 2.46, 0.12);
   for (const off of [-1, 1]) {
-    box(facade, mats.wood, off * (width / 2 - 0.07), (EAVES_Y - 0.08) / 2, 0.10, 0.18, EAVES_Y - 0.08, 0.24);
+    box(facade, mats.wood, off * (width / 2 - 0.07), (EAVES_Y - 0.13) / 2, 0.15, 0.18, EAVES_Y - 0.13, 0.14);
   }
   const angle = Math.atan2(GABLE_H, width / 2);
   const diagLen = (width / 2) / Math.cos(angle);
-  box(facade, mats.wood, 0, EAVES_Y - 0.05, 0.15, width, 0.16, 0.17);
-  box(facade, mats.wood, 0, EAVES_Y + GABLE_H * 0.44, 0.15, 0.16, GABLE_H * 0.88, 0.17);
+  box(facade, mats.wood, 0, EAVES_Y - 0.05, 0.14, width, 0.16, 0.12);
+  box(facade, mats.wood, 0, EAVES_Y + GABLE_H * 0.44, 0.15, 0.16, GABLE_H * 0.88, 0.12);
   for (const side of [-1, 1]) {
-    box(facade, mats.wood, side * (width / 4), EAVES_Y + GABLE_H * 0.45, 0.15, diagLen * 0.95, 0.14, 0.17).rotation.z = -side * angle;
+    box(facade, mats.wood, side * (width / 4), EAVES_Y + GABLE_H * 0.45, 0.16, diagLen * 0.95, 0.14, 0.12).rotation.z = -side * angle;
   }
-  box(facade, mats.accent, 0, 2.71, 0.47, 2.35, 0.13, 1.21).rotation.x = 0.15;
+  box(facade, mats.accent, 0, 2.72, 0.68, 2.35, 0.13, 1.10).rotation.x = 0.15;
   roofGable(root, mats.wall, x, doorZ, width / 2);
   roofGable(root, mats.wall, x, backZ, width / 2);
   const run = width / 2 + 0.46;
@@ -252,8 +260,8 @@ function buildHouse(ctx, root, lot, mats) {
     }
   }
   box(root, mats.accent, x, roofY + 0.09, houseZ, 0.28, 0.18, depth + 0.94);
-  box(root, mats.chimney, x + front * 2.2, roofY - 0.45, houseZ - front * 1.68, 0.58, 1.70, 0.58);
-  box(root, mats.trim, x + front * 2.2, roofY + 0.45, houseZ - front * 1.68, 0.75, 0.17, 0.73);
+  box(root, mats.chimney, x + front * 2.2, roofY - 0.22, houseZ - front * 1.68, 0.44, 1.26, 0.48);
+  box(root, mats.trim, x + front * 2.2, roofY + 0.43, houseZ - front * 1.68, 0.60, 0.15, 0.62);
   ctx.roofZones.push({ minX: left, maxX: right, minZ: Math.min(doorZ, backZ), maxZ: Math.max(doorZ, backZ), roofY: EAVES_Y });
   if (root.parent !== scene) scene.add(root);
 }

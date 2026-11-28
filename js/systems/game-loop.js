@@ -329,7 +329,11 @@ function stepArchitectureProps(ctx, dt, now) {
       }
     }
     if (d.doorCollider) {
-      d.doorCollider.maxY = d.open ? -1 : (d.eavesY || 3.52);
+      if (d.installed === false) {
+        d.doorCollider.maxY = d.uninstalledMaxY !== undefined ? d.uninstalledMaxY : -1;
+      } else {
+        d.doorCollider.maxY = d.open ? -1 : (d.eavesY || 4.70);
+      }
     }
   }
 

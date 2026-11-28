@@ -183,7 +183,21 @@ function createCottageVenetianBlind(parent, mats, x, topY, z, rotY, lotId, name,
   return { group: g, hit, blindObj };
 }
 
-function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, lotId, ctx) {
+function addDoorHandlesBothSides(pivot, mats, handleX, leafW, isLeft) {
+  for (const side of [-1, 1]) {
+    const panelT = makeBox(leafW - 0.14, 0.85, 0.012, mats.trim, { noShadow: true });
+    panelT.position.set(isLeft ? leafW / 2 : -leafW / 2, 0.52, side * 0.026);
+    const panelB = makeBox(leafW - 0.14, 0.85, 0.012, mats.trim, { noShadow: true });
+    panelB.position.set(isLeft ? leafW / 2 : -leafW / 2, -0.52, side * 0.026);
+    const plate = makeBox(0.04, 0.18, 0.018, mats.accent, { noShadow: true });
+    plate.position.set(handleX, 0, side * 0.034);
+    const lever = makeBox(0.10, 0.025, 0.055, mats.accent, { noShadow: true });
+    lever.position.set(isLeft ? handleX - 0.01 : handleX + 0.01, 0, side * 0.065);
+    pivot.add(panelT, panelB, plate, lever);
+  }
+}
+
+function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, lotId, ctx, eavesY = 4.70) {
   const g = new THREE.Group();
   g.position.set(x, y, z);
   parent.add(g);
@@ -197,30 +211,16 @@ function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, 
   leftPivot.position.set(-doorway / 2 + 0.02, 0, 0);
   const leftLeaf = makeBox(leafW, doorH, leafThick, mats.wood);
   leftLeaf.position.set(leafW / 2, 0, 0);
-  const leftPanelT = makeBox(leafW - 0.14, 0.85, 0.012, mats.trim, { noShadow: true });
-  leftPanelT.position.set(leafW / 2, 0.52, 0.026);
-  const leftPanelB = makeBox(leafW - 0.14, 0.85, 0.012, mats.trim, { noShadow: true });
-  leftPanelB.position.set(leafW / 2, -0.52, 0.026);
-  const leftHandlePlate = makeBox(0.04, 0.18, 0.018, mats.accent, { noShadow: true });
-  leftHandlePlate.position.set(leafW - 0.08, 0, 0.034);
-  const leftHandleLever = makeBox(0.10, 0.025, 0.055, mats.accent, { noShadow: true });
-  leftHandleLever.position.set(leafW - 0.09, 0, 0.065);
-  leftPivot.add(leftLeaf, leftPanelT, leftPanelB, leftHandlePlate, leftHandleLever);
+  leftPivot.add(leftLeaf);
+  addDoorHandlesBothSides(leftPivot, mats, leafW - 0.08, leafW, true);
 
   // Folha direita
   const rightPivot = new THREE.Group();
   rightPivot.position.set(doorway / 2 - 0.02, 0, 0);
   const rightLeaf = makeBox(leafW, doorH, leafThick, mats.wood);
   rightLeaf.position.set(-leafW / 2, 0, 0);
-  const rightPanelT = makeBox(leafW - 0.14, 0.85, 0.012, mats.trim, { noShadow: true });
-  rightPanelT.position.set(-leafW / 2, 0.52, 0.026);
-  const rightPanelB = makeBox(leafW - 0.14, 0.85, 0.012, mats.trim, { noShadow: true });
-  rightPanelB.position.set(-leafW / 2, -0.52, 0.026);
-  const rightHandlePlate = makeBox(0.04, 0.18, 0.018, mats.accent, { noShadow: true });
-  rightHandlePlate.position.set(-leafW + 0.08, 0, 0.034);
-  const rightHandleLever = makeBox(0.10, 0.025, 0.055, mats.accent, { noShadow: true });
-  rightHandleLever.position.set(-leafW + 0.09, 0, 0.065);
-  rightPivot.add(rightLeaf, rightPanelT, rightPanelB, rightHandlePlate, rightHandleLever);
+  rightPivot.add(rightLeaf);
+  addDoorHandlesBothSides(rightPivot, mats, -leafW + 0.08, leafW, false);
 
   // Hitbox de interação
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
@@ -235,10 +235,12 @@ function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, 
     leftPivot,
     rightPivot,
     angle: 0,
-    dir: frontDir,
+    dir: -frontDir,
     open: false,
+    installed: false,
+    uninstalledMaxY: -1,
     doorCollider: null,
-    eavesY: 3.52
+    eavesY
   };
 
   hit.userData.doorObj = doorObj;
@@ -254,10 +256,10 @@ function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, 
         return;
       }
       doorObj.open = !doorObj.open;
-      const swing = doorObj.open ? (-frontDir * Math.PI * 0.48) : 0;
+      const swing = doorObj.open ? (frontDir * Math.PI * 0.48) : 0;
       leftPivot.rotation.y = swing;
       rightPivot.rotation.y = -swing;
-      if (doorObj.doorCollider) doorObj.doorCollider.maxY = doorObj.open ? -1 : 3.52;
+      if (doorObj.doorCollider) doorObj.doorCollider.maxY = doorObj.open ? -1 : eavesY;
       ctx?.queueWorldStateChange?.(doorObj.id, doorObj.open ? 1 : 0);
       window.MycoAudio?.playDoor?.(doorObj.open) || window.MycoAudio?.playClick?.();
     }
@@ -279,25 +281,19 @@ function createHouseDoubleDoor(parent, mats, x, y, z, frontDir, doorway = 1.90, 
   };
 }
 
-function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18, lotId, ctx) {
+function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18, lotId, ctx, eavesY = 4.70) {
   const pivot = new THREE.Group();
   pivot.position.set(x - width / 2, y, z);
   const doorH = 2.28;
   const leaf = makeBox(width, doorH, 0.055, mats.wood);
   leaf.position.set(width / 2, 0, 0);
-  const panelT = makeBox(width - 0.16, 0.85, 0.012, mats.trim, { noShadow: true });
-  panelT.position.set(width / 2, 0.52, 0.026);
-  const panelB = makeBox(width - 0.16, 0.85, 0.012, mats.trim, { noShadow: true });
-  panelB.position.set(width / 2, -0.52, 0.026);
-  const handlePlate = makeBox(0.04, 0.18, 0.018, mats.accent, { noShadow: true });
-  handlePlate.position.set(width - 0.12, 0, 0.034);
-  const handleLever = makeBox(0.10, 0.025, 0.055, mats.accent, { noShadow: true });
-  handleLever.position.set(width - 0.13, 0, 0.065);
+  pivot.add(leaf);
+  addDoorHandlesBothSides(pivot, mats, width - 0.12, width - 0.02, true);
 
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
   const hit = new THREE.Mesh(new THREE.BoxGeometry(width + 0.2, doorH + 0.2, 0.44), hitMat);
   hit.position.set(width / 2, 0, 0);
-  pivot.add(leaf, panelT, panelB, handlePlate, handleLever, hit);
+  pivot.add(hit);
   parent.add(pivot);
 
   const doorObj = {
@@ -306,10 +302,12 @@ function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18, lotI
     label: `Porta dos Fundos #${lotId}`,
     pivot,
     angle: 0,
-    dir: frontDir,
+    dir: -frontDir,
     open: false,
+    installed: false,
+    uninstalledMaxY: eavesY,
     doorCollider: null,
-    eavesY: 3.52
+    eavesY
   };
 
   hit.userData.doorObj = doorObj;
@@ -325,7 +323,7 @@ function createHouseBackDoor(parent, mats, x, y, z, frontDir, width = 1.18, lotI
       }
       doorObj.open = !doorObj.open;
       pivot.rotation.y = doorObj.open ? (frontDir * Math.PI * 0.48) : 0;
-      if (doorObj.doorCollider) doorObj.doorCollider.maxY = doorObj.open ? -1 : 3.52;
+      if (doorObj.doorCollider) doorObj.doorCollider.maxY = doorObj.open ? -1 : eavesY;
       ctx?.queueWorldStateChange?.(doorObj.id, doorObj.open ? 1 : 0);
       window.MycoAudio?.playDoor?.(doorObj.open) || window.MycoAudio?.playClick?.();
     }
@@ -368,12 +366,105 @@ function createWallMenuPanel(parent, mats, x, y, z, rotY, lotId) {
   frame.userData.houseAction = action;
   face.userData.houseAction = action;
 
-  return hit;
+  return { group: g, hit, frame, face };
+}
+
+function buildGardenAndChristmasLights(root, x, houseZ, doorZ, backZ, front, width, eavesY, gableH, mats) {
+  const gardenLightGrp = new THREE.Group();
+
+  [-3.8, 3.8].forEach((ox) => {
+    const lz = backZ - front * 2.2;
+    const post = makeBox(0.12, 1.75, 0.12, mats.wood);
+    post.position.set(x + ox, 0.88, lz);
+    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xfff0aa });
+    const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.24), bulbMat);
+    bulb.position.set(x + ox, 1.82, lz);
+    gardenLightGrp.add(post, bulb);
+  });
+
+  const bulbs = [];
+  const pushLine = (x1, y1, z1, x2, y2, z2, count, sag = 0) => {
+    for (let i = 0; i < count; i++) {
+      const t = count > 1 ? i / (count - 1) : 0.5;
+      const drop = sag ? sag * Math.sin(t * Math.PI) : 0;
+      bulbs.push([
+        x1 + (x2 - x1) * t,
+        y1 + (y2 - y1) * t - drop,
+        z1 + (z2 - z1) * t,
+        CHRISTMAS_PALETTE[bulbs.length % CHRISTMAS_PALETTE.length]
+      ]);
+    }
+  };
+
+  const halfW = width / 2 + 0.18;
+  const frontZ = doorZ + front * 0.22;
+  const rearZ = backZ - front * 0.22;
+  pushLine(x - halfW, eavesY - 0.08, frontZ, x + halfW, eavesY - 0.08, frontZ, 18, 0.05);
+  pushLine(x - halfW, eavesY - 0.08, rearZ, x + halfW, eavesY - 0.08, rearZ, 18, 0.05);
+  pushLine(x - halfW, eavesY - 0.16, backZ, x - halfW, eavesY - 0.16, doorZ, 14, 0.04);
+  pushLine(x + halfW, eavesY - 0.16, backZ, x + halfW, eavesY - 0.16, doorZ, 14, 0.04);
+
+  const gablePeakY = eavesY + gableH;
+  const frontGableZ = doorZ + front * 0.24;
+  const backGableZ = backZ - front * 0.24;
+  pushLine(x - width / 2 - 0.15, eavesY - 0.05, frontGableZ, x, gablePeakY, frontGableZ, 9);
+  pushLine(x, gablePeakY, frontGableZ, x + width / 2 + 0.15, eavesY - 0.05, frontGableZ, 9);
+  pushLine(x - width / 2 - 0.15, eavesY - 0.05, backGableZ, x, gablePeakY, backGableZ, 9);
+  pushLine(x, gablePeakY, backGableZ, x + width / 2 + 0.15, eavesY - 0.05, backGableZ, 9);
+
+  const treeX = x - front * 7.9;
+  const treeZ = houseZ + front * 3.35;
+  const treeCount = 28;
+  for (let i = 0; i < treeCount; i++) {
+    const t = i / (treeCount - 1);
+    const y = 1.35 + t * 1.90;
+    const angle = t * Math.PI * 7;
+    const r = t < 0.35
+      ? (1.05 + (t / 0.35) * 0.17)
+      : (1.22 - ((t - 0.35) / 0.65) * 0.77);
+    bulbs.push([
+      treeX + Math.cos(angle) * r,
+      y,
+      treeZ + Math.sin(angle) * r,
+      CHRISTMAS_PALETTE[bulbs.length % CHRISTMAS_PALETTE.length]
+    ]);
+  }
+  bulbs.push([treeX, 3.38, treeZ, 0xffd166]);
+
+  if (THREE.InstancedMesh && THREE.SphereGeometry && THREE.Matrix4 && THREE.Color) {
+    const bulbGeo = new THREE.SphereGeometry(0.055, 6, 5);
+    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const inst = new THREE.InstancedMesh(bulbGeo, bulbMat, bulbs.length);
+    const mat4 = new THREE.Matrix4();
+    const col = new THREE.Color();
+    for (let i = 0; i < bulbs.length; i++) {
+      const [bx, by, bz, hex] = bulbs[i];
+      mat4.makeTranslation(bx, by, bz);
+      inst.setMatrixAt(i, mat4);
+      col.setHex(hex);
+      inst.setColorAt(i, col);
+    }
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    gardenLightGrp.add(inst);
+  }
+
+  let gardenPointLight = null;
+  if (THREE.PointLight) {
+    gardenPointLight = new THREE.PointLight(0xffe09a, 1.6, 14, 1.5);
+    gardenPointLight.position.set(x - front * 2.2, 2.5, doorZ + front * 2.2);
+    gardenPointLight.visible = false;
+    gardenLightGrp.add(gardenPointLight);
+  }
+
+  gardenLightGrp.visible = false;
+  root.add(gardenLightGrp);
+  return { gardenLightGrp, gardenPointLight };
 }
 
 export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   const { x, front, houseZ, doorZ, id } = lot;
-  const { width, depth, doorway = 1.90, floorY, eavesY, addSolidWall, addWalkableSlab, box } = dims;
+  const { width, depth, doorway = 1.90, floorY, eavesY, gableH = 1.62, addSolidWall, addWalkableSlab, box } = dims;
   const backZ = houseZ - front * depth / 2;
   const hitList = ctx.houseInteractMeshes || (ctx.houseInteractMeshes = []);
   const dynList = ctx.houseDynamicObjects || (ctx.houseDynamicObjects = []);
@@ -401,37 +492,37 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
 
   // 2. Painel inteligente na parede interna
   const panelX = x - front * (doorway / 2 + 0.38);
-  const panelHit = createWallMenuPanel(root, mats, panelX, 1.55, doorZ - front * 0.14, front === 1 ? Math.PI : 0, id);
-  hitList.push(panelHit);
+  const panel = createWallMenuPanel(root, mats, panelX, 1.55, doorZ - front * 0.14, front === 1 ? Math.PI : 0, id);
+  markDynamic(panel.group, dynList);
+  hitList.push(panel.hit, panel.frame, panel.face);
 
-  // 3. Iluminação interna e no jardim (emissivas puras sem PointLights pesadas)
+  // 3. Iluminação interna presa na cumeeira do teto + Natal/Jardim
+  const peakY = eavesY + gableH - 0.06;
   const houseLightGrp = new THREE.Group();
-  const lampWood = makeBox(0.48, 0.08, 0.48, mats.wood, { noShadow: true });
-  lampWood.position.set(x, eavesY - 0.08, houseZ);
+  const lampWood = makeBox(0.56, 0.08, 0.56, mats.wood, { noShadow: true });
+  lampWood.position.set(x, peakY, houseZ);
   const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff6df });
-  const lampGlow = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.06, 0.38), lampMat);
-  lampGlow.position.set(x, eavesY - 0.14, houseZ);
+  const lampGlow = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.44), lampMat);
+  lampGlow.position.set(x, peakY - 0.06, houseZ);
   houseLightGrp.add(lampWood, lampGlow);
+  let housePointLight = null;
+  if (THREE.PointLight) {
+    housePointLight = new THREE.PointLight(0xffe6b3, 2.5, 16, 1.4);
+    housePointLight.position.set(x, peakY - 0.35, houseZ);
+    housePointLight.visible = false;
+    houseLightGrp.add(housePointLight);
+  }
   houseLightGrp.visible = false;
   markDynamic(houseLightGrp, dynList);
   root.add(houseLightGrp);
 
-  const gardenLightGrp = new THREE.Group();
-  [-3.8, 3.8].forEach((ox) => {
-    const lz = backZ - front * 2.2;
-    const post = makeBox(0.12, 1.75, 0.12, mats.wood);
-    post.position.set(x + ox, 0.88, lz);
-    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xfff0aa });
-    const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.24), bulbMat);
-    bulb.position.set(x + ox, 1.82, lz);
-    gardenLightGrp.add(post, bulb);
-  });
-  gardenLightGrp.visible = false;
+  const { gardenLightGrp, gardenPointLight } = buildGardenAndChristmasLights(
+    root, x, houseZ, doorZ, backZ, front, width, eavesY, gableH, mats
+  );
   markDynamic(gardenLightGrp, dynList);
-  root.add(gardenLightGrp);
 
   // 4. Porta da Frente Dupla e Porta dos Fundos
-  const fDoor = createHouseDoubleDoor(root, mats, x, 1.24, doorZ, front, doorway, id, ctx);
+  const fDoor = createHouseDoubleDoor(root, mats, x, 1.24, doorZ, front, doorway, id, ctx, eavesY);
   fDoor.group.visible = false;
   markDynamic(fDoor.group, dynList);
   hitList.push(fDoor.hit, fDoor.leftLeaf, fDoor.rightLeaf);
@@ -446,15 +537,57 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   ctx.wallSegments.push(frontDoorCollider);
   fDoor.setCollider(frontDoorCollider);
 
-  const bDoor = createHouseBackDoor(root, mats, backDoorX, 1.24, backZ, front, 1.18, id, ctx);
+  const bDoor = createHouseBackDoor(root, mats, backDoorX, 1.24, backZ, front, 1.18, id, ctx, eavesY);
   bDoor.pivot.visible = false;
   markDynamic(bDoor.pivot, dynList);
   hitList.push(bDoor.hit, bDoor.leaf);
 
-  const backDoorSealWall = addSolidWall(root, ctx.wallSegments, backDoorX - 0.6, backZ, backDoorX + 0.6, backZ, floorY, eavesY - floorY, 0.24, mats.wall);
+  const backDoorSealWall = addSolidWall(root, ctx.wallSegments, backDoorX - 0.6, backZ, backDoorX + 0.6, backZ, floorY, 2.44 - floorY, 0.24, mats.wall);
   markDynamic(backDoorSealWall, dynList);
   const backDoorSealCollider = ctx.wallSegments[ctx.wallSegments.length - 1];
+  backDoorSealCollider.maxY = eavesY;
   bDoor.setCollider(backDoorSealCollider);
+
+  // Fechamento dinâmico do cercado traseiro (aberto ao comprar 'back_door')
+  const fenceBackZ = (typeof lot.z === 'number' ? lot.z : (houseZ + front * 4)) - front * 10;
+  const backFenceSealGrp = new THREE.Group();
+  for (const ry of [0.39, 0.77]) {
+    box(backFenceSealGrp, mats.wood, backDoorX, ry, fenceBackZ, 2.20, 0.12, 0.13);
+  }
+  for (const px of [backDoorX - 0.38, backDoorX + 0.38]) {
+    box(backFenceSealGrp, mats.wood, px, 0.50, fenceBackZ, 0.15, 1.0, 0.15);
+  }
+  markDynamic(backFenceSealGrp, dynList);
+  root.add(backFenceSealGrp);
+  const backFenceSealCollider = {
+    x1: backDoorX - 1.1,
+    z1: fenceBackZ,
+    x2: backDoorX + 1.1,
+    z2: fenceBackZ,
+    minY: 0,
+    maxY: 0.98,
+    halfThick: 0.12
+  };
+  ctx.wallSegments.push(backFenceSealCollider);
+
+  // Batente, soleira e trilha de saída nos fundos (visíveis ao comprar 'back_door')
+  const backPathGrp = new THREE.Group();
+  box(backPathGrp, mats.trim, backDoorX, floorY - 0.096, backZ - front * 0.42, 1.48, 0.18, 0.60);
+  for (const off of [-0.60, 0.60]) {
+    box(backPathGrp, mats.trim, backDoorX + off, 1.2275, backZ, 0.11, 2.255, 0.30);
+  }
+  box(backPathGrp, mats.trim, backDoorX, 2.41, backZ, 1.32, 0.12, 0.32);
+  const pathStartZ = backZ - front * 0.12;
+  const pathEndZ = fenceBackZ - front * 1.6;
+  const pathLen = Math.abs(pathEndZ - pathStartZ);
+  const backPathMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.65, pathLen), mats.path || mats.trim);
+  backPathMesh.rotation.x = -Math.PI / 2;
+  backPathMesh.position.set(backDoorX, 0.034, (pathStartZ + pathEndZ) / 2);
+  backPathMesh.receiveShadow = true;
+  backPathGrp.add(backPathMesh);
+  backPathGrp.visible = false;
+  markDynamic(backPathGrp, dynList);
+  root.add(backPathGrp);
 
   // 5. Segundo andar + escada (mezanino elegante nos fundos com pé-direito alto)
   const secondFloorGrp = new THREE.Group();
@@ -469,17 +602,17 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
   const loftSlabObj = ctx.walkableFloors[ctx.walkableFloors.length - 1];
   loftSlabObj._disabled = true;
 
-  // Viga mestra frontal robusta (sustenta o mezanino sem pilares no meio da sala!)
-  box(secondFloorGrp, mats.wood, x, loftY - 0.08, frontEdgeZ, loftW, 0.16, 0.16);
+  // Viga mestra frontal robusta (abaixo do piso para zero z-fighting)
+  box(secondFloorGrp, mats.wood, x, loftY - 0.18, frontEdgeZ, loftW, 0.16, 0.16);
 
-  // Vigas estruturais sob o piso (estritamente debaixo do mezanino, sem pontas expostas)
+  // Vigas estruturais sob o piso (encostadas por baixo, sem faces coplanares)
   for (let j = -2; j <= 2; j++) {
-    box(secondFloorGrp, mats.wood, x + j * 1.5, loftY - 0.07, loftZ, 0.10, 0.14, loftD - 0.08);
+    box(secondFloorGrp, mats.wood, x + j * 1.5, loftY - 0.17, loftZ, 0.10, 0.14, loftD - 0.08);
   }
 
   // Pilares estruturais encostados na parede oposta à escada (ZERO pilares no meio da sala)
-  const postH = loftY - floorY;
-  const postMidY = (loftY + floorY) / 2;
+  const postH = loftY - 0.10 - floorY;
+  const postMidY = (loftY - 0.10 + floorY) / 2;
   box(secondFloorGrp, mats.wood, x - front * 3.70, postMidY, frontEdgeZ, 0.16, postH, 0.16);
   box(secondFloorGrp, mats.wood, x - front * 3.70, postMidY, backZ + front * 0.14, 0.16, postH, 0.16);
 
@@ -608,13 +741,22 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
     apply(u = {}) {
       this.upgrades = u || {};
       houseLightGrp.visible = !!u.house_lights;
+      if (housePointLight) housePointLight.visible = !!u.house_lights;
       gardenLightGrp.visible = !!u.garden_lights;
+      if (gardenPointLight) gardenPointLight.visible = !!u.garden_lights;
       fBlinds.forEach((b) => { b.group.visible = !!u.blinds; });
+      if (!u.front_door) fDoor.doorObj.open = false;
+      fDoor.doorObj.installed = !!u.front_door;
       fDoor.group.visible = !!u.front_door;
       frontDoorCollider.maxY = (u.front_door && !fDoor.doorObj.open) ? eavesY : -1;
+      if (!u.back_door) bDoor.doorObj.open = false;
+      bDoor.doorObj.installed = !!u.back_door;
       bDoor.pivot.visible = !!u.back_door;
       if (backDoorSealWall) backDoorSealWall.visible = !u.back_door;
       if (backDoorSealCollider) backDoorSealCollider.maxY = (u.back_door && bDoor.doorObj.open) ? -1 : eavesY;
+      backFenceSealGrp.visible = !u.back_door;
+      backFenceSealCollider.maxY = u.back_door ? -1 : 0.98;
+      backPathGrp.visible = !!u.back_door;
       secondFloorGrp.visible = !!u.second_floor;
       loftSlabObj._disabled = !u.second_floor;
       stairBox._disabled = !u.second_floor;

@@ -78,6 +78,13 @@ export function firstUnoccludedRayHit(ctx, hits, maxDist, opts) {
     const h = hits[i];
     if (!h || h.distance >= maxDist) continue;
     if (h.object && h.object.userData && h.object.userData.ignoreRay) continue;
+    let cur = h.object;
+    while (cur) {
+      if (cur.visible === false) break;
+      if (cur === ctx.scene) { cur = null; break; }
+      cur = cur.parent;
+    }
+    if (cur) continue;
     if (opts?.acceptHit && !opts.acceptHit(h)) continue;
     if (!isRayOccludedByStructure(ctx, h.distance, opts)) return h;
   }

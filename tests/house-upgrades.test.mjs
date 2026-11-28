@@ -70,6 +70,7 @@ const {
   findHoveredHouseAction
 } = await import('../js/world/house-upgrades.js');
 const { appState } = await import('../js/core/state.js');
+const { firstUnoccludedRayHit } = await import('../js/systems/ray-occlusion.js');
 
 test('house upgrades catalog contains 6 valid upgrades with required properties', () => {
   assert.equal(HOUSE_UPGRADES.length, 6);
@@ -114,7 +115,8 @@ test('attachHouseUpgradesToLot registers interactive elements, stairs, and colli
     depth: 6.8,
     doorway: 1.90,
     floorY: 0.10,
-    eavesY: 3.52,
+    eavesY: 4.70,
+    gableH: 1.62,
     addSolidWall(parent, walls, x1, z1, x2, z2, minY, h, thick, mat) {
       const col = { x1, z1, x2, z2, minY, maxY: minY + h, halfThick: thick / 2 };
       walls.push(col);
@@ -213,6 +215,7 @@ function makeLotHarness(lot) {
   const supportMeshes = [];
   const houseInteractMeshes = [];
   const houseDynamicObjects = [];
+  const campusDoors = [];
   let backDoorSealWall = null;
 
   const ctx = {
@@ -224,6 +227,7 @@ function makeLotHarness(lot) {
     supportMeshes,
     houseInteractMeshes,
     houseDynamicObjects,
+    campusDoors,
     playerPos: new globalThis.THREE.Vector3(lot.x, 0.1, lot.z),
     inFps: false
   };
@@ -240,7 +244,8 @@ function makeLotHarness(lot) {
     depth: 6.8,
     doorway: 1.90,
     floorY: 0.10,
-    eavesY: 3.52,
+    eavesY: 4.70,
+    gableH: 1.62,
     addSolidWall(parent, walls, x1, z1, x2, z2, minY, h, thick) {
       const col = { x1, z1, x2, z2, minY, maxY: minY + h, halfThick: thick / 2 };
       walls.push(col);
@@ -264,26 +269,43 @@ function makeLotHarness(lot) {
     }
   };
   attachHouseUpgradesToLot(ctx, root, lot, mats, dims);
-  return { ctx, root, wallSegments, walkableFloors, stairsList, supportSurfaces, houseInteractMeshes, houseDynamicObjects, backDoorSealWall, boxes };
+  return { ctx, root, wallSegments, walkableFloors, stairsList, supportSurfaces, houseInteractMeshes, houseDynamicObjects, campusDoors, backDoorSealWall, boxes };
 }
 
 test('attachHouseUpgradesToLot protects dynamic objects and applyVillageUpgrades toggles all 6 upgrades', () => {
   const lot = { id: 2, x: -26, z: 54, front: 1, houseZ: 50, doorZ: 53.4 };
   const h = makeLotHarness(lot);
 
-  assert.equal(h.houseDynamicObjects.length, 9);
+  assert.equal(h.houseDynamicObjects.length, 12);
   for (const obj of h.houseDynamicObjects) {
     assert.equal(obj.userData.keepDynamic, true);
   }
   assert.ok(h.houseDynamicObjects.includes(h.backDoorSealWall));
 
+  const frontDoorObj = h.campusDoors.find(d => d.id === 'lot_2_front_door');
+  const backDoorObj = h.campusDoors.find(d => d.id === 'lot_2_back_door');
+  assert.equal(frontDoorObj.installed, false);
+  assert.equal(frontDoorObj.uninstalledMaxY, -1);
+  assert.equal(backDoorObj.installed, false);
+  assert.equal(backDoorObj.uninstalledMaxY, 4.70);
+
+  // House light must sit flush on the roof ridge (>= eavesY + 1.4)
+  const houseLightGrp = h.houseDynamicObjects.find(o => o.children?.some(c => c.position?.y >= 4.70 + 1.4));
+  assert.ok(houseLightGrp, 'interior lamp must sit at the roof ridge above eavesY');
+
   const frontDoorCollider = h.wallSegments[0];
   const backDoorSealCollider = h.wallSegments[1];
+  const backFenceSealCollider = h.wallSegments[2];
+  const backFenceSealGrp = h.houseDynamicObjects[9];
+  const backPathGrp = h.houseDynamicObjects[10];
   const loftSurf = h.supportSurfaces[0];
   assert.equal(loftSurf._disabled, true);
   assert.equal(h.backDoorSealWall.visible, true);
+  assert.equal(backFenceSealGrp.visible, true);
+  assert.equal(backPathGrp.visible, false);
   assert.equal(frontDoorCollider.maxY, -1);
-  assert.equal(backDoorSealCollider.maxY, 3.52);
+  assert.equal(backDoorSealCollider.maxY, 4.70);
+  assert.equal(backFenceSealCollider.maxY, 0.98);
 
   // Enable all 6 upgrades
   applyVillageUpgrades([{
@@ -298,16 +320,21 @@ test('attachHouseUpgradesToLot protects dynamic objects and applyVillageUpgrades
     }
   }]);
 
+  assert.equal(frontDoorObj.installed, true);
+  assert.equal(backDoorObj.installed, true);
   assert.equal(h.backDoorSealWall.visible, false);
-  assert.equal(frontDoorCollider.maxY, 3.52);
-  assert.equal(backDoorSealCollider.maxY, 3.52);
+  assert.equal(backFenceSealGrp.visible, false);
+  assert.equal(backPathGrp.visible, true);
+  assert.equal(frontDoorCollider.maxY, 4.70);
+  assert.equal(backDoorSealCollider.maxY, 4.70);
+  assert.equal(backFenceSealCollider.maxY, -1);
   assert.equal(loftSurf._disabled, false);
   assert.equal(h.stairsList[0]._disabled, false);
   for (const wf of h.walkableFloors) {
     assert.equal(wf._disabled, false);
   }
   for (const obj of h.houseDynamicObjects) {
-    if (obj !== h.backDoorSealWall) {
+    if (obj !== h.backDoorSealWall && obj !== backFenceSealGrp) {
       assert.equal(obj.visible, true);
     }
   }
@@ -320,9 +347,14 @@ test('attachHouseUpgradesToLot protects dynamic objects and applyVillageUpgrades
 
   // Disabling all upgrades restores disabled state
   applyVillageUpgrades([{ id: 2, upgrades: {} }]);
+  assert.equal(frontDoorObj.installed, false);
+  assert.equal(backDoorObj.installed, false);
   assert.equal(h.backDoorSealWall.visible, true);
+  assert.equal(backFenceSealGrp.visible, true);
+  assert.equal(backPathGrp.visible, false);
   assert.equal(frontDoorCollider.maxY, -1);
-  assert.equal(backDoorSealCollider.maxY, 3.52);
+  assert.equal(backDoorSealCollider.maxY, 4.70);
+  assert.equal(backFenceSealCollider.maxY, 0.98);
   assert.equal(loftSurf._disabled, true);
   assert.equal(h.stairsList[0]._disabled, true);
   for (const wf of h.walkableFloors) {
@@ -372,4 +404,23 @@ test('canPlayerAccessLot validates owner, editor, admin, and non-owners', () => 
     appState.villageLease = prevLease;
     appState.villageEditLot = prevEdit;
   }
+});
+
+test('firstUnoccludedRayHit skips objects hidden by an invisible parent group', () => {
+  const scene = new globalThis.THREE.Group();
+  const hiddenGroup = new globalThis.THREE.Group();
+  hiddenGroup.visible = false;
+  const hiddenMesh = new globalThis.THREE.Mesh();
+  hiddenGroup.add(hiddenMesh);
+  const visibleGroup = new globalThis.THREE.Group();
+  const visibleMesh = new globalThis.THREE.Mesh();
+  visibleGroup.add(visibleMesh);
+  scene.add(hiddenGroup, visibleGroup);
+
+  const ctx = { scene, raycaster: { ray: { origin: new globalThis.THREE.Vector3(), direction: new globalThis.THREE.Vector3(0, 0, 1) } } };
+  const hit = firstUnoccludedRayHit(ctx, [
+    { object: hiddenMesh, distance: 1.5 },
+    { object: visibleMesh, distance: 2.0 }
+  ], 4.2);
+  assert.equal(hit?.object, visibleMesh);
 });
