@@ -53,6 +53,63 @@ export function startMultiplayerPolling({ reset = false } = {}) {
   }, 125);
 }
 
+function applySyncSnapshot(data, players, sentHolding, firstSync) {
+  const online = $('hud-online');
+  const onlineCount = String(data.online_count || 1);
+  if (online && online.textContent !== onlineCount) online.textContent = onlineCount;
+  if (typeof data.server_ts === 'number' && window.setCampusServerTime) {
+    window.setCampusServerTime(data.server_ts);
+  }
+  if (!data.layout_unchanged && data.layout_edits) {
+    if (!window.applyCampusLayoutEdits) throw new Error('Layout do campus ainda não está pronto.');
+    window.applyCampusLayoutEdits(data.layout_edits);
+  }
+  if (!data.objects_unchanged && data.objects) {
+    if (!window.applyCampusWorldObjects) throw new Error('Objetos do campus ainda não estão prontos.');
+    window.applyCampusWorldObjects(data.objects);
+  }
+  if (!data.item_states_unchanged && data.item_states && window.applyCampusItemStates) {
+    window.applyCampusItemStates(
+      data.item_states,
+      firstSync ? data.item_state_ages : null
+    );
+  }
+  if (firstSync && window.markCampusInitialItemStatesApplied) {
+    window.markCampusInitialItemStatesApplied();
+  }
+  if (!data.state_unchanged && data.world_state && window.applyCampusWorldState) {
+    if (typeof data.server_ts === 'number') data.world_state._serverTs = data.server_ts;
+    window.applyCampusWorldState(data.world_state, firstSync);
+  }
+  if (!data.upgrades_unchanged && Array.isArray(data.village_upgrades)) {
+    applyVillageUpgrades(data.village_upgrades);
+  }
+  window.applyCampusInventory?.(data.inventory, players, sentHolding, firstSync);
+  if (firstSync && data.saved_pose && window.applyCampusSavedPose) {
+    window.applyCampusSavedPose(data.saved_pose);
+  }
+  if (firstSync && !data.force_teleport) applyCampusMeetupInvite();
+  window.updateCampusPlayers?.(players);
+  updateRemotePets(players);
+  if (data.board_strokes && data.board_strokes.length && window.applyCampusBoardStrokes) {
+    window.applyCampusBoardStrokes(data.board_strokes);
+  }
+  if (data.world_state && typeof data.world_state.auditorium_slide === 'number') {
+    if (data.world_state.auditorium_slide !== appState.currentSlideIdx ||
+      (data.world_state.auditorium_presenter || '') !== appState.currentPresenter) {
+      applySlideTo3D(data.world_state.auditorium_slide, data.world_state.auditorium_presenter || '');
+    }
+  }
+  // Só confirma versões depois que os dados foram aplicados; uma falha na
+  // criação de um objeto precisa poder receber novamente layout e posição.
+  if (typeof data.obj_ver === 'string') appState.lastObjVer = data.obj_ver;
+  if (typeof data.item_state_ver === 'string') appState.lastItemStateVer = data.item_state_ver;
+  if (typeof data.state_ver === 'string') appState.lastStateVer = data.state_ver;
+  if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;
+  if (typeof data.upgrades_ver === 'string') appState.lastUpgradesVer = data.upgrades_ver;
+  if (typeof data.board_last_id === 'number' && data.board_last_id > appState.boardLastId) appState.boardLastId = data.board_last_id;
+}
+
 export async function syncMultiplayer(forceHeldState = false) {
   const userId = appState.currentUser?.id;
   if (userId == null || typeof window.getCampusPlayerPose !== 'function') return false;
@@ -165,60 +222,7 @@ export async function syncMultiplayer(forceHeldState = false) {
         if (verEl) verEl.textContent = 'v' + data.app_version;
       }
 
-      const online = $('hud-online');
-      const onlineCount = String(data.online_count || 1);
-      if (online && online.textContent !== onlineCount) online.textContent = onlineCount;
-      if (typeof data.server_ts === 'number' && window.setCampusServerTime) {
-        window.setCampusServerTime(data.server_ts);
-      }
-      if (!data.layout_unchanged && data.layout_edits) {
-        if (!window.applyCampusLayoutEdits) throw new Error('Layout do campus ainda não está pronto.');
-        window.applyCampusLayoutEdits(data.layout_edits);
-      }
-      if (!data.objects_unchanged && data.objects) {
-        if (!window.applyCampusWorldObjects) throw new Error('Objetos do campus ainda não estão prontos.');
-        window.applyCampusWorldObjects(data.objects);
-      }
-      if (!data.item_states_unchanged && data.item_states && window.applyCampusItemStates) {
-        window.applyCampusItemStates(
-          data.item_states,
-          firstSync ? data.item_state_ages : null
-        );
-      }
-      if (firstSync && window.markCampusInitialItemStatesApplied) {
-        window.markCampusInitialItemStatesApplied();
-      }
-      if (!data.state_unchanged && data.world_state && window.applyCampusWorldState) {
-        if (typeof data.server_ts === 'number') data.world_state._serverTs = data.server_ts;
-        window.applyCampusWorldState(data.world_state, firstSync);
-      }
-      if (!data.upgrades_unchanged && Array.isArray(data.village_upgrades)) {
-        applyVillageUpgrades(data.village_upgrades);
-      }
-      window.applyCampusInventory?.(data.inventory, players, pose.holding_item, firstSync);
-      if (firstSync && data.saved_pose && window.applyCampusSavedPose) {
-        window.applyCampusSavedPose(data.saved_pose);
-      }
-      if (firstSync && !data.force_teleport) applyCampusMeetupInvite();
-      window.updateCampusPlayers?.(players);
-      updateRemotePets(players);
-      if (data.board_strokes && data.board_strokes.length && window.applyCampusBoardStrokes) {
-        window.applyCampusBoardStrokes(data.board_strokes);
-      }
-      if (data.world_state && typeof data.world_state.auditorium_slide === 'number') {
-        if (data.world_state.auditorium_slide !== appState.currentSlideIdx ||
-          (data.world_state.auditorium_presenter || '') !== appState.currentPresenter) {
-          applySlideTo3D(data.world_state.auditorium_slide, data.world_state.auditorium_presenter || '');
-        }
-      }
-      // Só confirma versões depois que os dados foram aplicados; uma falha na
-      // criação de um objeto precisa poder receber novamente layout e posição.
-      if (typeof data.obj_ver === 'string') appState.lastObjVer = data.obj_ver;
-      if (typeof data.item_state_ver === 'string') appState.lastItemStateVer = data.item_state_ver;
-      if (typeof data.state_ver === 'string') appState.lastStateVer = data.state_ver;
-      if (typeof data.layout_ver === 'string') appState.lastLayoutVer = data.layout_ver;
-      if (typeof data.upgrades_ver === 'string') appState.lastUpgradesVer = data.upgrades_ver;
-      if (typeof data.board_last_id === 'number' && data.board_last_id > appState.boardLastId) appState.boardLastId = data.board_last_id;
+      applySyncSnapshot(data, players, pose.holding_item, firstSync);
       if (appState.syncFailures >= 3 && !globalThis.document?.hidden) {
         showFloatingToast('✅ ' + t('misc.mp.restored'), 3000);
       }

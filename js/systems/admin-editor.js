@@ -44,7 +44,7 @@ import { makeAmpouleCase, makeVial3ml } from '../items/ampoule-case.js';
 import { makeFlowerSeedPacket } from '../world/campus-flowers.js';
 import { makeStarterBeehiveItem, makeBeeBaitItem } from '../entities/bee-ecology.js';
 import { makePetFoodBowl, makePetFoodBag } from '../items/pet-supplies.js';
-import { saveLocalMovedObject } from './world-objects-sync.js';
+import { saveLocalMovedObject } from './local-world-objects.js';
 import { moveItemWithSupported, dropSupportedItemsToGround } from './surface-group-move.js';
 import { clampPosAgainstWalls, getItemGroundHeight } from '../engine/physics.js';
 import { apiPost } from '../services/api-client.js';

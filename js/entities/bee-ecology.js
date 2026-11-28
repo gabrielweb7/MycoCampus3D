@@ -7,7 +7,7 @@ import { t } from '../core/i18n.js';
 import { registerPickable } from '../items/item-registry.js';
 import { spawnCampusFxBurst } from '../engine/fx-burst.js';
 import { isNaturalSoilSpot } from '../world/nature-plaza.js';
-import { VILLAGE_LOTS, VILLAGE_HOUSE } from '../core/village-layout.js';
+import { findNearestHiveMountSpot, getHiveMountSpots, isHiveMountOccupied } from './bee-nest-sites.js';
 import { triggerCozyHeartBurst } from '../world/cozy-details.js';
 import { firstUnoccludedRayHit } from '../systems/ray-occlusion.js';
 import { updateContainerVolume } from '../items/liquid-culture.js';
@@ -46,78 +46,13 @@ import {
 const THREE = window.THREE;
 
 export {
+  findNearestHiveMountSpot,
   serializeBeehives,
   serializeCampusFlowers,
   queueBeeEcologySync,
   isBeeBlockedAt3D,
   moveBeeSafely
 };
-
-function getStaticCampusEavesSpots() {
-  return [
-    { x: 17.5, y: 3.15, z: 35.15, mountType: 'eaves', label: 'Beiral do Empório' },
-    { x: 50.0, y: 3.35, z: 33.35, mountType: 'eaves', label: 'Beiral da Estação Ecológica' },
-    { x: 58.0, y: 3.35, z: 17.35, mountType: 'eaves', label: 'Beiral do Dormitório' },
-    { x: 48.0, y: 3.45, z: -3.65, mountType: 'eaves', label: 'Beiral do Cinema' }
-  ];
-}
-
-function getHiveMountSpots(ctx, random = Math.random) {
-  const candidates = [];
-  for (let i = 0; i < VILLAGE_LOTS.length; i++) {
-    const lot = VILLAGE_LOTS[i];
-    const alongSide = (random() - 0.5) * 3;
-    candidates.push(
-      { x: lot.x + lot.front * 2.1, y: 2.86, z: lot.doorZ + lot.front * 0.45, mountType: 'eaves', label: `Beiral Casa #${lot.id}` },
-      { x: lot.x - (VILLAGE_HOUSE.width / 2 + 0.36), y: 2.86, z: lot.houseZ + alongSide, mountType: 'eaves', label: `Beiral Casa #${lot.id}` },
-      { x: lot.x + (VILLAGE_HOUSE.width / 2 + 0.36), y: 2.86, z: lot.houseZ - alongSide, mountType: 'eaves', label: `Beiral Casa #${lot.id}` }
-    );
-  }
-  const zones = ctx && Array.isArray(ctx.roofZones) ? ctx.roofZones : null;
-  if (zones && zones.length) {
-    for (let i = 0; i < zones.length; i++) {
-      const z = zones[i];
-      if (!z || typeof z.minX !== 'number') continue;
-      if (Math.abs((z.roofY || 0) - 3.02) < 0.15) continue;
-      const midX = (z.minX + z.maxX) * 0.5;
-      const midZ = (z.minZ + z.maxZ) * 0.5;
-      const ey = Math.max(2.65, Math.min(3.55, (z.roofY || 3.4) - 0.55));
-      candidates.push(
-        { x: midX, y: ey, z: z.maxZ + 0.25, mountType: 'eaves', label: 'Beiral do Prédio' },
-        { x: midX, y: ey, z: z.minZ - 0.25, mountType: 'eaves', label: 'Beiral do Prédio' },
-        { x: z.minX - 0.25, y: ey, z: midZ, mountType: 'eaves', label: 'Beiral do Prédio' },
-        { x: z.maxX + 0.25, y: ey, z: midZ, mountType: 'eaves', label: 'Beiral do Prédio' }
-      );
-    }
-  } else {
-    const statics = getStaticCampusEavesSpots();
-    for (let i = 0; i < statics.length; i++) candidates.push(statics[i]);
-  }
-  for (const spot of ctx?.beeTreeMounts || []) candidates.push(spot);
-  return candidates;
-}
-
-function isHiveMountOccupied(spot, hives, minGap) {
-  return hives.some(hive => hive && !hive.collected && Math.hypot(hive.x - spot.x, hive.z - spot.z) < minGap);
-}
-
-export function findNearestHiveMountSpot(ctx, fromX = 0, fromZ = 0) {
-  const candidates = getHiveMountSpots(ctx);
-  const existing = (ctx && Array.isArray(ctx.beehives)) ? ctx.beehives : [];
-  let best = null;
-  let bestDist = Infinity;
-  for (let i = 0; i < candidates.length; i++) {
-    const cand = candidates[i];
-    // Colmeia abandonada que ninguém recolheu continua ocupando o lugar.
-    if (isHiveMountOccupied(cand, existing, 6)) continue;
-    const d = Math.hypot(cand.x - fromX, cand.z - fromZ) * (0.7 + Math.random() * 0.6);
-    if (d < bestDist) {
-      bestDist = d;
-      best = cand;
-    }
-  }
-  return best;
-}
 
 function countBloomingFlowersNear(ctx, x, z, radius) {
   let score = 0;
@@ -144,77 +79,10 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
 
   if (!Array.isArray(ctx.beehives)) ctx.beehives = [];
   if (!Array.isArray(ctx.beehiveHitMeshes)) ctx.beehiveHitMeshes = [];
-
-  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial || !ctx.scene) {
-    const mockHive = {
-      id,
-      mountType,
-      group: {
-        position: { x: worldX, y: worldY, z: worldZ, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
-        scale: { setScalar() {} },
-        visible: !opts.migrating,
-        parent: null
-      },
-      treeGroup: treeInfo ? treeInfo.tree : null,
-      boxMesh: null,
-      bandMesh: null,
-      honeycombMeshes: [],
-      trimMeshes: [],
-      glowMesh: null,
-      leafMesh: { visible: true },
-      honeyDropMesh: { visible: false, scale: { set() {} } },
-      hitMesh: { userData: {} },
-      treePos,
-      x: worldX,
-      y: worldY,
-      z: worldZ,
-      honeyLevel: typeof opts.honeyLevel === 'number' ? opts.honeyLevel : 45,
-      abandoned: !!opts.abandoned,
-      migrating: !!opts.migrating,
-      buildProgress: typeof opts.buildProgress === 'number' ? opts.buildProgress : 1.0,
-      canCollectAbandoned: !!opts.abandoned,
-      collected: !!opts.collected,
-      extinct: !!opts.extinct,
-      failedMigrations: opts.failedMigrations || 0,
-      groundResting: false,
-      groundRestPos: null,
-      exhaustionTimer: 0,
-      flowersNearby: [],
-      queen: null,
-      bees: [],
-      noPollenTimer: 0
-    };
-    ctx.beehives.push(mockHive);
-    return mockHive;
-  }
-
-  const vis = buildHiveVisualGroup();
-  const hiveGroup = vis.hiveGroup;
-  if (!treeInfo) {
-    hiveGroup.position.set(worldX, worldY, worldZ);
-    ctx.scene.add(hiveGroup);
-  } else {
-    hiveGroup.position.set(0.48, 2.55, 0);
-    treeInfo.tree.add(hiveGroup);
-  }
-
-  const hiveObj = {
+  const hive = {
     id,
     mountType,
-    group: hiveGroup,
     treeGroup: treeInfo?.tree || null,
-    boxMesh: vis.bandMid,
-    bandMesh: vis.ribBot,
-    honeycombMeshes: [vis.bandBot, vis.bandMid, vis.bandTop],
-    trimMeshes: [
-      vis.baseBowl, vis.ribBot, vis.ribTop, vis.capDome,
-      vis.hangerBar, vis.hangerPostL, vis.hangerPostR,
-      vis.archL, vis.archR, vis.archTop, vis.hivePorch
-    ],
-    glowMesh: vis.hiveGlow,
-    leafMesh: vis.hiveLeaf,
-    honeyDropMesh: vis.honeyDropGroup,
-    hitMesh: vis.hitMesh,
     treePos,
     x: worldX,
     y: worldY,
@@ -236,15 +104,62 @@ function createHiveOnTree(ctx, id, treeInfo, opts = {}) {
     noPollenTimer: 0
   };
 
-  vis.hitMesh.userData.hiveObj = hiveObj;
+  if (!THREE || !THREE.Group || !THREE.MeshStandardMaterial || !ctx.scene) {
+    Object.assign(hive, {
+      group: {
+        position: { x: worldX, y: worldY, z: worldZ, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
+        scale: { setScalar() {} },
+        visible: !opts.migrating,
+        parent: null
+      },
+      boxMesh: null,
+      bandMesh: null,
+      honeycombMeshes: [],
+      trimMeshes: [],
+      glowMesh: null,
+      leafMesh: { visible: true },
+      honeyDropMesh: { visible: false, scale: { set() {} } },
+      hitMesh: { userData: {} }
+    });
+    ctx.beehives.push(hive);
+    return hive;
+  }
+
+  const vis = buildHiveVisualGroup();
+  const hiveGroup = vis.hiveGroup;
+  if (!treeInfo) {
+    hiveGroup.position.set(worldX, worldY, worldZ);
+    ctx.scene.add(hiveGroup);
+  } else {
+    hiveGroup.position.set(0.48, 2.55, 0);
+    treeInfo.tree.add(hiveGroup);
+  }
+
+  Object.assign(hive, {
+    group: hiveGroup,
+    boxMesh: vis.bandMid,
+    bandMesh: vis.ribBot,
+    honeycombMeshes: [vis.bandBot, vis.bandMid, vis.bandTop],
+    trimMeshes: [
+      vis.baseBowl, vis.ribBot, vis.ribTop, vis.capDome,
+      vis.hangerBar, vis.hangerPostL, vis.hangerPostR,
+      vis.archL, vis.archR, vis.archTop, vis.hivePorch
+    ],
+    glowMesh: vis.hiveGlow,
+    leafMesh: vis.hiveLeaf,
+    honeyDropMesh: vis.honeyDropGroup,
+    hitMesh: vis.hitMesh
+  });
+
+  vis.hitMesh.userData.hiveObj = hive;
   ctx.beehiveHitMeshes.push(vis.hitMesh);
-  ctx.beehives.push(hiveObj);
-  if (hiveObj.migrating || hiveObj.collected) {
+  ctx.beehives.push(hive);
+  if (hive.migrating || hive.collected) {
     hiveGroup.visible = false;
   } else {
-    hiveGroup.scale.setScalar(Math.max(0.2, hiveObj.buildProgress));
+    hiveGroup.scale.setScalar(Math.max(0.2, hive.buildProgress));
   }
-  return hiveObj;
+  return hive;
 }
 
 export function createHiveAtSpot(ctx, id, spot, opts = {}) {

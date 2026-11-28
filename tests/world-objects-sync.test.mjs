@@ -88,6 +88,40 @@ test('sincronização confirma o movimento recente somente com posição e rota�
   }
 });
 
+test('pose autorizada do lote substitui movimento local e atualiza panela antes da tampa', () => {
+  const makeItem = id => ({
+    id,
+    mesh: {
+      userData: {},
+      position: { x: 1, y: 0, z: 0, set(x, y, z) { Object.assign(this, { x, y, z }); } },
+      rotation: { y: 0, copy(rotation) { this.y = rotation.y; } }
+    }
+  });
+  const pot = makeItem('lot_pot');
+  const lid = makeItem('lot_lid');
+  pot.mesh.userData.updateBounds = () => {};
+  lid.potItem = pot;
+  lid.isAttached = true;
+  const sim = {
+    pickableItems: [lid, pot],
+    pendingMovedItems: { [pot.id]: { id: pot.id, x: 1 } },
+    recentlyDropped: { [pot.id]: performance.now() + 25000 },
+    isHeldByRemote: () => false
+  };
+  applyCampusWorldObjects(sim, {
+    [pot.id]: { x: 2, y: 0.8, z: 3, ry: 0.5, lot_locked: true, edit_lot: 2 },
+    [lid.id]: { x: 2, y: 1.16, z: 3, ry: 0.5, lot_locked: true, edit_lot: 2 }
+  });
+  assert.equal(pot.isReadOnly, true);
+  assert.equal(pot.villageEditLot, 2);
+  assert.equal(sim.pendingMovedItems[pot.id], undefined);
+  assert.equal(sim.recentlyDropped[pot.id], undefined);
+  assert.equal(lid.isAttached, true);
+  assert.equal(lid.mesh.position.x, 2);
+  assert.equal(lid.mesh.position.z, 3);
+  assert.ok(Math.abs(lid.mesh.position.y - 1.16) < 0.002);
+});
+
 test('getReplicatedItemState e applyReplicatedItemState executam hooks meta.serializeState e meta.applyState', () => {
   const sim = { cookerPots: [], findPickable: () => null };
   const item = {

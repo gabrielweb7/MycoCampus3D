@@ -27,12 +27,9 @@ export function terrainHeight(x, z) {
   return blend * hills + mtn;
 }
 
-export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY, limitFloorHeight = false) {
+function getWalkableGroundHeight(ctx, x, z, curY, maxFloorY = Infinity) {
   let h = terrainHeight(x, z);
-  const curY = refY !== undefined ? refY : ctx.playerPos.y;
-  const maxFloorY = limitFloorHeight ? (maxSurfTopY ?? Infinity) : Infinity;
-
-  const { stairsList, walkableFloors, supportSurfaces, heldItem } = ctx;
+  const { stairsList, walkableFloors } = ctx;
 
   for (let s = 0; s < stairsList.length; s++) {
     const st = stairsList[s];
@@ -53,16 +50,28 @@ export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY, limitF
     }
   }
 
+  return h;
+}
+
+function canUseSupportSurface(ctx, surface, heldItem, ignoreSurf) {
+  if (surface === ignoreSurf) return false;
+  if (surface.isCultureFridgeShelf && (ignoreSurf === 'fridge' || heldItem?.fridgeCtrl)) return false;
+  const owner = surface.ownerItem;
+  return !(owner && (owner === heldItem || ctx.isHeldByRemote?.(owner.id))) &&
+    heldItem?.mesh?.userData.dynamicSurface !== surface;
+}
+
+export function getGroundHeight(ctx, x, z, refY, ignoreSurf, maxSurfTopY) {
+  const curY = refY !== undefined ? refY : ctx.playerPos.y;
+  let h = getWalkableGroundHeight(ctx, x, z, curY);
+  const { supportSurfaces, heldItem } = ctx;
   for (let u = 0; u < supportSurfaces.length; u++) {
     const ss = supportSurfaces[u];
     if (ss._disabled) continue;
     if (ss.topY <= h || curY < ss.topY - 0.40) continue;
     if (typeof maxSurfTopY === 'number' && ss.topY > maxSurfTopY) continue;
     if (!isPointInBoundsXZ(x, z, ss, 0.08)) continue;
-    if (ignoreSurf && ss === ignoreSurf) continue;
-    if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
-    if (ss.ownerItem && ((heldItem && ss.ownerItem === heldItem) || (ctx.isHeldByRemote && ctx.isHeldByRemote(ss.ownerItem.id)))) continue;
-    if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
+    if (!canUseSupportSurface(ctx, ss, heldItem, ignoreSurf)) continue;
     const sW = typeof ss.halfW === 'number' ? ss.halfW * 2 : (ss.maxX - ss.minX);
     const sD = typeof ss.halfD === 'number' ? ss.halfD * 2 : (ss.maxZ - ss.minZ);
     if (sW < 0.35 || sD < 0.35) continue;
@@ -82,17 +91,14 @@ export function getSupportSurfaceAt(ctx, x, z, margin, ignoreSurf, maxTopY) {
     if (best && ss.topY <= best.topY) continue;
     if (typeof maxTopY === 'number' && ss.topY > maxTopY) continue;
     if (!isPointInBoundsXZ(x, z, ss, m)) continue;
-    if (ignoreSurf && ss === ignoreSurf) continue;
-    if ((ignoreSurf === 'fridge' || (heldItem && heldItem.fridgeCtrl)) && ss.isCultureFridgeShelf) continue;
-    if (ss.ownerItem && ((heldItem && ss.ownerItem === heldItem) || (ctx.isHeldByRemote && ctx.isHeldByRemote(ss.ownerItem.id)))) continue;
-    if (heldItem && heldItem.mesh && heldItem.mesh.userData.dynamicSurface === ss) continue;
+    if (!canUseSupportSurface(ctx, ss, heldItem, ignoreSurf)) continue;
     best = ss;
   }
   return best;
 }
 
 export function getItemGroundHeight(ctx, x, z, refY, ignoreSurf, maxTopY) {
-  const gh = getGroundHeight(ctx, x, z, refY !== undefined ? refY : 3.0, ignoreSurf, maxTopY, true);
+  const gh = getWalkableGroundHeight(ctx, x, z, refY !== undefined ? refY : 3.0, maxTopY ?? Infinity);
   const ss = getSupportSurfaceAt(ctx, x, z, 0.08, ignoreSurf, maxTopY);
   if (ss && ss.topY > gh) return ss.topY;
   return gh;

@@ -11,7 +11,7 @@ import { isAsepticWorkArea } from '../items/laminar-hood.js';
 import { COOKER_SLOT_OFFSETS, COOKER_SLOT_Y } from '../items/pressure-cooker.js';
 import { isPointInBoundsXZ } from '../items/item-registry.js';
 import { updateScalpelLabel } from '../items/scalpel.js';
-import { saveLocalMovedObject } from './world-objects-sync.js';
+import { saveLocalMovedObject } from './local-world-objects.js';
 import { appState } from '../core/state.js';
 import { t } from '../core/i18n.js';
 import { canPlaceVillageItem } from '../core/village-layout.js';

@@ -27,76 +27,19 @@ import { updateDehydratorVisual, DEHYDRATOR_DRY_SECONDS } from '../items/dehydra
 import { makeOrganicGardenBasket } from '../world/campus-garden.js';
 import { rebuildCrateCargo, removeCrateCargo } from './crate-cargo.js';
 
-const LOCAL_MOVED_STORAGE_KEY = 'myco_local_world_objects_v1';
-let localMovedCache = null;
-let localMovedDirty = false;
+import { clearLocalMovedObjects, flushLocalMovedObjects, readLocalMovedMap, saveLocalMovedObject, setLocalMovedEntry }
+  from './local-world-objects.js';
+import { applyCampusWorldObjects } from './world-object-poses.js';
+
+
+export { applyCampusWorldObjects, clearLocalMovedObjects, flushLocalMovedObjects, saveLocalMovedObject };
+
 const receivedItemSignatures = new WeakMap();
 
 function quantizeStep(val, step = 25) {
   const n = Math.max(0, Math.min(100, Number(val) || 0));
   if (n >= 100) return 100;
   return Math.floor(n / step) * step;
-}
-
-function readLocalMovedMap() {
-  if (localMovedCache !== null) return localMovedCache;
-  if (typeof localStorage === 'undefined') {
-    localMovedCache = {};
-    return localMovedCache;
-  }
-  try {
-    const raw = localStorage.getItem(LOCAL_MOVED_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    localMovedCache = (parsed && typeof parsed === 'object') ? parsed : {};
-  } catch (e) {
-    localMovedCache = {};
-  }
-  return localMovedCache;
-}
-
-function writeLocalMovedMap(map) {
-  localMovedCache = (map && typeof map === 'object') ? map : {};
-  localMovedDirty = false;
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_MOVED_STORAGE_KEY, JSON.stringify(localMovedCache));
-  } catch (e) {}
-}
-
-export function flushLocalMovedObjects() {
-  if (!localMovedDirty || localMovedCache === null) return;
-  writeLocalMovedMap(localMovedCache);
-}
-
-function setLocalMovedEntry(itemId, entry, deferFlush = false) {
-  const map = readLocalMovedMap();
-  const prev = map[itemId];
-  if (prev &&
-    prev.x === entry.x && prev.y === entry.y && prev.z === entry.z && prev.ry === entry.ry &&
-    prev.prefabId === entry.prefabId &&
-    JSON.stringify(prev.state || null) === JSON.stringify(entry.state || null)) {
-    return;
-  }
-  map[itemId] = entry;
-  localMovedDirty = true;
-  if (!deferFlush) flushLocalMovedObjects();
-}
-
-export function saveLocalMovedObject(item, state, deferFlush = false) {
-  if (!item || !item.id || !item.mesh || item.isPersonal) return;
-  const map = readLocalMovedMap();
-  const prev = map[item.id] || {};
-  const entry = {
-    x: Number(item.mesh.position.x.toFixed(4)),
-    y: Number(item.mesh.position.y.toFixed(4)),
-    z: Number(item.mesh.position.z.toFixed(4)),
-    ry: Number((item.mesh.rotation.y || 0).toFixed(4))
-  };
-  const prefabId = (item.meta && item.meta.prefabId) || (item.mesh.userData && item.mesh.userData.prefabId) || prev.prefabId;
-  if (prefabId) entry.prefabId = prefabId;
-  if (state !== undefined) entry.state = state;
-  else if (prev.state !== undefined) entry.state = prev.state;
-  setLocalMovedEntry(item.id, entry, deferFlush);
 }
 
 /** Queue an immediate state change without waiting for the periodic scan. */
@@ -135,13 +78,6 @@ export function markItemRemovedForSync(sim, item, dynamicKind) {
     const map = readLocalMovedMap();
     setLocalMovedEntry(item.id, Object.assign({}, map[item.id] || {}, { state: { custom } }), false);
   }
-}
-
-export function clearLocalMovedObjects() {
-  localMovedCache = {};
-  localMovedDirty = false;
-  if (typeof localStorage === 'undefined') return;
-  try { localStorage.removeItem(LOCAL_MOVED_STORAGE_KEY); } catch (e) {}
 }
 
 function spawnDynamicItemFromCustom(sim, itemId, custom, pose) {
@@ -186,8 +122,7 @@ function removeItemInstanceLocally(sim, item) {
 
 export function restoreLocalWorldObjects(sim) {
   if (!sim || !Array.isArray(sim.pickableItems)) return;
-  localMovedCache = null;
-  const localMap = readLocalMovedMap();
+  const localMap = readLocalMovedMap({ reload: true });
   if (!localMap || !Object.keys(localMap).length) return;
   // Instancia primeiro quaisquer itens extras comprados na Loja / Prefabs ou dinâmicos salvos localmente
   Object.keys(localMap).forEach((itemId) => {
@@ -1105,142 +1040,6 @@ export function applyCampusItemStates(sim, itemStates, itemStateAges) {
   });
   if (cargoChanged || spawnedPlaced) rebuildCrateCargo(sim);
   if (spawnedPlaced) {
-    sim._stackPhysicsDirty = true;
-    markItemsFalling(sim);
-  }
-}
-
-function protectRecentPlacement(sim, item, saved, now) {
-  const expiresAt = sim.recentlyDropped[item.id];
-  if (!(expiresAt > now)) return false;
-
-  const { x, y, z } = item.mesh.position;
-  const ry = item.mesh.rotation.y || 0;
-  if (saved && Math.abs(saved.x - x) < 0.002 && Math.abs(saved.y - y) < 0.002 &&
-      Math.abs(saved.z - z) < 0.002 && Math.abs((saved.ry || 0) - ry) < 0.002) {
-    delete sim.recentlyDropped[item.id];
-  } else if (expiresAt - now < 23500) {
-    sim.pendingMovedItems[item.id] = { id: item.id, x, y, z, ry };
-  }
-  return true;
-}
-
-export function applyCampusWorldObjects(sim, objectsMap) {
-  if (!objectsMap) return;
-  sim._lastWorldObjectsMap = objectsMap;
-  const now = performance.now();
-  let anyPositionChanged = false;
-
-  sim.pickableItems.forEach(function (item) {
-    const saved = objectsMap[item.id];
-    const lockedByLot = !!saved?.lot_locked;
-    item.villageEditLot = saved?.edit_lot || null;
-    if (!item.isPersonal) item.isReadOnly = !!item._layoutReadOnly || lockedByLot;
-    if (!item.mesh.userData.updateBounds || item._removedForSync) return;
-    const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
-    const isInHeldTray = !!(sim.heldItem && sim.heldItem.trayContents && sim.heldItem.trayContents.some((tc) => tc && tc.item === item));
-    const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
-    if (lockedByLot) {
-      delete sim.pendingMovedItems[item.id];
-      delete sim.recentlyDropped[item.id];
-    } else if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id) || sim.pendingMovedItems[item.id]) {
-      return;
-    }
-    if (protectRecentPlacement(sim, item, saved, now)) return;
-    if (saved) {
-      const nextRy = saved.ry || 0;
-      const changed = !item.isMoved ||
-        Math.abs(item.mesh.position.x - saved.x) > 0.002 ||
-        Math.abs(item.mesh.position.y - saved.y) > 0.002 ||
-        Math.abs(item.mesh.position.z - saved.z) > 0.002 ||
-        Math.abs((item.mesh.rotation.y || 0) - nextRy) > 0.002;
-      if (changed) {
-        item.mesh.position.set(saved.x, saved.y, saved.z);
-        item.mesh.rotation.y = nextRy;
-        item.isMoved = true;
-        item.mesh.userData.updateBounds(item);
-        saveLocalMovedObject(item, undefined, true);
-        anyPositionChanged = true;
-      }
-    } else if (item.isMoved && !(item.movedAt && (now - item.movedAt < 25000))) {
-      item.mesh.position.copy(item.homePos);
-      item.mesh.rotation.y = item.homeRy;
-      item.mesh.userData.updateBounds(item);
-      item.isMoved = false;
-      anyPositionChanged = true;
-    }
-  });
-
-  sim.pickableItems.forEach(function (item) {
-    if (item.mesh.userData.updateBounds || item._removedForSync) return;
-    const saved = objectsMap[item.id];
-    const isInHeldPot = !!(sim.heldItem && sim.heldItem.cookerRef && sim.heldItem.cookerRef.contents && sim.heldItem.cookerRef.contents.indexOf(item) !== -1);
-    const isInHeldTray = !!(sim.heldItem && sim.heldItem.trayContents && sim.heldItem.trayContents.some((tc) => tc && tc.item === item));
-    const isHeldLid = !!(sim.heldItem && sim.heldItem.lidItem === item);
-    if (saved?.lot_locked) {
-      delete sim.pendingMovedItems[item.id];
-      delete sim.recentlyDropped[item.id];
-    } else if (sim.heldItem === item || isInHeldPot || isInHeldTray || isHeldLid || sim.isHeldByRemote(item.id) || sim.pendingMovedItems[item.id]) {
-      return;
-    }
-    if (protectRecentPlacement(sim, item, saved, now)) return;
-    if (item.potItem && item.isAttached) {
-      const pRef = item.potItem;
-      if (sim.heldItem === pRef || sim.isHeldByRemote(pRef.id) || sim.pendingMovedItems[pRef.id] || sim.recentlyDropped[pRef.id] > now) {
-        return;
-      }
-    }
-    if (saved) {
-      if (item.potItem) {
-        const pot = item.potItem;
-        const potSaved = objectsMap[pot.id];
-        const refX = potSaved ? potSaved.x : pot.mesh.position.x;
-        const refY = potSaved ? potSaved.y : pot.mesh.position.y;
-        const refZ = potSaved ? potSaved.z : pot.mesh.position.z;
-        const attached = Math.hypot(saved.x - refX, saved.z - refZ) < 0.28 &&
-          Math.abs(saved.y - (refY + 0.36)) < 0.28;
-        item.isAttached = attached;
-        if (attached) {
-          const targetY = pot.mesh.position.y + 0.36;
-          const changed = !item.isMoved ||
-            Math.abs(item.mesh.position.x - pot.mesh.position.x) > 0.002 ||
-            Math.abs(item.mesh.position.y - targetY) > 0.002 ||
-            Math.abs(item.mesh.position.z - pot.mesh.position.z) > 0.002;
-          if (changed) {
-            item.mesh.position.set(pot.mesh.position.x, targetY, pot.mesh.position.z);
-            item.mesh.rotation.copy(pot.mesh.rotation);
-            item.isMoved = true;
-            saveLocalMovedObject(item, undefined, true);
-            anyPositionChanged = true;
-          }
-          return;
-        }
-      }
-      const nextRy = saved.ry || 0;
-      const changed = !item.isMoved ||
-        Math.abs(item.mesh.position.x - saved.x) > 0.002 ||
-        Math.abs(item.mesh.position.y - saved.y) > 0.002 ||
-        Math.abs(item.mesh.position.z - saved.z) > 0.002 ||
-        Math.abs((item.mesh.rotation.y || 0) - nextRy) > 0.002;
-      if (changed) {
-        item.mesh.position.set(saved.x, saved.y, saved.z);
-        item.mesh.rotation.y = nextRy;
-        item.isMoved = true;
-        saveLocalMovedObject(item, undefined, true);
-        anyPositionChanged = true;
-      }
-    } else if (item.isMoved && !(item.movedAt && (now - item.movedAt < 25000))) {
-      sim.removeFromCookerContents(item);
-      item.mesh.position.copy(item.homePos);
-      item.mesh.rotation.y = item.homeRy;
-      if (item.potItem) item.isAttached = true;
-      item.isMoved = false;
-      anyPositionChanged = true;
-    }
-  });
-  rebuildCrateCargo(sim);
-  flushLocalMovedObjects();
-  if (anyPositionChanged) {
     sim._stackPhysicsDirty = true;
     markItemsFalling(sim);
   }
