@@ -31,9 +31,9 @@ export const MYCO_PALETTE = Object.freeze({
   terracotta: 0xbc806c,
   leaf: 0x54845b,
   leafLight: 0x7f9e63,
-  daylight: 0xfff3df,
-  daylightFill: 0xf3f0e5,
-  bounce: 0x9a927e,
+  daylight: 0xffe9c8,
+  daylightFill: 0xc4d6e8,
+  bounce: 0x7d7358,
   roomLight: 0xfff4e3
 });
 

@@ -226,10 +226,10 @@ export function updateDynamicEnvironment(dt, env, precipitationDt = dt) {
     else if (sunY >= 0) env.envSun.color.copy(_cSunSet).lerp(_cSunDay, sunY / 0.22);
     else env.envSun.color.copy(_cSunSet).lerp(_cSunNight, Math.min(1, -sunY / 0.22));
     const cloudDim = Math.max(0.48, 1 - 0.12 * wb.partly - 0.28 * wb.overcast - 0.48 * wb.rain - 0.22 * wb.snow);
-    env.envSun.intensity = Math.max(0.16, sunY * 0.37 + 0.28) * cloudDim;
+    env.envSun.intensity = Math.max(0.16, sunY * 0.5 + 0.36) * cloudDim;
   }
   if (env.envHemi) {
-    env.envHemi.intensity = Math.max(0.36, sunY * 0.08 + 0.37);
+    env.envHemi.intensity = Math.max(0.3, sunY * 0.06 + 0.3);
     if (_cHemiSkyDay && _cHemiGndDay) {
       env.envHemi.color.copy(_cHemiSkyDay);
       env.envHemi.groundColor.copy(_cHemiGndDay);

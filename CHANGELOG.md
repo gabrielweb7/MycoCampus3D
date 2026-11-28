@@ -2,6 +2,10 @@
 
 Todas as versões relevantes do projeto são registradas aqui seguindo [Semantic Versioning](https://semver.org/).
 
+## [v2.11.7] - 2026-11-27
+
+- Visual menos branco: céu mais azul, luz de preenchimento colorida e mais contraste entre sol e sombra.
+
 ## [v2.11.6] - 2026-11-27
 
 - Abelhas: escolhem livremente onde construir (árvore em solo livre ou beiral), dormem à noite entrando uma por uma na colmeia, migram quando o mel ou as flores acabam e não constroem sobre colmeia abandonada. Flores espalhadas pelo mapa.

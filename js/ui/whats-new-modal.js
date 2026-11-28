@@ -10,6 +10,10 @@ const STORAGE_SEEN_KEY = 'myco_seen_whats_new_v';
 const JUST_UPDATED_KEY = 'myco_just_updated_v';
 
 export const RELEASE_NOTES_CATALOG = {
+  '2.11.7': {
+    subtitleKey: 'news.2117.subtitle',
+    items: [{ icon: '🎨', key: 'news.2117.light' }]
+  },
   '2.11.6': {
     subtitleKey: 'news.2116.subtitle',
     items: [
