@@ -77,7 +77,17 @@ function buildCottageWorkArea(ctx, root, lot, mats) {
     box(root, mats.trim, sinkX + dx * 0.44, 0.55, sinkZ + front * 0.435, 0.048, 0.06, 0.043);
   }
   for (const dz of [-0.328, 0.328]) box(root, mats.wood, sinkX, 0.91, sinkZ + dz, 1.46, 0.16, 0.156);
-  for (const dx of [-0.515, 0.515]) box(root, mats.wood, sinkX + dx, 0.91, sinkZ, 0.426, 0.16, 0.50);
+  for (const dx of [-0.515, 0.515]) {
+    const sideTop = box(root, mats.wood, sinkX + dx, 0.91, sinkZ, 0.426, 0.16, 0.50);
+    const sSurf = {
+      minX: sinkX + dx - 0.213, maxX: sinkX + dx + 0.213,
+      minZ: sinkZ - 0.406, maxZ: sinkZ + 0.406,
+      topY: 0.99
+    };
+    sideTop.userData.supportSurface = sSurf;
+    ctx.supportSurfaces.push(sSurf);
+    ctx.supportMeshes.push(sideTop);
+  }
   const cabinet = { minX: sinkX - 0.73, maxX: sinkX + 0.73, minZ: sinkZ - 0.406, maxZ: sinkZ + 0.406, minY: FLOOR_Y, maxY: 0.99 };
   ctx.solidColliders.push(cabinet);
   const sink = buildLabSink(ctx, sinkX, 0.99, sinkZ, 'cottage');
@@ -347,7 +357,8 @@ export function buildVillage(ctx) {
   const path = new THREE.MeshStandardMaterial({ map: getTextures().texPaving, color: 0xd5bc9a, roughness: 0.95 });
   const shared = {
     path, wood: woodMat(1, 1), floor: woodMat(1.8, 1.8), trim: material(0xd8c1a7), mail: material(0x4e8d8c),
-    chimney: material(0x8f665b), leaf: material(0x4f783a), canopy: material(0x77a750), glass: material(0x648c9b, 0.54),
+    chimney: material(0x8f665b), leaf: material(0x4f783a), canopy: material(0x77a750),
+    glass: new THREE.MeshStandardMaterial({ color: 0x9bd0e2, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.24, depthWrite: false }),
     trunkGeo: new THREE.CylinderGeometry(0.16, 0.22, 1.64, 7), crownGeo: new THREE.DodecahedronGeometry(1, 0),
     flower: material(0xe57d8e), flowerLight: material(0xfbd484), flowerGeo: new THREE.IcosahedronGeometry(0.14, 0)
   };

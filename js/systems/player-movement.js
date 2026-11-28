@@ -86,7 +86,7 @@ export function stepPlayerMovement(ctx, dt, now) {
     }
 
     const targetPitch = Math.atan2(-(gradX * fwdX + gradZ * fwdZ), 1);
-    const targetRoll = -moveX * 0.24 - Math.max(-0.22, Math.min(0.22, (ctx.playerVelX * rightX + ctx.playerVelZ * rightZ) * 0.025));
+    const targetRoll = -moveX * 0.30 - Math.max(-0.26, Math.min(0.26, (ctx.playerVelX * rightX + ctx.playerVelZ * rightZ) * 0.03));
     ctx.snowboardPitch += (targetPitch - ctx.snowboardPitch) * Math.min(1, dt * 8);
     ctx.snowboardRoll += (targetRoll - ctx.snowboardRoll) * Math.min(1, dt * 8);
   } else if (ctx.paragliderActive && !ctx.onGround) {
@@ -216,7 +216,7 @@ export function stepPlayerMovement(ctx, dt, now) {
     if (ctx.snowboardGroup.visible) {
       ctx.snowboardGroup.position.set(ctx.playerPos.x, ctx.playerPos.y + 0.03, ctx.playerPos.z);
       ctx.snowboardGroup.rotation.order = 'YXZ';
-      ctx.snowboardGroup.rotation.y = ctx.playerYaw - 0.35;
+      ctx.snowboardGroup.rotation.y = ctx.playerYaw;
       ctx.snowboardGroup.rotation.x = ctx.snowboardPitch;
       ctx.snowboardGroup.rotation.z = ctx.snowboardRoll;
     }
@@ -242,14 +242,15 @@ export function stepPlayerMovement(ctx, dt, now) {
   ctx.camera.up.set(0, 1, 0);
   ctx.camera.rotation.order = 'YXZ';
   ctx.camera.rotation.y = ctx.playerYaw;
-  ctx.camera.rotation.x = ctx.playerPitch;
+  const sbSlopePitch = ctx.snowboardActive ? Math.max(-0.38, Math.min(0.28, ctx.snowboardPitch * 0.55)) : 0;
+  ctx.camera.rotation.x = ctx.playerPitch + sbSlopePitch;
   const tCam = ctx.clock ? ctx.clock.elapsedTime : now * 0.001;
   const umbralSway = isCrawlingUmbral
     ? (1.12 + Math.sin(tCam * 1.8) * 0.06)
     : ((typeof window !== 'undefined' && window.isTripFreakoutActive && window.isTripFreakoutActive())
       ? Math.sin(tCam * 2.2) * 0.085
       : 0);
-  ctx.camera.rotation.z = umbralSway + (ctx.snowboardActive ? ctx.snowboardRoll * 0.35 : ((ctx.paragliderActive && !ctx.onGround) ? ctx.paragliderRoll * 0.45 : 0));
+  ctx.camera.rotation.z = umbralSway + (ctx.snowboardActive ? ctx.snowboardRoll * 0.65 : ((ctx.paragliderActive && !ctx.onGround) ? ctx.paragliderRoll * 0.45 : 0));
 
   // Bracos em 1a pessoa
   const heldData = ctx.heldItem?.mesh.userData;

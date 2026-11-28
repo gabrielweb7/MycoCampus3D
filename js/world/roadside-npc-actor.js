@@ -385,18 +385,34 @@ export function stepRoadsideMushroomSales(ctx, dt) {
         updateDeliveryCrateVisual(entry.item);
         ctx?.queueItemStateSync?.(entry.item);
         soldOne = true;
+      } else if (entry.kind === 'veggie' && entry.item.organicBasketCtrl && entry.item.organicBasketCtrl.packsValue > 1) {
+        soldKind = 'veggie';
+        soldGrams = 10;
+        entry.item.organicBasketCtrl.packsValue -= 1;
+        ctx?.queueItemStateSync?.(entry.item);
+        soldOne = true;
       } else {
         const soldIt = entry.item;
         soldSpecies = (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.speciesName) ||
           (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.speciesName) || '';
         if (soldIt.organicBasketCtrl) {
           soldKind = 'veggie';
-          soldGrams = Math.max(10, Math.round(Number(soldIt.organicBasketCtrl.packsValue || 2) * 10));
+          soldGrams = Math.max(10, Math.round(Number(soldIt.organicBasketCtrl.packsValue || 1) * 10));
         } else {
           soldGrams = Number(
             (soldIt.mushroomBagCtrl && soldIt.mushroomBagCtrl.grams) ||
             (soldIt.wildMushroomCtrl && soldIt.wildMushroomCtrl.grams) || 10
           ) || 10;
+        }
+        // Se estava em cima de alguma bandeja, desvincula da bandeja antes de remover.
+        if (ctx && Array.isArray(ctx.pickableItems)) {
+          for (let ti = 0; ti < ctx.pickableItems.length; ti++) {
+            const tr = ctx.pickableItems[ti];
+            if (tr && Array.isArray(tr.trayContents)) {
+              const tIdx = tr.trayContents.findIndex((tc) => tc && tc.item === soldIt);
+              if (tIdx !== -1) tr.trayContents.splice(tIdx, 1);
+            }
+          }
         }
         if (soldIt && soldIt.id) {
           soldIt._removedForSync = true;

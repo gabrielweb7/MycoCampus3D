@@ -247,7 +247,6 @@ export function dropHeldItem(ctx) {
 
 export function handlePrimaryAction(ctx, aimNdc) {
   if (ctx.inventory?.pending) return false;
-  if (!ctx.heldItem && ctx.hoveredVillageItem) return beginVillageItemMove(ctx, ctx.hoveredVillageItem);
   if (ctx.heldItem) {
     if (performance.now() - ctx.lastPickupAt < 140) return;
     if (ctx.placementMode) {
@@ -860,7 +859,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
           const cp = ctx.cookerPots[cpi];
           if (cp.potItem === ctx.heldItem) {
             const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
-            const potWaterCap = hasBase ? 4000 : 10000;
+            const potWaterCap = hasBase ? 4000 : 15000;
             if (sinkAction === 'fill' && cp.waterMl < potWaterCap) {
               cp.waterMl = Math.min(potWaterCap, cp.waterMl + 100);
               updateCookerWaterVisual(cp);
@@ -895,7 +894,7 @@ export function handlePrimaryAction(ctx, aimNdc) {
       const srcLc = ctx.heldItem.mesh.userData.liquidCtrl;
       const cp = ctx.hoveredFillPot;
       const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
-      const potWaterCap = hasBase ? 4000 : 10000;
+      const potWaterCap = hasBase ? 4000 : 15000;
       if (srcLc.volMl > 0 && cp.waterMl < potWaterCap) {
         ctx.pourHold = { kind: 'pot', src: ctx.heldItem, dst: cp, carry: 0, any: false, soundAt: 0, dropAt: 0 };
         if (window.MycoAudio) window.MycoAudio.playSpray();

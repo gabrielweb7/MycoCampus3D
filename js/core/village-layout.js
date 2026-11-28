@@ -32,5 +32,7 @@ export function villageLotAt(x, z) {
 export function canPlaceVillageItem(x, z, item, lease, guestMove = false) {
   const lot = villageLotAt(x, z);
   if (guestMove) return !!lot && item?.villageEditLot === lot.id;
-  return !!item && !item.isReadOnly && (!lot || lease?.id === lot.id);
+  if (!item || item.isReadOnly) return false;
+  if (item.villageEditLot) return !!lot && item.villageEditLot === lot.id;
+  return !lot || lease?.id === lot.id;
 }

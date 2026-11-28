@@ -339,6 +339,28 @@ export function showItemStatusCard(item, ctx) {
     }
   }
 
+  const cp = item.cookerRef;
+  if (cp) {
+    const wMl = Math.round(cp.waterMl || 0);
+    const maxMl = Math.round(cp.maxWaterMl || 15000);
+    chips.push({
+      icon: '💧',
+      text: `Água: ${wMl.toLocaleString('pt-BR')} / ${maxMl.toLocaleString('pt-BR')} ml (${(wMl / 1000).toFixed(1).replace('.', ',')} L)`,
+      color: wMl > 0 ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-slate-700/60 text-slate-300 border-slate-600/40'
+    });
+    if ((cp.grainGrams || 0) > 0) {
+      chips.push({ icon: '🌾', text: `Grãos: ${Math.round(cp.grainGrams)}g${cp.grainAlDente ? ' (al dente)' : ''}`, color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' });
+    }
+    if ((cp.temp || 25) > 28 || (cp.psi || 0) > 0.1 || (cp.progress || 0) > 0) {
+      chips.push({ icon: '🔥', text: `${Math.round(cp.temp || 25)}°C • ${(cp.psi || 0).toFixed(1)} PSI • ${Math.round(cp.progress || 0)}%`, color: 'bg-orange-500/20 text-orange-300 border-orange-500/30' });
+    }
+    chips.push({
+      icon: cp.hasBase ? '✅' : '⚪',
+      text: cp.hasBase ? 'Com base perfurada' : 'Sem base perfurada',
+      color: cp.hasBase ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-700/60 text-slate-300 border-slate-600/40'
+    });
+  }
+
   const sp = item.spawnCtrl;
   if (sp) {
     if (sp.isPP5) {
@@ -1509,15 +1531,6 @@ export function getFloatingActionsPreview(ctx) {
         }
       }
     }]);
-  }
-  const guestItem = ctx.hoveredVillageItem;
-  if (!ctx.heldItem && guestItem?.villageEditLot) {
-    return assignActionShortcuts([
-      { id: 'village_move_' + guestItem.id, key: 'Q', label: t('hud.move_aimed'), primary: true,
-        run: () => { if (ctx.hoveredVillageItem === guestItem) beginVillageItemMove(ctx, guestItem); } },
-      { id: 'village_inspect_' + guestItem.id, key: 'I', label: t('actions.radial.inspect'),
-        run: () => inspectItemToast(ctx, guestItem) }
-    ]);
   }
   const touch = !!ctx.isTouchDevice?.();
   const held = ctx.heldItem;

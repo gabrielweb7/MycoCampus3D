@@ -607,7 +607,7 @@ function handleSinkHover(ctx, setHoverPrompt) {
   const sinkLc = ctx.heldItem.mesh && ctx.heldItem.mesh.userData && ctx.heldItem.mesh.userData.liquidCtrl;
   const sinkPot = ctx.cookerPots.find((cp) => cp.potItem === ctx.heldItem);
   const curVol = sinkLc ? sinkLc.volMl : (sinkPot ? sinkPot.waterMl : 0);
-  const maxVol = sinkLc ? sinkLc.maxMl : (sinkPot ? (sinkPot.hasBase ? 4000 : 10000) : 0);
+  const maxVol = sinkLc ? sinkLc.maxMl : (sinkPot ? (sinkPot.hasBase ? 4000 : 15000) : 0);
   const volTxt = sinkLc
     ? ' • ' + Math.round(sinkLc.volMl) + '/' + sinkLc.maxMl + ' ml'
     : (sinkPot ? ' • ' + (sinkPot.waterMl / 1000).toFixed(1) + '/' + (maxVol / 1000).toFixed(0) + ' L' : '');
@@ -645,7 +645,7 @@ function handleLiquidPourHover(ctx, intersectPickableItem, setHoverPrompt) {
     for (let ci = 0; ci < ctx.cookerPots.length; ci++) {
       const cp = ctx.cookerPots[ci];
       const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
-      const potWaterCap = hasBase ? 4000 : 10000;
+      const potWaterCap = hasBase ? 4000 : 15000;
       if ((cp.lidItem && cp.lidItem.isAttached) || cp.waterMl >= potWaterCap) continue;
       const cpHits = ctx.raycaster.intersectObject(cp.potItem.mesh, true);
       if (cpHits.length > 0 && cpHits[0].distance < 3.5) {

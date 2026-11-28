@@ -281,7 +281,7 @@ export function buildRoadsideMushroomStand(ctx) {
     const col = localIdx % 3;
     const row = Math.floor(localIdx / 3);
     const baseShelfX = isRight ? (hx + 1.90) : (hx - 1.90);
-    pm.position.set(baseShelfX - 0.42 + col * 0.42, 0.885 + row * 0.052, shelfZ);
+    pm.position.set(baseShelfX - 0.42 + col * 0.42, 0.885 + row * 0.052, shelfZ - 0.19);
     pm.scale.set(1.25, 1.25, 1.25);
     pm.visible = false;
     standGroup.add(pm);
@@ -289,7 +289,7 @@ export function buildRoadsideMushroomStand(ctx) {
     roadSaleDynamicObjects.push(pm);
 
     const vm = createOrganicVeggieStandVisual();
-    vm.position.set(baseShelfX - 0.42 + col * 0.42, 0.885 + row * 0.052, shelfZ);
+    vm.position.set(baseShelfX - 0.42 + col * 0.42, 0.885 + row * 0.052, shelfZ + 0.19);
     vm.scale.set(1.18, 1.18, 1.18);
     vm.visible = false;
     standGroup.add(vm);

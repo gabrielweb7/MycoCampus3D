@@ -104,40 +104,23 @@ function resolveHoverTargetObj(ctx) {
 }
 
 function aimAtVillageGuestOrItem(ctx) {
-  if (!ctx.inFps || ctx.heldItem || (!appState.villageLease && !appState.villageEditLot)) return false;
+  if (!ctx.inFps || ctx.heldItem || !appState.villageLease) return false;
   const lotId = villageLotAt(ctx.playerPos.x, ctx.playerPos.z)?.id;
-  if (!lotId) return false;
+  if (!lotId || lotId !== appState.villageLease?.id) return false;
   const ray = ctx.raycaster.ray;
   let distance = 4;
-  if (lotId === appState.villageLease?.id) {
-    for (const id in ctx.remoteAvatars) {
-      const avatar = ctx.remoteAvatars[id];
-      if (avatar.villageEditor?.lot !== lotId || !avatar.group.visible) continue;
-      _villageTarget.copy(avatar.group.position);
-      _villageTarget.y += 0.86;
-      const range = ray.origin.distanceTo(_villageTarget);
-      if (range >= distance || ray.distanceSqToPoint(_villageTarget) > 0.30) continue;
-      if (isRayOccludedByStructure(ctx, range, { checkWalls: true })) continue;
-      distance = range;
-      ctx.hoveredVillageEditor = avatar;
-    }
-    if (ctx.hoveredVillageEditor) return true;
+  for (const id in ctx.remoteAvatars) {
+    const avatar = ctx.remoteAvatars[id];
+    if (avatar.villageEditor?.lot !== lotId || !avatar.group.visible) continue;
+    _villageTarget.copy(avatar.group.position);
+    _villageTarget.y += 0.86;
+    const range = ray.origin.distanceTo(_villageTarget);
+    if (range >= distance || ray.distanceSqToPoint(_villageTarget) > 0.30) continue;
+    if (isRayOccludedByStructure(ctx, range, { checkWalls: true })) continue;
+    distance = range;
+    ctx.hoveredVillageEditor = avatar;
   }
-  if (lotId !== appState.villageEditLot) return false;
-  for (const item of ctx.pickableItems) {
-    if (item.villageEditLot !== lotId || !item.mesh.visible || ctx.isHeldByRemote(item.id)) continue;
-    if (ray.distanceSqToPoint(item.mesh.position) > Math.max(0.8, item.radius || 0) ** 2) continue;
-    const hit = firstUnoccludedRayHit(ctx, ctx.raycaster.intersectObject(item.mesh, true), distance, {
-      checkWalls: true, ignoreCollider: item.mesh.userData.dynamicCollider
-    });
-    if (!hit) continue;
-    distance = hit.distance;
-    ctx.hoverHit = hit;
-    ctx.hoveredVillageItem = item;
-  }
-  if (!ctx.hoveredVillageItem) return false;
-  setHoverPrompt(ctx, ctx.hoveredVillageItem.label, false);
-  return true;
+  return !!ctx.hoveredVillageEditor;
 }
 
 export function syncHover3dBadge(ctx, prompt) {

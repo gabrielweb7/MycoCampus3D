@@ -889,7 +889,7 @@ export function stepHeldItemAndSyringe(ctx, dt, now) {
           const cp = ctx.cookerPots[cpi];
           if (cp.potItem === sf.item) {
             const hasBase = cp.hasBase || cp.contents.some((it) => it && it.mesh && it.mesh.userData.isCookerBase);
-            const potWaterCap = hasBase ? 4000 : 10000;
+            const potWaterCap = hasBase ? 4000 : 15000;
             if ((!isDrain && cp.waterMl < potWaterCap) || (isDrain && cp.waterMl > 0)) {
               sf.carryMl = (sf.carryMl || 0) + dt * 500;
               const stepMl = Math.floor(sf.carryMl);
