@@ -207,7 +207,7 @@ function buildHouse(ctx, root, lot, mats) {
   backFacade.rotation.y = front === 1 ? Math.PI : 0;
   root.add(backFacade);
   windowFrame(backFacade, mats, front === 1 ? (x - backWinX) : (backWinX - x), 0.12);
-  attachHouseUpgradesToLot(ctx, root, lot, mats, { width, depth, floorY: FLOOR_Y, eavesY: EAVES_Y, addSolidWall, addWalkableSlab, box });
+  attachHouseUpgradesToLot(ctx, root, lot, mats, { width, depth, doorway, floorY: FLOOR_Y, eavesY: EAVES_Y, addSolidWall, addWalkableSlab, box });
   addSolidWall(root, wallSegments, left, backZ, left, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
   addSolidWall(root, wallSegments, right, backZ, right, doorZ, FLOOR_Y, wallHeight, 0.24, mats.wall);
   frontWallWithWindow(root, wallSegments, left, x - doorway / 2, doorZ, x - 2.46, mats);

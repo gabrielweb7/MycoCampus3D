@@ -51,9 +51,9 @@ export const SHOP_SUPPLIES = [
   { id: 'sup_flower_seeds', prefabId: 'flower_seeds', name: 'Sementes de Flor (5 un.)', desc: 'Plante flores na grama para alimentar abelhas e gerar mel natural.', price_coins: 25, icon: '🌸' },
   { id: 'sup_bee_bait', prefabId: 'bee_bait', name: 'Isca de Abelhas (Mel & Néctar)', desc: 'Coloque ao ar livre perto de flores para atrair um novo enxame para árvores ou beirais.', price_coins: 75, icon: '🍯' },
   { id: 'sup_beehive', prefabId: 'beehive_starter', name: 'Colmeia Inicial (Com Rainha)', desc: 'Coloque no chão perto de uma árvore ou casa: a Rainha e as abelhas migram logo para o alto.', price_coins: 180, icon: '🐝' },
-  { id: 'sup_pet_bowl', prefabId: 'pet_food_bowl', name: 'Potinho de Ração', desc: 'Tigela móvel para colocar onde quiser e alimentar seu pet.', price_coins: 45, icon: '🥣', img: 'assets/items/pet_bowl.jpg' },
-  { id: 'sup_dog_food', prefabId: 'dog_food_bag', name: 'Ração para Cachorro (800g)', desc: 'Despeje no potinho para alimentar seu cachorro.', price_coins: 30, icon: '🦴', img: 'assets/items/dog_food_bag.jpg' },
-  { id: 'sup_cat_food', prefabId: 'cat_food_bag', name: 'Ração para Gato (800g)', desc: 'Despeje no potinho para alimentar seu gato.', price_coins: 30, icon: '🐟', img: 'assets/items/cat_food_bag.jpg' },
+  { id: 'sup_pet_bowl', prefabId: 'pet_food_bowl', category: 'pets', name: 'Potinho de Ração e Água', desc: 'Tigela aconchegante para colocar onde quiser e alimentar seu cão ou gato no campus.', price_coins: 45, icon: '🥣', img: 'assets/items/pet_bowl.jpg' },
+  { id: 'sup_dog_food', prefabId: 'dog_food_bag', category: 'pets', name: 'Ração para Cães (800g)', desc: 'Alimento nutritivo e balanceado para cães. Despeje no potinho para deixá-lo feliz e alimentado.', price_coins: 30, icon: '🦴', img: 'assets/items/dog_food_bag.jpg' },
+  { id: 'sup_cat_food', prefabId: 'cat_food_bag', category: 'pets', name: 'Ração para Gatos (800g)', desc: 'Petiscos crocantes para gatos. Despeje no potinho para deixá-lo carinhoso e satisfeito.', price_coins: 30, icon: '🐟', img: 'assets/items/cat_food_bag.jpg' },
   { id: 'sup_monotub', prefabId: 'monotub_24l', name: 'Caixa Monotub 24L', desc: 'Expanda sua produção com frutificação em massa.', price_coins: 260, icon: '📦' },
   { id: 'sup_dehydrator', prefabId: 'dehydrator', name: 'Desidratadora de Cogumelos', desc: 'Seque mais lotes simultâneos até 0% umidade.', price_coins: 380, icon: '♨️' },
   { id: 'sup_table', prefabId: 'table_stainless', name: 'Bancada Inox (1.6m)', desc: 'Mesa móvel adicional para ampliar seu laboratório.', price_coins: 320, icon: '🛠️' },
@@ -103,7 +103,8 @@ export const SHOP_SUPPLY_CATEGORIES = [
   { id: 'lab', label: 'Laboratório', icon: '🧪', ids: ['sup_petri', 'sup_syringe', 'sup_lc', 'sup_ampoule_case'] },
   { id: 'hygiene', label: 'Higiene & Mofo', icon: '🧴', ids: ['sup_spray', 'sup_water_spray', 'sup_h2o2'] },
   { id: 'equipment', label: 'Equipamentos', icon: '⚙️', ids: [] },
-  { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust', 'sup_flower_seeds', 'sup_bee_bait', 'sup_beehive', 'sup_pet_bowl', 'sup_dog_food', 'sup_cat_food'] },
+  { id: 'grow', label: 'Grow & Estufa', icon: '🌱', ids: ['sup_grow_tent', 'sup_grow_humidifier', 'sup_grow_exhaust', 'sup_flower_seeds', 'sup_bee_bait', 'sup_beehive'] },
+  { id: 'pets', label: 'Pets & Cuidados', icon: '🐾', ids: ['sup_pet_bowl', 'sup_dog_food', 'sup_cat_food'] },
   { id: 'post', label: 'Pós-colheita', icon: '📦', ids: ['sup_dehydrator', 'sup_silica', 'sup_mylar', 'sup_crate'] },
   { id: 'furniture', label: 'Bancadas', icon: '🛠️', ids: ['sup_table'] }
 ];
@@ -294,7 +295,7 @@ function renderSupplies(grid, userCoins, userXp, userMush, scrollTop) {
     card.innerHTML = '<div class="shop-product-head"><span class="shop-product-icon" aria-hidden="true"></span><h4></h4></div><p></p>';
     const iconSlot = card.querySelector('.shop-product-icon');
     if (supply.img) {
-      iconSlot.innerHTML = `<img src="${supply.img}" alt="${escapeHtml(supply.name)}" class="w-9 h-9 object-cover rounded-lg">`;
+      iconSlot.innerHTML = `<img src="${supply.img}" alt="${escapeHtml(supply.name)}" class="shop-supply-thumb shrink-0" style="width:40px;height:40px;min-width:40px;min-height:40px;max-width:40px;max-height:40px;object-fit:cover;border-radius:8px;">`;
     } else {
       iconSlot.textContent = supply.icon;
     }
@@ -460,7 +461,7 @@ export function renderShopModal() {
     top.innerHTML =
       `<div class="flex items-center gap-2.5">` +
         (item.img
-          ? `<img src="${item.img}" alt="${escapeHtml(item.name)}" class="w-12 h-12 object-cover rounded-lg bg-slate-800/80 border border-slate-700/60 shrink-0">`
+          ? `<img src="${item.img}" alt="${escapeHtml(item.name)}" class="shop-item-thumb shrink-0" style="width:52px;height:52px;min-width:52px;min-height:52px;max-width:52px;max-height:52px;object-fit:cover;border-radius:8px;">`
           : `<span class="text-2xl p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 shrink-0">${item.icon}</span>`) +
         `<div class="min-w-0 flex-1">` +
           `<div class="font-bold text-white text-xs">${escapeHtml(nm(kindKey, item, 'name'))}</div>` +
@@ -524,10 +525,12 @@ export function renderShopModal() {
             toast3D(t('ui.shop.paragliderEquipped'));
           } else if (item.id === 'skateboard') {
             if (window.setCampusParaglider) window.setCampusParaglider(false);
+            if (window.setCampusSnowboard) window.setCampusSnowboard(false);
             if (window.setCampusSkateboard) window.setCampusSkateboard(true);
             toast3D('🛹 Skate equipado!');
           } else {
             if (window.setCampusParaglider) window.setCampusParaglider(false);
+            if (window.setCampusSkateboard) window.setCampusSkateboard(false);
             if (window.setCampusSnowboard) window.setCampusSnowboard(true);
             toast3D(t('ui.shop.snowboardEquipped'));
           }
@@ -554,6 +557,7 @@ export function renderShopModal() {
         : t('ui.shop.unlock');
       buyBtn.onclick = async () => {
         try {
+          buyBtn.disabled = true;
           if (window.MycoAudio) window.MycoAudio.playClick();
           if (canUnlockByCoins && !canUnlockByXp) {
             let syncedFromServer = false;
@@ -583,10 +587,17 @@ export function renderShopModal() {
             if (isToy) {
               if (item.id === 'paraglider') {
                 if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+                if (window.setCampusSkateboard) window.setCampusSkateboard(false);
                 if (window.setCampusParaglider) window.setCampusParaglider(true);
                 toast3D(t('ui.shop.paragliderBoughtCoins'));
+              } else if (item.id === 'skateboard') {
+                if (window.setCampusParaglider) window.setCampusParaglider(false);
+                if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+                if (window.setCampusSkateboard) window.setCampusSkateboard(true);
+                toast3D('🛹 Skate comprado e equipado!');
               } else {
                 if (window.setCampusParaglider) window.setCampusParaglider(false);
+                if (window.setCampusSkateboard) window.setCampusSkateboard(false);
                 if (window.setCampusSnowboard) window.setCampusSnowboard(true);
                 toast3D(t('ui.shop.snowboardBoughtCoins'));
               }
@@ -601,16 +612,23 @@ export function renderShopModal() {
             return;
           }
           const res = await apiPost('api/auth.php?action=buy_cosmetic', { hat_id: item.id }, true);
-          if (res.ok && res.user) {
+          if (res && res.ok && res.user) {
             if (appState.currentUser?.id !== res.user.id) return;
             appState.currentUser = preserveNewerPetState(appState.currentUser, res.user);
             if (isToy) {
               if (item.id === 'paraglider') {
                 if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+                if (window.setCampusSkateboard) window.setCampusSkateboard(false);
                 if (window.setCampusParaglider) window.setCampusParaglider(true);
                 toast3D(t('ui.shop.paragliderUnlocked'));
+              } else if (item.id === 'skateboard') {
+                if (window.setCampusParaglider) window.setCampusParaglider(false);
+                if (window.setCampusSnowboard) window.setCampusSnowboard(false);
+                if (window.setCampusSkateboard) window.setCampusSkateboard(true);
+                toast3D('🛹 Skate desbloqueado e equipado!');
               } else {
                 if (window.setCampusParaglider) window.setCampusParaglider(false);
+                if (window.setCampusSkateboard) window.setCampusSkateboard(false);
                 if (window.setCampusSnowboard) window.setCampusSnowboard(true);
                 toast3D(t('ui.shop.snowboardUnlocked'));
               }
@@ -620,8 +638,14 @@ export function renderShopModal() {
             if (window.playCampusEmote) window.playCampusEmote('cheer');
             updateUserHud();
             renderShopModal();
+          } else if (res && res.error) {
+            toast3D('❌ ' + res.error);
           }
-        } catch (e) {}
+        } catch (e) {
+          toast3D('❌ ' + (e && e.message ? e.message : 'Falha ao desbloquear item.'));
+        } finally {
+          buyBtn.disabled = false;
+        }
       };
       btnWrap.appendChild(buyBtn);
     } else {

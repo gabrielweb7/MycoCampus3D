@@ -122,10 +122,25 @@
   </script>
 
   <link rel="stylesheet" href="css/tailwind.min.css?v=0.8.3">
-  <link rel="stylesheet" href="css/game.css?v=2.11.10">
+  <link rel="stylesheet" href="css/game.css?v=2.11.11">
 </head>
 
 <body>
+  <!-- APP PRELOAD SCREEN (Tela de Carregamento Imersiva) -->
+  <div id="app-preload-screen">
+    <div class="preload-shroom-wrap">
+      <div class="preload-shroom-glow"></div>
+      <div class="preload-shroom-icon">🍄</div>
+    </div>
+    <div class="preload-title">MycoCampus3D</div>
+    <div class="preload-monocode">
+      <span>Carregando mundo virtual</span><span id="preload-dots-anim" class="preload-dots">...</span>
+    </div>
+    <div class="preload-bar-container">
+      <div id="app-preload-bar" class="preload-bar-fill" style="width: 35%;"></div>
+    </div>
+  </div>
+
   <!-- 3D Fullscreen Canvas -->
   <div id="campus-canvas-wrap"></div>
   <div id="crosshair"></div>
@@ -203,7 +218,7 @@
         Conectando ao servidor do MycoCampus...
       </div>
       <div class="text-center text-[11px] text-slate-500">MycoCampus3D <span id="app-version" class="font-bold"
-          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.11.10</span> •
+          style="color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.55);">v2.11.11</span> •
         Alquimistas Mágicos</div>
     </div>
   </div>
@@ -946,9 +961,9 @@
     </div>
   </noscript>
 
-  <script>window.MYCO_VERSION = '2.11.10';</script>
+  <script>window.MYCO_VERSION = '2.11.11';</script>
   <link rel="modulepreload" href="js/vendor/three.bundle.min.js">
-  <script type="module" src="js/main.js?v=2.11.10"></script>
+  <script type="module" src="js/main.js?v=2.11.11"></script>
 </body>
 
 </html>

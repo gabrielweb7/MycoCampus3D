@@ -526,6 +526,9 @@ export function startAnimationLoop(ctx) {
 
       renderQuickInventory(ctx);
       ctx.renderer.render(ctx.scene, ctx.camera);
+      if (typeof window !== 'undefined' && window.dismissAppPreload) {
+        window.dismissAppPreload();
+      }
       perfEnd(ctx.renderer, qualityMod.qualityState);
       frameErrorLogged = false;
     } catch (err) {

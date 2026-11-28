@@ -114,19 +114,4 @@ export function renderPetShop(grid, rerender) {
       }
     }
   }
-  for (const [kind, name] of [['food', '🍽️ ' + text.foodBowl], ['water', '💧 ' + text.waterBowl]]) {
-    const bowl = pets.bowls?.[kind] || {};
-    const el = card(grid, name, !bowl.owned ? text.buyBowl : !bowl.pos ? text.placeHint : bowl.full ? text.full : text.empty);
-    if (!bowl.owned) actionButton(el, `🪙 ${text.buy} · 40 MycoCoins`, () => run('buy_' + kind + '_bowl', {}, true));
-    else {
-      actionButton(el, '📍 ' + (bowl.pos ? text.moveBowl : text.place), async () => {
-        const pos = window.getCampusPetBowlPosition?.();
-        if (!pos) { window.showCampusToast?.(text.enter); return; }
-        await run('place_' + kind, { pos });
-      });
-      if (bowl.pos) actionButton(el, kind === 'food' ? '🍽️ ' + text.fillFood : '💧 ' + text.fillWater, () => run('fill_' + kind), !!bowl.full);
-    }
-  }
-  const food = card(grid, '🐟 ' + text.food, text.portions(pets.cat_food || 0));
-  actionButton(food, `🪙 ${text.buy} · 25 MycoCoins`, () => run('buy_cat_food', {}, true));
 }

@@ -737,7 +737,42 @@ function bindChatAndShortcuts() {
   });
 }
 
+function initPreloadScreen() {
+  if (typeof document === 'undefined') return;
+  const el = document.getElementById('app-preload-screen');
+  const bar = document.getElementById('app-preload-bar');
+  const dots = document.getElementById('preload-dots-anim');
+  if (!el) return;
+  let dotCount = 1;
+  const dotTimer = setInterval(() => {
+    dotCount = (dotCount % 3) + 1;
+    if (dots) dots.textContent = '.'.repeat(dotCount);
+  }, 420);
+
+  window.setAppPreloadProgress = (pct) => {
+    if (bar) bar.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  };
+
+  let dismissed = false;
+  window.dismissAppPreload = () => {
+    if (dismissed || !el) return;
+    dismissed = true;
+    clearInterval(dotTimer);
+    if (bar) bar.style.width = '100%';
+    setTimeout(() => {
+      el.classList.add('preload-fade-out');
+      setTimeout(() => {
+        try { el.remove(); } catch (e) {}
+      }, 550);
+    }, 280);
+  };
+
+  setTimeout(window.dismissAppPreload, 3500);
+}
+
 export function bootApp() {
+  initPreloadScreen();
+  window.setAppPreloadProgress?.(40);
   const christmas = isChristmasSeason();
   $('campus-lobby')?.classList.toggle('campus-christmas', christmas);
   $('lobby-season')?.classList.toggle('hidden', !christmas);
