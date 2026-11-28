@@ -920,18 +920,17 @@ export function attachHouseUpgradesToLot(ctx, root, lot, mats, dims) {
 
   // Armário embutido com 4 prateleiras sob/atrás da escada (aberto para os fundos da casa)
   const cabX = stairX;
-  const cabW = 0.86;
-  const cabFrontZ = houseZ - front * 0.06;
-  const cabBackZ = houseZ + front * 0.56;
+  const cabW = 0.82;
+  const cabFrontZ = houseZ - front * 0.04;
+  const cabBackZ = houseZ + front * 0.48;
   const cabD = Math.abs(cabBackZ - cabFrontZ);
   const cabZ = (cabFrontZ + cabBackZ) / 2;
-  const cabTopY = 1.92;
+  const cabTopY = 1.88;
   const cabH = cabTopY - floorY;
-  box(secondFloorGrp, mats.trim, cabX, floorY + cabH / 2, cabBackZ, cabW, cabH, 0.03, false);
+  box(secondFloorGrp, mats.wood, cabX, floorY + cabH / 2, cabBackZ, cabW, cabH, 0.03, false);
   box(secondFloorGrp, mats.wood, cabX - cabW / 2 + 0.02, floorY + cabH / 2, cabZ, 0.04, cabH, cabD, false);
   box(secondFloorGrp, mats.wood, cabX + cabW / 2 - 0.02, floorY + cabH / 2, cabZ, 0.04, cabH, cabD, false);
   box(secondFloorGrp, mats.wood, cabX, cabTopY - 0.02, cabZ, cabW, 0.04, cabD, false);
-  box(secondFloorGrp, mats.trim, cabX, (cabTopY + 2.50) / 2, cabFrontZ + front * 0.02, cabW, 2.50 - cabTopY, 0.03, false);
 
   const shelfTopYs = [0.16, 0.60, 1.04, 1.48];
   const shelfSurfs = [];
